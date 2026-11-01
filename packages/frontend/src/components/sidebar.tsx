@@ -1,6 +1,6 @@
 import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { Button } from "@nookly/ui/components/button";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -15,12 +15,10 @@ import {
   useSidebar,
 } from "@nookly/ui/components/sidebar";
 import { startNewPage } from "#/features/notes/new-page.ts";
-import { listSpaces } from "#/lib/api/spaces.ts";
-import type { Space } from "#/lib/api/types.ts";
+import { listSpaceModules, listSpaces } from "#/lib/api/spaces.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cycleSpaceId } from "#/lib/space-row.ts";
 import { useSwipeHint } from "#/lib/swipe-hint.ts";
-import { createSwipeTracker } from "#/lib/swipe-tracker.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { UpdateCard } from "#/components/update-card.tsx";
 import { UpdatedCard } from "#/components/updated-card.tsx";
@@ -31,6 +29,7 @@ import {
   SidebarNavItems,
   SidebarTrashButton,
 } from "./sidebar/sidebar-items";
+import { useSpacePager } from "./sidebar/use-space-pager";
 import { ProgressiveBlur } from "./sidebar/progressive-blur";
 import { SidebarMascot } from "./sidebar/sidebar-mascot";
 import { SwipeHint } from "./sidebar/swipe-hint";
@@ -39,29 +38,6 @@ import { SidebarAddMenu, SpaceSwitcher } from "./sidebar/space-switcher";
 import { qk } from "#/lib/query-keys.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { useElementHeight } from "#/hooks/use-element-height.ts";
-
-/// Which way the list of modules slides in when the Space changes: from the right when
-/// the new Space comes later in the stored order, from the left when it comes earlier.
-/// Not at all on the first render.
-function useSlideDirection(spaces: Space[], activeId: string | null): "next" | "previous" | null {
-  const [state, setState] = useState<{
-    activeId: string | null;
-    direction: "next" | "previous" | null;
-  }>({
-    activeId,
-    direction: null,
-  });
-  if (state.activeId !== activeId) {
-    const ids = spaces.map((s) => s.id);
-    const from = state.activeId === null ? -1 : ids.indexOf(state.activeId);
-    const to = activeId === null ? -1 : ids.indexOf(activeId);
-    setState({
-      activeId,
-      direction: from === -1 || to === -1 ? null : to > from ? "next" : "previous",
-    });
-  }
-  return state.direction;
-}
 
 export function AppSidebar() {
   const queryClient = useQueryClient();
@@ -73,7 +49,34 @@ export function AppSidebar() {
   // The sidebar follows the focused tab, so this is the Space of the page being shown, or
   // the one picked in the row. A deleted or unknown one falls back to the first Space.
   const activeSpace = spaces.find((s) => s.id === activeSpaceId) ?? spaces[0] ?? null;
-  const direction = useSlideDirection(spaces, activeSpace?.id ?? null);
+  const pager = useSpacePager({
+    ids: spaces.map((s) => s.id),
+    activeId: activeSpace?.id ?? null,
+    onSwipe: (id) => {
+      setActiveSpace(id);
+      useSwipeHint.getState().markDone();
+    },
+  });
+  // The Spaces on either side are fetched ahead, so one that slides in during a swipe has its
+  // modules at once instead of drawing empty first.
+  const activeIndex = spaces.findIndex((s) => s.id === activeSpace?.id);
+  const nearbyIds = [spaces[activeIndex - 1]?.id, spaces[activeIndex + 1]?.id].filter(
+    (id) => id !== undefined,
+  );
+  useEffect(() => {
+    for (const id of nearbyIds) {
+      void queryClient.prefetchQuery({
+        queryKey: qk.spaceModules(id),
+        queryFn: () => listSpaceModules(id),
+      });
+    }
+    // `nearbyIds` is rebuilt every render; its content is what matters.
+    // oxlint-disable-next-line react/exhaustive-deps
+  }, [queryClient, nearbyIds.join()]);
+  // The Space that is shown, and the one beside it while one slides in.
+  const panes = [pager.shownId, pager.neighborId].flatMap(
+    (id) => spaces.find((s) => s.id === id) ?? [],
+  );
 
   function stepSpace(step: 1 | -1, wrap: boolean) {
     const next = cycleSpaceId(
@@ -87,15 +90,6 @@ export function AppSidebar() {
   useAppHotkey("previousSpace", () => stepSpace(-1, true));
   useAppHotkey("nextSpace", () => stepSpace(1, true));
   useAppHotkey("newPage", () => void startNewPage(queryClient));
-
-  // Two fingers swiping sideways on the sidebar cycle through the Spaces.
-  const swipe = useRef(createSwipeTracker());
-  function onWheel(event: React.WheelEvent) {
-    const step = swipe.current(event.deltaX, event.deltaY, event.timeStamp);
-    if (step === 0) return;
-    stepSpace(step, false);
-    useSwipeHint.getState().markDone();
-  }
 
   // Collapsed, the sidebar is gone and the page takes the whole window, like Arc or
   // Zen. Resting the pointer on the left edge slides it back over the page until the
@@ -118,7 +112,7 @@ export function AppSidebar() {
       collapsible="offcanvas"
       variant="floating"
       className={cn(peekOpen && "left-0! z-30")}
-      onWheel={onWheel}
+      onWheel={pager.onWheel}
       onMouseLeave={() => {
         // A menu or dialog opened from the sidebar keeps it open while the pointer is in it.
         if (!document.querySelector("[role=menu],[role=dialog],[role=alertdialog]")) {
@@ -146,37 +140,35 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        {/* Outside the scroll container, so the Space's name stays put however the list moves. */}
-        {activeSpace && (
-          <div className="shrink-0 px-2 pb-1">
-            <SpaceHeader space={activeSpace} onOpenDialog={setDialog} />
-          </div>
-        )}
-        <SidebarContent
-          className="overflow-x-hidden p-2 pt-0 pb-(--sidebar-footer-height) overscroll-contain"
-          // SAFETY: `--sidebar-footer-height` is a plain pixel length — `CSSProperties` just
-          // doesn't model custom properties.
-          style={{ "--sidebar-footer-height": `${footerHeight}px` } as CSSProperties}
-        >
-          {activeSpace ? (
-            <div
-              // Remounted per Space, which plays the slide.
-              key={activeSpace.id}
-              className={cn(
-                direction && "animate-in duration-200 fade-in motion-reduce:animate-none",
-                direction === "next" && "slide-in-from-right-6",
-                direction === "previous" && "slide-in-from-left-6",
-              )}
-            >
-              <ActiveSpaceModules space={activeSpace} />
+      <div ref={pager.stageRef} className="relative min-h-0 flex-1 overflow-hidden">
+        {/* A pane per Space on screen: the shown one, and the next or previous one while a swipe
+            has it half in. Each is a header over its own scrolling list, so the whole Space
+            moves together, and the name stays put however the list inside scrolls. */}
+        {panes.map((space) => (
+          <div
+            key={space.id}
+            ref={pager.paneRef(space.id)}
+            data-space-pane={space.id}
+            className="absolute inset-0 flex flex-col"
+          >
+            <div className="shrink-0 px-2 pb-1">
+              <SpaceHeader space={space} onOpenDialog={setDialog} />
             </div>
-          ) : (
-            <p className="px-2 py-6 text-center text-xs text-sidebar-foreground/60">
-              Use "+" to create your first Space
-            </p>
-          )}
-        </SidebarContent>
+            <SidebarContent
+              className="overflow-x-hidden p-2 pt-0 pb-(--sidebar-footer-height) overscroll-contain"
+              // SAFETY: `--sidebar-footer-height` is a plain pixel length — `CSSProperties` just
+              // doesn't model custom properties.
+              style={{ "--sidebar-footer-height": `${footerHeight}px` } as CSSProperties}
+            >
+              <ActiveSpaceModules space={space} />
+            </SidebarContent>
+          </div>
+        ))}
+        {panes.length === 0 && (
+          <p className="px-2 py-6 text-center text-xs text-sidebar-foreground/60">
+            Use "+" to create your first Space
+          </p>
+        )}
 
         <SidebarFooter ref={footerRef} className="absolute inset-x-0 bottom-0 z-10">
           {/* The list scrolls behind a blur that is strongest at the bottom and tapers off upward. */}

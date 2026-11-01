@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.57.2",
+      "date": "2026-11-01",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Swiping between Spaces now moves the list with your fingers and springs back if you let go early. Switching with a click or a key slides in the same way."
+        ]
+      }
+    },
+    {
       "version": "0.57.1",
       "date": "2026-11-01",
       "highlights": [],

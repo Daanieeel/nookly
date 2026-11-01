@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.57.2 (2026-11-01)
+
+### Changed
+
+- **Swiping between Spaces follows your fingers.** The sidebar list now moves with a two finger swipe, with the next Space coming in beside it. Let go before halfway, or after stopping, and it springs back to where it was. Flick, and it goes on to the next Space. You can grab it again at any moment while it settles. Switching with a click or a key slides in the same way.
+
 ## 0.57.1 (2026-11-01)
 
 ### Added

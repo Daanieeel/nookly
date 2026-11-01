@@ -36,13 +36,17 @@ From left to right: a shared "+", up to four slots of Space icons, a divider, th
 
 ### Switching Spaces
 
-| Action                 | How                                                                                                                                                                                     |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pick a Space           | Click its icon in the bottom row or its row in the three dot popover                                                                                                                    |
-| Next or previous Space | Swipe left or right with two fingers on the sidebar (stops at either end), `Cmd+Option+Down` and `Cmd+Option+Up` (`Ctrl+Alt+Down` and `Ctrl+Alt+Up` on Windows and Linux, wraps around) |
-| Go to a Space          | `Go to <Space>` in the commands palette                                                                                                                                                 |
+| Action                 | How                                                                                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pick a Space           | Click its icon in the bottom row or its row in the three dot popover                                                                                                                                                      |
+| Next or previous Space | Swipe left or right with two fingers on the sidebar (it follows the fingers and rubber bands at either end), `Cmd+Option+Down` and `Cmd+Option+Up` (`Ctrl+Alt+Down` and `Ctrl+Alt+Up` on Windows and Linux, wraps around) |
+| Go to a Space          | `Go to <Space>` in the commands palette                                                                                                                                                                                   |
 
-Both ways of cycling go through the whole stored order, hidden Spaces included. Every horizontal arrow combo is taken (tabs, split, back and forward), and bracket keys are hard to type on European keyboards.
+Both ways of cycling go through the whole stored order, hidden Spaces included.
+
+The swipe is a drag, not a trigger. The Space's name and modules move together with the fingers, and the next or previous Space comes in beside them. On letting go it lands on the neighbor when the position it would reach by keeping its speed is past halfway, so a flick goes on, and a drag let go early or after stopping comes back. A new swipe can take hold at any moment of the settling, and a Space picked another way (a click, a key, another tab) slides in from the side it sits on. With reduced motion it switches without sliding.
+
+Every horizontal arrow combo is taken (tabs, split, back and forward), and bracket keys are hard to type on European keyboards.
 
 ### New Page
 

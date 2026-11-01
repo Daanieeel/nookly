@@ -149,16 +149,210 @@ describe("switching with the keyboard and a swipe", () => {
     expect(useNavStore.getState().activeSpaceId).toBe("space-1");
   });
 
-  it("cycles through hidden Spaces too, with a swipe sideways on the sidebar", async () => {
-    setup();
-    fireEvent.wheel(await slot("Uni"), { deltaX: 100, deltaY: 0 });
-    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
-  });
-
   it("ignores a vertical scroll", async () => {
     setup();
     fireEvent.wheel(await slot("Uni"), { deltaX: 2, deltaY: 120 });
+    expect(pane("space-2")).toBeNull();
     expect(useNavStore.getState().activeSpaceId).toBeNull();
+  });
+});
+
+/// The pane of a Space while it is on screen, and where it was moved to.
+const pane = (id: string) => document.querySelector<HTMLElement>(`[data-space-pane="${id}"]`);
+const shift = (id: string) => {
+  const match = pane(id)?.style.transform.match(/translate3d\((-?[\d.]+)px/);
+  return match ? Number(match[1]) : 0;
+};
+const swipe = async (deltaX: number) => fireEvent.wheel(await slot("Uni"), { deltaX, deltaY: 0 });
+const settled = { timeout: 3000 };
+
+describe("swiping between Spaces", () => {
+  it("moves the list with the fingers, the next Space coming in beside it", async () => {
+    setup();
+    await swipe(60);
+    expect(shift("space-1")).toBe(-60);
+    // One pane width away from its own place: 240 wide, 60 in.
+    expect(shift("space-2")).toBe(180);
+  });
+
+  it("brings in the previous Space for a swipe the other way", async () => {
+    useNavStore.setState({ activeSpaceId: "space-2" });
+    setup();
+    await vi.waitFor(() => expect(pane("space-2")).not.toBeNull());
+    fireEvent.wheel(await slot("Work"), { deltaX: -60, deltaY: 0 });
+    expect(shift("space-2")).toBe(60);
+    expect(shift("space-1")).toBe(-180);
+  });
+
+  it("goes on to the next Space after a swipe, which can be any Space of the stored order", async () => {
+    setup();
+    await swipe(100);
+    await vi.waitFor(() => expect(useNavStore.getState().activeSpaceId).toBe("space-2"), settled);
+    // Only the Space that is shown stays, at rest, with nothing left to move.
+    await vi.waitFor(() => expect(pane("space-1")).toBeNull(), settled);
+    expect(pane("space-2")?.style.transform).toBe("");
+  });
+
+  it("comes back to the same Space when the fingers were let go before halfway, and had stopped", async () => {
+    // The clock runs on, but can be set ahead, as when the fingers waited before moving again.
+    const realNow = performance.now.bind(performance);
+    let ahead = 0;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => realNow() + ahead);
+    setup();
+    await swipe(50);
+    // Long after the drag, a last tiny movement: the list was not going anywhere any more.
+    ahead = 500;
+    await swipe(1);
+    await vi.waitFor(() => expect(pane("space-2")).toBeNull(), settled);
+    expect(useNavStore.getState().activeSpaceId).toBeNull();
+    expect(pane("space-1")?.style.transform).toBe("");
+    now.mockRestore();
+  });
+
+  it("registers the new Space the moment the fingers lift, not when the trackpad stops gliding", async () => {
+    setup();
+    const target = await slot("Uni");
+    // Fingers still moving, then lifting: the wheel goes on with a fading glide.
+    for (const dx of [40, 40, 30, 22, 16, 11]) fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
+    // The bottom row already shows it, without waiting for the glide to end or the list to arrive.
+    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
+    expect(await slot("Work")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("does not take the rest of the glide for a new swipe", async () => {
+    setup();
+    const target = await slot("Uni");
+    for (const dx of [40, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2]) {
+      fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
+    }
+    await vi.waitFor(() => expect(pane("space-1")).toBeNull(), settled);
+    // It stopped on Work, and was not carried on to Home by what was left of the glide.
+    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
+    expect(pane("space-2")?.style.transform).toBe("");
+  });
+
+  it("moves one Space for one swipe, however long the fingers keep going and the glide lasts", async () => {
+    setup();
+    const target = await slot("Uni");
+    // Far more than a pane's width, a glide that fades, with no pause in between.
+    for (const dx of [60, 60, 60, 60, 60, 60, 50, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2, 2, 1]) {
+      fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
+    }
+    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
+    await vi.waitFor(
+      () => expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1),
+      settled,
+    );
+    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
+  });
+
+  it("does not take an uneven glide for a second swipe", async () => {
+    setup();
+    const target = await slot("Uni");
+    // The glide after the flick wobbles, growing for a moment, but never stops for a pause.
+    for (const dx of [60, 60, 50, 44, 38, 32, 28, 30, 33, 36, 40, 34, 30, 26, 22, 18, 14]) {
+      fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
+    }
+    await vi.waitFor(
+      () => expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1),
+      settled,
+    );
+    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
+  });
+
+  it("takes a second swipe after the fingers lifted for a moment, without waiting for the slide", async () => {
+    // The clock can be moved on by hand: a short pause is all that tells two swipes apart.
+    const realNow = performance.now.bind(performance);
+    let ahead = 0;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => realNow() + ahead);
+    setup();
+    const target = await slot("Uni");
+    const fire = (sizes: number[]) => {
+      for (const dx of sizes) {
+        ahead += 8;
+        fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
+      }
+    };
+    // A flick that glides, then the fingers touch down again after a short pause, and speed up from small.
+    fire([40, 40, 30, 22, 16, 11, 8, 6]);
+    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
+    ahead += 70;
+    fire([3, 6, 10, 15, 22, 30, 40, 40, 30, 22, 16, 11]);
+    // It went on from Work to Home, from where the first one was still sliding in.
+    expect(useNavStore.getState().activeSpaceId).toBe("space-3");
+    await vi.waitFor(
+      () => expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1),
+      settled,
+    );
+    expect(pane("space-3")?.style.transform).toBe("");
+    now.mockRestore();
+  });
+
+  it("still switches by click or key while a swipe is going on", async () => {
+    const { user } = setup();
+    await swipe(60);
+    expect(pane("space-2")).not.toBeNull();
+    await user.click(await slot("Home"));
+    expect(useNavStore.getState().activeSpaceId).toBe("space-3");
+    await vi.waitFor(() => expect(pane("space-1")).toBeNull(), settled);
+    await vi.waitFor(() => expect(pane("space-2")).toBeNull(), settled);
+    expect(pane("space-3")?.style.transform).toBe("");
+  });
+
+  it("a swipe that goes back puts the bottom row back too", async () => {
+    setup();
+    // Lets go past halfway, so the bottom row switches at once.
+    for (const dx of [40, 40, 30, 22, 16, 11]) {
+      fireEvent.wheel(await slot("Uni"), { deltaX: dx, deltaY: 0 });
+    }
+    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
+    // Then takes hold of the list and drags it back to where it was, slowly, and lets go.
+    const realNow = performance.now.bind(performance);
+    let ahead = 0;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => realNow() + ahead);
+    ahead = 1000;
+    for (const dx of [-8, -8, -8]) {
+      ahead += 40;
+      fireEvent.wheel(await slot("Work"), { deltaX: dx, deltaY: 0 });
+    }
+    await vi.waitFor(() => expect(useNavStore.getState().activeSpaceId).toBe("space-1"), settled);
+    await vi.waitFor(() => expect(pane("space-2")).toBeNull(), settled);
+    expect(pane("space-1")?.style.transform).toBe("");
+    now.mockRestore();
+  });
+
+  it("pulls back at the end of the Spaces and shows nothing beyond", async () => {
+    useNavStore.setState({ activeSpaceId: "space-6" });
+    setup();
+    await vi.waitFor(() => expect(pane("space-6")).not.toBeNull());
+    fireEvent.wheel(await slot("Travel"), { deltaX: 100, deltaY: 0 });
+    // It follows, but less and less: it moved left, by well under the 100 asked for.
+    expect(shift("space-6")).toBeLessThan(0);
+    expect(shift("space-6")).toBeGreaterThan(-60);
+    expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1);
+    await vi.waitFor(() => expect(shift("space-6")).toBe(0), settled);
+    expect(useNavStore.getState().activeSpaceId).toBe("space-6");
+  });
+
+  it("slides to a Space picked another way, from the side it is on", async () => {
+    const { user } = setup();
+    await user.click(await slot("Work"));
+    // Work enters from the right while Uni leaves to the left, and both are gone from the way after.
+    await vi.waitFor(() => expect(pane("space-1")).not.toBeNull());
+    expect(shift("space-2")).toBeGreaterThan(0);
+    await vi.waitFor(() => expect(pane("space-1")).toBeNull(), settled);
+    expect(pane("space-2")?.style.transform).toBe("");
+  });
+
+  it("can be taken hold of while it is still settling, and then settles on the nearer Space", async () => {
+    const { user } = setup();
+    await user.click(await slot("Work"));
+    await vi.waitFor(() => expect(pane("space-1")).not.toBeNull());
+    // Work has hardly started to come in, so letting go of it sends the list back to Uni.
+    fireEvent.wheel(await slot("Work"), { deltaX: 0.5, deltaY: 0 });
+    await vi.waitFor(() => expect(useNavStore.getState().activeSpaceId).toBe("space-1"), settled);
+    await vi.waitFor(() => expect(pane("space-2")).toBeNull(), settled);
+    expect(pane("space-1")?.style.transform).toBe("");
   });
 });
 
@@ -180,7 +374,7 @@ describe("the swipe hint", () => {
   it("goes for good once the swipe was used", async () => {
     setup();
     fireEvent.wheel(await slot("Uni"), { deltaX: 100, deltaY: 0 });
-    expect(useNavStore.getState().activeSpaceId).toBe("space-2");
+    await vi.waitFor(() => expect(useNavStore.getState().activeSpaceId).toBe("space-2"), settled);
     expect(hint()).toBeNull();
     expect(preferences.get(STORAGE_KEYS.swipeHintDone)).toBe("1");
   });
