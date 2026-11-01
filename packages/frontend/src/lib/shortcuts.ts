@@ -257,13 +257,6 @@ export const SHORTCUT_META = {
     section: "Create",
     scopes: GLOBAL,
   },
-  newPage: {
-    title: "New page",
-    description: "Create a new note in the Space you are working in and start writing.",
-    synonyms: ["create page", "add page", "new note", "write", "document"],
-    section: "Create",
-    scopes: GLOBAL,
-  },
   newTask: {
     title: "New task",
     description: "Open the New task dialog from anywhere, in the Space you are working in.",

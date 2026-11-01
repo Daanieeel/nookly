@@ -48,10 +48,6 @@ The swipe is a drag, not a trigger. The Space's name and modules move together w
 
 Every horizontal arrow combo is taken (tabs, split, back and forward), and bracket keys are hard to type on European keyboards.
 
-### New Page
-
-New Page is a command in the commands palette and the shortcut `Cmd+Shift+N`. It creates an untitled note in the active Space and opens it with the title focused.
-
 ## Icons (sidebar and everywhere else)
 
 Icons work like Notion: each item can have its own user-chosen icon (an emoji or an icon library icon) in full color.

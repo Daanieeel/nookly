@@ -1,11 +1,11 @@
 import { act, screen } from "@testing-library/react";
 import { Editor } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { editorExtensions } from "#/features/notes/editor-extensions.ts";
 import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { tabGroups, useNavStore } from "#/lib/store/nav.ts";
-import { makeEntity, makeSpace } from "#/test/fixtures.ts";
+import { makeSpace } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { callsOf, mockCommand } from "#/test/tauri.ts";
 import { CommandsPalette } from "./commands-palette.tsx";
@@ -52,25 +52,6 @@ describe("New Task in the commands palette", () => {
     await user.type(await screen.findByPlaceholderText("Run a command…"), "new task buy milk");
     await user.click(await screen.findByText("New Task: buy milk"));
     expect(useNavStore.getState().newTask).toEqual({ spaceId: "space-1", title: "buy milk" });
-  });
-});
-
-describe("New Page in the commands palette", () => {
-  it("creates an untitled note in the active Space and opens it, with its shortcut shown", async () => {
-    mockCommand("list_spaces", [makeSpace({ id: "space-1", name: "Uni" })]);
-    mockCommand("list_space_modules", ["notes"]);
-    mockCommand("create_note", makeEntity({ id: "note-1", spaceId: "space-1", type: "note" }));
-    mockCommand("touch_entity_opened", null);
-    act(() => useNavStore.getState().setActiveSpace("space-1"));
-    const { user } = renderWithProviders(<CommandsPalette />);
-    act(() => useNavStore.getState().setCommandsOpen(true));
-    await user.type(await screen.findByPlaceholderText("Run a command…"), "new page");
-    await user.click(await screen.findByText("New Page"));
-    await vi.waitFor(() =>
-      expect(callsOf("create_note")).toEqual([{ spaceId: "space-1", title: "" }]),
-    );
-    await vi.waitFor(() => expect(useNavStore.getState().commandsOpen).toBe(false));
-    expect(useNavStore.getState().view).toMatchObject({ kind: "entity", entityId: "note-1" });
   });
 });
 

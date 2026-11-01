@@ -14,7 +14,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@nookly/ui/components/sidebar";
-import { startNewPage } from "#/features/notes/new-page.ts";
 import { listSpaceModules, listSpaces } from "#/lib/api/spaces.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cycleSpaceId } from "#/lib/space-row.ts";
@@ -89,7 +88,6 @@ export function AppSidebar() {
   }
   useAppHotkey("previousSpace", () => stepSpace(-1, true));
   useAppHotkey("nextSpace", () => stepSpace(1, true));
-  useAppHotkey("newPage", () => void startNewPage(queryClient));
 
   // Collapsed, the sidebar is gone and the page takes the whole window, like Arc or
   // Zen. Resting the pointer on the left edge slides it back over the page until the
