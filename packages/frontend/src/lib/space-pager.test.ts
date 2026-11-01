@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   capVelocity,
   isSettled,
-  rubberBand,
   settleTarget,
   springStep,
   type SpringState,
@@ -10,22 +9,6 @@ import {
 } from "./space-pager.ts";
 
 const WIDTH = 240;
-
-describe("rubberBand", () => {
-  it("follows the fingers a little at first, and gives up the further it is pulled", () => {
-    expect(rubberBand(0, WIDTH)).toBe(0);
-    expect(rubberBand(20, WIDTH)).toBeGreaterThan(0);
-    expect(rubberBand(20, WIDTH)).toBeLessThan(20);
-    expect(rubberBand(100, WIDTH) - rubberBand(80, WIDTH)).toBeLessThan(
-      rubberBand(20, WIDTH) - rubberBand(0, WIDTH),
-    );
-  });
-
-  it("never travels the whole width, and is symmetric", () => {
-    expect(rubberBand(5000, WIDTH)).toBeLessThan(WIDTH);
-    expect(rubberBand(-70, WIDTH)).toBeCloseTo(-rubberBand(70, WIDTH));
-  });
-});
 
 describe("settleTarget", () => {
   const base = { width: WIDTH, hasNeighbor: true };

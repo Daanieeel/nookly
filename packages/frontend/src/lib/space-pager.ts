@@ -1,9 +1,5 @@
-/// The physics of dragging the sidebar from one Space to the next: where a drag rubber bands,
-/// where a let go settles, and the spring that gets it there. Pure; the DOM side lives in
-/// `components/sidebar/use-space-pager.ts`.
-
-/// iOS's rubber band: the further it is pulled, the less it follows.
-const RUBBER_BAND = 0.55;
+/// The physics of dragging the sidebar from one Space to the next: where a let go settles, and the
+/// spring that gets it there. Pure; the DOM side lives in `components/sidebar/use-space-pager.ts`.
 
 /// How far ahead a let go looks, in milliseconds: where the list would end up if it kept its speed.
 const PROJECT_MS = 180;
@@ -34,12 +30,6 @@ export interface Sample {
   t: number;
   /// The wheel's `deltaX`, positive when the fingers move left.
   dx: number;
-}
-
-export function rubberBand(offset: number, width: number): number {
-  const distance = Math.abs(offset);
-  const banded = (1 - 1 / ((distance * RUBBER_BAND) / width + 1)) * width;
-  return offset < 0 ? -banded : banded;
 }
 
 /// Where a drag that was let go settles: `0` (back where it was), or `-width` or `width` (on the

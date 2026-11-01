@@ -321,17 +321,37 @@ describe("swiping between Spaces", () => {
     now.mockRestore();
   });
 
-  it("pulls back at the end of the Spaces and shows nothing beyond", async () => {
+  it("does not move at all past the last Space, nor past the first", async () => {
+    useNavStore.setState({ activeSpaceId: "space-6" });
+    const { unmount } = setup();
+    await vi.waitFor(() => expect(pane("space-6")).not.toBeNull());
+    // A swipe towards nothing: no movement, no empty space opening up, no other pane.
+    fireEvent.wheel(await slot("Travel"), { deltaX: 100, deltaY: 0 });
+    expect(pane("space-6")?.style.transform).toBe("");
+    expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(useNavStore.getState().activeSpaceId).toBe("space-6");
+    unmount();
+
+    useNavStore.setState({ activeSpaceId: "space-1" });
+    setup();
+    await vi.waitFor(() => expect(pane("space-1")).not.toBeNull());
+    fireEvent.wheel(await slot("Uni"), { deltaX: -100, deltaY: 0 });
+    expect(pane("space-1")?.style.transform).toBe("");
+    expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1);
+  });
+
+  it("does not bank what was swiped into the end: turning around moves at once", async () => {
     useNavStore.setState({ activeSpaceId: "space-6" });
     setup();
     await vi.waitFor(() => expect(pane("space-6")).not.toBeNull());
-    fireEvent.wheel(await slot("Travel"), { deltaX: 100, deltaY: 0 });
-    // It follows, but less and less: it moved left, by well under the 100 asked for.
-    expect(shift("space-6")).toBeLessThan(0);
-    expect(shift("space-6")).toBeGreaterThan(-60);
-    expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1);
-    await vi.waitFor(() => expect(shift("space-6")).toBe(0), settled);
-    expect(useNavStore.getState().activeSpaceId).toBe("space-6");
+    const target = await slot("Travel");
+    fireEvent.wheel(target, { deltaX: 100, deltaY: 0 });
+    expect(pane("space-6")?.style.transform).toBe("");
+    // Swiping the other way brings the previous Space in, from the end, not from 100px further.
+    fireEvent.wheel(target, { deltaX: -50, deltaY: 0 });
+    expect(shift("space-6")).toBe(50);
+    expect(pane("space-5")).not.toBeNull();
   });
 
   it("slides to a Space picked another way, from the side it is on", async () => {

@@ -3,7 +3,6 @@ import {
   type Sample,
   capVelocity,
   isSettled,
-  rubberBand,
   settleTarget,
   springStep,
   velocityOf,
@@ -36,7 +35,7 @@ interface Neighbor {
 interface Live {
   shownId: string | null;
   neighbor: Neighbor | null;
-  /// The drag as the fingers made it, before rubber banding.
+  /// The drag as the fingers made it, before it is held to one pane and to the Spaces there are.
   raw: number;
   /// Where the shown pane is, in pixels from its resting place. The neighbor is one width away.
   offset: number;
@@ -63,7 +62,7 @@ function prefersReducedMotion(): boolean {
 }
 
 /// Slides the sidebar between Spaces like a page the fingers hold. A two finger swipe moves the
-/// list along with it, the next Space coming in beside it, rubber banding at either end. On
+/// list along with it, the next Space coming in beside it, and stays put at either end. On
 /// letting go it settles on the next Space or comes back, by where it was and how fast it was
 /// going, and a new swipe can take hold of it at any moment of that. A Space switched to some
 /// other way (a click, a key, another tab) slides in the same way. Everything moves through the
@@ -187,7 +186,10 @@ export function useSpacePager({
     const keep = state.neighbor?.side === side ? state.neighbor.id : undefined;
     const at = state.shownId === null ? -1 : list.indexOf(state.shownId);
     const next = raw === 0 || at === -1 ? undefined : (keep ?? list[at + side]);
-    state.offset = next === undefined ? rubberBand(clamped, span) : clamped;
+    // Past the first or the last Space there is nothing to show, so the list does not move, and what
+    // was swiped into that end is not kept: turning around moves at once.
+    state.offset = next === undefined ? 0 : clamped;
+    if (next === undefined) state.raw = 0;
     const changed = next !== state.neighbor?.id;
     if (changed) setNeighbor(next === undefined ? null : { id: next, side });
     else paint();

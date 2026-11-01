@@ -36,11 +36,11 @@ From left to right: a shared "+", up to four slots of Space icons, a divider, th
 
 ### Switching Spaces
 
-| Action                 | How                                                                                                                                                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pick a Space           | Click its icon in the bottom row or its row in the three dot popover                                                                                                                                                      |
-| Next or previous Space | Swipe left or right with two fingers on the sidebar (it follows the fingers and rubber bands at either end), `Cmd+Option+Down` and `Cmd+Option+Up` (`Ctrl+Alt+Down` and `Ctrl+Alt+Up` on Windows and Linux, wraps around) |
-| Go to a Space          | `Go to <Space>` in the commands palette                                                                                                                                                                                   |
+| Action                 | How                                                                                                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pick a Space           | Click its icon in the bottom row or its row in the three dot popover                                                                                                                                                                       |
+| Next or previous Space | Swipe left or right with two fingers on the sidebar (it follows the fingers, and does not move past the first or last Space), `Cmd+Option+Down` and `Cmd+Option+Up` (`Ctrl+Alt+Down` and `Ctrl+Alt+Up` on Windows and Linux, wraps around) |
+| Go to a Space          | `Go to <Space>` in the commands palette                                                                                                                                                                                                    |
 
 Both ways of cycling go through the whole stored order, hidden Spaces included.
 
