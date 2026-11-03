@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.59.4 (2026-11-04)
+
+### Changed
+
+- **Tidier code behind the scenes.** Nothing looks or works differently.
+
 ## 0.59.3 (2026-11-04)
 
 ### Changed

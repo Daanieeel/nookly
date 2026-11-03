@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.59.4",
+      "date": "2026-11-04",
+      "highlights": [],
+      "more": {
+        "Improved": ["A tidy up behind the scenes. Nothing looks or works differently."]
+      }
+    },
+    {
       "version": "0.59.3",
       "date": "2026-11-04",
       "highlights": [],
