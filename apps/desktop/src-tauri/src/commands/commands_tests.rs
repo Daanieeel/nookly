@@ -27,6 +27,7 @@ macro_rules! ipc_commands {
 // Every registered command that does not take an `AppHandle` (which is fixed
 // to the Wry runtime and so cannot run on the mock runtime).
 ipc_commands![
+    logging::log_frontend,
     spaces::create_space,
     spaces::list_spaces,
     spaces::update_space,
@@ -322,6 +323,8 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "open_settings_file",
         "settings_file_is_created_without_touching_an_existing_one",
     ),
+    // `AppHandle` parameter, and it opens a folder: the part that can run is the folder it makes.
+    ("open_logs_folder", "log_commands_write_and_make_the_folder"),
     // Creates a symlink on the user's PATH: never run from a test.
     ("install_cli", "cli_install_status_reports_this_platform"),
 ];
@@ -4151,6 +4154,21 @@ fn settings_file_is_created_without_touching_an_existing_one() {
     std::fs::write(&path, "{\"a\": 1}").unwrap();
     ensure_settings_file(&dir).unwrap();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\"a\": 1}");
+}
+
+#[test]
+fn log_commands_write_and_make_the_folder() {
+    // `log_frontend` takes no state and never fails; `open_logs_folder` hands the folder to
+    // the OS, so what runs here is the folder it makes first.
+    let h = Harness::new();
+    // What reaches the log is checked in `logging::tests`: commands may run on another thread.
+    h.ok(
+        "log_frontend",
+        json!({ "level": "warn", "scope": "query", "message": "list_tasks failed" }),
+    );
+    let dir = crate::commands::logging::ensure_log_dir(&h.dir.path().join("data")).unwrap();
+    assert!(dir.is_dir());
+    assert_eq!(dir, h.dir.path().join("data").join("logs"));
 }
 
 // ---------------------------------------------------------------- portable

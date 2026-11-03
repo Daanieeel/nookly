@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.58.0 (2026-11-04)
+
+### Added
+
+- **Logs folder.** Settings has a new "Open logs folder" button. Nookly now keeps a short log of what went wrong, without anything you wrote, so you can attach it when you report a problem.
+
 ## 0.57.2 (2026-11-03)
 
 ### Fixed

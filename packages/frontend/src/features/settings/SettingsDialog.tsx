@@ -1,6 +1,7 @@
 import {
   IconArchive,
   IconFileCode,
+  IconFileText,
   IconCalendar,
   IconKeyboard,
   IconNotes,
@@ -12,9 +13,10 @@ import {
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
+import { openLogsFolder } from "#/lib/api/logs.ts";
 import { openSettingsFile } from "#/lib/api/settings-file.ts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import {
   Dialog,
@@ -216,10 +218,20 @@ function SearchResults({
   });
 }
 
-/// Opens `settings.json` in the user's editor. The result shows on the button.
-function OpenSettingsFileButton() {
-  const open = useMutation({ mutationFn: openSettingsFile });
-  const status = useActionStatus(open);
+/// A footer button that runs one action and shows its result on the button.
+function FooterActionButton({
+  action,
+  icon,
+  label,
+  tooltip,
+}: {
+  action: () => Promise<void>;
+  icon: ReactNode;
+  label: string;
+  tooltip: string;
+}) {
+  const run = useMutation({ mutationFn: action });
+  const status = useActionStatus(run);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -227,20 +239,17 @@ function OpenSettingsFileButton() {
           variant="ghost"
           size="sm"
           className="w-full justify-start gap-2"
-          onClick={() => !open.isPending && open.mutate()}
+          onClick={() => !run.isPending && run.mutate()}
         >
           <StatusButtonContent
             status={status}
-            icon={<IconFileCode size={16} />}
-            label="Show settings file"
+            icon={icon}
+            label={label}
             errorLabel="Couldn't open, try again"
           />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>
-        Edit settings.json in your editor. Quit Nookly first, it saves over edits made while it
-        runs.
-      </TooltipContent>
+      <TooltipContent>{tooltip}</TooltipContent>
     </Tooltip>
   );
 }
@@ -361,7 +370,18 @@ export function SettingsDialog() {
               })}
             </nav>
             <div className="shrink-0 p-2 pt-0">
-              <OpenSettingsFileButton />
+              <FooterActionButton
+                action={openSettingsFile}
+                icon={<IconFileCode size={16} />}
+                label="Show settings file"
+                tooltip="Edit settings.json in your editor. Quit Nookly first, it saves over edits made while it runs."
+              />
+              <FooterActionButton
+                action={openLogsFolder}
+                icon={<IconFileText size={16} />}
+                label="Open logs folder"
+                tooltip="Show the folder with Nookly's log files. Attach them when you report a problem."
+              />
             </div>
           </div>
           <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">

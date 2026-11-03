@@ -1,5 +1,5 @@
 import { BookmarkSheet } from "#/features/bookmarks/BookmarkSheet.tsx";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
 import { CommandPalette } from "#/components/command-palette.tsx";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
@@ -37,9 +37,10 @@ import { useRefreshBlocksOnRename } from "#/lib/rename-sync.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { type View, useNavStore } from "#/lib/store/nav.ts";
 import { useEffect } from "react";
+import { createQueryClient } from "#/lib/query-client.ts";
 import "#/context-actions.ts";
 
-const queryClient = new QueryClient();
+const queryClient = createQueryClient();
 
 /// A tab group's active view.
 function MainContent({ view }: { view: View }) {

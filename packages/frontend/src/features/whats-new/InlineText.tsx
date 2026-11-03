@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Fragment, type ReactNode } from "react";
+import { ignoreError } from "#/lib/log.ts";
 
 /// A link, bold, italic or code span; the only inline formatting the notes use.
 const INLINE = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/;
@@ -38,7 +39,7 @@ export function inline(text: string): ReactNode[] {
           className="text-primary underline underline-offset-2"
           onClick={(event) => {
             event.preventDefault();
-            void openUrl(href).catch(() => undefined);
+            void openUrl(href).catch(ignoreError("opening a link"));
           }}
         >
           {label}

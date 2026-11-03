@@ -7,6 +7,7 @@ import {
 import { getEntity } from "#/lib/api/entities.ts";
 import { parseDeepLink } from "#/lib/deep-link-url.ts";
 import { armNewTabIntent, useNavStore } from "#/lib/store/nav.ts";
+import { ignoreError } from "#/lib/log.ts";
 
 /// Links the app may hand to the system: web and mail addresses only, never a file path
 /// or a script.
@@ -49,7 +50,7 @@ export function openLink(event: MouseEvent, spaceId: string): boolean {
     // names nothing opens nothing.
     getEntity(entityId)
       .then((entity) => openMention(mention, entity))
-      .catch(() => {});
+      .catch(ignoreError("opening a link"));
   } else {
     openMention(mention, { id: entityId, spaceId });
   }

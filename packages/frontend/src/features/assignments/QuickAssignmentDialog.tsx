@@ -10,6 +10,7 @@ import type { Entity } from "#/lib/api/types.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { CreateAssignmentDialog } from "./AssignmentsListView";
+import { ignoreError } from "#/lib/log.ts";
 
 /// The Session running right now and its Course, when it has one.
 interface RunningSession {
@@ -27,7 +28,9 @@ async function findRunningSession(queryClient: QueryClient): Promise<RunningSess
   if (!current) return null;
   const links = await listRelationships(current.entity.id, "from");
   const courseId = links.find((r) => r.relationshipType === "session-course")?.toEntityId;
-  const course = courseId ? await getEntity(courseId).catch(() => null) : null;
+  const course = courseId
+    ? await getEntity(courseId).catch(ignoreError("reading the course for a new assignment", null))
+    : null;
   return { session: current.entity, course };
 }
 
@@ -52,7 +55,7 @@ export function QuickAssignmentDialog() {
     }
     let current = true;
     findRunningSession(queryClient)
-      .catch(() => null)
+      .catch(ignoreError("reading the course for a new assignment", null))
       .then((found) => {
         if (current) setRunning(found);
       });

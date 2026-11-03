@@ -12,6 +12,7 @@ mod db;
 mod dictionary_file;
 mod error;
 mod external_calendars;
+mod logging;
 mod spelling;
 mod store_guard;
 
@@ -343,6 +344,8 @@ pub fn run() {
             commands::ai_apps::list_ai_apps,
             commands::ai_apps::open_agent_dir_in,
             commands::settings_file::open_settings_file,
+            commands::logging::log_frontend,
+            commands::logging::open_logs_folder,
         ])
         .build(tauri::generate_context!());
     match app {
@@ -396,6 +399,14 @@ fn handle_command_line() {
 /// Runs once when the window system is ready: registers the link scheme, opens the
 /// database and loads the stores the commands read from.
 fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    // First, so the migrations and the restore that follow are written down.
+    logging::init(&db::resolve_app_data_dir(app.path().app_data_dir()?));
+    tracing::info!(
+        version = env!("CARGO_PKG_VERSION"),
+        os = std::env::consts::OS,
+        arch = std::env::consts::ARCH,
+        "Nookly starting"
+    );
     // Installed builds register the scheme with the system; this does it for the
     // ones that were not installed.
     #[cfg(any(windows, target_os = "linux"))]
@@ -413,28 +424,21 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Installs a panic hook that appends a human-readable record to
-/// `crash.log` in the app data directory before `panic = "abort"` kills
-/// the process. The hook fires before the abort, so the message survives
-/// the crash for later diagnosis. A no-op in debug builds, since panics
-/// already print to stderr with a full backtrace there.
+/// Installs a panic hook that writes the panic to the log, and also appends a record to
+/// `crash.log` in the app data directory, before `panic = "abort"`
+/// kills the process. The hook fires before the abort, so the message survives the crash
+/// for later diagnosis. `crash.log` is capped, oldest records first. The default hook still
+/// runs after, so a debug build keeps its output on stderr, with the backtrace.
 fn install_panic_hook() {
-    #[cfg(not(debug_assertions))]
-    std::panic::set_hook(Box::new(|info| {
-        let log_path = db::standalone_app_data_dir()
-            .map(|dir| dir.join("crash.log"))
-            .ok();
-        let message = format!("[{}] panic: {}\n", chrono::Utc::now().to_rfc3339(), info,);
-        if let Some(path) = log_path {
-            use std::io::Write;
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)
-            {
-                let _ = f.write_all(message.as_bytes());
-            }
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        tracing::error!(panic = %info, "Nookly panicked");
+        if let Ok(dir) = db::standalone_app_data_dir() {
+            let record = format!("[{}] panic: {}\n", chrono::Utc::now().to_rfc3339(), info);
+            let _ =
+                logging::append_capped(&dir.join("crash.log"), &record, logging::CRASH_LOG_LIMIT);
         }
+        previous(info);
     }));
 }
 

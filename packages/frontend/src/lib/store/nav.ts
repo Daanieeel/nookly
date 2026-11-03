@@ -20,6 +20,7 @@ import {
   focusedGroup,
   makeGroup,
 } from "./tab-groups.ts";
+import { ignoreError } from "#/lib/log.ts";
 
 export const MODULE_KEYS = [
   "tasks",
@@ -648,7 +649,7 @@ export const useNavStore = create<NavState>((set, get) => ({
     }
     // Fire-and-forget (§ prep for a future 'reclaim space' feature): never
     // awaited, and a failure here must never block navigation.
-    touchEntityOpened(entityId).catch(() => {});
+    touchEntityOpened(entityId).catch(ignoreError("recording the last opened time"));
     const entry: RecentEntry = { entityId, spaceId, openedAt: Date.now() };
     const recents = [entry, ...get().recents.filter((r) => r.entityId !== entityId)].slice(
       0,

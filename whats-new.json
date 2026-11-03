@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.58.0",
+      "date": "2026-11-04",
+      "highlights": [
+        {
+          "title": "Logs for bug reports",
+          "description": "Nookly keeps a short log of problems, never what you wrote. Open the folder from Settings and attach it when you report a bug.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.57.2",
       "date": "2026-11-03",
       "highlights": [],

@@ -46,6 +46,7 @@ import {
   useSpaceLabels,
 } from "./bookmark-model";
 import { Favicon, Preview } from "./bookmark-preview";
+import { ignoreError } from "#/lib/log.ts";
 
 /// A Bookmark's details, sliding in from the right over whatever is open.
 /// Bookmarks have no page of their own; this sheet is where they're opened.
@@ -99,7 +100,7 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
   const changeUrl = useMutation({
     mutationFn: async (url: string) => {
       await updateBookmarkUrl(entity.id, url);
-      await fetchBookmarkMetadata(entity.id, url).catch(() => {});
+      await fetchBookmarkMetadata(entity.id, url).catch(ignoreError("fetching bookmark details"));
     },
     onSuccess: async () => {
       await refreshAll();

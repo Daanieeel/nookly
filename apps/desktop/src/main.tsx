@@ -1,11 +1,14 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { installGlobalErrorLogging } from "@nookly/frontend/lib/log";
 import { initPreferences } from "@nookly/frontend/lib/preferences";
 import { initSettings } from "@nookly/frontend/lib/settings/settings";
 import "@nookly/ui/fonts";
 import "@nookly/frontend/styles";
 
 async function start() {
+  // Whatever nothing else catches still reaches the log file.
+  installGlobalErrorLogging();
   // Follow the OS theme until the saved one is known, to avoid a light flash.
   document.documentElement.classList.toggle(
     "dark",

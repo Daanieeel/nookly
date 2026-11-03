@@ -44,6 +44,7 @@ import {
 import { qk } from "#/lib/query-keys.ts";
 import { AgentFileTree, buildAgentTree } from "./AgentFileTree.tsx";
 import { NewAgentFileDialog } from "./NewAgentFileDialog.tsx";
+import { ignoreError } from "#/lib/log.ts";
 
 /// The Agent tab of Settings: the folder to hand to a coding agent and the markdown
 /// files in it, in a vertical explorer with folders, edited in place next to it. Plain file management, no AI. A file is saved when the
@@ -126,7 +127,8 @@ export function AgentFilesTab() {
   useEffect(
     () => () => {
       const { selected: name, text: content, dirty: unsaved } = latest.current;
-      if (unsaved && !writing.current) void writeAgentFile(name, content).catch(() => undefined);
+      if (unsaved && !writing.current)
+        void writeAgentFile(name, content).catch(ignoreError("saving an agent file on close"));
     },
     [],
   );

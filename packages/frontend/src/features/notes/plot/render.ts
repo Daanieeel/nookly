@@ -1,6 +1,7 @@
 import { drawPlot, type FormulaRenderer } from "./draw";
 import { loadFormulas } from "./formula";
 import { PlotError, parsePlot } from "./parse";
+import { ignoreError } from "#/lib/log.ts";
 
 /// The legend's formulas, once they have loaded.
 let formulas: FormulaRenderer | undefined;
@@ -21,7 +22,7 @@ export async function renderPlot(
     const plot = parsePlot(source);
     element.innerHTML = drawPlot(plot, dark, formulas);
     if (!formulas) {
-      formulas = await loadFormulas().catch(() => undefined);
+      formulas = await loadFormulas().catch(ignoreError("loading plot formulas"));
       if (formulas && latest.get(element) === mine) {
         element.innerHTML = drawPlot(plot, dark, formulas);
       }

@@ -80,11 +80,21 @@ impl DbState {
     /// The one way a command takes the database lock. A lock poisoned by an
     /// earlier panic comes back as an error instead of panicking again.
     pub fn conn(&self) -> crate::error::AppResult<MutexGuard<'_, Connection>> {
-        self.0.lock().map_err(|_| {
+        let started = std::time::Instant::now();
+        let guard = self.0.lock().map_err(|_| {
+            tracing::error!("the database lock is poisoned by an earlier panic");
             crate::error::AppError::Db(
                 "the database lock is unavailable after an earlier failure, restart Nookly".into(),
             )
-        })
+        })?;
+        let waited = started.elapsed();
+        if waited > crate::logging::SLOW_LOCK_WAIT {
+            tracing::warn!(
+                waited_ms = waited.as_millis() as u64,
+                "waited a long time for the database lock"
+            );
+        }
+        Ok(guard)
     }
 }
 
@@ -280,16 +290,36 @@ pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std
     let mut conn = Connection::open(&db_path)?;
     backup_before_migration(&conn, &db_path)?;
     let current: usize = migrations::MIGRATIONS.current_version(&conn)?.into();
-    if current > 0 && current < *migrations::MIGRATION_COUNT {
+    let latest = *migrations::MIGRATION_COUNT;
+    if current > latest {
+        tracing::error!(
+            current,
+            latest,
+            "the database is from a newer version of Nookly, refusing to open it"
+        );
+    }
+    if current > 0 && current < latest {
         // An existing database with migrations to run: they run on a copy that has
         // to pass its checks before it replaces the original (see `upgrade`).
+        tracing::info!(from = current, to = latest, "upgrading the database");
         drop(conn);
-        upgrade::run(&db_path)?;
+        let started = std::time::Instant::now();
+        if let Err(e) = upgrade::run(&db_path) {
+            tracing::error!(error = %e, "the database upgrade did not pass its checks, the data was not changed");
+            return Err(e.into());
+        }
+        tracing::info!(
+            duration_ms = started.elapsed().as_millis() as u64,
+            "database upgraded"
+        );
         conn = Connection::open(&db_path)?;
     }
     // A new database migrates here. An upgraded one has nothing left, and a database
     // from a newer version is refused.
-    migrations::MIGRATIONS.to_latest(&mut conn)?;
+    if let Err(e) = migrations::MIGRATIONS.to_latest(&mut conn) {
+        tracing::error!(error = %e, "could not bring the database to the latest version");
+        return Err(e.into());
+    }
     Ok(conn)
 }
 
@@ -323,6 +353,10 @@ fn backup_before_migration(
         db_path,
         db_path.with_file_name(format!("nookly.db.bak-v{current}")),
     )?;
+    tracing::info!(
+        version = current,
+        "kept a copy of the database before migrating"
+    );
     Ok(())
 }
 
@@ -366,6 +400,36 @@ mod tests {
             Err(other) => panic!("expected a database error, got {other:?}"),
             Ok(_) => panic!("a poisoned lock must not hand out the connection"),
         }
+    }
+
+    /// A command that waits a long time for the database is the first sign of a freeze,
+    /// so it leaves a warning in the log (with the wait, never what the command was doing).
+    #[test]
+    fn a_long_wait_for_the_database_lock_is_logged() {
+        let state = std::sync::Arc::new(DbState(Mutex::new(test_conn())));
+        let holder = state.clone();
+        let (locked_tx, locked_rx) = std::sync::mpsc::channel();
+        let hold = std::thread::spawn(move || {
+            let _guard = holder.0.lock().unwrap();
+            locked_tx.send(()).unwrap();
+            std::thread::sleep(crate::logging::SLOW_LOCK_WAIT * 3);
+        });
+        locked_rx.recv().unwrap();
+        let log = crate::logging::capture_logs(|| {
+            drop(state.conn().unwrap());
+        });
+        hold.join().unwrap();
+        assert!(log.contains("WARN"), "{log}");
+        assert!(log.contains("database lock"), "{log}");
+    }
+
+    #[test]
+    fn a_quick_lock_is_not_logged() {
+        let state = DbState(Mutex::new(test_conn()));
+        let log = crate::logging::capture_logs(|| {
+            drop(state.conn().unwrap());
+        });
+        assert_eq!(log, "");
     }
 
     #[test]

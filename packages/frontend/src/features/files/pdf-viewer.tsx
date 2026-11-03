@@ -47,6 +47,7 @@ import {
   pinchScale,
   stepScale,
 } from "./pdf-zoom";
+import { ignoreError } from "#/lib/log.ts";
 
 // Vite bundles the worker as its own asset; pdf.js can't run without one.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -1096,7 +1097,7 @@ export function PdfViewer({
                         });
                       })
                       // The pages still render at the fallback size.
-                      .catch(() => undefined)
+                      .catch(ignoreError("a PDF viewer step"))
                       .finally(() => setSizeKnown(true));
                   }}
                   onLoadError={clearOnError}

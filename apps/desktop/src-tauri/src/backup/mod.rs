@@ -91,7 +91,7 @@ fn io_err(e: impl std::fmt::Display) -> AppError {
 fn is_excluded(name: &str) -> bool {
     matches!(
         name,
-        "office-previews" | "crash.log" | RESTORE_ERROR_LOG | PENDING_DIR | SAFETY_DIR
+        "office-previews" | "crash.log" | "logs" | RESTORE_ERROR_LOG | PENDING_DIR | SAFETY_DIR
     ) || name.ends_with(".tmp")
         || name.ends_with(".partial")
 }
@@ -549,6 +549,11 @@ pub fn apply_pending_restore(data_dir: &Path) -> AppResult<Option<PathBuf>> {
     match outcome {
         Ok(()) => {
             fs::remove_dir_all(&pending).ok();
+            tracing::info!(
+                replaced = live.len(),
+                installed = incoming.len(),
+                "restored a backup"
+            );
             Ok(Some(safety))
         }
         Err(e) => {
@@ -568,6 +573,7 @@ pub fn apply_pending_restore(data_dir: &Path) -> AppResult<Option<PathBuf>> {
 
 /// Records a failed launch time restore where the user can find it.
 pub fn log_restore_error(data_dir: &Path, error: &AppError) {
+    tracing::error!(%error, "restoring a backup failed, the data was left as it was");
     if let Ok(mut f) = fs::OpenOptions::new()
         .create(true)
         .append(true)
