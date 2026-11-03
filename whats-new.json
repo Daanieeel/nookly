@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.59.0",
+      "date": "2026-11-04",
+      "highlights": [
+        {
+          "title": "Report after an unexpected close",
+          "description": "If Nookly closes unexpectedly, you can read, copy or share a short report next time. It never holds what you wrote, and nothing is sent unless you send it.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.58.0",
       "date": "2026-11-04",
       "highlights": [

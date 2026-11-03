@@ -325,6 +325,9 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     ),
     // `AppHandle` parameter, and it opens a folder: the part that can run is the folder it makes.
     ("open_logs_folder", "log_commands_write_and_make_the_folder"),
+    // `AppHandle` parameter: both read and write the files `crash_report` tests cover.
+    ("latest_crash_report", "crash_report_files_round_trip"),
+    ("dismiss_crash_report", "crash_report_files_round_trip"),
     // Creates a symlink on the user's PATH: never run from a test.
     ("install_cli", "cli_install_status_reports_this_platform"),
 ];
@@ -4169,6 +4172,22 @@ fn log_commands_write_and_make_the_folder() {
     let dir = crate::commands::logging::ensure_log_dir(&h.dir.path().join("data")).unwrap();
     assert!(dir.is_dir());
     assert_eq!(dir, h.dir.path().join("data").join("logs"));
+}
+
+#[test]
+fn crash_report_files_round_trip() {
+    // The two commands take an `AppHandle` for the app data folder; this is what they do there.
+    let h = Harness::new();
+    let dir = h.dir.path().join("crash-data");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("crash.log"),
+        crate::crash_report::record(chrono::Utc::now(), "0.58.0", "panicked at a.rs:1:1: boom"),
+    )
+    .unwrap();
+    let report = crate::crash_report::latest_unseen(&dir).unwrap();
+    crate::crash_report::dismiss(&dir, &report.occurred_at).unwrap();
+    assert!(crate::crash_report::latest_unseen(&dir).is_none());
 }
 
 // ---------------------------------------------------------------- portable

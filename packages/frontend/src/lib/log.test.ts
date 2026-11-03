@@ -3,6 +3,7 @@ import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 import { callsOf, mockCommand } from "#/test/tauri.ts";
 import { describeError, ignoreError, installGlobalErrorLogging, logger } from "./log.ts";
+import { qk } from "./query-keys.ts";
 import { createQueryClient } from "./query-client.ts";
 
 const LineList = z.array(z.object({ level: z.string(), scope: z.string(), message: z.string() }));
@@ -89,7 +90,7 @@ describe("query client", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const client = createQueryClient();
     const observer = new QueryObserver(client, {
-      queryKey: ["search", "private words"],
+      queryKey: qk.relationships.of("private words"),
       queryFn: () => Promise.reject(new Error("db is busy")),
       retry: false,
     });
@@ -98,7 +99,7 @@ describe("query client", () => {
     unsubscribe();
     const line = sent()[0];
     expect(line.level).toBe("error");
-    expect(line.message).toBe("Loading search failed: db is busy");
+    expect(line.message).toBe("Loading relationships failed: db is busy");
     expect(line.message).not.toContain("private");
   });
 

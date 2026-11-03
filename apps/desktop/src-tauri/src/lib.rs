@@ -8,6 +8,7 @@ use tauri::Manager;
 mod backup;
 mod cli;
 mod commands;
+mod crash_report;
 mod db;
 mod dictionary_file;
 mod error;
@@ -344,6 +345,8 @@ pub fn run() {
             commands::ai_apps::list_ai_apps,
             commands::ai_apps::open_agent_dir_in,
             commands::settings_file::open_settings_file,
+            commands::crash_report::latest_crash_report,
+            commands::crash_report::dismiss_crash_report,
             commands::logging::log_frontend,
             commands::logging::open_logs_folder,
         ])
@@ -434,7 +437,11 @@ fn install_panic_hook() {
     std::panic::set_hook(Box::new(move |info| {
         tracing::error!(panic = %info, "Nookly panicked");
         if let Ok(dir) = db::standalone_app_data_dir() {
-            let record = format!("[{}] panic: {}\n", chrono::Utc::now().to_rfc3339(), info);
+            let record = crash_report::record(
+                chrono::Utc::now(),
+                env!("CARGO_PKG_VERSION"),
+                &info.to_string(),
+            );
             let _ =
                 logging::append_capped(&dir.join("crash.log"), &record, logging::CRASH_LOG_LIMIT);
         }

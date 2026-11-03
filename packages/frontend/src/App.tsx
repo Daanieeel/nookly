@@ -20,6 +20,7 @@ import { UnifiedCalendarView } from "#/features/calendar/UnifiedCalendarView.tsx
 import { DashboardView } from "#/features/dashboard/DashboardView.tsx";
 import { PinnedView } from "#/features/dashboard/PinnedView.tsx";
 import { QuickJotDialog } from "#/features/notes/QuickJot.tsx";
+import { CrashReportDialog } from "#/features/crash-report/CrashReportDialog.tsx";
 import { WhatsNewDialog } from "#/features/whats-new/WhatsNewDialog.tsx";
 import { SpellcheckPrompt } from "#/features/spellcheck/SpellcheckPrompt.tsx";
 import { ImportDialog } from "#/features/notes/ImportDialog.tsx";
@@ -135,6 +136,7 @@ function Shell() {
       <NewTaskDialog />
       <QuickAssignmentDialog />
       <WhatsNewDialog />
+      <CrashReportDialog />
       <SpellcheckPrompt />
       <BookmarkSheet />
       <ContextMenuHost />

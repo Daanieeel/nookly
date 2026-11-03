@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.59.0 (2026-11-04)
+
+### Added
+
+- **A report after an unexpected close.** If Nookly closes unexpectedly, the next launch tells you and offers a short report you can read, copy, or open as a GitHub issue. It holds the version, your system and what went wrong, never what you wrote, and nothing is sent unless you send it.
+
 ## 0.58.0 (2026-11-04)
 
 ### Added

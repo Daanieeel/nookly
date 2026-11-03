@@ -7,6 +7,7 @@ pub mod bookmarks;
 pub mod calendar;
 pub mod cli_install;
 pub mod courses;
+pub mod crash_report;
 pub mod decks;
 pub mod entities;
 pub mod exams;

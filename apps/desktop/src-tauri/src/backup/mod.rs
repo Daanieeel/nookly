@@ -91,7 +91,13 @@ fn io_err(e: impl std::fmt::Display) -> AppError {
 fn is_excluded(name: &str) -> bool {
     matches!(
         name,
-        "office-previews" | "crash.log" | "logs" | RESTORE_ERROR_LOG | PENDING_DIR | SAFETY_DIR
+        "office-previews"
+            | "crash.log"
+            | "crash-reported"
+            | "logs"
+            | RESTORE_ERROR_LOG
+            | PENDING_DIR
+            | SAFETY_DIR
     ) || name.ends_with(".tmp")
         || name.ends_with(".partial")
 }
