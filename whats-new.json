@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.59.2",
+      "date": "2026-11-04",
+      "highlights": [],
+      "more": {
+        "Improved": ["Nookly starts quicker and takes less space."]
+      }
+    },
+    {
       "version": "0.59.1",
       "date": "2026-11-04",
       "highlights": [],

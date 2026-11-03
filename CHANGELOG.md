@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.59.2 (2026-11-04)
+
+### Changed
+
+- **Faster start and a smaller app.** Nookly starts quicker and takes less space, because screens and dialogs now load when you first open them.
+
 ## 0.59.1 (2026-11-04)
 
 ### Changed

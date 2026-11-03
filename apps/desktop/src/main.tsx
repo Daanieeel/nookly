@@ -19,13 +19,12 @@ async function start() {
   // preferences because they move old preferences over.
   await initPreferences();
   await initSettings();
-  const [{ default: App }, { initTheme }] = await Promise.all([
+  const [{ default: App, startDeepLinks }, { initTheme }] = await Promise.all([
     import("@nookly/frontend/app"),
     import("@nookly/frontend/lib/theme"),
   ]);
   initTheme();
   // Links that open Nookly (`nookly://open/...`) wait in a queue until the app has mounted.
-  const { startDeepLinks } = await import("@nookly/frontend/lib/deep-link");
   void startDeepLinks();
 
   // SAFETY: index.html always defines #root.

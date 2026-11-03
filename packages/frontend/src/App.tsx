@@ -1,12 +1,10 @@
 import { BookmarkSheet } from "#/features/bookmarks/BookmarkSheet.tsx";
 import { QueryClientProvider } from "@tanstack/react-query";
-import type { CSSProperties } from "react";
+import { type CSSProperties, type ReactNode, Suspense, lazy, useState } from "react";
 import { CommandPalette } from "#/components/command-palette.tsx";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
 import { QuickSwitcher } from "#/components/quick-switcher.tsx";
-import { EntityDetailRouter } from "#/components/entity-detail-router.tsx";
-import { ModuleView } from "#/components/module-view.tsx";
 import { AppSidebar } from "#/components/sidebar.tsx";
 import { OtherGroupButton, SplitView, useSplitShown } from "#/components/split-view.tsx";
 import { TabBar, useTabInteractions } from "#/components/tab-bar.tsx";
@@ -14,26 +12,22 @@ import { Titlebar } from "#/components/titlebar.tsx";
 import { SidebarInset, SidebarProvider } from "@nookly/ui/components/sidebar";
 import { AppToaster } from "#/components/app-toaster.tsx";
 import { TooltipProvider } from "@nookly/ui/components/tooltip";
-import { AssignmentsOverviewView } from "#/features/assignments/AssignmentsOverviewView.tsx";
-import { TasksOverviewView } from "#/features/tasks/TasksOverviewView.tsx";
-import { UnifiedCalendarView } from "#/features/calendar/UnifiedCalendarView.tsx";
 import { DashboardView } from "#/features/dashboard/DashboardView.tsx";
-import { PinnedView } from "#/features/dashboard/PinnedView.tsx";
 import { QuickJotDialog } from "#/features/notes/QuickJot.tsx";
 import { CrashReportDialog } from "#/features/crash-report/CrashReportDialog.tsx";
-import { WhatsNewDialog } from "#/features/whats-new/WhatsNewDialog.tsx";
-import { SpellcheckPrompt } from "#/features/spellcheck/SpellcheckPrompt.tsx";
 import { ImportDialog } from "#/features/notes/ImportDialog.tsx";
+import { SpellcheckPrompt } from "#/features/spellcheck/SpellcheckPrompt.tsx";
 import { NewTaskDialog } from "#/features/tasks/NewTaskDialog.tsx";
-import { QuickAssignmentDialog } from "#/features/assignments/QuickAssignmentDialog.tsx";
-import { SettingsDialog } from "#/features/settings/SettingsDialog.tsx";
 import { useAutoBackup } from "#/features/backup/backup-run.ts";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
-import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
 import { deepLinks, openDeepLink } from "#/lib/deep-link.ts";
+
+// The entry point starts the deep links once the app has loaded; one static import keeps
+// the module in one chunk.
+export { startDeepLinks } from "#/lib/deep-link.ts";
 import { useRefreshBlocksOnRename } from "#/lib/rename-sync.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { type View, useNavStore } from "#/lib/store/nav.ts";
@@ -43,8 +37,64 @@ import "#/context-actions.ts";
 
 const queryClient = createQueryClient();
 
+// The views other than the Dashboard load when they are first opened, so starting Nookly does
+// not read and compile every module's code up front.
+const EntityDetailRouter = lazy(() =>
+  import("#/components/entity-detail-router.tsx").then((m) => ({ default: m.EntityDetailRouter })),
+);
+const ModuleView = lazy(() =>
+  import("#/components/module-view.tsx").then((m) => ({ default: m.ModuleView })),
+);
+const AssignmentsOverviewView = lazy(() =>
+  import("#/features/assignments/AssignmentsOverviewView.tsx").then((m) => ({
+    default: m.AssignmentsOverviewView,
+  })),
+);
+const TasksOverviewView = lazy(() =>
+  import("#/features/tasks/TasksOverviewView.tsx").then((m) => ({ default: m.TasksOverviewView })),
+);
+const UnifiedCalendarView = lazy(() =>
+  import("#/features/calendar/UnifiedCalendarView.tsx").then((m) => ({
+    default: m.UnifiedCalendarView,
+  })),
+);
+const TrashView = lazy(() =>
+  import("#/features/trash/TrashView.tsx").then((m) => ({ default: m.TrashView })),
+);
+const SettingsDialog = lazy(() =>
+  import("#/features/settings/SettingsDialog.tsx").then((m) => ({ default: m.SettingsDialog })),
+);
+const WhatsNewDialog = lazy(() =>
+  import("#/features/whats-new/WhatsNewDialog.tsx").then((m) => ({ default: m.WhatsNewDialog })),
+);
+const QuickAssignmentDialog = lazy(() =>
+  import("#/features/assignments/QuickAssignmentDialog.tsx").then((m) => ({
+    default: m.QuickAssignmentDialog,
+  })),
+);
+
+/// Loads a dialog's code the first time it opens, then keeps it mounted so it can close with
+/// its own animation.
+function OnFirstOpen({ open, children }: { open: boolean; children: ReactNode }) {
+  const [opened, setOpened] = useState(open);
+  if (open && !opened) setOpened(true);
+  return opened ? <Suspense fallback={null}>{children}</Suspense> : null;
+}
+
+const PinnedView = lazy(() =>
+  import("#/features/dashboard/PinnedView.tsx").then((m) => ({ default: m.PinnedView })),
+);
+
 /// A tab group's active view.
 function MainContent({ view }: { view: View }) {
+  return (
+    <Suspense fallback={null}>
+      <ViewSwitch view={view} />
+    </Suspense>
+  );
+}
+
+function ViewSwitch({ view }: { view: View }) {
   switch (view.kind) {
     case "dashboard":
       return <DashboardView />;
@@ -89,6 +139,9 @@ function Shell() {
   // With one group (or no room for two) its tabs sit under the titlebar, while there
   // is more than one tab or another group to switch to. Split, each group has its own.
   const showTabBar = useNavStore((s) => !splitShown && (s.tabs.length > 1 || twoGroups));
+  const settingsOpen = useNavStore((s) => s.settingsOpen);
+  const whatsNewOpen = useNavStore((s) => s.whatsNewOpen);
+  const newAssignmentOpen = useNavStore((s) => s.newAssignmentOpen);
   useTabInteractions();
   useExternalDbChanges();
   useExternalCalendarSync();
@@ -131,11 +184,17 @@ function Shell() {
       <QuickSwitcher />
       <CommandsPalette />
       <QuickJotDialog />
-      <SettingsDialog />
+      <OnFirstOpen open={settingsOpen}>
+        <SettingsDialog />
+      </OnFirstOpen>
       <ImportDialog />
       <NewTaskDialog />
-      <QuickAssignmentDialog />
-      <WhatsNewDialog />
+      <OnFirstOpen open={newAssignmentOpen}>
+        <QuickAssignmentDialog />
+      </OnFirstOpen>
+      <OnFirstOpen open={whatsNewOpen}>
+        <WhatsNewDialog />
+      </OnFirstOpen>
       <CrashReportDialog />
       <SpellcheckPrompt />
       <BookmarkSheet />
