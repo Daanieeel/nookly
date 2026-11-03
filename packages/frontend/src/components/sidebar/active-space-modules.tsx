@@ -233,7 +233,7 @@ function ModuleRow({
           tooltip={MODULE_LABELS[moduleKey]}
           isActive={active}
           onClick={onNavigate}
-          className={expandable ? "pr-7" : undefined}
+          className={cn("pl-6", expandable && "pr-7")}
         >
           <Icon />
           <span className="truncate">{MODULE_LABELS[moduleKey]}</span>

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.57.1 (2026-11-03)
+
+### Fixed
+
+- **Module names in the sidebar.** The icon and name of each module no longer sit on top of the handle you drag to reorder them.
+
 ## 0.57.0 (2026-11-01)
 
 ### Added

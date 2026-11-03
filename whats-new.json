@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.57.1",
+      "date": "2026-11-03",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The icon and name of each module in the sidebar no longer cover the handle you drag to reorder them."
+        ]
+      }
+    },
+    {
       "version": "0.57.0",
       "date": "2026-11-01",
       "title": "A calmer sidebar",
