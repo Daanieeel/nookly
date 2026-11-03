@@ -109,7 +109,7 @@ export function SpaceFormDialog({
 }
 
 /// The Space icon picker, tinted with the Space's current color.
-export function SpaceIconField({
+function SpaceIconField({
   icon,
   color,
   onChange,
@@ -145,7 +145,7 @@ export function SpaceIconField({
 }
 
 /// The row of color swatches for a Space.
-export function SpaceColorField({
+function SpaceColorField({
   colors,
   value,
   onChange,

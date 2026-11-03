@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.59.1 (2026-11-04)
+
+### Changed
+
+- **Smaller, tidier app.** Behind the scenes cleanup, nothing looks different.
+
 ## 0.59.0 (2026-11-04)
 
 ### Added

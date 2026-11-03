@@ -9,7 +9,7 @@ const LIST_ITEMS = new Set(["listItem", "taskItem"]);
 /// A line is a line of text in a code block, and otherwise the whole text block: a
 /// paragraph, a heading, a list entry or a task (with its checked state). The change is one
 /// transaction, so a single undo removes the copy.
-export function duplicateLine(state: EditorState): Transaction | null {
+function duplicateLine(state: EditorState): Transaction | null {
   const { selection } = state;
   if (!(selection instanceof TextSelection)) return null;
   const { $head } = selection;

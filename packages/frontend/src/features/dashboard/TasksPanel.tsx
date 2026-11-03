@@ -1,24 +1,20 @@
 import { IconMoodSmile, IconTargetArrow } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { entityTarget } from "#/components/context-menu/registry.ts";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import { sortStatuses, statusKind } from "#/features/tasks/task-model.ts";
 import { listTaskStatuses, listTasksAll } from "#/lib/api/tasks.ts";
 import type { Space, Task, TaskStatus } from "#/lib/api/types.ts";
-import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { requestFilters } from "#/features/views/pending-filters.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { cn } from "@nookly/ui/lib/utils";
 import { dueText } from "./AssignmentsPanel";
-import { SpaceChip } from "#/components/space-chip.tsx";
 import {
   EmptyRow,
+  EntityRow,
   useSpaceById,
   LIST_LIMIT,
-  Row,
   RowList,
   ShowMore,
   TabbedPanel,
@@ -41,13 +37,12 @@ function TaskRow({
   statuses: TaskStatus[];
   space: Space | undefined;
 }) {
-  const openEntity = useNavStore((s) => s.openEntity);
   const { entity } = task;
   const status = statuses.find((s) => s.id === task.statusId);
   const due = task.dueDate ? dueText(task.dueDate.slice(0, 10)) : null;
   return (
-    <Row
-      entityKey={entity.key}
+    <EntityRow
+      entity={entity}
       icon={
         status ? (
           <TaskStatusIcon status={status} kind={statusKind(status, statuses)} />
@@ -55,17 +50,9 @@ function TaskRow({
           <IconTargetArrow size={14} />
         )
       }
-      onClick={() => openEntity(entity.id, entity.spaceId)}
-      {...entityTarget(entity)}
-      meta={
-        <>
-          {space && <SpaceChip space={space} />}
-          {due && <span className={cn(due.overdue && "text-destructive")}>{due.text}</span>}
-        </>
-      }
-    >
-      <span className="truncate">{displayTitle(entity)}</span>
-    </Row>
+      space={space}
+      due={due}
+    />
   );
 }
 

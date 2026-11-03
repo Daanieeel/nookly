@@ -171,6 +171,26 @@ pub fn test_space(conn: &Connection, name: &str) -> spaces::Space {
     spaces::create_space(conn, name.into(), None, "#000".into()).unwrap()
 }
 
+/// A database with two Spaces, for the unit tests that check an import stays in its own Space.
+#[cfg(test)]
+pub struct Fixture {
+    pub conn: Connection,
+    pub space: String,
+    pub other_space: String,
+}
+
+#[cfg(test)]
+pub fn fixture() -> Fixture {
+    let conn = test_conn();
+    let space = spaces::create_space(&conn, "A".into(), None, "#000".into()).unwrap();
+    let other = spaces::create_space(&conn, "B".into(), None, "#111".into()).unwrap();
+    Fixture {
+        conn,
+        space: space.id,
+        other_space: other.id,
+    }
+}
+
 /// A space with one course in it, for unit tests.
 #[cfg(test)]
 pub fn test_space_with_course(

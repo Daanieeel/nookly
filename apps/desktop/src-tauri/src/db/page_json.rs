@@ -274,25 +274,7 @@ fn is_known_type(block_type: &str) -> bool {
 mod tests {
     use super::*;
     use crate::db::notes::{create_block_with_attrs, list_blocks};
-
-    struct Fixture {
-        conn: Connection,
-        space: String,
-        other_space: String,
-    }
-
-    fn fixture() -> Fixture {
-        let conn = crate::db::test_conn();
-        let space =
-            crate::db::spaces::create_space(&conn, "A".into(), None, "#000".into()).unwrap();
-        let other =
-            crate::db::spaces::create_space(&conn, "B".into(), None, "#111".into()).unwrap();
-        Fixture {
-            conn,
-            space: space.id,
-            other_space: other.id,
-        }
-    }
+    use crate::db::{fixture, Fixture};
 
     fn add(fx: &Fixture, page: &str, block_type: &str, content: &str, attrs: &[(&str, &str)]) {
         create_block_with_attrs(

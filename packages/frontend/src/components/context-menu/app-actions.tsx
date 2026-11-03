@@ -18,7 +18,7 @@ declare module "./registry" {
   }
 }
 
-export interface ModuleViewTarget {
+interface ModuleViewTarget {
   spaceId: string;
   createLabel?: string;
   create?: () => void;

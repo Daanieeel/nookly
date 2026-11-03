@@ -153,7 +153,7 @@ export const GRADE_FILTER: { id: string; label: string }[] = [
 
 export { validSubGrouping } from "#/lib/display-options.ts";
 
-export type Layout = "list" | "board";
+type Layout = "list" | "board";
 export type Grouping =
   | "deadline"
   | "created"
