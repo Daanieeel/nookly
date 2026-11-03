@@ -128,3 +128,51 @@ fn perf_baseline() {
         "SELECT * FROM relationships WHERE from_entity_id = 'x' OR to_entity_id = 'x'",
     );
 }
+
+/// One writer (the app) and one reader (the CLI) on the same file, in each journal mode:
+/// how long the reader waits while the writer saves a Task per transaction.
+///
+/// `cargo test --release --lib perf_wal_contention -- --ignored --nocapture`
+#[test]
+#[ignore = "a benchmark, run by hand"]
+fn perf_wal_contention() {
+    for mode in ["DELETE", "WAL"] {
+        let dir = std::env::temp_dir().join(format!("nookly-wal-bench-{}", new_id()));
+        let writer = connect(&dir).unwrap();
+        writer
+            .query_row(&format!("PRAGMA journal_mode = {mode}"), [], |_| Ok(()))
+            .unwrap();
+        let space = test_space(&writer, "S").id;
+        for n in 0..5_000 {
+            tasks::create_task(&writer, space.clone(), format!("T{n}"), None, None).unwrap();
+        }
+        let reader = connect(&dir).unwrap();
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
+        let read_thread = std::thread::spawn(move || {
+            let mut slowest = 0.0f64;
+            let mut reads = 0u32;
+            let mut failed = 0u32;
+            while !flag.load(std::sync::atomic::Ordering::Relaxed) {
+                let start = Instant::now();
+                match entities::list_entities(&reader, None, false) {
+                    Ok(_) => reads += 1,
+                    Err(_) => failed += 1,
+                }
+                slowest = slowest.max(start.elapsed().as_secs_f64() * 1000.0);
+            }
+            (reads, failed, slowest)
+        });
+        let start = Instant::now();
+        for n in 0..500 {
+            tasks::create_task(&writer, space.clone(), format!("W{n}"), None, None).unwrap();
+        }
+        let write_ms = start.elapsed().as_secs_f64() * 1000.0;
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        let (reads, failed, slowest) = read_thread.join().unwrap();
+        println!(
+            "{mode:<7} 500 writes {write_ms:>8.0} ms | reader: {reads} reads, {failed} failed, slowest {slowest:>7.1} ms"
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}
