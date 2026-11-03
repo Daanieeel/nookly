@@ -18,7 +18,10 @@ pub fn create_study_block(
 }
 
 #[tauri::command]
-pub fn list_study_blocks(state: State<DbState>, space_id: String) -> AppResult<Vec<StudyBlock>> {
+pub async fn list_study_blocks(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<StudyBlock>> {
     let conn = state.conn()?;
     study_blocks::list_study_blocks(&conn, &space_id)
 }

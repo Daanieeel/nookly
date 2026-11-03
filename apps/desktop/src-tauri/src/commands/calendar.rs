@@ -85,8 +85,8 @@ pub fn override_calendar_entry_occurrence(
 }
 
 #[tauri::command]
-pub fn list_calendar_entries(
-    state: State<DbState>,
+pub async fn list_calendar_entries(
+    state: State<'_, DbState>,
     space_id: String,
 ) -> AppResult<Vec<CalendarEntry>> {
     let conn = state.conn()?;
@@ -95,14 +95,14 @@ pub fn list_calendar_entries(
 
 /// Every calendar entry across every Space, for the unified cross-Space Calendar page.
 #[tauri::command]
-pub fn list_calendar_entries_all(state: State<DbState>) -> AppResult<Vec<CalendarEntry>> {
+pub async fn list_calendar_entries_all(state: State<'_, DbState>) -> AppResult<Vec<CalendarEntry>> {
     let conn = state.conn()?;
     calendar::list_calendar_entries(&conn, None)
 }
 
 #[tauri::command]
-pub fn list_calendar_entry_templates(
-    state: State<DbState>,
+pub async fn list_calendar_entry_templates(
+    state: State<'_, DbState>,
     space_id: String,
 ) -> AppResult<Vec<CalendarEntryTemplate>> {
     let conn = state.conn()?;

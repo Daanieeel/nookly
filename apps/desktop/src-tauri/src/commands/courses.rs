@@ -12,7 +12,7 @@ pub fn create_course(state: State<DbState>, space_id: String, title: String) -> 
 }
 
 #[tauri::command]
-pub fn list_courses(state: State<DbState>, space_id: String) -> AppResult<Vec<Entity>> {
+pub async fn list_courses(state: State<'_, DbState>, space_id: String) -> AppResult<Vec<Entity>> {
     let conn = state.conn()?;
     courses::list_courses(&conn, &space_id)
 }
@@ -34,7 +34,10 @@ pub fn create_semester(
 }
 
 #[tauri::command]
-pub fn list_semesters(state: State<DbState>, space_id: String) -> AppResult<Vec<Semester>> {
+pub async fn list_semesters(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<Semester>> {
     let conn = state.conn()?;
     courses::list_semesters(&conn, &space_id)
 }
@@ -101,13 +104,19 @@ pub fn get_semester_notes(state: State<DbState>, semester_id: String) -> AppResu
 }
 
 #[tauri::command]
-pub fn get_course_grades(state: State<DbState>, course_id: String) -> AppResult<CourseGrades> {
+pub async fn get_course_grades(
+    state: State<'_, DbState>,
+    course_id: String,
+) -> AppResult<CourseGrades> {
     let conn = state.conn()?;
     courses::get_course_grades(&conn, &course_id)
 }
 
 #[tauri::command]
-pub fn get_course_details(state: State<DbState>, course_id: String) -> AppResult<CourseDetails> {
+pub async fn get_course_details(
+    state: State<'_, DbState>,
+    course_id: String,
+) -> AppResult<CourseDetails> {
     let conn = state.conn()?;
     courses::get_course_details(&conn, &course_id)
 }
@@ -123,7 +132,10 @@ pub fn update_course_professor(
 }
 
 #[tauri::command]
-pub fn get_grade_report(state: State<DbState>, space_id: String) -> AppResult<GradeReport> {
+pub async fn get_grade_report(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<GradeReport> {
     let conn = state.conn()?;
     get_report(&conn, &space_id)
 }

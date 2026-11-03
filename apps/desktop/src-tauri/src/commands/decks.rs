@@ -16,19 +16,24 @@ pub fn create_deck(
 }
 
 #[tauri::command]
-pub fn list_decks(state: State<DbState>, space_id: String) -> AppResult<Vec<Entity>> {
+pub async fn list_decks(state: State<'_, DbState>, space_id: String) -> AppResult<Vec<Entity>> {
     let conn = state.conn()?;
     decks::list_decks(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_deck_summaries(state: State<DbState>, space_id: String) -> AppResult<Vec<DeckSummary>> {
+pub async fn list_deck_summaries(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<DeckSummary>> {
     let conn = state.conn()?;
     decks::list_deck_summaries(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_deck_summaries_all_spaces(state: State<DbState>) -> AppResult<Vec<DeckSummary>> {
+pub async fn list_deck_summaries_all_spaces(
+    state: State<'_, DbState>,
+) -> AppResult<Vec<DeckSummary>> {
     let conn = state.conn()?;
     decks::list_deck_summaries_all_spaces(&conn)
 }
@@ -84,7 +89,10 @@ pub fn restore_card(state: State<DbState>, card_id: String) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn list_cards(state: State<DbState>, deck_entity_id: String) -> AppResult<Vec<IndexCard>> {
+pub async fn list_cards(
+    state: State<'_, DbState>,
+    deck_entity_id: String,
+) -> AppResult<Vec<IndexCard>> {
     let conn = state.conn()?;
     decks::list_cards(&conn, &deck_entity_id, false)
 }

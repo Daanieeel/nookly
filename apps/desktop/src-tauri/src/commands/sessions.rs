@@ -72,27 +72,30 @@ pub fn override_occurrence(
 }
 
 #[tauri::command]
-pub fn list_sessions(state: State<DbState>, space_id: String) -> AppResult<Vec<SessionOccurrence>> {
+pub async fn list_sessions(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<SessionOccurrence>> {
     let conn = state.conn()?;
     sessions::list_sessions(&conn, Some(&space_id))
 }
 
 /// Every Session across every Space, for the unified cross-Space Calendar page.
 #[tauri::command]
-pub fn list_sessions_all(state: State<DbState>) -> AppResult<Vec<SessionOccurrence>> {
+pub async fn list_sessions_all(state: State<'_, DbState>) -> AppResult<Vec<SessionOccurrence>> {
     let conn = state.conn()?;
     sessions::list_sessions(&conn, None)
 }
 
 #[tauri::command]
-pub fn list_sessions_today(state: State<DbState>) -> AppResult<Vec<BriefingSession>> {
+pub async fn list_sessions_today(state: State<'_, DbState>) -> AppResult<Vec<BriefingSession>> {
     let conn = state.conn()?;
     sessions::list_sessions_today(&conn)
 }
 
 #[tauri::command]
-pub fn list_sessions_between(
-    state: State<DbState>,
+pub async fn list_sessions_between(
+    state: State<'_, DbState>,
     from: String,
     to: String,
 ) -> AppResult<Vec<BriefingSession>> {
@@ -129,7 +132,10 @@ pub fn delete_session_series(
 }
 
 #[tauri::command]
-pub fn get_session_pages(state: State<DbState>, session_id: String) -> AppResult<SessionPages> {
+pub async fn get_session_pages(
+    state: State<'_, DbState>,
+    session_id: String,
+) -> AppResult<SessionPages> {
     let conn = state.conn()?;
     sessions::get_session_pages(&conn, &session_id)
 }

@@ -17,8 +17,8 @@ pub fn create_view(
 }
 
 #[tauri::command]
-pub fn list_views(
-    state: State<DbState>,
+pub async fn list_views(
+    state: State<'_, DbState>,
     space_id: String,
     module: Option<String>,
 ) -> AppResult<Vec<View>> {
@@ -49,7 +49,7 @@ pub fn reorder_overview_views(
 }
 
 #[tauri::command]
-pub fn get_view(state: State<DbState>, entity_id: String) -> AppResult<View> {
+pub async fn get_view(state: State<'_, DbState>, entity_id: String) -> AppResult<View> {
     let conn = state.conn()?;
     views::get_view(&conn, &entity_id)
 }

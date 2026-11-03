@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.59.3 (2026-11-04)
+
+### Changed
+
+- **Smoother when working with a lot of data.** Lists and searches no longer hold up the rest of the window, and Nookly no longer reloads everything each time you switch back to it.
+
 ## 0.59.2 (2026-11-04)
 
 ### Changed

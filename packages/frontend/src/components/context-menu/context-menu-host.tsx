@@ -45,6 +45,7 @@ import {
   type MenuSubItem,
 } from "./registry";
 import { captureTextTarget, editableAt, type TextTarget } from "./text-actions";
+import { refreshDatabaseData } from "#/lib/refresh-data.ts";
 
 interface OpenMenu {
   id: number;
@@ -231,7 +232,7 @@ export function ContextMenuHost() {
         pendingOverlayRef.current = { kind: "popover", render };
         setOpen(false);
       },
-      refresh: () => queryClient.invalidateQueries(),
+      refresh: () => refreshDatabaseData(queryClient),
     }),
     [queryClient],
   );

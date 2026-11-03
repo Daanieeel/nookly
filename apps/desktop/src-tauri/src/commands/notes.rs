@@ -19,20 +19,20 @@ pub fn create_jot(state: State<DbState>, space_id: String, title: String) -> App
 }
 
 #[tauri::command]
-pub fn count_unrefined_jots(state: State<DbState>, space_id: String) -> AppResult<i64> {
+pub async fn count_unrefined_jots(state: State<'_, DbState>, space_id: String) -> AppResult<i64> {
     let conn = state.conn()?;
     notes::count_unrefined_jots(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn count_unrefined_jots_all_spaces(state: State<DbState>) -> AppResult<i64> {
+pub async fn count_unrefined_jots_all_spaces(state: State<'_, DbState>) -> AppResult<i64> {
     let conn = state.conn()?;
     notes::count_unrefined_jots_all_spaces(&conn)
 }
 
 #[tauri::command]
-pub fn list_unrefined_jots_all_spaces(
-    state: State<DbState>,
+pub async fn list_unrefined_jots_all_spaces(
+    state: State<'_, DbState>,
     limit: i64,
 ) -> AppResult<Vec<PageSummary>> {
     let conn = state.conn()?;
@@ -40,8 +40,8 @@ pub fn list_unrefined_jots_all_spaces(
 }
 
 #[tauri::command]
-pub fn list_recent_notes(
-    state: State<DbState>,
+pub async fn list_recent_notes(
+    state: State<'_, DbState>,
     space_id: String,
     limit: i64,
 ) -> AppResult<Vec<Entity>> {
@@ -50,26 +50,32 @@ pub fn list_recent_notes(
 }
 
 #[tauri::command]
-pub fn list_note_summaries(state: State<DbState>, space_id: String) -> AppResult<Vec<PageSummary>> {
+pub async fn list_note_summaries(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<PageSummary>> {
     let conn = state.conn()?;
     notes::list_note_summaries(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_jot_summaries(state: State<DbState>, space_id: String) -> AppResult<Vec<PageSummary>> {
+pub async fn list_jot_summaries(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<PageSummary>> {
     let conn = state.conn()?;
     notes::list_jot_summaries(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_blocks(state: State<DbState>, entity_id: String) -> AppResult<Vec<Block>> {
+pub async fn list_blocks(state: State<'_, DbState>, entity_id: String) -> AppResult<Vec<Block>> {
     let conn = state.conn()?;
     notes::list_blocks(&conn, &entity_id)
 }
 
 #[tauri::command]
-pub fn list_mentioning_entities(
-    state: State<DbState>,
+pub async fn list_mentioning_entities(
+    state: State<'_, DbState>,
     entity_id: String,
 ) -> AppResult<Vec<Entity>> {
     let conn = state.conn()?;
@@ -186,8 +192,8 @@ pub fn write_page_export(request: tauri::ipc::Request<'_>) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn get_note_code_language(
-    state: State<DbState>,
+pub async fn get_note_code_language(
+    state: State<'_, DbState>,
     entity_id: String,
 ) -> AppResult<Option<String>> {
     let conn = state.conn()?;

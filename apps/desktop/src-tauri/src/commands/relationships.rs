@@ -24,8 +24,8 @@ pub fn create_relationship(
 }
 
 #[tauri::command]
-pub fn list_relationships(
-    state: State<DbState>,
+pub async fn list_relationships(
+    state: State<'_, DbState>,
     entity_id: String,
     direction: String,
 ) -> AppResult<Vec<Relationship>> {

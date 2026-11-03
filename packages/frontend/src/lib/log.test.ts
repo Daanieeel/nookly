@@ -85,6 +85,18 @@ describe("global error logging", () => {
 });
 
 describe("query client", () => {
+  it("refetches on focus only what lives outside the database", () => {
+    const client = createQueryClient();
+    const onFocus = (key: readonly unknown[]) =>
+      client.defaultQueryOptions({ queryKey: key }).refetchOnWindowFocus;
+    expect(onFocus(qk.tasks.all)).toBe(false);
+    expect(onFocus(qk.spaces)).toBe(false);
+    expect(onFocus(qk.agentFiles.file("AGENTS.md"))).toBe(true);
+    expect(onFocus(qk.backups.inFolder("/b"))).toBe(true);
+    expect(onFocus(qk.externalCalendars.eventsBetween("a", "b"))).toBe(true);
+    expect(onFocus(qk.localFile("/a/b.png"))).toBe(true);
+  });
+
   it("logs a failed query by name, without the rest of its key", async () => {
     mockCommand("log_frontend", null);
     vi.spyOn(console, "error").mockImplementation(() => {});

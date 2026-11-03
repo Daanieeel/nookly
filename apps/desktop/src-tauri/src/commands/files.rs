@@ -179,9 +179,9 @@ fn allow_reference(app: &AppHandle, file: &FileEntity) {
 }
 
 #[tauri::command]
-pub fn list_files(
+pub async fn list_files(
     app: AppHandle,
-    state: State<DbState>,
+    state: State<'_, DbState>,
     space_id: String,
 ) -> AppResult<Vec<FileEntity>> {
     let conn = state.conn()?;
@@ -246,7 +246,11 @@ pub async fn reindex_missing_files(
 }
 
 #[tauri::command]
-pub fn get_file(app: AppHandle, state: State<DbState>, entity_id: String) -> AppResult<FileEntity> {
+pub async fn get_file(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    entity_id: String,
+) -> AppResult<FileEntity> {
     let conn = state.conn()?;
     let file = files::get_file(&conn, &entity_id)?;
     allow_reference(&app, &file);

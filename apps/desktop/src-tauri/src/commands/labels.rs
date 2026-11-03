@@ -16,7 +16,7 @@ pub fn create_label(
 }
 
 #[tauri::command]
-pub fn list_labels(state: State<DbState>, space_id: String) -> AppResult<Vec<Label>> {
+pub async fn list_labels(state: State<'_, DbState>, space_id: String) -> AppResult<Vec<Label>> {
     let conn = state.conn()?;
     labels::list_labels(&conn, &space_id)
 }
@@ -51,14 +51,17 @@ pub fn detach_label(state: State<DbState>, entity_id: String, label_id: String) 
 }
 
 #[tauri::command]
-pub fn list_labels_for_entity(state: State<DbState>, entity_id: String) -> AppResult<Vec<Label>> {
+pub async fn list_labels_for_entity(
+    state: State<'_, DbState>,
+    entity_id: String,
+) -> AppResult<Vec<Label>> {
     let conn = state.conn()?;
     labels::list_labels_for_entity(&conn, &entity_id)
 }
 
 #[tauri::command]
-pub fn list_entity_label_ids(
-    state: State<DbState>,
+pub async fn list_entity_label_ids(
+    state: State<'_, DbState>,
     space_id: String,
 ) -> AppResult<HashMap<String, Vec<String>>> {
     let conn = state.conn()?;

@@ -17,13 +17,13 @@ pub fn create_exam(
 }
 
 #[tauri::command]
-pub fn list_exams(state: State<DbState>, space_id: String) -> AppResult<Vec<Exam>> {
+pub async fn list_exams(state: State<'_, DbState>, space_id: String) -> AppResult<Vec<Exam>> {
     let conn = state.conn()?;
     exams::list_exams(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_exams_all_spaces(state: State<DbState>) -> AppResult<Vec<Exam>> {
+pub async fn list_exams_all_spaces(state: State<'_, DbState>) -> AppResult<Vec<Exam>> {
     let conn = state.conn()?;
     exams::list_exams_all_spaces(&conn)
 }

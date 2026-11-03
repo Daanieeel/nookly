@@ -16,8 +16,8 @@ pub fn create_entity(
 }
 
 #[tauri::command]
-pub fn list_entities(
-    state: State<DbState>,
+pub async fn list_entities(
+    state: State<'_, DbState>,
     space_id: Option<String>,
     include_deleted: bool,
 ) -> AppResult<Vec<Entity>> {
@@ -32,7 +32,7 @@ pub fn update_entity(state: State<DbState>, id: String, patch: EntityPatch) -> A
 }
 
 #[tauri::command]
-pub fn get_entity(state: State<DbState>, id: String) -> AppResult<Entity> {
+pub async fn get_entity(state: State<'_, DbState>, id: String) -> AppResult<Entity> {
     let conn = state.conn()?;
     // A mention written with its readable key (`JOT-12`) asks by key.
     let id = entities::resolve_entity_ref(&conn, &id)?;

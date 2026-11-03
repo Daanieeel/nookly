@@ -15,7 +15,7 @@ pub fn create_space(
 }
 
 #[tauri::command]
-pub fn list_spaces(state: State<DbState>) -> AppResult<Vec<Space>> {
+pub async fn list_spaces(state: State<'_, DbState>) -> AppResult<Vec<Space>> {
     let conn = state.conn()?;
     spaces::list_spaces(&conn)
 }
@@ -39,7 +39,10 @@ pub fn reorder_spaces(state: State<DbState>, ordered_ids: Vec<String>) -> AppRes
 }
 
 #[tauri::command]
-pub fn list_space_modules(state: State<DbState>, space_id: String) -> AppResult<Vec<String>> {
+pub async fn list_space_modules(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<String>> {
     let conn = state.conn()?;
     space_modules::list_space_modules(&conn, &space_id)
 }

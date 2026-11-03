@@ -21,13 +21,16 @@ pub fn create_recipe(state: State<DbState>, space_id: String, title: String) -> 
 }
 
 #[tauri::command]
-pub fn list_recipes(state: State<DbState>, space_id: String) -> AppResult<Vec<RecipeEntity>> {
+pub async fn list_recipes(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<RecipeEntity>> {
     let conn = state.conn()?;
     recipes::list_recipes(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn get_recipe(state: State<DbState>, entity_id: String) -> AppResult<RecipeEntity> {
+pub async fn get_recipe(state: State<'_, DbState>, entity_id: String) -> AppResult<RecipeEntity> {
     let conn = state.conn()?;
     recipes::get_recipe(&conn, &entity_id)
 }
@@ -59,7 +62,7 @@ pub fn update_recipe_duration(
 /// The whole recipe-tag catalog (global, fixed, not per-Space), for the
 /// tags multi-select control.
 #[tauri::command]
-pub fn list_recipe_tags(state: State<DbState>) -> AppResult<Vec<RecipeTag>> {
+pub async fn list_recipe_tags(state: State<'_, DbState>) -> AppResult<Vec<RecipeTag>> {
     let conn = state.conn()?;
     recipes::list_recipe_tags(&conn)
 }
@@ -94,7 +97,10 @@ pub fn set_recipe_banner(
 }
 
 #[tauri::command]
-pub fn list_ingredients(state: State<DbState>, recipe_id: String) -> AppResult<Vec<Ingredient>> {
+pub async fn list_ingredients(
+    state: State<'_, DbState>,
+    recipe_id: String,
+) -> AppResult<Vec<Ingredient>> {
     let conn = state.conn()?;
     recipes::list_ingredients(&conn, &recipe_id, false)
 }
@@ -137,7 +143,7 @@ pub fn delete_ingredient(state: State<DbState>, ingredient_id: String) -> AppRes
 }
 
 #[tauri::command]
-pub fn list_steps(state: State<DbState>, recipe_id: String) -> AppResult<Vec<Step>> {
+pub async fn list_steps(state: State<'_, DbState>, recipe_id: String) -> AppResult<Vec<Step>> {
     let conn = state.conn()?;
     recipes::list_steps(&conn, &recipe_id, false)
 }

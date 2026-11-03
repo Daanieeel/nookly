@@ -6,8 +6,8 @@ use tauri::State;
 /// Deliberately not Space-scoped by default (§6) — pass `space_id` only for an
 /// in-Space search UI, never as the default behavior for the global Cmd+K search.
 #[tauri::command]
-pub fn search(
-    state: State<DbState>,
+pub async fn search(
+    state: State<'_, DbState>,
     query: String,
     space_id: Option<String>,
 ) -> AppResult<Vec<SearchHit>> {
@@ -17,7 +17,7 @@ pub fn search(
 
 /// Notes pages rendered inline on another entity's page (Course/Semester Notes).
 #[tauri::command]
-pub fn list_embedded_page_ids(state: State<DbState>) -> AppResult<Vec<String>> {
+pub async fn list_embedded_page_ids(state: State<'_, DbState>) -> AppResult<Vec<String>> {
     let conn = state.conn()?;
     search::list_embedded_page_ids(&conn)
 }

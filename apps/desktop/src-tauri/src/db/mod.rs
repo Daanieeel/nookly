@@ -38,6 +38,8 @@ pub mod notes;
 mod ocr;
 mod office_text;
 pub mod page_json;
+#[cfg(test)]
+mod perf_baseline;
 pub mod portable;
 pub mod recipes;
 #[cfg(test)]
@@ -285,7 +287,9 @@ fn watch_external_changes(app: tauri::AppHandle) {
         loop {
             std::thread::sleep(EXTERNAL_CHANGE_POLL);
             let state = app.state::<DbState>();
-            let version = match state.0.lock() {
+            // Never waits for a command that is using the connection: a busy tick is skipped
+            // and the next one reads the same counter.
+            let version = match state.0.try_lock() {
                 Ok(conn) => conn
                     .query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0))
                     .ok(),

@@ -57,13 +57,16 @@ fn create_due(
 }
 
 #[tauri::command]
-pub fn list_assignments(state: State<DbState>, space_id: String) -> AppResult<Vec<Assignment>> {
+pub async fn list_assignments(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<Assignment>> {
     let conn = state.conn()?;
     assignments::list_assignments(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_assignments_all_spaces(state: State<DbState>) -> AppResult<Vec<Assignment>> {
+pub async fn list_assignments_all_spaces(state: State<'_, DbState>) -> AppResult<Vec<Assignment>> {
     let conn = state.conn()?;
     assignments::list_assignments_all_spaces(&conn)
 }
