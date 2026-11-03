@@ -1,4 +1,4 @@
-import type { QueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { notify } from "#/components/notify.tsx";
 import { moodleFinishLogin } from "#/lib/api/moodle.ts";
@@ -19,16 +19,34 @@ export function messageOf(error: { message: string }): string {
   return error.message;
 }
 
+/// Where the sign in stands once a link has reached the app. It is kept on the Connect page,
+/// because the person is in the browser when this happens and a toast would be gone by the
+/// time they are back.
+export type SignInState = { kind: "finishing" } | { kind: "failed"; message: string } | null;
+
+export function useSignInState(): SignInState {
+  const { data } = useQuery<SignInState>({
+    queryKey: qk.moodle.signIn,
+    queryFn: () => null,
+    enabled: false,
+    initialData: null,
+  });
+  return data;
+}
+
 export async function completeMoodleLogin(queryClient: QueryClient, callback: string) {
+  const setState = (state: SignInState) => queryClient.setQueryData(qk.moodle.signIn, state);
+  setState({ kind: "finishing" });
   try {
     const status = await moodleFinishLogin(callback);
+    setState(null);
     await queryClient.invalidateQueries({ queryKey: qk.moodle.root });
     notify.success("Moodle connected", { description: status.siteName ?? undefined });
   } catch (error) {
-    notify.caution("Couldn't connect Moodle", {
-      description: messageOf(
-        backendError.safeParse(error).data ?? { message: "Something went wrong." },
-      ),
-    });
+    const message = messageOf(
+      backendError.safeParse(error).data ?? { message: "Something went wrong." },
+    );
+    setState({ kind: "failed", message });
+    notify.caution("Couldn't connect Moodle", { description: message });
   }
 }

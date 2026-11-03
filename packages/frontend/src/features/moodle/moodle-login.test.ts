@@ -4,6 +4,8 @@ import { qk } from "#/lib/query-keys.ts";
 import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { completeMoodleLogin, isMoodleCallback } from "./moodle-login.ts";
 
+const signInState = (queryClient: QueryClient) => queryClient.getQueryData(qk.moodle.signIn);
+
 describe("isMoodleCallback", () => {
   it("recognizes only the sign in link", () => {
     expect(isMoodleCallback("nookly://token=YWJj")).toBe(true);
@@ -50,5 +52,33 @@ describe("completeMoodleLogin", () => {
     queryClient.setQueryData(qk.moodle.status, { ...status, connected: false });
     await completeMoodleLogin(queryClient, "nookly://token=evil");
     expect(queryClient.getQueryState(qk.moodle.status)?.isInvalidated).toBe(false);
+  });
+
+  it("keeps the reason on the page, where a toast that came and went is not missed", async () => {
+    mockCommandWith("moodle_finish_login", () => {
+      throw {
+        kind: "Remote",
+        message: "No Moodle sign in is waiting. Start it again from Nookly.",
+      };
+    });
+    const queryClient = new QueryClient();
+    await completeMoodleLogin(queryClient, "nookly://token=evil");
+    expect(signInState(queryClient)).toEqual({
+      kind: "failed",
+      message: "No Moodle sign in is waiting. Start it again from Nookly.",
+    });
+  });
+
+  it("says it is finishing while the app talks to Moodle, and forgets a failure once it works", async () => {
+    let during: unknown = "unset";
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(qk.moodle.signIn, { kind: "failed", message: "old" });
+    mockCommandWith("moodle_finish_login", () => {
+      during = signInState(queryClient);
+      return status;
+    });
+    await completeMoodleLogin(queryClient, "nookly://token=YWJj");
+    expect(during).toEqual({ kind: "finishing" });
+    expect(signInState(queryClient)).toBeNull();
   });
 });

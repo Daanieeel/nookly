@@ -419,6 +419,16 @@ pub fn run() {
             if let tauri::RunEvent::Ready = _event {
                 set_dev_dock_icon();
             }
+            // A link that opens Nookly (the Moodle sign in comes back this way) may arrive while
+            // the browser has the focus, and the result is shown in the window.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { .. } = _event {
+                if let Some(window) = _app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
         });
 }
 

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
@@ -110,6 +110,31 @@ describe("connecting", () => {
     await waitFor(() =>
       expect(callsOf("moodle_finish_login")).toEqual([{ callback: "nookly://token=abc" }]),
     );
+  });
+});
+
+describe("a sign in link that reached the app", () => {
+  it("shows why it failed on the page, not only in a toast", async () => {
+    mockCommand("moodle_status", { ...connected, connected: false, siteUrl: null });
+    const { queryClient } = open();
+    await screen.findByLabelText(/Moodle address/);
+    act(() => {
+      queryClient.setQueryData(qk.moodle.signIn, {
+        kind: "failed",
+        message: "No Moodle sign in is waiting. Start it again from Nookly.",
+      });
+    });
+    expect(await screen.findByText(/No Moodle sign in is waiting/)).toBeTruthy();
+  });
+
+  it("says it is finishing the sign in", async () => {
+    mockCommand("moodle_status", { ...connected, connected: false, siteUrl: null });
+    const { queryClient } = open();
+    await screen.findByLabelText(/Moodle address/);
+    act(() => {
+      queryClient.setQueryData(qk.moodle.signIn, { kind: "finishing" });
+    });
+    expect(await screen.findByText("Finishing the sign in...")).toBeTruthy();
   });
 });
 

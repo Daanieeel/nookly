@@ -82,6 +82,7 @@ export const qk = {
   moodle: {
     root: ["moodle"] as const,
     status: ["moodle", "status"] as const,
+    signIn: ["moodle", "sign-in"] as const,
     courses: ["moodle", "courses"] as const,
     contents: (courseId: number) => ["moodle", "contents", courseId] as const,
     assignments: (courseId: number) => ["moodle", "assignments", courseId] as const,

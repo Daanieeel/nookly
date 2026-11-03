@@ -10,7 +10,7 @@ import { CopyButton } from "@nookly/ui/components/copy-button";
 import { Input } from "@nookly/ui/components/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { moodleBeginLogin } from "#/lib/api/moodle.ts";
-import { completeMoodleLogin, messageOf } from "./moodle-login.ts";
+import { completeMoodleLogin, messageOf, useSignInState } from "./moodle-login.ts";
 
 const siteSchema = z.object({ site: z.string().trim().min(1, "Enter the address of your Moodle") });
 const linkSchema = z.object({ link: z.string().trim().min(1, "Paste the link Moodle sent back") });
@@ -27,6 +27,7 @@ export function ConnectMoodle({
   siteUrl: string | null;
 }) {
   const queryClient = useQueryClient();
+  const signIn = useSignInState();
   const start = useMutation({
     mutationFn: async (site: string) => {
       const address = await moodleBeginLogin(site);
@@ -116,6 +117,13 @@ export function ConnectMoodle({
           </p>
         )}
       </form>
+
+      {signIn?.kind === "finishing" && (
+        <p className="text-xs text-muted-foreground" role="status">
+          Finishing the sign in...
+        </p>
+      )}
+      <FieldError message={signIn?.kind === "failed" && signIn.message} />
 
       {start.isSuccess && (
         <div className="flex flex-col gap-1.5">
