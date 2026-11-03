@@ -14,7 +14,8 @@
     "check:rust": "cargo check --quiet --manifest-path src-tauri/Cargo.toml",
     "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml",
     "format:check:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
-    "icons:mac": "cd src-tauri/icons && xcrun actool \"$(pwd)/Nookly.icon\" --compile \"$(pwd)\" --output-partial-info-plist /dev/null --app-icon Nookly --include-all-app-icons --platform macosx --target-device mac --minimum-deployment-target 10.13 > /dev/null && rm -f Nookly.icns"
+    "icons:mac": "cd src-tauri/icons && xcrun actool \"$(pwd)/Nookly.icon\" --compile \"$(pwd)\" --output-partial-info-plist /dev/null --app-icon Nookly --include-all-app-icons --platform macosx --target-device mac --minimum-deployment-target 10.13 > /dev/null && rm -f Nookly.icns",
+    "icons:mac:dev": "cd src-tauri/icons-dev && xcrun actool \"$(pwd)/Nookly.icon\" --compile \"$(pwd)\" --output-partial-info-plist /dev/null --app-icon Nookly --include-all-app-icons --platform macosx --target-device mac --minimum-deployment-target 10.13 > /dev/null && rm -f Nookly.icns"
   },
   "dependencies": {
     "@nookly/frontend": "workspace:*",

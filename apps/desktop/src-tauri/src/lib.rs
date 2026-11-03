@@ -447,23 +447,20 @@ fn install_panic_hook() {
     }));
 }
 
-/// Shows the Icon Composer icon in the dock during `tauri dev`, which runs the bare
-/// binary and would otherwise show `icon.png`. `build.rs` compiles it into a bundle.
+/// Shows the blue "DEV" icon in the dock during `bun run dev`, which runs the bare binary and
+/// would otherwise show `icon.png`, so it can't be mistaken for the installed Nookly. The
+/// same picture is the icon of the side by side build (`icons-dev/`).
 #[cfg(all(target_os = "macos", debug_assertions))]
 fn set_dev_dock_icon() {
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSApplication, NSBundleImageExtension};
-    use objc2_foundation::{NSBundle, NSString};
+    use objc2::{AllocAnyThread, MainThreadMarker};
+    use objc2_app_kit::{NSApplication, NSImage};
+    use objc2_foundation::NSData;
 
-    let Some(path) = option_env!("NOOKLY_DEV_ICON_BUNDLE") else {
-        return;
-    };
     let Some(mtm) = MainThreadMarker::new() else {
         return;
     };
-    let Some(image) = NSBundle::bundleWithPath(&NSString::from_str(path))
-        .and_then(|bundle| bundle.imageForResource(&NSString::from_str("Nookly")))
-    else {
+    let data = NSData::with_bytes(include_bytes!("../icons-dev/icon.png"));
+    let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) else {
         return;
     };
     // SAFETY: called on the main thread with a valid image.

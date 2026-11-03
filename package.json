@@ -12,6 +12,7 @@
     "build": "turbo run build",
     "tauri": "bun run --cwd apps/desktop tauri",
     "build:side-by-side": "bun run --cwd apps/desktop tauri build --bundles app --config src-tauri/tauri.side-by-side.conf.json",
+    "start:side-by-side": "bun run build:side-by-side && open \"apps/desktop/src-tauri/target/release/bundle/macos/Nookly Dev.app\"",
     "typecheck": "turbo run typecheck",
     "check": "turbo run typecheck check:rust",
     "test": "turbo run test",
