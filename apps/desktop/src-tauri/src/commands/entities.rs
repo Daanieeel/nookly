@@ -25,6 +25,14 @@ pub fn list_entities(
     entities::list_entities(&conn, space_id.as_deref(), include_deleted)
 }
 
+/// The live entities with these ids, in the order asked, for the few a surface knows
+/// by id (Recents). Ids that are gone or in Trash are left out.
+#[tauri::command]
+pub fn list_entities_by_ids(state: State<DbState>, ids: Vec<String>) -> AppResult<Vec<Entity>> {
+    let conn = state.0.lock().unwrap();
+    entities::list_entities_by_ids(&conn, &ids)
+}
+
 #[tauri::command]
 pub fn update_entity(state: State<DbState>, id: String, patch: EntityPatch) -> AppResult<Entity> {
     let conn = state.0.lock().unwrap();

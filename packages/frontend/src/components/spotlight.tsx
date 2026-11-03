@@ -18,6 +18,8 @@ export function SpotlightDialog({
   title,
   dirty,
   onClear,
+  value,
+  onValueChange,
   children,
 }: {
   open: boolean;
@@ -28,6 +30,9 @@ export function SpotlightDialog({
   /// `onClear` instead of closing; the next Escape closes.
   dirty: boolean;
   onClear: () => void;
+  /// The highlighted item, when the caller needs to read or set it.
+  value?: string;
+  onValueChange?: (value: string) => void;
   children: ReactNode;
 }) {
   return (
@@ -55,6 +60,8 @@ export function SpotlightDialog({
           <Command
             shouldFilter={false}
             loop
+            value={value}
+            onValueChange={onValueChange}
             label={title}
             className={cn(
               "flex min-h-0 flex-col",
@@ -72,11 +79,17 @@ export function SpotlightDialog({
 
 export function SpotlightInput({
   ref,
+  before,
   ...props
-}: ComponentProps<typeof Command.Input> & { ref?: Ref<HTMLInputElement> }) {
+}: ComponentProps<typeof Command.Input> & {
+  ref?: Ref<HTMLInputElement>;
+  /// Filter chips and the like, shown ahead of the typed text.
+  before?: ReactNode;
+}) {
   return (
     <div className="flex items-center gap-3 border-b border-border/70 px-5">
       <IconSearch size={20} className="shrink-0 text-muted-foreground" />
+      {before}
       <Command.Input
         ref={ref}
         className="h-16 min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-muted-foreground/70"
@@ -153,7 +166,7 @@ export function Highlighted({ segments }: { segments: TextSegment[] }) {
 
 /// Keyboard hints along the bottom edge, plus an optional hint on the right
 /// (e.g. the sibling overlay's shortcut).
-export function SpotlightFooter({ aside }: { aside?: ReactNode }) {
+export function SpotlightFooter({ hints, aside }: { hints?: ReactNode; aside?: ReactNode }) {
   return (
     <div className="flex items-center gap-4 border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
       <span className="flex items-center gap-1.5">
@@ -167,6 +180,7 @@ export function SpotlightFooter({ aside }: { aside?: ReactNode }) {
         <Kbd>↵</Kbd>
         Open
       </span>
+      {hints}
       {aside && <span className="ml-auto flex items-center gap-1.5">{aside}</span>}
     </div>
   );

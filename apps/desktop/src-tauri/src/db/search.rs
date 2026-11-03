@@ -1,6 +1,7 @@
 use crate::error::AppResult;
-use rusqlite::{params, Connection};
-use serde::Serialize;
+use rusqlite::types::Value;
+use rusqlite::{params, params_from_iter, Connection};
+use serde::{Deserialize, Serialize};
 
 /// Upserts the title, preserving any previously indexed content (e.g. a Note's block text)
 /// so renaming an entity doesn't blow away its indexed body.
@@ -58,21 +59,39 @@ pub struct SearchHit {
 /// Structural relationships whose target is a notes page rendered inline on
 /// the source entity's own page. Such notes are never a destination on their
 /// own: their blocks resolve to the owning entity.
-pub const EMBEDDED_NOTES_RELATIONSHIPS: &str = "'course-note', 'semester-notes'";
+const EMBEDDED_NOTES_RELATIONSHIPS: &str = "'course-note', 'semester-notes'";
 
-/// Ids of every notes page embedded in another entity's page, for surfaces
-/// that list destinations (Cmd+P) and must skip them.
-pub fn list_embedded_page_ids(conn: &Connection) -> AppResult<Vec<String>> {
-    let mut stmt = conn.prepare(&format!(
-        "SELECT to_entity_id FROM relationships WHERE relationship_type IN ({EMBEDDED_NOTES_RELATIONSHIPS})"
-    ))?;
-    let rows = stmt.query_map([], |row| row.get(0))?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+/// Most rows one source (keys, titles, blocks, indexed content) can add.
+const HIT_LIMIT: i64 = 200;
+
+/// What a search asks for. Everything but `query` narrows or reshapes the answer.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SearchRequest {
+    pub query: String,
+    /// Deliberately not Space-scoped by default (§6): only an in-Space search UI sets it.
+    pub space_id: Option<String>,
+    /// Entity types to keep. Empty keeps all of them.
+    pub types: Vec<String>,
+    /// Label names to require, case insensitive, matched in every Space. Every one must be on the entity.
+    pub labels: Vec<String>,
+    /// Title and key matches only: no body search and no snippets.
+    pub titles_only: bool,
+    /// At most one row per entity (its best match), for a flat ranked list.
+    pub one_per_entity: bool,
+    /// Cut the ranked list at this many rows.
+    pub limit: Option<usize>,
 }
 
-/// Generous per kind (titles, blocks) so the palette's "View all (N)" counts
-/// stay accurate for any realistic single user dataset.
-const HIT_LIMIT: i64 = 200;
+impl SearchRequest {
+    pub fn simple(query: &str, space_id: Option<&str>) -> Self {
+        Self {
+            query: query.to_string(),
+            space_id: space_id.map(str::to_string),
+            ..Self::default()
+        }
+    }
+}
 
 /// Turns free user input into a safe FTS5 expression: every whitespace separated
 /// word becomes a quoted prefix term (`"word"*`), ANDed together, so punctuation
@@ -95,22 +114,246 @@ fn match_expression(query: &str, column: Option<&str>) -> Option<String> {
 }
 
 /// Full-text search across the whole app, deliberately not Space-scoped (§6) unless
-/// the caller passes a space_id to narrow it (used by in-Space search UIs, if any).
-/// Returns title hits first (exact, then prefix, then substring title matches ahead
-/// of looser FTS ranking), followed by block-level hits ordered by FTS relevance.
-/// Soft-deleted entities never appear.
+/// the caller passes a space_id. Keys first, then title matches (exact, prefix,
+/// substring, then FTS rank), then block hits, then Bookmark and File text, each by
+/// FTS relevance. Soft-deleted entities never appear. One statement, one pass.
 pub fn search(conn: &Connection, query: &str, space_id: Option<&str>) -> AppResult<Vec<SearchHit>> {
-    let mut hits = search_keys(conn, query, space_id)?;
-    let key_ids: std::collections::HashSet<String> =
-        hits.iter().map(|h| h.entity_id.clone()).collect();
-    hits.extend(
-        search_titles(conn, query, space_id)?
-            .into_iter()
-            .filter(|h| !key_ids.contains(&h.entity_id)),
+    search_ranked(conn, &SearchRequest::simple(query, space_id))
+}
+
+/// Binds values for the `?N` placeholders of a query built from several pieces.
+#[derive(Default)]
+struct Binds(Vec<Value>);
+
+impl Binds {
+    fn bind(&mut self, value: impl Into<String>) -> String {
+        self.0.push(Value::Text(value.into()));
+        format!("?{}", self.0.len())
+    }
+}
+
+/// The `AND ...` conditions that narrow a source to the request's Space, types and
+/// labels. `id`, `space` and `kind` are the SQL expressions of the entity a row resolves to.
+fn narrowing(req: &SearchRequest, binds: &mut Binds, id: &str, space: &str, kind: &str) -> String {
+    let mut sql = String::new();
+    if let Some(space_id) = &req.space_id {
+        sql.push_str(&format!(" AND {space} = {}", binds.bind(space_id.as_str())));
+    }
+    if !req.types.is_empty() {
+        let marks: Vec<String> = req.types.iter().map(|t| binds.bind(t.as_str())).collect();
+        sql.push_str(&format!(" AND {kind} IN ({})", marks.join(", ")));
+    }
+    for label in &req.labels {
+        sql.push_str(&format!(
+            " AND EXISTS (SELECT 1 FROM entity_labels el JOIN labels l ON l.id = el.label_id
+                          WHERE el.entity_id = {id} AND l.name = {} COLLATE NOCASE)",
+            binds.bind(label.as_str())
+        ));
+    }
+    sql
+}
+
+/// Every source selects the same columns: source number, tier and rank for sorting,
+/// then the hit as `row_to_hit` reads it.
+fn not_embedded() -> String {
+    format!(
+        "NOT EXISTS (
+             SELECT 1 FROM relationships r
+             WHERE r.to_entity_id = e.id AND r.relationship_type IN ({EMBEDDED_NOTES_RELATIONSHIPS})
+           )"
+    )
+}
+
+/// Search with every option, in one SQL statement. See `SearchRequest`.
+pub fn search_ranked(conn: &Connection, req: &SearchRequest) -> AppResult<Vec<SearchHit>> {
+    let mut binds = Binds::default();
+    let mut sources: Vec<String> = Vec::new();
+    let limit = HIT_LIMIT;
+    let not_embedded = not_embedded();
+
+    if let Some((prefix, digits)) = parse_key_query(&req.query) {
+        let (p, d) = (binds.bind(prefix), binds.bind(digits));
+        let narrow = narrowing(req, &mut binds, "e.id", "e.space_id", "e.type");
+        // `course_notes` must never surface as a search result (§ course sub-dashboard),
+        // and embedded notes pages are skipped too: their title just echoes the owner's.
+        sources.push(format!(
+            "SELECT * FROM (
+               SELECT 0 AS src, 0 AS tier, length(CAST(e.key_number AS TEXT)) * 1.0 + e.key_number * 1e-9 AS rank,
+                      e.id, e.space_id, e.title, e.type, e.icon, NULL, NULL, NULL,
+                      e.key_prefix || '-' || e.key_number
+               FROM entities e
+               WHERE e.deleted_at IS NULL AND e.type != 'course_notes' AND {not_embedded}
+                 AND e.key_prefix = {p} AND CAST(e.key_number AS TEXT) LIKE {d} || '%'{narrow}
+               ORDER BY rank LIMIT {limit})"
+        ));
+    }
+
+    if let Some(match_query) = match_expression(&req.query, Some("title")) {
+        let m = binds.bind(match_query);
+        let needle = binds.bind(req.query.trim().to_lowercase());
+        let narrow = narrowing(req, &mut binds, "e.id", "e.space_id", "e.type");
+        sources.push(format!(
+            "SELECT * FROM (
+               SELECT 1 AS src,
+                      CASE WHEN lower(e.title) = {needle} THEN 0
+                           WHEN instr(lower(e.title), {needle}) = 1 THEN 1
+                           WHEN instr(lower(e.title), {needle}) > 0 THEN 2 ELSE 3 END AS tier,
+                      si.rank AS rank,
+                      e.id, e.space_id, e.title, e.type, e.icon, NULL, NULL, NULL,
+                      e.key_prefix || '-' || e.key_number
+               FROM entities e
+               JOIN (SELECT entity_id, rank FROM search_index WHERE search_index MATCH {m}) si ON si.entity_id = e.id
+               WHERE e.deleted_at IS NULL AND e.type != 'course_notes' AND {not_embedded}{narrow}
+               ORDER BY tier, rank LIMIT {limit})"
+        ));
+    }
+
+    if !req.titles_only {
+        if let Some(match_query) = match_expression(&req.query, None) {
+            let m = binds.bind(match_query);
+            let narrow = narrowing(
+                req,
+                &mut binds,
+                "COALESCE(o.id, e.id)",
+                "COALESCE(o.space_id, e.space_id)",
+                "COALESCE(o.type, e.type)",
+            );
+            // Blocks of embedded notes (`o` = the owning Course/Semester) report the
+            // owner as the hit, so opening one lands on the page that renders them.
+            sources.push(format!(
+                "SELECT * FROM (
+                   SELECT 2 AS src, 0 AS tier, f.rank AS rank,
+                          COALESCE(o.id, e.id), COALESCE(o.space_id, e.space_id),
+                          COALESCE(o.title, e.title), COALESCE(o.type, e.type),
+                          CASE WHEN o.id IS NULL THEN e.icon ELSE o.icon END,
+                          b.id, NULL, e.id,
+                          COALESCE(o.key_prefix, e.key_prefix) || '-' || COALESCE(o.key_number, e.key_number)
+                   FROM (
+                     SELECT block_id, rank
+                     FROM blocks_fts WHERE blocks_fts MATCH {m}
+                   ) f
+                   JOIN blocks b ON b.id = f.block_id
+                   JOIN entities e ON e.id = b.entity_id
+                   LEFT JOIN relationships r
+                     ON r.to_entity_id = e.id AND r.relationship_type IN ({EMBEDDED_NOTES_RELATIONSHIPS})
+                   LEFT JOIN entities o ON o.id = r.from_entity_id
+                   WHERE e.deleted_at IS NULL AND (o.id IS NULL OR o.deleted_at IS NULL)
+                     AND (e.type != 'course_notes' OR o.id IS NOT NULL){narrow}
+                   ORDER BY rank LIMIT {limit})"
+            ));
+        }
+
+        // A Bookmark's target website or a PDF File's extracted text, indexed into
+        // `search_index.content`. Scoped to those two types so a Note's body is only
+        // ever matched block by block, above.
+        if let Some(match_query) = match_expression(&req.query, Some("content")) {
+            let m = binds.bind(match_query);
+            let narrow = narrowing(req, &mut binds, "e.id", "e.space_id", "e.type");
+            sources.push(format!(
+                "SELECT * FROM (
+                   SELECT 3 AS src, 0 AS tier, f.rank AS rank,
+                          e.id, e.space_id, e.title, e.type, e.icon, NULL, f.snip, NULL,
+                          e.key_prefix || '-' || e.key_number
+                   FROM (
+                     SELECT entity_id, rank, snippet(search_index, 3, char(1), char(2), '…', 16) AS snip
+                     FROM search_index WHERE search_index MATCH {m}
+                   ) f
+                   JOIN entities e ON e.id = f.entity_id
+                   WHERE e.deleted_at IS NULL AND e.type IN ('bookmark', 'file'){narrow}
+                   ORDER BY rank LIMIT {limit})"
+            ));
+        }
+    }
+
+    if sources.is_empty() {
+        return Ok(Vec::new());
+    }
+    // Hits are cut after folding duplicates, so ask for a few more than the list needs.
+    let outer = match req.limit {
+        Some(n) if req.one_per_entity => format!(" LIMIT {}", n.saturating_mul(4).max(n)),
+        Some(n) => format!(" LIMIT {n}"),
+        None => String::new(),
+    };
+    let sql = format!(
+        "SELECT * FROM ({}) ORDER BY src, tier, rank{outer}",
+        sources.join(" UNION ALL ")
     );
-    hits.extend(search_blocks(conn, query, space_id)?);
-    hits.extend(search_indexed_content(conn, query, space_id)?);
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(binds.0.iter()), row_to_hit)?;
+    let rows = rows.collect::<Result<Vec<_>, _>>()?;
+    let (mut hits, wanted) = fold_hits(rows, req);
+    load_block_snippets(conn, req, &mut hits, &wanted)?;
     Ok(hits)
+}
+
+/// Drops a title hit whose entity already matched by key, and with `one_per_entity`
+/// keeps only the best row per entity, lending it the first snippet found for it.
+/// Block snippets are costly, so they are not read yet: the second value says, per
+/// hit, which block's snippet it needs.
+fn fold_hits(
+    rows: Vec<(u8, SearchHit)>,
+    req: &SearchRequest,
+) -> (Vec<SearchHit>, Vec<Option<String>>) {
+    let mut out: Vec<SearchHit> = Vec::new();
+    let mut wanted: Vec<Option<String>> = Vec::new();
+    let mut keyed = std::collections::HashSet::new();
+    let mut at: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (src, hit) in rows {
+        if src == 1 && keyed.contains(&hit.entity_id) {
+            continue;
+        }
+        if src == 0 {
+            keyed.insert(hit.entity_id.clone());
+        }
+        if req.one_per_entity {
+            if let Some(&i) = at.get(&hit.entity_id) {
+                if out[i].snippet.is_none() && wanted[i].is_none() {
+                    if src == 2 {
+                        wanted[i] = hit.block_id;
+                    } else {
+                        out[i].snippet = hit.snippet;
+                    }
+                }
+                continue;
+            }
+            at.insert(hit.entity_id.clone(), out.len());
+        }
+        wanted.push(if src == 2 { hit.block_id.clone() } else { None });
+        out.push(hit);
+    }
+    if let Some(n) = req.limit {
+        out.truncate(n);
+        wanted.truncate(n);
+    }
+    (out, wanted)
+}
+
+/// Reads the matching text of the blocks the final list shows, and only those.
+fn load_block_snippets(
+    conn: &Connection,
+    req: &SearchRequest,
+    hits: &mut [SearchHit],
+    wanted: &[Option<String>],
+) -> AppResult<()> {
+    let ids: Vec<&String> = wanted.iter().flatten().collect();
+    let Some(match_query) = match_expression(&req.query, None).filter(|_| !ids.is_empty()) else {
+        return Ok(());
+    };
+    let marks = vec!["?"; ids.len()].join(", ");
+    let mut stmt = conn.prepare(&format!(
+        "SELECT block_id, snippet(blocks_fts, 1, char(1), char(2), '…', 16)
+         FROM blocks_fts WHERE blocks_fts MATCH ?1 AND block_id IN ({marks})"
+    ))?;
+    let args = std::iter::once(&match_query).chain(ids);
+    let found: std::collections::HashMap<String, String> = stmt
+        .query_map(params_from_iter(args), |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    for (hit, block) in hits.iter_mut().zip(wanted) {
+        if let Some(snippet) = block.as_ref().and_then(|id| found.get(id)) {
+            hit.snippet = Some(snippet.clone());
+        }
+    }
+    Ok(())
 }
 
 /// Splits a key shaped query (`TSK-14`, `tsk14`, `tsk 1`) into its prefix and number
@@ -131,147 +374,22 @@ pub fn parse_key_query(query: &str) -> Option<(String, String)> {
     valid.then(|| (prefix.to_ascii_uppercase(), digits.to_string()))
 }
 
-/// Entities whose key starts with the typed one (`TSK-1` finds TSK-1, then TSK-10...),
-/// exact match first. Same visibility rules as `search_titles`.
-fn search_keys(
-    conn: &Connection,
-    query: &str,
-    space_id: Option<&str>,
-) -> AppResult<Vec<SearchHit>> {
-    let Some((prefix, digits)) = parse_key_query(query) else {
-        return Ok(Vec::new());
-    };
-    let mut stmt = conn.prepare(&format!(
-        "SELECT e.id, e.space_id, e.title, e.type, e.icon, NULL, NULL, NULL,
-                e.key_prefix || '-' || e.key_number
-         FROM entities e
-         WHERE e.deleted_at IS NULL AND e.type != 'course_notes'
-           AND NOT EXISTS (
-             SELECT 1 FROM relationships r
-             WHERE r.to_entity_id = e.id AND r.relationship_type IN ({EMBEDDED_NOTES_RELATIONSHIPS})
-           )
-           AND (?3 IS NULL OR e.space_id = ?3)
-           AND e.key_prefix = ?1 AND CAST(e.key_number AS TEXT) LIKE ?2 || '%'
-         ORDER BY length(CAST(e.key_number AS TEXT)), e.key_number
-         LIMIT ?4"
-    ))?;
-    let rows = stmt.query_map(params![prefix, digits, space_id, HIT_LIMIT], row_to_hit)?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
-fn search_titles(
-    conn: &Connection,
-    query: &str,
-    space_id: Option<&str>,
-) -> AppResult<Vec<SearchHit>> {
-    let Some(match_query) = match_expression(query, Some("title")) else {
-        return Ok(Vec::new());
-    };
-    // `course_notes` must never surface as a search result (§ course sub-dashboard) —
-    // same invisibility rule `list_entities` enforces for mentions/pickers/Dashboard.
-    // Embedded notes pages are skipped too: their title just echoes the owner's.
-    let mut stmt = conn.prepare(&format!(
-        "SELECT e.id, e.space_id, e.title, e.type, e.icon, NULL, NULL, NULL,
-                e.key_prefix || '-' || e.key_number
-         FROM entities e
-         JOIN (SELECT entity_id, rank FROM search_index WHERE search_index MATCH ?1) si ON si.entity_id = e.id
-         WHERE e.deleted_at IS NULL AND e.type != 'course_notes'
-           AND NOT EXISTS (
-             SELECT 1 FROM relationships r
-             WHERE r.to_entity_id = e.id AND r.relationship_type IN ({EMBEDDED_NOTES_RELATIONSHIPS})
-           )
-           AND (?2 IS NULL OR e.space_id = ?2)
-         ORDER BY lower(e.title) = ?3 DESC,
-                  instr(lower(e.title), ?3) = 1 DESC,
-                  instr(lower(e.title), ?3) > 0 DESC,
-                  si.rank
-         LIMIT ?4"
-    ))?;
-    let needle = query.trim().to_lowercase();
-    let rows = stmt.query_map(
-        params![match_query, space_id, needle, HIT_LIMIT],
-        row_to_hit,
-    )?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
-fn search_blocks(
-    conn: &Connection,
-    query: &str,
-    space_id: Option<&str>,
-) -> AppResult<Vec<SearchHit>> {
-    let Some(match_query) = match_expression(query, None) else {
-        return Ok(Vec::new());
-    };
-    // Blocks of embedded notes (`o` = the owning Course/Semester) report the
-    // owner as the hit, so opening one lands on the page that renders them.
-    let mut stmt = conn.prepare(&format!(
-        "SELECT COALESCE(o.id, e.id), COALESCE(o.space_id, e.space_id),
-                COALESCE(o.title, e.title), COALESCE(o.type, e.type),
-                CASE WHEN o.id IS NULL THEN e.icon ELSE o.icon END,
-                b.id, f.snip, e.id,
-                COALESCE(o.key_prefix, e.key_prefix) || '-' || COALESCE(o.key_number, e.key_number)
-         FROM (
-           SELECT block_id, rank, snippet(blocks_fts, 1, char(1), char(2), '…', 16) AS snip
-           FROM blocks_fts WHERE blocks_fts MATCH ?1
-         ) f
-         JOIN blocks b ON b.id = f.block_id
-         JOIN entities e ON e.id = b.entity_id
-         LEFT JOIN relationships r
-           ON r.to_entity_id = e.id AND r.relationship_type IN ({EMBEDDED_NOTES_RELATIONSHIPS})
-         LEFT JOIN entities o ON o.id = r.from_entity_id
-         WHERE e.deleted_at IS NULL AND (o.id IS NULL OR o.deleted_at IS NULL)
-           AND (e.type != 'course_notes' OR o.id IS NOT NULL)
-           AND (?2 IS NULL OR e.space_id = ?2)
-         ORDER BY f.rank
-         LIMIT ?3"
-    ))?;
-    let rows = stmt.query_map(params![match_query, space_id, HIT_LIMIT], row_to_hit)?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
-/// A Bookmark's target website (`commands::bookmarks::fetch_bookmark_metadata`)
-/// or a PDF File's extracted text (`db::files::index_pdf_content`), indexed into
-/// `search_index.content` — scoped to `type IN ('bookmark', 'file')` only, so
-/// this never changes what a Note or Jot matches on (their body text is already
-/// searched through `blocks_fts`, block by block, above).
-fn search_indexed_content(
-    conn: &Connection,
-    query: &str,
-    space_id: Option<&str>,
-) -> AppResult<Vec<SearchHit>> {
-    let Some(match_query) = match_expression(query, Some("content")) else {
-        return Ok(Vec::new());
-    };
-    let mut stmt = conn.prepare(
-        "SELECT e.id, e.space_id, e.title, e.type, e.icon, NULL, f.snip, NULL,
-                e.key_prefix || '-' || e.key_number
-         FROM (
-           SELECT entity_id, rank, snippet(search_index, 3, char(1), char(2), '…', 16) AS snip
-           FROM search_index WHERE search_index MATCH ?1
-         ) f
-         JOIN entities e ON e.id = f.entity_id
-         WHERE e.deleted_at IS NULL AND e.type IN ('bookmark', 'file')
-           AND (?2 IS NULL OR e.space_id = ?2)
-         ORDER BY f.rank
-         LIMIT ?3",
-    )?;
-    let rows = stmt.query_map(params![match_query, space_id, HIT_LIMIT], row_to_hit)?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
-fn row_to_hit(row: &rusqlite::Row) -> rusqlite::Result<SearchHit> {
-    Ok(SearchHit {
-        entity_id: row.get(0)?,
-        space_id: row.get(1)?,
-        title: row.get(2)?,
-        entity_type: row.get(3)?,
-        icon: row.get(4)?,
-        block_id: row.get(5)?,
-        snippet: row.get(6)?,
-        block_entity_id: row.get(7)?,
-        key: row.get(8)?,
-    })
+/// Reads the source number, then the hit.
+fn row_to_hit(row: &rusqlite::Row) -> rusqlite::Result<(u8, SearchHit)> {
+    Ok((
+        row.get(0)?,
+        SearchHit {
+            entity_id: row.get(3)?,
+            space_id: row.get(4)?,
+            title: row.get(5)?,
+            entity_type: row.get(6)?,
+            icon: row.get(7)?,
+            block_id: row.get(8)?,
+            snippet: row.get(9)?,
+            block_entity_id: row.get(10)?,
+            key: row.get(11)?,
+        },
+    ))
 }
 
 #[cfg(test)]
@@ -551,5 +669,253 @@ mod tests {
         assert!(hits.iter().any(|h| h.entity_id == bookmark.entity.id));
         assert!(hits.iter().any(|h| h.entity_id == file.entity.id));
         assert!(hits.iter().all(|h| h.entity_id != note.id));
+    }
+
+    fn request(query: &str) -> SearchRequest {
+        SearchRequest::simple(query, None)
+    }
+
+    #[test]
+    fn ranked_list_keeps_the_ranking_order_and_folds_to_one_row_per_entity() {
+        let conn = crate::db::test_conn();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let body =
+            create_entity(&conn, space.id.clone(), "note".into(), "Other".into(), None).unwrap();
+        crate::db::notes::create_block(
+            &conn,
+            &body.id,
+            "paragraph".into(),
+            "about kiwi trees".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let both = create_entity(
+            &conn,
+            space.id.clone(),
+            "note".into(),
+            "Kiwi plan".into(),
+            None,
+        )
+        .unwrap();
+        crate::db::notes::create_block(
+            &conn,
+            &both.id,
+            "paragraph".into(),
+            "kiwi budget".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let exact =
+            create_entity(&conn, space.id.clone(), "task".into(), "kiwi".into(), None).unwrap();
+
+        let ranked = |req: &SearchRequest| -> Vec<String> {
+            search_ranked(&conn, req)
+                .unwrap()
+                .into_iter()
+                .map(|h| h.entity_id)
+                .collect()
+        };
+        let mut req = request("kiwi");
+        req.one_per_entity = true;
+        // Exact title, then a title that starts with it, then a body only match.
+        assert_eq!(
+            ranked(&req),
+            [exact.id.clone(), both.id.clone(), body.id.clone()]
+        );
+        let hits = search_ranked(&conn, &req).unwrap();
+        // The title hit borrows the body's snippet, but still opens the page itself.
+        assert!(hits[1]
+            .snippet
+            .as_deref()
+            .unwrap()
+            .contains("\u{1}kiwi\u{2}"));
+        assert!(hits[1].block_id.is_none());
+        // Without folding, a page keeps one row per hit, as the CLI lists them.
+        assert!(ranked(&request("kiwi")).len() > 3);
+
+        req.limit = Some(2);
+        assert_eq!(ranked(&req).len(), 2);
+    }
+
+    #[test]
+    fn titles_only_skips_bodies_and_snippets() {
+        let conn = crate::db::test_conn();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let note =
+            create_entity(&conn, space.id.clone(), "note".into(), "Plain".into(), None).unwrap();
+        crate::db::notes::create_block(
+            &conn,
+            &note.id,
+            "paragraph".into(),
+            "hidden mango".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let titled =
+            create_entity(&conn, space.id.clone(), "note".into(), "Mango".into(), None).unwrap();
+        crate::db::notes::create_block(
+            &conn,
+            &titled.id,
+            "paragraph".into(),
+            "mango again".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let mut req = request("mango");
+        req.titles_only = true;
+        let hits = search_ranked(&conn, &req).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].entity_id, titled.id);
+        assert!(hits[0].snippet.is_none() && hits[0].block_id.is_none());
+        // Keys are titles too.
+        req.query = titled.key.clone();
+        assert_eq!(search_ranked(&conn, &req).unwrap()[0].entity_id, titled.id);
+    }
+
+    #[test]
+    fn types_labels_and_space_narrow_every_source() {
+        let conn = crate::db::test_conn();
+        let work = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let study = create_space(&conn, "Study".into(), None, "#111".into()).unwrap();
+        let note = create_entity(
+            &conn,
+            work.id.clone(),
+            "note".into(),
+            "Plum note".into(),
+            None,
+        )
+        .unwrap();
+        crate::db::notes::create_block(
+            &conn,
+            &note.id,
+            "paragraph".into(),
+            "plum jam".into(),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let task = create_entity(
+            &conn,
+            study.id.clone(),
+            "task".into(),
+            "Plum task".into(),
+            None,
+        )
+        .unwrap();
+        let label =
+            crate::db::labels::create_label(&conn, work.id.clone(), "Urgent".into(), "#f00".into())
+                .unwrap();
+        crate::db::labels::attach_label(&conn, &note.id, &label.id).unwrap();
+
+        let ids = |req: &SearchRequest| -> Vec<String> {
+            let mut ids: Vec<String> = search_ranked(&conn, req)
+                .unwrap()
+                .into_iter()
+                .map(|h| h.entity_id)
+                .collect();
+            ids.dedup();
+            ids
+        };
+        let mut req = request("plum");
+        req.types = vec!["task".into()];
+        assert_eq!(ids(&req), [task.id.clone()]);
+
+        req.types = vec![];
+        req.labels = vec!["urgent".into()];
+        assert_eq!(ids(&req), [note.id.clone()]);
+        req.labels = vec!["urgent".into(), "nope".into()];
+        assert!(ids(&req).is_empty());
+
+        req.labels = vec![];
+        req.space_id = Some(study.id.clone());
+        assert_eq!(ids(&req), [task.id.clone()]);
+    }
+
+    /// The 50 ms budget of the search surfaces (the fastest of a few runs, so a busy machine
+    /// does not fail it): a ranked, folded list over 20,000
+    /// entities with bodies, the shape the palette asks for.
+    #[test]
+    fn search_stays_within_its_budget_on_20000_entities() {
+        let conn = crate::db::test_conn();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let words = [
+            "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india",
+            "juliet", "kilo", "lima", "mike", "november", "oscar", "papa", "quebec", "romeo",
+            "sierra", "tango",
+        ];
+        conn.execute_batch("BEGIN").unwrap();
+        {
+            let mut entity = conn
+                .prepare(
+                    "INSERT INTO entities (id, space_id, type, title, icon, pinned, created_at, updated_at, deleted_at, key_prefix, key_number)
+                     VALUES (?1, ?2, ?3, ?4, NULL, 0, 'now', 'now', NULL, ?5, ?6)",
+                )
+                .unwrap();
+            let mut index = conn
+                .prepare("INSERT INTO search_index (entity_id, space_id, title, content) VALUES (?1, ?2, ?3, '')")
+                .unwrap();
+            let mut block = conn
+                .prepare("INSERT INTO blocks (id, entity_id, position, block_type, content, created_at, updated_at) VALUES (?1, ?2, 0, 'paragraph', ?3, 'now', 'now')")
+                .unwrap();
+            for i in 0..20_000usize {
+                let id = format!("e{i}");
+                let kind = if i % 2 == 0 { "note" } else { "task" };
+                let title = format!(
+                    "{} {} {} {i}",
+                    words[i % 20],
+                    words[(i / 20) % 20],
+                    words[(i / 400) % 20]
+                );
+                let prefix = if kind == "note" { "NOT" } else { "TSK" };
+                entity
+                    .execute(params![id, space.id, kind, title, prefix, i as i64])
+                    .unwrap();
+                index.execute(params![id, space.id, title]).unwrap();
+                if kind == "note" {
+                    let text = format!(
+                        "{} {} {} body text about {} and more words to fill the block",
+                        words[(i / 3) % 20],
+                        words[(i / 7) % 20],
+                        words[(i / 11) % 20],
+                        words[(i / 13) % 20]
+                    );
+                    block.execute(params![format!("b{i}"), id, text]).unwrap();
+                }
+            }
+        }
+        conn.execute_batch("COMMIT").unwrap();
+
+        for query in ["a", "alpha", "alpha bravo", "tango oscar", "zzzz", "ech"] {
+            let mut req = request(query);
+            req.one_per_entity = true;
+            req.limit = Some(50);
+            // The first run warms SQLite's page cache, like a palette that was opened before.
+            search_ranked(&conn, &req).unwrap();
+            // Other tests and programs share the CPU, so a run is retried until one is
+            // quick. A search that really needs more than 50 ms never is.
+            let mut times: Vec<u128> = Vec::new();
+            while times.len() < 40 && times.iter().all(|&t| t > 50) {
+                let start = std::time::Instant::now();
+                search_ranked(&conn, &req).unwrap();
+                times.push(start.elapsed().as_millis());
+            }
+            times.sort();
+            let fastest = times[0];
+            eprintln!("search {query:?}: {times:?} ms");
+            assert!(
+                fastest <= 50,
+                "{query:?} took {fastest} ms (budget 50 ms), runs {times:?}"
+            );
+        }
     }
 }

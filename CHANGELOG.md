@@ -2,6 +2,23 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.58.0 (2026-11-04)
+
+### Added
+
+- **A new search.** `Cmd+K` now shows one list of results, best match first, instead of groups per Space. Each result shows its icon, title, Space and the line of text that matched. The top result is already selected, so `Enter` opens it.
+- **Tabs for types.** Press `Tab` to switch between All, Notes, Tasks, Files and more, and `Shift+Tab` to go back.
+- **Filters you type.** Type `in:` and pick a Space, or `#` and pick a label, and it becomes a chip that narrows the search. `Backspace` removes the last chip.
+- **Open results in a new tab or the other side.** `Cmd+Enter` opens the selected result in a new tab, and `Cmd+Option+Enter` opens it in the other split group (`Ctrl+Enter` and `Ctrl+Alt+Enter` on Windows and Linux).
+
+### Changed
+
+- **Quick open matches search.** `Cmd+P` shows the same list as `Cmd+K`, but only looks at titles and keys, so it answers instantly. `Cmd+Shift+P` still runs commands.
+
+### Fixed
+
+- **Search is faster.** Search opens at once and shows results as you type, even with tens of thousands of items. Typing no longer waits before it starts looking.
+
 ## 0.57.1 (2026-11-03)
 
 ### Fixed

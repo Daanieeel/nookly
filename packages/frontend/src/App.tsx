@@ -1,10 +1,9 @@
 import { BookmarkSheet } from "#/features/bookmarks/BookmarkSheet.tsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { CSSProperties } from "react";
-import { CommandPalette } from "#/components/command-palette.tsx";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
-import { QuickSwitcher } from "#/components/quick-switcher.tsx";
+import { QuickOpenPalette, SearchPalette } from "#/components/search-palette.tsx";
 import { EntityDetailRouter } from "#/components/entity-detail-router.tsx";
 import { ModuleView } from "#/components/module-view.tsx";
 import { AppSidebar } from "#/components/sidebar.tsx";
@@ -125,8 +124,8 @@ function Shell() {
           </SidebarInset>
         </SidebarProvider>
       </div>
-      <CommandPalette />
-      <QuickSwitcher />
+      <SearchPalette />
+      <QuickOpenPalette />
       <CommandsPalette />
       <QuickJotDialog />
       <SettingsDialog />

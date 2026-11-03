@@ -475,3 +475,13 @@ The sidebar lists the active Space's modules only. All Spaces sit in a row of ic
 **Why:** stacking every Space with its modules made the sidebar long and noisy, and it only gets worse as modules are added. Spaces are a hard wall, so showing one at a time matches how they behave. Arc and Zen do the same.
 
 **Rejected:** keeping Spaces as collapsible folders (the growth problem stays), a Space switcher at the top (the bottom row keeps the global block where it is and puts the switch near the thumb and the trackpad), and wrapping the swipe around (an overshoot would jump from the last Space to the first).
+
+---
+
+### One ranked search list, one engine for Cmd+K and Cmd+P
+
+Search is one SQL statement that returns a single ranked list: key matches, then titles (exact, prefix, substring, then full text rank), then blocks, then Bookmark and File text, one row per entity. Type, label and Space filters run inside it. `Cmd+P` is the same call with `titlesOnly`, which skips the body sources. Nothing loads when a palette opens except Recents (`list_entities_by_ids`), labels load only once `#` is typed, and there is no typing pause: every keystroke searches, and the backend stops a search that a newer one replaced. The grouped results, "View all", the filter menu in the palette and the separate Cmd+P matcher are gone. `Cmd+P` no longer finds scattered letters inside a title, only words that start with what was typed, like Cmd+K. Recents is the empty state, followed by the filter hints and suggestions; Pinned is left to the sidebar, so an empty palette runs no extra queries.
+
+**Why:** scanning headings was slower than reading a list. Two result lists meant two sets of code. Loading every entity and label before the first letter was the main cost of opening.
+
+**Rejected:** an in memory index in the frontend (a second copy of the data that can drift, the full text index already is the index) and a fixed typing pause (it only delays the first answer).
