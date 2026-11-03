@@ -339,7 +339,9 @@ pub fn validate_content(block_type: &str, content: &str) -> AppResult<()> {
 fn plain_inline(text: &str) -> String {
     static INLINE: OnceLock<regex::Regex> = OnceLock::new();
     let re = INLINE.get_or_init(|| {
-        regex::Regex::new(r"\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|`([^`]+)`|\*([^*]+)\*").unwrap()
+        crate::error::literal_regex(
+            r"\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|`([^`]+)`|\*([^*]+)\*",
+        )
     });
     re.replace_all(text, |caps: &regex::Captures| {
         if let (Some(label), Some(href)) = (caps.get(1), caps.get(2)) {
@@ -1058,7 +1060,7 @@ inventory::submit! {
 fn validate_mention_link(content: &str) -> Result<(), String> {
     static LINK: OnceLock<regex::Regex> = OnceLock::new();
     let re =
-        LINK.get_or_init(|| regex::Regex::new(r"^\[[^\]]*\]\(mention:[a-zA-Z0-9-]+\)$").unwrap());
+        LINK.get_or_init(|| crate::error::literal_regex(r"^\[[^\]]*\]\(mention:[a-zA-Z0-9-]+\)$"));
     let content = content.trim();
     if content.is_empty() || re.is_match(content) {
         Ok(())
@@ -1105,7 +1107,7 @@ fn validate_media(content: &str) -> Result<(), String> {
 fn media_link(block: &Block) -> Option<(String, String)> {
     static LINK: OnceLock<regex::Regex> = OnceLock::new();
     let re = LINK
-        .get_or_init(|| regex::Regex::new(r"^\[([^\]]*)\]\((mention:[a-zA-Z0-9-]+)\)$").unwrap());
+        .get_or_init(|| crate::error::literal_regex(r"^\[([^\]]*)\]\((mention:[a-zA-Z0-9-]+)\)$"));
     let content = block.content.trim();
     if content.is_empty() {
         return None;

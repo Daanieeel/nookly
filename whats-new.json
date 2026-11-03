@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.57.2",
+      "date": "2026-11-03",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "When something goes wrong behind the scenes, Nookly now shows an error instead of closing."
+        ]
+      }
+    },
+    {
       "version": "0.57.1",
       "date": "2026-11-03",
       "highlights": [],

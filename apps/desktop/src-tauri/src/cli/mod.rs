@@ -59,7 +59,7 @@ fn fail(err: &AppError) -> ! {
     let value = json!({ "error": err });
     write_line(
         &mut std::io::stderr(),
-        &serde_json::to_string_pretty(&value).unwrap(),
+        &serde_json::to_string_pretty(&value).unwrap_or_else(|_| value.to_string()),
     );
     std::process::exit(1);
 }
@@ -74,13 +74,10 @@ fn print_json(value: &Value) {
     if std::io::stdout().is_terminal() {
         write_line(
             &mut std::io::stdout(),
-            &serde_json::to_string_pretty(value).unwrap(),
+            &serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string()),
         );
     } else {
-        write_line(
-            &mut std::io::stdout(),
-            &serde_json::to_string(value).unwrap(),
-        );
+        write_line(&mut std::io::stdout(), &value.to_string());
     }
 }
 
@@ -1503,15 +1500,10 @@ fn attach_labels(conn: &Connection, items: &mut [Value]) -> AppResult<()> {
             ids_by_space.insert(space_id.clone(), fetched);
         }
         if !labels_by_space.contains_key(&space_id) {
-            let fetched: HashMap<String, Value> = crate::db::labels::list_labels(conn, &space_id)?
+            let fetched = crate::db::labels::list_labels(conn, &space_id)?
                 .into_iter()
-                .map(|l| {
-                    (
-                        l.id.clone(),
-                        serde_json::to_value(&l).expect("Label always serializes"),
-                    )
-                })
-                .collect();
+                .map(|l| Ok((l.id.clone(), crate::error::to_json(&l)?)))
+                .collect::<AppResult<HashMap<String, Value>>>()?;
             labels_by_space.insert(space_id.clone(), fetched);
         }
         let label_ids = ids_by_space[&space_id]
@@ -1978,8 +1970,8 @@ fn list_mistake_warning(
     block: &crate::db::notes::Block,
 ) -> AppResult<Option<String>> {
     let marker = match block.block_type.as_str() {
-        "numbered_list" => regex::Regex::new(r"^\s*\d+[.)]\s").expect("valid regex"),
-        "bulleted_list" => regex::Regex::new(r"^\s*[-*+]\s").expect("valid regex"),
+        "numbered_list" => crate::error::literal_regex(r"^\s*\d+[.)]\s"),
+        "bulleted_list" => crate::error::literal_regex(r"^\s*[-*+]\s"),
         _ => return Ok(None),
     };
     let blocks = crate::db::notes::list_blocks(conn, &block.entity_id)?;
@@ -2128,10 +2120,14 @@ fn relate(conn: &Connection, args: &Args) -> AppResult<Value> {
             })
             .collect::<AppResult<Vec<_>>>()
     })?;
-    if created.len() == 1 {
-        return Ok(created.into_iter().next().expect("one item"));
+    let count = created.len();
+    let mut items = created;
+    if count == 1 {
+        if let Some(only) = items.pop() {
+            return Ok(only);
+        }
     }
-    Ok(json!({ "count": created.len(), "items": created }))
+    Ok(json!({ "count": count, "items": items }))
 }
 
 /// A relationship with both ends' keys next to their ids.
@@ -2141,7 +2137,7 @@ fn relationship_json(
 ) -> AppResult<Value> {
     let from_key = crate::db::entities::entity_key(conn, &rel.from_entity_id)?;
     let to_key = crate::db::entities::entity_key(conn, &rel.to_entity_id)?;
-    let mut value = serde_json::to_value(rel).expect("Relationship always serializes");
+    let mut value = crate::error::to_json(rel)?;
     value["fromEntityKey"] = json!(from_key);
     value["toEntityKey"] = json!(to_key);
     Ok(value)
@@ -2175,7 +2171,7 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             let icon = args.flag("icon");
             let color = args.require_flag("color")?;
             let space = crate::db::spaces::create_space(conn, name, icon, color)?;
-            Ok(serde_json::to_value(space).expect("Space always serializes"))
+            crate::error::to_json(space)
         }
         "update" => {
             let id = args.require_positional(0, "id")?;
@@ -2185,7 +2181,7 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
                 color: args.flag("color"),
             };
             let space = crate::db::spaces::update_space(conn, &id, patch)?;
-            Ok(serde_json::to_value(space).expect("Space always serializes"))
+            crate::error::to_json(space)
         }
         "delete" => {
             let id = args.require_positional(0, "id")?;
@@ -2252,7 +2248,7 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             let name = args.require_flag("name")?;
             let color = args.require_flag("color")?;
             let label = crate::db::labels::create_label(conn, space_id, name, color)?;
-            Ok(serde_json::to_value(label).expect("Label always serializes"))
+            crate::error::to_json(label)
         }
         "update" => {
             let id = args.require_positional(0, "id")?;
@@ -2262,7 +2258,7 @@ fn label_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
                 args.flag("name"),
                 args.flag("color"),
             )?;
-            Ok(serde_json::to_value(label).expect("Label always serializes"))
+            crate::error::to_json(label)
         }
         "delete" => {
             let id = args.require_positional(0, "id")?;

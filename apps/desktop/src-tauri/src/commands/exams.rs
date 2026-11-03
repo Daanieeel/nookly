@@ -12,19 +12,19 @@ pub fn create_exam(
     exam_date: Option<String>,
     weight: Option<f64>,
 ) -> AppResult<Exam> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::create_exam(&conn, space_id, title, course_id, exam_date, weight)
 }
 
 #[tauri::command]
 pub fn list_exams(state: State<DbState>, space_id: String) -> AppResult<Vec<Exam>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::list_exams(&conn, &space_id)
 }
 
 #[tauri::command]
 pub fn list_exams_all_spaces(state: State<DbState>) -> AppResult<Vec<Exam>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::list_exams_all_spaces(&conn)
 }
 
@@ -35,7 +35,7 @@ pub fn update_exam(
     grade: Option<f64>,
     status: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::update_exam(&conn, &entity_id, grade, status)
 }
 
@@ -45,7 +45,7 @@ pub fn update_exam_date(
     entity_id: String,
     exam_date: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::update_exam_date(&conn, &entity_id, exam_date)
 }
 
@@ -55,7 +55,7 @@ pub fn update_exam_weight(
     entity_id: String,
     weight: Option<f64>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::update_exam_weight(&conn, &entity_id, weight)
 }
 
@@ -65,7 +65,7 @@ pub fn update_exam_grade(
     entity_id: String,
     grade: Option<f64>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::update_exam_grade(&conn, &entity_id, grade)
 }
 
@@ -75,7 +75,7 @@ pub fn update_exam_time(
     entity_id: String,
     exam_time: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::update_exam_time(&conn, &entity_id, exam_time)
 }
 
@@ -85,7 +85,7 @@ pub fn update_exam_room(
     entity_id: String,
     room: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::update_exam_room(&conn, &entity_id, room)
 }
 
@@ -95,6 +95,6 @@ pub fn set_exam_course(
     entity_id: String,
     course_id: String,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     exams::set_exam_course(&conn, &entity_id, course_id)
 }

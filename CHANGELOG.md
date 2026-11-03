@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.57.2 (2026-11-03)
+
+### Fixed
+
+- **Fewer unexpected closes.** When something goes wrong behind the scenes, Nookly now shows an error instead of closing.
+
 ## 0.57.1 (2026-11-03)
 
 ### Fixed

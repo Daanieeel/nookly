@@ -12,7 +12,7 @@ pub fn create_relationship(
     from_block_id: Option<String>,
     to_block_id: Option<String>,
 ) -> AppResult<Relationship> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     relationships::create_relationship(
         &conn,
         from_entity_id,
@@ -29,7 +29,7 @@ pub fn list_relationships(
     entity_id: String,
     direction: String,
 ) -> AppResult<Vec<Relationship>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     let direction = match direction.as_str() {
         "from" => Direction::From,
         "to" => Direction::To,
@@ -40,7 +40,7 @@ pub fn list_relationships(
 
 #[tauri::command]
 pub fn delete_relationship(state: State<DbState>, id: String) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     relationships::delete_relationship(&conn, &id)
 }
 

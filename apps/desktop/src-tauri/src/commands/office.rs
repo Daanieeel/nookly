@@ -54,7 +54,7 @@ pub async fn convert_office_to_pdf(
     entity_id: String,
 ) -> AppResult<String> {
     let source = {
-        let conn = state.0.lock().unwrap();
+        let conn = state.conn()?;
         let file = files::get_file(&conn, &entity_id)?;
         file.local_path
             .or(file.source_path)

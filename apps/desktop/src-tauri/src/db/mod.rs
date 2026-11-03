@@ -70,11 +70,23 @@ mod upgrade_tests;
 pub mod views;
 
 use rusqlite::Connection;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 use tauri::{Emitter, Manager};
 
 pub struct DbState(pub Mutex<Connection>);
+
+impl DbState {
+    /// The one way a command takes the database lock. A lock poisoned by an
+    /// earlier panic comes back as an error instead of panicking again.
+    pub fn conn(&self) -> crate::error::AppResult<MutexGuard<'_, Connection>> {
+        self.0.lock().map_err(|_| {
+            crate::error::AppError::Db(
+                "the database lock is unavailable after an earlier failure, restart Nookly".into(),
+            )
+        })
+    }
+}
 
 /// Emitted when another process (the CLI, usually an agent) committed to the
 /// database, so the frontend refetches instead of showing stale data.
@@ -332,6 +344,35 @@ mod tests {
     fn data_version(conn: &Connection) -> i64 {
         conn.query_row("PRAGMA data_version", [], |row| row.get(0))
             .unwrap()
+    }
+
+    /// A command that panicked while holding the lock poisons it. The next command
+    /// gets an error back instead of panicking too (which would end the app).
+    #[test]
+    fn conn_returns_an_error_instead_of_panicking_when_the_lock_is_poisoned() {
+        let state = std::sync::Arc::new(DbState(Mutex::new(test_conn())));
+        let poisoner = state.clone();
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoner.0.lock().unwrap();
+            panic!("a command panicked while holding the database lock");
+        })
+        .join();
+        assert!(state.0.is_poisoned());
+        let result = state.conn();
+        match result {
+            Err(crate::error::AppError::Db(message)) => {
+                assert!(message.contains("lock"), "unexpected message: {message}");
+            }
+            Err(other) => panic!("expected a database error, got {other:?}"),
+            Ok(_) => panic!("a poisoned lock must not hand out the connection"),
+        }
+    }
+
+    #[test]
+    fn conn_hands_out_the_connection_when_the_lock_is_healthy() {
+        let state = DbState(Mutex::new(test_conn()));
+        let conn = state.conn().unwrap();
+        assert_eq!(data_version(&conn), data_version(&conn));
     }
 
     /// `watch_external_changes` relies on this: the app's own writes leave its

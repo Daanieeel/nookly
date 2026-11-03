@@ -779,8 +779,7 @@ fn cli_update_calendar_entry_template(
 }
 
 fn cli_get_calendar_entry_template(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_calendar_entry_template(conn, id)?)
-        .expect("CalendarEntryTemplate always serializes"))
+    crate::error::to_json(get_calendar_entry_template(conn, id)?)
 }
 
 fn cli_list_calendar_entry_templates(
@@ -791,10 +790,10 @@ fn cli_list_calendar_entry_templates(
     let space_id = space_id.ok_or_else(|| {
         AppError::InvalidInput("calendar_entry_template list requires --space <space-id>".into())
     })?;
-    Ok(list_calendar_entry_templates(conn, space_id)?
+    list_calendar_entry_templates(conn, space_id)?
         .into_iter()
-        .map(|t| serde_json::to_value(t).expect("CalendarEntryTemplate always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {
@@ -856,7 +855,7 @@ fn cli_create_calendar_entry(
         location,
         description,
     )?;
-    Ok(serde_json::to_value(occurrence).expect("CalendarEntry always serializes"))
+    crate::error::to_json(occurrence)
 }
 
 fn cli_update_calendar_entry(
@@ -885,12 +884,11 @@ fn cli_update_calendar_entry(
             .then(|| crate::db::schema::field_str(fields, "description")),
     };
     let occurrence = override_occurrence(conn, id, patch)?;
-    Ok(serde_json::to_value(occurrence).expect("CalendarEntry always serializes"))
+    crate::error::to_json(occurrence)
 }
 
 fn cli_get_calendar_entry(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_calendar_entry(conn, id)?)
-        .expect("CalendarEntry always serializes"))
+    crate::error::to_json(get_calendar_entry(conn, id)?)
 }
 
 fn cli_list_calendar_entries(
@@ -901,10 +899,10 @@ fn cli_list_calendar_entries(
     let space_id = space_id.ok_or_else(|| {
         AppError::InvalidInput("calendar_entry list requires --space <space-id>".into())
     })?;
-    Ok(list_calendar_entries(conn, Some(space_id))?
+    list_calendar_entries(conn, Some(space_id))?
         .into_iter()
-        .map(|o| serde_json::to_value(o).expect("CalendarEntry always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {

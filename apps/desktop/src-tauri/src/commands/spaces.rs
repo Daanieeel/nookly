@@ -10,37 +10,37 @@ pub fn create_space(
     icon: Option<String>,
     color: String,
 ) -> AppResult<Space> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     spaces::create_space(&conn, name, icon, color)
 }
 
 #[tauri::command]
 pub fn list_spaces(state: State<DbState>) -> AppResult<Vec<Space>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     spaces::list_spaces(&conn)
 }
 
 #[tauri::command]
 pub fn update_space(state: State<DbState>, id: String, patch: SpacePatch) -> AppResult<Space> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     spaces::update_space(&conn, &id, patch)
 }
 
 #[tauri::command]
 pub fn delete_space(state: State<DbState>, id: String) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     spaces::delete_space(&conn, &id)
 }
 
 #[tauri::command]
 pub fn reorder_spaces(state: State<DbState>, ordered_ids: Vec<String>) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     spaces::reorder_spaces(&conn, ordered_ids)
 }
 
 #[tauri::command]
 pub fn list_space_modules(state: State<DbState>, space_id: String) -> AppResult<Vec<String>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     space_modules::list_space_modules(&conn, &space_id)
 }
 
@@ -50,7 +50,7 @@ pub fn add_space_module(
     space_id: String,
     module_key: String,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     space_modules::add_space_module(&conn, &space_id, &module_key)
 }
 
@@ -61,7 +61,7 @@ pub fn remove_space_module(
     module_key: String,
     delete_content: bool,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     space_modules::remove_space_module(&conn, &space_id, &module_key, delete_content)
 }
 
@@ -71,6 +71,6 @@ pub fn reorder_space_modules(
     space_id: String,
     ordered_keys: Vec<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     space_modules::reorder_space_modules(&conn, &space_id, ordered_keys)
 }

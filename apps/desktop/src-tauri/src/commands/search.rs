@@ -11,13 +11,13 @@ pub fn search(
     query: String,
     space_id: Option<String>,
 ) -> AppResult<Vec<SearchHit>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     search::search(&conn, &query, space_id.as_deref())
 }
 
 /// Notes pages rendered inline on another entity's page (Course/Semester Notes).
 #[tauri::command]
 pub fn list_embedded_page_ids(state: State<DbState>) -> AppResult<Vec<String>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     search::list_embedded_page_ids(&conn)
 }

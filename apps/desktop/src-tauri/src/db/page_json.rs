@@ -47,7 +47,7 @@ pub struct BlockJson {
 }
 
 static MENTION: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r"\[([^\]]*)\]\(mention:[a-zA-Z0-9-]+(?:#[a-zA-Z0-9_-]+)?\)").unwrap()
+    crate::error::literal_regex(r"\[([^\]]*)\]\(mention:[a-zA-Z0-9-]+(?:#[a-zA-Z0-9_-]+)?\)")
 });
 
 /// Mention links as their label, so a reference to another entity reads as plain text.

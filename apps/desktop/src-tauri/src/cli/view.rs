@@ -22,9 +22,7 @@ const GREP_LINE_CHARS: usize = 240;
 /// back as `--if-revision` to refuse a write when someone else changed the entity since.
 pub fn revision(data: &Value) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    serde_json::to_string(data)
-        .expect("JSON value always serializes")
-        .hash(&mut hasher);
+    data.to_string().hash(&mut hasher);
     format!("{:016x}", hasher.finish())
 }
 
@@ -410,10 +408,9 @@ pub fn parse_since(raw: &str) -> AppResult<DateTime<Utc>> {
         return Ok(ts.with_timezone(&Utc));
     }
     if let Ok(date) = NaiveDate::parse_from_str(raw, "%Y-%m-%d") {
-        return Ok(date
-            .and_hms_opt(0, 0, 0)
-            .expect("midnight exists")
-            .and_utc());
+        if let Some(midnight) = date.and_hms_opt(0, 0, 0) {
+            return Ok(midnight.and_utc());
+        }
     }
     Err(AppError::InvalidInput(format!(
         "invalid --since '{raw}': use a relative age (30m, 24h, 7d, 2w), a date (2026-09-20) or an RFC 3339 timestamp"

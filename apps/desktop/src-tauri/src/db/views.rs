@@ -451,7 +451,7 @@ fn cli_create_view(conn: &Connection, input: CreateInput) -> AppResult<serde_jso
     check_module(&module)?;
     validate_config(&module, &config)?;
     let view = create_view(conn, input.space_id, input.title, module, config, None)?;
-    Ok(serde_json::to_value(view).expect("View always serializes"))
+    crate::error::to_json(view)
 }
 
 fn cli_update_view(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
@@ -469,7 +469,7 @@ fn cli_update_view(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
 }
 
 fn cli_get_view(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_view(conn, id)?).expect("View always serializes"))
+    crate::error::to_json(get_view(conn, id)?)
 }
 
 fn cli_list_views(
@@ -479,10 +479,10 @@ fn cli_list_views(
 ) -> AppResult<Vec<serde_json::Value>> {
     let space_id = space_id
         .ok_or_else(|| AppError::InvalidInput("view list requires --space <space-id>".into()))?;
-    Ok(list_views(conn, space_id, None)?
+    list_views(conn, space_id, None)?
         .into_iter()
-        .map(|v| serde_json::to_value(v).expect("View always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {

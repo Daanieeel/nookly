@@ -11,7 +11,7 @@ use tauri::State;
 /// The entity as the text of its file, for sharing it without a path.
 #[tauri::command]
 pub fn render_entity_json(state: State<DbState>, entity_id: String) -> AppResult<String> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     portable::export_entity(&conn, &entity_id)
 }
 
@@ -20,7 +20,7 @@ pub fn render_entity_json(state: State<DbState>, entity_id: String) -> AppResult
 #[tauri::command]
 pub fn export_entity_json(state: State<DbState>, entity_id: String, path: String) -> AppResult<()> {
     let json = {
-        let conn = state.0.lock().unwrap();
+        let conn = state.conn()?;
         portable::export_entity(&conn, &entity_id)?
     };
     std::fs::write(&path, json).map_err(|err| AppError::Io(err.to_string()))
@@ -63,7 +63,7 @@ pub fn import_entity_json(
     parent_id: Option<String>,
 ) -> AppResult<Entity> {
     let text = read_file(&path)?;
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     portable::import(&conn, &space_id, parent_id.as_deref(), &text)
 }
 
@@ -75,6 +75,6 @@ pub fn import_entity_text(
     text: String,
     parent_id: Option<String>,
 ) -> AppResult<Entity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     portable::import(&conn, &space_id, parent_id.as_deref(), &text)
 }

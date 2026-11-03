@@ -29,7 +29,7 @@ pub async fn create_backup(app: AppHandle, folder: String, keep: usize) -> AppRe
         // The database lock is held only for the snapshot, not while files are zipped.
         let snapshot = {
             let state = app.state::<DbState>();
-            let conn = state.0.lock().unwrap();
+            let conn = state.conn()?;
             backup::snapshot(&conn)?
         };
         backup::create_backup(snapshot, &data_dir, &PathBuf::from(folder), keep)

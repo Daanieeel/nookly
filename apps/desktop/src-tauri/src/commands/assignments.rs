@@ -15,7 +15,7 @@ pub fn create_assignment(
     due_session_id: Option<String>,
     ungraded: Option<bool>,
 ) -> AppResult<Assignment> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     crate::db::atomically(&conn, || {
         let created = create_due(
             &conn,
@@ -58,13 +58,13 @@ fn create_due(
 
 #[tauri::command]
 pub fn list_assignments(state: State<DbState>, space_id: String) -> AppResult<Vec<Assignment>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::list_assignments(&conn, &space_id)
 }
 
 #[tauri::command]
 pub fn list_assignments_all_spaces(state: State<DbState>) -> AppResult<Vec<Assignment>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::list_assignments_all_spaces(&conn)
 }
 
@@ -75,7 +75,7 @@ pub fn update_assignment_status(
     status: String,
     grade: Option<f64>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::update_assignment_status(&conn, &entity_id, status, grade)
 }
 
@@ -85,7 +85,7 @@ pub fn update_assignment_due_date(
     entity_id: String,
     due_date: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::update_assignment_due_date(&conn, &entity_id, due_date)
 }
 
@@ -95,7 +95,7 @@ pub fn set_assignment_course(
     entity_id: String,
     course_id: String,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::set_assignment_course(&conn, &entity_id, course_id)
 }
 
@@ -106,7 +106,7 @@ pub fn update_assignment_due_before_session(
     offset_days: Option<i64>,
     session_id: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::update_assignment_due_before_session(&conn, &entity_id, offset_days, session_id)
 }
 
@@ -116,7 +116,7 @@ pub fn update_assignment_ungraded(
     entity_id: String,
     ungraded: bool,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::update_assignment_ungraded(&conn, &entity_id, ungraded)
 }
 
@@ -126,6 +126,6 @@ pub fn update_assignment_weight(
     entity_id: String,
     weight: Option<f64>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::update_assignment_weight(&conn, &entity_id, weight)
 }

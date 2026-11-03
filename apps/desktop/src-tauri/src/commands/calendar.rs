@@ -20,7 +20,7 @@ pub fn create_calendar_entry_template(
     description: Option<String>,
     anchor_date: String,
 ) -> AppResult<Entity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     calendar::create_calendar_entry_template(
         &conn,
         space_id,
@@ -41,7 +41,7 @@ pub fn generate_calendar_entry_occurrences(
     template_id: String,
     until_date: String,
 ) -> AppResult<Vec<CalendarEntry>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     calendar::generate_occurrences(&conn, &template_id, &until_date)
 }
 
@@ -59,7 +59,7 @@ pub fn create_one_off_calendar_entry(
     location: Option<String>,
     description: Option<String>,
 ) -> AppResult<CalendarEntry> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     calendar::create_one_off_calendar_entry(
         &conn,
         space_id,
@@ -80,7 +80,7 @@ pub fn override_calendar_entry_occurrence(
     entity_id: String,
     patch: CalendarEntryOverride,
 ) -> AppResult<CalendarEntry> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     calendar::override_occurrence(&conn, &entity_id, patch)
 }
 
@@ -89,14 +89,14 @@ pub fn list_calendar_entries(
     state: State<DbState>,
     space_id: String,
 ) -> AppResult<Vec<CalendarEntry>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     calendar::list_calendar_entries(&conn, Some(&space_id))
 }
 
 /// Every calendar entry across every Space, for the unified cross-Space Calendar page.
 #[tauri::command]
 pub fn list_calendar_entries_all(state: State<DbState>) -> AppResult<Vec<CalendarEntry>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     calendar::list_calendar_entries(&conn, None)
 }
 
@@ -105,7 +105,7 @@ pub fn list_calendar_entry_templates(
     state: State<DbState>,
     space_id: String,
 ) -> AppResult<Vec<CalendarEntryTemplate>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     calendar::list_calendar_entry_templates(&conn, &space_id)
 }
 
@@ -117,7 +117,7 @@ pub fn update_calendar_entry_series(
     patch: CalendarEntrySeriesPatch,
     anchor_id: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     calendar::update_calendar_entry_series_anchored(
         &conn,
         &template_id,
@@ -133,6 +133,6 @@ pub fn delete_calendar_entry_series(
     template_id: String,
     from_date: String,
 ) -> AppResult<usize> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     calendar::delete_calendar_entry_series(&conn, &template_id, &from_date)
 }

@@ -608,7 +608,7 @@ fn cli_update_assignment(
 }
 
 fn cli_get_assignment(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_assignment(conn, id)?).expect("Assignment always serializes"))
+    crate::error::to_json(get_assignment(conn, id)?)
 }
 
 fn cli_list_assignments(
@@ -619,10 +619,10 @@ fn cli_list_assignments(
     let space_id = space_id.ok_or_else(|| {
         crate::error::AppError::InvalidInput("assignment list requires --space <space-id>".into())
     })?;
-    Ok(list_assignments(conn, space_id)?
+    list_assignments(conn, space_id)?
         .into_iter()
-        .map(|a| serde_json::to_value(a).expect("Assignment always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {

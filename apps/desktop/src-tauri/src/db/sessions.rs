@@ -808,8 +808,7 @@ fn cli_update_session_template(
 }
 
 fn cli_get_session_template(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_session_template(conn, id)?)
-        .expect("SessionTemplate always serializes"))
+    crate::error::to_json(get_session_template(conn, id)?)
 }
 
 fn cli_list_session_templates(
@@ -820,10 +819,10 @@ fn cli_list_session_templates(
     let space_id = space_id.ok_or_else(|| {
         AppError::InvalidInput("session_template list requires --space <space-id>".into())
     })?;
-    Ok(list_session_templates(conn, space_id)?
+    list_session_templates(conn, space_id)?
         .into_iter()
-        .map(|t| serde_json::to_value(t).expect("SessionTemplate always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {
@@ -880,7 +879,7 @@ fn cli_create_session(conn: &Connection, input: CreateInput) -> AppResult<serde_
         end_time,
         location,
     )?;
-    Ok(serde_json::to_value(occurrence).expect("SessionOccurrence always serializes"))
+    crate::error::to_json(occurrence)
 }
 
 fn cli_update_session(
@@ -901,12 +900,11 @@ fn cli_update_session(
             .map(|_| crate::db::schema::field_str(fields, "notes")),
     };
     let occurrence = override_occurrence(conn, id, patch)?;
-    Ok(serde_json::to_value(occurrence).expect("SessionOccurrence always serializes"))
+    crate::error::to_json(occurrence)
 }
 
 fn cli_get_session(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_session_occurrence(conn, id)?)
-        .expect("SessionOccurrence always serializes"))
+    crate::error::to_json(get_session_occurrence(conn, id)?)
 }
 
 fn cli_list_sessions(
@@ -916,10 +914,10 @@ fn cli_list_sessions(
 ) -> AppResult<Vec<serde_json::Value>> {
     let space_id = space_id
         .ok_or_else(|| AppError::InvalidInput("session list requires --space <space-id>".into()))?;
-    Ok(list_sessions(conn, Some(space_id))?
+    list_sessions(conn, Some(space_id))?
         .into_iter()
-        .map(|o| serde_json::to_value(o).expect("SessionOccurrence always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {

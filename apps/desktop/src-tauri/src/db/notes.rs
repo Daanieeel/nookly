@@ -431,7 +431,7 @@ pub fn list_mentioning_entities(conn: &Connection, entity_id: &str) -> AppResult
 /// Same syntax as the frontend's `MENTION_PATTERN` (`mention-utils.ts`). A `#<blockId>`
 /// suffix links one block of the page; the backlink still counts the whole page.
 static MENTION_PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-    regex::Regex::new(r"\[[^\]]+\]\(mention:([a-zA-Z0-9-]+)(?:#[a-zA-Z0-9_-]+)?\)").unwrap()
+    crate::error::literal_regex(r"\[[^\]]+\]\(mention:([a-zA-Z0-9-]+)(?:#[a-zA-Z0-9_-]+)?\)")
 });
 
 pub fn extract_mention_ids(content: &str) -> std::collections::BTreeSet<String> {
@@ -515,8 +515,11 @@ fn parse_table_row(line: &str) -> Vec<String> {
         .collect()
 }
 
-fn attrs_json(attrs: &BlockAttrs) -> Option<String> {
-    (!attrs.is_empty()).then(|| serde_json::to_string(attrs).expect("string map always serializes"))
+fn attrs_json(attrs: &BlockAttrs) -> AppResult<Option<String>> {
+    if attrs.is_empty() {
+        return Ok(None);
+    }
+    crate::error::to_json_string(attrs).map(Some)
 }
 
 /// A block with no attrs, which is every standard block type.
@@ -581,10 +584,11 @@ pub fn create_block_with_attrs(
     };
     let id = super::new_id();
     let now = super::now();
+    let attrs_column = attrs_json(&attrs)?;
     conn.execute(
         "INSERT INTO blocks (id, entity_id, position, block_type, content, language, filename, attrs, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
-        params![id, entity_id, position, block_type, content, language, filename, attrs_json(&attrs), now],
+        params![id, entity_id, position, block_type, content, language, filename, attrs_column, now],
     )?;
     reindex_page(conn, entity_id)?;
     Ok(Block {
@@ -652,6 +656,7 @@ pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> App
     block_types::validate_content(&block.block_type, &block.content)?;
     block_types::merge_attrs(&block.block_type, &mut block.attrs, attrs_patch);
     let now = super::now();
+    let attrs_column = attrs_json(&block.attrs)?;
     conn.execute(
         "UPDATE blocks SET content = ?1, block_type = ?2, language = ?3, filename = ?4, attrs = ?5, updated_at = ?6 WHERE id = ?7",
         params![
@@ -659,7 +664,7 @@ pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> App
             block.block_type,
             block.language,
             block.filename,
-            attrs_json(&block.attrs),
+            attrs_column,
             now,
             block_id
         ],
@@ -715,10 +720,11 @@ const LITERAL_BLOCK_TYPES: &[&str] = &["code", "equation", "math", "diagram", "c
 fn strip_inline_colors(markdown: String) -> String {
     static HIGHLIGHT: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
     static TEXT: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
-    let highlight = HIGHLIGHT.get_or_init(|| regex::Regex::new(r"==\{[a-z]+\}").unwrap());
+    let highlight = HIGHLIGHT.get_or_init(|| crate::error::literal_regex(r"==\{[a-z]+\}"));
     let text = TEXT.get_or_init(|| {
-        regex::Regex::new(r"\{(?:red|orange|yellow|green|blue|purple|pink|gray)\}(.+?)\{/\}")
-            .unwrap()
+        crate::error::literal_regex(
+            r"\{(?:red|orange|yellow|green|blue|purple|pink|gray)\}(.+?)\{/\}",
+        )
     });
     let markdown = highlight.replace_all(&markdown, "==");
     text.replace_all(&markdown, "$1").into_owned()
@@ -820,7 +826,7 @@ pub fn render_page_markdown(conn: &Connection, entity_id: &str) -> AppResult<Str
 fn resolve_file_links(conn: &Connection, markdown: &str) -> AppResult<String> {
     // The optional `#...` is a block of a page, or `#p12`, a page of a file.
     static TARGET: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"\]\(mention:([a-zA-Z0-9-]+)(#[a-zA-Z0-9_-]+)?\)").unwrap()
+        crate::error::literal_regex(r"\]\(mention:([a-zA-Z0-9-]+)(#[a-zA-Z0-9_-]+)?\)")
     });
     /// Where an export points, and whether that is a File (whose `#p12` stays).
     struct Target {
@@ -970,10 +976,10 @@ fn cli_list_pages(
         let space_id = space_id.ok_or_else(|| {
             AppError::InvalidInput(format!("{page_type} list requires --space <space-id>"))
         })?;
-        Ok(list_pages(conn, space_id, page_type, include_deleted)?
+        list_pages(conn, space_id, page_type, include_deleted)?
             .into_iter()
-            .map(|e| serde_json::to_value(e).expect("Entity always serializes"))
-            .collect())
+            .map(crate::error::to_json)
+            .collect::<crate::error::AppResult<Vec<_>>>()
     }
 }
 
