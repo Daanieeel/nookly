@@ -100,24 +100,28 @@ export function SidebarNavItems() {
     });
 }
 
-/// The Trash row at the bottom of the sidebar, unless the user hid it. It stays reachable
-/// from the command palette and the quick switcher.
-export function SidebarTrashItem() {
+/// The Trash icon in the bottom row, unless the user hid it. It stays reachable from the
+/// command palette and the quick switcher.
+export function SidebarTrashButton() {
   const view = useNavStore((s) => s.view);
   const setView = useNavStore((s) => s.setView);
   const hidden = useSidebarHidden((s) => s.hidden.includes("trash"));
   if (hidden) return null;
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton
-        tooltip="Trash"
-        isActive={view.kind === "trash"}
-        onClick={() => setView({ kind: "trash" })}
-      >
-        <IconTrash />
-        <span>Trash</span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant={view.kind === "trash" ? "secondary" : "ghost"}
+          size="iconSm"
+          aria-label="Trash"
+          aria-current={view.kind === "trash" ? "page" : undefined}
+          onClick={() => setView({ kind: "trash" })}
+        >
+          <IconTrash />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">Trash</TooltipContent>
+    </Tooltip>
   );
 }
 

@@ -2,12 +2,30 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.57.0 (2026-10-30)
+## 0.58.0 (2026-11-03)
 
 ### Added
 
 - **Moodle.** A new module that lets you read your university's Moodle inside Nookly. Browse your courses, open and download files, read assignments with your submission status and feedback, check your grades and read announcements and forum posts, without opening the website. Every page has an Open in Moodle button. You sign in through your university's own login page, so single sign on works. Nookly only reads from Moodle and never changes anything there. You can sign out from the Moodle page at any time.
 - **Moodle deadlines on your calendar.** Connect the link from Moodle's Export calendar under Calendar connections, and its deadlines and classes show on your Calendar next to your sessions.
+
+## 0.57.1 (2026-11-03)
+
+### Fixed
+
+- **Module names in the sidebar.** The icon and name of each module no longer sit on top of the handle you drag to reorder them.
+
+## 0.57.0 (2026-11-01)
+
+### Added
+
+- **One Space at a time in the sidebar.** The sidebar now shows only the modules of the Space you are in, as a simple list. Your Spaces sit in a row at the bottom: click one to switch, right click it to rename it, change its icon or color, or delete it, and drag to reorder. With more than four Spaces, the rest are under a three dot button.
+- **Switch Spaces quickly.** Swipe left or right with two fingers on the sidebar, or press `Cmd+Option+Up` and `Cmd+Option+Down` (`Ctrl+Alt+Up` and `Ctrl+Alt+Down` on Windows and Linux). The list moves with your fingers, with the next Space coming in beside it. Let go before halfway, or after stopping, and it springs back. Flick, and it goes on to the next Space. Opening something from another Space switches the sidebar to it, and switching with a click or a key slides in the same way.
+- **A hint for switching Spaces.** A quiet line at the bottom of the sidebar tells you about the swipe. It goes away for good the first time you use it.
+
+### Changed
+
+- **One plus button.** The plus at the bottom left of the sidebar adds a new Space or a module to the Space you are in. Trash and Collapse sidebar are now small icons next to your Spaces.
 
 ## 0.56.4 (2026-10-30)
 

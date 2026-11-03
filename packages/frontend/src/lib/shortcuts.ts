@@ -193,6 +193,20 @@ export const SHORTCUT_META = {
     section: "Tabs",
     scopes: GLOBAL,
   },
+  previousSpace: {
+    title: "Previous Space",
+    description: "Switch the sidebar to the Space before this one.",
+    synonyms: ["switch space", "cycle spaces", "space up", "workspace"],
+    section: "Navigation",
+    scopes: GLOBAL,
+  },
+  nextSpace: {
+    title: "Next Space",
+    description: "Switch the sidebar to the Space after this one.",
+    synonyms: ["switch space", "cycle spaces", "space down", "workspace"],
+    section: "Navigation",
+    scopes: GLOBAL,
+  },
   splitRight: {
     title: "Split right",
     description: "Open the current tab again in a group on the right, side by side.",

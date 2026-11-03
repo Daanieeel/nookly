@@ -180,10 +180,9 @@ interface NavState {
   /// The tab being dragged in the tab bar.
   draggingTabId: string | null;
   setDraggingTabId: (id: string | null) => void;
+  /// The Space the sidebar shows. It follows the focused tab, and is set directly when
+  /// the user picks another Space in the sidebar.
   activeSpaceId: string | null;
-  /// Spaces expanded in the sidebar. Several can be open at once, unlike
-  /// `activeSpaceId`, which tracks the single Space the current view belongs to.
-  expandedSpaceIds: string[];
   paletteOpen: boolean;
   switcherOpen: boolean;
   commandsOpen: boolean;
@@ -232,7 +231,6 @@ interface NavState {
   /// its module page with the View applied, replacing the entity view in history.
   showSavedView: (entityId: string, spaceId: string, module: ViewModule, groupId?: string) => void;
   setActiveSpace: (spaceId: string | null) => void;
-  toggleExpandedSpace: (spaceId: string) => void;
   setPaletteOpen: (open: boolean) => void;
   setSwitcherOpen: (open: boolean) => void;
   setCommandsOpen: (open: boolean) => void;
@@ -282,46 +280,11 @@ function writeStoredActiveSpace(spaceId: string | null) {
   else preferences.remove(STORAGE_KEYS.activeSpace);
 }
 
-/// Falls back to the last single active Space (pre multi-expand behavior) so
-/// upgrading doesn't collapse whatever a returning user already had open.
-function readStoredExpandedSpaces(): string[] {
-  try {
-    const raw = preferences.get(STORAGE_KEYS.expandedSpaces);
-    if (raw) {
-      // SAFETY: this key is only ever written by `writeStoredExpandedSpaces` below,
-      // with the exact `string[]` shape — never user-editable or written elsewhere.
-      return JSON.parse(raw) as string[];
-    }
-  } catch {
-    // fall through to the pre multi-expand default below
-  }
-  const previousSingle = readStoredActiveSpace();
-  return previousSingle ? [previousSingle] : [];
-}
-
-function writeStoredExpandedSpaces(ids: string[]) {
-  preferences.set(STORAGE_KEYS.expandedSpaces, JSON.stringify(ids));
-}
-
-/// Adds `spaceId` to `ids` if it isn't already expanded, so navigating into a
-/// Space's entity or module always reveals it in the sidebar.
-function withSpaceExpanded(ids: string[], spaceId: string): string[] {
-  return ids.includes(spaceId) ? ids : [...ids, spaceId];
-}
-
-/// The active and expanded Spaces after showing `view`, persisting whichever changed.
-function spaceStateFor(
-  state: Pick<NavState, "activeSpaceId" | "expandedSpaceIds">,
-  view: View,
-): Pick<NavState, "activeSpaceId" | "expandedSpaceIds"> {
+/// The active Space after showing `view`, persisting it when it changed.
+function activeSpaceFor(state: Pick<NavState, "activeSpaceId">, view: View): string | null {
   const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
   if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
-  const expandedSpaceIds =
-    "spaceId" in view
-      ? withSpaceExpanded(state.expandedSpaceIds, view.spaceId)
-      : state.expandedSpaceIds;
-  if (expandedSpaceIds !== state.expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
-  return { activeSpaceId, expandedSpaceIds };
+  return activeSpaceId;
 }
 
 function readStoredRecents(): RecentEntry[] {
@@ -483,14 +446,12 @@ function consumeNewTabIntent(): boolean {
 
 /// What switching to `tab` changes: its view and history become the live ones.
 function showTab(state: NavState, tab: Tab): Partial<NavState> {
-  const { activeSpaceId, expandedSpaceIds } = spaceStateFor(state, tab.view);
   return {
     activeTabId: tab.id,
     view: tab.view,
     backStack: tab.backStack,
     forwardStack: tab.forwardStack,
-    activeSpaceId,
-    expandedSpaceIds,
+    activeSpaceId: activeSpaceFor(state, tab.view),
     focusBlock: null,
     focusBlockGroupId: null,
   };
@@ -564,7 +525,6 @@ export const useNavStore = create<NavState>((set, get) => ({
   tabs: initialGroup.tabs,
   activeTabId: initialTab.id,
   activeSpaceId: readStoredActiveSpace(),
-  expandedSpaceIds: readStoredExpandedSpaces(),
   paletteOpen: false,
   switcherOpen: false,
   commandsOpen: false,
@@ -665,18 +625,15 @@ export const useNavStore = create<NavState>((set, get) => ({
       if (consumeNewTabIntent()) {
         return applyLayout(state, groupModel.addTab(layoutOf(state), makeTab(view), false));
       }
-      const { activeSpaceId, expandedSpaceIds } = spaceStateFor(state, view);
-      return { view, activeSpaceId, expandedSpaceIds, ...pushHistory(state, view) };
+      return { view, activeSpaceId: activeSpaceFor(state, view), ...pushHistory(state, view) };
     }),
   goBack: () =>
     set((state) => {
       const view = state.backStack.at(-1);
       if (!view) return {};
-      const { activeSpaceId, expandedSpaceIds } = spaceStateFor(state, view);
       return {
         view,
-        activeSpaceId,
-        expandedSpaceIds,
+        activeSpaceId: activeSpaceFor(state, view),
         focusBlock: null,
         backStack: state.backStack.slice(0, -1),
         forwardStack: [...state.forwardStack, state.view],
@@ -686,11 +643,9 @@ export const useNavStore = create<NavState>((set, get) => ({
     set((state) => {
       const view = state.forwardStack.at(-1);
       if (!view) return {};
-      const { activeSpaceId, expandedSpaceIds } = spaceStateFor(state, view);
       return {
         view,
-        activeSpaceId,
-        expandedSpaceIds,
+        activeSpaceId: activeSpaceFor(state, view),
         focusBlock: null,
         backStack: [...state.backStack, state.view],
         forwardStack: state.forwardStack.slice(0, -1),
@@ -711,13 +666,10 @@ export const useNavStore = create<NavState>((set, get) => ({
     );
     writeStoredRecents(recents);
     if (spaceId !== get().activeSpaceId) writeStoredActiveSpace(spaceId);
-    const expandedSpaceIds = withSpaceExpanded(get().expandedSpaceIds, spaceId);
-    if (expandedSpaceIds !== get().expandedSpaceIds) writeStoredExpandedSpaces(expandedSpaceIds);
     const view: View = { kind: "entity", entityId, spaceId };
     set({
       view,
       activeSpaceId: spaceId,
-      expandedSpaceIds,
       recents,
       focusBlock: focus ?? null,
       focusBlockGroupId: focus ? get().focusedGroupId : null,
@@ -763,14 +715,6 @@ export const useNavStore = create<NavState>((set, get) => ({
     writeStoredActiveSpace(spaceId);
     set({ activeSpaceId: spaceId });
   },
-  toggleExpandedSpace: (spaceId) =>
-    set((state) => {
-      const expandedSpaceIds = state.expandedSpaceIds.includes(spaceId)
-        ? state.expandedSpaceIds.filter((id) => id !== spaceId)
-        : [...state.expandedSpaceIds, spaceId];
-      writeStoredExpandedSpaces(expandedSpaceIds);
-      return { expandedSpaceIds };
-    }),
   // The overlays never stack: opening one closes the others.
   setPaletteOpen: (paletteOpen) =>
     set(paletteOpen ? { ...NO_OVERLAY, paletteOpen } : { paletteOpen }),

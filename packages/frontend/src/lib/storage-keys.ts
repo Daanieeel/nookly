@@ -5,7 +5,7 @@ export const STORAGE_KEYS = {
   rightSidebarCollapsed: "nookly:right-sidebar-collapsed",
   rightSidebarWidth: "nookly:right-sidebar-width",
   activeSpace: "nookly:active-space",
-  expandedSpaces: "nookly:expanded-spaces",
+  swipeHintDone: "nookly:swipe-hint-done",
   recents: "nookly:recents",
   tabs: "nookly:tabs",
   splitRatio: "nookly:split-ratio",

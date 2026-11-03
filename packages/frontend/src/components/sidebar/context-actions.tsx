@@ -1,10 +1,10 @@
 import {
   IconArrowUpRight,
-  IconChevronDown,
-  IconChevronRight,
+  IconColorSwatch,
   IconFolderPlus,
   IconLayoutGridAdd,
-  IconSettings,
+  IconMoodSmile,
+  IconPencil,
   IconTag,
   IconTrash,
 } from "@tabler/icons-react";
@@ -28,9 +28,9 @@ declare module "#/components/context-menu/registry.ts" {
   interface ContextTargets {
     /// The sidebar's own background, between and around its rows.
     sidebar: { createSpace: () => void };
-    /// A Space's row. Its dialogs belong to the row, so the row passes them in.
-    /// Deleting a Space is permanent, so it never gets a context menu action: a
-    /// right-click must never lead to a hard delete.
+    /// A Space's icon in the bottom row, or its name above the modules. Its dialogs belong
+    /// to the sidebar, so it passes openers in. Delete only opens the confirmation, which
+    /// makes the user type the Space's name, so a right click never deletes anything itself.
     space: SpaceRowTarget;
     /// A module's row inside a Space.
     "space-module": { spaceId: string; module: ModuleKey; removeModule: () => void };
@@ -39,10 +39,9 @@ declare module "#/components/context-menu/registry.ts" {
 
 export interface SpaceRowTarget {
   space: Space;
-  expanded: boolean;
-  toggle: () => void;
   openSettings: () => void;
   openLabels: () => void;
+  openDelete: () => void;
 }
 
 /// Same rules as the row's own "+" picker: modules not added yet, passengers
@@ -86,11 +85,28 @@ registerActions("sidebar", [
 
 registerActions("space", [
   {
-    id: "toggle",
-    group: "open",
-    label: ({ expanded }) => (expanded ? "Collapse" : "Expand"),
-    icon: ({ expanded }: SpaceRowTarget) => (expanded ? IconChevronDown : IconChevronRight),
-    run: ({ toggle }) => toggle(),
+    id: "rename",
+    group: "edit",
+    label: "Rename",
+    icon: IconPencil,
+    afterClose: true,
+    run: ({ openSettings }) => openSettings(),
+  },
+  {
+    id: "change-icon",
+    group: "edit",
+    label: "Change Icon",
+    icon: IconMoodSmile,
+    afterClose: true,
+    run: ({ openSettings }) => openSettings(),
+  },
+  {
+    id: "change-color",
+    group: "edit",
+    label: "Change Color",
+    icon: IconColorSwatch,
+    afterClose: true,
+    run: ({ openSettings }) => openSettings(),
   },
   {
     id: "add-module",
@@ -109,12 +125,13 @@ registerActions("space", [
     run: ({ openLabels }) => openLabels(),
   },
   {
-    id: "settings",
-    group: "edit",
-    label: "Space Settings",
-    icon: IconSettings,
+    id: "delete",
+    group: "danger",
+    label: "Delete Space",
+    icon: IconTrash,
+    destructive: true,
     afterClose: true,
-    run: ({ openSettings }) => openSettings(),
+    run: ({ openDelete }) => openDelete(),
   },
 ]);
 
