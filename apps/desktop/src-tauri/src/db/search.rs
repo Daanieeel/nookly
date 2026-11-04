@@ -843,7 +843,9 @@ mod tests {
 
     /// The 50 ms budget of the search surfaces (the fastest of a few runs, so a busy machine
     /// does not fail it): a ranked, folded list over 20,000
-    /// entities with bodies, the shape the palette asks for.
+    /// entities with bodies, the shape the palette asks for. Tests run unoptimized (SQLite
+    /// included), which is several times slower than the app people use, so a debug build
+    /// gets four times the budget. It still fails on a search that got much slower.
     #[test]
     fn search_stays_within_its_budget_on_20000_entities() {
         let conn = crate::db::test_conn();
@@ -895,6 +897,7 @@ mod tests {
         }
         conn.execute_batch("COMMIT").unwrap();
 
+        let budget: u128 = if cfg!(debug_assertions) { 200 } else { 50 };
         for query in ["a", "alpha", "alpha bravo", "tango oscar", "zzzz", "ech"] {
             let mut req = request(query);
             req.one_per_entity = true;
@@ -902,9 +905,9 @@ mod tests {
             // The first run warms SQLite's page cache, like a palette that was opened before.
             search_ranked(&conn, &req).unwrap();
             // Other tests and programs share the CPU, so a run is retried until one is
-            // quick. A search that really needs more than 50 ms never is.
+            // quick. A search that really needs more than the budget never is.
             let mut times: Vec<u128> = Vec::new();
-            while times.len() < 40 && times.iter().all(|&t| t > 50) {
+            while times.len() < 40 && times.iter().all(|&t| t > budget) {
                 let start = std::time::Instant::now();
                 search_ranked(&conn, &req).unwrap();
                 times.push(start.elapsed().as_millis());
@@ -913,8 +916,8 @@ mod tests {
             let fastest = times[0];
             eprintln!("search {query:?}: {times:?} ms");
             assert!(
-                fastest <= 50,
-                "{query:?} took {fastest} ms (budget 50 ms), runs {times:?}"
+                fastest <= budget,
+                "{query:?} took {fastest} ms (budget {budget} ms), runs {times:?}"
             );
         }
     }
