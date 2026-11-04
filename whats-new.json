@@ -28,6 +28,16 @@
       }
     },
     {
+      "version": "0.57.2",
+      "date": "2026-11-04",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Dragging tabs to reorder or split them, and dragging semesters to reorder them, now works on Linux."
+        ]
+      }
+    },
+    {
       "version": "0.57.1",
       "date": "2026-11-03",
       "highlights": [],
