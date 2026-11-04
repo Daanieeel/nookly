@@ -4,7 +4,7 @@ import { Command } from "cmdk";
 import type { ComponentProps, CSSProperties, ReactNode, Ref } from "react";
 import { renderIconValue } from "#/components/entity-icon.tsx";
 import { DialogPortal } from "@nookly/ui/components/dialog";
-import { Kbd, KbdGroup } from "#/components/kbd.tsx";
+import { Kbd } from "#/components/kbd.tsx";
 import type { Space } from "#/lib/api/types.ts";
 import type { TextSegment } from "#/lib/search-results.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -169,13 +169,6 @@ export function Highlighted({ segments }: { segments: TextSegment[] }) {
 export function SpotlightFooter({ hints, aside }: { hints?: ReactNode; aside?: ReactNode }) {
   return (
     <div className="flex items-center gap-4 whitespace-nowrap border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
-      <span className="flex items-center gap-1.5">
-        <KbdGroup>
-          <Kbd>↑</Kbd>
-          <Kbd>↓</Kbd>
-        </KbdGroup>
-        Navigate
-      </span>
       <span className="flex items-center gap-1.5">
         <Kbd>↵</Kbd>
         Open
