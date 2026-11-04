@@ -12,9 +12,9 @@ import { z } from "zod";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { BrandButton } from "@nookly/ui/components/brand-button";
+import { MoodleIcon } from "@nookly/ui/components/moodle-icon";
 import { Input } from "@nookly/ui/components/input";
 import { moodleOpenLogin } from "#/lib/api/moodle.ts";
-import { MoodleLogo } from "./MoodleLogo.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import { type SignInState, messageOf, useSignInState } from "./moodle-login.ts";
 
@@ -101,7 +101,7 @@ export function ConnectMoodle({
               <BrandButton type="submit" disabled={blocked}>
                 <StatusButtonContent
                   status={statusOf(open)}
-                  icon={<MoodleLogo className="text-brand-moodle" />}
+                  icon={<MoodleIcon className="size-7" />}
                   label="Sign in with Moodle"
                   errorLabel="Try again"
                 />

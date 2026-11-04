@@ -520,6 +520,21 @@ impl MoodleState {
         Ok(client.text(url).await?)
     }
 
+    /// A picture on the site (a course banner) as a `data:` address the page can show: the
+    /// page has no sign in of its own to fetch it with. Downloaded once, like any file.
+    pub async fn image(&self, url: &str, file_name: &str, time_modified: i64) -> AppResult<String> {
+        use base64::Engine;
+        let mime = image_mime(file_name).ok_or_else(|| {
+            AppError::InvalidInput("That is not a picture Nookly can show.".into())
+        })?;
+        let path = self.download(url, file_name, time_modified).await?;
+        let bytes = std::fs::read(&path).map_err(|e| AppError::Io(e.to_string()))?;
+        Ok(format!(
+            "data:{mime};base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(bytes)
+        ))
+    }
+
     /// Downloads a file into `moodle-files/` (once; a newer version of the same
     /// file is fetched again) and returns where it is.
     pub async fn download(
@@ -538,6 +553,16 @@ impl MoodleState {
             client.download(url, &dest).await?;
         }
         Ok(dest)
+    }
+}
+
+fn image_mime(file_name: &str) -> Option<&'static str> {
+    match file_name.rsplit('.').next()?.to_ascii_lowercase().as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        _ => None,
     }
 }
 

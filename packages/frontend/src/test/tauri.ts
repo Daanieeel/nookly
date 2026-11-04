@@ -1,5 +1,5 @@
 import type { InvokeArgs } from "@tauri-apps/api/core";
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { clearMocks, mockConvertFileSrc, mockIPC } from "@tauri-apps/api/mocks";
 
 /// A fake Tauri backend for tests, installed through Tauri's own IPC mock (the same
 /// seam `invoke`, events and every plugin go through), so no module is replaced.
@@ -59,6 +59,8 @@ export function installTauriMock() {
     },
     { shouldMockEvents: true },
   );
+  // Files on disk are shown through `convertFileSrc`, which needs the platform to name its scheme.
+  mockConvertFileSrc("macos");
 }
 
 export function uninstallTauriMock() {

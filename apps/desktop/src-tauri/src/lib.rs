@@ -384,6 +384,8 @@ pub fn run() {
             commands::moodle::moodle_posts,
             commands::moodle::moodle_file_text,
             commands::moodle::moodle_open_file,
+            commands::moodle::moodle_image,
+            commands::moodle::moodle_file_path,
             commands::backup::create_backup,
             commands::backup::list_backups,
             commands::backup::inspect_backup,

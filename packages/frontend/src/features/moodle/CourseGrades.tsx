@@ -1,9 +1,13 @@
 import { IconReportAnalytics } from "@tabler/icons-react";
-import { EmptyState } from "#/components/empty-state.tsx";
+import { Badge } from "@nookly/ui/components/badge";
+import { cn } from "@nookly/ui/lib/utils";
 import type { MoodleGradeItem } from "#/lib/api/moodle.ts";
-import { Loading } from "./MoodleFrame.tsx";
 import { MoodleHtml } from "./MoodleHtml.tsx";
+import { MoodleProgress } from "./MoodleProgress.tsx";
+import { MoodleData, MoodleEmpty } from "./MoodleStates.tsx";
+import { percentOf } from "./moodle-format.ts";
 import { hasMoodleText } from "./moodle-html.ts";
+import { SAMPLE_GRADES } from "./moodle-samples.ts";
 import { useMoodleGrades } from "./moodle-queries.ts";
 
 /// The course total last, whatever order Moodle lists it in.
@@ -17,55 +21,85 @@ const label = (item: MoodleGradeItem) =>
 
 export function CourseGrades({ courseId }: { courseId: number }) {
   const query = useMoodleGrades(courseId);
-  if (!query.data) return <Loading query={query} />;
-  const items = orderGradeItems(query.data.data);
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={IconReportAnalytics}
-        title="No grades yet"
-        description="Grades show up here once your teachers publish them."
-      />
-    );
-  }
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="border-b border-border text-left text-xs text-muted-foreground">
-          <th className="py-1.5 pr-3 font-medium">Item</th>
-          <th className="py-1.5 pr-3 font-medium">Grade</th>
-          <th className="py-1.5 pr-3 font-medium">Range</th>
-          <th className="py-1.5 pr-3 font-medium">Percentage</th>
-          <th className="py-1.5 font-medium">Weight</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item) => (
-          <GradeRow key={item.id} item={item} />
-        ))}
-      </tbody>
-    </table>
+    <MoodleData
+      query={query}
+      sample={SAMPLE_GRADES}
+      label="Loading your grades"
+      empty={(items) =>
+        items.length === 0 ? (
+          <MoodleEmpty
+            icon={IconReportAnalytics}
+            title="No grades yet"
+            description="Grades show up here once your teachers publish them."
+          />
+        ) : null
+      }
+    >
+      {(items) => {
+        const ordered = orderGradeItems(items);
+        const total = ordered.find((i) => i.itemType === "course");
+        const rest = ordered.filter((i) => i !== total);
+        return (
+          <div className="flex flex-col gap-4">
+            {total && <GradeCard item={total} prominent />}
+            {rest.length > 0 && (
+              <ul className="grid gap-3 md:grid-cols-2">
+                {rest.map((item) => (
+                  <li key={item.id}>
+                    <GradeCard item={item} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      }}
+    </MoodleData>
   );
 }
 
-function GradeRow({ item }: { item: MoodleGradeItem }) {
-  const total = item.itemType === "course";
+function GradeCard({ item, prominent }: { item: MoodleGradeItem; prominent?: boolean }) {
+  const percent = percentOf(item.percentage);
   return (
-    <>
-      <tr className={total ? "border-t border-border font-medium" : undefined}>
-        <td className="py-1.5 pr-3">{label(item)}</td>
-        <td className="py-1.5 pr-3">{item.grade || "-"}</td>
-        <td className="py-1.5 pr-3 text-muted-foreground">{item.range ?? ""}</td>
-        <td className="py-1.5 pr-3 text-muted-foreground">{item.percentage ?? ""}</td>
-        <td className="py-1.5 text-muted-foreground">{item.weight ?? ""}</td>
-      </tr>
-      {hasMoodleText(item.feedback) && (
-        <tr>
-          <td colSpan={5} className="pb-2">
-            <MoodleHtml html={item.feedback ?? ""} className="text-muted-foreground" />
-          </td>
-        </tr>
+    <div
+      className={cn(
+        "flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-4",
+        prominent && "bg-linear-to-br from-accent-green/10 to-transparent p-5",
       )}
-    </>
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="truncate text-sm font-semibold">{label(item)}</span>
+          <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            {item.range && <span>Range {item.range}</span>}
+            {item.weight && <Badge variant="secondary">Weight {item.weight}</Badge>}
+          </span>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 font-semibold tabular-nums",
+            prominent ? "text-3xl" : "text-xl",
+            !item.grade && "text-muted-foreground",
+          )}
+        >
+          {item.grade || "-"}
+        </span>
+      </div>
+      {percent !== null && (
+        <div className="flex items-center gap-2">
+          <MoodleProgress
+            value={percent}
+            label={`${label(item)} in percent`}
+            tone={percent >= 50 ? "positive" : "caution"}
+            className="h-2 flex-1"
+          />
+          <span className="text-xs text-muted-foreground tabular-nums">{item.percentage}</span>
+        </div>
+      )}
+      {hasMoodleText(item.feedback) && (
+        <MoodleHtml html={item.feedback ?? ""} className="text-muted-foreground" />
+      )}
+    </div>
   );
 }

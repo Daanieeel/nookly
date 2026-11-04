@@ -29,6 +29,8 @@ export interface MoodleCourse {
   endDate: number;
   progress: number | null;
   hidden: boolean;
+  /// The course's banner, when its teachers set one.
+  overviewFiles: MoodleFile[];
 }
 
 export interface MoodleFile {
@@ -168,6 +170,22 @@ export const moodleFileText = (url: string): Promise<string> => invoke("moodle_f
 /// Downloads a file once and opens it with the system's app for it.
 export const moodleOpenFile = (file: MoodleFile): Promise<void> =>
   invoke("moodle_open_file", {
+    url: file.fileUrl,
+    fileName: file.fileName,
+    timeModified: file.timeModified,
+  });
+
+/// A picture on the site (a course banner) as an address the page can show.
+export const moodleImage = (file: MoodleFile): Promise<string> =>
+  invoke("moodle_image", {
+    url: file.fileUrl,
+    fileName: file.fileName,
+    timeModified: file.timeModified,
+  });
+
+/// Downloads a file once and says where it is on this computer.
+export const moodleFilePath = (file: MoodleFile): Promise<string> =>
+  invoke("moodle_file_path", {
     url: file.fileUrl,
     fileName: file.fileName,
     timeModified: file.timeModified,

@@ -32,6 +32,9 @@ pub struct Course {
     pub end_date: i64,
     pub progress: Option<f64>,
     pub hidden: bool,
+    /// The course's banner, when its teachers set one. Newer Moodle versions send it.
+    #[serde(alias = "overviewfiles")]
+    pub overview_files: Vec<RemoteFile>,
 }
 
 /// A file Moodle holds: in a course, an assignment, a forum post.

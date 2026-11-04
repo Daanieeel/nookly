@@ -32,7 +32,8 @@
           "$APPDATA/files/**",
           "$APPDATA/bookmark-previews/**",
           "$APPDATA/office-previews/**",
-          "$APPDATA/recipe-banners/**"
+          "$APPDATA/recipe-banners/**",
+          "$APPDATA/moodle-files/**"
         ]
       }
     }

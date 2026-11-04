@@ -71,6 +71,39 @@ export const useMoodlePageText = (url: string) =>
     ...options,
   });
 
+/// A course from the list already fetched.
+export const useMoodleCourse = (courseId: number) =>
+  useQuery({
+    queryKey: qk.moodle.courses,
+    queryFn: api.moodleCourses,
+    ...options,
+    select: (fetched) => fetched.data.find((c) => c.id === courseId),
+  });
+
+/// A banner, kept for good: a picture Moodle hands out does not change under its address. A
+/// banner that cannot be had leaves the course with its colors.
+export const useMoodleImage = (file: api.MoodleFile | undefined) =>
+  useQuery({
+    queryKey: qk.moodle.image(file?.fileUrl ?? ""),
+    queryFn: () => (file ? api.moodleImage(file) : Promise.reject(new Error("No picture."))),
+    enabled: file !== undefined && file.fileUrl !== "",
+    retry: false,
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
+  });
+
+/// Where a file of a course item is on this computer, downloaded the first time. A newer
+/// version of the file has its own place.
+export const useMoodleLocalFile = (file: api.MoodleFile | undefined) =>
+  useQuery({
+    queryKey: qk.moodle.localFile(file?.fileUrl ?? "", file?.timeModified ?? 0),
+    queryFn: () => (file ? api.moodleFilePath(file) : Promise.reject(new Error("No file."))),
+    enabled: file !== undefined && file.fileUrl !== "",
+    retry: false,
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
+  });
+
 /// Asks Moodle again for everything on screen.
 export const refreshMoodle = (queryClient: QueryClient) =>
   queryClient.invalidateQueries({

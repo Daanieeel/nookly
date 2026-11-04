@@ -210,6 +210,29 @@ pub async fn moodle_file_text(state: State<'_, MoodleState>, url: String) -> App
     state.file_text(&url).await
 }
 
+/// A picture on the site (a course banner) as a `data:` address.
+#[tauri::command]
+pub async fn moodle_image(
+    state: State<'_, MoodleState>,
+    url: String,
+    file_name: String,
+    time_modified: i64,
+) -> AppResult<String> {
+    state.image(&url, &file_name, time_modified).await
+}
+
+/// Downloads a file (once) and says where it is, so Nookly can show it itself.
+#[tauri::command]
+pub async fn moodle_file_path(
+    state: State<'_, MoodleState>,
+    url: String,
+    file_name: String,
+    time_modified: i64,
+) -> AppResult<String> {
+    let path = state.download(&url, &file_name, time_modified).await?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 /// Downloads a file (once) and opens it with the system's app for it.
 #[tauri::command]
 pub async fn moodle_open_file(

@@ -116,12 +116,25 @@ export function fileExtension(file: FileEntity): string | null {
   return dot > 0 ? name.slice(dot + 1).toLowerCase() : null;
 }
 
-export function fileKind(file: FileEntity): FileKind {
-  const id: KindId = isLinkOnly(file)
-    ? (file.provider ?? "link")
-    : (EXTENSIONS.find(([, exts]) => exts.includes(fileExtension(file) ?? ""))?.[0] ?? "other");
+function kindOfExtension(extension: string | null): FileKind {
+  const id: KindId = EXTENSIONS.find(([, exts]) => exts.includes(extension ?? ""))?.[0] ?? "other";
   return { id, ...KINDS[id] };
 }
+
+export function fileKind(file: FileEntity): FileKind {
+  if (!isLinkOnly(file)) return kindOfExtension(fileExtension(file));
+  const id: KindId = file.provider ?? "link";
+  return { id, ...KINDS[id] };
+}
+
+/// The kind of a file known only by its name, such as one that still lives on a website.
+export function fileKindOfName(fileName: string): FileKind {
+  const dot = fileName.lastIndexOf(".");
+  return kindOfExtension(dot > 0 ? fileName.slice(dot + 1).toLowerCase() : null);
+}
+
+/// The kind of a link to a page.
+export const LINK_KIND: FileKind = { id: "link", ...KINDS.link };
 
 /// Plain text formats the viewer shows as text.
 export const TEXT_EXTENSIONS = new Set([

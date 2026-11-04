@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
@@ -33,6 +33,7 @@ const course = (over: Partial<MoodleCourse> = {}): MoodleCourse => ({
   endDate: 0,
   progress: null,
   hidden: false,
+  overviewFiles: [],
   ...over,
 });
 
@@ -149,12 +150,20 @@ describe("courses", () => {
     expect(await screen.findByText(/Offline, as of/)).toBeTruthy();
   });
 
-  it("shows why Moodle refused", async () => {
+  it("says kindly why Moodle refused, keeps its own words, and can try again", async () => {
+    let asked = 0;
     mockCommandWith("moodle_courses", () => {
-      throw { kind: "Remote", message: "Your Moodle sign in expired. Connect again." };
+      asked += 1;
+      if (asked === 1)
+        throw { kind: "Remote", message: "Your Moodle sign in expired. Connect again." };
+      return answer([course()]);
     });
-    open();
-    expect(await screen.findByText("Your Moodle sign in expired. Connect again.")).toBeTruthy();
+    const { user } = open();
+    expect(await screen.findByText("Your sign in ran out")).toBeTruthy();
+    expect(screen.getByText("Your Moodle sign in expired. Connect again.")).toBeTruthy();
+    await expectNoA11yViolations();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("button", { name: /Maths 1/ })).toBeTruthy();
   });
 
   it("signs out, forgets what it showed and asks to connect again", async () => {
@@ -166,8 +175,8 @@ describe("courses", () => {
       return null;
     });
     const { user, queryClient } = open();
-    expect(await screen.findByText(/Ada Lovelace/)).toBeTruthy();
-    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    expect(await screen.findByText("Welcome back, Ada")).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: /^Sign out Ada Lovelace/ }));
     await waitFor(() => expect(callsOf("moodle_disconnect")).toHaveLength(1));
     expect(await screen.findByText("Connect your Moodle")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Maths 1/ })).toBeNull();
@@ -180,9 +189,16 @@ describe("courses", () => {
       throw { kind: "Remote", message: "Couldn't access the system keychain: locked" };
     });
     const { user } = open();
-    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    await user.click(await screen.findByRole("button", { name: /^Sign out/ }));
     expect(await screen.findByText(/system keychain/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Maths 1/ })).toBeTruthy();
+  });
+
+  it("greets by the first name when the site writes the surname first", async () => {
+    mockCommand("moodle_status", { ...connected, fullName: "Lovelace, Ada" });
+    mockCommand("moodle_courses", answer([course()]));
+    open();
+    expect(await screen.findByText("Welcome back, Ada")).toBeTruthy();
   });
 
   it("has a way to open an empty list", async () => {
@@ -233,7 +249,8 @@ describe("a course", () => {
     expect(await screen.findByText("Week 1")).toBeTruthy();
     expect(screen.queryByText("Empty week")).toBeNull();
     expect(screen.getByText("Read first")).toBeTruthy();
-    expect(screen.getByText("2 KB")).toBeTruthy();
+    // What a file says about itself, on its row: type, size and when it changed.
+    expect(screen.getByText(/^PDF · 2 KB · /)).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Open in Moodle" }).length).toBeGreaterThan(1);
 
     await user.click(screen.getByRole("button", { name: "Download and Open" }));
@@ -320,10 +337,17 @@ describe("a course", () => {
       ]),
     );
     open("course/4/grades");
-    const rows = await screen.findAllByRole("row");
-    expect(within(rows[1]!).getByText("Essay")).toBeTruthy();
+    const essay = (await screen.findAllByRole("listitem"))[0]!;
+    expect(within(essay).getByText("Essay")).toBeTruthy();
+    expect(within(essay).getByText("Weight 50 %")).toBeTruthy();
+    expect(within(essay).getByRole("progressbar", { name: /Essay/ })).toHaveAttribute(
+      "value",
+      "85",
+    );
     expect(screen.getByText("Nice")).toBeTruthy();
+    // The total comes first as a card of its own, not among the items.
     expect(screen.getByText("Course total")).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 
   it("reads announcements and a discussion", async () => {
@@ -420,6 +444,291 @@ describe("a course", () => {
     open("course/4/page/30");
     expect(await screen.findByText("Chapter 1")).toBeTruthy();
     expect(callsOf("moodle_file_text")).toEqual([{ url: `${SITE}/pluginfile.php/9/index.html` }]);
+  });
+});
+
+describe("a file of a course", () => {
+  const withFiles = (modName: string, contents: MoodleFile[], name = "Slides") => {
+    mockCommand("moodle_status", connected);
+    mockCommand("moodle_courses", answer([course()]));
+    mockCommand(
+      "moodle_contents",
+      answer([
+        {
+          id: 1,
+          name: "Week 1",
+          summary: "",
+          modules: [{ id: 10, name, modName, url: "", description: "", contents }],
+        },
+      ]),
+    );
+  };
+
+  it("opens in Nookly, in a new tab, with a click on its row", async () => {
+    withFiles("resource", [file()]);
+    const { user } = open("course/4");
+    const tabsBefore = useNavStore.getState().tabs.length;
+    await user.click(await screen.findByRole("button", { name: /Slides/ }));
+    expect(useNavStore.getState().view).toMatchObject({ moodlePath: "course/4/file/10/0" });
+    expect(useNavStore.getState().tabs.length).toBe(tabsBefore + 1);
+    expect(useNavStore.getState().backStack).toEqual([]);
+    expect(callsOf("moodle_open_file")).toHaveLength(0);
+  });
+
+  it("imports it into the Space, next to the button that downloads it", async () => {
+    withFiles("resource", [file()]);
+    mockCommand("moodle_file_path", "/data/moodle-files/ab12/slides.pdf");
+    mockCommand("import_file", { entity: { id: "f1" } });
+    const { user } = open("course/4");
+    await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
+    await waitFor(() =>
+      expect(callsOf("import_file")).toEqual([
+        { spaceId: "s1", sourcePath: "/data/moodle-files/ab12/slides.pdf" },
+      ]),
+    );
+    expect(await screen.findByRole("button", { name: "Imported into Nookly" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download and Open" })).toBeTruthy();
+  });
+
+  it("says in place when the import failed", async () => {
+    withFiles("resource", [file()]);
+    mockCommand("moodle_file_path", "/data/moodle-files/ab12/slides.pdf");
+    mockCommandWith("import_file", () => {
+      throw { kind: "Io", message: "No room left on this disk." };
+    });
+    const { user } = open("course/4");
+    await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
+    expect(await screen.findByText("No room left on this disk.")).toBeTruthy();
+  });
+
+  it("offers no import for a link", async () => {
+    withFiles("resource", [file({ kind: "url", fileName: "Site", fileUrl: "https://x.edu" })]);
+    open("course/4");
+    await screen.findByText("Week 1");
+    expect(screen.queryByRole("button", { name: "Import into Nookly" })).toBeNull();
+  });
+
+  it("shows a picture right on the page, once the file is on this computer", async () => {
+    withFiles("resource", [file({ fileName: "plan.png", mimeType: "image/png" })], "Plan");
+    mockCommand("moodle_file_path", "/data/moodle-files/ab12/plan.png");
+    const { container } = open("course/4/file/10/0");
+    await waitFor(() => expect(container.querySelector('img[alt="plan.png"]')).not.toBeNull());
+    expect(callsOf("moodle_file_path")).toEqual([
+      { url: file().fileUrl, fileName: "plan.png", timeModified: 5 },
+    ]);
+    expect(screen.getByRole("heading", { name: "Plan" })).toBeTruthy();
+  });
+
+  it("reads like a File of the Space: no banner, and the facts and actions in a sidebar", async () => {
+    withFiles("resource", [file({ fileName: "plan.png", fileSize: 4096 })], "Plan");
+    mockCommand("moodle_file_path", "/data/moodle-files/ab12/plan.png");
+    mockCommand("import_file", { entity: { id: "f1" } });
+    const { user } = open("course/4/file/10/0");
+    const properties = await screen.findByRole("region", { name: "Properties" });
+    // The kind is named and drawn as everywhere in Nookly.
+    expect(within(properties).getByText("Image")).toBeTruthy();
+    expect(within(properties).getByText("4 KB")).toBeTruthy();
+    expect(within(properties).getByText("Maths 1")).toBeTruthy();
+    // The actions are buttons with words on them, and long values wrap instead of being cut.
+    const actions = screen.getByRole("region", { name: "Actions" });
+    expect(
+      within(actions)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Import into Nookly", "Download", "Open in Moodle"]);
+    expect(within(properties).getByText("plan.png").className).toContain("wrap-anywhere");
+    await expectNoA11yViolations();
+    // No Moodle banner over the viewer.
+    expect(screen.queryByRole("navigation", { name: "Where you are in Moodle" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Import into Nookly" }));
+    await waitFor(() => expect(callsOf("import_file")).toHaveLength(1));
+  });
+
+  it("says when Nookly cannot show the kind of file, and hands it to another app", async () => {
+    withFiles("resource", [file({ fileName: "data.bin", mimeType: "application/octet-stream" })]);
+    mockCommand("moodle_file_path", "/data/moodle-files/ab12/data.bin");
+    mockCommand("moodle_open_file", null);
+    const { user } = open("course/4/file/10/0");
+    expect(await screen.findByText(/files open in their own app/)).toBeTruthy();
+    // Not the buttons that work on a File of the Space: this one is not in it.
+    expect(screen.queryByRole("button", { name: "Open" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Open with another app" }));
+    await waitFor(() => expect(callsOf("moodle_open_file")).toHaveLength(1));
+  });
+
+  it("shows source code in the same viewer as Files do, a Java file for one", async () => {
+    withFiles("resource", [file({ fileName: "Main.java", mimeType: "text/x-java" })], "Main");
+    mockCommand("moodle_file_path", "/data/moodle-files/ab12/Main.java");
+    const fetchText = vi.fn(async () => new Response("public class Main {}"));
+    vi.stubGlobal("fetch", fetchText);
+    open("course/4/file/10/0");
+    expect(await screen.findByText(/public/)).toBeTruthy();
+    expect(screen.queryByText(/files open in their own app/)).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it("lists the files of a folder, each one opening on its own", async () => {
+    withFiles(
+      "folder",
+      [
+        file({ fileName: "a.pdf" }),
+        file({ fileName: "b.pdf", fileUrl: `${SITE}/pluginfile.php/1/b.pdf` }),
+      ],
+      "Exercises",
+    );
+    const { user } = open("course/4");
+    expect(await screen.findByText(/Folder · 2 files/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /^b\.pdf/ }));
+    expect(useNavStore.getState().view).toMatchObject({ moodlePath: "course/4/file/10/1" });
+  });
+
+  it("goes straight to a forum or an assignment of the course, not to a tab", async () => {
+    mockCommand("moodle_status", connected);
+    mockCommand("moodle_courses", answer([course()]));
+    mockCommand(
+      "moodle_contents",
+      answer([
+        {
+          id: 1,
+          name: "Week 1",
+          summary: "",
+          modules: [
+            { id: 50, name: "News", modName: "forum", url: "", description: "", contents: [] },
+            { id: 30, name: "Essay", modName: "assign", url: "", description: "", contents: [] },
+          ],
+        },
+      ]),
+    );
+    mockCommand(
+      "moodle_forums",
+      answer([{ id: 7, cmid: 50, name: "News", kind: "news", intro: "", numDiscussions: 3 }]),
+    );
+    mockCommand(
+      "moodle_assignments",
+      answer([
+        {
+          id: 9,
+          cmid: 30,
+          name: "Essay",
+          dueDate: 1_900_000_000,
+          openDate: 0,
+          cutOffDate: 0,
+          intro: "",
+          attachments: [],
+        },
+      ]),
+    );
+    const { user } = open("course/4");
+    expect(await screen.findByText("Announcements · 3 discussions")).toBeTruthy();
+    expect(screen.getByText(/^Assignment · Due /)).toBeTruthy();
+    // No notice that it only leads to a tab.
+    expect(screen.queryByText(/Opens the/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: /^News/ }));
+    expect(useNavStore.getState().view).toMatchObject({ moodlePath: "course/4/forums/7" });
+    await user.click(screen.getByRole("button", { name: /^Essay/ }));
+    expect(useNavStore.getState().view).toMatchObject({ moodlePath: "course/4/assignments/9" });
+  });
+
+  it("explains a file that is gone from the course", async () => {
+    withFiles("resource", [file()]);
+    open("course/4/file/10/5");
+    expect(await screen.findByText("This file is gone")).toBeTruthy();
+  });
+});
+
+describe("when a part of a course cannot be read", () => {
+  const signedIn = () => {
+    mockCommand("moodle_status", connected);
+    mockCommand("moodle_courses", answer([course()]));
+  };
+
+  it("keeps the course page and explains the grades, with a way to read them on Moodle", async () => {
+    signedIn();
+    mockCommandWith("moodle_grades", () => {
+      throw {
+        kind: "Remote",
+        message:
+          "Moodle doesn't allow Nookly to read this (gradereport_user_get_grade_items: nopermissiontoviewgrades).",
+      };
+    });
+    open("course/4/grades");
+    expect(await screen.findByText("Grades aren't shown for this course")).toBeTruthy();
+    // The rest of the course is still there.
+    expect(screen.getByRole("tab", { name: /Contents/ })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Open in Moodle" })).toHaveLength(2);
+    expect(screen.getByText(/nopermissiontoviewgrades/)).toBeTruthy();
+  });
+
+  it("explains an answer it cannot read", async () => {
+    signedIn();
+    mockCommandWith("moodle_contents", () => {
+      throw { kind: "Remote", message: "Moodle answered in a way Nookly can't read." };
+    });
+    open("course/4");
+    expect(await screen.findByText("Moodle sent something Nookly can't read")).toBeTruthy();
+  });
+
+  it("explains a Moodle that cannot be reached without offering the website", async () => {
+    signedIn();
+    mockCommandWith("moodle_assignments", () => {
+      throw { kind: "Remote", message: "Couldn't reach Moodle." };
+    });
+    open("course/4/assignments");
+    expect(await screen.findByText("Can't reach Moodle")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Open in Moodle" })).toHaveLength(1);
+  });
+
+  it("has an empty page of its own for each part", async () => {
+    signedIn();
+    mockCommand("moodle_assignments", answer([]));
+    open("course/4/assignments");
+    expect(await screen.findByText("No assignments")).toBeTruthy();
+  });
+});
+
+/// The banner picture, not the Moodle mark beside the welcome.
+const BANNER = 'img:not([data-slot="moodle-icon"])';
+
+describe("course banners", () => {
+  it("shows the banner Moodle gives a course, as the picture the backend fetched", async () => {
+    mockCommand("moodle_status", connected);
+    mockCommand(
+      "moodle_courses",
+      answer([
+        course({
+          overviewFiles: [
+            {
+              kind: "file",
+              fileName: "banner.jpg",
+              filePath: "/",
+              fileSize: 10,
+              fileUrl: `${SITE}/pluginfile.php/1/banner.jpg`,
+              timeModified: 3,
+              mimeType: "image/jpeg",
+            },
+          ],
+        }),
+      ]),
+    );
+    mockCommand("moodle_image", "data:image/jpeg;base64,AAAA");
+    const { container } = open();
+    await waitFor(() =>
+      expect(container.querySelector(BANNER)?.getAttribute("src")).toBe(
+        "data:image/jpeg;base64,AAAA",
+      ),
+    );
+    expect(callsOf("moodle_image")).toEqual([
+      { url: `${SITE}/pluginfile.php/1/banner.jpg`, fileName: "banner.jpg", timeModified: 3 },
+    ]);
+  });
+
+  it("gives a course without a banner colors of its own, and asks for no picture", async () => {
+    mockCommand("moodle_status", connected);
+    mockCommand("moodle_courses", answer([course()]));
+    const { container } = open();
+    await screen.findByRole("button", { name: /Maths 1/ });
+    expect(container.querySelector(BANNER)).toBeNull();
+    expect(callsOf("moodle_image")).toHaveLength(0);
   });
 });
 

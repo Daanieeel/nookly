@@ -3,6 +3,7 @@ import {
   assignmentPath,
   coursePath,
   discussionPath,
+  filePath,
   forumPath,
   moodleWebUrl,
   pagePath,
@@ -91,6 +92,37 @@ describe("moodle paths", () => {
     );
     expect(moodleWebUrl(site, parseMoodlePath("course/4/page/30"))).toBe(
       "https://uni.edu/moodle/mod/page/view.php?id=30",
+    );
+  });
+
+  it("names a file of a course item by the item and the file's place in it", () => {
+    expect(filePath(4, 12, 0)).toBe("course/4/file/12/0");
+    expect(parseMoodlePath("course/4/file/12/0")).toEqual({
+      page: "file",
+      courseId: 4,
+      cmid: 12,
+      index: 0,
+    });
+    expect(parseMoodlePath("course/4/file/12/3")).toEqual({
+      page: "file",
+      courseId: 4,
+      cmid: 12,
+      index: 3,
+    });
+    // Without an item, or with a place that is no number, it is the course.
+    for (const path of [
+      "course/4/file",
+      "course/4/file/12",
+      "course/4/file/12/x",
+      "course/4/file/12/-1",
+    ]) {
+      expect(parseMoodlePath(path)).toEqual({ page: "course", courseId: 4, tab: "contents" });
+    }
+  });
+
+  it("links a file to its item on the website", () => {
+    expect(moodleWebUrl("https://m.edu/", { page: "file", courseId: 4, cmid: 12, index: 0 })).toBe(
+      "https://m.edu/mod/resource/view.php?id=12",
     );
   });
 });

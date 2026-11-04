@@ -77,6 +77,22 @@ fn transport(e: reqwest::Error) -> ApiError {
 }
 
 /// `name[0]=a&name[1]=b`, the way Moodle reads a list parameter.
+/// Moodle sends `null` for what something does not have: a first post's parent, a link's file
+/// type. Every field of the models has a default, but a default only covers a field that is
+/// missing, so the nulls are dropped first.
+fn without_nulls(value: Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .filter(|(_, v)| !v.is_null())
+                .map(|(k, v)| (k, without_nulls(v)))
+                .collect(),
+        ),
+        Value::Array(items) => Value::Array(items.into_iter().map(without_nulls).collect()),
+        other => other,
+    }
+}
+
 pub fn list_param(name: &str, values: &[i64]) -> Vec<(String, String)> {
     values
         .iter()
@@ -133,7 +149,7 @@ impl Client {
         if let Some(error) = value.as_object().filter(|o| o.contains_key("exception")) {
             return Err(describe(function, error));
         }
-        serde_json::from_value(value)
+        serde_json::from_value(without_nulls(value))
             .map_err(|_| ApiError::Server("Moodle answered in a way Nookly can't read.".into()))
     }
 

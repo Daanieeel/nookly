@@ -14,12 +14,14 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, createContext, useContext, useState } from "react";
 import { StatusButtonContent, statusOf, useActionStatus } from "#/components/action-feedback.tsx";
 import { Calendar } from "#/components/date-input.tsx";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
 import { Button } from "@nookly/ui/components/button";
+import { CopyButton } from "@nookly/ui/components/copy-button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,14 +107,22 @@ export function FileDetailView({ entity }: { entity: Entity }) {
   );
 }
 
-function FileViewer({
+/// What the placeholder offers instead of its own buttons, which work on a File of the Space:
+/// a page that shows a file Nookly doesn't hold, such as one of a Moodle course, says here what
+/// can be done with it.
+export const PlaceholderActionsContext = createContext<((file: FileEntity) => ReactNode) | null>(
+  null,
+);
+
+/// The file itself, drawn for what kind of file it is.
+export function FileViewer({
   file,
   initialPage,
-  onInitialPageShown,
+  onInitialPageShown = () => {},
 }: {
   file: FileEntity;
   initialPage?: number;
-  onInitialPageShown: () => void;
+  onInitialPageShown?: () => void;
 }) {
   const kind = fileKind(file);
   const ext = fileExtension(file);
@@ -188,20 +198,41 @@ function useFileText(file: FileEntity, src: string) {
   });
 }
 
+/// Copies the file's text. Sticks to the top right of the viewer while a long file scrolls.
+function CopyContentButton({ text }: { text: string }) {
+  return (
+    <div className="pointer-events-none sticky top-0 z-10 flex h-0 justify-end pt-2 pr-2">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <CopyButton
+            value={text}
+            aria-label="Copy content"
+            className="pointer-events-auto flex size-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+          />
+        </TooltipTrigger>
+        <TooltipContent>Copy content</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
 /// Markdown drawn like a Note, dark by default like raw text.
 export function MarkdownFileViewer({ file, src }: { file: FileEntity; src: string }) {
   const { data: text, isError } = useFileText(file, src);
   const isDark = useFileViewerIsDark("text");
   if (isError) return <Placeholder file={file} />;
   return (
-    <div
-      className={cn(
-        "min-h-full rounded-md border border-border bg-background p-12 text-foreground",
-        fileViewerThemeClass(isDark),
-        text === undefined && "animate-pulse",
-      )}
-    >
-      {text !== undefined && <MarkdownViewer text={text} spaceId={file.entity.spaceId} />}
+    <div className="relative min-h-full">
+      {text !== undefined && <CopyContentButton text={text} />}
+      <div
+        className={cn(
+          "min-h-full rounded-md border border-border bg-background p-12 text-foreground",
+          fileViewerThemeClass(isDark),
+          text === undefined && "animate-pulse",
+        )}
+      >
+        {text !== undefined && <MarkdownViewer text={text} spaceId={file.entity.spaceId} />}
+      </div>
     </div>
   );
 }
@@ -211,6 +242,23 @@ function TextViewer({ file, src }: { file: FileEntity; src: string }) {
   // Code and raw text draw dark by default.
   const isDark = useFileViewerIsDark(fileKind(file).id === "code" ? "code" : "text");
   if (isError) return <Placeholder file={file} />;
+  return (
+    <div className="relative min-h-full">
+      {text !== undefined && <CopyContentButton text={text} />}
+      <TextBody file={file} text={text} isDark={isDark} />
+    </div>
+  );
+}
+
+function TextBody({
+  file,
+  text,
+  isDark,
+}: {
+  file: FileEntity;
+  text: string | undefined;
+  isDark: boolean;
+}) {
   return (
     <pre
       className={cn(
@@ -343,6 +391,7 @@ function Placeholder({
 }) {
   const kind = fileKind(file);
   const name = file.originalFilename ?? displayTitle(file.entity);
+  const actions = useContext(PlaceholderActionsContext);
   return (
     <div className="flex size-full flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border p-6 text-center">
       <div className="flex size-16 items-center justify-center rounded-xl bg-muted/60">
@@ -355,11 +404,15 @@ function Placeholder({
         </p>
       </div>
       {children}
-      <div className="flex flex-col items-center gap-1">
-        <OpenButton file={file} variant="secondary" />
-        {filePath(file) && <OpenInMenu file={file} side="bottom" />}
-        {file.url && <ConvertButton file={file} />}
-      </div>
+      {actions ? (
+        actions(file)
+      ) : (
+        <div className="flex flex-col items-center gap-1">
+          <OpenButton file={file} variant="secondary" />
+          {filePath(file) && <OpenInMenu file={file} side="bottom" />}
+          {file.url && <ConvertButton file={file} />}
+        </div>
+      )}
     </div>
   );
 }

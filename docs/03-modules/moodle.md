@@ -6,15 +6,15 @@ It has no entities of its own, like [Grades](grades.md). Nothing from Moodle is 
 
 ## Pages
 
-| Page                     | Shows                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------- |
-| Courses                  | The user's courses, current ones first                                           |
-| Contents                 | Sections, descriptions, files, links and Moodle pages. Files download on demand. |
-| Assignments              | Due dates, description, attachments, submission status, grade and feedback       |
-| Grades                   | Grade items with grade, range, percentage, weight and feedback                   |
-| Announcements and forums | Discussions, posts and their attachments                                         |
+| Page                     | Shows                                                                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Courses                  | The user's courses, current ones first                                                                                                                                      |
+| Contents                 | Sections, descriptions, files, links and Moodle pages. Files download on demand, open in a tab of Nookly (PDFs, pictures, video, audio) and can be imported into the Space. |
+| Assignments              | Due dates, description, attachments, submission status, grade and feedback                                                                                                  |
+| Grades                   | Grade items with grade, range, percentage, weight and feedback                                                                                                              |
+| Announcements and forums | Discussions, posts and their attachments                                                                                                                                    |
 
-Anything else a course holds (a quiz, say) is listed with a link to its page on Moodle. Images inside Moodle text show as their description, because Moodle only serves them to a signed in browser.
+Moodle sometimes sends `null` for what an item doesn't have; those fields are dropped before reading (`without_nulls` in `moodle/api.rs`). Anything else a course holds (a quiz, say) is listed with a link to its page on Moodle. Images inside Moodle text show as their description, because Moodle only serves them to a signed in browser.
 
 ## Signing in
 

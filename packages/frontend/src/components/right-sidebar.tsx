@@ -35,9 +35,7 @@ function ToggleShortcut() {
 /// A Course additionally gets a bespoke Semester-assignment section ahead of
 /// Relationships (still the same underlying `course-semester` relationship,
 /// just a purpose-built picker instead of a generic row — bespoke-UI pillar,
-/// §01). Collapsed state persists across sessions (same convention as the
-/// main `AppSidebar`'s own `sidebarCollapsed`) — a slim rail with just the
-/// expand toggle, not hidden entirely, so it's always one click away.
+/// §01).
 export function RightSidebar({
   entity,
   actions,
@@ -47,6 +45,42 @@ export function RightSidebar({
   /// Entity actions (export/pin/more), laid out for this sidebar via `className`.
   actions: (className?: string) => React.ReactNode;
   /// Type specific sections ahead of the shared ones, e.g. a Task's properties.
+  children?: React.ReactNode;
+}) {
+  return (
+    <RightSidebarFrame actions={actions}>
+      {entity.type === "jot" && (
+        <div>
+          <RefineJotButton jot={entity} />
+        </div>
+      )}
+      {children}
+      {entity.type === "course" && <CourseSemesterPanel course={entity} />}
+      {/* Task and Sub-task already show Labels inline in their own properties
+          panel (`children` above) — everything else gets it here instead. */}
+      {entity.type !== "task" && entity.type !== "sub_task" && <LabelsPanel entity={entity} />}
+      <AttachmentsPanel entity={entity} />
+      <MentionedPanel entity={entity} />
+      <MentionedInPanel entity={entity} />
+      <RelationshipsPanel entity={entity} />
+    </RightSidebarFrame>
+  );
+}
+
+/// The sidebar's shell, for pages with and without an entity: the collapse toggle, the
+/// actions beside it, the resizable width. Collapsed state and width persist across sessions
+/// (same convention as the main `AppSidebar`'s own `sidebarCollapsed`): a slim rail with just
+/// the expand toggle, not hidden entirely, so it's always one click away.
+export function RightSidebarFrame({
+  actions,
+  railActions = actions,
+  children,
+}: {
+  /// Actions, laid out for this sidebar via `className`.
+  actions: (className?: string) => React.ReactNode;
+  /// What the slim rail shows instead of `actions` while the sidebar is collapsed: a page that
+  /// lists its actions as labelled buttons in the open sidebar keeps them as icons here.
+  railActions?: (className?: string) => React.ReactNode;
   children?: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useRightSidebarCollapsed();
@@ -64,7 +98,12 @@ export function RightSidebar({
       <div className="hidden w-15 shrink-0 flex-col items-center border-l border-border p-3 @3xl:flex">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => setCollapsed(false)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Expand sidebar"
+              onClick={() => setCollapsed(false)}
+            >
               <IconLayoutSidebarRightExpand size={16} />
             </Button>
           </TooltipTrigger>
@@ -74,7 +113,7 @@ export function RightSidebar({
             </span>
           </TooltipContent>
         </Tooltip>
-        {actions("mt-2 flex-col")}
+        {railActions("mt-2 flex-col")}
       </div>
     );
   }
@@ -141,7 +180,12 @@ export function RightSidebar({
         <div className="flex items-center justify-between gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => setCollapsed(true)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Collapse sidebar"
+                onClick={() => setCollapsed(true)}
+              >
                 <IconLayoutSidebarRightCollapse size={16} />
               </Button>
             </TooltipTrigger>
@@ -153,20 +197,7 @@ export function RightSidebar({
           </Tooltip>
           {actions()}
         </div>
-        {entity.type === "jot" && (
-          <div>
-            <RefineJotButton jot={entity} />
-          </div>
-        )}
         {children}
-        {entity.type === "course" && <CourseSemesterPanel course={entity} />}
-        {/* Task and Sub-task already show Labels inline in their own properties
-            panel (`children` above) — everything else gets it here instead. */}
-        {entity.type !== "task" && entity.type !== "sub_task" && <LabelsPanel entity={entity} />}
-        <AttachmentsPanel entity={entity} />
-        <MentionedPanel entity={entity} />
-        <MentionedInPanel entity={entity} />
-        <RelationshipsPanel entity={entity} />
       </div>
     </div>
   );

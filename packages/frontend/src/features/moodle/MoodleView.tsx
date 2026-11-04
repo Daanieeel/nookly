@@ -2,6 +2,7 @@ import { ConnectMoodle } from "./ConnectMoodle.tsx";
 import { AssignmentPage } from "./CourseAssignments.tsx";
 import { CoursePage } from "./CoursePage.tsx";
 import { CoursesPage } from "./CoursesPage.tsx";
+import { FilePage } from "./FilePage.tsx";
 import { DiscussionPage, ForumPage } from "./CourseForums.tsx";
 import { SectionPage } from "./SectionPage.tsx";
 import { parseMoodlePath } from "./moodle-path.ts";
@@ -59,6 +60,17 @@ export function MoodleView({ spaceId, moodlePath }: { spaceId: string; moodlePat
           courseId={at.courseId}
           forumId={at.forumId}
           discussionId={at.discussionId}
+        />
+      );
+    case "file":
+      return (
+        <FilePage
+          key={`${at.cmid}/${at.index}`}
+          spaceId={spaceId}
+          siteUrl={siteUrl}
+          courseId={at.courseId}
+          cmid={at.cmid}
+          index={at.index}
         />
       );
     case "section-page":

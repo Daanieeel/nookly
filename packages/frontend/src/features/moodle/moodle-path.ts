@@ -9,7 +9,8 @@ export type MoodleLocation =
   | { page: "assignment"; courseId: number; assignmentId: number }
   | { page: "forum"; courseId: number; forumId: number }
   | { page: "discussion"; courseId: number; forumId: number; discussionId: number }
-  | { page: "section-page"; courseId: number; cmid: number };
+  | { page: "section-page"; courseId: number; cmid: number }
+  | { page: "file"; courseId: number; cmid: number; index: number };
 
 const id = (value: string | undefined): number | null => {
   const n = Number(value);
@@ -31,6 +32,10 @@ export function parseMoodlePath(path: string | undefined): MoodleLocation {
   }
   if (section === "forums" && first !== null) return { page: "forum", courseId, forumId: first };
   if (section === "page" && first !== null) return { page: "section-page", courseId, cmid: first };
+  const place = b === undefined || b === "" ? Number.NaN : Number(b);
+  if (section === "file" && first !== null && Number.isSafeInteger(place) && place >= 0) {
+    return { page: "file", courseId, cmid: first, index: place };
+  }
   const tab = COURSE_TABS.find((t) => t === section) ?? "contents";
   return { page: "course", courseId, tab };
 }
@@ -47,6 +52,10 @@ export const forumPath = (courseId: number, forumId: number) =>
 
 export const discussionPath = (courseId: number, forumId: number, discussionId: number) =>
   `course/${courseId}/forums/${forumId}/${discussionId}`;
+
+/// A file of a course item, shown in Nookly: the item, and which of its files it is.
+export const filePath = (courseId: number, cmid: number, index: number) =>
+  `course/${courseId}/file/${cmid}/${index}`;
 
 export const pagePath = (courseId: number, cmid: number) => `course/${courseId}/page/${cmid}`;
 
@@ -72,5 +81,7 @@ export function moodleWebUrl(siteUrl: string, location: MoodleLocation, cmid?: n
       return `${site}/mod/forum/discuss.php?d=${location.discussionId}`;
     case "section-page":
       return `${site}/mod/page/view.php?id=${location.cmid}`;
+    case "file":
+      return `${site}/mod/resource/view.php?id=${location.cmid}`;
   }
 }

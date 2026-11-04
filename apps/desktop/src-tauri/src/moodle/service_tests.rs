@@ -189,6 +189,94 @@ fn lists_courses() {
 }
 
 #[test]
+fn a_post_whose_parent_is_null_is_still_read() {
+    // Newer Moodle versions send `null` instead of `0` for the first post's parent. This pins
+    // the bug that a whole discussion then "answered in a way Nookly can't read".
+    let moodle = site_answering(vec![(
+        "mod_forum_get_discussion_posts",
+        json!({ "posts": [
+            { "id": 900, "parentid": null, "subject": null, "message": "<p>May</p>",
+              "author": { "fullname": "Prof X", "id": null }, "timecreated": 70, "attachments": null },
+            { "id": 901, "parentid": 900, "subject": "Re", "message": "<p>Thanks</p>",
+              "author": { "fullname": "Ada" }, "timecreated": 80 }
+        ]}),
+    )]);
+    let dir = temp_dir();
+    let posts = run(state_for(&moodle, &dir).posts(12)).unwrap().data;
+    assert_eq!(posts.len(), 2);
+    assert_eq!(
+        (posts[0].parent_id, posts[0].author.full_name.as_str()),
+        (0, "Prof X")
+    );
+    assert!(posts[0].attachments.is_empty() && posts[0].subject.is_empty());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn course_contents_with_nulls_are_still_read() {
+    // Moodle sends `null` for what a link or a section does not have, such as a file's type.
+    let moodle = site_answering(vec![(
+        "core_course_get_contents",
+        json!([{ "id": 1, "name": null, "summary": null, "uservisible": null, "modules": [
+            { "id": 10, "name": "Link", "modname": "url", "url": null, "description": null,
+              "uservisible": true, "contents": [
+                { "type": "url", "filename": "Link", "filepath": null, "filesize": null,
+                  "fileurl": "https://x/y", "timemodified": null, "mimetype": null }
+              ] }
+        ] }]),
+    )]);
+    let dir = temp_dir();
+    let sections = run(state_for(&moodle, &dir).contents(4)).unwrap().data;
+    assert_eq!(sections[0].modules[0].contents[0].file_url, "https://x/y");
+    assert_eq!(sections[0].modules[0].contents[0].mime_type, "");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_course_keeps_the_banner_moodle_gives_it() {
+    let moodle = site_answering(vec![(
+        "core_enrol_get_users_courses",
+        json!([
+            { "id": 4, "fullname": "Maths 1", "overviewfiles": [
+                { "filename": "banner.jpg", "fileurl": "https://m.edu/pluginfile.php/1/banner.jpg", "mimetype": "image/jpeg" }
+            ] },
+            { "id": 5, "fullname": "No banner", "overviewfiles": [] },
+            { "id": 6, "fullname": "Old Moodle" }
+        ]),
+    )]);
+    let dir = temp_dir();
+    let courses = run(state_for(&moodle, &dir).courses()).unwrap().data;
+    assert_eq!(courses[0].overview_files.len(), 1);
+    assert_eq!(
+        courses[0].overview_files[0].file_url,
+        "https://m.edu/pluginfile.php/1/banner.jpg"
+    );
+    assert!(courses[1].overview_files.is_empty() && courses[2].overview_files.is_empty());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_banner_comes_as_an_image_the_page_can_show() {
+    let moodle = start(|r| {
+        if r.path.contains("/webservice/pluginfile.php/") {
+            Response::bytes(200, b"\x89PNGdata")
+        } else {
+            Response::bytes(404, b"")
+        }
+    });
+    let dir = temp_dir();
+    let state = state_for(&moodle, &dir);
+    let url = moodle.site.page("pluginfile.php/1/banner.png").to_string();
+    let image = run(state.image(&url, "banner.png", 3)).unwrap();
+    let expected = base64::engine::general_purpose::STANDARD.encode(b"\x89PNGdata");
+    assert_eq!(image, format!("data:image/png;base64,{expected}"));
+    // Only pictures: a page asking for anything else gets nothing back.
+    let other = moodle.site.page("pluginfile.php/1/notes.pdf").to_string();
+    assert!(run(state.image(&other, "notes.pdf", 3)).is_err());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn serves_the_last_answer_when_moodle_is_out_of_reach() {
     let down = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let flag = down.clone();

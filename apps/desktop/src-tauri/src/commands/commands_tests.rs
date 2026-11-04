@@ -228,6 +228,8 @@ ipc_commands![
     moodle::moodle_discussions,
     moodle::moodle_posts,
     moodle::moodle_file_text,
+    moodle::moodle_image,
+    moodle::moodle_file_path,
     backup::list_backups,
     backup::inspect_backup,
 ];
@@ -4090,6 +4092,14 @@ fn moodle_commands_without_a_site_say_so() {
         ("moodle_discussions", json!({ "forumId": 1 })),
         ("moodle_posts", json!({ "discussionId": 1 })),
         ("moodle_file_text", json!({ "url": "https://uni.edu/f" })),
+        (
+            "moodle_file_path",
+            json!({ "url": "https://uni.edu/f.pdf", "fileName": "f.pdf", "timeModified": 1 }),
+        ),
+        (
+            "moodle_image",
+            json!({ "url": "https://uni.edu/f.png", "fileName": "f.png", "timeModified": 1 }),
+        ),
     ] {
         let message = h.app_err(cmd, args, "Remote");
         assert!(message.contains("isn't connected"), "{cmd}: {message}");

@@ -93,6 +93,8 @@ export const qk = {
     discussions: (forumId: number) => ["moodle", "discussions", forumId] as const,
     posts: (discussionId: number) => ["moodle", "posts", discussionId] as const,
     pageText: (url: string) => ["moodle", "page-text", url] as const,
+    image: (url: string) => ["moodle", "image", url] as const,
+    localFile: (url: string, modified: number) => ["moodle", "local-file", url, modified] as const,
   },
   externalCalendars: {
     status: ["external-calendars", "status"] as const,
