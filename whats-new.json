@@ -1,7 +1,7 @@
 {
   "versions": [
     {
-      "version": "0.58.0",
+      "version": "0.60.0",
       "date": "2026-11-04",
       "title": "A faster, simpler search",
       "summary": "Search shows one list of results, best match first, and you can narrow it by typing.",
