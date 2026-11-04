@@ -284,7 +284,7 @@ fn cli_create_exam(conn: &Connection, input: CreateInput) -> AppResult<serde_jso
         exam_date,
         weight,
     )?;
-    Ok(serde_json::to_value(exam).expect("Exam always serializes"))
+    crate::error::to_json(exam)
 }
 
 fn cli_update_exam(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
@@ -312,7 +312,7 @@ fn cli_update_exam(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
 }
 
 fn cli_get_exam(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_exam(conn, id)?).expect("Exam always serializes"))
+    crate::error::to_json(get_exam(conn, id)?)
 }
 
 fn cli_list_exams(
@@ -323,10 +323,10 @@ fn cli_list_exams(
     let space_id = space_id.ok_or_else(|| {
         crate::error::AppError::InvalidInput("exam list requires --space <space-id>".into())
     })?;
-    Ok(list_exams(conn, space_id)?
+    list_exams(conn, space_id)?
         .into_iter()
-        .map(|x| serde_json::to_value(x).expect("Exam always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {

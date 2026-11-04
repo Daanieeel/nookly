@@ -129,7 +129,7 @@ fn cli_create_study_block(conn: &Connection, input: CreateInput) -> AppResult<se
         start_time,
         end_time,
     )?;
-    Ok(serde_json::to_value(block).expect("StudyBlock always serializes"))
+    crate::error::to_json(block)
 }
 
 fn cli_update_study_block(
@@ -141,7 +141,7 @@ fn cli_update_study_block(
 }
 
 fn cli_get_study_block(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_study_block(conn, id)?).expect("StudyBlock always serializes"))
+    crate::error::to_json(get_study_block(conn, id)?)
 }
 
 fn cli_list_study_blocks(
@@ -152,10 +152,10 @@ fn cli_list_study_blocks(
     let space_id = space_id.ok_or_else(|| {
         crate::error::AppError::InvalidInput("study_block list requires --space <space-id>".into())
     })?;
-    Ok(list_study_blocks(conn, space_id)?
+    list_study_blocks(conn, space_id)?
         .into_iter()
-        .map(|b| serde_json::to_value(b).expect("StudyBlock always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {

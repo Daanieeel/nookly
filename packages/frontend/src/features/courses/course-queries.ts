@@ -72,7 +72,7 @@ export function semesterIdsByCourse(
 
 /// The ids of things linked course-ward (`session-course`, `exam-course`,
 /// `assignment-course`): the thing is `from`, the Course is `to`.
-export function idsLinkedToCourse(
+function idsLinkedToCourse(
   relationships: Relationship[],
   courseId: string,
   relationshipType: string,

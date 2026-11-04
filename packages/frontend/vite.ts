@@ -12,6 +12,20 @@ const flagpackDir = path.join(
   "flags",
 );
 
+// KaTeX ships every font as woff2, woff and ttf. The webview reads woff2, so the other two
+// formats would only be copied into the app unused. Drop them from KaTeX's stylesheet.
+export function katexWoff2Only(): Plugin {
+  const fallbacks = /,url\([^)]*\.woff\) format\("woff"\),url\([^)]*\.ttf\) format\("truetype"\)/g;
+  return {
+    name: "nookly:katex-woff2-only",
+    enforce: "pre",
+    transform(code, id) {
+      if (!id.split("?")[0].endsWith("katex/dist/katex.min.css")) return null;
+      return { code: code.replace(fallbacks, ""), map: null };
+    },
+  };
+}
+
 export function flagpackAssets(): Plugin {
   let outDir = "";
   return {

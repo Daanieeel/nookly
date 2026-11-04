@@ -459,11 +459,12 @@ pub fn download(url: &str) -> AppResult<Download> {
 /// Share links point at a viewer page; these are the file behind it.
 fn direct_download_url(url: &str) -> String {
     static DRIVE_FILE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)").unwrap()
+        crate::error::literal_regex(r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)")
     });
     static DOCS: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"docs\.google\.com/(document|spreadsheets|presentation)/d/([\w-]+)")
-            .unwrap()
+        crate::error::literal_regex(
+            r"docs\.google\.com/(document|spreadsheets|presentation)/d/([\w-]+)",
+        )
     });
     if let Some(c) = DRIVE_FILE.captures(url) {
         return format!("https://drive.google.com/uc?export=download&id={}", &c[1]);
@@ -496,10 +497,10 @@ fn direct_download_url(url: &str) -> String {
 
 fn filename_from_disposition(header: &str) -> Option<String> {
     static EXTENDED: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r#"(?i)filename\*\s*=\s*[^']*'[^']*'([^;]+)"#).unwrap()
+        crate::error::literal_regex(r#"(?i)filename\*\s*=\s*[^']*'[^']*'([^;]+)"#)
     });
     static PLAIN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r#"(?i)filename\s*=\s*"?([^";]+)"?"#).unwrap()
+        crate::error::literal_regex(r#"(?i)filename\s*=\s*"?([^";]+)"?"#)
     });
     let name = if let Some(c) = EXTENDED.captures(header) {
         percent_decode(c[1].trim())
@@ -723,8 +724,7 @@ fn reindex_missing_bulk_action(
     conn: &Connection,
     space_id: Option<&str>,
 ) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(reindex_missing(conn, space_id)?)
-        .expect("ReindexSummary always serializes"))
+    crate::error::to_json(reindex_missing(conn, space_id)?)
 }
 
 inventory::submit! {
@@ -826,7 +826,7 @@ fn cli_create_file(conn: &Connection, input: CreateInput) -> AppResult<serde_jso
             ));
         }
         let file = reference_file(conn, input.space_id, Path::new(&path))?;
-        return Ok(serde_json::to_value(file).expect("FileEntity always serializes"));
+        return crate::error::to_json(file);
     }
     let file = match (local_path, url) {
         (Some(path), None) => {
@@ -867,7 +867,7 @@ fn cli_create_file(conn: &Connection, input: CreateInput) -> AppResult<serde_jso
             ))
         }
     };
-    Ok(serde_json::to_value(file).expect("FileEntity always serializes"))
+    crate::error::to_json(file)
 }
 
 fn cli_update_file(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
@@ -894,7 +894,7 @@ fn cli_update_file(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
 }
 
 fn cli_get_file(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_file(conn, id)?).expect("FileEntity always serializes"))
+    crate::error::to_json(get_file(conn, id)?)
 }
 
 fn cli_list_files(
@@ -904,10 +904,10 @@ fn cli_list_files(
 ) -> AppResult<Vec<serde_json::Value>> {
     let space_id = space_id
         .ok_or_else(|| AppError::InvalidInput("file list requires --space <space-id>".into()))?;
-    Ok(list_files(conn, space_id)?
+    list_files(conn, space_id)?
         .into_iter()
-        .map(|f| serde_json::to_value(f).expect("FileEntity always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {

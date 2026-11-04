@@ -26,6 +26,7 @@ import { isPortableType } from "#/lib/api/portable.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { labelForType } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { ignoreError } from "#/lib/log.ts";
 
 /// Export (pages only), Pin, and an overflow menu repeating both plus Move to Trash
 /// (and, for Jots, Refine into New Note).
@@ -70,7 +71,7 @@ export function EntityActions({
             size="icon"
             aria-label={pin.status === "error" ? pinError : pinLabel}
             onClick={() => {
-              if (pin.status !== "pending") void pin.toggle().catch(() => {});
+              if (pin.status !== "pending") void pin.toggle().catch(ignoreError("toggling a pin"));
             }}
           >
             {pin.status === "success" ? (

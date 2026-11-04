@@ -1,3 +1,6 @@
+// A build script has no one to report a failure to but the build log, so it stops there.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 fn main() {
     compile_dev_macos_icon();
 

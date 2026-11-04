@@ -475,3 +475,17 @@ The sidebar lists the active Space's modules only. All Spaces sit in a row of ic
 **Why:** stacking every Space with its modules made the sidebar long and noisy, and it only gets worse as modules are added. Spaces are a hard wall, so showing one at a time matches how they behave. Arc and Zen do the same.
 
 **Rejected:** keeping Spaces as collapsible folders (the growth problem stays), a Space switcher at the top (the bottom row keeps the global block where it is and puts the switch near the thumb and the trackpad), and wrapping the swipe around (an overshoot would jump from the last Space to the first).
+
+---
+
+### The database stays on the default rollback journal
+
+Nookly does not use write ahead logging (WAL). The app and the CLI share `nookly.db`, and with the rollback journal a writer briefly blocks readers.
+
+Measured with `cargo test --release --lib perf_wal_contention -- --ignored --nocapture`: one connection saves 500 Tasks back to back while another keeps listing 5,000 entities. The slowest read waited 180 ms with the rollback journal and 6 ms with WAL. Nothing failed in either mode, and 500 writes took 860 ms against 300 ms. The collision only happens while something writes in a tight loop, such as an agent importing many items. One edit at a time never shows it.
+
+**Why:** WAL puts `nookly.db-wal` and `nookly.db-shm` beside the database, and several flows assume `nookly.db` is the whole database: `backup_before_migration` and `db/upgrade.rs` copy it with `fs::copy`, restore replaces it, and people copy the data folder by hand. A copy that misses the `-wal` file can lose the newest writes. The gain is a stall of a fraction of a second during bulk agent writes, which does not justify that risk for data that must never be lost.
+
+**Revisit when:** contention is reported in real use, and only together with checkpointing before every file copy (or the SQLite backup API instead of `fs::copy`), and tests for upgrade, backup, restore and a crash during a write.
+
+**Rejected:** switching now and checkpointing in the copy paths (every path that copies the file would have to be found and kept correct for good).

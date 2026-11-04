@@ -22,6 +22,7 @@ import { type WhatsNewEntry, type WhatsNewFile, type WhatsNewHighlight } from "#
 import { ChangelogBody } from "./ChangelogBody.tsx";
 import { whatsNewIcon } from "./icons.ts";
 import { Rich } from "./Rich.tsx";
+import { ignoreError } from "#/lib/log.ts";
 
 /// "October 10, 2026" from `2026-10-10`, read as a local day (not UTC, which can land on
 /// the day before).
@@ -188,7 +189,9 @@ export function WhatsNewDialog({ notes, changelog }: { notes?: WhatsNewFile; cha
           <DialogFooter>
             <Button
               variant="secondary"
-              onClick={() => void openUrl(CHANGELOG_URL).catch(() => undefined)}
+              onClick={() =>
+                void openUrl(CHANGELOG_URL).catch(ignoreError("opening the changelog"))
+              }
             >
               <IconExternalLink size={14} />
               See full changelog

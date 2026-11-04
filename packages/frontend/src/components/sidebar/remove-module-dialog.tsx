@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@nookly/ui/components/alert-dialog";
+import { refreshDatabaseData } from "#/lib/refresh-data.ts";
 
 /// Passengers (Semesters with Courses) have no remove action of their own.
 export function isRemovableModule(key: ModuleKey): boolean {
@@ -47,7 +48,7 @@ export function RemoveModuleDialog({
   const remove = useMutation({
     mutationFn: (deleteContent: boolean) => removeSpaceModule(spaceId, module, deleteContent),
     // Lists, search, Pinned, Trash and the Dashboard all change at once.
-    onSuccess: () => queryClient.invalidateQueries(),
+    onSuccess: () => refreshDatabaseData(queryClient),
   });
   useCloseAfterSuccess(remove, () => {
     onOpenChange(false);

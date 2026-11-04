@@ -125,7 +125,7 @@ export function dueTone(task: Task, kind: StatusKind): "overdue" | "soon" | null
 
 export { validSubGrouping } from "#/lib/display-options.ts";
 
-export type Layout = "list" | "board";
+type Layout = "list" | "board";
 export type Grouping =
   | "status"
   | "label"

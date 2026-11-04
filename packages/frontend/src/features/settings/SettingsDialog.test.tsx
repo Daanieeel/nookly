@@ -373,6 +373,26 @@ describe("Open Settings in the commands palette", () => {
   });
 });
 
+describe("opening the logs folder", () => {
+  it("opens it from the button in the dialog", async () => {
+    mockCommand("open_logs_folder", null);
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "Open logs folder" }));
+    await waitFor(() => expect(callsOf("open_logs_folder")).toHaveLength(1));
+  });
+
+  it("says so on the button when the folder cannot be opened", async () => {
+    mockCommandWith("open_logs_folder", () => {
+      throw new Error("no file manager");
+    });
+    mockCommand("log_frontend", null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "Open logs folder" }));
+    expect(await screen.findByRole("button", { name: /Couldn't open/ })).toBeInTheDocument();
+  });
+});
+
 describe("opening the settings file", () => {
   it("opens it from the button in the dialog", async () => {
     mockCommand("open_settings_file", null);

@@ -19,7 +19,7 @@ pub fn create_session_template(
     location: Option<String>,
     anchor_date: String,
 ) -> AppResult<Entity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     sessions::create_session_template(
         &conn,
         space_id,
@@ -39,7 +39,7 @@ pub fn generate_occurrences(
     template_id: String,
     until_date: String,
 ) -> AppResult<Vec<SessionOccurrence>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     sessions::generate_occurrences(&conn, &template_id, &until_date)
 }
 
@@ -55,7 +55,7 @@ pub fn create_one_off_session(
     end_time: String,
     location: Option<String>,
 ) -> AppResult<SessionOccurrence> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     sessions::create_one_off_session(
         &conn, space_id, title, course_id, date, start_time, end_time, location,
     )
@@ -67,36 +67,39 @@ pub fn override_occurrence(
     entity_id: String,
     patch: OccurrenceOverride,
 ) -> AppResult<SessionOccurrence> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     sessions::override_occurrence(&conn, &entity_id, patch)
 }
 
 #[tauri::command]
-pub fn list_sessions(state: State<DbState>, space_id: String) -> AppResult<Vec<SessionOccurrence>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_sessions(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<SessionOccurrence>> {
+    let conn = state.conn()?;
     sessions::list_sessions(&conn, Some(&space_id))
 }
 
 /// Every Session across every Space, for the unified cross-Space Calendar page.
 #[tauri::command]
-pub fn list_sessions_all(state: State<DbState>) -> AppResult<Vec<SessionOccurrence>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_sessions_all(state: State<'_, DbState>) -> AppResult<Vec<SessionOccurrence>> {
+    let conn = state.conn()?;
     sessions::list_sessions(&conn, None)
 }
 
 #[tauri::command]
-pub fn list_sessions_today(state: State<DbState>) -> AppResult<Vec<BriefingSession>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_sessions_today(state: State<'_, DbState>) -> AppResult<Vec<BriefingSession>> {
+    let conn = state.conn()?;
     sessions::list_sessions_today(&conn)
 }
 
 #[tauri::command]
-pub fn list_sessions_between(
-    state: State<DbState>,
+pub async fn list_sessions_between(
+    state: State<'_, DbState>,
     from: String,
     to: String,
 ) -> AppResult<Vec<BriefingSession>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     sessions::list_sessions_between(&conn, &from, &to)
 }
 
@@ -108,7 +111,7 @@ pub fn update_session_series(
     patch: SeriesPatch,
     anchor_id: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     sessions::update_session_series_anchored(
         &conn,
         &template_id,
@@ -124,13 +127,16 @@ pub fn delete_session_series(
     template_id: String,
     from_date: String,
 ) -> AppResult<usize> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     sessions::delete_session_series(&conn, &template_id, &from_date)
 }
 
 #[tauri::command]
-pub fn get_session_pages(state: State<DbState>, session_id: String) -> AppResult<SessionPages> {
-    let conn = state.0.lock().unwrap();
+pub async fn get_session_pages(
+    state: State<'_, DbState>,
+    session_id: String,
+) -> AppResult<SessionPages> {
+    let conn = state.conn()?;
     sessions::get_session_pages(&conn, &session_id)
 }
 
@@ -141,7 +147,7 @@ pub fn create_session_page(
     kind: String,
     title: String,
 ) -> AppResult<Entity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     sessions::create_session_page(&conn, &session_id, &kind, title)
 }
 
@@ -152,6 +158,6 @@ pub fn link_session_page(
     kind: String,
     page_id: String,
 ) -> AppResult<bool> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     sessions::link_session_page(&conn, &session_id, &kind, &page_id)
 }
