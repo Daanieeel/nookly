@@ -1,15 +1,4 @@
-import {
-  IconArchive,
-  IconFileCode,
-  IconCalendar,
-  IconKeyboard,
-  IconNotes,
-  IconPalette,
-  IconRobot,
-  IconSearch,
-  IconSettings,
-  type Icon as TablerIcon,
-} from "@tabler/icons-react";
+import { IconFileCode, IconSearch } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { openSettingsFile } from "#/lib/api/settings-file.ts";
@@ -24,99 +13,25 @@ import {
 } from "@nookly/ui/components/dialog";
 import { Input } from "@nookly/ui/components/input";
 import { cn } from "@nookly/ui/lib/utils";
+import { Kbd } from "#/components/kbd.tsx";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
-import { SETTING_CATEGORIES, type SettingCategory } from "#/lib/settings/registry.ts";
 import { searchSettings } from "#/lib/settings/search.ts";
 import { useShortcutMap } from "#/hooks/use-shortcut.ts";
-import {
-  type FixedShortcut,
-  SHORTCUT_PAGES,
-  isShortcutName,
-  keySynonyms,
-} from "#/lib/shortcuts.ts";
+import { isShortcutName, keySynonyms } from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cancelPendingShortcut } from "./shortcut-editing.ts";
 import { ShortcutConflictDialog } from "./ShortcutConflictDialog.tsx";
-import { FixedShortcuts, ShortcutsToolbar } from "./ShortcutsTab.tsx";
+import { ShortcutsPage } from "./ShortcutsTab.tsx";
 import { SettingRow } from "./SettingRow.tsx";
-import { ROWS, type RowSpec, sectionsOf } from "./setting-rows.tsx";
-
-const CATEGORY_META = {
-  general: { label: "General", icon: IconSettings },
-  appearance: { label: "Appearance", icon: IconPalette },
-  calendar: { label: "Calendar", icon: IconCalendar },
-  notes: { label: "Editor", icon: IconNotes },
-  backup: { label: "Backup", icon: IconArchive },
-  agent: { label: "Agent", icon: IconRobot },
-  shortcuts: { label: "Shortcuts", icon: IconKeyboard },
-} satisfies Record<SettingCategory, { label: string; icon: TablerIcon }>;
-
-/// A page of the dialog: a category, or a page that sits under one.
-type PageId = string;
-
-interface NavItem {
-  id: PageId;
-  category: SettingCategory;
-  label: string;
-  /// The heading of the page, when it is not the label.
-  title?: string;
-  /// The name a screen reader hears, when the label alone is ambiguous.
-  ariaLabel?: string;
-  /// Not drawn for a page under another one.
-  icon?: TablerIcon;
-  /// Drawn indented under the item before it, on a guide line, as a page of that category.
-  child?: boolean;
-  /// The section of the category whose rows the page holds.
-  section?: string;
-}
-
-type ChildPage = Omit<NavItem, "category" | "icon" | "child">;
-
-/// The pages under a category, each holding one section of its rows. A new section of
-/// shortcuts is a new page here without any other change.
-const CHILD_PAGES = {
-  notes: [{ id: "latex", label: "LaTeX", section: "LaTeX" }],
-  shortcuts: SHORTCUT_PAGES.map((section) => ({
-    id: `shortcuts-${section.toLowerCase()}`,
-    label: section,
-    title: `${section} shortcuts`,
-    ariaLabel: `${section} shortcuts`,
-    section,
-  })),
-} satisfies Partial<Record<SettingCategory, ChildPage[]>>;
-
-function childPagesOf(category: SettingCategory): ChildPage[] {
-  if (category === "notes") return CHILD_PAGES.notes;
-  if (category === "shortcuts") return CHILD_PAGES.shortcuts;
-  return [];
-}
-
-/// The navigation: every category, and under it the pages it has.
-const NAV: NavItem[] = SETTING_CATEGORIES.flatMap((id): NavItem[] => [
-  { id, category: id, ...CATEGORY_META[id] },
-  ...childPagesOf(id).map((page) => ({
-    ...page,
-    category: id,
-    child: true,
-  })),
-]);
-
-/// Whether a row belongs to a page: a page under a category holds the rows of its section,
-/// and the category's own page the rows no page of its own takes.
-function onPage(row: RowSpec, page: NavItem): boolean {
-  if (row.category !== page.category) return false;
-  const children = childPagesOf(page.category);
-  if (children.length === 0) return true;
-  if (page.section) return row.section === page.section;
-  return !children.some((child) => child.section === row.section);
-}
-
-/// The fixed shortcuts a Shortcuts page lists: its own section's, or the ones for the
-/// whole app on the Shortcuts page itself.
-function fixedSectionOf(page: NavItem): FixedShortcut["section"] {
-  const match = SHORTCUT_PAGES.find((section) => section === page.section);
-  return match ?? "General";
-}
+import {
+  FOOTER_PAGES,
+  NAV_GROUPS,
+  PAGES,
+  PAGE_ORDER,
+  type PageId,
+  pageOf,
+} from "./settings-pages.ts";
+import { ROWS, type RowSpec } from "./setting-rows.tsx";
 
 function Row({ row }: { row: RowSpec }) {
   return (
@@ -132,14 +47,12 @@ function Row({ row }: { row: RowSpec }) {
 }
 
 /// One page's rows under their section headings, in display order.
-function CategoryRows({ page }: { page: NavItem }) {
-  const { category } = page;
-  const rows = ROWS.filter((r) => onPage(r, page));
-  const pageSections = sectionsOf(category).filter((section) =>
-    rows.some((r) => r.section === section),
-  );
-  const showHeadings = pageSections.length > 1;
-  const sections = pageSections.map((section) => (
+function PageRows({ page }: { page: PageId }) {
+  if (page === "shortcuts") return <ShortcutsPage />;
+  const rows = ROWS.filter((r) => pageOf(r) === page);
+  const sections = [...new Set(rows.map((r) => r.section))];
+  const showHeadings = sections.length > 1;
+  return sections.map((section) => (
     <Fragment key={section}>
       {showHeadings && (
         <h3 className="pt-5 pb-1 text-xs font-medium text-muted-foreground first:pt-0">
@@ -153,14 +66,6 @@ function CategoryRows({ page }: { page: NavItem }) {
         ))}
     </Fragment>
   ));
-  if (category !== "shortcuts") return sections;
-  return (
-    <>
-      <ShortcutsToolbar />
-      {sections}
-      <FixedShortcuts section={fixedSectionOf(page)} />
-    </>
-  );
 }
 
 /// The rows, with each shortcut also searchable by the key it has right now ("cmd k").
@@ -200,14 +105,12 @@ function SearchResults({
       </div>
     );
   }
-  return SETTING_CATEGORIES.map((category) => {
-    const rows = results.filter((r) => r.category === category);
+  return PAGE_ORDER.map((page) => {
+    const rows = results.filter((r) => pageOf(r) === page);
     if (rows.length === 0) return null;
     return (
-      <section key={category} id={`settings-results-${category}`} className="pb-4">
-        <h3 className="pb-1 text-xs font-medium text-muted-foreground">
-          {CATEGORY_META[category].label}
-        </h3>
+      <section key={page} id={`settings-results-${page}`} className="pb-4">
+        <h3 className="pb-1 text-xs font-medium text-muted-foreground">{PAGES[page].label}</h3>
         {rows.map((row) => (
           <Row key={row.id} row={row} />
         ))}
@@ -245,14 +148,56 @@ function OpenSettingsFileButton() {
   );
 }
 
-/// The full size Settings dialog: search on top, categories on the left, rows on the right.
-/// Opened from the titlebar, the command palette and Cmd+,.
+/// Whether a key press happened while typing, where `/` is just a character.
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+}
+
+/// A page of the navigation. While searching it shows how many matches it holds.
+function PageButton({
+  page,
+  active,
+  count,
+  searching,
+  onPick,
+}: {
+  page: PageId;
+  active: boolean;
+  count: number;
+  searching: boolean;
+  onPick: () => void;
+}) {
+  const { label, icon: Icon } = PAGES[page];
+  return (
+    <button
+      type="button"
+      aria-current={active ? "page" : undefined}
+      onClick={onPick}
+      className={cn(
+        "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60",
+        searching && count === 0 && "opacity-50",
+      )}
+    >
+      <Icon size={16} className="shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {searching && (
+        <span className="text-xs tabular-nums" aria-label={`${count} matches`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/// The full size Settings dialog: search and a flat, grouped list of pages on the left, the
+/// rows of the page on the right. Opened from the titlebar, the command palette and Cmd+,.
 export function SettingsDialog() {
   const open = useNavStore((s) => s.settingsOpen);
   const setOpen = useNavStore((s) => s.setSettingsOpen);
   const [query, setQuery] = useState("");
-  const [pageId, setPageId] = useState<PageId>("general");
-  const page = NAV.find((item) => item.id === pageId) ?? NAV[0];
+  const [page, setPage] = useState<PageId>("general");
   const searchRef = useRef<HTMLInputElement>(null);
   const searching = query.trim() !== "";
   const results = searchSettings(query, useSearchableRows());
@@ -265,41 +210,39 @@ export function SettingsDialog() {
     }
   }, [open]);
 
+  // `/` jumps to the search, unless it is being typed as a character.
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTyping(event.target)) return;
+      event.preventDefault();
+      searchRef.current?.focus();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   useAppHotkey("settings", () => setOpen(!useNavStore.getState().settingsOpen));
 
-  function navButton(item: NavItem) {
-    const { label, icon: Icon } = item;
-    const count = results.filter((r) => onPage(r, item)).length;
-    const active = !searching && page.id === item.id;
+  function pageButton(id: PageId) {
     return (
-      <button
-        key={item.id}
-        type="button"
-        aria-current={active ? "page" : undefined}
-        aria-label={item.ariaLabel}
-        onClick={() => pick(item)}
-        className={cn(
-          "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-          active ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60",
-          searching && count === 0 && "opacity-50",
-        )}
-      >
-        {Icon && <Icon size={16} className="shrink-0" />}
-        <span className="min-w-0 flex-1 truncate">{label}</span>
-        {searching && (
-          <span className="text-xs tabular-nums" aria-label={`${count} matches`}>
-            {count}
-          </span>
-        )}
-      </button>
+      <PageButton
+        key={id}
+        page={id}
+        active={!searching && page === id}
+        count={results.filter((r) => pageOf(r) === id).length}
+        searching={searching}
+        onPick={() => pick(id)}
+      />
     );
   }
 
-  function pick(next: NavItem) {
-    setPageId(next.id);
+  function pick(next: PageId) {
+    setPage(next);
     if (!searching) return;
     document
-      .getElementById(`settings-results-${next.category}`)
+      .getElementById(`settings-results-${next}`)
       ?.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
@@ -321,57 +264,67 @@ export function SettingsDialog() {
         <DialogDescription className="sr-only">
           Search or browse every Nookly setting by category.
         </DialogDescription>
-        <div className="relative shrink-0 border-b border-border px-4 py-3 pr-12">
-          <IconSearch
-            size={14}
-            className="pointer-events-none absolute top-1/2 left-7 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            ref={searchRef}
-            type="search"
-            aria-label="Search settings"
-            placeholder="Search settings"
-            className="pl-8"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
         <div className="flex min-h-0 flex-1">
-          <div className="flex w-52 shrink-0 flex-col border-r border-border">
+          <div className="flex w-56 shrink-0 flex-col border-r border-border">
+            <div className="relative shrink-0 p-2 pb-1">
+              <IconSearch
+                size={14}
+                className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                ref={searchRef}
+                type="search"
+                aria-label="Search settings"
+                placeholder="Search settings"
+                className="px-8"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              {!searching && (
+                <Kbd
+                  aria-hidden
+                  className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2"
+                >
+                  /
+                </Kbd>
+              )}
+            </div>
             <nav
               aria-label="Settings categories"
-              className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2"
+              className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2"
             >
-              {NAV.filter((item) => !item.child).map((item) => {
-                const children = NAV.filter((c) => c.child && c.category === item.category);
-                return (
-                  <Fragment key={item.id}>
-                    {navButton(item)}
-                    {children.length > 0 && (
-                      // The guide line starts under the parent's icon, as in the app sidebar.
-                      <div
-                        data-nested
-                        className="ml-[18px] flex flex-col gap-0.5 border-l border-border pl-2"
-                      >
-                        {children.map(navButton)}
-                      </div>
-                    )}
-                  </Fragment>
-                );
-              })}
+              {NAV_GROUPS.map((group, index) => (
+                <div
+                  key={group.label ?? index}
+                  role={group.label ? "group" : undefined}
+                  aria-label={group.label ?? undefined}
+                  className="flex flex-col gap-0.5"
+                >
+                  {group.label && (
+                    <p
+                      aria-hidden
+                      className="px-2.5 pb-0.5 text-xs font-medium text-muted-foreground/80"
+                    >
+                      {group.label}
+                    </p>
+                  )}
+                  {group.pages.map(pageButton)}
+                </div>
+              ))}
             </nav>
-            <div className="shrink-0 p-2 pt-0">
+            <div className="flex shrink-0 flex-col gap-0.5 border-t border-border p-2">
+              {FOOTER_PAGES.map(pageButton)}
               <OpenSettingsFileButton />
             </div>
           </div>
           <div className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
             <h2 className="pb-3 text-lg font-semibold">
-              {searching ? "Search results" : (page.title ?? page.label)}
+              {searching ? "Search results" : PAGES[page].label}
             </h2>
             {searching ? (
               <SearchResults results={results} query={query} onClear={() => setQuery("")} />
             ) : (
-              <CategoryRows page={page} />
+              <PageRows page={page} />
             )}
           </div>
         </div>

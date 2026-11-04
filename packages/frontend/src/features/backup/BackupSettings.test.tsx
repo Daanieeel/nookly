@@ -6,6 +6,8 @@ import { settings } from "#/lib/settings/settings.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
+import { preferences } from "#/lib/preferences.ts";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { callsOf, mockCommand } from "#/test/tauri.ts";
 
 const BACKUP: BackupInfo = {
@@ -36,13 +38,15 @@ beforeEach(() => {
 });
 
 describe("the Backup tab in Settings", () => {
-  it("is a category of its own after Editor and LaTeX, and General no longer has a backup row", async () => {
+  it("is a page of its own under Data and accounts, and General has no backup row", async () => {
     const { user } = await openBackupTab();
     const nav = screen.getByRole("navigation", { name: "Settings categories" });
-    const names = within(nav)
-      .getAllByRole("button")
-      .map((b) => b.textContent);
-    expect(names.indexOf("Backup")).toBe(names.indexOf("LaTeX") + 1);
+    const group = within(nav).getByRole("group", { name: "Data and accounts" });
+    expect(
+      within(group)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Backup", "Connections"]);
     expect(screen.getByRole("heading", { level: 2, name: "Backup" })).toBeInTheDocument();
     await user.click(within(nav).getByRole("button", { name: "General" }));
     expect(screen.queryByText("Back up and restore")).toBeNull();
@@ -117,5 +121,49 @@ describe("the Backup tab in Settings", () => {
     await user.click(await screen.findByRole("button", { name: "Restore" }));
     await screen.findByRole("alertdialog");
     await expectNoA11yViolations();
+  });
+
+  describe("the status card", () => {
+    it("shows the last backup, its size, the folder and whether daily backups are on", async () => {
+      settings.set("backup.auto", true);
+      await openBackupTab();
+      const card = await screen.findByTestId("backup-status");
+      expect(await within(card).findByText(/^Last backup/)).toBeInTheDocument();
+      expect(within(card).getByText(/2\.0 KB\. Backs up every day\./)).toBeInTheDocument();
+      expect(within(card).getByText("/b")).toBeInTheDocument();
+      expect(within(card).getByRole("button", { name: "Back up now" })).toBeEnabled();
+    });
+
+    it("says daily backups are off when they are", async () => {
+      await openBackupTab();
+      const card = await screen.findByTestId("backup-status");
+      expect(await within(card).findByText(/Daily backups are off\./)).toBeInTheDocument();
+    });
+
+    it("asks for a folder when none is chosen", async () => {
+      settings.set("backup.folder", null);
+      await openBackupTab();
+      const card = screen.getByTestId("backup-status");
+      expect(within(card).getByText("Not set up")).toBeInTheDocument();
+      expect(within(card).getByText("No folder chosen")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Choose folder" })).toBeInTheDocument();
+    });
+
+    it("says there is no backup yet for an empty folder", async () => {
+      mockCommand("list_backups", []);
+      await openBackupTab();
+      expect(await screen.findByText("No backup yet")).toBeInTheDocument();
+    });
+
+    it("shows a failed backup clearly, as an alert on the card", async () => {
+      preferences.set(STORAGE_KEYS.backupError, "The folder is full");
+      await openBackupTab();
+      const card = await screen.findByTestId("backup-status");
+      expect(within(card).getByRole("alert")).toHaveTextContent(
+        "The last backup failed: The folder is full",
+      );
+      await expectNoA11yViolations();
+      preferences.remove(STORAGE_KEYS.backupError);
+    });
   });
 });

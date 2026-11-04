@@ -6,7 +6,6 @@ import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
 import { SETTING_IDS } from "#/lib/settings/registry.ts";
 import { settings } from "#/lib/settings/settings.ts";
-import { SHORTCUT_PAGES } from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { useThemeStore } from "#/lib/theme.ts";
 import { SettingsDialog } from "./SettingsDialog.tsx";
@@ -25,11 +24,6 @@ beforeEach(() => {
   act(() => useNavStore.getState().setSettingsOpen(false));
 });
 
-/// The indented group with the guide line a child page of the navigation sits in.
-function nestedGroup(button: HTMLElement): HTMLElement | null {
-  return button.closest("[data-nested]");
-}
-
 describe("the settings dialog", () => {
   it("stays closed until opened, then focuses the search", async () => {
     renderWithProviders(<SettingsDialog />);
@@ -46,28 +40,82 @@ describe("the settings dialog", () => {
     await expectNoA11yViolations();
   });
 
-  it("lists every category with General first", async () => {
+  it("lists a flat navigation under muted group headers, with About at the bottom", async () => {
     renderOpen();
     const nav = await screen.findByRole("navigation", { name: "Settings categories" });
-    expect(
-      within(nav)
+    const groups = within(nav).getAllByRole("group");
+    expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual([
+      "Writing and study",
+      "Data and accounts",
+      "Power tools",
+    ]);
+    const names = (el: HTMLElement) =>
+      within(el)
         .getAllByRole("button")
-        .map((b) => b.textContent),
-    ).toEqual([
+        .map((b) => b.textContent);
+    expect(names(nav)).toEqual([
       "General",
       "Appearance",
-      "Calendar",
       "Editor",
-      "LaTeX",
+      "Calendar",
       "Backup",
-      "Agent",
+      "Connections",
       "Shortcuts",
-      ...SHORTCUT_PAGES,
+      "Agent",
     ]);
+    expect(names(groups[0])).toEqual(["Editor", "Calendar"]);
+    expect(names(groups[1])).toEqual(["Backup", "Connections"]);
+    expect(names(groups[2])).toEqual(["Shortcuts", "Agent"]);
+    // No page nests under another one, so there is nothing to collapse.
+    expect(nav.querySelector("[data-nested]")).toBeNull();
     expect(within(nav).getByRole("button", { name: "General" })).toHaveAttribute(
       "aria-current",
       "page",
     );
+    // About and the settings file are not in the scrolling list.
+    expect(within(nav).queryByRole("button", { name: "About" })).toBeNull();
+    expect(screen.getByRole("button", { name: "About" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show settings file" })).toBeInTheDocument();
+  });
+
+  it("puts the search at the top of the sidebar with a / hint", async () => {
+    renderOpen();
+    const search = await screen.findByRole("searchbox", { name: "Search settings" });
+    const nav = screen.getByRole("navigation", { name: "Settings categories" });
+    expect(search.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(search.closest("nav")).toBeNull();
+    expect(screen.getByText("/")).toBeInTheDocument();
+  });
+
+  it("focuses the search on / unless a field is being typed in", async () => {
+    const { user } = renderOpen();
+    const search = await screen.findByRole("searchbox");
+    await user.click(screen.getByRole("button", { name: "Appearance" }));
+    expect(search).not.toHaveFocus();
+    await user.keyboard("/");
+    expect(search).toHaveFocus();
+    // In the search itself the slash is a character.
+    expect(search).toHaveValue("");
+    await user.keyboard("a/b");
+    expect(search).toHaveValue("a/b");
+  });
+
+  it("shows About as a page of its own, holding the version", async () => {
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "About" }));
+    expect(screen.getByRole("heading", { level: 2, name: "About" })).toBeInTheDocument();
+    expect(screen.getByText("Version")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "General" }));
+    expect(screen.queryByText("Version")).toBeNull();
+  });
+
+  it("shows external calendars on the Connections page, not on Calendar", async () => {
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "Calendar" }));
+    expect(screen.queryByText("External calendars")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Connections" }));
+    expect(screen.getByRole("heading", { level: 2, name: "Connections" })).toBeInTheDocument();
+    expect(screen.getByText("External calendars")).toBeInTheDocument();
   });
 
   it("switches category from the navigation", async () => {
@@ -84,10 +132,9 @@ describe("the settings dialog", () => {
     const { user } = renderOpen();
     await screen.findByRole("dialog");
     const found = new Set<string>();
-    // Every page of the navigation: the categories, LaTeX under Editor and a page for each
-    // section of the shortcuts.
-    const pages = ["General", "Appearance", "Calendar", "Editor", "LaTeX", "Backup", "Agent"];
-    for (const label of [...pages, "Shortcuts", ...SHORTCUT_PAGES.map((p) => `${p} shortcuts`)]) {
+    // Every page of the navigation, shortcuts shown whole under All.
+    const pages = ["General", "Appearance", "Editor", "Calendar", "Backup", "Connections"];
+    for (const label of [...pages, "Shortcuts", "Agent", "About"]) {
       await user.click(screen.getByRole("button", { name: label }));
       for (const row of document.querySelectorAll("[data-setting-id]")) {
         const id = row.getAttribute("data-setting-id") ?? "";
@@ -107,7 +154,8 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Search results" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 matches")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("0 matches")).toHaveLength(7 + SHORTCUT_PAGES.length);
+    // The other seven of the nine pages.
+    expect(screen.getAllByLabelText("0 matches")).toHaveLength(8);
   });
 
   it("finds a setting by a synonym, its id and a typo", async () => {
@@ -301,35 +349,20 @@ describe("the settings dialog", () => {
     });
   });
 
-  describe("the LaTeX page under Editor", () => {
-    it("is a child of Editor in the navigation, indented under it", async () => {
+  describe("LaTeX on the Editor page", () => {
+    it("is not a page of its own in the navigation", async () => {
       renderOpen();
       const nav = await screen.findByRole("navigation", { name: "Settings categories" });
-      const editor = within(nav).getByRole("button", { name: "Editor" });
-      const latex = within(nav).getByRole("button", { name: "LaTeX" });
-      expect(editor.compareDocumentPosition(latex) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(nestedGroup(latex)).not.toBeNull();
-      expect(nestedGroup(editor)).toBeNull();
+      expect(within(nav).queryByRole("button", { name: "LaTeX" })).toBeNull();
     });
 
-    it("hangs on a guide line under Editor, with no icon of its own", async () => {
-      renderOpen();
-      const nav = await screen.findByRole("navigation", { name: "Settings categories" });
-      const latex = within(nav).getByRole("button", { name: "LaTeX" });
-      expect(latex.querySelector("svg")).toBeNull();
-      expect(nestedGroup(latex)?.className).toMatch(/border-l/);
-    });
-
-    it("holds the LaTeX macros, and the Editor page does not", async () => {
+    it("is a section of the Editor page, under its own heading", async () => {
       const { user } = renderOpen();
       await user.click(await screen.findByRole("button", { name: "Editor" }));
       expect(screen.getByRole("heading", { level: 2, name: "Editor" })).toBeInTheDocument();
       expect(screen.getByRole("switch", { name: "Turn arrows into symbols" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Add macro" })).toBeNull();
-      await user.click(screen.getByRole("button", { name: "LaTeX" }));
-      expect(screen.getByRole("heading", { level: 2, name: "LaTeX" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 3, name: "LaTeX" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add macro" })).toBeInTheDocument();
-      expect(screen.queryByRole("switch", { name: "Turn arrows into symbols" })).toBeNull();
     });
 
     it("is found by searching for it, under Editor", async () => {

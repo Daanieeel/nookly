@@ -1,6 +1,44 @@
 {
   "versions": [
     {
+      "version": "0.58.0",
+      "date": "2026-11-04",
+      "title": "A tidier Settings",
+      "summary": "Settings is easier to scan, and the pages look like what they hold.",
+      "highlights": [
+        {
+          "title": "A flat list of pages",
+          "description": "Every page is in one list under short headings, and search sits at the top. Press the slash key to jump to it.",
+          "icon": "filter",
+          "tag": "Improved",
+          "shortcuts": ["/"]
+        },
+        {
+          "title": "Pick a theme by sight",
+          "description": "Light, dark and system are cards with a small preview, and the file viewer theme works the same way.",
+          "icon": "palette",
+          "tag": "New"
+        },
+        {
+          "title": "Shortcuts in a table",
+          "description": "All your shortcuts are on one page. Use the buttons at the top to show only one group, like Tabs or Create.",
+          "icon": "keyboard",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The Backup page shows when the last backup was made, how big it is and where it is saved, and says clearly if one failed.",
+          "Google Calendar and iCloud have their own Connections page in Settings, with a card that shows whether each one is connected.",
+          "LaTeX macros are now part of the Editor page.",
+          "A shortcut whose key was taken by another one is marked in the list."
+        ],
+        "Fixed": [
+          "On Mac, your Nookly data folder now opens in Finder with a double click. It is called Nookly, and nothing is moved or copied."
+        ]
+      }
+    },
+    {
       "version": "0.57.1",
       "date": "2026-11-03",
       "highlights": [],

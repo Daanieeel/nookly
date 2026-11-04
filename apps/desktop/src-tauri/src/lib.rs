@@ -3,6 +3,7 @@ use tauri::Manager;
 mod backup;
 mod cli;
 mod commands;
+mod data_folder;
 mod db;
 mod dictionary_file;
 mod error;
@@ -138,6 +139,8 @@ pub fn run() {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 let _ = app.deep_link().register_all();
             }
+            // Before anything opens the data folder: rename it so Finder can open it.
+            data_folder::tidy_at_startup();
             db::setup(app)?;
             store_guard::preserve_unreadable_stores(&db::resolve_app_data_dir(
                 app.path().app_data_dir()?,

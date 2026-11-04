@@ -14,13 +14,15 @@ Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `ge
 2. Add its row to `SETTING_UI` in [`features/settings/setting-rows.tsx`](../../packages/frontend/src/features/settings/setting-rows.tsx): a `section` (one of `SECTIONS` for its category) and a `control`. The record is typed by setting id, so a setting without one fails the build, and a test checks every id has a row in the dialog.
 3. Read it with `settings.get(id)` or `useSetting(id)`, write it with `settings.set(id, value)`. Use `subscribeSetting(id, fn)` outside React.
 
-The Settings dialog (titlebar gear, `Mod+,`, "Open Settings" in the commands palette) draws the title, description, id and a reset button for you. The control only edits the value and should carry an `aria-label` equal to the title. A value that needs a side effect on reset, like the theme, goes in `SettingRow.tsx`.
+The Settings dialog (titlebar gear, `Mod+,`, "Open Settings" in the commands palette) draws the title, description, id and a reset button for you. Its navigation is flat, under muted group headers, with search on top (`/` focuses it) and About at the bottom. The pages and their groups are in [`settings-pages.ts`](../../packages/frontend/src/features/settings/settings-pages.ts): a row lands on the page of its category, and a section that belongs elsewhere (Calendar's Connections, General's About) is listed there. LaTeX is a section of Editor.
+
+Plain rows are the default. A setting whose content has a better shape passes `control: null` and a `footer` with its own component, still inside the row, so it keeps its title, keywords, id and reset button (the theme choice cards, the backup status card, the connection cards). The control only edits the value and should carry an `aria-label` equal to the title. A value that needs a side effect on reset, like the theme, goes in `SettingRow.tsx`.
 
 A setting read where it is used (a calendar length, the snap, the notes editor's arrow rules) is read with `settings.get` at that moment, so a change applies without a restart.
 
 A row with no stored value (a button that opens a dialog or runs something, like Back up now) goes in `ACTION_ROWS` instead.
 
-The Backup tab holds everything about backups inline: the folder, the daily switch, Back up now and Restore (the controls live in [`features/backup`](../../packages/frontend/src/features/backup)). A restore still ends in `ConfirmPermanentDialog` with a typed phrase.
+The Backup tab holds everything about backups inline: a status card (last backup, size, folder, Back up now, a failed backup shown as an alert), the folder, the daily switch and Restore (the controls live in [`features/backup`](../../packages/frontend/src/features/backup)). A restore still ends in `ConfirmPermanentDialog` with a typed phrase.
 
 ## Agent files
 
@@ -30,13 +32,13 @@ The Agent tab edits plain `.md` files in `agent/`, also inside folders up to fou
 
 Every entry of `HOTKEYS` in [`lib/hotkeys.ts`](../../packages/frontend/src/lib/hotkeys.ts) is a rebindable shortcut and the default of the setting `shortcuts.<name>`. Only overrides are stored: absent means the default, a hotkey string replaces it, `null` means unassigned.
 
-Add a shortcut: add it to `HOTKEYS`, then to `SHORTCUT_META` in [`lib/shortcuts.ts`](../../packages/frontend/src/lib/shortcuts.ts) (title, description, synonyms, `section`, `scopes`). The `section` is one of `SHORTCUT_SECTIONS`, and each section is a page under Shortcuts in Settings, so a new section is a new page with no other change. The registry entry and the Settings row are generated from it, and a test fails without the metadata. Register it by name, `useAppHotkey("search", fn)`, and show it with `<ShortcutKbd name="search" />`, `useShortcut(name)` or `shortcutLabel(name)`, never a literal key.
+Add a shortcut: add it to `HOTKEYS`, then to `SHORTCUT_META` in [`lib/shortcuts.ts`](../../packages/frontend/src/lib/shortcuts.ts) (title, description, synonyms, `section`, `scopes`). The `section` is one of `SHORTCUT_SECTIONS`, and each section is a button on the filter strip of the Shortcuts page (rendered as a table per section), so a new section needs no other change. A shortcut whose key another one took is marked in its row. The registry entry and the Settings row are generated from it, and a test fails without the metadata. Register it by name, `useAppHotkey("search", fn)`, and show it with `<ShortcutKbd name="search" />`, `useShortcut(name)` or `shortcutLabel(name)`, never a literal key.
 
 A scope is where the shortcut is active (`global`, `lists`, `calendar`, `task`, `deck`). The same key on two shortcuts is a clash only when their scopes overlap, and `global` overlaps everything. `resolveShortcuts` builds the effective map and can never return two active shortcuts on one key: an explicit override beats a default, and every loser (also one that hits a fixed shortcut) is unassigned and logged once, so a hand edited `settings.json` is safe.
 
 Changes from Settings go through `planShortcutChange` (`features/settings/shortcut-editing.ts`): a key owned by a fixed shortcut is refused inline, a key used by another shortcut asks first and, on Reassign, unassigns the other and sets this one in one `settings.apply`. A shortcut without a command modifier (Cmd, Ctrl, Alt) is only allowed when its default is a bare key.
 
-Fixed shortcuts (`FIXED_SHORTCUTS`: copy, paste, select all, undo, Escape, the context menu key, study session keys, PDF find, the page editor's formatting keys) have their own listeners and are listed read only, each on the page of its `section` (`General` is the Shortcuts page itself). Add a key there when a new capture phase or editor listener claims one. The `editor` scope is for keys the page editor owns while typing: they never clash with a rebindable shortcut.
+Fixed shortcuts (`FIXED_SHORTCUTS`: copy, paste, select all, undo, Escape, the context menu key, study session keys, PDF find, the page editor's formatting keys) have their own listeners and are listed read only after the tables, under the filter of their `section` (`General` shows under All only). Add a key there when a new capture phase or editor listener claims one. The `editor` scope is for keys the page editor owns while typing: they never clash with a rebindable shortcut.
 
 ## Search synonyms
 
