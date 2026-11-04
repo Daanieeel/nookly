@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.61.1",
+      "date": "2026-11-04",
+      "title": "Behind the scenes",
+      "summary": "A small cleanup. Nothing looks or works differently.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Behind the scenes cleanup of how tabs are kept. Nothing looks or works differently."
+        ]
+      }
+    },
+    {
       "version": "0.61.0",
       "date": "2026-11-04",
       "highlights": [
