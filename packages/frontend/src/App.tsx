@@ -1,10 +1,9 @@
 import { BookmarkSheet } from "#/features/bookmarks/BookmarkSheet.tsx";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { type CSSProperties, type ReactNode, Suspense, lazy, useState } from "react";
-import { CommandPalette } from "#/components/command-palette.tsx";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
-import { QuickSwitcher } from "#/components/quick-switcher.tsx";
+import { QuickOpenPalette, SearchPalette } from "#/components/search-palette.tsx";
 import { AppSidebar } from "#/components/sidebar.tsx";
 import { OtherGroupButton, SplitView, useSplitShown } from "#/components/split-view.tsx";
 import { TabBar, useTabInteractions } from "#/components/tab-bar.tsx";
@@ -180,8 +179,8 @@ function Shell() {
           </SidebarInset>
         </SidebarProvider>
       </div>
-      <CommandPalette />
-      <QuickSwitcher />
+      <SearchPalette />
+      <QuickOpenPalette />
       <CommandsPalette />
       <QuickJotDialog />
       <OnFirstOpen open={settingsOpen}>

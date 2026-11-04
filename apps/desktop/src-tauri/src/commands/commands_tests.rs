@@ -41,6 +41,7 @@ ipc_commands![
     entities::get_entity,
     entities::update_entity,
     entities::list_entities,
+    entities::list_entities_by_ids,
     entities::touch_entity_opened,
     entities::soft_delete_entity,
     entities::restore_entity,
@@ -53,7 +54,6 @@ ipc_commands![
     relationships::delete_relationship,
     relationships::list_relationship_types,
     search::search,
-    search::list_embedded_page_ids,
     labels::create_label,
     labels::list_labels,
     labels::update_label,
@@ -972,6 +972,27 @@ fn entities_touch_opened_succeeds() {
 }
 
 #[test]
+fn entities_list_by_ids_keeps_the_order_and_skips_trash_and_unknown_ids() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let first = h.note(&space, "first");
+    let second = h.note(&space, "second");
+    let gone = h.note(&space, "gone");
+    h.ok("soft_delete_entity", json!({ "id": gone }));
+    let listed = h.ok(
+        "list_entities_by_ids",
+        json!({ "ids": [second, gone, MISSING, first] }),
+    );
+    let titles: Vec<&str> = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, ["second", "first"]);
+}
+
+#[test]
 fn entities_soft_delete_restore_and_empty_trash() {
     let h = Harness::new();
     let space = h.space("S");
@@ -1196,16 +1217,37 @@ fn search_finds_titles_and_null_space_is_global() {
     let b = h.space("B");
     h.note(&a, "Quantum mechanics");
     h.note(&b, "Quantum computing");
-    let global = h.ok("search", json!({ "query": "Quantum", "spaceId": null }));
+    let global = h.ok(
+        "search",
+        json!({ "request": { "query": "Quantum", "spaceId": null } }),
+    );
     assert_eq!(
         global,
         h.db(|c| to_json(db::search::search(c, "Quantum", None).unwrap()))
     );
     assert_eq!(global.as_array().unwrap().len(), 2);
-    let scoped = h.ok("search", json!({ "query": "Quantum", "spaceId": a }));
+    let scoped = h.ok(
+        "search",
+        json!({ "request": { "query": "Quantum", "spaceId": a } }),
+    );
     assert_eq!(scoped.as_array().unwrap().len(), 1);
     // `spaceId` left out entirely behaves like null.
-    assert_eq!(h.ok("search", json!({ "query": "Quantum" })), global);
+    assert_eq!(
+        h.ok("search", json!({ "request": { "query": "Quantum" } })),
+        global
+    );
+    // A newer search than this one was already asked for: nothing is searched.
+    h.ok(
+        "search",
+        json!({ "request": { "query": "Quantum" }, "requestId": 9_000_000_000_000u64 }),
+    );
+    assert_eq!(
+        h.ok(
+            "search",
+            json!({ "request": { "query": "Quantum" }, "requestId": 5 })
+        ),
+        json!([])
+    );
 }
 
 #[test]
@@ -1213,7 +1255,11 @@ fn search_empty_query_returns_nothing() {
     let h = Harness::new();
     let a = h.space("A");
     h.note(&a, "Something");
-    let hits = h.ok("search", json!({ "query": "", "spaceId": null }));
+    let hits = h.ok(
+        "search",
+        json!({ "request": { "query": "", "spaceId": null } }),
+    );
+    assert_eq!(hits, json!([]));
     assert_eq!(
         hits,
         h.db(|c| to_json(db::search::search(c, "", None).unwrap()))
@@ -1221,17 +1267,23 @@ fn search_empty_query_returns_nothing() {
 }
 
 #[test]
-fn search_embedded_page_ids_include_course_notes() {
+fn search_leaves_out_the_notes_embedded_in_a_course() {
     let h = Harness::new();
     let space = h.space("S");
     let course = h.course(&space, "Algebra");
     let notes = h.ok("get_course_notes", json!({ "courseId": course }));
-    let ids = h.ok("list_embedded_page_ids", json!({}));
-    assert!(ids.as_array().unwrap().contains(&notes["id"]), "{ids}");
-    assert_eq!(
-        ids,
-        h.db(|c| to_json(db::search::list_embedded_page_ids(c).unwrap()))
+    let hits = h.ok(
+        "search",
+        json!({ "request": { "query": "Algebra", "titlesOnly": true } }),
     );
+    let ids: Vec<&Value> = hits
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|hit| &hit["entityId"])
+        .collect();
+    assert_eq!(ids, [&json!(course)], "{hits}");
+    assert!(!ids.contains(&&notes["id"]));
 }
 
 // ------------------------------------------------------------------ labels

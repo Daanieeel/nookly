@@ -1,6 +1,40 @@
 {
   "versions": [
     {
+      "version": "0.60.0",
+      "date": "2026-11-04",
+      "title": "A faster, simpler search",
+      "summary": "Search shows one list of results, best match first, and you can narrow it by typing.",
+      "highlights": [
+        {
+          "title": "One list of results",
+          "description": "Every result shows its icon, title, Space and the line that matched. The best match is already selected, so Enter opens it.",
+          "icon": "sparkles",
+          "tag": "New"
+        },
+        {
+          "title": "Filter by typing",
+          "description": "Type in: to pick a Space or # to pick a label, and press Tab to switch between types like Notes, Tasks and Files.",
+          "icon": "filter",
+          "tag": "New",
+          "shortcuts": ["Mod+K"]
+        },
+        {
+          "title": "Open results where you want",
+          "description": "Open the selected result in a new tab, or in the other side of a split.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Enter", "Mod+Alt+Enter"]
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Quick open now looks at titles only, so it answers instantly.",
+          "Search opens right away and starts looking on your first keystroke."
+        ]
+      }
+    },
+    {
       "version": "0.59.0",
       "date": "2026-11-04",
       "title": "A tidier Settings",
