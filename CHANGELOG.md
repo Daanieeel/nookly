@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.62.0 (2026-11-05)
+
+### Added
+
+- **Page font and size.** Choose the font and size of the text in your pages under Settings, Editor, with a live sample that shows the change before you go back to your page.
+
 ## 0.61.0 (2026-11-04)
 
 ### Added
