@@ -2,43 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.59.4 (2026-11-04)
-
-### Changed
-
-- **Tidier code behind the scenes.** Nothing looks or works differently.
-
-## 0.59.3 (2026-11-04)
-
-### Changed
-
-- **Smoother when working with a lot of data.** Lists and searches no longer hold up the rest of the window, and Nookly no longer reloads everything each time you switch back to it.
-
-## 0.59.2 (2026-11-04)
-
-### Changed
-
-- **Faster start and a smaller app.** Nookly starts quicker and takes less space, because screens and dialogs now load when you first open them.
-
-## 0.59.1 (2026-11-04)
-
-### Changed
-
-- **Smaller, tidier app.** Behind the scenes cleanup, nothing looks different.
-
-## 0.59.0 (2026-11-04)
-
-### Added
-
-- **A report after an unexpected close.** If Nookly closes unexpectedly, the next launch tells you and offers a short report you can read, copy, or open as a GitHub issue. It holds the version, your system and what went wrong, never what you wrote, and nothing is sent unless you send it.
-
 ## 0.58.0 (2026-11-04)
 
 ### Added
 
 - **Logs folder.** Settings has a new "Open logs folder" button. Nookly now keeps a short log of what went wrong, without anything you wrote, so you can attach it when you report a problem.
+- **A report after an unexpected close.** If Nookly closes unexpectedly, the next launch tells you and offers a short report you can read, copy, or open as a GitHub issue. It holds the version, your system and what went wrong, never what you wrote, and nothing is sent unless you send it.
 
-## 0.57.2 (2026-11-03)
+### Changed
+
+- **Faster start and a smaller app.** Nookly starts quicker and takes less space, because screens and dialogs now load when you first open them.
+- **Smoother when working with a lot of data.** Lists and searches no longer hold up the rest of the window, and Nookly no longer reloads everything each time you switch back to it.
 
 ### Fixed
 
