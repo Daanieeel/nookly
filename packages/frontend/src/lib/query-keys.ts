@@ -14,6 +14,7 @@ function spaceList<const Name extends string>(name: Name) {
 }
 
 export const qk = {
+  crashReport: ["crash-report"] as const,
   spaces: ["spaces"] as const,
   spaceModules: (spaceId: string) => ["space-modules", spaceId] as const,
 

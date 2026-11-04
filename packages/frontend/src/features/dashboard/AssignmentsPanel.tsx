@@ -1,7 +1,6 @@
 import { IconClipboardCheck, IconMoodSmile } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { entityTarget } from "#/components/context-menu/registry.ts";
 import { assignmentStatus, isDone, statusKindOf } from "#/features/assignments/assignment-model.ts";
 import { pastDayText } from "#/components/due-columns.tsx";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
@@ -9,19 +8,16 @@ import { daysUntil } from "#/features/tasks/task-model.ts";
 import { listAssignmentsAllSpaces } from "#/lib/api/assignments.ts";
 import type { Assignment } from "#/lib/api/types.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
-import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { requestFilters } from "#/features/views/pending-filters.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { cn } from "@nookly/ui/lib/utils";
-import { SpaceChip } from "#/components/space-chip.tsx";
 import type { Space } from "#/lib/api/types.ts";
 import {
   EmptyRow,
+  EntityRow,
   useSpaceById,
   LIST_LIMIT,
-  Row,
   RowList,
   ShowMore,
   TabbedPanel,
@@ -61,27 +57,18 @@ function AssignmentRow({
   assignment: Assignment;
   space: Space | undefined;
 }) {
-  const openEntity = useNavStore((s) => s.openEntity);
   const { entity } = assignment;
   const status = assignmentStatus(assignment.status);
   const due = assignment.dueDate
     ? dueText(assignment.dueDate.slice(0, 10), isDone(assignment))
     : null;
   return (
-    <Row
-      entityKey={entity.key}
+    <EntityRow
+      entity={entity}
       icon={<TaskStatusIcon status={status} kind={statusKindOf(status.id)} />}
-      onClick={() => openEntity(entity.id, entity.spaceId)}
-      {...entityTarget(entity)}
-      meta={
-        <>
-          {space && <SpaceChip space={space} />}
-          {due && <span className={cn(due.overdue && "text-destructive")}>{due.text}</span>}
-        </>
-      }
-    >
-      <span className="truncate">{displayTitle(entity)}</span>
-    </Row>
+      space={space}
+      due={due}
+    />
   );
 }
 

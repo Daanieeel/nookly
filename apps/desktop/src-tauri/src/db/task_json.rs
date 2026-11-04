@@ -327,25 +327,7 @@ mod tests {
     use super::*;
     use crate::db::notes::list_blocks;
     use crate::db::tasks::RepeatUnit;
-
-    struct Fixture {
-        conn: Connection,
-        space: String,
-        other_space: String,
-    }
-
-    fn fixture() -> Fixture {
-        let conn = crate::db::test_conn();
-        let space =
-            crate::db::spaces::create_space(&conn, "A".into(), None, "#000".into()).unwrap();
-        let other =
-            crate::db::spaces::create_space(&conn, "B".into(), None, "#111".into()).unwrap();
-        Fixture {
-            conn,
-            space: space.id,
-            other_space: other.id,
-        }
-    }
+    use crate::db::{fixture, Fixture};
 
     fn entity_count(conn: &Connection) -> i64 {
         conn.query_row("SELECT COUNT(*) FROM entities", [], |r| r.get(0))

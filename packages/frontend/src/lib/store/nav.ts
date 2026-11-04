@@ -20,6 +20,27 @@ import {
   focusedGroup,
   makeGroup,
 } from "./tab-groups.ts";
+import { ignoreError } from "#/lib/log.ts";
+import {
+  clampRightSidebarWidth,
+  readStoredActiveSpace,
+  readStoredCollapsed,
+  readStoredRecents,
+  readStoredRightSidebarCollapsed,
+  readStoredRightSidebarWidth,
+  RIGHT_SIDEBAR_DEFAULT_WIDTH,
+  RIGHT_SIDEBAR_MAX_WIDTH,
+  RIGHT_SIDEBAR_MIN_WIDTH,
+  writeStoredActiveSpace,
+  writeStoredRecents,
+} from "./nav-storage.ts";
+
+export {
+  clampRightSidebarWidth,
+  RIGHT_SIDEBAR_DEFAULT_WIDTH,
+  RIGHT_SIDEBAR_MAX_WIDTH,
+  RIGHT_SIDEBAR_MIN_WIDTH,
+};
 
 export const MODULE_KEYS = [
   "tasks",
@@ -237,59 +258,11 @@ interface NavState {
   setRightSidebarWidth: (width: number) => void;
 }
 
-function readStoredCollapsed(): boolean {
-  return preferences.get(STORAGE_KEYS.sidebarCollapsed) === "1";
-}
-
-/// Bounds for the resizable right sidebar. The minimum fits its widest property
-/// row in full: the 6rem label, a number stepper with its unit, the clear button
-/// and the save status slot (`NumberProperty`), plus the `p-3` padding.
-export const RIGHT_SIDEBAR_MIN_WIDTH = 312;
-export const RIGHT_SIDEBAR_MAX_WIDTH = 480;
-export const RIGHT_SIDEBAR_DEFAULT_WIDTH = 320;
-
-export function clampRightSidebarWidth(width: number): number {
-  return Math.min(RIGHT_SIDEBAR_MAX_WIDTH, Math.max(RIGHT_SIDEBAR_MIN_WIDTH, Math.round(width)));
-}
-
-function readStoredRightSidebarWidth(): number {
-  const stored = Number(preferences.get(STORAGE_KEYS.rightSidebarWidth));
-  return stored ? clampRightSidebarWidth(stored) : RIGHT_SIDEBAR_DEFAULT_WIDTH;
-}
-
-function readStoredRightSidebarCollapsed(): boolean {
-  return preferences.get(STORAGE_KEYS.rightSidebarCollapsed) === "1";
-}
-
-function readStoredActiveSpace(): string | null {
-  return preferences.get(STORAGE_KEYS.activeSpace);
-}
-
-function writeStoredActiveSpace(spaceId: string | null) {
-  if (spaceId) preferences.set(STORAGE_KEYS.activeSpace, spaceId);
-  else preferences.remove(STORAGE_KEYS.activeSpace);
-}
-
 /// The active Space after showing `view`, persisting it when it changed.
 function activeSpaceFor(state: Pick<NavState, "activeSpaceId">, view: View): string | null {
   const activeSpaceId = "spaceId" in view ? view.spaceId : state.activeSpaceId;
   if (activeSpaceId !== state.activeSpaceId) writeStoredActiveSpace(activeSpaceId);
   return activeSpaceId;
-}
-
-function readStoredRecents(): RecentEntry[] {
-  try {
-    const raw = preferences.get(STORAGE_KEYS.recents);
-    // SAFETY: this key is only ever written by `writeStoredRecents` below, with the
-    // exact `RecentEntry[]` shape — never user-editable or written by anything else.
-    return raw ? (JSON.parse(raw) as RecentEntry[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeStoredRecents(recents: RecentEntry[]) {
-  preferences.set(STORAGE_KEYS.recents, JSON.stringify(recents));
 }
 
 function sameView(a: View, b: View): boolean {
@@ -648,7 +621,7 @@ export const useNavStore = create<NavState>((set, get) => ({
     }
     // Fire-and-forget (§ prep for a future 'reclaim space' feature): never
     // awaited, and a failure here must never block navigation.
-    touchEntityOpened(entityId).catch(() => {});
+    touchEntityOpened(entityId).catch(ignoreError("recording the last opened time"));
     const entry: RecentEntry = { entityId, spaceId, openedAt: Date.now() };
     const recents = [entry, ...get().recents.filter((r) => r.entityId !== entityId)].slice(
       0,

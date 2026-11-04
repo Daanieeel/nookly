@@ -15,12 +15,12 @@ const VERBATIM_BLOCK_TYPES: &[&str] = &["code", "equation", "math", "diagram", "
 
 /// `](mention:JOT-12)` or `](mention:JOT-12#blockId)`, in any case.
 static KEY_TARGET: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r"\]\(mention:([A-Za-z]{3}-[0-9]+)((?:#[a-zA-Z0-9_-]+)?)\)").unwrap()
+    crate::error::literal_regex(r"\]\(mention:([A-Za-z]{3}-[0-9]+)((?:#[a-zA-Z0-9_-]+)?)\)")
 });
 
 /// `](mention:<anything>` up to its end, with the optional `#fragment` kept apart.
 static ANY_TARGET: LazyLock<regex::Regex> = LazyLock::new(|| {
-    regex::Regex::new(r"\]\(mention:([a-zA-Z0-9-]+)((?:#[a-zA-Z0-9_-]+)?)\)").unwrap()
+    crate::error::literal_regex(r"\]\(mention:([a-zA-Z0-9-]+)((?:#[a-zA-Z0-9_-]+)?)\)")
 });
 
 /// Whether a block of this type holds text where a mention is a mention.

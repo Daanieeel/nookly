@@ -248,7 +248,7 @@ fn cli_create_bookmark(conn: &Connection, input: CreateInput) -> AppResult<serde
         )?;
         bookmark = get_bookmark(conn, &bookmark.entity.id)?;
     }
-    Ok(serde_json::to_value(bookmark).expect("Bookmark always serializes"))
+    crate::error::to_json(bookmark)
 }
 
 fn cli_update_bookmark(
@@ -275,7 +275,7 @@ fn cli_update_bookmark(
 }
 
 fn cli_get_bookmark(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_bookmark(conn, id)?).expect("Bookmark always serializes"))
+    crate::error::to_json(get_bookmark(conn, id)?)
 }
 
 fn cli_list_bookmarks(
@@ -286,10 +286,10 @@ fn cli_list_bookmarks(
     let space_id = space_id.ok_or_else(|| {
         AppError::InvalidInput("bookmark list requires --space <space-id>".into())
     })?;
-    Ok(list_bookmarks(conn, space_id)?
+    list_bookmarks(conn, space_id)?
         .into_iter()
-        .map(|b| serde_json::to_value(b).expect("Bookmark always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 inventory::submit! {

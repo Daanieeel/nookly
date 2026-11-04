@@ -15,7 +15,7 @@ import {
 
 /// What a finished drag changes on an occurrence: its times, and its day when it landed
 /// in another column.
-export function reschedulePatch(
+function reschedulePatch(
   result: ItemDragRange,
   days: Date[],
   dayIndex: number,

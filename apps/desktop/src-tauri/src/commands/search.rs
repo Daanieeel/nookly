@@ -15,8 +15,8 @@ const CANCEL_CHECK_STEPS: i32 = 2000;
 /// Space-scoped by default (§6). `request_id` grows with every keystroke: a search
 /// with a lower one than another seen is stale, and answers empty at once.
 #[tauri::command]
-pub fn search(
-    state: State<DbState>,
+pub async fn search(
+    state: State<'_, DbState>,
     request: SearchRequest,
     request_id: Option<u64>,
 ) -> AppResult<Vec<SearchHit>> {
@@ -24,7 +24,7 @@ pub fn search(
     if id != 0 && LATEST_SEARCH.fetch_max(id, Ordering::SeqCst) > id {
         return Ok(Vec::new());
     }
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     if id == 0 {
         return search::search_ranked(&conn, &request);
     }

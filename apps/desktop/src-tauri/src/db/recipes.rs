@@ -542,7 +542,7 @@ const RECIPE_FIELDS: &[FieldDef] = &[
 ];
 
 fn recipe_json(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_recipe(conn, id)?).expect("RecipeEntity always serializes"))
+    crate::error::to_json(get_recipe(conn, id)?)
 }
 
 fn apply_recipe_fields(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<()> {
@@ -603,7 +603,7 @@ fn cli_list_recipes(
         .ok_or_else(|| AppError::InvalidInput("recipe list requires --space <space-id>".into()))?;
     list_recipes(conn, space_id)?
         .into_iter()
-        .map(|r| Ok(serde_json::to_value(r).expect("RecipeEntity always serializes")))
+        .map(crate::error::to_json)
         .collect()
 }
 
@@ -661,8 +661,8 @@ const INGREDIENT_FIELDS: &[FieldDef] = &[
     },
 ];
 
-fn ingredient_json(ingredient: Ingredient) -> serde_json::Value {
-    serde_json::to_value(ingredient).expect("Ingredient always serializes")
+fn ingredient_json(ingredient: Ingredient) -> AppResult<serde_json::Value> {
+    crate::error::to_json(ingredient)
 }
 
 fn cli_list_ingredients(
@@ -670,14 +670,14 @@ fn cli_list_ingredients(
     recipe_id: &str,
     include_deleted: bool,
 ) -> AppResult<Vec<serde_json::Value>> {
-    Ok(list_ingredients(conn, recipe_id, include_deleted)?
+    list_ingredients(conn, recipe_id, include_deleted)?
         .into_iter()
         .map(ingredient_json)
-        .collect())
+        .collect::<AppResult<Vec<_>>>()
 }
 
 fn cli_get_ingredient(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    get_ingredient(conn, id).map(ingredient_json)
+    get_ingredient(conn, id).and_then(ingredient_json)
 }
 
 fn cli_create_ingredient(
@@ -688,8 +688,8 @@ fn cli_create_ingredient(
     let text = crate::db::schema::require_str(fields, "text")?;
     let ingredient = create_ingredient(conn, recipe_id.into(), text)?;
     match crate::db::schema::field_i64(fields, "position") {
-        Some(position) => move_ingredient(conn, &ingredient.id, position).map(ingredient_json),
-        None => Ok(ingredient_json(ingredient)),
+        Some(position) => move_ingredient(conn, &ingredient.id, position).and_then(ingredient_json),
+        None => ingredient_json(ingredient),
     }
 }
 
@@ -752,8 +752,8 @@ const STEP_FIELDS: &[FieldDef] = &[
     },
 ];
 
-fn step_json(step: Step) -> serde_json::Value {
-    serde_json::to_value(step).expect("Step always serializes")
+fn step_json(step: Step) -> AppResult<serde_json::Value> {
+    crate::error::to_json(step)
 }
 
 fn cli_list_steps(
@@ -761,14 +761,14 @@ fn cli_list_steps(
     recipe_id: &str,
     include_deleted: bool,
 ) -> AppResult<Vec<serde_json::Value>> {
-    Ok(list_steps(conn, recipe_id, include_deleted)?
+    list_steps(conn, recipe_id, include_deleted)?
         .into_iter()
         .map(step_json)
-        .collect())
+        .collect::<AppResult<Vec<_>>>()
 }
 
 fn cli_get_step(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    get_step(conn, id).map(step_json)
+    get_step(conn, id).and_then(step_json)
 }
 
 fn cli_create_step(
@@ -780,8 +780,8 @@ fn cli_create_step(
     let duration_minutes = crate::db::schema::field_i64(fields, "durationMinutes");
     let step = create_step(conn, recipe_id.into(), text, duration_minutes)?;
     match crate::db::schema::field_i64(fields, "position") {
-        Some(position) => move_step(conn, &step.id, position).map(step_json),
-        None => Ok(step_json(step)),
+        Some(position) => move_step(conn, &step.id, position).and_then(step_json),
+        None => step_json(step),
     }
 }
 

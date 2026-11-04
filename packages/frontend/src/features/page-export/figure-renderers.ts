@@ -14,6 +14,7 @@ import { fileUrl } from "#/features/notes/media-target.ts";
 import type { ExportImage } from "./document-model.ts";
 import { COLORS } from "./print-style.ts";
 import type { FigureRenderers } from "./resolve-document.ts";
+import { ignoreError } from "#/lib/log.ts";
 
 /// Pictures are drawn at this many pixels per CSS pixel, so they stay sharp in print.
 const SCALE = 3;
@@ -145,13 +146,15 @@ export const appFigureRenderers: FigureRenderers = {
   },
   circuit: async (source) => svgToPng(drawCircuit(layoutCircuit(parseCircuit(source)))),
   plot: async (source) => {
-    const formulas = await loadFormulas().catch(() => undefined);
+    const formulas = await loadFormulas().catch(ignoreError("reading a figure for export"));
     return svgToPng(drawPlot(parsePlot(source), false, formulas));
   },
   image: async ({ fileId, url, path: localPath }) => {
     // A file on this computer, when it is there: a missing one leaves the caption instead.
     if (localPath) {
-      const found = await checkLocalPath(localPath).catch(() => null);
+      const found = await checkLocalPath(localPath).catch(
+        ignoreError("reading a figure for export", null),
+      );
       return found?.state === "ok" ? photoToPng(await fetchBlob(convertFileSrc(localPath))) : null;
     }
     if (fileId) {
@@ -163,12 +166,12 @@ export const appFigureRenderers: FigureRenderers = {
     return url ? photoToPng(await fetchBlob(url)) : null;
   },
   mentionUrl: async (id) => {
-    const file = await getFile(id).catch(() => null);
+    const file = await getFile(id).catch(ignoreError("reading a figure for export", null));
     if (file) {
       const path = file.localPath ?? file.sourcePath;
       return path ? fileUrl(path) : file.url;
     }
-    const bookmark = await getBookmark(id).catch(() => null);
+    const bookmark = await getBookmark(id).catch(ignoreError("reading a figure for export", null));
     return bookmark?.url ?? null;
   },
 };

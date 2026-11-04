@@ -28,7 +28,7 @@ export interface ContextTargets {
 
 export type ContextKind = keyof ContextTargets;
 
-export interface AppTarget {
+interface AppTarget {
   spaceId: string | null;
 }
 
@@ -59,7 +59,7 @@ export const ACTION_GROUPS = [
   "danger",
   "app",
 ] as const;
-export type ActionGroup = (typeof ACTION_GROUPS)[number];
+type ActionGroup = (typeof ACTION_GROUPS)[number];
 
 /// Resolve `false` when the user backed out (a cancelled save dialog): the item
 /// returns to rest instead of closing the menu.
@@ -149,7 +149,7 @@ export interface EntityTypeRegistration<TRecord> {
   useRecord?: (entity: Entity) => TRecord | undefined;
 }
 
-export const BASELINE_IDS = [
+const BASELINE_IDS = [
   "open",
   "duplicate",
   "pin",
@@ -161,7 +161,7 @@ export const BASELINE_IDS = [
   "restore",
   "delete",
 ] as const;
-export type BaselineActionId = (typeof BASELINE_IDS)[number];
+type BaselineActionId = (typeof BASELINE_IDS)[number];
 
 /// Stored with the record type erased: `resolveEntityRegistration` only ever
 /// hands a registration its own entity's record.

@@ -24,9 +24,10 @@ function rowFor(id: string) {
 
 type User = ReturnType<typeof renderWithProviders>["user"];
 
-/// A page under Shortcuts, which the navigation names "<section> shortcuts".
+/// A section of the Shortcuts page, picked on its filter strip.
 async function showPage(user: User, section: string) {
-  await user.click(screen.getByRole("button", { name: `${section} shortcuts` }));
+  const strip = screen.getByRole("group", { name: "Filter shortcuts" });
+  await user.click(within(strip).getByRole("button", { name: `${section} shortcuts` }));
 }
 
 /// Opens Shortcuts, and the page of `name`'s section when one is given.
@@ -71,42 +72,68 @@ describe("the shortcuts pages", () => {
     }
   });
 
-  it("puts a page for every section under Shortcuts, indented, in order", async () => {
+  it("is one page in the navigation, with a filter strip of All and every section in order", async () => {
     await openShortcuts();
     const nav = screen.getByRole("navigation", { name: "Settings categories" });
-    const shortcuts = within(nav).getByRole("button", { name: "Shortcuts" });
-    let previous: HTMLElement = shortcuts;
+    expect(within(nav).getByRole("button", { name: "Shortcuts" })).toBeInTheDocument();
     for (const section of SHORTCUT_PAGES) {
-      const page = within(nav).getByRole("button", { name: `${section} shortcuts` });
-      expect(page).toHaveTextContent(section);
-      expect(page.closest("[data-nested]")?.className).toMatch(/border-l/);
-      expect(page.querySelector("svg")).toBeNull();
-      expect(
-        previous.compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-      previous = page;
+      expect(within(nav).queryByRole("button", { name: `${section} shortcuts` })).toBeNull();
     }
+    const strip = screen.getByRole("group", { name: "Filter shortcuts" });
+    expect(
+      within(strip)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["All", ...SHORTCUT_PAGES]);
+    expect(within(strip).getByRole("button", { name: "All shortcuts" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
-  it("shows only the shortcuts of the page you are on", async () => {
+  it("shows every section under All and only the picked one after a filter", async () => {
     const { user } = await openShortcuts("newTab");
-    expect(screen.getByRole("heading", { level: 2, name: "Tabs shortcuts" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Shortcuts" })).toBeInTheDocument();
     expect(document.querySelector('[data-setting-id="shortcuts.newTab"]')).not.toBeNull();
     expect(document.querySelector('[data-setting-id="shortcuts.search"]')).toBeNull();
     await showPage(user, "Navigation");
     expect(document.querySelector('[data-setting-id="shortcuts.search"]')).not.toBeNull();
     expect(document.querySelector('[data-setting-id="shortcuts.newTab"]')).toBeNull();
+    await showPage(user, "All");
+    expect(document.querySelector('[data-setting-id="shortcuts.search"]')).not.toBeNull();
+    expect(document.querySelector('[data-setting-id="shortcuts.newTab"]')).not.toBeNull();
   });
 
-  it("lists the keys that work everywhere on the Shortcuts page, with how to reset", async () => {
+  it("draws the shortcuts of a section as a table with a key column", async () => {
+    const { user } = await openShortcuts();
+    await showPage(user, "Tabs");
+    const table = screen.getByRole("table", { name: "Tabs shortcuts" });
+    expect(within(table).getByRole("columnheader", { name: "Action" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Key" })).toBeInTheDocument();
+    expect(
+      within(rowFor("shortcuts.newTab")).getByRole("cell", { name: /New tab/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("marks a shortcut whose key another shortcut took, until it gets a key", async () => {
+    // Two shortcuts stored on one key, as a hand edited settings.json could leave them.
+    settings.set("shortcuts.search", "Mod+Alt+Y");
+    settings.set("shortcuts.commands", "Mod+Alt+Y");
     await openShortcuts();
-    expect(screen.getByRole("heading", { level: 2, name: "Shortcuts" })).toBeInTheDocument();
+    const marked = screen.getAllByText(/Its key is taken by another shortcut/);
+    expect(marked).toHaveLength(1);
+    await expectNoA11yViolations();
+    act(() => resetAllShortcuts());
+    expect(screen.queryByText(/Its key is taken by another shortcut/)).toBeNull();
+  });
+
+  it("lists the keys that work everywhere under All, with how to reset", async () => {
+    await openShortcuts();
     expect(screen.getByRole("button", { name: "Reset all shortcuts" })).toBeInTheDocument();
     const fixed = screen.getByRole("region", { name: "Fixed shortcuts" });
-    for (const shortcut of FIXED_SHORTCUTS.filter((f) => f.section === "General")) {
-      expect(within(fixed).getByText(shortcut.label)).toBeInTheDocument();
+    for (const shortcut of FIXED_SHORTCUTS) {
+      expect(within(fixed).getAllByText(shortcut.label).length, shortcut.label).toBeGreaterThan(0);
     }
-    expect(within(fixed).queryByText("Bold")).toBeNull();
   });
 
   it("lists the fixed shortcuts of a section on its own page, after its shortcuts", async () => {
@@ -159,14 +186,14 @@ describe("the shortcuts pages", () => {
     await expectNoA11yViolations();
   });
 
-  it("counts the matches of a search on the section page they are on", async () => {
+  it("counts the matches of a search on the Shortcuts page", async () => {
     const { user } = await openShortcuts();
     await user.type(screen.getByRole("searchbox"), "split view");
     const nav = screen.getByRole("navigation", { name: "Settings categories" });
-    const tabs = within(nav).getByRole("button", { name: "Tabs shortcuts" });
-    expect(within(tabs).getByLabelText(/matches$/).textContent).not.toBe("0");
-    const navigation = within(nav).getByRole("button", { name: "Navigation shortcuts" });
-    expect(within(navigation).getByLabelText(/matches$/).textContent).toBe("0");
+    const shortcuts = within(nav).getByRole("button", { name: /^Shortcuts/ });
+    expect(within(shortcuts).getByLabelText(/matches$/).textContent).not.toBe("0");
+    const editor = within(nav).getByRole("button", { name: /^Editor/ });
+    expect(within(editor).getByLabelText(/matches$/).textContent).toBe("0");
   });
 });
 

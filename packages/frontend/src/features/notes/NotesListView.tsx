@@ -15,9 +15,8 @@ import type { DataTableGroup } from "#/components/data-table/data-table.tsx";
 import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { type ActiveFilter, FilterMenu } from "#/components/filter-menu.tsx";
+import { type ActiveFilter } from "#/components/filter-menu.tsx";
 import { ScrollingListPage } from "#/components/scrolling-list-page.tsx";
-import { QuickFilterBar } from "#/components/quick-filter-bar.tsx";
 import { useQuickFilters } from "#/lib/quick-filters.ts";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
@@ -33,7 +32,7 @@ import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.
 import {
   editedColumn,
   labelsColumn,
-  ListSearchInput,
+  ListFilterToolbar,
   PageSummaryTable,
   matchesQuery,
   readStoredSorting,
@@ -198,13 +197,6 @@ export function NotesListView({
     );
   }
 
-  const filterMenuProps = {
-    fields: filterFields,
-    filters,
-    onFiltersChange: setFilters,
-    quickFilters: { favorites: quick.favorites, onToggle: quick.toggle },
-  };
-
   return (
     <ScrollingListPage
       ready={!isPending}
@@ -233,30 +225,16 @@ export function NotesListView({
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <ListSearchInput
-              query={query}
-              onQueryChange={setQuery}
-              placeholder="Filter notes"
-              ariaLabel="Filter notes in this Space"
-            />
-            <div className="ml-auto">
-              <FilterMenu
-                {...filterMenuProps}
-                part="button"
-                beforeButton={
-                  <QuickFilterBar
-                    fields={filterFields}
-                    filters={filters}
-                    onFiltersChange={setFilters}
-                    favorites={quick.favorites}
-                    onRemove={quick.toggle}
-                  />
-                }
-              />
-            </div>
-          </div>
-          <FilterMenu {...filterMenuProps} part="chips" />
+          <ListFilterToolbar
+            query={query}
+            onQueryChange={setQuery}
+            placeholder="Filter notes"
+            ariaLabel="Filter notes in this Space"
+            fields={filterFields}
+            filters={filters}
+            onFiltersChange={setFilters}
+            quick={quick}
+          />
         </>
       }
     >

@@ -86,6 +86,7 @@ import {
 } from "./file-model";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { WindowedFiles } from "./windowed-files";
+import { ignoreError } from "#/lib/log.ts";
 
 /// Marks items that just arrived for a moment, so a new file never appears silently.
 function useFreshIds() {
@@ -210,7 +211,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           : (await convertEntity(target.file.entity.id, "bookmark")).id;
       const url = target.kind === "webpage" ? target.url : (target.file.url ?? "");
       fetchBookmarkMetadata(id, url)
-        .catch(() => {})
+        .catch(ignoreError("a files list step"))
         .finally(() => capture.mutate(id));
     },
     onSuccess: () => {

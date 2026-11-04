@@ -7,7 +7,7 @@ import { qk } from "#/lib/query-keys.ts";
 import { EntityRow } from "./EntityRow";
 
 /// A very small headline over one group of sidebar rows, which it also names for screen readers.
-export function RowGroup({ label, children }: { label: string; children: ReactNode }) {
+function RowGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div role="group" aria-label={label} className="flex flex-col gap-0.5">
       <p className="px-2 pt-1 text-xs text-muted-foreground/70">{label}</p>

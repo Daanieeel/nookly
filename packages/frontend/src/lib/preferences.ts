@@ -1,6 +1,7 @@
 import { type Store, load } from "@tauri-apps/plugin-store";
 import { z } from "zod";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { logger } from "#/lib/log.ts";
 
 /// Device preferences (theme, sidebar state, sort orders...), persisted with the
 /// Tauri store plugin in `preferences.json` in the app data folder. Loaded once
@@ -33,7 +34,7 @@ export async function initPreferences(): Promise<void> {
       for (const [key, value] of own) cache.set(key, value);
       if (own.length === 0) {
         await copyInstalledPreferences(store).catch((error) =>
-          console.error("Couldn't copy the installed app's preferences", error),
+          logger.error("preferences", "Couldn't copy the installed app's preferences", error),
         );
       }
     } else {
@@ -41,7 +42,7 @@ export async function initPreferences(): Promise<void> {
       for (const [key, value] of await store.entries<string>()) cache.set(key, value);
     }
   } catch (error) {
-    console.error("Couldn't load preferences", error);
+    logger.error("preferences", "Couldn't load preferences", error);
     return;
   }
   backfillFileViewerTheme();
@@ -152,7 +153,7 @@ function backfillTimestampFilters() {
 
 function persist(write: (store: Store) => Promise<void | boolean>) {
   if (!store) return;
-  write(store).catch((error) => console.error("Couldn't save preferences", error));
+  write(store).catch((error) => logger.error("preferences", "Couldn't save preferences", error));
 }
 
 export const preferences = {

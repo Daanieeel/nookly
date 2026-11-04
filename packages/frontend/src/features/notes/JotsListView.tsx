@@ -11,7 +11,6 @@ import {
   IconLink,
   IconPlus,
   IconSchool,
-  IconTag,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,11 +27,9 @@ import { contextTarget } from "#/components/context-menu/registry.ts";
 import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
+import { type ActiveFilter, type FilterField } from "#/components/filter-menu.tsx";
 import { ScrollingListPage } from "#/components/scrolling-list-page.tsx";
-import { QuickFilterBar } from "#/components/quick-filter-bar.tsx";
 import { useQuickFilters } from "#/lib/quick-filters.ts";
-import { LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -54,7 +51,8 @@ import {
   editedColumn,
   editedWithin,
   labelsColumn,
-  ListSearchInput,
+  labelFilterField,
+  ListFilterToolbar,
   PageSummaryTable,
   matchesQuery,
   passesRowFilters,
@@ -229,19 +227,8 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
 
   const filterFields = useMemo<FilterField[]>(() => {
     const fields = [...BASE_FILTER_FIELDS];
-    const usedLabels = spaceLabels.filter((l) => rows.some((r) => r.labels.includes(l)));
-    if (usedLabels.length > 0) {
-      fields.push({
-        id: "labels",
-        label: "Labels",
-        icon: IconTag,
-        options: usedLabels.map((l) => ({
-          value: l.id,
-          label: l.name,
-          icon: <LabelDot label={l} />,
-        })),
-      });
-    }
+    const labels = labelFilterField(spaceLabels, rows);
+    if (labels) fields.push(labels);
     const courses = new Map<string, string>();
     for (const r of rows) {
       const s = r.summary.session;
@@ -329,13 +316,6 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
     );
   }
 
-  const filterMenuProps = {
-    fields: filterFields,
-    filters,
-    onFiltersChange: setFilters,
-    quickFilters: { favorites: quick.favorites, onToggle: quick.toggle },
-  };
-
   return (
     <ScrollingListPage
       ready={!isPending}
@@ -378,30 +358,16 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <ListSearchInput
-              query={query}
-              onQueryChange={setQuery}
-              placeholder="Filter Jots"
-              ariaLabel="Filter Jots in this Space"
-            />
-            <div className="ml-auto">
-              <FilterMenu
-                {...filterMenuProps}
-                part="button"
-                beforeButton={
-                  <QuickFilterBar
-                    fields={filterFields}
-                    filters={filters}
-                    onFiltersChange={setFilters}
-                    favorites={quick.favorites}
-                    onRemove={quick.toggle}
-                  />
-                }
-              />
-            </div>
-          </div>
-          <FilterMenu {...filterMenuProps} part="chips" />
+          <ListFilterToolbar
+            query={query}
+            onQueryChange={setQuery}
+            placeholder="Filter Jots"
+            ariaLabel="Filter Jots in this Space"
+            fields={filterFields}
+            filters={filters}
+            onFiltersChange={setFilters}
+            quick={quick}
+          />
         </>
       }
     >

@@ -508,7 +508,7 @@ pub fn review_card(conn: &Connection, card_id: &str, rating: Rating) -> AppResul
             state_name(info.review_log.state),
             info.review_log.elapsed_days,
             info.review_log.scheduled_days,
-            serde_json::to_string(&previous).expect("Schedule always serializes"),
+            crate::error::to_json_string(&previous)?,
             now.to_rfc3339()
         ],
     )?;
@@ -577,9 +577,9 @@ fn cli_get_deck(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
 fn deck_payload(conn: &Connection, entity: Entity) -> AppResult<serde_json::Value> {
     let stats = deck_stats(conn, &entity.id)?;
     let exam_id = deck_exam_id(conn, &entity.id)?;
-    let mut value = serde_json::to_value(entity).expect("Entity always serializes");
+    let mut value = crate::error::to_json(entity)?;
     value["examId"] = serde_json::json!(exam_id);
-    value["stats"] = serde_json::to_value(stats).expect("DeckStats always serializes");
+    value["stats"] = crate::error::to_json(stats)?;
     Ok(value)
 }
 
@@ -699,8 +699,8 @@ const REVIEW_FIELDS: &[FieldDef] = &[FieldDef {
     description: "How well the answer was recalled. 1 to 4 work too.",
 }];
 
-fn card_json(card: IndexCard) -> serde_json::Value {
-    serde_json::to_value(card).expect("IndexCard always serializes")
+fn card_json(card: IndexCard) -> AppResult<serde_json::Value> {
+    crate::error::to_json(card)
 }
 
 fn cli_list_cards(
@@ -708,14 +708,14 @@ fn cli_list_cards(
     deck_id: &str,
     include_deleted: bool,
 ) -> AppResult<Vec<serde_json::Value>> {
-    Ok(list_cards(conn, deck_id, include_deleted)?
+    list_cards(conn, deck_id, include_deleted)?
         .into_iter()
         .map(card_json)
-        .collect())
+        .collect::<AppResult<Vec<_>>>()
 }
 
 fn cli_get_card(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    get_card(conn, id).map(card_json)
+    get_card(conn, id).and_then(card_json)
 }
 
 fn cli_create_card(
@@ -725,13 +725,13 @@ fn cli_create_card(
 ) -> AppResult<serde_json::Value> {
     let front = crate::db::schema::require_str(fields, "front")?;
     let back = crate::db::schema::require_str(fields, "back")?;
-    create_card(conn, deck_id.into(), front, back).map(card_json)
+    create_card(conn, deck_id.into(), front, back).and_then(card_json)
 }
 
 fn cli_update_card(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
     let front = crate::db::schema::field_str(fields, "front");
     let back = crate::db::schema::field_str(fields, "back");
-    update_card(conn, id, front, back).map(card_json)
+    update_card(conn, id, front, back).and_then(card_json)
 }
 
 fn cli_review_card(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
@@ -745,11 +745,11 @@ fn cli_review_card(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
         .ok_or_else(|| {
             AppError::InvalidInput("--field rating=<again|hard|good|easy> is required".into())
         })?;
-    review_card(conn, id, parse_rating(&raw)?).map(card_json)
+    review_card(conn, id, parse_rating(&raw)?).and_then(card_json)
 }
 
 fn cli_undo_review(conn: &Connection, id: &str, _fields: &JsonMap) -> AppResult<serde_json::Value> {
-    undo_review(conn, id).map(card_json)
+    undo_review(conn, id).and_then(card_json)
 }
 
 inventory::submit! {

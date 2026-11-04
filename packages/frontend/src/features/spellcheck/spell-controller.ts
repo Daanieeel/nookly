@@ -8,6 +8,7 @@ import {
   reloadWords,
   suggestWords,
 } from "#/lib/api/spell.ts";
+import { ignoreError } from "#/lib/log.ts";
 
 /// What the spell checker asks of the backend.
 export interface SpellApi {
@@ -58,7 +59,7 @@ export function createSpellController(
     void api
       .reloadWords()
       .then((changed) => changed && notify())
-      .catch(() => {});
+      .catch(ignoreError("spell checker"));
   };
   window.addEventListener("focus", onFocus);
   if (enabled()) sync();
@@ -83,7 +84,7 @@ export function createSpellController(
     },
     /// Accepts a word until Nookly is closed.
     async ignore(word: string) {
-      await api.ignore(word).catch(() => {});
+      await api.ignore(word).catch(ignoreError("spell checker"));
       notify();
     },
     /// Adds a word to the user's own dictionary, the file `dictionary.json`. Rejects when the
