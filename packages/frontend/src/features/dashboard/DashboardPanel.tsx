@@ -11,7 +11,43 @@ import { useQuery } from "@tanstack/react-query";
 import { EntityKeyCopyInline } from "#/components/entity-key.tsx";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { qk } from "#/lib/query-keys.ts";
-import { type ContextTargetProps } from "#/components/context-menu/registry.ts";
+import { SpaceChip } from "#/components/space-chip.tsx";
+import { type ContextTargetProps, entityTarget } from "#/components/context-menu/registry.ts";
+import type { Entity, Space } from "#/lib/api/types.ts";
+import { displayTitle } from "#/lib/entity-title.ts";
+import { useNavStore } from "#/lib/store/nav.ts";
+import { cn } from "@nookly/ui/lib/utils";
+
+/// The row of one open item (a task, an assignment): its status icon, title, Space and due date.
+export function EntityRow({
+  entity,
+  icon,
+  space,
+  due,
+}: {
+  entity: Entity;
+  icon: ReactNode;
+  space: Space | undefined;
+  due: { text: string; overdue: boolean } | null;
+}) {
+  const openEntity = useNavStore((s) => s.openEntity);
+  return (
+    <Row
+      entityKey={entity.key}
+      icon={icon}
+      onClick={() => openEntity(entity.id, entity.spaceId)}
+      {...entityTarget(entity)}
+      meta={
+        <>
+          {space && <SpaceChip space={space} />}
+          {due && <span className={cn(due.overdue && "text-destructive")}>{due.text}</span>}
+        </>
+      }
+    >
+      <span className="truncate">{displayTitle(entity)}</span>
+    </Row>
+  );
+}
 
 /// Every Space by id, to tag each resource with the one it lives in.
 export function useSpaceById() {
@@ -23,7 +59,7 @@ export function useSpaceById() {
 export const LIST_LIMIT = 4;
 
 /// A whole clickable row with its copyable ID, a primary label and trailing meta.
-export function Row({
+function Row({
   entityKey,
   icon,
   children,

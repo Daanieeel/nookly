@@ -27,6 +27,7 @@ macro_rules! ipc_commands {
 // Every registered command that does not take an `AppHandle` (which is fixed
 // to the Wry runtime and so cannot run on the mock runtime).
 ipc_commands![
+    logging::log_frontend,
     spaces::create_space,
     spaces::list_spaces,
     spaces::update_space,
@@ -40,6 +41,7 @@ ipc_commands![
     entities::get_entity,
     entities::update_entity,
     entities::list_entities,
+    entities::list_entities_by_ids,
     entities::touch_entity_opened,
     entities::soft_delete_entity,
     entities::restore_entity,
@@ -52,7 +54,6 @@ ipc_commands![
     relationships::delete_relationship,
     relationships::list_relationship_types,
     search::search,
-    search::list_embedded_page_ids,
     labels::create_label,
     labels::list_labels,
     labels::update_label,
@@ -341,6 +342,11 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     ("moodle_open_login", "moodle_commands_without_a_site_say_so"),
     ("moodle_disconnect", "moodle_commands_without_a_site_say_so"),
     ("moodle_open_file", "moodle_commands_without_a_site_say_so"),
+    // `AppHandle` parameter, and it opens a folder: the part that can run is the folder it makes.
+    ("open_logs_folder", "log_commands_write_and_make_the_folder"),
+    // `AppHandle` parameter: both read and write the files `crash_report` tests cover.
+    ("latest_crash_report", "crash_report_files_round_trip"),
+    ("dismiss_crash_report", "crash_report_files_round_trip"),
     // Creates a symlink on the user's PATH: never run from a test.
     ("install_cli", "cli_install_status_reports_this_platform"),
 ];
@@ -989,6 +995,27 @@ fn entities_touch_opened_succeeds() {
 }
 
 #[test]
+fn entities_list_by_ids_keeps_the_order_and_skips_trash_and_unknown_ids() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let first = h.note(&space, "first");
+    let second = h.note(&space, "second");
+    let gone = h.note(&space, "gone");
+    h.ok("soft_delete_entity", json!({ "id": gone }));
+    let listed = h.ok(
+        "list_entities_by_ids",
+        json!({ "ids": [second, gone, MISSING, first] }),
+    );
+    let titles: Vec<&str> = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, ["second", "first"]);
+}
+
+#[test]
 fn entities_soft_delete_restore_and_empty_trash() {
     let h = Harness::new();
     let space = h.space("S");
@@ -1213,16 +1240,37 @@ fn search_finds_titles_and_null_space_is_global() {
     let b = h.space("B");
     h.note(&a, "Quantum mechanics");
     h.note(&b, "Quantum computing");
-    let global = h.ok("search", json!({ "query": "Quantum", "spaceId": null }));
+    let global = h.ok(
+        "search",
+        json!({ "request": { "query": "Quantum", "spaceId": null } }),
+    );
     assert_eq!(
         global,
         h.db(|c| to_json(db::search::search(c, "Quantum", None).unwrap()))
     );
     assert_eq!(global.as_array().unwrap().len(), 2);
-    let scoped = h.ok("search", json!({ "query": "Quantum", "spaceId": a }));
+    let scoped = h.ok(
+        "search",
+        json!({ "request": { "query": "Quantum", "spaceId": a } }),
+    );
     assert_eq!(scoped.as_array().unwrap().len(), 1);
     // `spaceId` left out entirely behaves like null.
-    assert_eq!(h.ok("search", json!({ "query": "Quantum" })), global);
+    assert_eq!(
+        h.ok("search", json!({ "request": { "query": "Quantum" } })),
+        global
+    );
+    // A newer search than this one was already asked for: nothing is searched.
+    h.ok(
+        "search",
+        json!({ "request": { "query": "Quantum" }, "requestId": 9_000_000_000_000u64 }),
+    );
+    assert_eq!(
+        h.ok(
+            "search",
+            json!({ "request": { "query": "Quantum" }, "requestId": 5 })
+        ),
+        json!([])
+    );
 }
 
 #[test]
@@ -1230,7 +1278,11 @@ fn search_empty_query_returns_nothing() {
     let h = Harness::new();
     let a = h.space("A");
     h.note(&a, "Something");
-    let hits = h.ok("search", json!({ "query": "", "spaceId": null }));
+    let hits = h.ok(
+        "search",
+        json!({ "request": { "query": "", "spaceId": null } }),
+    );
+    assert_eq!(hits, json!([]));
     assert_eq!(
         hits,
         h.db(|c| to_json(db::search::search(c, "", None).unwrap()))
@@ -1238,17 +1290,23 @@ fn search_empty_query_returns_nothing() {
 }
 
 #[test]
-fn search_embedded_page_ids_include_course_notes() {
+fn search_leaves_out_the_notes_embedded_in_a_course() {
     let h = Harness::new();
     let space = h.space("S");
     let course = h.course(&space, "Algebra");
     let notes = h.ok("get_course_notes", json!({ "courseId": course }));
-    let ids = h.ok("list_embedded_page_ids", json!({}));
-    assert!(ids.as_array().unwrap().contains(&notes["id"]), "{ids}");
-    assert_eq!(
-        ids,
-        h.db(|c| to_json(db::search::list_embedded_page_ids(c).unwrap()))
+    let hits = h.ok(
+        "search",
+        json!({ "request": { "query": "Algebra", "titlesOnly": true } }),
     );
+    let ids: Vec<&Value> = hits
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|hit| &hit["entityId"])
+        .collect();
+    assert_eq!(ids, [&json!(course)], "{hits}");
+    assert!(!ids.contains(&&notes["id"]));
 }
 
 // ------------------------------------------------------------------ labels
@@ -4229,6 +4287,37 @@ fn settings_file_is_created_without_touching_an_existing_one() {
     std::fs::write(&path, "{\"a\": 1}").unwrap();
     ensure_settings_file(&dir).unwrap();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\"a\": 1}");
+}
+
+#[test]
+fn log_commands_write_and_make_the_folder() {
+    // `log_frontend` takes no state and never fails; `open_logs_folder` hands the folder to
+    // the OS, so what runs here is the folder it makes first.
+    let h = Harness::new();
+    // What reaches the log is checked in `logging::tests`: commands may run on another thread.
+    h.ok(
+        "log_frontend",
+        json!({ "level": "warn", "scope": "query", "message": "list_tasks failed" }),
+    );
+    let dir = crate::commands::logging::ensure_log_dir(&h.dir.path().join("data")).unwrap();
+    assert!(dir.is_dir());
+    assert_eq!(dir, h.dir.path().join("data").join("logs"));
+}
+
+#[test]
+fn crash_report_files_round_trip() {
+    // The two commands take an `AppHandle` for the app data folder; this is what they do there.
+    let h = Harness::new();
+    let dir = h.dir.path().join("crash-data");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("crash.log"),
+        crate::crash_report::record(chrono::Utc::now(), "0.58.0", "panicked at a.rs:1:1: boom"),
+    )
+    .unwrap();
+    let report = crate::crash_report::latest_unseen(&dir).unwrap();
+    crate::crash_report::dismiss(&dir, &report.occurred_at).unwrap();
+    assert!(crate::crash_report::latest_unseen(&dir).is_none());
 }
 
 // ---------------------------------------------------------------- portable

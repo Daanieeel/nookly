@@ -4,8 +4,8 @@ use crate::error::AppResult;
 use tauri::State;
 
 #[tauri::command]
-pub fn list_task_statuses(state: State<DbState>) -> AppResult<Vec<TaskStatus>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_task_statuses(state: State<'_, DbState>) -> AppResult<Vec<TaskStatus>> {
+    let conn = state.conn()?;
     tasks::list_task_statuses(&conn)
 }
 
@@ -17,7 +17,7 @@ pub fn create_task(
     start_date: Option<String>,
     due_date: Option<String>,
 ) -> AppResult<Task> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     tasks::create_task(&conn, space_id, title, start_date, due_date)
 }
 
@@ -27,37 +27,43 @@ pub fn create_subtask(
     parent_entity_id: String,
     title: String,
 ) -> AppResult<Task> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     tasks::create_subtask(&conn, parent_entity_id, title)
 }
 
 #[tauri::command]
-pub fn list_subtasks(state: State<DbState>, parent_entity_id: String) -> AppResult<Vec<Task>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_subtasks(
+    state: State<'_, DbState>,
+    parent_entity_id: String,
+) -> AppResult<Vec<Task>> {
+    let conn = state.conn()?;
     tasks::list_subtasks(&conn, &parent_entity_id)
 }
 
 #[tauri::command]
-pub fn subtask_progress(state: State<DbState>, parent_entity_id: String) -> AppResult<Option<f64>> {
-    let conn = state.0.lock().unwrap();
+pub async fn subtask_progress(
+    state: State<'_, DbState>,
+    parent_entity_id: String,
+) -> AppResult<Option<f64>> {
+    let conn = state.conn()?;
     tasks::subtask_progress(&conn, &parent_entity_id)
 }
 
 #[tauri::command]
-pub fn get_task(state: State<DbState>, entity_id: String) -> AppResult<Task> {
-    let conn = state.0.lock().unwrap();
+pub async fn get_task(state: State<'_, DbState>, entity_id: String) -> AppResult<Task> {
+    let conn = state.conn()?;
     tasks::get_task_with_labels(&conn, &entity_id)
 }
 
 #[tauri::command]
-pub fn list_tasks(state: State<DbState>, space_id: String) -> AppResult<Vec<Task>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_tasks(state: State<'_, DbState>, space_id: String) -> AppResult<Vec<Task>> {
+    let conn = state.conn()?;
     tasks::list_tasks(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_tasks_all(state: State<DbState>) -> AppResult<Vec<Task>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_tasks_all(state: State<'_, DbState>) -> AppResult<Vec<Task>> {
+    let conn = state.conn()?;
     tasks::list_tasks_all(&conn)
 }
 
@@ -67,25 +73,29 @@ pub fn update_task_status(
     entity_id: String,
     status_id: String,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     tasks::update_task_status(&conn, &entity_id, &status_id)
 }
 
 #[tauri::command]
-pub fn count_tasks_due_today(state: State<DbState>) -> AppResult<tasks::TaskDueTodaySummary> {
-    let conn = state.0.lock().unwrap();
+pub async fn count_tasks_due_today(
+    state: State<'_, DbState>,
+) -> AppResult<tasks::TaskDueTodaySummary> {
+    let conn = state.conn()?;
     tasks::count_tasks_due_today(&conn)
 }
 
 #[tauri::command]
-pub fn list_open_tasks_due_or_overdue(state: State<DbState>) -> AppResult<Vec<tasks::Task>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_open_tasks_due_or_overdue(
+    state: State<'_, DbState>,
+) -> AppResult<Vec<tasks::Task>> {
+    let conn = state.conn()?;
     tasks::list_open_tasks_due_or_overdue(&conn)
 }
 
 #[tauri::command]
-pub fn count_open_tasks_due_or_overdue(state: State<DbState>) -> AppResult<i64> {
-    let conn = state.0.lock().unwrap();
+pub async fn count_open_tasks_due_or_overdue(state: State<'_, DbState>) -> AppResult<i64> {
+    let conn = state.conn()?;
     tasks::count_open_tasks_due_or_overdue(&conn)
 }
 
@@ -96,7 +106,7 @@ pub fn update_task_dates(
     start_date: Option<String>,
     due_date: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     tasks::update_task_dates(&conn, &entity_id, start_date, due_date)
 }
 
@@ -106,7 +116,7 @@ pub fn convert_to_subtask(
     entity_id: String,
     parent_entity_id: String,
 ) -> AppResult<Task> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     tasks::convert_to_subtask(&conn, &entity_id, &parent_entity_id)
 }
 
@@ -116,7 +126,7 @@ pub fn update_task_effort(
     entity_id: String,
     effort: Option<i64>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     tasks::update_task_effort(&conn, &entity_id, effort)
 }
 
@@ -128,6 +138,6 @@ pub fn set_task_repeat(
     entity_id: String,
     repeat: Option<tasks::RepeatRule>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     tasks::set_task_repeat(&conn, &entity_id, repeat)
 }

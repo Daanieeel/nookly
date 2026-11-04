@@ -70,7 +70,7 @@ export function SettingRow({
 
 /// The id as small quiet text; hovering or focusing it reveals a copy icon, and the
 /// whole thing is the one button that copies it. The icon swaps to a check in place.
-function CopyIdButton({ settingId }: { settingId: SettingId }) {
+export function CopyIdButton({ settingId }: { settingId: SettingId }) {
   const copy = useMutation({ mutationFn: () => copyText(settingId) });
   const status = useActionStatus(copy);
   const label = status === "error" ? "Couldn't copy, try again" : "Copy setting ID";
@@ -107,7 +107,7 @@ function CopyIdButton({ settingId }: { settingId: SettingId }) {
 }
 
 /// Back to the default, only while the value differs from it.
-function ResetButton({ settingId, title }: { settingId: SettingId; title: string }) {
+export function ResetButton({ settingId, title }: { settingId: SettingId; title: string }) {
   const [value] = useSetting(settingId);
   const { default: fallback } = definitionOf(settingId);
   if (JSON.stringify(value) === JSON.stringify(fallback)) return null;

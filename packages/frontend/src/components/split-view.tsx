@@ -30,7 +30,7 @@ import { cn } from "@nookly/ui/lib/utils";
 
 /// The narrowest a group gets. Below twice this, the split collapses to the focused
 /// group instead of cramming both in.
-export const MIN_GROUP_WIDTH = 360;
+const MIN_GROUP_WIDTH = 360;
 /// The gap the divider sits in, between the two groups: its `w-3`.
 const DIVIDER_WIDTH = 12;
 const KEYBOARD_STEP = 0.02;
@@ -41,7 +41,7 @@ export function fitsSplit(width: number): boolean {
 
 /// Whether the content area is wide enough to show both groups. Set by `SplitView`,
 /// read by the shell to decide where the focused group's tabs go.
-export const useSplitFits = create<{ fits: boolean }>(() => ({ fits: true }));
+const useSplitFits = create<{ fits: boolean }>(() => ({ fits: true }));
 
 /// Whether both groups are on screen side by side.
 export function useSplitShown(): boolean {

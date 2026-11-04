@@ -32,7 +32,7 @@ pub async fn capture_bookmark_screenshot(
     entity_id: String,
 ) -> AppResult<Bookmark> {
     let url = {
-        let conn = state.0.lock().unwrap();
+        let conn = state.conn()?;
         bookmarks::get_bookmark(&conn, &entity_id)?.url
     };
     let dir: PathBuf = crate::db::resolve_app_data_dir(
@@ -54,7 +54,7 @@ pub async fn capture_bookmark_screenshot(
     ));
     std::fs::write(&path, jpeg).map_err(|e| AppError::Io(e.to_string()))?;
 
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     bookmarks::set_screenshot(&conn, &entity_id, &path.to_string_lossy())
 }
 
@@ -83,7 +83,7 @@ async fn capture(app: &AppHandle, url: &str) -> AppResult<Vec<u8>> {
         .visible(true)
         .on_page_load(move |_, payload| {
             if payload.event() == PageLoadEvent::Finished {
-                if let Some(tx) = loaded_tx.lock().unwrap().take() {
+                if let Some(tx) = loaded_tx.lock().ok().and_then(|mut slot| slot.take()) {
                     let _ = tx.send(());
                 }
             }
@@ -139,7 +139,7 @@ async fn snapshot(window: &tauri::WebviewWindow) -> AppResult<Vec<u8>> {
                     }?;
                     Some(data.to_vec())
                 });
-                if let Some(tx) = tx.lock().unwrap().take() {
+                if let Some(tx) = tx.lock().ok().and_then(|mut slot| slot.take()) {
                     let _ = tx.send(jpeg);
                 }
             });

@@ -38,6 +38,8 @@ pub mod notes;
 mod ocr;
 mod office_text;
 pub mod page_json;
+#[cfg(test)]
+mod perf_baseline;
 pub mod portable;
 pub mod recipes;
 #[cfg(test)]
@@ -70,11 +72,33 @@ mod upgrade_tests;
 pub mod views;
 
 use rusqlite::Connection;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 use tauri::{Emitter, Manager};
 
 pub struct DbState(pub Mutex<Connection>);
+
+impl DbState {
+    /// The one way a command takes the database lock. A lock poisoned by an
+    /// earlier panic comes back as an error instead of panicking again.
+    pub fn conn(&self) -> crate::error::AppResult<MutexGuard<'_, Connection>> {
+        let started = std::time::Instant::now();
+        let guard = self.0.lock().map_err(|_| {
+            tracing::error!("the database lock is poisoned by an earlier panic");
+            crate::error::AppError::Db(
+                "the database lock is unavailable after an earlier failure, restart Nookly".into(),
+            )
+        })?;
+        let waited = started.elapsed();
+        if waited > crate::logging::SLOW_LOCK_WAIT {
+            tracing::warn!(
+                waited_ms = waited.as_millis() as u64,
+                "waited a long time for the database lock"
+            );
+        }
+        Ok(guard)
+    }
+}
 
 /// Emitted when another process (the CLI, usually an agent) committed to the
 /// database, so the frontend refetches instead of showing stale data.
@@ -147,6 +171,26 @@ pub fn test_conn() -> Connection {
 #[cfg(test)]
 pub fn test_space(conn: &Connection, name: &str) -> spaces::Space {
     spaces::create_space(conn, name.into(), None, "#000".into()).unwrap()
+}
+
+/// A database with two Spaces, for the unit tests that check an import stays in its own Space.
+#[cfg(test)]
+pub struct Fixture {
+    pub conn: Connection,
+    pub space: String,
+    pub other_space: String,
+}
+
+#[cfg(test)]
+pub fn fixture() -> Fixture {
+    let conn = test_conn();
+    let space = spaces::create_space(&conn, "A".into(), None, "#000".into()).unwrap();
+    let other = spaces::create_space(&conn, "B".into(), None, "#111".into()).unwrap();
+    Fixture {
+        conn,
+        space: space.id,
+        other_space: other.id,
+    }
 }
 
 /// A space with one course in it, for unit tests.
@@ -243,7 +287,9 @@ fn watch_external_changes(app: tauri::AppHandle) {
         loop {
             std::thread::sleep(EXTERNAL_CHANGE_POLL);
             let state = app.state::<DbState>();
-            let version = match state.0.lock() {
+            // Never waits for a command that is using the connection: a busy tick is skipped
+            // and the next one reads the same counter.
+            let version = match state.0.try_lock() {
                 Ok(conn) => conn
                     .query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0))
                     .ok(),
@@ -268,16 +314,36 @@ pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std
     let mut conn = Connection::open(&db_path)?;
     backup_before_migration(&conn, &db_path)?;
     let current: usize = migrations::MIGRATIONS.current_version(&conn)?.into();
-    if current > 0 && current < *migrations::MIGRATION_COUNT {
+    let latest = *migrations::MIGRATION_COUNT;
+    if current > latest {
+        tracing::error!(
+            current,
+            latest,
+            "the database is from a newer version of Nookly, refusing to open it"
+        );
+    }
+    if current > 0 && current < latest {
         // An existing database with migrations to run: they run on a copy that has
         // to pass its checks before it replaces the original (see `upgrade`).
+        tracing::info!(from = current, to = latest, "upgrading the database");
         drop(conn);
-        upgrade::run(&db_path)?;
+        let started = std::time::Instant::now();
+        if let Err(e) = upgrade::run(&db_path) {
+            tracing::error!(error = %e, "the database upgrade did not pass its checks, the data was not changed");
+            return Err(e.into());
+        }
+        tracing::info!(
+            duration_ms = started.elapsed().as_millis() as u64,
+            "database upgraded"
+        );
         conn = Connection::open(&db_path)?;
     }
     // A new database migrates here. An upgraded one has nothing left, and a database
     // from a newer version is refused.
-    migrations::MIGRATIONS.to_latest(&mut conn)?;
+    if let Err(e) = migrations::MIGRATIONS.to_latest(&mut conn) {
+        tracing::error!(error = %e, "could not bring the database to the latest version");
+        return Err(e.into());
+    }
     Ok(conn)
 }
 
@@ -311,6 +377,10 @@ fn backup_before_migration(
         db_path,
         db_path.with_file_name(format!("nookly.db.bak-v{current}")),
     )?;
+    tracing::info!(
+        version = current,
+        "kept a copy of the database before migrating"
+    );
     Ok(())
 }
 
@@ -381,6 +451,65 @@ mod tests {
     fn data_version(conn: &Connection) -> i64 {
         conn.query_row("PRAGMA data_version", [], |row| row.get(0))
             .unwrap()
+    }
+
+    /// A command that panicked while holding the lock poisons it. The next command
+    /// gets an error back instead of panicking too (which would end the app).
+    #[test]
+    fn conn_returns_an_error_instead_of_panicking_when_the_lock_is_poisoned() {
+        let state = std::sync::Arc::new(DbState(Mutex::new(test_conn())));
+        let poisoner = state.clone();
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoner.0.lock().unwrap();
+            panic!("a command panicked while holding the database lock");
+        })
+        .join();
+        assert!(state.0.is_poisoned());
+        let result = state.conn();
+        match result {
+            Err(crate::error::AppError::Db(message)) => {
+                assert!(message.contains("lock"), "unexpected message: {message}");
+            }
+            Err(other) => panic!("expected a database error, got {other:?}"),
+            Ok(_) => panic!("a poisoned lock must not hand out the connection"),
+        }
+    }
+
+    /// A command that waits a long time for the database is the first sign of a freeze,
+    /// so it leaves a warning in the log (with the wait, never what the command was doing).
+    #[test]
+    fn a_long_wait_for_the_database_lock_is_logged() {
+        let state = std::sync::Arc::new(DbState(Mutex::new(test_conn())));
+        let holder = state.clone();
+        let (locked_tx, locked_rx) = std::sync::mpsc::channel();
+        let hold = std::thread::spawn(move || {
+            let _guard = holder.0.lock().unwrap();
+            locked_tx.send(()).unwrap();
+            std::thread::sleep(crate::logging::SLOW_LOCK_WAIT * 3);
+        });
+        locked_rx.recv().unwrap();
+        let log = crate::logging::capture_logs(|| {
+            drop(state.conn().unwrap());
+        });
+        hold.join().unwrap();
+        assert!(log.contains("WARN"), "{log}");
+        assert!(log.contains("database lock"), "{log}");
+    }
+
+    #[test]
+    fn a_quick_lock_is_not_logged() {
+        let state = DbState(Mutex::new(test_conn()));
+        let log = crate::logging::capture_logs(|| {
+            drop(state.conn().unwrap());
+        });
+        assert_eq!(log, "");
+    }
+
+    #[test]
+    fn conn_hands_out_the_connection_when_the_lock_is_healthy() {
+        let state = DbState(Mutex::new(test_conn()));
+        let conn = state.conn().unwrap();
+        assert_eq!(data_version(&conn), data_version(&conn));
     }
 
     /// `watch_external_changes` relies on this: the app's own writes leave its

@@ -61,7 +61,7 @@ export function DateField({
 }
 
 /// A start or end time field.
-export function TimeField({
+function TimeField({
   field,
   label,
   ariaLabel,

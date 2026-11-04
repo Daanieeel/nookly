@@ -18,8 +18,8 @@ import { cn } from "@nookly/ui/lib/utils";
 export const cadenceSchema = z.enum(["none", "daily", "weekly", "monthly"]);
 export const durationUnitSchema = z.enum(["days", "weeks", "months", "years"]);
 export const endModeSchema = z.enum(["for", "until"]);
-export type Cadence = z.infer<typeof cadenceSchema>;
-export type DurationUnit = z.infer<typeof durationUnitSchema>;
+type Cadence = z.infer<typeof cadenceSchema>;
+type DurationUnit = z.infer<typeof durationUnitSchema>;
 
 const CADENCE_LABELS = {
   none: "Does not repeat",

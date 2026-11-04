@@ -4,7 +4,7 @@ import { Command } from "cmdk";
 import type { ComponentProps, CSSProperties, ReactNode, Ref } from "react";
 import { renderIconValue } from "#/components/entity-icon.tsx";
 import { DialogPortal } from "@nookly/ui/components/dialog";
-import { Kbd, KbdGroup } from "#/components/kbd.tsx";
+import { Kbd } from "#/components/kbd.tsx";
 import type { Space } from "#/lib/api/types.ts";
 import type { TextSegment } from "#/lib/search-results.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -18,6 +18,8 @@ export function SpotlightDialog({
   title,
   dirty,
   onClear,
+  value,
+  onValueChange,
   children,
 }: {
   open: boolean;
@@ -28,6 +30,9 @@ export function SpotlightDialog({
   /// `onClear` instead of closing; the next Escape closes.
   dirty: boolean;
   onClear: () => void;
+  /// The highlighted item, when the caller needs to read or set it.
+  value?: string;
+  onValueChange?: (value: string) => void;
   children: ReactNode;
 }) {
   return (
@@ -45,7 +50,7 @@ export function SpotlightDialog({
             onClear();
           }}
           className={cn(
-            "fixed top-[14vh] left-1/2 z-50 flex w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden",
+            "fixed top-[14vh] left-1/2 z-50 flex w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden",
             "rounded-2xl border border-border/70 bg-popover text-popover-foreground shadow-2xl outline-none",
             "duration-150 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
@@ -55,6 +60,8 @@ export function SpotlightDialog({
           <Command
             shouldFilter={false}
             loop
+            value={value}
+            onValueChange={onValueChange}
             label={title}
             className={cn(
               "flex min-h-0 flex-col",
@@ -72,11 +79,17 @@ export function SpotlightDialog({
 
 export function SpotlightInput({
   ref,
+  before,
   ...props
-}: ComponentProps<typeof Command.Input> & { ref?: Ref<HTMLInputElement> }) {
+}: ComponentProps<typeof Command.Input> & {
+  ref?: Ref<HTMLInputElement>;
+  /// Filter chips and the like, shown ahead of the typed text.
+  before?: ReactNode;
+}) {
   return (
     <div className="flex items-center gap-3 border-b border-border/70 px-5">
       <IconSearch size={20} className="shrink-0 text-muted-foreground" />
+      {before}
       <Command.Input
         ref={ref}
         className="h-16 min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-muted-foreground/70"
@@ -153,20 +166,14 @@ export function Highlighted({ segments }: { segments: TextSegment[] }) {
 
 /// Keyboard hints along the bottom edge, plus an optional hint on the right
 /// (e.g. the sibling overlay's shortcut).
-export function SpotlightFooter({ aside }: { aside?: ReactNode }) {
+export function SpotlightFooter({ hints, aside }: { hints?: ReactNode; aside?: ReactNode }) {
   return (
-    <div className="flex items-center gap-4 border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
-      <span className="flex items-center gap-1.5">
-        <KbdGroup>
-          <Kbd>↑</Kbd>
-          <Kbd>↓</Kbd>
-        </KbdGroup>
-        Navigate
-      </span>
+    <div className="flex items-center gap-4 whitespace-nowrap border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
       <span className="flex items-center gap-1.5">
         <Kbd>↵</Kbd>
         Open
       </span>
+      {hints}
       {aside && <span className="ml-auto flex items-center gap-1.5">{aside}</span>}
     </div>
   );

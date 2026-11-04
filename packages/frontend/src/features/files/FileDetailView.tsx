@@ -66,6 +66,7 @@ import {
 } from "./file-kind";
 
 import { CrashFallback, ErrorBoundary } from "#/components/error-boundary.tsx";
+import { refreshDatabaseData } from "#/lib/refresh-data.ts";
 
 const REVEAL_LABEL = navigator.userAgent.includes("Mac") ? "Reveal in Finder" : "Show in Folder";
 
@@ -632,7 +633,7 @@ function ReplaceButton({ file }: { file: FileEntity }) {
       // The old copy is deleted from disk: put the new one in the cache now, so a note
       // embedding this file never renders the old path, then refetch everything.
       queryClient.setQueryData(qk.files.byId(entity.id), replaced);
-      return queryClient.invalidateQueries();
+      return refreshDatabaseData(queryClient);
     },
   });
   const raw = useActionStatus(replace);

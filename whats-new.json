@@ -1,12 +1,12 @@
 {
   "versions": [
     {
-      "version": "0.58.0",
-      "date": "2026-11-03",
+      "version": "0.61.0",
+      "date": "2026-11-04",
       "highlights": [
         {
           "title": "Moodle inside Nookly",
-          "description": "Read your courses, download files, check assignments and grades and read announcements without opening the website. Add the Moodle module to a Space to connect.",
+          "description": "Read your courses, open and import files, check assignments and grades and read announcements without opening the website. Add the Moodle module to a Space to connect.",
           "icon": "notebook",
           "tag": "New"
         },
@@ -15,9 +15,124 @@
           "description": "Connect the link from Moodle's Export calendar under Calendar connections to see deadlines next to your sessions.",
           "icon": "link",
           "tag": "New"
+        },
+        {
+          "title": "Copy a file's text",
+          "description": "Text, code and Markdown files have a copy button at the top right of the viewer.",
+          "icon": "file-text",
+          "tag": "New"
         }
       ],
       "more": {}
+    },
+    {
+      "version": "0.60.0",
+      "date": "2026-11-04",
+      "title": "A faster, simpler search",
+      "summary": "Search shows one list of results, best match first, and you can narrow it by typing.",
+      "highlights": [
+        {
+          "title": "One list of results",
+          "description": "Every result shows its icon, title, Space and the line that matched. The best match is already selected, so Enter opens it.",
+          "icon": "sparkles",
+          "tag": "New"
+        },
+        {
+          "title": "Filter by typing",
+          "description": "Type in: to pick a Space or # to pick a label, and press Tab to switch between types like Notes, Tasks and Files.",
+          "icon": "filter",
+          "tag": "New",
+          "shortcuts": ["Mod+K"]
+        },
+        {
+          "title": "Open results where you want",
+          "description": "Open the selected result in a new tab, or in the other side of a split.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Enter", "Mod+Alt+Enter"]
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Quick open now looks at titles only, so it answers instantly.",
+          "Search opens right away and starts looking on your first keystroke."
+        ]
+      }
+    },
+    {
+      "version": "0.59.0",
+      "date": "2026-11-04",
+      "title": "A tidier Settings",
+      "summary": "Settings is easier to scan, and the pages look like what they hold.",
+      "highlights": [
+        {
+          "title": "A flat list of pages",
+          "description": "Every page is in one list under short headings, and search sits at the top. Press the slash key to jump to it.",
+          "icon": "filter",
+          "tag": "Improved",
+          "shortcuts": ["/"]
+        },
+        {
+          "title": "Pick a theme by sight",
+          "description": "Light, dark and system are cards with a small preview, and the file viewer theme works the same way.",
+          "icon": "palette",
+          "tag": "New"
+        },
+        {
+          "title": "Shortcuts in a table",
+          "description": "All your shortcuts are on one page. Use the buttons at the top to show only one group, like Tabs or Create.",
+          "icon": "keyboard",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The Backup page shows when the last backup was made, how big it is and where it is saved, and says clearly if one failed.",
+          "Google Calendar and iCloud have their own Connections page in Settings, with a card that shows whether each one is connected.",
+          "LaTeX macros have their own page under Power tools in Settings.",
+          "A shortcut whose key was taken by another one is marked in the list."
+        ],
+        "Fixed": [
+          "On Mac, your Nookly data folder now opens in Finder with a double click. It is called Nookly, and nothing is moved or copied."
+        ]
+      }
+    },
+    {
+      "version": "0.58.0",
+      "date": "2026-11-04",
+      "highlights": [
+        {
+          "title": "Report after an unexpected close",
+          "description": "If Nookly closes unexpectedly, you can read, copy or share a short report next time. It never holds what you wrote, and nothing is sent unless you send it.",
+          "icon": "file-text",
+          "tag": "New"
+        },
+        {
+          "title": "Logs for bug reports",
+          "description": "Nookly keeps a short log of problems, never what you wrote. Open the folder from Settings and attach it when you report a bug.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Nookly starts quicker and takes less space.",
+          "Lists and searches no longer hold up the rest of the window, and Nookly no longer reloads everything each time you switch back to it."
+        ],
+        "Fixed": [
+          "When something goes wrong behind the scenes, Nookly now shows an error instead of closing."
+        ]
+      }
+    },
+    {
+      "version": "0.57.2",
+      "date": "2026-11-04",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Dragging tabs to reorder or split them, and dragging semesters to reorder them, now works on Linux."
+        ]
+      }
     },
     {
       "version": "0.57.1",

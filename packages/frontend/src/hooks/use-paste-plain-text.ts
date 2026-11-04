@@ -1,6 +1,7 @@
 import { Editor } from "@tiptap/core";
 import { useEffect } from "react";
 import { readClipboardText } from "#/lib/clipboard.ts";
+import { ignoreError } from "#/lib/log.ts";
 
 type TextField = HTMLInputElement | HTMLTextAreaElement;
 
@@ -59,7 +60,7 @@ export function usePastePlainText() {
           else if (field?.isConnected) insertIntoField(field, text);
         })
         // Nothing to paste (an empty or unreadable clipboard) leaves the field as it was.
-        .catch(() => undefined);
+        .catch(ignoreError("pasting as plain text"));
     }
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);

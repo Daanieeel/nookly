@@ -136,26 +136,8 @@ inventory::submit! {
 mod tests {
     use super::*;
     use crate::db::decks::{create_card, create_deck, list_cards, review_card};
+    use crate::db::{fixture, Fixture};
     use rs_fsrs::Rating;
-
-    struct Fixture {
-        conn: Connection,
-        space: String,
-        other_space: String,
-    }
-
-    fn fixture() -> Fixture {
-        let conn = crate::db::test_conn();
-        let space =
-            crate::db::spaces::create_space(&conn, "A".into(), None, "#000".into()).unwrap();
-        let other =
-            crate::db::spaces::create_space(&conn, "B".into(), None, "#111".into()).unwrap();
-        Fixture {
-            conn,
-            space: space.id,
-            other_space: other.id,
-        }
-    }
 
     fn entity_count(conn: &Connection) -> i64 {
         conn.query_row("SELECT COUNT(*) FROM entities", [], |r| r.get(0))

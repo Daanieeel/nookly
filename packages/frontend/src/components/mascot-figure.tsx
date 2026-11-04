@@ -24,7 +24,7 @@ export function getWeekYear() {
 /// Seeded with today's date (not a fixed constant) so the mascot is a new blob
 /// every day, same blob all day — and the same seed everywhere this resolves
 /// to the same character, whether footer or Dashboard.
-export function getMascotName(): string {
+function getMascotName(): string {
   return `Day_${format(new Date(), "yyyy-MM-dd")}`;
 }
 

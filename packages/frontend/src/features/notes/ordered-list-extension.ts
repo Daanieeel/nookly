@@ -24,7 +24,7 @@ function markerOf(letter: string, punctuation: string): string {
 
 type Attrs = Record<string, JSONAttrValue>;
 
-export const LetterOrderedList = OrderedList.extend({
+const LetterOrderedList = OrderedList.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -107,7 +107,7 @@ function sinkKeepingLabel(editor: Editor, name: string): boolean {
 
 /// A list item that writes its marker the way its list shows it, so a lettered list saves
 /// as `a)` or `A.` in markdown and not as numbers.
-export const MarkerListItem = ListItem.extend({
+const MarkerListItem = ListItem.extend({
   addKeyboardShortcuts() {
     return {
       ...this.parent?.(),

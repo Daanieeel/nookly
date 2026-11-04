@@ -2,12 +2,71 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.58.0 (2026-11-03)
+## 0.61.0 (2026-11-04)
 
 ### Added
 
-- **Moodle.** A new module that lets you read your university's Moodle inside Nookly. Browse your courses, open and download files, read assignments with your submission status and feedback, check your grades and read announcements and forum posts, without opening the website. Every page has an Open in Moodle button. You sign in through your university's own login page, so single sign on works. Nookly only reads from Moodle and never changes anything there. You can sign out from the Moodle page at any time.
+- **Moodle.** A new module that lets you read your university's Moodle inside Nookly. Browse your courses with their Moodle banners, open files in the same viewer as your Files, read assignments with your submission status and feedback, check your grades and read announcements and forum posts, without opening the website. Every page has an Open in Moodle button. You sign in inside Nookly, with your passwords from Apple Passwords on Mac, so single sign on works. Nookly only reads from Moodle and never changes anything there. You can sign out from the Moodle page at any time.
+- **Import Moodle files.** A file from a course can be imported into your Space, next to Download.
 - **Moodle deadlines on your calendar.** Connect the link from Moodle's Export calendar under Calendar connections, and its deadlines and classes show on your Calendar next to your sessions.
+- **Copy a file's text.** Text, code and Markdown files have a copy button at the top right of the viewer.
+
+## 0.60.0 (2026-11-04)
+
+### Added
+
+- **A new search.** `Cmd+K` now shows one list of results, best match first, instead of groups per Space. Each result shows its icon, title, Space and the line of text that matched. The top result is already selected, so `Enter` opens it.
+- **Tabs for types.** Press `Tab` to switch between All, Notes, Tasks, Files and more, and `Shift+Tab` to go back.
+- **Filters you type.** Type `in:` and pick a Space, or `#` and pick a label, and it becomes a chip that narrows the search. `Backspace` removes the last chip.
+- **Open results in a new tab or the other side.** `Cmd+Enter` opens the selected result in a new tab, and `Cmd+Option+Enter` opens it in the other split group (`Ctrl+Enter` and `Ctrl+Alt+Enter` on Windows and Linux).
+
+### Changed
+
+- **Quick open matches search.** `Cmd+P` shows the same list as `Cmd+K`, but only looks at titles and keys, so it answers instantly. `Cmd+Shift+P` still runs commands.
+
+### Fixed
+
+- **Search is faster.** Search opens at once and shows results as you type, even with tens of thousands of items. Typing no longer waits before it starts looking.
+
+## 0.59.0 (2026-11-04)
+
+### Added
+
+- **A tidier Settings.** The pages are now one flat list under short headings (Writing and study, Data and accounts, Power tools), and search sits at the top of the list. Press `/` to jump to it.
+- **A Connections page.** Your external calendars have their own page in Settings, with a card for Google Calendar and iCloud that shows whether each one is connected.
+- **Choose your theme by sight.** The theme and the file viewer theme are cards with a small preview.
+- **Backup at a glance.** A card on the Backup page shows when the last backup was made, how big it is and where it is saved, and says clearly when a backup failed.
+- **Shortcuts in a table.** All shortcuts are on one page with buttons to show only Navigation, Tabs, Create and the rest. A shortcut whose key was taken by another one is marked.
+
+### Changed
+
+- **LaTeX macros** have their own page under Power tools in Settings, and About moved to the bottom of the Settings list.
+
+### Fixed
+
+- **Your data folder opens in Finder on Mac.** The folder is now called Nookly, so you can double click it to browse your files. Nothing is moved or copied, and everything keeps working as before.
+
+## 0.58.0 (2026-11-04)
+
+### Added
+
+- **Logs folder.** Settings has a new "Open logs folder" button. Nookly now keeps a short log of what went wrong, without anything you wrote, so you can attach it when you report a problem.
+- **A report after an unexpected close.** If Nookly closes unexpectedly, the next launch tells you and offers a short report you can read, copy, or open as a GitHub issue. It holds the version, your system and what went wrong, never what you wrote, and nothing is sent unless you send it.
+
+### Changed
+
+- **Faster start and a smaller app.** Nookly starts quicker and takes less space, because screens and dialogs now load when you first open them.
+- **Smoother when working with a lot of data.** Lists and searches no longer hold up the rest of the window, and Nookly no longer reloads everything each time you switch back to it.
+
+### Fixed
+
+- **Fewer unexpected closes.** When something goes wrong behind the scenes, Nookly now shows an error instead of closing.
+
+## 0.57.2 (2026-11-04)
+
+### Fixed
+
+- **Reordering tabs on Linux.** Dragging a tab to reorder it, move it to the other side of a split, or open it in a new split now works on Linux. Reordering semesters by drag works there too.
 
 ## 0.57.1 (2026-11-03)
 

@@ -1,6 +1,6 @@
 import { IconX } from "@tabler/icons-react";
 import { useDebouncer } from "@tanstack/react-pacer";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { StatusIcon } from "#/components/action-feedback.tsx";
 import { TimeInput } from "#/components/time-input.tsx";
 import { useInPlaceInput } from "#/components/use-in-place-input.ts";
@@ -28,43 +28,35 @@ function SaveIcon({ pending, failed }: SaveState) {
   );
 }
 
-/// A number property as a stepper, saved a moment after the last change. Unset,
-/// it offers `addLabel`; the × clears it again. `unit` shows after the stepper.
-export function NumberProperty({
+/// A property that is either unset, offering `addLabel`, or set, showing the editor
+/// `renderEditor` draws next to a × that clears it. Saved a moment after the last change.
+function OptionalProperty<T>({
   value,
   onSave,
   addLabel,
   clearLabel,
-  startAt = 1,
-  step = 1,
-  min,
-  max,
-  unit,
+  startAt,
   pending,
   failed,
+  renderEditor,
 }: SaveState & {
-  value: number | null;
-  onSave: (next: number | null) => void;
+  value: T | null;
+  onSave: (next: T | null) => void;
   addLabel: string;
-  /// Names the × button, like "Remove Grade".
   clearLabel: string;
-  /// The value "Add" starts from.
-  startAt?: number;
-  step?: number;
-  min?: number;
-  max?: number;
-  unit?: string;
+  startAt: T;
+  renderEditor: (draft: T, change: (next: T | null) => void) => ReactNode;
 }) {
-  const [draft, setDraft] = useState<number | null>(value);
+  const [draft, setDraft] = useState<T | null>(value);
   // Unmounting flushes a pending save instead of dropping the last edit.
   const saver = useDebouncer(
-    (next: number | null) => {
+    (next: T | null) => {
       if (next !== value) onSave(next);
     },
     { wait: 500, onUnmount: (debouncer) => debouncer.flush() },
   );
 
-  function change(next: number | null) {
+  function change(next: T | null) {
     setDraft(next);
     saver.maybeExecute(next);
   }
@@ -83,15 +75,7 @@ export function NumberProperty({
   }
   return (
     <div className="flex items-center gap-1 px-1">
-      <NumberInput
-        value={draft}
-        onChange={change}
-        step={step}
-        min={min}
-        max={max}
-        className="h-7 w-28 shrink-0"
-      />
-      {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+      {renderEditor(draft, change)}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -112,16 +96,54 @@ export function NumberProperty({
   );
 }
 
+/// A number property as a stepper, saved a moment after the last change. Unset,
+/// it offers `addLabel`; the × clears it again. `unit` shows after the stepper.
+export function NumberProperty({
+  startAt = 1,
+  step = 1,
+  min,
+  max,
+  unit,
+  ...rest
+}: SaveState & {
+  value: number | null;
+  onSave: (next: number | null) => void;
+  addLabel: string;
+  /// Names the × button, like "Remove Grade".
+  clearLabel: string;
+  /// The value "Add" starts from.
+  startAt?: number;
+  step?: number;
+  min?: number;
+  max?: number;
+  unit?: string;
+}) {
+  return (
+    <OptionalProperty
+      {...rest}
+      startAt={startAt}
+      renderEditor={(draft, change) => (
+        <>
+          <NumberInput
+            value={draft}
+            onChange={change}
+            step={step}
+            min={min}
+            max={max}
+            className="h-7 w-28 shrink-0"
+          />
+          {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+        </>
+      )}
+    />
+  );
+}
+
 /// A clock time property (`HH:mm`), saved a moment after the last change. Unset, it
 /// offers `addLabel`; the × clears it again.
 export function TimeProperty({
-  value,
-  onSave,
-  addLabel,
-  clearLabel,
   startAt = "09:00",
-  pending,
-  failed,
+  ...rest
 }: SaveState & {
   value: string | null;
   onSave: (next: string | null) => void;
@@ -131,51 +153,14 @@ export function TimeProperty({
   /// The time "Add" starts from.
   startAt?: string;
 }) {
-  const [draft, setDraft] = useState<string | null>(value);
-  const saver = useDebouncer(
-    (next: string | null) => {
-      if (next !== value) onSave(next);
-    },
-    { wait: 500, onUnmount: (debouncer) => debouncer.flush() },
-  );
-
-  function change(next: string | null) {
-    setDraft(next);
-    saver.maybeExecute(next);
-  }
-
-  if (draft === null) {
-    return (
-      <div className="relative flex items-center">
-        <button type="button" onClick={() => change(startAt)} className={PROPERTY_VALUE}>
-          <span className="text-muted-foreground">{addLabel}</span>
-        </button>
-        <span className="pointer-events-none absolute right-2">
-          <SaveIcon pending={pending} failed={failed} />
-        </span>
-      </div>
-    );
-  }
   return (
-    <div className="flex items-center gap-1 px-1">
-      <TimeInput value={draft} onChange={change} aria-label="Exam time" className="h-7" />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label={failed ? "Couldn't save, try again" : clearLabel}
-            onClick={() => change(null)}
-            className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <IconX size={12} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{clearLabel}</TooltipContent>
-      </Tooltip>
-      <span className="flex size-3.5 shrink-0 items-center">
-        <SaveIcon pending={pending} failed={failed} />
-      </span>
-    </div>
+    <OptionalProperty
+      {...rest}
+      startAt={startAt}
+      renderEditor={(draft, change) => (
+        <TimeInput value={draft} onChange={change} aria-label="Exam time" className="h-7" />
+      )}
+    />
   );
 }
 

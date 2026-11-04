@@ -13,12 +13,15 @@ pub fn create_study_block(
     start_time: String,
     end_time: String,
 ) -> AppResult<StudyBlock> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     study_blocks::create_study_block(&conn, space_id, title, exam_id, date, start_time, end_time)
 }
 
 #[tauri::command]
-pub fn list_study_blocks(state: State<DbState>, space_id: String) -> AppResult<Vec<StudyBlock>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_study_blocks(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<StudyBlock>> {
+    let conn = state.conn()?;
     study_blocks::list_study_blocks(&conn, &space_id)
 }

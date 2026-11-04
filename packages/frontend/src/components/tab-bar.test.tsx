@@ -1,5 +1,5 @@
-import { act, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { makeEntity } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
@@ -27,5 +27,21 @@ describe("TabBar", () => {
   it("shows no key on a tab that is not an entity", () => {
     renderWithProviders(<TabBar groupId={useNavStore.getState().focusedGroupId} />);
     expect(screen.getByRole("tab", { name: "Dashboard" })).toHaveTextContent(/^Dashboard$/);
+  });
+
+  // WebKitGTK (Linux) cancels a native drag that carries no data, and a drop target that does
+  // not announce an effect, so tabs could not be reordered there.
+  it("hands the webview data and a move effect when a tab is dragged", () => {
+    renderWithProviders(<TabBar groupId={useNavStore.getState().focusedGroupId} />);
+    const tab = screen.getByRole("tab", { name: "Dashboard" }).closest<HTMLElement>("[data-tab]");
+    if (!tab) throw new Error("tab not found");
+    const dataTransfer = { setData: vi.fn(), effectAllowed: "uninitialized", dropEffect: "none" };
+
+    fireEvent.dragStart(tab, { dataTransfer });
+    expect(dataTransfer.setData).toHaveBeenCalledWith("text/plain", expect.any(String));
+    expect(dataTransfer.effectAllowed).toBe("move");
+
+    fireEvent.dragOver(tab, { dataTransfer });
+    expect(dataTransfer.dropEffect).toBe("move");
   });
 });

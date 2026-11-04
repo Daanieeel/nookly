@@ -5,7 +5,7 @@ const EX_PX = 8;
 const EM_PX = 16;
 
 /// MathJax's `<svg>` as a `Formula` at `fontSize`, `null` when it has no size to read.
-export function formulaOf(svg: string, fontSize: number): Formula | null {
+function formulaOf(svg: string, fontSize: number): Formula | null {
   const open = /^<svg\b[^>]*>/.exec(svg)?.[0];
   const size = open && /\swidth="([\d.]+)ex"[^>]*\sheight="([\d.]+)ex"/.exec(open);
   if (!open || !size) return null;

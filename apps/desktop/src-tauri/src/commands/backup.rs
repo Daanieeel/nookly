@@ -29,12 +29,20 @@ pub async fn create_backup(app: AppHandle, folder: String, keep: usize) -> AppRe
         // The database lock is held only for the snapshot, not while files are zipped.
         let snapshot = {
             let state = app.state::<DbState>();
-            let conn = state.0.lock().unwrap();
+            let conn = state.conn()?;
             backup::snapshot(&conn)?
         };
         backup::create_backup(snapshot, &data_dir, &PathBuf::from(folder), keep)
     })
     .await
+    .inspect(|info| {
+        tracing::info!(
+            bytes = info.size,
+            files = info.manifest.as_ref().map(|m| m.file_count),
+            "backup created"
+        );
+    })
+    .inspect_err(|error| tracing::error!(%error, "creating a backup failed"))
 }
 
 #[tauri::command]
@@ -53,5 +61,13 @@ pub async fn inspect_backup(path: String) -> AppResult<Manifest> {
 #[tauri::command]
 pub async fn restore_backup(app: AppHandle, path: String) -> AppResult<Manifest> {
     let data_dir = data_dir(&app)?;
-    blocking(move || backup::stage_restore(&data_dir, &PathBuf::from(path))).await
+    blocking(move || backup::stage_restore(&data_dir, &PathBuf::from(path)))
+        .await
+        .inspect(|manifest| {
+            tracing::info!(
+                backup_schema = manifest.schema_version,
+                "restore staged, it installs when Nookly restarts"
+            );
+        })
+        .inspect_err(|error| tracing::error!(%error, "staging a restore failed"))
 }

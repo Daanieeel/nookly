@@ -500,8 +500,9 @@ pub fn set_task_repeat(
     if let Some(rule) = &repeat {
         rule.validate()?;
     }
-    let json =
-        repeat.map(|rule| serde_json::to_string(&rule).expect("RepeatRule always serializes"));
+    let json = repeat
+        .map(|rule| crate::error::to_json_string(&rule))
+        .transpose()?;
     let affected = conn.execute(
         "UPDATE tasks SET repeat_rule = ?1 WHERE entity_id = ?2",
         params![json, entity_id],
@@ -837,7 +838,7 @@ fn cli_update_task(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
 }
 
 fn cli_get_task(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_task(conn, id)?).expect("Task always serializes"))
+    crate::error::to_json(get_task(conn, id)?)
 }
 
 fn cli_list_tasks(
@@ -848,10 +849,10 @@ fn cli_list_tasks(
     let _ = include_deleted; // list_tasks is already soft-delete-filtered; see note on `entity` list for Trash browsing.
     let space_id = space_id
         .ok_or_else(|| AppError::InvalidInput("task list requires --space <space-id>".into()))?;
-    Ok(list_tasks(conn, space_id)?
+    list_tasks(conn, space_id)?
         .into_iter()
-        .map(|t| serde_json::to_value(t).expect("Task always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
 }
 
 fn cli_create_sub_task(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {

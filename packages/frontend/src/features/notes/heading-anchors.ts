@@ -6,7 +6,7 @@ import { asString } from "./block-markdown";
 
 /// DOM id of a heading block, so the page's section navigator can find and
 /// scroll to it by id. Built from the block's stable client id.
-export function headingAnchorId(blockId: string): string {
+function headingAnchorId(blockId: string): string {
   return `heading-${blockId}`;
 }
 

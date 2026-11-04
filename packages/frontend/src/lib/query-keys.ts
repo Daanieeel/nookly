@@ -1,3 +1,5 @@
+import type { SearchRequest } from "#/lib/api/search.ts";
+
 /// Every React Query key in the app. Keys nest from broad to narrow, so invalidating a
 /// `root` (or any shorter key) also refreshes everything built on it, e.g.
 /// `qk.entities.bySpace(id)` is a prefix of `qk.entities.noteSummaries(id)`.
@@ -12,6 +14,7 @@ function spaceList<const Name extends string>(name: Name) {
 }
 
 export const qk = {
+  crashReport: ["crash-report"] as const,
   spaces: ["spaces"] as const,
   spaceModules: (spaceId: string) => ["space-modules", spaceId] as const,
 
@@ -48,8 +51,8 @@ export const qk = {
   pageExportPreview: (entityId: string, options: string) =>
     ["page-export-preview", entityId, options] as const,
   mentioning: (entityId: string) => ["mentioning-entities", entityId] as const,
-  embeddedPageIds: ["embedded-page-ids"] as const,
-  search: (query: string) => ["search", query] as const,
+  search: (request: SearchRequest) => ["search", request] as const,
+  entitiesByIds: (ids: string[]) => ["entities-by-ids", ids] as const,
   highlight: (language: string | null, text: string) => ["highlight", language, text] as const,
 
   tasks: {

@@ -33,7 +33,7 @@ import { qk } from "#/lib/query-keys.ts";
 
 /// Same palette as Spaces (§ "add more colors"), so a new label reads apart
 /// from its neighbours just as well as a new Space does.
-export const LABEL_COLORS = ACCENT_COLORS;
+const LABEL_COLORS = ACCENT_COLORS;
 
 /// A stable color per name, so the same word always gets the same hue.
 export function labelColorFor(name: string): string {

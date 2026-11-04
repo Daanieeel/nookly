@@ -487,3 +487,47 @@ The sidebar lists the active Space's modules only. All Spaces sit in a row of ic
 **Why:** stacking every Space with its modules made the sidebar long and noisy, and it only gets worse as modules are added. Spaces are a hard wall, so showing one at a time matches how they behave. Arc and Zen do the same.
 
 **Rejected:** keeping Spaces as collapsible folders (the growth problem stays), a Space switcher at the top (the bottom row keeps the global block where it is and puts the switch near the thumb and the trackpad), and wrapping the swipe around (an overshoot would jump from the last Space to the first).
+
+---
+
+### Settings navigation is flat and grouped, and pages follow what someone is doing
+
+The Settings dialog lists ten pages under muted group headers (General and Appearance; Writing and study: Editor, Calendar; Data and accounts: Backup, Connections; Power tools: Shortcuts, LaTeX macros, Agent), with About and the settings file at the bottom. Nothing nests. Shortcuts is one page with a filter strip (All and each section). Search sits at the top of the sidebar, `/` focuses it. A page is not a registry category: `settings-pages.ts` maps each row to a page, so setting ids, search keywords and the CLI are untouched. A setting whose content has a better shape (theme, backup status, connections) draws its own component inside its row.
+
+**Why:** about 16 indented rows did not scan, more categories are coming, and the full width search row took height from every page. A uniform row for every setting made a theme, a backup and a key binding look alike.
+
+**Rejected:** collapsible groups (they hide pages for no gain at ten items), keeping a nav row per shortcut section (eight rows for one topic), and separate dialogs per page.
+
+---
+
+### The macOS data folder is renamed once and left behind a symlink
+
+On macOS the real data folder is `Application Support/Nookly`. `com.nookly.app` stays as a symlink to it. At startup (`data_folder.rs`), before the database opens, a real `com.nookly.app` with no `Nookly` is renamed and linked. A missing link is put back, a dead link to `Nookly` is removed, and two real folders are never merged. A failed link undoes the rename.
+
+**Why:** Finder treats a name ending in `.app` as an application, so users could not open their own data. `nookly.db` stores absolute paths under the old name, which keep resolving through the link, as do older releases, the CLI and scripts. A rename within a volume copies nothing and keeps open files valid.
+
+**Rejected:** changing the bundle identifier (keychain, WebView storage, updater and deep links all hang on it), copying the folder (a second copy of everything and a rewrite of every stored path), and only a "Show data folder" action (it leaves the Finder problem).
+
+---
+
+### The database stays on the default rollback journal
+
+Nookly does not use write ahead logging (WAL). The app and the CLI share `nookly.db`, and with the rollback journal a writer briefly blocks readers.
+
+Measured with `cargo test --release --lib perf_wal_contention -- --ignored --nocapture`: one connection saves 500 Tasks back to back while another keeps listing 5,000 entities. The slowest read waited 180 ms with the rollback journal and 6 ms with WAL. Nothing failed in either mode, and 500 writes took 860 ms against 300 ms. The collision only happens while something writes in a tight loop, such as an agent importing many items. One edit at a time never shows it.
+
+**Why:** WAL puts `nookly.db-wal` and `nookly.db-shm` beside the database, and several flows assume `nookly.db` is the whole database: `backup_before_migration` and `db/upgrade.rs` copy it with `fs::copy`, restore replaces it, and people copy the data folder by hand. A copy that misses the `-wal` file can lose the newest writes. The gain is a stall of a fraction of a second during bulk agent writes, which does not justify that risk for data that must never be lost.
+
+**Revisit when:** contention is reported in real use, and only together with checkpointing before every file copy (or the SQLite backup API instead of `fs::copy`), and tests for upgrade, backup, restore and a crash during a write.
+
+**Rejected:** switching now and checkpointing in the copy paths (every path that copies the file would have to be found and kept correct for good).
+
+---
+
+### One ranked search list, one engine for Cmd+K and Cmd+P
+
+Search is one SQL statement that returns a single ranked list: key matches, then titles (exact, prefix, substring, then full text rank), then blocks, then Bookmark and File text, one row per entity. Type, label and Space filters run inside it. `Cmd+P` is the same call with `titlesOnly`, which skips the body sources. Nothing loads when a palette opens except Recents (`list_entities_by_ids`), labels load only once `#` is typed, and there is no typing pause: every keystroke searches, and the backend stops a search that a newer one replaced. The grouped results, "View all", the filter menu in the palette and the separate Cmd+P matcher are gone. `Cmd+P` no longer finds scattered letters inside a title, only words that start with what was typed, like Cmd+K. Recents is the empty state, followed by the filter hints and suggestions; Pinned is left to the sidebar, so an empty palette runs no extra queries.
+
+**Why:** scanning headings was slower than reading a list. Two result lists meant two sets of code. Loading every entity and label before the first letter was the main cost of opening.
+
+**Rejected:** an in memory index in the frontend (a second copy of the data that can drift, the full text index already is the index) and a fixed typing pause (it only delays the first answer).

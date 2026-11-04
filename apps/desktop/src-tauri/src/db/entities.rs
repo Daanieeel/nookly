@@ -540,6 +540,22 @@ pub fn list_entities(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// The live, listable entities with these ids, in the order given. Same visibility as
+/// `list_entities` (no `course_notes`, nothing hidden or trashed).
+pub fn list_entities_by_ids(conn: &Connection, ids: &[String]) -> AppResult<Vec<Entity>> {
+    let mut stmt = conn.prepare(
+        "SELECT * FROM entities
+         WHERE id = ?1 AND type != 'course_notes' AND hidden_at IS NULL AND deleted_at IS NULL",
+    )?;
+    let mut found = Vec::new();
+    for id in ids {
+        if let Some(entity) = stmt.query_row(params![id], row_to_entity).optional()? {
+            found.push(entity);
+        }
+    }
+    Ok(found)
+}
+
 /// Trashes an entity. A Task takes its live Sub-tasks along, stamped with the same
 /// `deleted_at` so a restore can tell them from Sub-tasks trashed on their own.
 pub fn soft_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
