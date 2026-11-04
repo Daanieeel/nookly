@@ -3,6 +3,7 @@ import {
   IconCalendar,
   IconInfoCircle,
   IconKeyboard,
+  IconMathFunction,
   IconNotes,
   IconPalette,
   IconPlugConnected,
@@ -25,6 +26,7 @@ export type PageId =
   | "backup"
   | "connections"
   | "shortcuts"
+  | "latex"
   | "agent"
   | "about";
 
@@ -42,6 +44,7 @@ export const PAGES = {
   backup: { id: "backup", label: "Backup", icon: IconArchive },
   connections: { id: "connections", label: "Connections", icon: IconPlugConnected },
   shortcuts: { id: "shortcuts", label: "Shortcuts", icon: IconKeyboard },
+  latex: { id: "latex", label: "LaTeX macros", icon: IconMathFunction },
   agent: { id: "agent", label: "Agent", icon: IconRobot },
   about: { id: "about", label: "About", icon: IconInfoCircle },
 } satisfies Record<PageId, PageDef>;
@@ -57,7 +60,7 @@ export const NAV_GROUPS: NavGroup[] = [
   { label: null, pages: ["general", "appearance"] },
   { label: "Writing and study", pages: ["editor", "calendar"] },
   { label: "Data and accounts", pages: ["backup", "connections"] },
-  { label: "Power tools", pages: ["shortcuts", "agent"] },
+  { label: "Power tools", pages: ["shortcuts", "latex", "agent"] },
 ];
 
 export const FOOTER_PAGES: PageId[] = ["about"];
@@ -76,6 +79,7 @@ const PAGE_OF_CATEGORY = {
 const PAGE_OF_SECTION = new Map<string, PageId>([
   ["calendar/Connections", "connections"],
   ["general/About", "about"],
+  ["notes/LaTeX", "latex"],
 ]);
 
 /// The page that shows a row, from its category and the heading it sits under.

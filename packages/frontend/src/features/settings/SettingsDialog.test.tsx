@@ -61,11 +61,12 @@ describe("the settings dialog", () => {
       "Backup",
       "Connections",
       "Shortcuts",
+      "LaTeX macros",
       "Agent",
     ]);
     expect(names(groups[0])).toEqual(["Editor", "Calendar"]);
     expect(names(groups[1])).toEqual(["Backup", "Connections"]);
-    expect(names(groups[2])).toEqual(["Shortcuts", "Agent"]);
+    expect(names(groups[2])).toEqual(["Shortcuts", "LaTeX macros", "Agent"]);
     // No page nests under another one, so there is nothing to collapse.
     expect(nav.querySelector("[data-nested]")).toBeNull();
     expect(within(nav).getByRole("button", { name: "General" })).toHaveAttribute(
@@ -134,7 +135,7 @@ describe("the settings dialog", () => {
     const found = new Set<string>();
     // Every page of the navigation, shortcuts shown whole under All.
     const pages = ["General", "Appearance", "Editor", "Calendar", "Backup", "Connections"];
-    for (const label of [...pages, "Shortcuts", "Agent", "About"]) {
+    for (const label of [...pages, "Shortcuts", "LaTeX macros", "Agent", "About"]) {
       await user.click(screen.getByRole("button", { name: label }));
       for (const row of document.querySelectorAll("[data-setting-id]")) {
         const id = row.getAttribute("data-setting-id") ?? "";
@@ -154,8 +155,8 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Search results" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 matches")).toBeInTheDocument();
-    // The other seven of the nine pages.
-    expect(screen.getAllByLabelText("0 matches")).toHaveLength(8);
+    // The other eight of the ten pages.
+    expect(screen.getAllByLabelText("0 matches")).toHaveLength(9);
   });
 
   it("finds a setting by a synonym, its id and a typo", async () => {
@@ -349,26 +350,31 @@ describe("the settings dialog", () => {
     });
   });
 
-  describe("LaTeX on the Editor page", () => {
-    it("is not a page of its own in the navigation", async () => {
+  describe("the LaTeX macros page under Power tools", () => {
+    it("sits between Shortcuts and Agent in Power tools, not under Editor", async () => {
       renderOpen();
       const nav = await screen.findByRole("navigation", { name: "Settings categories" });
+      const group = within(nav).getByRole("group", { name: "Power tools" });
+      expect(within(group).getByRole("button", { name: "LaTeX macros" })).toBeInTheDocument();
       expect(within(nav).queryByRole("button", { name: "LaTeX" })).toBeNull();
     });
 
-    it("is a section of the Editor page, under its own heading", async () => {
+    it("holds the macros, and the Editor page does not", async () => {
       const { user } = renderOpen();
       await user.click(await screen.findByRole("button", { name: "Editor" }));
-      expect(screen.getByRole("heading", { level: 2, name: "Editor" })).toBeInTheDocument();
       expect(screen.getByRole("switch", { name: "Turn arrows into symbols" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 3, name: "LaTeX" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add macro" })).toBeNull();
+      await user.click(screen.getByRole("button", { name: "LaTeX macros" }));
+      expect(screen.getByRole("heading", { level: 2, name: "LaTeX macros" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add macro" })).toBeInTheDocument();
+      expect(screen.queryByRole("switch", { name: "Turn arrows into symbols" })).toBeNull();
     });
 
-    it("is found by searching for it, under Editor", async () => {
+    it("is found by searching for it, under LaTeX macros", async () => {
       const { user } = renderOpen();
       await user.type(await screen.findByRole("searchbox"), "newcommand");
       expect(rowFor("notes.latexMacros")).not.toBeNull();
+      expect(screen.getByRole("heading", { level: 3, name: "LaTeX macros" })).toBeInTheDocument();
     });
   });
 

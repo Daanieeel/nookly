@@ -30,7 +30,7 @@
         "Improved": [
           "The Backup page shows when the last backup was made, how big it is and where it is saved, and says clearly if one failed.",
           "Google Calendar and iCloud have their own Connections page in Settings, with a card that shows whether each one is connected.",
-          "LaTeX macros are now part of the Editor page.",
+          "LaTeX macros have their own page under Power tools in Settings.",
           "A shortcut whose key was taken by another one is marked in the list."
         ],
         "Fixed": [

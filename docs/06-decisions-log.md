@@ -480,11 +480,11 @@ The sidebar lists the active Space's modules only. All Spaces sit in a row of ic
 
 ### Settings navigation is flat and grouped, and pages follow what someone is doing
 
-The Settings dialog lists nine pages under muted group headers (General and Appearance; Writing and study: Editor, Calendar; Data and accounts: Backup, Connections; Power tools: Shortcuts, Agent), with About and the settings file at the bottom. Nothing nests. LaTeX is a section of Editor. Shortcuts is one page with a filter strip (All and each section). Search sits at the top of the sidebar, `/` focuses it. A page is not a registry category: `settings-pages.ts` maps each row to a page, so setting ids, search keywords and the CLI are untouched. A setting whose content has a better shape (theme, backup status, connections) draws its own component inside its row.
+The Settings dialog lists ten pages under muted group headers (General and Appearance; Writing and study: Editor, Calendar; Data and accounts: Backup, Connections; Power tools: Shortcuts, LaTeX macros, Agent), with About and the settings file at the bottom. Nothing nests. Shortcuts is one page with a filter strip (All and each section). Search sits at the top of the sidebar, `/` focuses it. A page is not a registry category: `settings-pages.ts` maps each row to a page, so setting ids, search keywords and the CLI are untouched. A setting whose content has a better shape (theme, backup status, connections) draws its own component inside its row.
 
 **Why:** about 16 indented rows did not scan, more categories are coming, and the full width search row took height from every page. A uniform row for every setting made a theme, a backup and a key binding look alike.
 
-**Rejected:** collapsible groups (they hide pages for no gain at nine items), keeping a nav row per shortcut section (eight rows for one topic), and separate dialogs per page.
+**Rejected:** collapsible groups (they hide pages for no gain at ten items), keeping a nav row per shortcut section (eight rows for one topic), and separate dialogs per page.
 
 ---
 

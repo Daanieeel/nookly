@@ -14,7 +14,7 @@ All notable changes to Nookly are listed here.
 
 ### Changed
 
-- **LaTeX macros** are now part of the Editor page, and About moved to the bottom of the Settings list.
+- **LaTeX macros** have their own page under Power tools in Settings, and About moved to the bottom of the Settings list.
 
 ### Fixed
 
