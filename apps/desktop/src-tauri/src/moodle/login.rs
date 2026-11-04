@@ -79,6 +79,29 @@ pub fn parse_callback(input: &str) -> Result<Callback, String> {
     })
 }
 
+/// What the sign in window does with a page it is about to open.
+#[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub enum Navigation {
+    /// A page of the sign in, single sign on included.
+    Allow,
+    /// Moodle's redirect back to this app: the whole `scheme://token=...` link.
+    Callback(String),
+    /// Anything else: the window never leaves https for another app or a file.
+    Block,
+}
+
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+pub fn login_navigation(url: &Url, scheme: &str) -> Navigation {
+    if url.scheme() == scheme && url.as_str().starts_with(&format!("{scheme}://token=")) {
+        return Navigation::Callback(url.as_str().to_string());
+    }
+    if url.scheme() == "https" || url.as_str() == "about:blank" {
+        return Navigation::Allow;
+    }
+    Navigation::Block
+}
+
 fn md5_hex(text: &str) -> String {
     format!("{:x}", md5::compute(text.as_bytes()))
 }
@@ -212,5 +235,31 @@ mod tests {
             "PASS"
         ));
         assert!(!signature_matches("", &["https://uni.edu"], "PASS"));
+    }
+
+    #[test]
+    fn the_sign_in_window_catches_the_redirect_to_our_scheme() {
+        let nav = |url: &str| login_navigation(&Url::parse(url).unwrap(), "nookly-dev");
+        assert_eq!(
+            nav("nookly-dev://token=YWJj"),
+            Navigation::Callback("nookly-dev://token=YWJj".into())
+        );
+        // Another build's scheme, or a link to something else, is not ours to take.
+        assert_eq!(nav("nookly://token=YWJj"), Navigation::Block);
+        assert_eq!(nav("nookly-dev://open/66fd9c8e"), Navigation::Block);
+        // The pages of the sign in, single sign on included, load as usual.
+        assert_eq!(nav("https://uni.edu/login/index.php"), Navigation::Allow);
+        assert_eq!(nav("https://sso.uni.edu/idp?x=1"), Navigation::Allow);
+        assert_eq!(nav("about:blank"), Navigation::Allow);
+        // Nothing that leaves the web or the clear: no files, no plain http, no other apps.
+        for other in [
+            "http://uni.edu/login",
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "mailto:a@b.c",
+            "tel:123",
+        ] {
+            assert_eq!(nav(other), Navigation::Block, "{other}");
+        }
     }
 }

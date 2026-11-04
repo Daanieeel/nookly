@@ -135,6 +135,14 @@ objc2-app-kit = { version = "0.3", features = [
   "NSGraphicsContext",
   "objc2-core-graphics",
 ] }
+# The system's sign in sheet for the Moodle login (`moodle/native_login.rs`): it uses the passwords
+# saved in Apple Passwords, which a web view of our own cannot.
+objc2-authentication-services = { version = "0.3", default-features = false, features = [
+  "std",
+  "ASWebAuthenticationSession",
+  "ASFoundation",
+  "block2",
+] }
 objc2-web-kit = { version = "0.3", features = [
   "WKWebView",
   "WKSnapshotConfiguration",

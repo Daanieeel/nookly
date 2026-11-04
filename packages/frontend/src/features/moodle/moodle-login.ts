@@ -1,14 +1,9 @@
+import { listen } from "@tauri-apps/api/event";
 import { type QueryClient, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { notify } from "#/components/notify.tsx";
 import { moodleFinishLogin } from "#/lib/api/moodle.ts";
 import { qk } from "#/lib/query-keys.ts";
-
-/// The link Moodle redirects to after the sign in in the browser: `nookly://token=...`, or the
-/// scheme of a build installed next to the real app. Any web page can open such a link, so
-/// this only hands it to the app, which accepts it for a sign in that Nookly started itself.
-export const isMoodleCallback = (url: string): boolean =>
-  /^[a-z][a-z0-9+.-]*:\/\/token=/i.test(url.trim());
 
 /// What a failed command rejects with: Tauri hands over the backend's error as a plain
 /// object with a `message`, not as an `Error`.
@@ -19,9 +14,8 @@ export function messageOf(error: { message: string }): string {
   return error.message;
 }
 
-/// Where the sign in stands once a link has reached the app. It is kept on the Connect page,
-/// because the person is in the browser when this happens and a toast would be gone by the
-/// time they are back.
+/// Where the sign in stands once Moodle has answered. It is kept on the Connect page, because a
+/// toast would be gone by the time the sign in window has closed and the person looks back.
 export type SignInState = { kind: "finishing" } | { kind: "failed"; message: string } | null;
 
 export function useSignInState(): SignInState {
@@ -34,8 +28,11 @@ export function useSignInState(): SignInState {
   return data;
 }
 
+const setSignInState = (queryClient: QueryClient, state: SignInState) =>
+  queryClient.setQueryData(qk.moodle.signIn, state);
+
 export async function completeMoodleLogin(queryClient: QueryClient, callback: string) {
-  const setState = (state: SignInState) => queryClient.setQueryData(qk.moodle.signIn, state);
+  const setState = (state: SignInState) => setSignInState(queryClient, state);
   setState({ kind: "finishing" });
   try {
     const status = await moodleFinishLogin(callback);
@@ -49,4 +46,20 @@ export async function completeMoodleLogin(queryClient: QueryClient, callback: st
     setState({ kind: "failed", message });
     notify.caution("Couldn't connect Moodle", { description: message });
   }
+}
+
+/// Matches `CALLBACK_EVENT` and `FAILED_EVENT` in `src-tauri/src/commands/moodle.rs`: the sign in
+/// sends the `nookly://token=...` link Moodle redirected to, or why it could not finish. Resolves
+/// to the way to stop listening.
+export async function listenForMoodleLogin(queryClient: QueryClient): Promise<() => void> {
+  const stopCallback = await listen<string>("moodle-callback", (event) => {
+    void completeMoodleLogin(queryClient, event.payload);
+  });
+  const stopFailed = await listen<string>("moodle-login-failed", (event) => {
+    setSignInState(queryClient, { kind: "failed", message: event.payload });
+  });
+  return () => {
+    stopCallback();
+    stopFailed();
+  };
 }

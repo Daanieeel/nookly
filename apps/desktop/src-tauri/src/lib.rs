@@ -371,7 +371,7 @@ pub fn run() {
             commands::external_calendars::sync_external_calendars,
             commands::external_calendars::list_external_events,
             commands::moodle::moodle_status,
-            commands::moodle::moodle_begin_login,
+            commands::moodle::moodle_open_login,
             commands::moodle::moodle_finish_login,
             commands::moodle::moodle_disconnect,
             commands::moodle::moodle_courses,

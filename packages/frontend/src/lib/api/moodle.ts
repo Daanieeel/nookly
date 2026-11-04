@@ -126,9 +126,10 @@ export interface MoodlePost {
 
 export const moodleStatus = (): Promise<MoodleStatus> => invoke("moodle_status");
 
-/// Resolves to the Moodle sign in page to open in the browser.
-export const moodleBeginLogin = (site: string): Promise<string> =>
-  invoke("moodle_begin_login", { site });
+/// Opens the sign in (the system's sheet on macOS, a window of our own elsewhere). The result
+/// comes back as a `moodle-callback` event, which `listenForMoodleLogin` finishes.
+export const moodleOpenLogin = (site: string): Promise<void> =>
+  invoke("moodle_open_login", { site });
 
 /// `callback` is the `nookly://token=...` link Moodle redirects to, or what follows `token=`.
 export const moodleFinishLogin = (callback: string): Promise<MoodleStatus> =>

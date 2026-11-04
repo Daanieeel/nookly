@@ -218,7 +218,6 @@ ipc_commands![
     external_calendars::sync_external_calendars,
     external_calendars::list_external_events,
     moodle::moodle_status,
-    moodle::moodle_begin_login,
     moodle::moodle_finish_login,
     moodle::moodle_courses,
     moodle::moodle_contents,
@@ -336,6 +335,8 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "settings_file_is_created_without_touching_an_existing_one",
     ),
     // These reach the OS keychain or open a file with an app: the logic is tested in `moodle::service`.
+    // Opens a window: what it lets through is tested in `moodle::login`.
+    ("moodle_open_login", "moodle_commands_without_a_site_say_so"),
     ("moodle_disconnect", "moodle_commands_without_a_site_say_so"),
     ("moodle_open_file", "moodle_commands_without_a_site_say_so"),
     // Creates a symlink on the user's PATH: never run from a test.
@@ -4100,17 +4101,6 @@ fn moodle_commands_without_a_site_say_so() {
         "Remote",
     );
     assert!(message.contains("No Moodle sign in"), "{message}");
-    // Plain http would send the sign in over the network in the clear.
-    h.app_err(
-        "moodle_begin_login",
-        json!({ "site": "http://uni.edu" }),
-        "Remote",
-    );
-    let url = h.ok("moodle_begin_login", json!({ "site": "uni.edu/my" }));
-    assert!(url
-        .as_str()
-        .unwrap()
-        .starts_with("https://uni.edu/admin/tool/mobile/launch.php?"));
 }
 
 #[test]

@@ -61,35 +61,31 @@ function open(path?: string) {
 }
 
 describe("connecting", () => {
-  it("asks for the address and opens Moodle's sign in page", async () => {
+  const signedOut = () =>
     mockCommand("moodle_status", { ...connected, connected: false, siteUrl: null });
-    mockCommand("moodle_begin_login", `${SITE}/admin/tool/mobile/launch.php?passport=1`);
+
+  it("asks for the address and signs in inside Nookly", async () => {
+    signedOut();
+    mockCommand("moodle_open_login", null);
     const { user } = open();
     await user.type(await screen.findByLabelText(/Moodle address/), "moodle.uni.edu");
     await user.click(screen.getByRole("button", { name: "Sign in with Moodle" }));
-    await waitFor(() =>
-      expect(callsOf("moodle_begin_login")).toEqual([{ site: "moodle.uni.edu" }]),
-    );
-    await waitFor(() => expect(callsOf("plugin:opener|open_url")).toHaveLength(1));
-    const launch = `${SITE}/admin/tool/mobile/launch.php?passport=1`;
-    expect(callsOf("plugin:opener|open_url")[0]).toMatchObject({ url: launch });
-    expect(await screen.findByLabelText(/Link from Moodle/)).toBeTruthy();
-    // The address is also shown, so a browser that can't be opened from here can be given it.
-    expect(screen.getByLabelText("Sign in address")).toHaveValue(launch);
-    expect(screen.getByRole("button", { name: "Copy Sign In Address" })).toBeTruthy();
+    await waitFor(() => expect(callsOf("moodle_open_login")).toEqual([{ site: "moodle.uni.edu" }]));
+    // No browser: it would not hand Moodle's redirect back to the app.
+    expect(callsOf("plugin:opener|open_url")).toHaveLength(0);
+    expect(await screen.findByText(/Sign in in the window that opened/)).toBeTruthy();
     await expectNoA11yViolations();
   });
 
   it("says why the address was refused", async () => {
-    mockCommand("moodle_status", { ...connected, connected: false, siteUrl: null });
-    mockCommandWith("moodle_begin_login", () => {
+    signedOut();
+    mockCommandWith("moodle_open_login", () => {
       throw { kind: "Remote", message: "Moodle sites must use https." };
     });
     const { user } = open();
     await user.type(await screen.findByLabelText(/Moodle address/), "http://moodle.uni.edu");
     await user.click(screen.getByRole("button", { name: "Sign in with Moodle" }));
     expect(await screen.findByText("Moodle sites must use https.")).toBeTruthy();
-    expect(callsOf("plugin:opener|open_url")).toHaveLength(0);
   });
 
   it("offers to connect again when the sign in is gone", async () => {
@@ -97,23 +93,9 @@ describe("connecting", () => {
     open();
     expect(await screen.findByText("Connect Moodle again")).toBeTruthy();
   });
-
-  it("finishes with a pasted link", async () => {
-    mockCommand("moodle_status", { ...connected, connected: false, siteUrl: null });
-    mockCommand("moodle_begin_login", `${SITE}/launch`);
-    mockCommand("moodle_finish_login", connected);
-    const { user } = open();
-    await user.type(await screen.findByLabelText(/Moodle address/), "moodle.uni.edu");
-    await user.click(screen.getByRole("button", { name: "Sign in with Moodle" }));
-    await user.type(await screen.findByLabelText(/Link from Moodle/), "nookly://token=abc");
-    await user.click(screen.getByRole("button", { name: "Finish sign in" }));
-    await waitFor(() =>
-      expect(callsOf("moodle_finish_login")).toEqual([{ callback: "nookly://token=abc" }]),
-    );
-  });
 });
 
-describe("a sign in link that reached the app", () => {
+describe("a sign in that reached the app", () => {
   it("shows why it failed on the page, not only in a toast", async () => {
     mockCommand("moodle_status", { ...connected, connected: false, siteUrl: null });
     const { queryClient } = open();

@@ -18,7 +18,7 @@ Anything else a course holds (a quiz, say) is listed with a link to its page on 
 
 ## Signing in
 
-Through the browser, as the Moodle mobile app does, so single sign on and two step login work. Moodle redirects to `nookly://token=...`, which finishes the sign in. A link only counts for a sign in Nookly started itself (the passport check in `moodle/login.rs`). The token is kept in the OS keychain. The site must allow the mobile app web service, and Moodle 3.7 or later.
+Through the university's own login page, as the Moodle mobile app does, so single sign on and two step login work. On macOS that is the system's sign in sheet (`moodle/native_login.rs`), because it offers the passwords saved in Apple Passwords, which a web view of our own cannot. Elsewhere it is a window of Nookly's own (`moodle_open_login`) with no access to Nookly's commands, no cookies kept and https only. Either one catches Moodle's redirect to `nookly://token=...` itself and finishes the sign in; a browser would not hand that redirect to an app unless a click started it. A link only counts for a sign in Nookly started itself (the passport check in `moodle/login.rs`). The token is kept in the OS keychain. The site must allow the mobile app web service, and Moodle 3.7 or later.
 
 ## Storage
 

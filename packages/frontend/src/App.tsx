@@ -32,7 +32,7 @@ import { TrashView } from "#/features/trash/TrashView.tsx";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
-import { completeMoodleLogin, isMoodleCallback } from "#/features/moodle/moodle-login.ts";
+import { listenForMoodleLogin } from "#/features/moodle/moodle-login.ts";
 import { deepLinks, openDeepLink } from "#/lib/deep-link.ts";
 import { useRefreshBlocksOnRename } from "#/lib/rename-sync.ts";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
@@ -81,12 +81,17 @@ function useDeepLinks() {
   useEffect(
     () =>
       deepLinks.attach((url) => {
-        // The sign in to Moodle comes back as `nookly://token=...`, not as a link to a page.
-        if (isMoodleCallback(url)) void completeMoodleLogin(queryClient, url);
-        else void openDeepLink(url);
+        void openDeepLink(url);
       }),
-    [queryClient],
+    [],
   );
+  // The Moodle sign in happens inside the app and hands over its result here.
+  useEffect(() => {
+    const stopping = listenForMoodleLogin(queryClient);
+    return () => {
+      void stopping.then((stop) => stop());
+    };
+  }, [queryClient]);
 }
 
 function Shell() {

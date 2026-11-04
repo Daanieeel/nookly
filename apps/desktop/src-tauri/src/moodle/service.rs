@@ -212,6 +212,11 @@ impl MoodleState {
         }
     }
 
+    /// The URL scheme this app asks Moodle to redirect to.
+    pub fn scheme(&self) -> &str {
+        &self.scheme
+    }
+
     /// Starts a sign in and returns the address to open in the browser.
     pub async fn begin_login(&self, input: &str) -> AppResult<String> {
         let site = Site::parse(input).map_err(AppError::Remote)?;
