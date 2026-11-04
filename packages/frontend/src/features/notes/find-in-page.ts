@@ -49,7 +49,7 @@ const EMPTY: FindState = {
   multi: null,
 };
 
-export const findKey = new PluginKey<FindState>("findInPage");
+const findKey = new PluginKey<FindState>("findInPage");
 
 /// What a transaction asks the plugin to change.
 interface FindMeta {
@@ -94,7 +94,7 @@ interface FindResult {
 }
 
 /// Every match in the document. A match never spans two blocks.
-export function findMatches(doc: ProseNode, query: string, options: FindOptions): FindResult {
+function findMatches(doc: ProseNode, query: string, options: FindOptions): FindResult {
   const pattern = patternOf(query, options);
   if (pattern === null) return { matches: [], invalid: false };
   if (pattern === "invalid") return { matches: [], invalid: true };

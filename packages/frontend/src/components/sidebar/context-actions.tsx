@@ -37,7 +37,7 @@ declare module "#/components/context-menu/registry.ts" {
   }
 }
 
-export interface SpaceRowTarget {
+interface SpaceRowTarget {
   space: Space;
   openSettings: () => void;
   openLabels: () => void;

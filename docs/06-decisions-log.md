@@ -495,3 +495,17 @@ On macOS the real data folder is `Application Support/Nookly`. `com.nookly.app` 
 **Why:** Finder treats a name ending in `.app` as an application, so users could not open their own data. `nookly.db` stores absolute paths under the old name, which keep resolving through the link, as do older releases, the CLI and scripts. A rename within a volume copies nothing and keeps open files valid.
 
 **Rejected:** changing the bundle identifier (keychain, WebView storage, updater and deep links all hang on it), copying the folder (a second copy of everything and a rewrite of every stored path), and only a "Show data folder" action (it leaves the Finder problem).
+
+---
+
+### The database stays on the default rollback journal
+
+Nookly does not use write ahead logging (WAL). The app and the CLI share `nookly.db`, and with the rollback journal a writer briefly blocks readers.
+
+Measured with `cargo test --release --lib perf_wal_contention -- --ignored --nocapture`: one connection saves 500 Tasks back to back while another keeps listing 5,000 entities. The slowest read waited 180 ms with the rollback journal and 6 ms with WAL. Nothing failed in either mode, and 500 writes took 860 ms against 300 ms. The collision only happens while something writes in a tight loop, such as an agent importing many items. One edit at a time never shows it.
+
+**Why:** WAL puts `nookly.db-wal` and `nookly.db-shm` beside the database, and several flows assume `nookly.db` is the whole database: `backup_before_migration` and `db/upgrade.rs` copy it with `fs::copy`, restore replaces it, and people copy the data folder by hand. A copy that misses the `-wal` file can lose the newest writes. The gain is a stall of a fraction of a second during bulk agent writes, which does not justify that risk for data that must never be lost.
+
+**Revisit when:** contention is reported in real use, and only together with checkpointing before every file copy (or the SQLite backup API instead of `fs::copy`), and tests for upgrade, backup, restore and a crash during a write.
+
+**Rejected:** switching now and checkpointing in the copy paths (every path that copies the file would have to be found and kept correct for good).

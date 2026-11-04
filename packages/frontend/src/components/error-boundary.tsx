@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@nookly/ui/components/button";
+import { logger } from "#/lib/log.ts";
 
 interface Props {
   /// What to show instead of the crashed children; `reset` tries them again.
@@ -24,7 +25,11 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("View crashed", error, info.componentStack);
+    logger.error(
+      "view",
+      `View crashed in ${info.componentStack?.trim().split("\n")[0] ?? "an unknown component"}`,
+      error,
+    );
     this.props.onError?.(error);
   }
 

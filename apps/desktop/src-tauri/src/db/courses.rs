@@ -447,9 +447,9 @@ fn cli_get_course(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
 fn course_payload(conn: &Connection, entity: Entity) -> AppResult<serde_json::Value> {
     let grades = get_course_grades(conn, &entity.id)?;
     let details = get_course_details(conn, &entity.id)?;
-    let mut value = serde_json::to_value(entity).expect("Entity always serializes");
-    value["professor"] = serde_json::to_value(details.professor).expect("Option always serializes");
-    value["grades"] = serde_json::to_value(grades).expect("CourseGrades always serializes");
+    let mut value = crate::error::to_json(entity)?;
+    value["professor"] = crate::error::to_json(details.professor)?;
+    value["grades"] = crate::error::to_json(grades)?;
     Ok(value)
 }
 
@@ -592,17 +592,17 @@ fn cli_update_semester(
 fn semester_payload(
     semester: Semester,
     report: &crate::db::grade_report::GradeReport,
-) -> serde_json::Value {
+) -> AppResult<serde_json::Value> {
     let grades = crate::db::grade_report::semester_summary(report, &semester.entity.id);
-    let mut value = serde_json::to_value(semester).expect("Semester always serializes");
-    value["grades"] = serde_json::to_value(grades).expect("SemesterGrades always serializes");
-    value
+    let mut value = crate::error::to_json(semester)?;
+    value["grades"] = crate::error::to_json(grades)?;
+    Ok(value)
 }
 
 fn cli_get_semester(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
     let semester = get_semester(conn, id)?;
     let report = crate::db::grade_report::get_grade_report(conn, &semester.entity.space_id)?;
-    Ok(semester_payload(semester, &report))
+    semester_payload(semester, &report)
 }
 
 inventory::submit! {
@@ -625,10 +625,10 @@ fn cli_list_semesters(
         crate::error::AppError::InvalidInput("semester list requires --space <space-id>".into())
     })?;
     let report = crate::db::grade_report::get_grade_report(conn, space_id)?;
-    Ok(list_semesters(conn, space_id)?
+    list_semesters(conn, space_id)?
         .into_iter()
         .map(|s| semester_payload(s, &report))
-        .collect())
+        .collect::<AppResult<Vec<_>>>()
 }
 
 inventory::submit! {

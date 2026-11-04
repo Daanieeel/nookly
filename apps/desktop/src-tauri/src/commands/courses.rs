@@ -7,13 +7,13 @@ use tauri::State;
 
 #[tauri::command]
 pub fn create_course(state: State<DbState>, space_id: String, title: String) -> AppResult<Entity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::create_course(&conn, space_id, title)
 }
 
 #[tauri::command]
-pub fn list_courses(state: State<DbState>, space_id: String) -> AppResult<Vec<Entity>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_courses(state: State<'_, DbState>, space_id: String) -> AppResult<Vec<Entity>> {
+    let conn = state.conn()?;
     courses::list_courses(&conn, &space_id)
 }
 
@@ -27,15 +27,18 @@ pub fn create_semester(
     term_type: Option<String>,
     year: Option<i64>,
 ) -> AppResult<Semester> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::create_semester(
         &conn, space_id, title, start_date, end_date, term_type, year,
     )
 }
 
 #[tauri::command]
-pub fn list_semesters(state: State<DbState>, space_id: String) -> AppResult<Vec<Semester>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_semesters(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<Semester>> {
+    let conn = state.conn()?;
     courses::list_semesters(&conn, &space_id)
 }
 
@@ -48,7 +51,7 @@ pub fn update_semester(
     term_type: Option<String>,
     year: Option<i64>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::update_semester(&conn, &entity_id, start_date, end_date, term_type, year)
 }
 
@@ -58,13 +61,13 @@ pub fn set_current_semester(
     space_id: String,
     entity_id: String,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::set_current_semester(&conn, &space_id, &entity_id)
 }
 
 #[tauri::command]
 pub fn reorder_semesters(state: State<DbState>, ordered_ids: Vec<String>) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::reorder_semesters(&conn, ordered_ids)
 }
 
@@ -74,7 +77,7 @@ pub fn link_course_to_semester(
     course_id: String,
     semester_id: String,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::link_course_to_semester(&conn, course_id, semester_id)
 }
 
@@ -84,31 +87,37 @@ pub fn set_course_semester(
     course_id: String,
     semester_id: String,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::set_course_semester(&conn, &course_id, semester_id)
 }
 
 #[tauri::command]
 pub fn get_course_notes(state: State<DbState>, course_id: String) -> AppResult<Entity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::get_or_create_course_notes(&conn, &course_id)
 }
 
 #[tauri::command]
 pub fn get_semester_notes(state: State<DbState>, semester_id: String) -> AppResult<Entity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::get_or_create_semester_notes(&conn, &semester_id)
 }
 
 #[tauri::command]
-pub fn get_course_grades(state: State<DbState>, course_id: String) -> AppResult<CourseGrades> {
-    let conn = state.0.lock().unwrap();
+pub async fn get_course_grades(
+    state: State<'_, DbState>,
+    course_id: String,
+) -> AppResult<CourseGrades> {
+    let conn = state.conn()?;
     courses::get_course_grades(&conn, &course_id)
 }
 
 #[tauri::command]
-pub fn get_course_details(state: State<DbState>, course_id: String) -> AppResult<CourseDetails> {
-    let conn = state.0.lock().unwrap();
+pub async fn get_course_details(
+    state: State<'_, DbState>,
+    course_id: String,
+) -> AppResult<CourseDetails> {
+    let conn = state.conn()?;
     courses::get_course_details(&conn, &course_id)
 }
 
@@ -118,12 +127,15 @@ pub fn update_course_professor(
     entity_id: String,
     professor: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     courses::update_course_professor(&conn, &entity_id, professor)
 }
 
 #[tauri::command]
-pub fn get_grade_report(state: State<DbState>, space_id: String) -> AppResult<GradeReport> {
-    let conn = state.0.lock().unwrap();
+pub async fn get_grade_report(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<GradeReport> {
+    let conn = state.conn()?;
     get_report(&conn, &space_id)
 }

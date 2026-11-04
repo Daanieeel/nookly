@@ -280,7 +280,7 @@ function IconButton({ label, onClick }: { label: string; onClick: () => void }) 
   );
 }
 
-export function EmptyRow({ label, onClick }: { label: string; onClick: () => void }) {
+function EmptyRow({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"

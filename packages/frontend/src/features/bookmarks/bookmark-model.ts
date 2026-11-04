@@ -20,7 +20,7 @@ export function hostOf(url: string): string {
   }
 }
 
-export type Layout = "grid" | "list";
+type Layout = "grid" | "list";
 export type Grouping = "none" | "site" | "label" | "added";
 export type Ordering = "newest" | "oldest" | "title";
 

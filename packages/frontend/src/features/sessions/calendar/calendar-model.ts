@@ -168,7 +168,7 @@ export interface SlotRange extends MinuteRange {
 export type SlotKind = "session" | "calendarEntry";
 
 /// How long a new item of `kind` lasts until the dialog changes it, in minutes.
-export function slotLengthMinutes(kind: SlotKind): number {
+function slotLengthMinutes(kind: SlotKind): number {
   return settings.get(
     kind === "session" ? "calendar.sessionLengthMinutes" : "calendar.calendarEntryLengthMinutes",
   );

@@ -49,7 +49,7 @@ export const Callout = Node.create({
 
 /// A block whose whole content is its `rows` string plus the string attrs
 /// `ATOM_BLOCK_ATTRS` lists, edited through its own UI rather than as document text.
-export function atomBlock(name: AtomBlockType, component: ComponentType<ReactNodeViewProps>) {
+function atomBlock(name: AtomBlockType, component: ComponentType<ReactNodeViewProps>) {
   return Node.create({
     name,
     group: "block",

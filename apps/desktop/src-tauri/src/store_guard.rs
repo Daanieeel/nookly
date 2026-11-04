@@ -26,7 +26,7 @@ pub fn preserve_unreadable_stores(dir: &Path) {
             continue;
         }
         if let Err(error) = fs::write(&copy, &bytes) {
-            eprintln!("Couldn't keep a copy of unreadable {name}: {error}");
+            tracing::warn!(file = name, %error, "couldn't keep a copy of an unreadable settings file");
         }
     }
 }

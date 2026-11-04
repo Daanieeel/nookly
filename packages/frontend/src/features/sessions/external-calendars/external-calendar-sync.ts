@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { type ExternalCalendarStatus, syncExternalCalendars } from "#/lib/api/externalCalendars.ts";
 import { qk } from "#/lib/query-keys.ts";
+import { ignoreError } from "#/lib/log.ts";
 
 /// How often the overlay refreshes while the app is in the foreground.
 const POLL_MS = 15 * 60_000;
@@ -29,7 +30,7 @@ export function useExternalCalendarSync() {
     const run = () => {
       if (document.visibilityState !== "visible" || Date.now() - last < POLL_MS) return;
       last = Date.now();
-      void syncExternalCalendarsNow(queryClient).catch(() => {});
+      void syncExternalCalendarsNow(queryClient).catch(ignoreError("background calendar sync"));
     };
     run();
     const interval = window.setInterval(run, CHECK_MS);

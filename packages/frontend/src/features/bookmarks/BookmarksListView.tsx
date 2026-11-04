@@ -50,6 +50,7 @@ import {
   writeDisplay,
 } from "./bookmark-model";
 import { Favicon, Preview } from "./bookmark-preview";
+import { ignoreError } from "#/lib/log.ts";
 
 const MAX_CHIPS = 3;
 
@@ -118,7 +119,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
       // refreshed later. The `og:image` shows while the page itself is captured.
       fetchBookmarkMetadata(bookmark.entity.id, u)
         .then(() => queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(spaceId) }))
-        .catch(() => {})
+        .catch(ignoreError("refreshing bookmark details"))
         .finally(() => capture.mutate(bookmark.entity.id));
       return bookmark;
     },

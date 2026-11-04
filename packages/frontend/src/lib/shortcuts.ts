@@ -9,6 +9,7 @@ import {
 } from "@tanstack/hotkeys";
 import { HOTKEYS } from "./hotkeys.ts";
 import { IS_MAC } from "./platform.ts";
+import { logger } from "#/lib/log.ts";
 
 /// What every rebindable shortcut is called, where it is active, and the rules for
 /// resolving the keys the user chose. Pure: the settings and React side lives in
@@ -532,7 +533,7 @@ const logged = new Set<string>();
 function logOnce(message: string) {
   if (logged.has(message)) return;
   logged.add(message);
-  console.warn(message);
+  logger.warn("shortcuts", message);
 }
 
 function fixedConflict(hotkey: string, scopes: readonly ShortcutScope[], mac: boolean) {

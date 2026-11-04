@@ -20,6 +20,28 @@ All notable changes to Nookly are listed here.
 
 - **Your data folder opens in Finder on Mac.** The folder is now called Nookly, so you can double click it to browse your files. Nothing is moved or copied, and everything keeps working as before.
 
+## 0.58.0 (2026-11-04)
+
+### Added
+
+- **Logs folder.** Settings has a new "Open logs folder" button. Nookly now keeps a short log of what went wrong, without anything you wrote, so you can attach it when you report a problem.
+- **A report after an unexpected close.** If Nookly closes unexpectedly, the next launch tells you and offers a short report you can read, copy, or open as a GitHub issue. It holds the version, your system and what went wrong, never what you wrote, and nothing is sent unless you send it.
+
+### Changed
+
+- **Faster start and a smaller app.** Nookly starts quicker and takes less space, because screens and dialogs now load when you first open them.
+- **Smoother when working with a lot of data.** Lists and searches no longer hold up the rest of the window, and Nookly no longer reloads everything each time you switch back to it.
+
+### Fixed
+
+- **Fewer unexpected closes.** When something goes wrong behind the scenes, Nookly now shows an error instead of closing.
+
+## 0.57.2 (2026-11-04)
+
+### Fixed
+
+- **Reordering tabs on Linux.** Dragging a tab to reorder it, move it to the other side of a split, or open it in a new split now works on Linux. Reordering semesters by drag works there too.
+
 ## 0.57.1 (2026-11-03)
 
 ### Fixed

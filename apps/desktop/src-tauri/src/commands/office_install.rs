@@ -92,8 +92,11 @@ fn install_with_brew(app: &AppHandle) -> AppResult<()> {
     let stdout = child.stdout.take();
     let narrator = app.clone();
     let narration = std::thread::spawn(move || {
+        let Some(stdout) = stdout else {
+            return Vec::new();
+        };
         let mut tail = Vec::new();
-        for line in std::io::BufReader::new(stdout.expect("piped"))
+        for line in std::io::BufReader::new(stdout)
             .lines()
             .map_while(Result::ok)
         {
@@ -106,10 +109,13 @@ fn install_with_brew(app: &AppHandle) -> AppResult<()> {
         }
         tail
     });
-    let mut stderr = child.stderr.take().expect("piped");
+    let mut stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| AppError::Io("couldn't read Homebrew's progress".into()))?;
     let mut errors = String::new();
     let mut chunk = [0u8; 4096];
-    let percent = regex::Regex::new(r"(\d{1,3}(?:\.\d)?)%").expect("valid pattern");
+    let percent = crate::error::literal_regex(r"(\d{1,3}(?:\.\d)?)%");
     while let Ok(read) = stderr.read(&mut chunk) {
         if read == 0 {
             break;
@@ -144,7 +150,7 @@ fn latest_version(client: &reqwest::blocking::Client) -> AppResult<String> {
         .and_then(|r| r.error_for_status())
         .and_then(|r| r.text())
         .map_err(|e| AppError::Io(format!("couldn't reach LibreOffice's download server: {e}")))?;
-    let pattern = regex::Regex::new(r#"href="(\d+)\.(\d+)\.(\d+)/""#).expect("valid pattern");
+    let pattern = crate::error::literal_regex(r#"href="(\d+)\.(\d+)\.(\d+)/""#);
     pattern
         .captures_iter(&index)
         .filter_map(|c| {

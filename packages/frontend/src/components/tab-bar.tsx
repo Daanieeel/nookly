@@ -129,7 +129,12 @@ function TabItem({
     <div
       data-tab
       draggable
-      onDragStart={onDragStart}
+      onDragStart={(e) => {
+        // WebKitGTK (Linux) cancels a native drag that carries no data.
+        e.dataTransfer.setData("text/plain", tab.id);
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart();
+      }}
       onDragEnd={onDragEnd}
       {...dropProps}
       onAuxClick={(e) => {

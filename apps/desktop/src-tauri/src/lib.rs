@@ -1,13 +1,20 @@
+// Production code must not panic: the release profile aborts the whole app on a panic.
+// Use `?` with an `AppError`, or `crate::error::literal_regex` for a regex literal. Tests
+// may unwrap freely.
+#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used))]
+
 use tauri::Manager;
 
 mod backup;
 mod cli;
 mod commands;
+mod crash_report;
 mod data_folder;
 mod db;
 mod dictionary_file;
 mod error;
 mod external_calendars;
+mod logging;
 mod spelling;
 mod store_guard;
 
@@ -68,42 +75,13 @@ fn app_menu<R: tauri::Runtime>(
     Menu::with_items(handle, &[&app, &edit, &view, &window])
 }
 
+/// The command registry below makes `run` long; every line of it is one command name.
+#[allow(clippy::too_many_lines)]
 pub fn run() {
     // Capture panics to a crash log before `panic = "abort"` kills the process,
     // so any future startup crash is diagnosable without a debug build.
     install_panic_hook();
-
-    // `nookly cli ...` (PLAN.md §2: a subcommand of the main binary, not a
-    // separate one) — handled before Tauri ever boots a window, since this is
-    // meant to run headlessly from a shell or an agent.
-    let mut argv = std::env::args();
-    let _program = argv.next();
-    let rest: Vec<String> = argv.collect();
-
-    if rest.first().map(String::as_str) == Some("cli") {
-        cli::main(rest[1..].to_vec());
-    }
-
-    // Anything else — including zero args — is the normal desktop-app launch
-    // path (double-click, Dock, `open -a Nookly`), so it still has to open the
-    // GUI. But a bare `nookly` (or `nookly --help`) typed at a shell almost
-    // always means someone was reaching for the CLI and didn't know to add
-    // `cli` — this is the exact confusion a coding agent hit in practice, so
-    // don't leave a terminal silently hung with no clue why. `--help`/`-h`
-    // additionally skips the GUI entirely; nobody asking for help wants a
-    // window.
-    use std::io::IsTerminal;
-    if matches!(
-        rest.first().map(String::as_str),
-        Some("--help") | Some("-h") | Some("help")
-    ) {
-        println!("Nookly is a desktop app — running the bare binary opens the GUI.");
-        println!("For the command-line interface: nookly cli --help");
-        std::process::exit(0);
-    }
-    if std::io::stdout().is_terminal() {
-        eprintln!("Launching the Nookly GUI. For the command-line interface instead, run: nookly cli --help");
-    }
+    handle_command_line();
 
     let builder = tauri::Builder::default();
     // A second launch, such as a `nookly://` link clicked while Nookly runs, hands its link to
@@ -121,7 +99,7 @@ pub fn run() {
             let _ = window.set_focus();
         }
     }));
-    builder
+    let app = builder
         .menu(app_menu)
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
@@ -131,27 +109,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(spelling::SpellState::default())
-        .setup(|app| {
-            // Installed builds register the scheme with the system; this does it for the
-            // ones that were not installed.
-            #[cfg(any(windows, target_os = "linux"))]
-            {
-                use tauri_plugin_deep_link::DeepLinkExt;
-                let _ = app.deep_link().register_all();
-            }
-            // Before anything opens the data folder: rename it so Finder can open it.
-            data_folder::tidy_at_startup();
-            db::setup(app)?;
-            store_guard::preserve_unreadable_stores(&db::resolve_app_data_dir(
-                app.path().app_data_dir()?,
-            ));
-            app.manage(external_calendars::ExternalCalendarState::load(
-                &db::resolve_app_data_dir(app.path().app_data_dir()?),
-            ));
-            #[cfg(target_os = "macos")]
-            disable_trackpad_magnification(app);
-            Ok(())
-        })
+        .setup(|app| setup_app(app))
         .invoke_handler(tauri::generate_handler![
             commands::spaces::create_space,
             commands::spaces::list_spaces,
@@ -388,40 +346,110 @@ pub fn run() {
             commands::ai_apps::list_ai_apps,
             commands::ai_apps::open_agent_dir_in,
             commands::settings_file::open_settings_file,
+            commands::crash_report::latest_crash_report,
+            commands::crash_report::dismiss_crash_report,
+            commands::logging::log_frontend,
+            commands::logging::open_logs_folder,
         ])
-        .build(tauri::generate_context!())
-        .expect("error while running tauri application")
-        .run(|_app, _event| {
+        .build(tauri::generate_context!());
+    match app {
+        Ok(app) => app.run(|_app, _event| {
             // Tauri sets `icon.png` as the dev dock icon on `Ready`, so ours goes after it.
             #[cfg(all(target_os = "macos", debug_assertions))]
             if let tauri::RunEvent::Ready = _event {
                 set_dev_dock_icon();
             }
-        });
+        }),
+        Err(e) => {
+            eprintln!("Nookly could not start: {e}");
+            std::process::exit(1);
+        }
+    }
 }
 
-/// Installs a panic hook that appends a human-readable record to
-/// `crash.log` in the app data directory before `panic = "abort"` kills
-/// the process. The hook fires before the abort, so the message survives
-/// the crash for later diagnosis. A no-op in debug builds, since panics
-/// already print to stderr with a full backtrace there.
+/// `nookly cli ...` (PLAN.md §2: a subcommand of the main binary, not a
+/// separate one) runs headlessly from a shell or an agent, before Tauri boots a
+/// window. A bare `nookly --help` explains itself and exits; anything else falls
+/// through to the normal desktop launch.
+fn handle_command_line() {
+    let mut argv = std::env::args();
+    let _program = argv.next();
+    let rest: Vec<String> = argv.collect();
+
+    if rest.first().map(String::as_str) == Some("cli") {
+        cli::main(rest[1..].to_vec());
+    }
+
+    // Anything else, including zero args, is the normal desktop-app launch path
+    // (double-click, Dock, `open -a Nookly`), so it still has to open the GUI. But a
+    // bare `nookly` (or `nookly --help`) typed at a shell almost always means someone
+    // was reaching for the CLI and didn't know to add `cli`, so don't leave a terminal
+    // silently hung with no clue why. `--help`/`-h` additionally skips the GUI entirely;
+    // nobody asking for help wants a window.
+    use std::io::IsTerminal;
+    if matches!(
+        rest.first().map(String::as_str),
+        Some("--help") | Some("-h") | Some("help")
+    ) {
+        println!("Nookly is a desktop app — running the bare binary opens the GUI.");
+        println!("For the command-line interface: nookly cli --help");
+        std::process::exit(0);
+    }
+    if std::io::stdout().is_terminal() {
+        eprintln!("Launching the Nookly GUI. For the command-line interface instead, run: nookly cli --help");
+    }
+}
+
+/// Runs once when the window system is ready: registers the link scheme, opens the
+/// database and loads the stores the commands read from.
+fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    // Before anything opens the data folder, the log file included: rename it so Finder can
+    // open it.
+    data_folder::tidy_at_startup();
+    // First, so the migrations and the restore that follow are written down.
+    logging::init(&db::resolve_app_data_dir(app.path().app_data_dir()?));
+    tracing::info!(
+        version = env!("CARGO_PKG_VERSION"),
+        os = std::env::consts::OS,
+        arch = std::env::consts::ARCH,
+        "Nookly starting"
+    );
+    // Installed builds register the scheme with the system; this does it for the
+    // ones that were not installed.
+    #[cfg(any(windows, target_os = "linux"))]
+    {
+        use tauri_plugin_deep_link::DeepLinkExt;
+        let _ = app.deep_link().register_all();
+    }
+    db::setup(app)?;
+    store_guard::preserve_unreadable_stores(&db::resolve_app_data_dir(app.path().app_data_dir()?));
+    app.manage(external_calendars::ExternalCalendarState::load(
+        &db::resolve_app_data_dir(app.path().app_data_dir()?),
+    ));
+    #[cfg(target_os = "macos")]
+    disable_trackpad_magnification(app);
+    Ok(())
+}
+
+/// Installs a panic hook that writes the panic to the log, and also appends a record to
+/// `crash.log` in the app data directory, before `panic = "abort"`
+/// kills the process. The hook fires before the abort, so the message survives the crash
+/// for later diagnosis. `crash.log` is capped, oldest records first. The default hook still
+/// runs after, so a debug build keeps its output on stderr, with the backtrace.
 fn install_panic_hook() {
-    #[cfg(not(debug_assertions))]
-    std::panic::set_hook(Box::new(|info| {
-        let log_path = db::standalone_app_data_dir()
-            .map(|dir| dir.join("crash.log"))
-            .ok();
-        let message = format!("[{}] panic: {}\n", chrono::Utc::now().to_rfc3339(), info,);
-        if let Some(path) = log_path {
-            use std::io::Write;
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)
-            {
-                let _ = f.write_all(message.as_bytes());
-            }
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        tracing::error!(panic = %info, "Nookly panicked");
+        if let Ok(dir) = db::standalone_app_data_dir() {
+            let record = crash_report::record(
+                chrono::Utc::now(),
+                env!("CARGO_PKG_VERSION"),
+                &info.to_string(),
+            );
+            let _ =
+                logging::append_capped(&dir.join("crash.log"), &record, logging::CRASH_LOG_LIMIT);
         }
+        previous(info);
     }));
 }
 

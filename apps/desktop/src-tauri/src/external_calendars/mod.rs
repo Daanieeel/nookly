@@ -231,13 +231,23 @@ impl ExternalCalendarState {
                         .map(|c| c.id.clone())
                         .collect();
                     data.events.retain(|e| e.provider != provider);
+                    let before = data.events.len();
                     data.events.extend(
                         events
                             .into_iter()
                             .filter(|e| selected.contains(&e.calendar_id)),
                     );
+                    tracing::info!(
+                        provider = ?provider,
+                        calendars = selected.len(),
+                        events = data.events.len() - before,
+                        "external calendar synced"
+                    );
                 }
-                Err(message) => current.last_error = Some(message),
+                Err(message) => {
+                    tracing::warn!(provider = ?current.provider, error = %message, "external calendar sync failed");
+                    current.last_error = Some(message);
+                }
             }
             let _ = self.save(&data);
         }

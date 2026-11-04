@@ -1,14 +1,18 @@
-import { IconPin, IconSchool, IconTag } from "@tabler/icons-react";
+import { IconPin, IconSchool } from "@tabler/icons-react";
 import {
   type ActiveFilter,
   entityFilterOption,
   type FilterField,
 } from "#/components/filter-menu.tsx";
-import { LabelDot } from "#/components/label-chip.tsx";
 import type { Entity, Label } from "#/lib/api/types.ts";
 import { ageBucket } from "#/features/assignments/assignment-model.ts";
 import { CREATED_FILTER_FIELD } from "#/features/tasks/shared-view-defs.tsx";
-import { EDITED_FILTER_FIELD, editedWithin, passesRowFilters } from "./list-table-shared";
+import {
+  EDITED_FILTER_FIELD,
+  editedWithin,
+  labelFilterField,
+  passesRowFilters,
+} from "./list-table-shared";
 import type { NoteRow } from "./NotesListView";
 
 const PINNED_FILTER_FIELD: FilterField = {
@@ -61,18 +65,7 @@ export function noteFilterFields(rows: NoteRow[], spaceLabels: Label[]): FilterF
       options: [...courses.values()].map(entityFilterOption),
     });
   }
-  const usedLabels = spaceLabels.filter((l) => rows.some((r) => r.labels.includes(l)));
-  if (usedLabels.length > 0) {
-    fields.push({
-      id: "labels",
-      label: "Labels",
-      icon: IconTag,
-      options: usedLabels.map((l) => ({
-        value: l.id,
-        label: l.name,
-        icon: <LabelDot label={l} />,
-      })),
-    });
-  }
+  const labels = labelFilterField(spaceLabels, rows);
+  if (labels) fields.push(labels);
   return [...fields, PINNED_FILTER_FIELD, EDITED_FILTER_FIELD, CREATED_FILTER_FIELD];
 }
