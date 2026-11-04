@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.57.2 (2026-11-04)
+
+### Fixed
+
+- **Reordering tabs on Linux.** Dragging a tab to reorder it, move it to the other side of a split, or open it in a new split now works on Linux. Reordering semesters by drag works there too.
+
 ## 0.57.1 (2026-11-03)
 
 ### Fixed

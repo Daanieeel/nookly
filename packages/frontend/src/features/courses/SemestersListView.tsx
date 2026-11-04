@@ -339,7 +339,12 @@ export function SemesterRow({
     <div
       {...entityTarget(semester.entity, semester)}
       draggable
-      onDragStart={onDragStart}
+      onDragStart={(e) => {
+        // WebKitGTK (Linux) cancels a native drag that carries no data.
+        e.dataTransfer.setData("text/plain", semester.entity.id);
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart();
+      }}
       onDragEnd={onDragEnd}
       {...dropProps}
       className={cn(
