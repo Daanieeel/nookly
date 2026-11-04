@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeEntity } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
+import { mockCommand } from "#/test/tauri.ts";
 import { EntityActions } from "./entity-actions.tsx";
 
 const note = makeEntity({ id: "note-1", type: "note", title: "Physics" });
@@ -18,6 +19,24 @@ async function openMoreActions(entity = note, exportable = true) {
   await view.user.click(screen.getByRole("button", { name: "More actions" }));
   return view;
 }
+
+describe("EntityActions relationship graph", () => {
+  it("opens the relationship graph from a button on the page", async () => {
+    mockCommand("list_relationships", []);
+    mockCommand("list_relationship_types", []);
+    const { user } = renderWithProviders(
+      <EntityActions
+        entity={note}
+        exportable
+        pin={{ status: "idle", toggle: async () => {} }}
+        onTrash={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Show Relationship Graph" }));
+    expect(await screen.findByRole("dialog", { name: "Relationship graph" })).toBeInTheDocument();
+    expect(await screen.findByText("No relationships yet")).toBeInTheDocument();
+  });
+});
 
 describe("EntityActions more menu", () => {
   it("offers every page export, including the Nookly page file", async () => {

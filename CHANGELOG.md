@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.62.0 (2026-11-05)
+
+### Added
+
+- **Relationship graph.** A new button at the top of the details sidebar opens a graph of everything an item is linked to, with the item in the middle and how each link relates on the lines. Turn on Second ring to also see what those items link to. Click an item to open it, or `Cmd+click` to open it in a new tab. Items from other Spaces are marked with their Space.
+
 ## 0.61.0 (2026-11-04)
 
 ### Added
