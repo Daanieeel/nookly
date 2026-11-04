@@ -23,6 +23,7 @@ import {
   activeTab,
   clampSplitRatio,
 } from "#/lib/store/tab-groups.ts";
+import { parseMoodlePath } from "#/features/moodle/moodle-path.ts";
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
@@ -65,6 +66,10 @@ const BLEED_MODULES = new Set([
 ]);
 
 function isBleedView(view: View): boolean {
+  // A file of a Moodle course is read like a File of the Space: it fills the page.
+  if (view.kind === "module" && view.module === "moodle") {
+    return parseMoodlePath(view.moodlePath).page === "file";
+  }
   return (
     view.kind === "entity" ||
     view.kind === "calendar" ||

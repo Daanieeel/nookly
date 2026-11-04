@@ -1,5 +1,5 @@
 import { BookmarkSheet } from "#/features/bookmarks/BookmarkSheet.tsx";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, type ReactNode, Suspense, lazy, useState } from "react";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
@@ -22,6 +22,7 @@ import { useExternalCalendarSync } from "#/features/sessions/external-calendars/
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
+import { listenForMoodleLogin } from "#/features/moodle/moodle-login.ts";
 import { deepLinks, openDeepLink } from "#/lib/deep-link.ts";
 
 // The entry point starts the deep links once the app has loaded; one static import keeps
@@ -114,6 +115,7 @@ function ViewSwitch({ view }: { view: View }) {
           module={view.module}
           filterCourseId={view.filterCourseId}
           viewId={view.viewId}
+          moodlePath={view.moodlePath}
         />
       );
     case "entity":
@@ -126,7 +128,21 @@ function ViewSwitch({ view }: { view: View }) {
 /// Opens the `nookly://` links that reach the app, the one that started it included: they
 /// wait in `deepLinks` until the app is up and this is mounted.
 function useDeepLinks() {
-  useEffect(() => deepLinks.attach((url) => void openDeepLink(url)), []);
+  const queryClient = useQueryClient();
+  useEffect(
+    () =>
+      deepLinks.attach((url) => {
+        void openDeepLink(url);
+      }),
+    [],
+  );
+  // The Moodle sign in happens inside the app and hands over its result here.
+  useEffect(() => {
+    const stopping = listenForMoodleLogin(queryClient);
+    return () => {
+      void stopping.then((stop) => stop());
+    };
+  }, [queryClient]);
 }
 
 function Shell() {

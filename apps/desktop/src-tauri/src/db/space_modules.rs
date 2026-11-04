@@ -66,6 +66,8 @@ fn removal_group(module_key: &str) -> &'static [&'static str] {
         "recipes" => &["recipes"],
         // Has no entities of its own: a report on Exams and Assignments.
         "grades" => &["grades"],
+        // Has no entities of its own: a read only view of the user's Moodle site.
+        "moodle" => &["moodle"],
         _ => &[],
     }
 }
@@ -391,6 +393,24 @@ mod tests {
         let mut modules = list_space_modules(conn, space_id).unwrap();
         modules.sort();
         modules
+    }
+
+    #[test]
+    fn moodle_is_a_module_with_no_content_that_can_be_added_and_removed() {
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        let task =
+            crate::db::tasks::create_task(&conn, space.id.clone(), "Keep me".into(), None, None)
+                .unwrap();
+        add_space_module(&conn, &space.id, "moodle").unwrap();
+        assert_eq!(modules(&conn, &space.id), vec!["moodle", "tasks"]);
+        // It owns no entities, so removing it, even with its content, touches nothing else.
+        remove_space_module(&conn, &space.id, "moodle", true).unwrap();
+        assert_eq!(modules(&conn, &space.id), vec!["tasks"]);
+        let kept = crate::db::entities::get_entity(&conn, &task.entity.id).unwrap();
+        assert_eq!(kept.deleted_at, None);
+        add_space_module(&conn, &space.id, "moodle").unwrap();
+        assert_eq!(modules(&conn, &space.id), vec!["moodle", "tasks"]);
     }
 
     #[test]

@@ -16,6 +16,7 @@ pub mod files;
 pub mod labels;
 pub mod local_files;
 pub mod logging;
+pub mod moodle;
 pub mod notes;
 pub mod office;
 pub mod office_install;

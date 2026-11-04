@@ -1,5 +1,5 @@
-//! Read-only overlay of external calendars (Google Calendar, iCloud) on the
-//! Sessions calendar.
+//! Read-only overlay of external calendars (Google Calendar, iCloud, Moodle) on
+//! the Sessions calendar.
 //!
 //! Nothing here is an entity: external events have no `space_id`, take no part
 //! in relationships, never require a Course, and live outside `nookly.db` in
@@ -9,6 +9,7 @@
 pub mod google;
 pub mod icloud;
 mod ics;
+pub mod moodle;
 mod secrets;
 
 use crate::error::{AppError, AppResult};
@@ -26,6 +27,7 @@ const STORE_FILE: &str = "external-calendars.json";
 pub enum Provider {
     Google,
     Icloud,
+    Moodle,
 }
 
 /// One calendar on a connected account. Only `selected` ones are fetched and
@@ -43,7 +45,7 @@ pub struct RemoteCalendar {
 #[serde(rename_all = "camelCase")]
 pub struct Connection {
     pub provider: Provider,
-    /// The Google account email or the Apple ID, for display only.
+    /// The Google account email, the Apple ID or the Moodle site, for display only.
     pub account: String,
     pub calendars: Vec<RemoteCalendar>,
     pub last_synced_at: Option<String>,
@@ -204,6 +206,7 @@ impl ExternalCalendarState {
             let result = match connection.provider {
                 Provider::Google => google::fetch(self, &connection).await,
                 Provider::Icloud => icloud::fetch(&connection).await,
+                Provider::Moodle => moodle::fetch(&connection).await,
             };
             let mut data = self.data.lock().await;
             // Disconnected while the fetch ran: drop the result.

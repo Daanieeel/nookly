@@ -9,6 +9,7 @@ Do **not** build any of these unless explicitly told to. Each one was considered
 - **Notifications and reminders.** Entirely out of scope, even though Tasks, Exams, Assignments, and Sessions have date fields. Do not build notification scheduling or delivery.
 - **Task series.** Sessions have full recurrence (templates generating occurrences). Tasks only repeat by creating the next one when finished (see [Recurring Tasks](03-modules/tasks.md#recurring-tasks)), with no template or generated occurrences.
 - **Runtime plugin architecture.** In v1, modules are compiled into the binary (see [philosophy](01-philosophy.md#compile-time-modules)). A dynamic module system that installs from inside the app is a future evolution, once the module API is proven.
+- **Writing to Moodle.** The Moodle module only reads. Submitting assignments, posting to forums and any other change on the site are not built.
 - **Per-Space Dashboards.** v1 has only the single global Dashboard. Dashboards that users create inside individual Spaces are a future feature.
 - **Third party custom blocks.** Core ships a few custom blocks (see [Notes](03-modules/notes.md)); blocks contributed by community modules are future work.
 

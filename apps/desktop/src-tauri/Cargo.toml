@@ -1,6 +1,6 @@
 [package]
 name = "nookly"
-version = "0.60.0"
+version = "0.61.0"
 license = "AGPL-3.0-only"
 description = "A Tauri App"
 authors = ["you"]
@@ -24,7 +24,7 @@ tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 # The message shown when an update of the data stops (db::upgrade). Already in the tree
 # through the dialog plugin; its platform features come from there.
-rfd = { version = "0.16", default-features = false }
+rfd = { version = "0.17", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # `hooks` is for the progress handler that stops a search typed over (`commands/search.rs`).
@@ -100,6 +100,7 @@ zip = "9"
 # same major version here keeps one copy in the dependency tree.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 spellbook = "0.4"
+md5 = "0.7"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 
@@ -136,6 +137,14 @@ objc2-app-kit = { version = "0.3", features = [
   "NSWorkspace",
   "NSGraphicsContext",
   "objc2-core-graphics",
+] }
+# The system's sign in sheet for the Moodle login (`moodle/native_login.rs`): it uses the passwords
+# saved in Apple Passwords, which a web view of our own cannot.
+objc2-authentication-services = { version = "0.3", default-features = false, features = [
+  "std",
+  "ASWebAuthenticationSession",
+  "ASFoundation",
+  "block2",
 ] }
 objc2-web-kit = { version = "0.3", features = [
   "WKWebView",

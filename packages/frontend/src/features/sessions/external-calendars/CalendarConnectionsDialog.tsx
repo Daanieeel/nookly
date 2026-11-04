@@ -30,6 +30,7 @@ import {
   cancelGoogleCalendarConnect,
   connectGoogleCalendar,
   connectIcloudCalendar,
+  connectMoodleCalendar,
   disconnectExternalCalendar,
   externalCalendarStatus,
   setExternalCalendarSelected,
@@ -46,7 +47,7 @@ export function useExternalCalendarStatus() {
   return useQuery({ queryKey: qk.externalCalendars.status, queryFn: externalCalendarStatus });
 }
 
-/// Where Google Calendar and iCloud are connected, each on its own, and where
+/// Where Google Calendar, iCloud and Moodle are connected, each on its own, and where
 /// the calendars to overlay are picked. Both stay read only.
 export function CalendarConnectionsDialog({
   open,
@@ -78,6 +79,9 @@ export function CalendarConnectionsDialog({
         </ProviderSection>
         <ProviderSection provider="icloud" connection={connection("icloud")}>
           <IcloudConnect />
+        </ProviderSection>
+        <ProviderSection provider="moodle" connection={connection("moodle")}>
+          <MoodleConnect />
         </ProviderSection>
 
         {status && status.connections.length > 0 && (
@@ -267,6 +271,90 @@ function GoogleConnect({ available }: { available: boolean }) {
       </div>
       <FieldError message={connect.isError && connect.error.message} />
     </div>
+  );
+}
+
+const moodleSchema = z.object({
+  link: z.string().trim().min(1, "Paste the calendar link from Moodle"),
+});
+
+const emptyMoodleValues: z.infer<typeof moodleSchema> = { link: "" };
+
+function MoodleConnect() {
+  const queryClient = useQueryClient();
+  const form = useForm({
+    defaultValues: emptyMoodleValues,
+    validators: { onChange: moodleSchema },
+    onSubmit: ({ value }) => {
+      if (!connect.isPending) connect.mutate(value.link);
+    },
+  });
+  const connect = useMutation({
+    mutationFn: connectMoodleCalendar,
+    onSuccess: async () => {
+      form.reset();
+      await queryClient.invalidateQueries({ queryKey: qk.externalCalendars.status });
+      await syncExternalCalendarsNow(queryClient);
+    },
+  });
+
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <p className="text-xs text-muted-foreground">
+        Moodle shows your deadlines and classes as a calendar link, which also works when your
+        university uses single sign on. In Moodle:
+      </p>
+      <ol className="list-decimal pl-5 text-xs text-muted-foreground">
+        <li>Open Calendar, then Import or export calendars.</li>
+        <li>Choose Export calendar, pick the events and period, then Get calendar URL.</li>
+        <li>Paste the link below. Treat it like a password.</li>
+      </ol>
+      <form.Field name="link">
+        {(field) => (
+          <FormField
+            label="Calendar link"
+            required
+            htmlFor="moodle-link"
+            error={fieldMessage(field)}
+          >
+            <Input
+              id="moodle-link"
+              type="password"
+              autoComplete="off"
+              placeholder="https://moodle.example.edu/calendar/export_execute.php?..."
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => field.handleChange(e.target.value)}
+            />
+          </FormField>
+        )}
+      </form.Field>
+      <FieldError message={connect.isError && connect.error.message} />
+      <form.Subscribe selector={hasVisibleErrors}>
+        {(blocked) => (
+          <Button
+            type="submit"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            disabled={blocked}
+          >
+            <StatusButtonContent
+              status={statusOf(connect)}
+              icon={<ProviderIcon provider="moodle" size={14} />}
+              label="Connect Moodle"
+              errorLabel="Try again"
+            />
+          </Button>
+        )}
+      </form.Subscribe>
+    </form>
   );
 }
 

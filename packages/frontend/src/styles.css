@@ -3,6 +3,13 @@
 
 @source "./";
 
+/* Loading skeletons (skullet) follow the theme: a soft wash of the text color. */
+:root {
+  --skullet-base: color-mix(in oklab, var(--muted-foreground) 16%, transparent);
+  --skullet-highlight: color-mix(in oklab, var(--background) 55%, transparent);
+  --skullet-radius: 6px;
+}
+
 /* Lettered lists typed as `a)` or `A)` keep the parenthesis, which no built in list style has. */
 @counter-style lower-alpha-paren {
   system: extends lower-alpha;

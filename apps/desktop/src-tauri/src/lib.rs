@@ -15,6 +15,7 @@ mod dictionary_file;
 mod error;
 mod external_calendars;
 mod logging;
+mod moodle;
 mod spelling;
 mod store_guard;
 
@@ -78,6 +79,11 @@ fn app_menu<R: tauri::Runtime>(
 /// The command registry below makes `run` long; every line of it is one command name.
 #[allow(clippy::too_many_lines)]
 pub fn run() {
+    // Anything that runs without the app (the CLI, the crash log) finds the data folder by
+    // the bundle identifier, so it is recorded before either can run.
+    let context = tauri::generate_context!();
+    db::set_identifier(&context.config().identifier);
+
     // Capture panics to a crash log before `panic = "abort"` kills the process,
     // so any future startup crash is diagnosable without a debug build.
     install_panic_hook();
@@ -316,10 +322,27 @@ pub fn run() {
             commands::external_calendars::connect_google_calendar,
             commands::external_calendars::cancel_google_calendar_connect,
             commands::external_calendars::connect_icloud_calendar,
+            commands::external_calendars::connect_moodle_calendar,
             commands::external_calendars::set_external_calendar_selected,
             commands::external_calendars::disconnect_external_calendar,
             commands::external_calendars::sync_external_calendars,
             commands::external_calendars::list_external_events,
+            commands::moodle::moodle_status,
+            commands::moodle::moodle_open_login,
+            commands::moodle::moodle_finish_login,
+            commands::moodle::moodle_disconnect,
+            commands::moodle::moodle_courses,
+            commands::moodle::moodle_contents,
+            commands::moodle::moodle_assignments,
+            commands::moodle::moodle_assignment_status,
+            commands::moodle::moodle_grades,
+            commands::moodle::moodle_forums,
+            commands::moodle::moodle_discussions,
+            commands::moodle::moodle_posts,
+            commands::moodle::moodle_file_text,
+            commands::moodle::moodle_open_file,
+            commands::moodle::moodle_image,
+            commands::moodle::moodle_file_path,
             commands::backup::create_backup,
             commands::backup::list_backups,
             commands::backup::inspect_backup,
@@ -351,13 +374,23 @@ pub fn run() {
             commands::logging::log_frontend,
             commands::logging::open_logs_folder,
         ])
-        .build(tauri::generate_context!());
+        .build(context);
     match app {
         Ok(app) => app.run(|_app, _event| {
             // Tauri sets `icon.png` as the dev dock icon on `Ready`, so ours goes after it.
             #[cfg(all(target_os = "macos", debug_assertions))]
             if let tauri::RunEvent::Ready = _event {
                 set_dev_dock_icon();
+            }
+            // A link that opens Nookly (the Moodle sign in comes back this way) may arrive while
+            // the browser has the focus, and the result is shown in the window.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { .. } = _event {
+                if let Some(window) = _app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
             }
         }),
         Err(e) => {
@@ -426,6 +459,10 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(external_calendars::ExternalCalendarState::load(
         &db::resolve_app_data_dir(app.path().app_data_dir()?),
     ));
+    app.manage(moodle::service::MoodleState::load(
+        &db::resolve_app_data_dir(app.path().app_data_dir()?),
+        &moodle::login::configured_scheme(&app.config().plugins.0),
+    ));
     #[cfg(target_os = "macos")]
     disable_trackpad_magnification(app);
     Ok(())
@@ -453,23 +490,20 @@ fn install_panic_hook() {
     }));
 }
 
-/// Shows the Icon Composer icon in the dock during `tauri dev`, which runs the bare
-/// binary and would otherwise show `icon.png`. `build.rs` compiles it into a bundle.
+/// Shows the blue "DEV" icon in the dock during `bun run dev`, which runs the bare binary and
+/// would otherwise show `icon.png`, so it can't be mistaken for the installed Nookly. The
+/// same picture is the icon of the side by side build (`icons-dev/`).
 #[cfg(all(target_os = "macos", debug_assertions))]
 fn set_dev_dock_icon() {
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSApplication, NSBundleImageExtension};
-    use objc2_foundation::{NSBundle, NSString};
+    use objc2::{AllocAnyThread, MainThreadMarker};
+    use objc2_app_kit::{NSApplication, NSImage};
+    use objc2_foundation::NSData;
 
-    let Some(path) = option_env!("NOOKLY_DEV_ICON_BUNDLE") else {
-        return;
-    };
     let Some(mtm) = MainThreadMarker::new() else {
         return;
     };
-    let Some(image) = NSBundle::bundleWithPath(&NSString::from_str(path))
-        .and_then(|bundle| bundle.imageForResource(&NSString::from_str("Nookly")))
-    else {
+    let data = NSData::with_bytes(include_bytes!("../icons-dev/icon.png"));
+    let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) else {
         return;
     };
     // SAFETY: called on the main thread with a valid image.

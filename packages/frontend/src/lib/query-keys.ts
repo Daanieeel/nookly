@@ -82,6 +82,23 @@ export const qk = {
     ...spaceList("calendar-entries"),
     all: ["calendar-entries", "all"] as const,
   },
+  moodle: {
+    root: ["moodle"] as const,
+    status: ["moodle", "status"] as const,
+    signIn: ["moodle", "sign-in"] as const,
+    courses: ["moodle", "courses"] as const,
+    contents: (courseId: number) => ["moodle", "contents", courseId] as const,
+    assignments: (courseId: number) => ["moodle", "assignments", courseId] as const,
+    assignmentStatus: (assignmentId: number) =>
+      ["moodle", "assignment-status", assignmentId] as const,
+    grades: (courseId: number) => ["moodle", "grades", courseId] as const,
+    forums: (courseId: number) => ["moodle", "forums", courseId] as const,
+    discussions: (forumId: number) => ["moodle", "discussions", forumId] as const,
+    posts: (discussionId: number) => ["moodle", "posts", discussionId] as const,
+    pageText: (url: string) => ["moodle", "page-text", url] as const,
+    image: (url: string) => ["moodle", "image", url] as const,
+    localFile: (url: string, modified: number) => ["moodle", "local-file", url, modified] as const,
+  },
   externalCalendars: {
     status: ["external-calendars", "status"] as const,
     events: ["external-calendars", "events"] as const,

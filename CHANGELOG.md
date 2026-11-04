@@ -2,6 +2,15 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.61.0 (2026-11-04)
+
+### Added
+
+- **Moodle.** A new module that lets you read your university's Moodle inside Nookly. Browse your courses with their Moodle banners, open files in the same viewer as your Files, read assignments with your submission status and feedback, check your grades and read announcements and forum posts, without opening the website. Every page has an Open in Moodle button. You sign in inside Nookly, with your passwords from Apple Passwords on Mac, so single sign on works. Nookly only reads from Moodle and never changes anything there. You can sign out from the Moodle page at any time.
+- **Import Moodle files.** A file from a course can be imported into your Space, next to Download.
+- **Moodle deadlines on your calendar.** Connect the link from Moodle's Export calendar under Calendar connections, and its deadlines and classes show on your Calendar next to your sessions.
+- **Copy a file's text.** Text, code and Markdown files have a copy button at the top right of the viewer.
+
 ## 0.60.0 (2026-11-04)
 
 ### Added
