@@ -1,7 +1,7 @@
 import { LatexMacrosPanel } from "./LatexMacrosPanel";
-import { IconCalendarUser, IconRefresh, IconSparkles } from "@tabler/icons-react";
+import { IconRefresh, IconSparkles } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { CodeLanguageSettings } from "#/components/code-language-settings.tsx";
 import {
@@ -10,23 +10,19 @@ import {
   TimezoneSetting,
 } from "#/components/datetime-settings.tsx";
 import { EffortSettings } from "#/components/effort-settings.tsx";
-import { FileViewerThemeToggle } from "#/components/file-viewer-theme-toggle.tsx";
-import { ThemeToggle } from "#/components/theme-toggle.tsx";
 import { UpdateCard } from "#/components/update-card.tsx";
 import {
   BackupAutoControl,
   BackupFolderControl,
-  BackupNowControl,
+  BackupStatusCard,
 } from "#/features/backup/backup-controls.tsx";
 import { BackupList, RestoreFileControl } from "#/features/backup/backup-restore.tsx";
-import {
-  CalendarConnectionsDialog,
-  useExternalCalendarStatus,
-} from "#/features/sessions/external-calendars/CalendarConnectionsDialog.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { AgentFilesTab } from "./AgentFilesTab.tsx";
+import { ConnectionCards } from "./ConnectionCards.tsx";
 import { ShortcutControl } from "./ShortcutControl.tsx";
+import { FileViewerThemeCards, ThemeCards } from "./theme-cards.tsx";
 import {
   DisplayNameControl,
   NumberControl,
@@ -76,7 +72,7 @@ const SECTIONS = {
   appearance: ["Theme"],
   calendar: ["Defaults", "Week and day", "Current day", "Connections"],
   notes: ["Code", "Editing", "Spelling", "LaTeX"],
-  backup: ["Backup", "Restore"],
+  backup: ["Status", "Backup", "Restore"],
   agent: ["Files"],
   shortcuts: [...SHORTCUT_SECTIONS],
 } satisfies Record<SettingCategory, string[]>;
@@ -96,8 +92,13 @@ const SHORTCUT_UI = Object.fromEntries(
 /// setting gets its control.
 const SETTING_UI = {
   ...SHORTCUT_UI,
-  "appearance.theme": { section: "Theme", control: <ThemeToggle /> },
-  "appearance.fileViewerTheme": { section: "Theme", control: <FileViewerThemeToggle /> },
+  // Choice cards take the width of the page, under the row's title.
+  "appearance.theme": { section: "Theme", control: null, footer: <ThemeCards /> },
+  "appearance.fileViewerTheme": {
+    section: "Theme",
+    control: null,
+    footer: <FileViewerThemeCards />,
+  },
   "general.displayName": { section: "Profile", control: <DisplayNameControl /> },
   "general.timezone": { section: "Date and time", control: <TimezoneSetting /> },
   "general.dateFormat": { section: "Date and time", control: <DateFormatSetting /> },
@@ -218,17 +219,19 @@ const ACTION_ROWS: RowSpec[] = [
     title: "External calendars",
     description: "Show events from other calendars on Sessions. They are read only.",
     synonyms: ["google calendar", "ical", "ics", "outlook", "connect", "sync", "subscribe"],
-    control: <CalendarConnectionsControl />,
+    control: null,
+    footer: <ConnectionCards />,
   },
   {
     id: "backup.run",
     category: "backup",
-    section: "Backup",
+    section: "Status",
     title: "Back up now",
     description:
       "Saves everything in Nookly to one file: every Space, note, file, deck and setting. Files added by reference stay where they are and are not copied.",
     synonyms: ["export", "save", "copy", "archive", "restore", "zip", "backup now"],
-    control: <BackupNowControl />,
+    control: null,
+    footer: <BackupStatusCard />,
   },
   {
     id: "backup.restore",
@@ -266,38 +269,15 @@ const FROM_REGISTRY: RowSpec[] = SETTING_IDS.map((id) => {
   };
 });
 
-/// A category's headings in display order.
-export function sectionsOf(category: SettingCategory): string[] {
-  return SECTIONS[category];
-}
-
 function sectionIndex(row: RowSpec): number {
-  return sectionsOf(row.category).indexOf(row.section);
+  const order: readonly string[] = SECTIONS[row.category];
+  return order.indexOf(row.section);
 }
 
 /// Every row of the dialog. Within a category rows follow `SECTIONS`, then registry order.
 export const ROWS: RowSpec[] = [...FROM_REGISTRY, ...ACTION_ROWS].sort(
   (a, b) => sectionIndex(a) - sectionIndex(b),
 );
-
-/// Entry to the read only external calendar overlay shown on Sessions.
-function CalendarConnectionsControl() {
-  const [open, setOpen] = useState(false);
-  const { data: status } = useExternalCalendarStatus();
-  const count = status?.connections.length ?? 0;
-  return (
-    <>
-      <span className="text-xs text-muted-foreground">
-        {count === 0 ? "Not connected" : count === 1 ? "1 connected" : `${count} connected`}
-      </span>
-      <Button variant="secondary" size="sm" className="ml-3" onClick={() => setOpen(true)}>
-        <IconCalendarUser size={14} />
-        Manage
-      </Button>
-      <CalendarConnectionsDialog open={open} onOpenChange={setOpen} />
-    </>
-  );
-}
 
 function VersionControl() {
   const version = useAppVersion();

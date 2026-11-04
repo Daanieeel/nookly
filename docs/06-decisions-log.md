@@ -478,6 +478,26 @@ The sidebar lists the active Space's modules only. All Spaces sit in a row of ic
 
 ---
 
+### Settings navigation is flat and grouped, and pages follow what someone is doing
+
+The Settings dialog lists ten pages under muted group headers (General and Appearance; Writing and study: Editor, Calendar; Data and accounts: Backup, Connections; Power tools: Shortcuts, LaTeX macros, Agent), with About and the settings file at the bottom. Nothing nests. Shortcuts is one page with a filter strip (All and each section). Search sits at the top of the sidebar, `/` focuses it. A page is not a registry category: `settings-pages.ts` maps each row to a page, so setting ids, search keywords and the CLI are untouched. A setting whose content has a better shape (theme, backup status, connections) draws its own component inside its row.
+
+**Why:** about 16 indented rows did not scan, more categories are coming, and the full width search row took height from every page. A uniform row for every setting made a theme, a backup and a key binding look alike.
+
+**Rejected:** collapsible groups (they hide pages for no gain at ten items), keeping a nav row per shortcut section (eight rows for one topic), and separate dialogs per page.
+
+---
+
+### The macOS data folder is renamed once and left behind a symlink
+
+On macOS the real data folder is `Application Support/Nookly`. `com.nookly.app` stays as a symlink to it. At startup (`data_folder.rs`), before the database opens, a real `com.nookly.app` with no `Nookly` is renamed and linked. A missing link is put back, a dead link to `Nookly` is removed, and two real folders are never merged. A failed link undoes the rename.
+
+**Why:** Finder treats a name ending in `.app` as an application, so users could not open their own data. `nookly.db` stores absolute paths under the old name, which keep resolving through the link, as do older releases, the CLI and scripts. A rename within a volume copies nothing and keeps open files valid.
+
+**Rejected:** changing the bundle identifier (keychain, WebView storage, updater and deep links all hang on it), copying the folder (a second copy of everything and a rewrite of every stored path), and only a "Show data folder" action (it leaves the Finder problem).
+
+---
+
 ### The database stays on the default rollback journal
 
 Nookly does not use write ahead logging (WAL). The app and the CLI share `nookly.db`, and with the rollback journal a writer briefly blocks readers.

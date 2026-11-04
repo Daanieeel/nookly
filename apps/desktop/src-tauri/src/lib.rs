@@ -9,6 +9,7 @@ mod backup;
 mod cli;
 mod commands;
 mod crash_report;
+mod data_folder;
 mod db;
 mod dictionary_file;
 mod error;
@@ -402,6 +403,9 @@ fn handle_command_line() {
 /// Runs once when the window system is ready: registers the link scheme, opens the
 /// database and loads the stores the commands read from.
 fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    // Before anything opens the data folder, the log file included: rename it so Finder can
+    // open it.
+    data_folder::tidy_at_startup();
     // First, so the migrations and the restore that follow are written down.
     logging::init(&db::resolve_app_data_dir(app.path().app_data_dir()?));
     tracing::info!(
