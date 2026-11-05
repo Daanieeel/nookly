@@ -16,6 +16,9 @@ pub struct FileEntity {
     /// Where a referenced file lives on disk, outside Nookly's storage. Set with
     /// no `local_path` until the file is copied in.
     pub source_path: Option<String>,
+    /// Where an imported File came from, as an opaque key the importer chose (a Moodle
+    /// file is `moodle:<its address>`). Lets that source tell what it already imported.
+    pub origin: Option<String>,
     /// Read only. True for a File of an indexable type (pdf, png/jpg, docx,
     /// pptx, xlsx, code/plain text files — see `extractor_for`) that has no
     /// search content yet: never indexed (imported before this File type
@@ -51,6 +54,7 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
         url: row.get("url")?,
         original_filename: row.get("original_filename")?,
         source_path,
+        origin: row.get("origin")?,
         needs_reindex,
         label_ids: Vec::new(),
         indexed_content: None,
@@ -87,6 +91,110 @@ pub fn import_file(
     // Copied on disk rather than read into memory, so a huge file costs no RAM.
     let local_path = copy_stored(files_dir, &original_filename, source_path)?;
     register_stored(conn, space_id, &original_filename, local_path, None)
+}
+
+/// What the importer chose for a File while importing it, all applied or none.
+#[derive(Debug, Default, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ImportDetails {
+    /// Where the File came from; see `FileEntity::origin`.
+    pub origin: Option<String>,
+    /// The File's name in Nookly. The file's own name when empty.
+    pub title: Option<String>,
+    /// Existing Labels of the Space to put on the File.
+    pub label_ids: Vec<String>,
+    /// Labels to create first (one the Space has already by that name is reused).
+    pub new_labels: Vec<NewLabel>,
+    /// Entities (a Course, say) to attach the File to.
+    pub attach_to: Vec<String>,
+}
+
+#[derive(Debug, Default, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewLabel {
+    pub name: String,
+    pub color: String,
+}
+
+/// `import_file`, plus a name, Labels, attachments and an origin chosen before the File
+/// exists. Either everything lands or nothing does: a failure leaves no File, no new Label
+/// and no copy in storage behind.
+pub fn import_file_with_details(
+    conn: &Connection,
+    files_dir: &Path,
+    space_id: String,
+    source_path: &Path,
+    details: ImportDetails,
+) -> AppResult<FileEntity> {
+    let original_filename = source_path
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_else(|| "untitled".to_string());
+    let local_path = copy_stored(files_dir, &original_filename, source_path)?;
+    let result = crate::db::atomically(conn, || {
+        let file = register_stored(
+            conn,
+            space_id.clone(),
+            &original_filename,
+            local_path.clone(),
+            None,
+        )?;
+        let id = file.entity.id;
+        if let Some(title) = details
+            .title
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+        {
+            let patch = crate::db::entities::EntityPatch {
+                title: Some(title.to_string()),
+                ..Default::default()
+            };
+            crate::db::entities::update_entity(conn, &id, patch)?;
+        }
+        conn.execute(
+            "UPDATE files SET origin = ?1 WHERE entity_id = ?2",
+            params![details.origin, id],
+        )?;
+        let mut label_ids = details.label_ids.clone();
+        for new in &details.new_labels {
+            let name = new.name.trim();
+            let existing = crate::db::labels::list_labels(conn, &space_id)?
+                .into_iter()
+                .find(|l| l.name.eq_ignore_ascii_case(name));
+            let label_id = match existing {
+                Some(label) => label.id,
+                None => {
+                    crate::db::labels::create_label(
+                        conn,
+                        space_id.clone(),
+                        name.to_string(),
+                        new.color.clone(),
+                    )?
+                    .id
+                }
+            };
+            label_ids.push(label_id);
+        }
+        for label_id in &label_ids {
+            crate::db::labels::attach_label(conn, &id, label_id)?;
+        }
+        for owner in &details.attach_to {
+            crate::db::relationships::create_relationship(
+                conn,
+                owner.clone(),
+                id.clone(),
+                "attached-file".into(),
+                None,
+                None,
+            )?;
+        }
+        get_file(conn, &id)
+    });
+    if result.is_err() {
+        let _ = std::fs::remove_file(&local_path);
+    }
+    result
 }
 
 /// Writes `bytes` into storage as a new File. `source_url` is where a downloaded
@@ -608,7 +716,7 @@ pub fn detect_provider(url: &str) -> Option<&'static str> {
 /// guarantee of a matching row's content being set — `search_index` itself is
 /// always populated at creation via `index_entity_title`, just with `content = ''`).
 const FILE_SELECT: &str =
-    "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename, f.source_path, \
+    "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename, f.source_path, f.origin, \
      COALESCE(si.content, '') != '' AS has_indexed_content \
      FROM entities e \
      JOIN files f ON f.entity_id = e.id \
@@ -913,6 +1021,16 @@ fn cli_list_files(
 inventory::submit! {
     crate::db::schema::ComputedFieldDef {
         entity_type: "file",
+        name: "origin",
+        kind: FieldKind::Text,
+        description: "Read only. Where an imported File came from, as a key the importing module \
+                      chose (a file from Moodle is `moodle:<its address>`); `null` for any other File.",
+    }
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "file",
         name: "needsReindex",
         kind: FieldKind::Boolean,
         description: "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx, code/plain \
@@ -989,6 +1107,110 @@ mod tests {
         let unnamed = store_pasted_file(&conn, &dir, space.id, "", b"x").unwrap();
         assert_eq!(unnamed.original_filename.as_deref(), Some("pasted-file"));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn import_with_details_names_labels_and_attaches_in_one_go() {
+        let conn = crate::db::test_conn();
+        let space = crate::db::test_space(&conn, "Uni");
+        let course =
+            crate::db::courses::create_course(&conn, space.id.clone(), "Maths".into()).unwrap();
+        let lectures = crate::db::labels::create_label(
+            &conn,
+            space.id.clone(),
+            "Lectures".into(),
+            "#111".into(),
+        )
+        .unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-details-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("slides.pdf");
+        std::fs::write(&source, b"pdf").unwrap();
+
+        let file = import_file_with_details(
+            &conn,
+            &dir.join("store"),
+            space.id.clone(),
+            &source,
+            ImportDetails {
+                origin: Some("moodle:https://m.edu/f/slides.pdf".into()),
+                title: Some("  Week 1 slides  ".into()),
+                label_ids: vec![lectures.id.clone()],
+                // The existing one is matched by name, ignoring case, and not duplicated.
+                new_labels: vec![
+                    NewLabel {
+                        name: "MA1".into(),
+                        color: "#222".into(),
+                    },
+                    NewLabel {
+                        name: "lectures".into(),
+                        color: "#333".into(),
+                    },
+                ],
+                attach_to: vec![course.id.clone()],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(file.entity.title, "Week 1 slides");
+        assert_eq!(file.original_filename.as_deref(), Some("slides.pdf"));
+        assert_eq!(
+            file.origin.as_deref(),
+            Some("moodle:https://m.edu/f/slides.pdf")
+        );
+        let names: Vec<String> = crate::db::labels::list_labels_for_entity(&conn, &file.entity.id)
+            .unwrap()
+            .into_iter()
+            .map(|l| l.name)
+            .collect();
+        assert_eq!(names, vec!["Lectures", "MA1"]);
+        let attached = crate::db::relationships::list_relationships(
+            &conn,
+            &course.id,
+            crate::db::relationships::Direction::From,
+        )
+        .unwrap();
+        assert_eq!(attached.len(), 1);
+        assert_eq!(attached[0].to_entity_id, file.entity.id);
+        assert_eq!(attached[0].relationship_type, "attached-file");
+        // The listing carries the origin too.
+        let listed = list_files(&conn, &space.id).unwrap();
+        assert_eq!(listed[0].origin, file.origin);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_failed_import_with_details_leaves_nothing_behind() {
+        let conn = crate::db::test_conn();
+        let space = crate::db::test_space(&conn, "Uni");
+        let dir = std::env::temp_dir().join(format!("nookly-details-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("slides.pdf");
+        std::fs::write(&source, b"pdf").unwrap();
+        let store = dir.join("store");
+
+        let result = import_file_with_details(
+            &conn,
+            &store,
+            space.id.clone(),
+            &source,
+            ImportDetails {
+                new_labels: vec![NewLabel {
+                    name: "MA1".into(),
+                    color: "#222".into(),
+                }],
+                attach_to: vec!["no-such-entity".into()],
+                ..Default::default()
+            },
+        );
+
+        assert!(result.is_err());
+        assert!(list_files(&conn, &space.id).unwrap().is_empty());
+        assert!(crate::db::labels::list_labels(&conn, &space.id)
+            .unwrap()
+            .is_empty());
+        assert_eq!(std::fs::read_dir(&store).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

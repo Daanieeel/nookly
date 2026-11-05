@@ -20,6 +20,12 @@ Moodle sometimes sends `null` for what an item doesn't have; those fields are dr
 
 Through the university's own login page, as the Moodle mobile app does, so single sign on and two step login work. On macOS that is the system's sign in sheet (`moodle/native_login.rs`), because it offers the passwords saved in Apple Passwords, which a web view of our own cannot. Elsewhere it is a window of Nookly's own (`moodle_open_login`) with no access to Nookly's commands, no cookies kept and https only. Either one catches Moodle's redirect to `nookly://token=...` itself and finishes the sign in; a browser would not hand that redirect to an app unless a click started it. A link only counts for a sign in Nookly started itself (the passport check in `moodle/login.rs`). The token is kept in the OS keychain. The site must allow the mobile app web service, and Moodle 3.7 or later.
 
+## Importing files
+
+Import opens a dialog first (`MoodleImport.tsx`): the name (the item's name with the file's extension, or the file's own), Labels (the course and the section are suggested, the course one picked, and a Label the Space already has by that name is reused) and the Course of Nookly with the same name, if any. Everything is applied by one command, `import_file_with_details`, so it lands whole or not at all.
+
+The File keeps its `origin` (`moodle:<address of the file on the site>`), which is how the module knows it was imported: such a file shows Show in Nookly instead of Import. A File in the trash counts as not imported. Files imported before `origin` existed have none and still offer the import.
+
 ## Storage
 
 Code lives in `apps/desktop/src-tauri/src/moodle/`. The connection (no token) is `moodle.json` in the app data folder. The last answers are cached in `moodle-cache/` for offline reading, not backed up, and removed on disconnect. Downloaded files are in `moodle-files/`, are backed up, and are never removed by disconnecting.

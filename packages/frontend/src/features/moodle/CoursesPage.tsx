@@ -26,7 +26,7 @@ export function sortCourses(courses: MoodleCourse[], now = Date.now() / 1000): M
 }
 
 /// The courses that are on, and those that are over.
-export function splitCourses(courses: MoodleCourse[], now = Date.now() / 1000) {
+function splitCourses(courses: MoodleCourse[], now = Date.now() / 1000) {
   const sorted = sortCourses(courses, now);
   return {
     current: sorted.filter((c) => !hasEnded(c, now)),

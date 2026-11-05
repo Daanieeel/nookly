@@ -204,7 +204,12 @@ export function DiscussionPage({
         { label: courseName, path: coursePath(courseId, "forums") },
         { label: forum?.name ?? "Forum", path: forumPath(courseId, forumId) },
       ]}
-      webUrl={moodleWebUrl(siteUrl, { page: "discussion", courseId, forumId, discussionId })}
+      webUrl={moodleWebUrl(siteUrl, {
+        page: "discussion",
+        courseId,
+        forumId,
+        discussionId,
+      })}
       fetchedAt={posts.data?.fetchedAt}
       offline={posts.data?.offline}
       course={course ?? { id: courseId, overviewFiles: [] }}
@@ -223,7 +228,7 @@ export function DiscussionPage({
                     <span>{moodleDate(post.timeCreated)}</span>
                   </div>
                   {hasMoodleText(post.message) && <MoodleHtml html={post.message} />}
-                  <MoodleFiles files={post.attachments} spaceId={spaceId} />
+                  <MoodleFiles files={post.attachments} spaceId={spaceId} context={{ courseId }} />
                 </div>
               </li>
             ))}

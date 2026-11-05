@@ -487,6 +487,9 @@ export interface FileEntity {
   /// Where a referenced file lives on disk; set without `localPath` until it's
   /// copied into storage.
   sourcePath: string | null;
+  /// Read only. Where an imported File came from, as a key the source chose (a file from
+  /// Moodle is `moodle:<address>`); `null` for any other File.
+  origin: string | null;
   /// Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx,
   /// code/plain text files) with no search content yet — never indexed, or
   /// the last attempt found nothing.

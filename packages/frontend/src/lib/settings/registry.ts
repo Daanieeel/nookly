@@ -516,6 +516,26 @@ export const SETTINGS = {
     default: true,
     schema: z.boolean(),
   }),
+  "notes.editorFont": define({
+    id: "notes.editorFont",
+    category: "notes",
+    title: "Page font",
+    description:
+      "The typeface pages are written in. Default is the app's own, Serif is easier on long reading, Mono suits notes full of code.",
+    synonyms: ["typeface", "font family", "serif", "monospace", "text", "writing", "notes"],
+    default: "default",
+    schema: z.enum(["default", "serif", "mono"]),
+  }),
+  "notes.editorFontSize": define({
+    id: "notes.editorFontSize",
+    category: "notes",
+    title: "Page text size",
+    description:
+      "How large the text of a page is, in pixels. Headings grow and shrink with it. The default is 14.",
+    synonyms: ["font size", "bigger text", "smaller text", "zoom", "text size", "writing", "notes"],
+    default: 14,
+    schema: z.number().int().min(12).max(24),
+  }),
 };
 
 export type SettingId = keyof typeof SETTINGS;
