@@ -1,6 +1,25 @@
 {
   "versions": [
     {
+      "version": "0.65.0",
+      "date": "2026-11-05",
+      "title": "Drag and drop files",
+      "summary": "Drop files straight into Nookly.",
+      "highlights": [
+        {
+          "title": "Drop files in",
+          "description": "Drag files onto the Files page to import them, onto a page to attach them, or into a note to place them right where you drop.",
+          "icon": "file-import",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Fixed": [
+          "Fixed dragging a file onto Nookly covering the whole app with that file until you restarted."
+        ]
+      }
+    },
+    {
       "version": "0.64.3",
       "date": "2026-11-05",
       "title": "C code blocks",

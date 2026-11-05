@@ -19,6 +19,7 @@ function fakeView(): EditorView {
   // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- jsdom has no editor view to build, so the stub is cast through unknown
   return {
     isDestroyed: false,
+    posAtCoords: () => null,
     coordsAtPos: () => ({ left: 0, bottom: 0 }),
     dispatch: () => {},
     state: {
@@ -97,5 +98,42 @@ describe("usePasteFiles context", () => {
         }),
       );
     }
+  });
+});
+
+describe("usePasteFiles drop", () => {
+  function dropEvent(files: File[]): DragEvent {
+    // SAFETY: `handleDrop` reads only `dataTransfer` and the pointer position.
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- jsdom has no DragEvent or DataTransfer, so the stub is cast through unknown
+    return Object.assign(new Event("drop"), {
+      dataTransfer: { files },
+      clientX: 0,
+      clientY: 0,
+    }) as unknown as DragEvent;
+  }
+
+  it("stores a dropped file and attaches it to the page, like a paste", async () => {
+    mockCommand("import_file_from_bytes", makeFile({}, { id: "file-7", spaceId: "space-1" }));
+    mockCommand("list_labels", []);
+    mockCommand("create_label", makeLabel({ id: "label-new", name: "Pasted" }));
+    mockCommand("attach_label", null);
+    mockCommand("list_relationships", []);
+    mockCommand("create_relationship", null);
+    const { result } = renderHook(() => usePasteFiles("space-1", "page-1"), { wrapper });
+    const claimed = result.current.handleDrop(
+      fakeView(),
+      dropEvent([new File(["x"], "a.pdf", { type: "application/pdf" })]),
+    );
+    expect(claimed).toBe(true);
+    await waitFor(() => expect(callsOf("create_relationship")).toHaveLength(1));
+    expect(callsOf("create_relationship")[0]).toMatchObject({
+      fromEntityId: "page-1",
+      toEntityId: "file-7",
+    });
+  });
+
+  it("leaves a drop without files to the editor", () => {
+    const { result } = renderHook(() => usePasteFiles("space-1", "page-1"), { wrapper });
+    expect(result.current.handleDrop(fakeView(), dropEvent([]))).toBe(false);
   });
 });

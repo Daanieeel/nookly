@@ -318,6 +318,7 @@ function HydratedBlockEditor({
         ...(scrollPastEnd && { style: "padding-bottom: 100vh" }),
       },
       handlePaste: (view, event) => pasteFiles.handlePaste(view, event),
+      handleDrop: (view, event) => pasteFiles.handleDrop(view, event),
       handleClickOn: (_view, _pos, _node, _nodePos, event) => openLink(event, spaceId),
     },
     onUpdate: () => {

@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.65.0 (2026-11-05)
+
+### Added
+
+- Drop files from your computer onto the Files page to import them, or onto any page to attach them. In a note or jot, a dropped file lands right where you drop it.
+
+### Fixed
+
+- Fixed dragging a file onto Nookly covering the whole app with that file until you restarted.
+
 ## 0.64.3 (2026-11-05)
 
 ### Added

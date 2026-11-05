@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { type CSSProperties, useRef, useState } from "react";
 import { notify } from "#/components/notify.tsx";
@@ -111,6 +112,24 @@ export function usePasteFiles(spaceId: string, pageId: string) {
     return true;
   };
 
+  /// `handleDrop` for the editor: files dropped from outside are stored and embedded where they
+  /// landed, like a paste. Anything else dragged in is left to the editor.
+  const handleDrop = (view: EditorView, event: DragEvent): boolean => {
+    const files = [...(event.dataTransfer?.files ?? [])];
+    if (files.length === 0) return false;
+    const where = view.posAtCoords({ left: event.clientX, top: event.clientY });
+    if (where) {
+      const selection = TextSelection.near(view.state.doc.resolve(where.pos));
+      view.dispatch(view.state.tr.setSelection(selection));
+    }
+    const caret = view.coordsAtPos(view.state.selection.from);
+    const at = { x: caret.left, y: caret.bottom };
+    void (async () => {
+      for (const file of files) await embed(view, file, at);
+    })();
+    return true;
+  };
+
   const current = queue[0];
   const close = () => {
     const [next] = queue.slice(1);
@@ -175,5 +194,5 @@ export function usePasteFiles(spaceId: string, pageId: string) {
     </Popover>
   );
 
-  return { handlePaste, popover };
+  return { handlePaste, handleDrop, popover };
 }
