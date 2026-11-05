@@ -9,6 +9,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --cwd apps/desktop tauri dev",
+    "dev:seed": "NOOKLY_SEED=1 bun run dev",
     "build": "turbo run build",
     "tauri": "bun run --cwd apps/desktop tauri",
     "build:side-by-side": "bun run --cwd apps/desktop tauri build --bundles app --config src-tauri/tauri.side-by-side.conf.json",
