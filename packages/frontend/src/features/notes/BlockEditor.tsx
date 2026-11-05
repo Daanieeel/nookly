@@ -31,6 +31,7 @@ import {
 } from "./block-markdown";
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { newCodeBlockLanguage } from "./default-code-language";
+import { applyPageTypography } from "./page-typography";
 import { usePasteFiles } from "./paste-files";
 import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { editorExtensions } from "./editor-extensions";
@@ -295,6 +296,9 @@ function HydratedBlockEditor({
 
   const pasteFiles = usePasteFiles(spaceId, entityId);
 
+  // Settings load before the first page opens, so this sets the variables once for the session.
+  useEffect(applyPageTypography, []);
+
   const editor = useEditor({
     content: {
       type: "doc",
@@ -310,7 +314,7 @@ function HydratedBlockEditor({
     }),
     editorProps: {
       attributes: {
-        class: cn("tiptap-content text-sm/relaxed", !compact && "min-h-40"),
+        class: cn("tiptap-content page-editor", !compact && "min-h-40"),
         ...(scrollPastEnd && { style: "padding-bottom: 100vh" }),
       },
       handlePaste: (view, event) => pasteFiles.handlePaste(view, event),

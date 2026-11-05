@@ -2,6 +2,73 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.64.3 (2026-11-05)
+
+### Added
+
+- C is now a language you can pick for code blocks.
+
+## 0.64.2 (2026-11-05)
+
+### Changed
+
+- A file now fills its page without a margin or border around it, the same as a file from Moodle.
+
+## 0.64.1 (2026-11-05)
+
+### Fixed
+
+- Fixed opening a note sometimes showing "Something went wrong showing this view" until you pressed Try Again.
+
+## 0.64.0 (2026-11-05)
+
+### Added
+
+- **Relationship graph.** A new button at the top of the details sidebar opens a graph of everything an item is linked to, with the item in the middle and how each link relates on the lines. Turn on Second ring to also see what those items link to. Click an item to open it, or `Cmd+click` to open it in a new tab. Items from other Spaces are marked with their Space.
+
+## 0.63.2 (2026-11-05)
+
+### Changed
+
+- Behind the scenes cleanup of the PDF viewer. Nothing looks or works differently.
+
+## 0.63.1 (2026-11-05)
+
+### Changed
+
+- Behind the scenes cleanup of how tabs are kept. Nothing looks or works differently.
+
+## 0.63.0 (2026-11-05)
+
+### Added
+
+- **Name and label Moodle files as you import them.** Importing a file from Moodle now opens a window where you can rename it, pick labels and attach it to a course before it goes into your Space. Nookly suggests a name, a label for the course and its section, and the matching course.
+- **Show in Nookly.** A Moodle file you already imported shows a Show in Nookly button instead of Import, which takes you to the file.
+
+## 0.62.1 (2026-11-05)
+
+### Changed
+
+- **Steadier behind the scenes.** Small cleanups to keep Nookly stable. Nothing looks different.
+
+## 0.62.0 (2026-11-05)
+
+### Added
+
+- **Page font and size.** Choose the font and size of the text in your pages under Settings, Editor, with a live sample that shows the change before you go back to your page.
+
+## 0.61.2 (2026-11-05)
+
+### Changed
+
+- Small behind the scenes tidy up. Nothing looks or works differently.
+
+## 0.61.1 (2026-11-05)
+
+### Fixed
+
+- **Closed unexpectedly message.** The message no longer shows up after an update for something that happened in an older version, and its buttons now fit inside the window.
+
 ## 0.61.0 (2026-11-04)
 
 ### Added

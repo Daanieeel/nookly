@@ -811,6 +811,12 @@ fn all() -> Vec<M<'static>> {
                           WHERE r.from_entity_id = assignments.entity_id
                             AND r.relationship_type = 'assignment-due-session');
         ",
+    ), M::up(
+        "
+        -- Where an imported file came from (a Moodle file), so its source can tell it was
+        -- imported. Files imported before this stay empty.
+        ALTER TABLE files ADD COLUMN origin TEXT;
+        ",
     )]
 }
 
@@ -1643,6 +1649,7 @@ mod history {
         0x6e30f1a43205502b,
         0xafdae1e221857ce0,
         0x1500e2b69ba5ee38,
+        0x9e34fce273f8823e,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

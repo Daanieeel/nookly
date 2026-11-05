@@ -68,6 +68,31 @@
   .tiptap-content h6 {
     font-size: 0.875rem;
   }
+  /* Page text follows the font and size settings (`page-typography.ts`). The scale is the size
+     over the default 14px, so headings keep their proportions. */
+  .page-editor {
+    font-family: var(--page-font, inherit);
+    font-size: calc(0.875rem * var(--page-scale, 1));
+    line-height: 1.625;
+  }
+  .page-editor h1 {
+    font-size: calc(1.5rem * var(--page-scale, 1));
+  }
+  .page-editor h2 {
+    font-size: calc(1.25rem * var(--page-scale, 1));
+  }
+  .page-editor h3 {
+    font-size: calc(1.125rem * var(--page-scale, 1));
+  }
+  .page-editor h4 {
+    font-size: calc(1rem * var(--page-scale, 1));
+  }
+  .page-editor h5 {
+    font-size: calc(0.9375rem * var(--page-scale, 1));
+  }
+  .page-editor h6 {
+    font-size: calc(0.875rem * var(--page-scale, 1));
+  }
   /* ⇒ and ⇔ come from a fallback font and draw small next to Inter's text (`arrow-ligatures.ts`). */
   .tiptap-content .arrow-enlarged {
     font-size: 1.3em;

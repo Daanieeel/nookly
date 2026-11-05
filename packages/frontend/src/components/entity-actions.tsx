@@ -1,4 +1,11 @@
-import { IconDots, IconNotes, IconPin, IconPinFilled, IconTrash } from "@tabler/icons-react";
+import {
+  IconDots,
+  IconNotes,
+  IconPin,
+  IconPinFilled,
+  IconTopologyStar3,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { type ActionStatus, StatusAnnouncer, StatusIcon } from "#/components/action-feedback.tsx";
@@ -17,6 +24,7 @@ import {
   ExportPageItem,
   PageExportMenu,
 } from "#/features/notes/PageExportMenu.tsx";
+import { RelationshipGraphPanel } from "#/features/relationships/RelationshipGraphPanel.tsx";
 import { ExportPageDialog } from "#/features/page-export/ExportPageDialog.tsx";
 import { ShareFileButton, ShareFileMenuItem } from "#/features/files/ShareFile.tsx";
 import { ShareButton, ShareMenuSub } from "#/features/notes/SharePage.tsx";
@@ -48,6 +56,7 @@ export function EntityActions({
   const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [graphOpen, setGraphOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const noun = exportable ? "Page" : labelForType(entity.type);
   const pinLabel = entity.pinned ? `Unpin ${noun}` : `Pin ${noun}`;
@@ -64,6 +73,19 @@ export function EntityActions({
       {exportable && <ShareButton entity={entity} />}
       {entity.type === "file" && <ShareFileButton entity={entity} />}
       {exportable && <PageExportMenu entity={entity} />}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Show Relationship Graph"
+            onClick={() => setGraphOpen(true)}
+          >
+            <IconTopologyStar3 size={15} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Show Relationship Graph</TooltipContent>
+      </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -146,6 +168,7 @@ export function EntityActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {graphOpen && <RelationshipGraphPanel entity={entity} open onOpenChange={setGraphOpen} />}
       {exporting && <ExportPageDialog entity={entity} open onOpenChange={setExporting} />}
     </div>
   );

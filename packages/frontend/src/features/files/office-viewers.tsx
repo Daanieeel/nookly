@@ -132,7 +132,7 @@ function DocxViewer({
           role="document"
           aria-label={name}
           className={cn(
-            "docx-viewer -m-4 h-[calc(100%+2rem)] overflow-auto bg-muted/40",
+            "docx-viewer size-full overflow-auto bg-muted/40",
             // The document draws with Tailwind's tokens, so only it follows the
             // file viewer's own theme (`file-viewer-theme.ts`), not the controls.
             fileViewerThemeClass(isDark),
@@ -239,7 +239,7 @@ function SheetViewer({
   if (!sheet) return fallback("This workbook has no visible sheets.");
 
   return (
-    <div className="-m-4 flex h-[calc(100%+2rem)] flex-col" role="document" aria-label={name}>
+    <div className="flex size-full flex-col" role="document" aria-label={name}>
       <SheetGrid key={sheet.id} sheet={sheet} numberType={loaded.numberType} />
       {sheets.length > 1 && (
         <div

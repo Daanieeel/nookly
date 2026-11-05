@@ -15,6 +15,7 @@ import { nooklyShikiTheme, NOOKLY_THEME_NAME } from "./shiki-theme";
 /// like `c++` or `rb` resolves with no extra mapping.
 const LANGUAGE_LOADERS = {
   asm: () => import("@shikijs/langs/asm"),
+  c: () => import("@shikijs/langs/c"),
   cpp: () => import("@shikijs/langs/cpp"),
   csharp: () => import("@shikijs/langs/csharp"),
   ini: () => import("@shikijs/langs/ini"),

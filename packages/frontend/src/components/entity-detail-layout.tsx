@@ -17,6 +17,7 @@ import { IconPicker } from "#/components/icon-picker.tsx";
 import { RightSidebar } from "#/components/right-sidebar.tsx";
 import { TrashEntityDialog } from "#/components/trash-entity-dialog.tsx";
 import { Button } from "@nookly/ui/components/button";
+import { cn } from "@nookly/ui/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { restoreEntity, updateEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
@@ -33,6 +34,7 @@ export function EntityDetailLayout({
   sidebar,
   scrollKey,
   scrollReady = true,
+  flush = false,
   children,
 }: {
   entity: Entity;
@@ -50,6 +52,8 @@ export function EntityDetailLayout({
   scrollKey?: string;
   /// Holds the restore back until the body is tall enough to scroll to it.
   scrollReady?: boolean;
+  /// Drops the margin around the body, for content that fills it, like a file.
+  flush?: boolean;
   children: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
@@ -183,7 +187,10 @@ export function EntityDetailLayout({
             {/* The right sidebar hosts these at `lg` and up; below that it's hidden. */}
             {actions("@3xl:hidden")}
           </div>
-          <div ref={bodyRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
+          <div
+            ref={bodyRef}
+            className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto", !flush && "p-4")}
+          >
             {children}
           </div>
           {bodyOverlay?.(bodyRef)}

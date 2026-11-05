@@ -140,7 +140,8 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
   const listRef = useRef<SuggestionListHandle>(null);
 
   useEffect(() => {
-    if (!editor) return;
+    // A destroyed editor has no view to read (Tiptap throws); the next editor sets this up again.
+    if (!editor || editor.isDestroyed) return;
     const dom = editor.view.dom;
 
     const measure = (block: HTMLElement) => measureBlock(dom, block);
