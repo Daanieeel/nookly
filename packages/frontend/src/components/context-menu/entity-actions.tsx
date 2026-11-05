@@ -19,7 +19,7 @@ import type { CSSProperties } from "react";
 import { useCloseAfterSuccess } from "#/components/action-feedback.tsx";
 import { NewLabelForm } from "#/components/label-manager.tsx";
 import { SpaceGlyph } from "#/components/spotlight.tsx";
-import { TrashEntityDialog } from "#/components/trash-entity-dialog.tsx";
+import { trashEntity } from "#/components/trash-entity.ts";
 import { pickableRelationshipTypes } from "#/features/relationships/RelationshipsPanel.tsx";
 import { RelatePicker } from "#/features/relationships/RelatePickerPopover.tsx";
 import { duplicateEntity, restoreEntity, updateEntity } from "#/lib/api/entities.ts";
@@ -212,17 +212,12 @@ registerActions("entity", [
     icon: IconTrash,
     destructive: true,
     run: ({ entity }, helpers) =>
-      helpers.openDialog((close) => (
-        <TrashEntityDialog
-          entity={entity}
-          open
-          onOpenChange={(open) => !open && close()}
-          onTrashed={() => {
-            if (isViewing(entity)) useNavStore.getState().setView(viewAfterTrash(entity));
-            void helpers.refresh();
-          }}
-        />
-      )),
+      trashEntity(entity, {
+        refresh: helpers.refresh,
+        onTrashed: () => {
+          if (isViewing(entity)) useNavStore.getState().setView(viewAfterTrash(entity));
+        },
+      }),
   },
 ]);
 

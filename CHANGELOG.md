@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.64.4 (2026-11-05)
+
+### Changed
+
+- Moving an item to Trash no longer asks first. It happens right away, and a message with Undo appears so you can bring it back at once.
+
 ## 0.64.3 (2026-11-05)
 
 ### Added
