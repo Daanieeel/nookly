@@ -14,6 +14,8 @@ pub mod deck_json;
 pub mod decks;
 #[cfg(test)]
 mod decks_tests;
+#[cfg(debug_assertions)]
+mod dev_seed;
 pub mod entities;
 pub mod exams;
 #[cfg(test)]
@@ -246,6 +248,15 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             return Err(e);
         }
     };
+    // A debug build (`bun run dev`) that opens an empty database gets sample data.
+    #[cfg(debug_assertions)]
+    match dev_seed::seed_if_empty(&conn) {
+        Ok(true) => tracing::info!("filled the empty development database with sample data"),
+        Ok(false) => {}
+        Err(e) => {
+            tracing::warn!(error = %e, "could not add sample data to the development database")
+        }
+    }
     app.manage(DbState(Mutex::new(conn)));
     watch_external_changes(app.handle().clone());
     Ok(())
