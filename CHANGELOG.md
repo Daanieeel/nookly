@@ -327,22 +327,11 @@ All notable changes to Nookly are listed here.
 
 - **Due before the next session.** An assignment due before the next session now stays on that session once it starts, instead of moving on to the one after it.
 
-## 0.42.1 (2026-10-22)
-
-### Changed
-
-- **Plot window.** Set what a plot shows with `window: -10..10`, or `window: -10..10, -2..8` to set the height too.
-- **Plot legend.** The legend in the corner of a plot is larger and easier to read.
-
-### Fixed
-
-- **Formulas in PDF and Word exports.** Inline math in PDFs is now drawn as real formulas, with proper fractions and sums, and the export preview shows them that way too. Word files get real Word equations you can edit.
-
 ## 0.42.0 (2026-10-21)
 
 ### Added
 
-- **Plots.** Type /plot in a page to draw functions, points and lines in a coordinate system. Write one per line, like `f(x) = x^2 - 2` or `A = (1, 2)`, and the preview shows the grid, the axes, every curve in its own color and a legend. Plots come along into PDF, Word and OpenDocument exports.
+- **Plots.** Type /plot in a page to draw functions, points and lines in a coordinate system. Write one per line, like `f(x) = x^2 - 2` or `A = (1, 2)`, and the preview shows the grid, the axes, every curve in its own color and a legend. Set what a plot shows with `window: -10..10`, or `window: -10..10, -2..8` to set the height too. Plots come along into PDF, Word and OpenDocument exports.
 
 ## 0.41.0 (2026-10-21)
 
@@ -358,7 +347,7 @@ All notable changes to Nookly are listed here.
 
 ### Fixed
 
-- **Inline math in exports.** Formulas inside text now show as formulas in Word and OpenDocument files. In PDFs they are written out with real symbols such as ℕ, ∧ and ⇒ instead of raw LaTeX.
+- **Inline math in exports.** Formulas inside text now show as real formulas in PDF, Word and OpenDocument files instead of raw LaTeX, with proper fractions and sums in PDFs and the export preview. Word files get real Word equations you can edit.
 
 ## 0.40.0 (2026-10-20)
 
@@ -438,12 +427,6 @@ All notable changes to Nookly are listed here.
 
 - **Quick filters star a filter, not its choices.** Star a filter such as Course in the Filter menu to keep it next to the Filter button, where one click opens its choices.
 - **Checkboxes keep their size.** The checkboxes in the Filter menu no longer get squeezed when a name is long.
-
-## 0.37.2 (2026-10-16)
-
-### Fixed
-
-- **Split view is faster.** Zooming a group with the shortcut is quicker and the page stays put instead of reloading, and dragging the divider between two groups is smooth.
 
 ## 0.37.1 (2026-10-16)
 
@@ -532,7 +515,6 @@ All notable changes to Nookly are listed here.
 ### Fixed
 
 - **Long label names no longer squash their checkbox** in the label picker.
-- **The attach menu finds files with accents in their name.** Typing "Übungs" now finds "Übungsblatt 2.pdf", and "ubungs" finds it too.
 
 ## 0.34.7 (2026-10-16)
 

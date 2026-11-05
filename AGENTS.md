@@ -34,6 +34,13 @@ A good `title` is the feature names, short and in plain words. A good `summary` 
 
 **After every version bump, `CHANGELOG.md` and `whats-new.json` must be brought up to date in the same commit.** The bumped version needs its `## x.y.z` section in the changelog, and an entry in `whats-new.json` as well: a card under `highlights` for a feature, or just a line under `more` (empty `highlights`, and no `title` or `summary`) for a smaller improvement or fix. A bump nobody can notice (a cleanup, a refactor) gets its `CHANGELOG.md` section but no `whats-new.json` entry and no "Nothing looks different" filler. Never leave either file behind the version in `package.json` otherwise.
 
+**One branch is one version bump, not one bump per request.** A version is a release unit. Nobody can have seen a version that is not merged yet, so a follow-up change on the same branch or in the same session is never a new version and never a new entry for something users could not have seen. Before bumping, compare the version on your branch with the version on `main`. If your branch is already ahead, that version is yours and still unreleased: keep it, and fold the new work into its existing `CHANGELOG.md` section and `whats-new.json` entry instead of bumping again. Only bump when the branch is still on the same version as `main`. This refines the bump rule above.
+
+When a follow-up changes or fixes something you added earlier on the same branch, edit or reword that existing line or card so it describes the final result. Do not add a second line for the tweak and never a `Fixed` line for a bug users never had. Add a new line only when the follow-up is a separate change a user would notice on its own. Before you finish, check that the unreleased version describes what ships, once.
+
+- Bad: a mooing cow on scroll, then "moves left to right" as 0.65.1, then "now black" as 0.65.2, each with its own entry
+- Good: one bump to 0.65.0 with one card, "A cow that moos as you scroll", reworded to say it is a black cow that walks across the screen
+
 Quick map:
 
 - Where does code go, how do imports work? Read `development/monorepo.md`.

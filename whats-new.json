@@ -432,26 +432,12 @@
       }
     },
     {
-      "version": "0.42.1",
-      "date": "2026-10-22",
-      "highlights": [],
-      "more": {
-        "Improved": [
-          "Set what a plot shows with `window: -10..10`, or `window: -10..10, -2..8` to set the height too.",
-          "The legend in the corner of a plot is larger and easier to read."
-        ],
-        "Fixed": [
-          "Inline math in PDF exports and the export preview is drawn as real formulas, and Word files get real equations you can edit."
-        ]
-      }
-    },
-    {
       "version": "0.42.0",
       "date": "2026-10-21",
       "highlights": [
         {
           "title": "Plots",
-          "description": "Type **/plot** and write `f(x) = x^2 - 2` or `A = (1, 2)`, one per line, to see them in a coordinate system.",
+          "description": "Type **/plot** and write `f(x) = x^2 - 2` or `A = (1, 2)`, one per line, to see them in a coordinate system. Set the view with `window: -10..10`.",
           "icon": "chart-line",
           "tag": "New"
         }
@@ -478,7 +464,7 @@
       "highlights": [],
       "more": {
         "Fixed": [
-          "Inline math in PDF, Word and OpenDocument exports shows as formulas instead of raw LaTeX."
+          "Inline math in PDF, Word and OpenDocument exports shows as real formulas instead of raw LaTeX, and Word files get equations you can edit."
         ]
       }
     },
@@ -591,16 +577,6 @@
       "more": {
         "Fixed": [
           "Quick filters now star a filter such as Course in the Filter menu, and one click opens its choices."
-        ]
-      }
-    },
-    {
-      "version": "0.37.2",
-      "date": "2026-10-16",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Zooming a split group is faster and no longer reloads the page, and dragging the divider between groups is smooth."
         ]
       }
     },
@@ -749,10 +725,7 @@
         }
       ],
       "more": {
-        "Fixed": [
-          "Long label names no longer squash their checkbox in the label picker.",
-          "The attach menu finds files with accents in their name, so \"Übungs\" finds \"Übungsblatt 2.pdf\"."
-        ]
+        "Fixed": ["Long label names no longer squash their checkbox in the label picker."]
       }
     },
     {
