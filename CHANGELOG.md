@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.61.1 (2026-11-05)
+
+### Fixed
+
+- **Closed unexpectedly message.** The message no longer shows up after an update for something that happened in an older version, and its buttons now fit inside the window.
+
 ## 0.61.0 (2026-11-04)
 
 ### Added

@@ -4315,9 +4315,9 @@ fn crash_report_files_round_trip() {
         crate::crash_report::record(chrono::Utc::now(), "0.58.0", "panicked at a.rs:1:1: boom"),
     )
     .unwrap();
-    let report = crate::crash_report::latest_unseen(&dir).unwrap();
+    let report = crate::crash_report::latest_unseen(&dir, "0.58.0").unwrap();
     crate::crash_report::dismiss(&dir, &report.occurred_at).unwrap();
-    assert!(crate::crash_report::latest_unseen(&dir).is_none());
+    assert!(crate::crash_report::latest_unseen(&dir, "0.58.0").is_none());
 }
 
 // ---------------------------------------------------------------- portable
