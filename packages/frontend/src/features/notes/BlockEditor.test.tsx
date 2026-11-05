@@ -46,8 +46,14 @@ describe("dragging a file over the block editor", () => {
   beforeEach(() => {
     installTauriMock();
     mockCommand("list_blocks", []);
+    // ProseMirror's own drop cursor asks the document what is under the pointer; jsdom has no
+    // such lookup. Nothing there leaves the cursor to the line the test draws itself.
+    Object.assign(document, { elementFromPoint: () => null });
   });
-  afterEach(uninstallTauriMock);
+  afterEach(() => {
+    uninstallTauriMock();
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
 
   const files = { dataTransfer: { types: ["Files"] } };
 
