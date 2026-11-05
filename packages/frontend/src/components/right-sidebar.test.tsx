@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { TabGroupContext } from "#/components/tab-group-scope.ts";
@@ -42,6 +42,41 @@ describe("RightSidebar", () => {
     // separator line), which squeezed a bare button's label to its top edge. The
     // button sits in a section of its own, so the padding goes there.
     expect(button.parentElement).not.toBe(sections);
+  });
+
+  describe("while a file is dragged over it", () => {
+    function mockPanels() {
+      mockCommand("list_relationships", []);
+      mockCommand("list_relationship_types", []);
+      mockCommand("list_blocks", []);
+      mockCommand("list_mentioning_entities", []);
+      mockCommand("list_labels", []);
+      mockCommand("list_labels_for_entity", []);
+      mockCommand("list_spaces", []);
+    }
+    const files = { dataTransfer: { types: ["Files"] } };
+
+    it("says that dropping attaches it", async () => {
+      mockPanels();
+      renderWithProviders(
+        <RightSidebar entity={makeEntity({ type: "task" })} actions={() => null} />,
+      );
+      const heading = await screen.findByText("Relationships");
+      fireEvent.dragEnter(heading, files);
+      expect(screen.getByText("Drop to attach files")).toBeInTheDocument();
+      fireEvent.drop(heading, files);
+      expect(screen.queryByText("Drop to attach files")).not.toBeInTheDocument();
+    });
+
+    it("shows nothing on a file, which takes no attachments", async () => {
+      mockPanels();
+      renderWithProviders(
+        <RightSidebar entity={makeEntity({ type: "file" })} actions={() => null} />,
+      );
+      const heading = await screen.findByText("Relationships");
+      fireEvent.dragEnter(heading, files);
+      expect(screen.queryByText("Drop to attach files")).not.toBeInTheDocument();
+    });
   });
 
   describe("in a split", () => {

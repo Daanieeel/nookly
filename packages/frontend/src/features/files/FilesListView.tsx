@@ -340,7 +340,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
         create: startImport,
       })}
     >
-      {over && <FileDropOverlay />}
+      {over && <FileDropOverlay label="Drop to import files" />}
       <PageHeader>
         <PageHeaderTitle icon={IconFile}>Files</PageHeaderTitle>
         {files.some((f) => f.needsReindex) && (

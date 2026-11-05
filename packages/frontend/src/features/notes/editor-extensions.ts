@@ -76,6 +76,8 @@ export function editorExtensions({
   return [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4, 5, 6] },
+      // The line shown where a drop lands; the class colors it (see `styles.css`).
+      dropcursor: { color: false, width: 2, class: "nookly-drop-cursor" },
       link: {
         openOnClick: false,
         autolink: false,

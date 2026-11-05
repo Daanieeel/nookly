@@ -26,11 +26,16 @@ export function readDropZone(element: Element | null): DropZone | null {
 /// Files and bookmarks are what gets attached, so they have no attachments of their own.
 const NOT_ATTACHABLE = new Set(["file", "bookmark", "view"]);
 
+/// Whether a page of this type takes dropped files as attachments.
+export function isAttachable(entityType: string): boolean {
+  return !NOT_ATTACHABLE.has(entityType);
+}
+
 async function attachTarget(entityId: string | undefined): Promise<string | null> {
   if (!entityId) return null;
   try {
     const entity = await getEntity(entityId);
-    return NOT_ATTACHABLE.has(entity.type) ? null : entity.id;
+    return isAttachable(entity.type) ? entity.id : null;
   } catch {
     return null;
   }
