@@ -266,7 +266,7 @@ export function PdfViewer({
   );
 
   return (
-    <div className="flex size-full flex-col overflow-hidden rounded-md border border-border">
+    <div className="flex size-full flex-col overflow-hidden">
       <PdfToolbar
         numPages={numPages}
         currentPage={currentPage}

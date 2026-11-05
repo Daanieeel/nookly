@@ -1,6 +1,30 @@
 {
   "versions": [
     {
+      "version": "0.64.2",
+      "date": "2026-11-05",
+      "title": "A cleaner file view",
+      "summary": "Files fill their page.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "A file now fills its page without a margin or border around it, the same as a file from Moodle."
+        ]
+      }
+    },
+    {
+      "version": "0.64.1",
+      "date": "2026-11-05",
+      "title": "A fix",
+      "summary": "Opening a note no longer fails at first.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Fixed opening a note sometimes showing \"Something went wrong showing this view\" until you pressed Try Again."
+        ]
+      }
+    },
+    {
       "version": "0.64.0",
       "date": "2026-11-05",
       "highlights": [

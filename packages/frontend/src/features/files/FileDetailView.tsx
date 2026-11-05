@@ -93,6 +93,7 @@ export function FileDetailView({ entity }: { entity: Entity }) {
       sidebar={file && <FileProperties file={file} />}
       scrollKey={`file:${entity.id}`}
       scrollReady={!!file}
+      flush
     >
       {file ? (
         <ErrorBoundary
@@ -102,7 +103,9 @@ export function FileDetailView({ entity }: { entity: Entity }) {
           <FileViewer file={file} initialPage={page} onInitialPageShown={clearFocusBlock} />
         </ErrorBoundary>
       ) : (
-        <div className="size-full animate-pulse rounded-lg bg-muted/40" />
+        <div className="size-full p-4">
+          <div className="size-full animate-pulse rounded-lg bg-muted/40" />
+        </div>
       )}
     </EntityDetailLayout>
   );
@@ -227,7 +230,7 @@ export function MarkdownFileViewer({ file, src }: { file: FileEntity; src: strin
       {text !== undefined && <CopyContentButton text={text} />}
       <div
         className={cn(
-          "min-h-full rounded-md border border-border bg-background p-12 text-foreground",
+          "min-h-full bg-background p-12 text-foreground",
           fileViewerThemeClass(isDark),
           text === undefined && "animate-pulse",
         )}
@@ -263,8 +266,8 @@ function TextBody({
   return (
     <pre
       className={cn(
-        "min-h-full rounded-md border border-border bg-muted/30 p-4 font-mono text-xs/relaxed",
-        // The background, border and token colors above all draw from
+        "min-h-full bg-muted/30 p-4 font-mono text-xs/relaxed",
+        // The background and token colors above all draw from
         // Tailwind's tokens, so this scopes them to the file viewer's own
         // theme instead of the app's — `file-viewer-theme.ts`.
         fileViewerThemeClass(isDark),

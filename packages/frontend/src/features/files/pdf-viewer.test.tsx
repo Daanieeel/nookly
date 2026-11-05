@@ -71,6 +71,15 @@ beforeEach(() => {
   );
 });
 
+describe("PdfViewer frame", () => {
+  it("has no border or corners of its own, the page around it frames it", async () => {
+    const { container } = renderWithProviders(viewer());
+    const root = container.firstElementChild;
+    expect(root?.classList.contains("border")).toBe(false);
+    expect(root?.classList.contains("rounded-md")).toBe(false);
+  });
+});
+
 describe("PdfViewer load errors", () => {
   it("shows the error with a Try Again button", async () => {
     loads.failures = 1;

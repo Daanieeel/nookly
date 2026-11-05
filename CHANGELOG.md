@@ -2,6 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.64.2 (2026-11-05)
+
+### Changed
+
+- A file now fills its page without a margin or border around it, the same as a file from Moodle.
+
+## 0.64.1 (2026-11-05)
+
+### Fixed
+
+- Fixed opening a note sometimes showing "Something went wrong showing this view" until you pressed Try Again.
+
 ## 0.64.0 (2026-11-05)
 
 ### Added
