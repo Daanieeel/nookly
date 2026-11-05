@@ -71,7 +71,10 @@ describe("dragging a file over the block editor", () => {
     expect(queryByTestId("file-drop-slot")).toBeNull();
     addDropCursor(root);
     fireEvent.dragOver(content, files);
-    expect(queryByTestId("file-drop-slot")).not.toBeNull();
+    const box = queryByTestId("file-drop-slot");
+    expect(box).not.toBeNull();
+    // Below the line (120px + its 2px height), with a small gap.
+    expect(box?.style.getPropertyValue("--slot-top")).toBe("128px");
     expect(queryByTestId("file-drop-overlay")).toBeNull();
   });
 

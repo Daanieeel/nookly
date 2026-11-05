@@ -26,12 +26,12 @@ export interface DropSlot {
   width: number;
 }
 
-/// A dashed box at the spot a dropped file will be placed, centered on the line that marks it.
+/// A dashed box at the spot a dropped file will be placed; `slot.top` is its top edge.
 export function FileDropSlot({ slot, label }: { slot: DropSlot; label: string }) {
   return (
     <div
       data-testid="file-drop-slot"
-      className="pointer-events-none absolute top-(--slot-top) left-(--slot-left) z-50 flex h-14 w-(--slot-width) -translate-y-1/2 items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-background/80 text-sm font-medium backdrop-blur-sm"
+      className="pointer-events-none absolute top-(--slot-top) left-(--slot-left) z-50 flex h-14 w-(--slot-width) items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-background/80 text-sm font-medium backdrop-blur-sm"
       // SAFETY: pixel lengths read from the drop cursor's own box.
       style={
         {
