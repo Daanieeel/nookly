@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.61.2",
+      "date": "2026-11-05",
+      "title": "Small tidy up",
+      "summary": "Nothing looks or works differently.",
+      "highlights": [],
+      "more": {
+        "Improved": ["Small behind the scenes tidy up."]
+      }
+    },
+    {
       "version": "0.61.1",
       "date": "2026-11-05",
       "highlights": [],
