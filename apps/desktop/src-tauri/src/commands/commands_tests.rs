@@ -568,7 +568,7 @@ const MISSING: &str = "00000000-0000-0000-0000-000000000000";
 fn every_registered_command_is_covered() {
     let lib = include_str!("../lib.rs");
     let start = lib.find("generate_handler![").unwrap() + "generate_handler![".len();
-    let end = start + lib[start..].find("])").unwrap();
+    let end = start + lib[start..].find("\n    ]").unwrap();
     let registered: std::collections::BTreeSet<&str> = lib[start..end]
         .split(',')
         .filter_map(|item| item.trim().strip_prefix("commands::"))

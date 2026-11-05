@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.62.1",
+      "date": "2026-11-05",
+      "title": "Steadier behind the scenes",
+      "summary": "Small cleanups to keep Nookly stable.",
+      "highlights": [],
+      "more": {
+        "Improved": ["Small cleanups to keep Nookly stable. Nothing looks different."]
+      }
+    },
+    {
       "version": "0.62.0",
       "date": "2026-11-05",
       "highlights": [

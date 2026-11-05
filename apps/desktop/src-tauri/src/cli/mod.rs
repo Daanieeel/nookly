@@ -421,162 +421,15 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
     };
     run_command(&rest[1..], |args| match verb.as_str() {
         "list" => list_entities(conn, def, args),
-        "get" => {
-            if args.positional.len() <= 1 {
-                let id = args.require_entity(conn, 0, "id")?;
-                return get_entity(conn, def, &id, args);
-            }
-            // Bulk: one bad ref doesn't sink the rest, it becomes an `error` row.
-            let items: Vec<Value> = args
-                .positional
-                .iter()
-                .map(|raw| {
-                    crate::db::entities::resolve_entity_ref(conn, raw)
-                        .and_then(|id| get_entity(conn, def, &id, args))
-                        .unwrap_or_else(|e| json!({ "ref": raw, "error": e }))
-                })
-                .collect();
-            Ok(json!({ "entityType": entity_type, "count": items.len(), "items": items }))
-        }
-        "create" => {
-            validate_fields(entity_type, def, &args.fields, true)?;
-            let coerced = coerce_fields(def, &args.fields)?;
-            let space_id = args.require_flag("space")?;
-            let title = args.require_flag("title")?;
-            let icon = args.flag("icon");
-            let fields = resolve_ref_fields(conn, def, &coerced)?;
-            let input = schema::CreateInput {
-                space_id,
-                title,
-                fields,
-            };
-            let data = (def.create)(conn, input)?;
-            let id = extract_id(&data)?;
-            // `icon` is base-entity data (§ entity model), not a module field —
-            // every `create_*` fn takes it as `None` today, so it's applied
-            // here generically rather than threading it through every module.
-            let data = if icon.is_some() {
-                crate::db::entities::update_entity(
-                    conn,
-                    &id,
-                    crate::db::entities::EntityPatch {
-                        icon,
-                        ..Default::default()
-                    },
-                )?;
-                (def.get)(conn, &id)?
-            } else {
-                data
-            };
-            enrich(conn, entity_type, &id, data)
-        }
-        "update" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            validate_fields(entity_type, def, &args.fields, false)?;
-            let coerced = coerce_fields(def, &args.fields)?;
-            let before = (def.get)(conn, &id)?;
-            args.check_revision(&before)?;
-            let title = args.flag("title");
-            let icon = args.flag("icon");
-            let pinned = match args.flag("pinned").as_deref() {
-                None => None,
-                Some("true") => Some(true),
-                Some("false") => Some(false),
-                Some(other) => {
-                    return Err(AppError::InvalidInput(format!(
-                        "--pinned takes true or false, got '{other}'"
-                    )))
-                }
-            };
-            let space_id = args.flag("space");
-            if title.is_some() || icon.is_some() || pinned.is_some() || space_id.is_some() {
-                crate::db::entities::update_entity(
-                    conn,
-                    &id,
-                    crate::db::entities::EntityPatch {
-                        title,
-                        icon,
-                        pinned,
-                        space_id,
-                    },
-                )?;
-            }
-            let fields = resolve_ref_fields(conn, def, &coerced)?;
-            (def.update)(conn, &id, &fields)?;
-            let after = (def.get)(conn, &id)?;
-            let changes = view::diff_values(&before, &after);
-            let mut result = enrich(conn, entity_type, &id, after)?;
-            result["changes"] = json!(changes);
-            Ok(result)
-        }
-        "delete" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            args.require_yes()?;
-            args.check_revision(&(def.get)(conn, &id)?)?;
-            crate::db::entities::soft_delete_entity(conn, &id)?;
-            let key = crate::db::entities::entity_key(conn, &id)?;
-            Ok(
-                json!({ "deleted": id, "key": key, "note": "soft delete only, recoverable with `restore`, see Trash" }),
-            )
-        }
-        "duplicate" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            let data = schema::duplicate(conn, &id)?;
-            let new_id = extract_id(&data)?;
-            enrich(conn, entity_type, &new_id, data)
-        }
-        "convert" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            let to = args.require_flag("to")?;
-            args.check_revision(&(def.get)(conn, &id)?)?;
-            schema::convert(conn, &id, &to)?;
-            let target = schema::lookup(&to).ok_or_else(|| unknown_entity_type(&to))?;
-            let data = (target.get)(conn, &id)?;
-            enrich(conn, &to, &id, data)
-        }
-        "restore" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            crate::db::entities::restore_entity(conn, &id)?;
-            let data = (def.get)(conn, &id)?;
-            enrich(conn, entity_type, &id, data)
-        }
-        "export" => {
-            let id = args.require_entity(conn, 0, "id")?;
-            let portable = portable_def(entity_type)?;
-            let text = (portable.export)(conn, &id)?;
-            match args.flag("out") {
-                // Written next to nothing else of Nookly's: the path is the caller's.
-                Some(path) => {
-                    std::fs::write(&path, &text).map_err(|e| AppError::Io(e.to_string()))?;
-                    Ok(json!({ "exported": id, "format": portable.format, "path": path }))
-                }
-                None => serde_json::from_str(&text).map_err(|e| AppError::Io(e.to_string())),
-            }
-        }
-        "import" => {
-            let portable = portable_def(entity_type)?;
-            let path = args.require_flag("file")?;
-            let space_id = args.require_flag("space")?;
-            let parent = match args.flag("parent") {
-                Some(raw) => Some(crate::db::entities::resolve_entity_ref(conn, &raw)?),
-                None => None,
-            };
-            let text = read_import_file(&path)?;
-            // A task file is imported as a task: `nookly cli deck import` refuses it by name.
-            let format = crate::db::portable::format_of(&text)?;
-            if format != portable.format {
-                return Err(AppError::InvalidInput(format!(
-                    "this file is a {format} file, not a {} file. Import it with `nookly cli <type> import` \
-                     for its own type (`describe <type>` lists `portable`)",
-                    portable.format
-                )));
-            }
-            let created = crate::db::portable::import(conn, &space_id, parent.as_deref(), &text)?;
-            let data = schema::lookup(&created.entity_type)
-                .ok_or_else(|| unknown_entity_type(&created.entity_type))
-                .and_then(|def| (def.get)(conn, &created.id))?;
-            enrich(conn, &created.entity_type, &created.id, data)
-        }
+        "get" => entity_get(conn, def, entity_type, args),
+        "create" => entity_create(conn, def, entity_type, args),
+        "update" => entity_update(conn, def, entity_type, args),
+        "delete" => entity_delete(conn, def, args),
+        "duplicate" => entity_duplicate(conn, entity_type, args),
+        "convert" => entity_convert(conn, def, args),
+        "restore" => entity_restore(conn, def, entity_type, args),
+        "export" => entity_export(conn, entity_type, args),
+        "import" => entity_import(conn, entity_type, args),
         "blocks" | "grep" | "add-block" | "update-block" | "delete-block" | "reorder-blocks" => {
             if !def.supports_blocks && schema::embedded_page(entity_type).is_none() {
                 return Err(AppError::InvalidInput(format!(
@@ -586,64 +439,265 @@ fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppR
             }
             block_command(conn, def, verb, args)
         }
-        other => {
-            if let Some(action) = schema::entity_actions(entity_type)
-                .into_iter()
-                .find(|a| a.name == other)
-            {
-                let id = args.require_entity(conn, 0, "id")?;
-                validate_child_fields(action.name, action.fields, &args.fields, true)?;
-                let title = args.flag("title");
-                return atomically(conn, || {
-                    (action.run)(conn, &id, title.as_deref(), &args.fields)
-                });
-            }
-            if let Some(bulk) = schema::bulk_actions(entity_type)
-                .into_iter()
-                .find(|a| a.name == other)
-            {
-                let space_id = args.flag("space");
-                return (bulk.run)(conn, space_id.as_deref());
-            }
-            if let Some(result) = child_command(conn, def, other, args) {
-                return result;
-            }
-            let child_verbs: Vec<String> = schema::child_collections(entity_type)
-                .iter()
-                .flat_map(|c| {
-                    let one = c.singular;
-                    [c.plural.to_string()].into_iter().chain(
-                        ["get", "add", "update", "delete", "restore"]
-                            .into_iter()
-                            .chain(c.actions.iter().map(|a| a.name))
-                            .map(move |verb| format!("{verb}-{one}")),
-                    )
-                })
-                .collect();
-            let bulk_verbs: Vec<&str> = schema::bulk_actions(entity_type)
-                .iter()
-                .map(|a| a.name)
-                .collect();
-            let action_verbs: Vec<&str> = schema::entity_actions(entity_type)
-                .iter()
-                .map(|a| a.name)
-                .collect();
-            let extra = [
-                child_verbs.join(", "),
-                bulk_verbs.join(", "),
-                action_verbs.join(", "),
-            ]
-            .into_iter()
-            .filter(|s| !s.is_empty())
-            .map(|s| format!(", {s}"))
-            .collect::<String>();
-            Err(AppError::InvalidInput(format!(
-                "unknown verb '{other}' for entity type '{entity_type}'. Expected one of: list, get, create, \
-                 update, duplicate, delete, restore, blocks, grep, add-block, update-block, delete-block, \
-                 reorder-blocks{extra}"
+        other => entity_custom_verb(conn, def, entity_type, other, args),
+    })
+}
+
+fn entity_get(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    entity_type: &str,
+    args: &Args,
+) -> AppResult<Value> {
+    if args.positional.len() <= 1 {
+        let id = args.require_entity(conn, 0, "id")?;
+        return get_entity(conn, def, &id, args);
+    }
+    // Bulk: one bad ref doesn't sink the rest, it becomes an `error` row.
+    let items: Vec<Value> = args
+        .positional
+        .iter()
+        .map(|raw| {
+            crate::db::entities::resolve_entity_ref(conn, raw)
+                .and_then(|id| get_entity(conn, def, &id, args))
+                .unwrap_or_else(|e| json!({ "ref": raw, "error": e }))
+        })
+        .collect();
+    Ok(json!({ "entityType": entity_type, "count": items.len(), "items": items }))
+}
+
+fn entity_create(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    entity_type: &str,
+    args: &Args,
+) -> AppResult<Value> {
+    validate_fields(entity_type, def, &args.fields, true)?;
+    let coerced = coerce_fields(def, &args.fields)?;
+    let space_id = args.require_flag("space")?;
+    let title = args.require_flag("title")?;
+    let icon = args.flag("icon");
+    let fields = resolve_ref_fields(conn, def, &coerced)?;
+    let input = schema::CreateInput {
+        space_id,
+        title,
+        fields,
+    };
+    let data = (def.create)(conn, input)?;
+    let id = extract_id(&data)?;
+    // `icon` is base-entity data (§ entity model), not a module field —
+    // every `create_*` fn takes it as `None` today, so it's applied
+    // here generically rather than threading it through every module.
+    let data = if icon.is_some() {
+        crate::db::entities::update_entity(
+            conn,
+            &id,
+            crate::db::entities::EntityPatch {
+                icon,
+                ..Default::default()
+            },
+        )?;
+        (def.get)(conn, &id)?
+    } else {
+        data
+    };
+    enrich(conn, entity_type, &id, data)
+}
+
+fn entity_update(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    entity_type: &str,
+    args: &Args,
+) -> AppResult<Value> {
+    let id = args.require_entity(conn, 0, "id")?;
+    validate_fields(entity_type, def, &args.fields, false)?;
+    let coerced = coerce_fields(def, &args.fields)?;
+    let before = (def.get)(conn, &id)?;
+    args.check_revision(&before)?;
+    let title = args.flag("title");
+    let icon = args.flag("icon");
+    let pinned = match args.flag("pinned").as_deref() {
+        None => None,
+        Some("true") => Some(true),
+        Some("false") => Some(false),
+        Some(other) => {
+            return Err(AppError::InvalidInput(format!(
+                "--pinned takes true or false, got '{other}'"
             )))
         }
-    })
+    };
+    let space_id = args.flag("space");
+    if title.is_some() || icon.is_some() || pinned.is_some() || space_id.is_some() {
+        crate::db::entities::update_entity(
+            conn,
+            &id,
+            crate::db::entities::EntityPatch {
+                title,
+                icon,
+                pinned,
+                space_id,
+            },
+        )?;
+    }
+    let fields = resolve_ref_fields(conn, def, &coerced)?;
+    (def.update)(conn, &id, &fields)?;
+    let after = (def.get)(conn, &id)?;
+    let changes = view::diff_values(&before, &after);
+    let mut result = enrich(conn, entity_type, &id, after)?;
+    result["changes"] = json!(changes);
+    Ok(result)
+}
+
+fn entity_delete(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    args: &Args,
+) -> AppResult<Value> {
+    let id = args.require_entity(conn, 0, "id")?;
+    args.require_yes()?;
+    args.check_revision(&(def.get)(conn, &id)?)?;
+    crate::db::entities::soft_delete_entity(conn, &id)?;
+    let key = crate::db::entities::entity_key(conn, &id)?;
+    Ok(
+        json!({ "deleted": id, "key": key, "note": "soft delete only, recoverable with `restore`, see Trash" }),
+    )
+}
+
+fn entity_duplicate(conn: &Connection, entity_type: &str, args: &Args) -> AppResult<Value> {
+    let id = args.require_entity(conn, 0, "id")?;
+    let data = schema::duplicate(conn, &id)?;
+    let new_id = extract_id(&data)?;
+    enrich(conn, entity_type, &new_id, data)
+}
+
+fn entity_convert(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    args: &Args,
+) -> AppResult<Value> {
+    let id = args.require_entity(conn, 0, "id")?;
+    let to = args.require_flag("to")?;
+    args.check_revision(&(def.get)(conn, &id)?)?;
+    schema::convert(conn, &id, &to)?;
+    let target = schema::lookup(&to).ok_or_else(|| unknown_entity_type(&to))?;
+    let data = (target.get)(conn, &id)?;
+    enrich(conn, &to, &id, data)
+}
+
+fn entity_restore(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    entity_type: &str,
+    args: &Args,
+) -> AppResult<Value> {
+    let id = args.require_entity(conn, 0, "id")?;
+    crate::db::entities::restore_entity(conn, &id)?;
+    let data = (def.get)(conn, &id)?;
+    enrich(conn, entity_type, &id, data)
+}
+
+fn entity_export(conn: &Connection, entity_type: &str, args: &Args) -> AppResult<Value> {
+    let id = args.require_entity(conn, 0, "id")?;
+    let portable = portable_def(entity_type)?;
+    let text = (portable.export)(conn, &id)?;
+    match args.flag("out") {
+        // Written next to nothing else of Nookly's: the path is the caller's.
+        Some(path) => {
+            std::fs::write(&path, &text).map_err(|e| AppError::Io(e.to_string()))?;
+            Ok(json!({ "exported": id, "format": portable.format, "path": path }))
+        }
+        None => serde_json::from_str(&text).map_err(|e| AppError::Io(e.to_string())),
+    }
+}
+
+fn entity_import(conn: &Connection, entity_type: &str, args: &Args) -> AppResult<Value> {
+    let portable = portable_def(entity_type)?;
+    let path = args.require_flag("file")?;
+    let space_id = args.require_flag("space")?;
+    let parent = match args.flag("parent") {
+        Some(raw) => Some(crate::db::entities::resolve_entity_ref(conn, &raw)?),
+        None => None,
+    };
+    let text = read_import_file(&path)?;
+    // A task file is imported as a task: `nookly cli deck import` refuses it by name.
+    let format = crate::db::portable::format_of(&text)?;
+    if format != portable.format {
+        return Err(AppError::InvalidInput(format!(
+            "this file is a {format} file, not a {} file. Import it with `nookly cli <type> import` \
+             for its own type (`describe <type>` lists `portable`)",
+            portable.format
+        )));
+    }
+    let created = crate::db::portable::import(conn, &space_id, parent.as_deref(), &text)?;
+    let data = schema::lookup(&created.entity_type)
+        .ok_or_else(|| unknown_entity_type(&created.entity_type))
+        .and_then(|def| (def.get)(conn, &created.id))?;
+    enrich(conn, &created.entity_type, &created.id, data)
+}
+
+fn entity_custom_verb(
+    conn: &Connection,
+    def: &schema::EntitySchemaDef,
+    entity_type: &str,
+    other: &str,
+    args: &Args,
+) -> AppResult<Value> {
+    if let Some(action) = schema::entity_actions(entity_type)
+        .into_iter()
+        .find(|a| a.name == other)
+    {
+        let id = args.require_entity(conn, 0, "id")?;
+        validate_child_fields(action.name, action.fields, &args.fields, true)?;
+        let title = args.flag("title");
+        return atomically(conn, || {
+            (action.run)(conn, &id, title.as_deref(), &args.fields)
+        });
+    }
+    if let Some(bulk) = schema::bulk_actions(entity_type)
+        .into_iter()
+        .find(|a| a.name == other)
+    {
+        let space_id = args.flag("space");
+        return (bulk.run)(conn, space_id.as_deref());
+    }
+    if let Some(result) = child_command(conn, def, other, args) {
+        return result;
+    }
+    let child_verbs: Vec<String> = schema::child_collections(entity_type)
+        .iter()
+        .flat_map(|c| {
+            let one = c.singular;
+            [c.plural.to_string()].into_iter().chain(
+                ["get", "add", "update", "delete", "restore"]
+                    .into_iter()
+                    .chain(c.actions.iter().map(|a| a.name))
+                    .map(move |verb| format!("{verb}-{one}")),
+            )
+        })
+        .collect();
+    let bulk_verbs: Vec<&str> = schema::bulk_actions(entity_type)
+        .iter()
+        .map(|a| a.name)
+        .collect();
+    let action_verbs: Vec<&str> = schema::entity_actions(entity_type)
+        .iter()
+        .map(|a| a.name)
+        .collect();
+    let extra = [
+        child_verbs.join(", "),
+        bulk_verbs.join(", "),
+        action_verbs.join(", "),
+    ]
+    .into_iter()
+    .filter(|s| !s.is_empty())
+    .map(|s| format!(", {s}"))
+    .collect::<String>();
+    Err(AppError::InvalidInput(format!(
+        "unknown verb '{other}' for entity type '{entity_type}'. Expected one of: list, get, create, \
+         update, duplicate, delete, restore, blocks, grep, add-block, update-block, delete-block, \
+         reorder-blocks{extra}"
+    )))
 }
 
 /// Unknown and missing fields against a child collection's or action's own list.
@@ -947,6 +1001,41 @@ fn get_entity(
     Ok(result)
 }
 
+/// What the block verbs need to find and read a page: the owner's page for a type with an
+/// embedded one (a Course's notes), or the entity itself.
+struct BlockPage<'a> {
+    conn: &'a Connection,
+    def: &'a schema::EntitySchemaDef,
+    embedded: Option<&'static schema::EmbeddedPageDef>,
+    entity_type: &'a str,
+    get_page: fn(&Connection, &str) -> AppResult<Value>,
+}
+
+impl BlockPage<'_> {
+    fn target_page(&self, args: &Args) -> AppResult<String> {
+        let id = args.require_entity(self.conn, 0, "id")?;
+        if let Some(e) = self.embedded {
+            if crate::db::entities::get_entity(self.conn, &id)?.entity_type == self.def.entity_type
+            {
+                return Ok((e.resolve)(self.conn, &id)?.id);
+            }
+        }
+        require_page(self.conn, self.entity_type, &id)?;
+        Ok(id)
+    }
+}
+
+fn require_page(conn: &Connection, entity_type: &str, id: &str) -> AppResult<()> {
+    let entity = crate::db::entities::get_entity(conn, id)?;
+    if entity.entity_type != entity_type {
+        return Err(AppError::InvalidInput(format!(
+            "{id} is a '{}', not a '{entity_type}'",
+            entity.entity_type
+        )));
+    }
+    Ok(())
+}
+
 /// Block-level editing (§2.1: Notes/Jots are "block-level
 /// addressable" pages) for any entity type that opts in via
 /// `EntitySchemaDef::supports_blocks` — currently `note`/`jot`,
@@ -968,181 +1057,193 @@ fn block_command(
     } else {
         schema::embedded_page(def.entity_type)
     };
-    let entity_type = embedded.map_or(def.entity_type, |e| e.page_type);
-    let get_page = if embedded.is_some() {
-        crate::db::notes::cli_get_page
-    } else {
-        def.get
+    let page = BlockPage {
+        conn,
+        def,
+        embedded,
+        entity_type: embedded.map_or(def.entity_type, |e| e.page_type),
+        get_page: if embedded.is_some() {
+            crate::db::notes::cli_get_page
+        } else {
+            def.get
+        },
     };
-    let target_page = |args: &Args| -> AppResult<String> {
-        let id = args.require_entity(conn, 0, "id")?;
-        if let Some(e) = embedded {
-            if crate::db::entities::get_entity(conn, &id)?.entity_type == def.entity_type {
-                return Ok((e.resolve)(conn, &id)?.id);
-            }
-        }
-        require_page(conn, entity_type, &id)?;
-        Ok(id)
-    };
-    fn require_page(conn: &Connection, entity_type: &str, id: &str) -> AppResult<()> {
-        let entity = crate::db::entities::get_entity(conn, id)?;
-        if entity.entity_type != entity_type {
-            return Err(AppError::InvalidInput(format!(
-                "{id} is a '{}', not a '{entity_type}'",
-                entity.entity_type
-            )));
-        }
-        Ok(())
-    }
-
     match verb {
-        "blocks" => {
-            let id = target_page(args)?;
-            let blocks = crate::db::notes::list_blocks(conn, &id)?;
-            let page_key = crate::db::entities::entity_key(conn, &id)?;
-            let total = blocks.len();
-            let offset = args.usize_flag("offset")?.unwrap_or(0);
-            let limit = args.usize_flag("limit")?.unwrap_or(total);
-            let items: Vec<_> = view::blocks_json(&blocks)
-                .into_iter()
-                .skip(offset)
-                .take(limit)
-                .collect();
-            Ok(json!({
-                "pageId": id,
-                "pageKey": page_key,
-                "count": total,
-                "offset": offset,
-                "returned": items.len(),
-                "items": items,
-            }))
-        }
-        "grep" => {
-            let id = target_page(args)?;
-            let pattern = args.require_positional(1, "pattern")?;
-            let re = view::build_pattern(
-                &pattern,
-                args.has_bool("regex"),
-                args.has_bool("case-sensitive"),
-            )?;
-            let context = args.usize_flag("context")?.unwrap_or(0).min(20);
-            let max = args.usize_flag("max")?.unwrap_or(50);
-            let blocks = crate::db::notes::list_blocks(conn, &id)?;
-            let found = view::grep_blocks(&blocks, &re, context, max);
-            let page_key = crate::db::entities::entity_key(conn, &id)?;
-            Ok(json!({
-                "pageId": id,
-                "pageKey": page_key,
-                "pattern": pattern,
-                "count": found.total,
-                "returned": found.items.len(),
-                "blockCount": blocks.len(),
-                "items": found.items,
-            }))
-        }
-        "add-block" => {
-            let id = target_page(args)?;
-            args.check_revision(&get_page(conn, &id)?)?;
-            let block_type = args.require_flag("type")?;
-            let content = args.require_flag("content")?;
-            check_media_content(&block_type, &content)?;
-            let position = args.flag("position").and_then(|v| v.parse::<i64>().ok());
-            // `--language`/`--filename` only mean anything on a `code` block (the
-            // markdown editor's code block header row) — harmless no-ops on any other type.
-            let language = args.flag("language");
-            let filename = args.flag("filename");
-            let submitted_content = content.clone();
-            let mut attrs = args.attrs()?;
-            // Whoever writes these blocks through the CLI wants to see the result, not the
-            // code, so they open on the preview unless `--attr view=...` says otherwise.
-            if matches!(
-                block_type.as_str(),
-                "equation" | "math" | "diagram" | "circuit" | "plot"
-            ) {
-                attrs
-                    .entry("view".to_string())
-                    .or_insert_with(|| "rendered".to_string());
-            }
-            let block = crate::db::notes::create_block_with_attrs(
-                conn, &id, block_type, content, position, language, filename, attrs,
-            )?;
-            let page_key = crate::db::entities::entity_key(conn, &id)?;
-            let mut result = json!({ "pageId": id, "pageKey": page_key, "block": block.clone() });
-            if let Some(warning) = paragraph_mistake_warning(conn, entity_type, &id, &block)? {
-                result["warning"] = json!(warning);
-            }
-            if let Some(warning) = table_normalize_warning(&block, &submitted_content) {
-                result["warning"] = json!(warning);
-            }
-            if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
-                result["warning"] = json!(warning);
-            }
-            add_warning(&mut result, unreachable_file_warning(&block));
-            Ok(result)
-        }
-        "update-block" => {
-            let block_id = args.require_positional(0, "block-id")?;
-            let before = crate::db::notes::get_block(conn, &block_id)?;
-            args.check_revision(&get_page(conn, &before.entity_id)?)?;
-            let submitted_content = args.flag("content");
-            if let Some(content) = &submitted_content {
-                let block_type = args
-                    .flag("type")
-                    .unwrap_or_else(|| before.block_type.clone());
-                check_media_content(&block_type, content)?;
-            }
-            let patch = crate::db::notes::BlockPatch {
-                content: submitted_content.clone(),
-                block_type: args.flag("type"),
-                language: args.flag("language"),
-                filename: args.flag("filename"),
-                attrs: Some(args.attrs()?),
-            };
-            let block = crate::db::notes::update_block(conn, &block_id, patch)?;
-            let changes = view::diff_values(&json!(before), &json!(block));
-            let mut result = json!({ "block": block.clone(), "changes": changes });
-            if let Some(submitted) = &submitted_content {
-                if let Some(warning) = table_normalize_warning(&block, submitted) {
-                    result["warning"] = json!(warning);
-                }
-            }
-            let page_id = block.entity_id.clone();
-            if let Some(warning) = paragraph_mistake_warning(conn, entity_type, &page_id, &block)? {
-                result["warning"] = json!(warning);
-            }
-            if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
-                result["warning"] = json!(warning);
-            }
-            add_warning(&mut result, unreachable_file_warning(&block));
-            Ok(result)
-        }
-        "delete-block" => {
-            let block_id = args.require_positional(0, "block-id")?;
-            args.require_yes()?;
-            let block = crate::db::notes::get_block(conn, &block_id)?;
-            args.check_revision(&get_page(conn, &block.entity_id)?)?;
-            crate::db::notes::delete_block(conn, &block_id)?;
-            Ok(json!({ "deleted": block_id, "block": block }))
-        }
-        "reorder-blocks" => {
-            let id = target_page(args)?;
-            args.check_revision(&get_page(conn, &id)?)?;
-            let ordered_ids: Vec<String> = args.positional[1..].to_vec();
-            if ordered_ids.is_empty() {
-                return Err(AppError::InvalidInput(
-                    "reorder-blocks needs the new order: nookly cli <type> reorder-blocks <id> <block-id> <block-id> ..."
-                        .into(),
-                ));
-            }
-            crate::db::notes::reorder_blocks(conn, &id, ordered_ids)?;
-            let blocks = crate::db::notes::list_blocks(conn, &id)?;
-            let page_key = crate::db::entities::entity_key(conn, &id)?;
-            Ok(
-                json!({ "pageId": id, "pageKey": page_key, "count": blocks.len(), "items": view::blocks_json(&blocks) }),
-            )
-        }
+        "blocks" => block_list(&page, args),
+        "grep" => block_grep(&page, args),
+        "add-block" => block_add(&page, args),
+        "update-block" => block_update(&page, args),
+        "delete-block" => block_delete(&page, args),
+        "reorder-blocks" => block_reorder(&page, args),
         _ => unreachable!("dispatch guarantees verb is one of the block commands"),
     }
+}
+
+fn block_list(page: &BlockPage, args: &Args) -> AppResult<Value> {
+    let BlockPage { conn, .. } = *page;
+    let id = page.target_page(args)?;
+    let blocks = crate::db::notes::list_blocks(conn, &id)?;
+    let page_key = crate::db::entities::entity_key(conn, &id)?;
+    let total = blocks.len();
+    let offset = args.usize_flag("offset")?.unwrap_or(0);
+    let limit = args.usize_flag("limit")?.unwrap_or(total);
+    let items: Vec<_> = view::blocks_json(&blocks)
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect();
+    Ok(json!({
+        "pageId": id,
+        "pageKey": page_key,
+        "count": total,
+        "offset": offset,
+        "returned": items.len(),
+        "items": items,
+    }))
+}
+
+fn block_grep(page: &BlockPage, args: &Args) -> AppResult<Value> {
+    let BlockPage { conn, .. } = *page;
+    let id = page.target_page(args)?;
+    let pattern = args.require_positional(1, "pattern")?;
+    let re = view::build_pattern(
+        &pattern,
+        args.has_bool("regex"),
+        args.has_bool("case-sensitive"),
+    )?;
+    let context = args.usize_flag("context")?.unwrap_or(0).min(20);
+    let max = args.usize_flag("max")?.unwrap_or(50);
+    let blocks = crate::db::notes::list_blocks(conn, &id)?;
+    let found = view::grep_blocks(&blocks, &re, context, max);
+    let page_key = crate::db::entities::entity_key(conn, &id)?;
+    Ok(json!({
+        "pageId": id,
+        "pageKey": page_key,
+        "pattern": pattern,
+        "count": found.total,
+        "returned": found.items.len(),
+        "blockCount": blocks.len(),
+        "items": found.items,
+    }))
+}
+
+fn block_add(page: &BlockPage, args: &Args) -> AppResult<Value> {
+    let BlockPage {
+        conn,
+        entity_type,
+        get_page,
+        ..
+    } = *page;
+    let id = page.target_page(args)?;
+    args.check_revision(&get_page(conn, &id)?)?;
+    let block_type = args.require_flag("type")?;
+    let content = args.require_flag("content")?;
+    check_media_content(&block_type, &content)?;
+    let position = args.flag("position").and_then(|v| v.parse::<i64>().ok());
+    // `--language`/`--filename` only mean anything on a `code` block (the
+    // markdown editor's code block header row) — harmless no-ops on any other type.
+    let language = args.flag("language");
+    let filename = args.flag("filename");
+    let submitted_content = content.clone();
+    let mut attrs = args.attrs()?;
+    // Whoever writes these blocks through the CLI wants to see the result, not the
+    // code, so they open on the preview unless `--attr view=...` says otherwise.
+    if matches!(
+        block_type.as_str(),
+        "equation" | "math" | "diagram" | "circuit" | "plot"
+    ) {
+        attrs
+            .entry("view".to_string())
+            .or_insert_with(|| "rendered".to_string());
+    }
+    let block = crate::db::notes::create_block_with_attrs(
+        conn, &id, block_type, content, position, language, filename, attrs,
+    )?;
+    let page_key = crate::db::entities::entity_key(conn, &id)?;
+    let mut result = json!({ "pageId": id, "pageKey": page_key, "block": block.clone() });
+    if let Some(warning) = paragraph_mistake_warning(conn, entity_type, &id, &block)? {
+        result["warning"] = json!(warning);
+    }
+    if let Some(warning) = table_normalize_warning(&block, &submitted_content) {
+        result["warning"] = json!(warning);
+    }
+    if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
+        result["warning"] = json!(warning);
+    }
+    add_warning(&mut result, unreachable_file_warning(&block));
+    Ok(result)
+}
+
+fn block_update(page: &BlockPage, args: &Args) -> AppResult<Value> {
+    let BlockPage {
+        conn,
+        entity_type,
+        get_page,
+        ..
+    } = *page;
+    let block_id = args.require_positional(0, "block-id")?;
+    let before = crate::db::notes::get_block(conn, &block_id)?;
+    args.check_revision(&get_page(conn, &before.entity_id)?)?;
+    let submitted_content = args.flag("content");
+    if let Some(content) = &submitted_content {
+        let block_type = args
+            .flag("type")
+            .unwrap_or_else(|| before.block_type.clone());
+        check_media_content(&block_type, content)?;
+    }
+    let patch = crate::db::notes::BlockPatch {
+        content: submitted_content.clone(),
+        block_type: args.flag("type"),
+        language: args.flag("language"),
+        filename: args.flag("filename"),
+        attrs: Some(args.attrs()?),
+    };
+    let block = crate::db::notes::update_block(conn, &block_id, patch)?;
+    let changes = view::diff_values(&json!(before), &json!(block));
+    let mut result = json!({ "block": block.clone(), "changes": changes });
+    if let Some(submitted) = &submitted_content {
+        if let Some(warning) = table_normalize_warning(&block, submitted) {
+            result["warning"] = json!(warning);
+        }
+    }
+    let page_id = block.entity_id.clone();
+    if let Some(warning) = paragraph_mistake_warning(conn, entity_type, &page_id, &block)? {
+        result["warning"] = json!(warning);
+    }
+    if let Some(warning) = list_mistake_warning(conn, entity_type, &block)? {
+        result["warning"] = json!(warning);
+    }
+    add_warning(&mut result, unreachable_file_warning(&block));
+    Ok(result)
+}
+
+fn block_delete(page: &BlockPage, args: &Args) -> AppResult<Value> {
+    let BlockPage { conn, get_page, .. } = *page;
+    let block_id = args.require_positional(0, "block-id")?;
+    args.require_yes()?;
+    let block = crate::db::notes::get_block(conn, &block_id)?;
+    args.check_revision(&get_page(conn, &block.entity_id)?)?;
+    crate::db::notes::delete_block(conn, &block_id)?;
+    Ok(json!({ "deleted": block_id, "block": block }))
+}
+
+fn block_reorder(page: &BlockPage, args: &Args) -> AppResult<Value> {
+    let BlockPage { conn, get_page, .. } = *page;
+    let id = page.target_page(args)?;
+    args.check_revision(&get_page(conn, &id)?)?;
+    let ordered_ids: Vec<String> = args.positional[1..].to_vec();
+    if ordered_ids.is_empty() {
+        return Err(AppError::InvalidInput(
+            "reorder-blocks needs the new order: nookly cli <type> reorder-blocks <id> <block-id> <block-id> ..."
+                .into(),
+        ));
+    }
+    crate::db::notes::reorder_blocks(conn, &id, ordered_ids)?;
+    let blocks = crate::db::notes::list_blocks(conn, &id)?;
+    let page_key = crate::db::entities::entity_key(conn, &id)?;
+    Ok(
+        json!({ "pageId": id, "pageKey": page_key, "count": blocks.len(), "items": view::blocks_json(&blocks) }),
+    )
 }
 
 fn extract_id(data: &Value) -> AppResult<String> {
