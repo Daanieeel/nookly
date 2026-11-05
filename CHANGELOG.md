@@ -2,11 +2,29 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.61.1 (2026-11-04)
+## 0.62.1 (2026-11-05)
 
 ### Changed
 
 - **Steadier behind the scenes.** Small cleanups to keep Nookly stable. Nothing looks different.
+
+## 0.62.0 (2026-11-05)
+
+### Added
+
+- **Page font and size.** Choose the font and size of the text in your pages under Settings, Editor, with a live sample that shows the change before you go back to your page.
+
+## 0.61.2 (2026-11-05)
+
+### Changed
+
+- Small behind the scenes tidy up. Nothing looks or works differently.
+
+## 0.61.1 (2026-11-05)
+
+### Fixed
+
+- **Closed unexpectedly message.** The message no longer shows up after an update for something that happened in an older version, and its buttons now fit inside the window.
 
 ## 0.61.0 (2026-11-04)
 

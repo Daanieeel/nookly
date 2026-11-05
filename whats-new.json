@@ -1,13 +1,46 @@
 {
   "versions": [
     {
-      "version": "0.61.1",
-      "date": "2026-11-04",
+      "version": "0.62.1",
+      "date": "2026-11-05",
       "title": "Steadier behind the scenes",
       "summary": "Small cleanups to keep Nookly stable.",
       "highlights": [],
       "more": {
         "Improved": ["Small cleanups to keep Nookly stable. Nothing looks different."]
+      }
+    },
+    {
+      "version": "0.62.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "Choose your page font and size",
+          "description": "Pick a default, serif or mono font and a text size for your pages under Settings, Editor, and see a live sample as you change them.",
+          "icon": "palette",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.61.2",
+      "date": "2026-11-05",
+      "title": "Small tidy up",
+      "summary": "Nothing looks or works differently.",
+      "highlights": [],
+      "more": {
+        "Improved": ["Small behind the scenes tidy up."]
+      }
+    },
+    {
+      "version": "0.61.1",
+      "date": "2026-11-05",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The closed unexpectedly message no longer shows up after an update, and its buttons now fit inside the window."
+        ]
       }
     },
     {
