@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.64.3",
+      "date": "2026-11-05",
+      "title": "C code blocks",
+      "summary": "C joins the languages for code blocks.",
+      "highlights": [],
+      "more": {
+        "Improved": ["C is now a language you can pick for code blocks."]
+      }
+    },
+    {
       "version": "0.64.2",
       "date": "2026-11-05",
       "title": "A cleaner file view",

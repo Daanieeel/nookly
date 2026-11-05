@@ -27,7 +27,7 @@ const LANGUAGE_BY_EXTENSION = {
   tsx: "tsx",
   yaml: "yaml",
   yml: "yaml",
-  c: "cpp",
+  c: "c",
   cpp: "cpp",
   h: "cpp",
   hpp: "cpp",

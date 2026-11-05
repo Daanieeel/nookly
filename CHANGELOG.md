@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.64.3 (2026-11-05)
+
+### Added
+
+- C is now a language you can pick for code blocks.
+
 ## 0.64.2 (2026-11-05)
 
 ### Changed
