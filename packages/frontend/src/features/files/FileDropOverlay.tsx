@@ -12,8 +12,11 @@ export function FileDropOverlay({ label, className }: { label: string; className
         className,
       )}
     >
-      <IconFileUpload size={32} className="text-primary" />
-      {label}
+      {/* Sticky, so on a page taller than the screen the label stays in view. */}
+      <div className="sticky top-1/3 flex flex-col items-center gap-2">
+        <IconFileUpload size={32} className="text-primary" />
+        {label}
+      </div>
     </div>
   );
 }

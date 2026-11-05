@@ -29,6 +29,8 @@ import {
   type JSONNode,
   nodeToBlockInput,
 } from "./block-markdown";
+import { FileDropOverlay } from "#/features/files/FileDropOverlay.tsx";
+import { useFileDragOver } from "#/hooks/use-file-drag-over.ts";
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { newCodeBlockLanguage } from "./default-code-language";
 import { applyPageTypography } from "./page-typography";
@@ -295,6 +297,7 @@ function HydratedBlockEditor({
   }
 
   const pasteFiles = usePasteFiles(spaceId, entityId);
+  const { over, dragProps } = useFileDragOver();
 
   // Settings load before the first page opens, so this sets the variables once for the session.
   useEffect(applyPageTypography, []);
@@ -603,7 +606,7 @@ function HydratedBlockEditor({
   });
 
   return (
-    <div className="relative" {...blockContextTarget}>
+    <div className="relative" {...dragProps} {...blockContextTarget}>
       <TableControls editor={editor} />
       <TableRowHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />
       <TableColumnHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />
@@ -620,6 +623,7 @@ function HydratedBlockEditor({
         />
       )}
       <EditorContent editor={editor} />
+      {over && <FileDropOverlay label="Drop to add files" className="inset-0" />}
       <VimIndicator editor={editor} />
       {pasteFiles.popover}
     </div>

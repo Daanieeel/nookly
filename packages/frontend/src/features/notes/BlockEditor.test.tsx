@@ -1,4 +1,4 @@
-import { act, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor } from "@testing-library/react";
 import { TabGroupContext } from "#/components/tab-group-scope.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -39,6 +39,29 @@ describe("the block editor's scroll room", () => {
     const { container } = renderWithProviders(<BlockEditor entityId="e1" spaceId="s1" compact />);
     const content = await findEditor(container);
     expect(content.getAttribute("style") ?? "").not.toContain("padding-bottom");
+  });
+});
+
+describe("dragging a file over the block editor", () => {
+  beforeEach(() => {
+    installTauriMock();
+    mockCommand("list_blocks", []);
+  });
+  afterEach(uninstallTauriMock);
+
+  it("boxes the page in with a drop area until the file leaves or lands", async () => {
+    const files = { dataTransfer: { types: ["Files"] } };
+    const { container, queryByText } = renderWithProviders(
+      <BlockEditor entityId="e1" spaceId="s1" />,
+    );
+    const content = await findEditor(container);
+    fireEvent.dragEnter(content, files);
+    expect(queryByText("Drop to add files")).not.toBeNull();
+    fireEvent.dragLeave(content, files);
+    expect(queryByText("Drop to add files")).toBeNull();
+    fireEvent.dragEnter(content, files);
+    fireEvent.drop(content, files);
+    expect(queryByText("Drop to add files")).toBeNull();
   });
 });
 
