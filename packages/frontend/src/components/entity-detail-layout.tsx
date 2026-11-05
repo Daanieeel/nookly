@@ -15,7 +15,7 @@ import { EntityKeyCopy } from "#/components/entity-key.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { IconPicker } from "#/components/icon-picker.tsx";
 import { RightSidebar } from "#/components/right-sidebar.tsx";
-import { TrashEntityDialog } from "#/components/trash-entity-dialog.tsx";
+import { useTrashEntity } from "#/components/trash-entity.ts";
 import { Button } from "@nookly/ui/components/button";
 import { cn } from "@nookly/ui/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -24,6 +24,7 @@ import type { Entity } from "#/lib/api/types.ts";
 import { labelForType } from "#/lib/entity-title.ts";
 import { viewAfterTrash } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { sameView } from "#/lib/store/nav-actions.ts";
 import { qk } from "#/lib/query-keys.ts";
 
 export function EntityDetailLayout({
@@ -59,7 +60,7 @@ export function EntityDetailLayout({
   const queryClient = useQueryClient();
   const setView = useNavStore((s) => s.setView);
   const [title, setTitle] = useState(entity.title);
-  const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
+  const trash = useTrashEntity();
   const bodyRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const isDeleted = !!entity.deletedAt;
@@ -103,7 +104,17 @@ export function EntityDetailLayout({
           await togglePin.mutateAsync();
         },
       }}
-      onTrash={() => setTrashConfirmOpen(true)}
+      onTrash={() => {
+        // Undo takes the user back to the page they left, unless they went elsewhere since.
+        const before = useNavStore.getState().view;
+        const after = viewAfterTrash(entity);
+        void trash(entity, {
+          onTrashed: () => setView(after),
+          onUndone: () => {
+            if (sameView(useNavStore.getState().view, after)) setView(before);
+          },
+        });
+      }}
       className={className}
     />
   );
@@ -199,13 +210,6 @@ export function EntityDetailLayout({
           {sidebar}
         </RightSidebar>
       </div>
-
-      <TrashEntityDialog
-        entity={entity}
-        open={trashConfirmOpen}
-        onOpenChange={setTrashConfirmOpen}
-        onTrashed={() => setView(viewAfterTrash(entity))}
-      />
     </div>
   );
 }
