@@ -5,17 +5,11 @@ import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import type { MoodleFile, MoodleModule, MoodleSection } from "#/lib/api/moodle.ts";
 import { useMoodleNavigate } from "./MoodleFrame.tsx";
-import {
-  ImportFileButton,
-  ItemRow,
-  OpenFileButton,
-  fileFacts,
-  useImportFile,
-  useOpenFile,
-} from "./MoodleFiles.tsx";
+import { ItemRow, OpenFileButton, useOpenFile } from "./MoodleFiles.tsx";
+import { ImportFileButton, ImportFileDialog, useImportFile } from "./MoodleImport.tsx";
 import { MoodleHtml } from "./MoodleHtml.tsx";
 import { MoodleData, MoodleEmpty } from "./MoodleStates.tsx";
-import { moduleKindLabel, moodleDate } from "./moodle-format.ts";
+import { fileFacts, moduleKindLabel, moodleDate } from "./moodle-format.ts";
 import { fileLook, moduleLook } from "./moodle-icons.tsx";
 import { messageOf } from "./moodle-login.ts";
 import { SAMPLE_SECTIONS } from "./moodle-samples.ts";
@@ -76,6 +70,9 @@ export function CourseContents({ spaceId, courseId }: { spaceId: string; courseI
                       key={module.id}
                       spaceId={spaceId}
                       courseId={courseId}
+                      sectionName={
+                        section.name || (index === 0 ? "General" : `Section ${index + 1}`)
+                      }
                       module={module}
                     />
                   ))}
@@ -92,10 +89,12 @@ export function CourseContents({ spaceId, courseId }: { spaceId: string; courseI
 function ModuleItem({
   spaceId,
   courseId,
+  sectionName,
   module,
 }: {
   spaceId: string;
   courseId: number;
+  sectionName: string;
   module: MoodleModule;
 }) {
   const go = useMoodleNavigate(spaceId);
@@ -142,6 +141,8 @@ function ModuleItem({
             index={module.contents.indexOf(file)}
             file={file}
             title={single ? module.name : file.fileName}
+            sectionName={sectionName}
+            itemName={single ? module.name : undefined}
           />
         ))}
         {description}
@@ -192,6 +193,8 @@ function ContentFile({
   index,
   file,
   title,
+  sectionName,
+  itemName,
 }: {
   spaceId: string;
   courseId: number;
@@ -199,10 +202,16 @@ function ContentFile({
   index: number;
   file: MoodleFile;
   title: string;
+  sectionName: string;
+  itemName?: string;
 }) {
   const go = useMoodleNavigate(spaceId);
   const opening = useOpenFile(file);
-  const importing = useImportFile(file, spaceId);
+  const importing = useImportFile(file, spaceId, {
+    courseId,
+    sectionName,
+    itemName,
+  });
   return (
     <div className="flex flex-col gap-1">
       <ItemRow
@@ -221,7 +230,7 @@ function ContentFile({
         }
       />
       <FieldError message={opening.open.isError && messageOf(opening.open.error)} />
-      <FieldError message={importing.importing.isError && messageOf(importing.importing.error)} />
+      <ImportFileDialog state={importing} />
     </div>
   );
 }

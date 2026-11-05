@@ -192,7 +192,7 @@ export function AssignmentPage({
                   <MoodleHtml html={shown.intro} />
                 </div>
               )}
-              <MoodleFiles files={shown.attachments} spaceId={spaceId} />
+              <MoodleFiles files={shown.attachments} spaceId={spaceId} context={{ courseId }} />
               {state && state.feedback.length > 0 && (
                 <section className="flex flex-col gap-2">
                   <h2 className="text-sm font-semibold">Feedback</h2>

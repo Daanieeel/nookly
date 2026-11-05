@@ -1,6 +1,25 @@
 {
   "versions": [
     {
+      "version": "0.62.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "Smarter Moodle imports",
+          "description": "Importing a Moodle file now lets you rename it, pick labels and attach it to a course first, with suggestions ready.",
+          "icon": "file-import",
+          "tag": "Improved"
+        },
+        {
+          "title": "Show in Nookly",
+          "description": "Moodle files you already imported show a button that takes you straight to them.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.61.2",
       "date": "2026-11-05",
       "title": "Small tidy up",

@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.62.0 (2026-11-05)
+
+### Added
+
+- **Name and label Moodle files as you import them.** Importing a file from Moodle now opens a window where you can rename it, pick labels and attach it to a course before it goes into your Space. Nookly suggests a name, a label for the course and its section, and the matching course.
+- **Show in Nookly.** A Moodle file you already imported shows a Show in Nookly button instead of Import, which takes you to the file.
+
 ## 0.61.2 (2026-11-05)
 
 ### Changed

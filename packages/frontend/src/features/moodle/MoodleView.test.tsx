@@ -6,6 +6,7 @@ import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import type { MoodleCourse, MoodleFile } from "#/lib/api/moodle.ts";
+import { makeEntity, makeFile, makeLabel } from "#/test/fixtures.ts";
 import { MoodleView } from "./MoodleView.tsx";
 import { sortAssignments } from "./CourseAssignments.tsx";
 import { orderForums } from "./CourseForums.tsx";
@@ -55,6 +56,8 @@ const base = { view: { kind: "dashboard" as const } };
 beforeEach(() => {
   useNavStore.setState(base);
   mockCommand("plugin:opener|open_url", null);
+  // Nothing is imported unless a test says so.
+  mockCommand("list_files", []);
 });
 
 function open(path?: string) {
@@ -475,30 +478,148 @@ describe("a file of a course", () => {
     expect(callsOf("moodle_open_file")).toHaveLength(0);
   });
 
-  it("imports it into the Space, next to the button that downloads it", async () => {
-    withFiles("resource", [file()]);
+  /// A Space with a label and a course of Nookly, and nothing imported yet.
+  const space = (imported: ReturnType<typeof makeFile>[] = []) => {
+    mockCommand("list_files", imported);
+    mockCommand("list_labels", [makeLabel({ id: "lb1", name: "Lectures", color: "#112233" })]);
+    mockCommand("list_courses", [makeEntity({ id: "nc1", type: "course", title: "Maths 1" })]);
     mockCommand("moodle_file_path", "/data/moodle-files/ab12/slides.pdf");
-    mockCommand("import_file", { entity: { id: "f1" } });
+  };
+  const imported = (over: Partial<MoodleFile> = {}) =>
+    makeFile(
+      { origin: `moodle:${file(over).fileUrl}` },
+      { id: "f1", title: "Slides.pdf", spaceId: "s1" },
+    );
+
+  it("opens a dialog to name and label the file, with suggestions, before it is imported", async () => {
+    withFiles("resource", [file()], "Lecture 1 slides");
+    space();
+    mockCommand("import_file_with_details", makeFile({}, { id: "f1" }));
     const { user } = open("course/4");
     await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
-    await waitFor(() =>
-      expect(callsOf("import_file")).toEqual([
-        { spaceId: "s1", sourcePath: "/data/moodle-files/ab12/slides.pdf" },
-      ]),
+    const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
+    // The item's name with the file's extension, the course label ready to go, the course
+    // of Nookly with the same name already chosen.
+    expect(within(dialog).getByLabelText("Name")).toHaveProperty("value", "Lecture 1 slides.pdf");
+    // The file's own name is one click away.
+    expect(within(dialog).getByRole("button", { name: "slides.pdf" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: /MA1/ }).getAttribute("aria-pressed")).toBe(
+      "true",
     );
-    expect(await screen.findByRole("button", { name: "Imported into Nookly" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Download and Open" })).toBeTruthy();
+    expect(
+      within(dialog)
+        .getByRole("button", { name: /Week 1/ })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+    expect(within(dialog).getByRole("combobox", { name: "Attach to a course" }).textContent).toBe(
+      "Maths 1",
+    );
+    // Nothing is imported until the button is pressed.
+    expect(callsOf("import_file_with_details")).toHaveLength(0);
+    await expectNoA11yViolations();
   });
 
-  it("says in place when the import failed", async () => {
+  it("imports with the name, labels and course chosen in the dialog", async () => {
     withFiles("resource", [file()]);
-    mockCommand("moodle_file_path", "/data/moodle-files/ab12/slides.pdf");
-    mockCommandWith("import_file", () => {
+    space();
+    mockCommand("import_file_with_details", makeFile({}, { id: "f1" }));
+    const { user } = open("course/4");
+    await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
+    const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
+    const name = within(dialog).getByLabelText("Name");
+    await user.clear(name);
+    await user.type(name, "Week 1 slides");
+    await user.click(within(dialog).getByRole("button", { name: "Lectures" }));
+    await user.click(within(dialog).getByRole("button", { name: /Week 1New/ }));
+    await user.type(within(dialog).getByLabelText("Labels"), "Exam{Enter}");
+    await user.click(within(dialog).getByRole("button", { name: "Import" }));
+    await waitFor(() =>
+      expect(callsOf("import_file_with_details")).toEqual([
+        {
+          spaceId: "s1",
+          sourcePath: "/data/moodle-files/ab12/slides.pdf",
+          details: {
+            origin: `moodle:${file().fileUrl}`,
+            title: "Week 1 slides",
+            labelIds: ["lb1"],
+            newLabels: [
+              { name: "MA1", color: expect.any(String) },
+              { name: "Week 1", color: expect.any(String) },
+              { name: "Exam", color: expect.any(String) },
+            ],
+            attachTo: ["nc1"],
+          },
+        },
+      ]),
+    );
+    // The legacy way in, with no say over the File, is not used.
+    expect(callsOf("import_file")).toHaveLength(0);
+  });
+
+  it("reuses a label of the Space the course is already named by, instead of making a second", async () => {
+    withFiles("resource", [file()]);
+    space();
+    mockCommand("list_labels", [makeLabel({ id: "lb2", name: "ma1" })]);
+    const { user } = open("course/4");
+    await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
+    const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
+    expect(within(dialog).getByRole("button", { name: "ma1" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(within(dialog).queryByRole("button", { name: /MA1New/ })).toBeNull();
+  });
+
+  it("says in place when the import failed, and keeps the dialog", async () => {
+    withFiles("resource", [file()]);
+    space();
+    mockCommandWith("import_file_with_details", () => {
       throw { kind: "Io", message: "No room left on this disk." };
     });
     const { user } = open("course/4");
     await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
-    expect(await screen.findByText("No room left on this disk.")).toBeTruthy();
+    const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
+    await user.click(within(dialog).getByRole("button", { name: "Import" }));
+    expect(await within(dialog).findByText("No room left on this disk.")).toBeTruthy();
+  });
+
+  it("will not import a file with no name", async () => {
+    withFiles("resource", [file()]);
+    space();
+    const { user } = open("course/4");
+    await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
+    const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
+    await user.clear(within(dialog).getByLabelText("Name"));
+    expect(within(dialog).getByRole("button", { name: "Import" })).toHaveProperty("disabled", true);
+  });
+
+  it("shows where the file is in Nookly once it was imported, instead of importing it again", async () => {
+    withFiles("resource", [file()]);
+    space([imported()]);
+    useNavStore.setState({ view: { kind: "dashboard" } });
+    const { user } = open("course/4");
+    await user.click(await screen.findByRole("button", { name: "Show in Nookly" }));
+    expect(useNavStore.getState().view).toMatchObject({
+      kind: "entity",
+      entityId: "f1",
+      spaceId: "s1",
+    });
+    expect(screen.queryByRole("button", { name: "Import into Nookly" })).toBeNull();
+  });
+
+  it("offers the import again for a file that was imported and then deleted", async () => {
+    withFiles("resource", [file()]);
+    // The Space no longer lists it: a deleted File is not in the list.
+    space([]);
+    open("course/4");
+    expect(await screen.findByRole("button", { name: "Import into Nookly" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Show in Nookly" })).toBeNull();
+  });
+
+  it("does not take another file for the imported one", async () => {
+    withFiles("resource", [file()]);
+    space([imported({ fileUrl: `${SITE}/pluginfile.php/1/other.pdf` })]);
+    open("course/4");
+    expect(await screen.findByRole("button", { name: "Import into Nookly" })).toBeTruthy();
   });
 
   it("offers no import for a link", async () => {
@@ -522,7 +643,10 @@ describe("a file of a course", () => {
   it("reads like a File of the Space: no banner, and the facts and actions in a sidebar", async () => {
     withFiles("resource", [file({ fileName: "plan.png", fileSize: 4096 })], "Plan");
     mockCommand("moodle_file_path", "/data/moodle-files/ab12/plan.png");
-    mockCommand("import_file", { entity: { id: "f1" } });
+    mockCommand("list_files", []);
+    mockCommand("list_labels", []);
+    mockCommand("list_courses", []);
+    mockCommand("import_file_with_details", makeFile({}, { id: "f1" }));
     const { user } = open("course/4/file/10/0");
     const properties = await screen.findByRole("region", { name: "Properties" });
     // The kind is named and drawn as everywhere in Nookly.
@@ -541,7 +665,24 @@ describe("a file of a course", () => {
     // No Moodle banner over the viewer.
     expect(screen.queryByRole("navigation", { name: "Where you are in Moodle" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Import into Nookly" }));
-    await waitFor(() => expect(callsOf("import_file")).toHaveLength(1));
+    const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
+    await user.click(within(dialog).getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(callsOf("import_file_with_details")).toHaveLength(1));
+  });
+
+  it("shows Show in Nookly in the sidebar for a file that was imported", async () => {
+    withFiles("resource", [file({ fileName: "plan.png", mimeType: "image/png" })], "Plan");
+    mockCommand("moodle_file_path", "/data/moodle-files/ab12/plan.png");
+    mockCommand("list_files", [imported({ fileName: "plan.png", mimeType: "image/png" })]);
+    open("course/4/file/10/0");
+    const actions = await screen.findByRole("region", { name: "Actions" });
+    await waitFor(() =>
+      expect(
+        within(actions)
+          .getAllByRole("button")
+          .map((b) => b.textContent),
+      ).toEqual(["Show in Nookly", "Download", "Open in Moodle"]),
+    );
   });
 
   it("says when Nookly cannot show the kind of file, and hands it to another app", async () => {

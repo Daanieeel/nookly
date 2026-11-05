@@ -67,6 +67,8 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     (46, &[("views", "config")]),
     // A new column, filled in for assignments that follow the next session.
     (47, &[]),
+    // A new column; nothing existing changes.
+    (48, &[]),
 ];
 
 /// Tables a migration renamed, old name first.

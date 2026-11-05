@@ -242,6 +242,10 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     // `AppHandle` (Wry) parameter: the database part each one delegates to.
     ("import_file", "files_import_underlying_db_call"),
     (
+        "import_file_with_details",
+        "files_import_with_details_reads_what_the_webview_sends",
+    ),
+    (
         "import_file_from_url",
         "files_link_imports_reject_bad_urls_offline",
     ),
@@ -3693,6 +3697,33 @@ fn files_import_underlying_db_call() {
     assert!(local.starts_with(h.files_dir().to_string_lossy().as_ref()));
     assert_eq!(std::fs::read(&local).unwrap(), b"hello");
     assert_eq!(file.original_filename.as_deref(), Some("notes.txt"));
+}
+
+#[test]
+fn files_import_with_details_reads_what_the_webview_sends() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let source = h.dir.file("slides.pdf", b"pdf");
+    let dir = h.files_dir();
+    // The shape `importFileWithDetails` sends, and `{}` for nothing chosen.
+    let details: db::files::ImportDetails = serde_json::from_value(serde_json::json!({
+        "origin": "moodle:https://m.edu/a.pdf",
+        "title": "Week 1",
+        "newLabels": [{ "name": "MA1", "color": "#123456" }],
+    }))
+    .unwrap();
+    let file = h.db(|c| {
+        db::files::import_file_with_details(c, &dir, space.clone(), &source, details).unwrap()
+    });
+    assert_eq!(file.entity.title, "Week 1");
+    assert_eq!(file.origin.as_deref(), Some("moodle:https://m.edu/a.pdf"));
+    assert_eq!(file.label_ids.len(), 1);
+    let none: db::files::ImportDetails = serde_json::from_value(serde_json::json!({})).unwrap();
+    let plain = h.db(|c| {
+        db::files::import_file_with_details(c, &dir, space.clone(), &source, none).unwrap()
+    });
+    assert_eq!(plain.entity.title, "slides.pdf");
+    assert_eq!(plain.origin, None);
 }
 
 #[test]

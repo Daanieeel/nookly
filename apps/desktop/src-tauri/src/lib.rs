@@ -288,6 +288,7 @@ pub fn run() {
             commands::views::reorder_overview_views,
             commands::views::update_view_config,
             commands::files::import_file,
+            commands::files::import_file_with_details,
             commands::files::import_file_from_url,
             commands::files::import_file_from_bytes,
             commands::files::download_linked_file,
