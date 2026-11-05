@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.62.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "Choose your page font and size",
+          "description": "Pick a default, serif or mono font and a text size for your pages under Settings, Editor, and see a live sample as you change them.",
+          "icon": "palette",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.61.2",
       "date": "2026-11-05",
       "title": "Small tidy up",
