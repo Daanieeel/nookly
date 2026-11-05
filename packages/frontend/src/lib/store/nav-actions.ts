@@ -27,7 +27,7 @@ function activeSpaceFor(state: Pick<NavState, "activeSpaceId">, view: View): str
   return activeSpaceId;
 }
 
-function sameView(a: View, b: View): boolean {
+export function sameView(a: View, b: View): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 

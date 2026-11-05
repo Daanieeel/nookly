@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.64.4",
+      "date": "2026-11-05",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Moving an item to Trash no longer asks first. It happens right away, and a message with Undo appears so you can bring it back at once."
+        ]
+      }
+    },
+    {
       "version": "0.64.3",
       "date": "2026-11-05",
       "highlights": [],
