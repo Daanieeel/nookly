@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.61.3 (2026-11-05)
+
+### Changed
+
+- Nookly loads less when it opens, so it starts a little faster.
+
 ## 0.61.0 (2026-11-04)
 
 ### Added

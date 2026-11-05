@@ -9,7 +9,7 @@ import {
   IconRectangleVertical,
 } from "@tabler/icons-react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ComponentType, useState } from "react";
+import { type ComponentType, Suspense, lazy, useState } from "react";
 import { StatusButtonContent, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { FormField } from "#/components/form-field.tsx";
 import { Button } from "@nookly/ui/components/button";
@@ -47,7 +47,6 @@ import {
   saveOptions,
 } from "./export-options.ts";
 import { exportPage, loadExportDocument, renderDocument } from "./export-page.ts";
-import { PdfPreview } from "./export-preview.tsx";
 
 const FORMAT_ICONS = {
   pdf: IconFileTypePdf,
@@ -63,7 +62,16 @@ export interface ExportRenderer {
   Preview: ComponentType<{ bytes: Uint8Array }>;
 }
 
-const APP_RENDERER: ExportRenderer = { render: renderDocument, Preview: PdfPreview };
+// pdf.js is only needed once the dialog is open, so it loads then instead of at launch.
+const LazyPdfPreview = lazy(() =>
+  import("./export-preview.tsx").then((m) => ({ default: m.PdfPreview })),
+);
+
+function AppPreview({ bytes }: { bytes: Uint8Array }) {
+  return <LazyPdfPreview bytes={bytes} />;
+}
+
+const APP_RENDERER: ExportRenderer = { render: renderDocument, Preview: AppPreview };
 
 interface Choice<T extends string> {
   value: T;
@@ -264,7 +272,9 @@ export function ExportPageDialog({
 
   const previewPane = isDocument ? (
     preview.data ? (
-      <renderer.Preview bytes={preview.data} />
+      <Suspense fallback={<PreviewMessage pending>Preparing preview</PreviewMessage>}>
+        <renderer.Preview bytes={preview.data} />
+      </Suspense>
     ) : doc.isError || preview.isError ? (
       <PreviewMessage>Couldn't draw the preview</PreviewMessage>
     ) : (

@@ -8,6 +8,11 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
+  build: {
+    // The chunks over the default 500 kB are loaded on demand (formulas, spreadsheets, PDF export,
+    // diagrams), so the warning only adds noise. The limit sits just above the largest one.
+    chunkSizeWarningLimit: 1900,
+  },
   plugins: [katexWoff2Only(), react(), tailwindcss(), flagpackAssets()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

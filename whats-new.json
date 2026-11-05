@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.61.3",
+      "date": "2026-11-05",
+      "title": "A lighter start",
+      "summary": "Nookly does less work when it opens.",
+      "highlights": [],
+      "more": {
+        "Improved": ["Nookly loads less when it opens, so it starts a little faster."]
+      }
+    },
+    {
       "version": "0.61.0",
       "date": "2026-11-04",
       "highlights": [
