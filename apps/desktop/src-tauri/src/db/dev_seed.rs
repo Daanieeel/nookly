@@ -513,6 +513,8 @@ mod tests {
         let conn = crate::db::connect(&dir).unwrap();
         assert!(!run(&conn).unwrap());
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM spaces"), 2);
+        // Windows will not delete a folder whose database is still open.
+        drop(conn);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
