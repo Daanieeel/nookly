@@ -47,7 +47,7 @@ export function CrashReportDialog() {
 
   return (
     <Dialog open onOpenChange={(open) => !open && close()}>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Nookly closed unexpectedly</DialogTitle>
           <DialogDescription>
@@ -64,7 +64,7 @@ export function CrashReportDialog() {
             {report.text}
           </pre>
         )}
-        <DialogFooter>
+        <DialogFooter className="flex-wrap">
           <Button variant="ghost" onClick={() => setShowing((v) => !v)}>
             {showing ? "Hide report" : "Show report"}
           </Button>

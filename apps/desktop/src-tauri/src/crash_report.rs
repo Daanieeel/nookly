@@ -115,12 +115,15 @@ fn build(record: Record) -> CrashReport {
     }
 }
 
-/// The newest crash in `crash.log` that has not been dismissed, if any.
-pub fn latest_unseen(data_dir: &Path) -> Option<CrashReport> {
+/// The newest crash of this version in `crash.log` that has not been dismissed, if any.
+/// Crashes from an earlier version (or from before versions were recorded) are not shown after
+/// an update, since the update is the likely fix.
+pub fn latest_unseen(data_dir: &Path, current_version: &str) -> Option<CrashReport> {
     let log = std::fs::read_to_string(data_dir.join(CRASH_LOG)).ok()?;
     let seen = seen_until(data_dir);
     parse(&log)
         .into_iter()
+        .filter(|r| r.version.as_deref() == Some(current_version))
         .filter(|r| seen.is_none_or(|seen| r.at > seen))
         .max_by_key(|r| r.at)
         .map(build)
@@ -164,7 +167,7 @@ mod tests {
 
     #[test]
     fn nothing_to_show_without_a_crash_log() {
-        assert_eq!(latest_unseen(&dir()), None);
+        assert_eq!(latest_unseen(&dir(), "0.58.0"), None);
     }
 
     #[test]
@@ -173,7 +176,7 @@ mod tests {
         let log =
             record(at(1), "0.57.0", "old") + &record(at(9), "0.58.0", "panicked at a.rs:3:4: boom");
         std::fs::write(d.join(CRASH_LOG), log).unwrap();
-        let report = latest_unseen(&d).unwrap();
+        let report = latest_unseen(&d, "0.58.0").unwrap();
         assert_eq!(report.app_version.as_deref(), Some("0.58.0"));
         assert_eq!(report.message, "panicked at a.rs:3:4: boom");
         assert_eq!(report.os, std::env::consts::OS);
@@ -182,38 +185,55 @@ mod tests {
     }
 
     #[test]
+    fn a_crash_from_before_an_update_is_not_shown() {
+        let d = dir();
+        let log =
+            record(at(1), "0.57.0", "old version") + "[2026-10-01T08:00:00.000Z] panic: legacy\n";
+        std::fs::write(d.join(CRASH_LOG), log).unwrap();
+        assert_eq!(latest_unseen(&d, "0.58.0"), None);
+        assert!(latest_unseen(&d, "0.57.0").is_some());
+    }
+
+    #[test]
+    fn an_older_crash_of_this_version_beats_a_newer_one_of_another() {
+        let d = dir();
+        let log = record(at(1), "0.58.0", "mine") + &record(at(9), "0.57.0", "stale");
+        std::fs::write(d.join(CRASH_LOG), log).unwrap();
+        assert_eq!(latest_unseen(&d, "0.58.0").unwrap().message, "mine");
+    }
+
+    #[test]
     fn the_report_holds_no_content_beyond_the_panic_itself() {
         let d = dir();
         std::fs::write(d.join(CRASH_LOG), record(at(1), "0.58.0", "x")).unwrap();
-        let text = latest_unseen(&d).unwrap().text;
+        let text = latest_unseen(&d, "0.58.0").unwrap().text;
         assert_eq!(text.lines().count(), 5, "{text}");
     }
 
     #[test]
     fn records_from_before_versions_were_recorded_still_read_across_lines() {
-        let d = dir();
-        std::fs::write(
-            d.join(CRASH_LOG),
+        let records = parse(
             "[2026-10-01T08:00:00.123456789+00:00] panic: panicked at src/x.rs:1:1:\nold style\n",
-        )
-        .unwrap();
-        let report = latest_unseen(&d).unwrap();
-        assert_eq!(report.app_version, None);
-        assert_eq!(report.message, "panicked at src/x.rs:1:1: old style");
-        assert!(report.text.contains("unknown version"));
+        );
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].version, None);
+        assert_eq!(records[0].message, "panicked at src/x.rs:1:1: old style");
+        assert!(build(records.into_iter().next().unwrap())
+            .text
+            .contains("unknown version"));
     }
 
     #[test]
     fn a_dismissed_crash_does_not_come_back_but_a_newer_one_does() {
         let d = dir();
         std::fs::write(d.join(CRASH_LOG), record(at(1), "0.58.0", "first")).unwrap();
-        let first = latest_unseen(&d).unwrap();
+        let first = latest_unseen(&d, "0.58.0").unwrap();
         dismiss(&d, &first.occurred_at).unwrap();
-        assert_eq!(latest_unseen(&d), None);
+        assert_eq!(latest_unseen(&d, "0.58.0"), None);
         let log = std::fs::read_to_string(d.join(CRASH_LOG)).unwrap();
         assert!(log.contains("first"), "dismissing never edits crash.log");
         std::fs::write(d.join(CRASH_LOG), log + &record(at(30), "0.58.0", "second")).unwrap();
-        assert_eq!(latest_unseen(&d).unwrap().message, "second");
+        assert_eq!(latest_unseen(&d, "0.58.0").unwrap().message, "second");
     }
 
     #[test]
@@ -228,6 +248,6 @@ mod tests {
         let d = dir();
         std::fs::write(d.join(CRASH_LOG), record(at(1), "0.58.0", "x")).unwrap();
         std::fs::write(d.join(SEEN_MARKER), "garbage").unwrap();
-        assert!(latest_unseen(&d).is_some());
+        assert!(latest_unseen(&d, "0.58.0").is_some());
     }
 }

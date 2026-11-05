@@ -64,6 +64,28 @@ pub async fn import_file(
     .await
 }
 
+/// `import_file` with a name, Labels, attachments and an origin chosen first; all of it
+/// lands or none of it does.
+#[tauri::command]
+pub async fn import_file_with_details(
+    app: AppHandle,
+    space_id: String,
+    source_path: String,
+    details: files::ImportDetails,
+) -> AppResult<FileEntity> {
+    let dir = files_dir(&app)?;
+    blocking_db(&app, move |conn| {
+        files::import_file_with_details(
+            conn,
+            &dir,
+            space_id,
+            std::path::Path::new(&source_path),
+            details,
+        )
+    })
+    .await
+}
+
 /// Stores pasted or dropped bytes as a new File. The bytes travel as the raw request
 /// body (no JSON number array), with the Space and the URL encoded filename in headers.
 #[tauri::command]
