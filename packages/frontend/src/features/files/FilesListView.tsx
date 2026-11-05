@@ -66,7 +66,9 @@ import type { FileEntity } from "#/lib/api/types.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { useFileDragOver } from "#/hooks/use-file-drag-over.ts";
 import { FileDisplayMenu } from "./FileDisplayMenu";
+import { FileDropOverlay } from "./FileDropOverlay";
 import {
   FILE_KINDS,
   fileExtension,
@@ -155,6 +157,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     queryFn: () => listFiles(spaceId),
   });
   const labels = useSpaceLabels(spaceId);
+  const { over, dragProps } = useFileDragOver();
 
   const setDisplay = (next: DisplayOptions) => {
     setDisplayState(next);
@@ -330,12 +333,14 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   return (
     <div
       className="relative flex h-full min-h-0 flex-col"
+      {...dragProps}
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "Import a File…",
         create: startImport,
       })}
     >
+      {over && <FileDropOverlay label="Drop to import files" />}
       <PageHeader>
         <PageHeaderTitle icon={IconFile}>Files</PageHeaderTitle>
         {files.some((f) => f.needsReindex) && (

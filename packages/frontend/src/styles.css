@@ -25,6 +25,13 @@
    place those get real rules. `code:not(pre code)` in the @nookly/ui base layer covers inline
    code; `pre`/`pre code` here only reset the block form. */
 @layer components {
+  /* Where a dropped file or block lands in the editor, in the same color as the line shown
+     while dragging blocks (`DropIndicator`). */
+  .nookly-drop-cursor {
+    background-color: var(--primary);
+    border-radius: 9999px;
+  }
+
   .tiptap-content {
     outline: none;
     /* Reserved for the per-block add/drag handles in `BlockHandles.tsx` — its

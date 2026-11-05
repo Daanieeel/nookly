@@ -21,6 +21,13 @@ import { useAutoBackup } from "#/features/backup/backup-run.ts";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
+import { FILE_DROP_ATTRIBUTE, useWindowFileDrop } from "#/hooks/use-window-file-drop.ts";
+import {
+  FILE_DROP_ENTITY_ATTRIBUTE,
+  importDroppedFiles,
+  readDropZone,
+} from "#/features/files/drop-import.ts";
+import { notify } from "#/components/notify.tsx";
 import { useScopedSelectAll } from "#/hooks/use-scoped-select-all.ts";
 import { listenForMoodleLogin } from "#/features/moodle/moodle-login.ts";
 import { deepLinks, openDeepLink } from "#/lib/deep-link.ts";
@@ -86,11 +93,22 @@ const PinnedView = lazy(() =>
 );
 
 /// A tab group's active view.
+/// What a file dropped on a view does: the Files page and every page take it in, the rest
+/// of the views have nowhere to put it.
 function MainContent({ view }: { view: View }) {
+  const takesFiles = (view.kind === "module" && view.module === "files") || view.kind === "entity";
   return (
-    <Suspense fallback={null}>
-      <ViewSwitch view={view} />
-    </Suspense>
+    <div
+      className="contents"
+      {...(takesFiles && {
+        [FILE_DROP_ATTRIBUTE]: view.spaceId,
+        [FILE_DROP_ENTITY_ATTRIBUTE]: view.kind === "entity" ? view.entityId : undefined,
+      })}
+    >
+      <Suspense fallback={null}>
+        <ViewSwitch view={view} />
+      </Suspense>
+    </div>
   );
 }
 
@@ -163,6 +181,14 @@ function Shell() {
   useAutoBackup();
   useScopedSelectAll();
   usePastePlainText();
+  const queryClient = useQueryClient();
+  // Files dragged in from outside are cancelled everywhere (the webview would otherwise open
+  // one over the whole app), and imported where a view takes them.
+  useWindowFileDrop((files, zoneElement) => {
+    const zone = readDropZone(zoneElement);
+    if (zone) void importDroppedFiles(queryClient, files, zone);
+    else notify.info("Drop files on the Files page or on a page to import them");
+  });
   // Formatters read the date settings directly; re-rendering from the root applies
   // a changed format everywhere at once.
   useDateTimeSettings((s) => `${s.timezone}|${s.dateFormat}|${s.timeFormat}`);

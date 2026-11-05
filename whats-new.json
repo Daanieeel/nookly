@@ -1,6 +1,23 @@
 {
   "versions": [
     {
+      "version": "0.65.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "Drop files in",
+          "description": "Drop files onto the Files page to import them, onto a page to attach them, or into a note to place them where the drop area shows.",
+          "icon": "file-import",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Fixed": [
+          "Fixed dragging a file onto Nookly covering the whole app with that file until you restarted."
+        ]
+      }
+    },
+    {
       "version": "0.64.4",
       "date": "2026-11-05",
       "highlights": [],

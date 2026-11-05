@@ -18,7 +18,10 @@ import {
   RIGHT_SIDEBAR_MIN_WIDTH,
   useNavStore,
 } from "#/lib/store/nav.ts";
+import { FileDropOverlay } from "#/features/files/FileDropOverlay.tsx";
+import { isAttachable } from "#/features/files/drop-import.ts";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { useFileDragOver } from "#/hooks/use-file-drag-over.ts";
 import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 
 const KEYBOARD_STEP_PX = 16;
@@ -48,7 +51,10 @@ export function RightSidebar({
   children?: React.ReactNode;
 }) {
   return (
-    <RightSidebarFrame actions={actions}>
+    <RightSidebarFrame
+      actions={actions}
+      dropLabel={isAttachable(entity.type) ? "Drop to attach files" : undefined}
+    >
       {entity.type === "jot" && (
         <div>
           <RefineJotButton jot={entity} />
@@ -74,6 +80,7 @@ export function RightSidebar({
 export function RightSidebarFrame({
   actions,
   railActions = actions,
+  dropLabel,
   children,
 }: {
   /// Actions, laid out for this sidebar via `className`.
@@ -81,6 +88,9 @@ export function RightSidebarFrame({
   /// What the slim rail shows instead of `actions` while the sidebar is collapsed: a page that
   /// lists its actions as labelled buttons in the open sidebar keeps them as icons here.
   railActions?: (className?: string) => React.ReactNode;
+  /// What dropping a file from outside the app on this sidebar does, shown while one is dragged
+  /// over it. Left out when the page takes no files.
+  dropLabel?: string;
   children?: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useRightSidebarCollapsed();
@@ -89,6 +99,7 @@ export function RightSidebarFrame({
   // Live width while dragging; persisted once on release instead of on every move.
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const width = dragWidth ?? storedWidth;
+  const { over, dragProps } = useFileDragOver();
 
   // Only fires in the focused group, so it toggles the sidebar on that side of a split.
   useAppHotkey("toggleDetailSidebar", () => setCollapsed(!collapsed));
@@ -150,6 +161,7 @@ export function RightSidebarFrame({
   return (
     <div
       className="relative hidden w-(--right-sidebar-width) shrink-0 @3xl:flex"
+      {...dragProps}
       // SAFETY: `--right-sidebar-width` only ever receives a clamped pixel width.
       style={{ "--right-sidebar-width": `${width}px` } as CSSProperties}
     >
@@ -199,6 +211,7 @@ export function RightSidebarFrame({
         </div>
         {children}
       </div>
+      {over && dropLabel && <FileDropOverlay label={dropLabel} className="inset-1.5" />}
     </div>
   );
 }
