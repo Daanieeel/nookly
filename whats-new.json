@@ -25,8 +25,6 @@
     {
       "version": "0.64.3",
       "date": "2026-11-05",
-      "title": "C code blocks",
-      "summary": "C joins the languages for code blocks.",
       "highlights": [],
       "more": {
         "Improved": ["C is now a language you can pick for code blocks."]
@@ -35,8 +33,6 @@
     {
       "version": "0.64.2",
       "date": "2026-11-05",
-      "title": "A cleaner file view",
-      "summary": "Files fill their page.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -47,8 +43,6 @@
     {
       "version": "0.64.1",
       "date": "2026-11-05",
-      "title": "A fix",
-      "summary": "Opening a note no longer fails at first.",
       "highlights": [],
       "more": {
         "Fixed": [
@@ -70,30 +64,6 @@
       "more": {}
     },
     {
-      "version": "0.63.2",
-      "date": "2026-11-05",
-      "title": "Behind the scenes",
-      "summary": "A small cleanup. Nothing looks or works differently.",
-      "highlights": [],
-      "more": {
-        "Improved": [
-          "Behind the scenes cleanup of the PDF viewer. Nothing looks or works differently."
-        ]
-      }
-    },
-    {
-      "version": "0.63.1",
-      "date": "2026-11-05",
-      "title": "Behind the scenes",
-      "summary": "A small cleanup. Nothing looks or works differently.",
-      "highlights": [],
-      "more": {
-        "Improved": [
-          "Behind the scenes cleanup of how tabs are kept. Nothing looks or works differently."
-        ]
-      }
-    },
-    {
       "version": "0.63.0",
       "date": "2026-11-05",
       "highlights": [
@@ -113,16 +83,6 @@
       "more": {}
     },
     {
-      "version": "0.62.1",
-      "date": "2026-11-05",
-      "title": "Steadier behind the scenes",
-      "summary": "Small cleanups to keep Nookly stable.",
-      "highlights": [],
-      "more": {
-        "Improved": ["Small cleanups to keep Nookly stable. Nothing looks different."]
-      }
-    },
-    {
       "version": "0.62.0",
       "date": "2026-11-05",
       "highlights": [
@@ -134,16 +94,6 @@
         }
       ],
       "more": {}
-    },
-    {
-      "version": "0.61.2",
-      "date": "2026-11-05",
-      "title": "Small tidy up",
-      "summary": "Nothing looks or works differently.",
-      "highlights": [],
-      "more": {
-        "Improved": ["Small behind the scenes tidy up."]
-      }
     },
     {
       "version": "0.61.1",
@@ -504,30 +454,12 @@
       }
     },
     {
-      "version": "0.42.1",
-      "date": "2026-10-22",
-      "title": "Sharper formulas and plots",
-      "summary": "Exported formulas look like the ones in your notes, and plots read more easily.",
-      "highlights": [],
-      "more": {
-        "Improved": [
-          "Set what a plot shows with `window: -10..10`, or `window: -10..10, -2..8` to set the height too.",
-          "The legend in the corner of a plot is larger and easier to read."
-        ],
-        "Fixed": [
-          "Inline math in PDF exports and the export preview is drawn as real formulas, and Word files get real equations you can edit."
-        ]
-      }
-    },
-    {
       "version": "0.42.0",
       "date": "2026-10-21",
-      "title": "Plots",
-      "summary": "Draw functions and points in a coordinate system, right in your notes.",
       "highlights": [
         {
           "title": "Plots",
-          "description": "Type **/plot** and write `f(x) = x^2 - 2` or `A = (1, 2)`, one per line, to see them in a coordinate system.",
+          "description": "Type **/plot** and write `f(x) = x^2 - 2` or `A = (1, 2)`, one per line, to see them in a coordinate system. Set the view with `window: -10..10`.",
           "icon": "chart-line",
           "tag": "New"
         }
@@ -537,8 +469,6 @@
     {
       "version": "0.41.0",
       "date": "2026-10-21",
-      "title": "New task from anywhere",
-      "summary": "Open the New task dialog from any page, with the title ready for typing.",
       "highlights": [
         {
           "title": "New task from anywhere",
@@ -553,12 +483,10 @@
     {
       "version": "0.40.1",
       "date": "2026-10-21",
-      "title": "Formulas in exports",
-      "summary": "Inline math shows as math in your exported documents.",
       "highlights": [],
       "more": {
         "Fixed": [
-          "Inline math in PDF, Word and OpenDocument exports shows as formulas instead of raw LaTeX."
+          "Inline math in PDF, Word and OpenDocument exports shows as real formulas instead of raw LaTeX, and Word files get equations you can edit."
         ]
       }
     },
@@ -675,16 +603,6 @@
       }
     },
     {
-      "version": "0.37.2",
-      "date": "2026-10-16",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Zooming a split group is faster and no longer reloads the page, and dragging the divider between groups is smooth."
-        ]
-      }
-    },
-    {
       "version": "0.37.1",
       "date": "2026-10-16",
       "highlights": [],
@@ -697,8 +615,6 @@
     {
       "version": "0.37.0",
       "date": "2026-10-16",
-      "title": "Quick filters and a fuller course page",
-      "summary": "Keep your favorite filters one click away, and see a course's week, assignments, notes and exams on its page.",
       "highlights": [
         {
           "title": "A fuller course page",
@@ -716,8 +632,6 @@
     {
       "version": "0.36.0",
       "date": "2026-10-16",
-      "title": "Find and replace in a page",
-      "summary": "Search the page you are writing in, and replace what you find.",
       "highlights": [
         {
           "title": "Find in page",
@@ -732,8 +646,6 @@
     {
       "version": "0.35.0",
       "date": "2026-10-16",
-      "title": "Zoom into one side of a split",
-      "summary": "Hide the other side of a split view and give the focused side the whole page.",
       "highlights": [
         {
           "title": "Zoom a group",
@@ -748,8 +660,6 @@
     {
       "version": "0.34.18",
       "date": "2026-10-16",
-      "title": "Split view spacing",
-      "summary": "Fixed the spacing around the tabs in split view.",
       "highlights": [],
       "more": {
         "Fixed": ["Fixed the spacing around the tabs in split view."]
@@ -758,8 +668,6 @@
     {
       "version": "0.34.17",
       "date": "2026-10-16",
-      "title": "Less empty space",
-      "summary": "Notes and Jots fill a wide window better.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -770,8 +678,6 @@
     {
       "version": "0.34.16",
       "date": "2026-10-16",
-      "title": "Formulas that stay put",
-      "summary": "Formulas no longer turn into plain text with dollar signs.",
       "highlights": [],
       "more": {
         "Fixed": [
@@ -782,8 +688,6 @@
     {
       "version": "0.34.15",
       "date": "2026-10-16",
-      "title": "A tidier settings list",
-      "summary": "The LaTeX page is marked as part of Editor in the Settings list.",
       "highlights": [],
       "more": {
         "Fixed": [
@@ -794,8 +698,6 @@
     {
       "version": "0.34.14",
       "date": "2026-10-16",
-      "title": "Roomier deck cards",
-      "summary": "Deck cards on the dashboard stay readable when narrow.",
       "highlights": [],
       "more": {
         "Fixed": [
@@ -806,8 +708,6 @@
     {
       "version": "0.34.13",
       "date": "2026-10-16",
-      "title": "IDs in tabs",
-      "summary": "Tabs show the ID of the page they have open.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -818,8 +718,6 @@
     {
       "version": "0.34.12",
       "date": "2026-10-16",
-      "title": "Attach from the file's side",
-      "summary": "Relate a file or bookmark to a page as an attachment.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -830,8 +728,6 @@
     {
       "version": "0.34.11",
       "date": "2026-10-16",
-      "title": "Search ignores accents",
-      "summary": "Search finds names with accents however you type them.",
       "highlights": [],
       "more": {
         "Fixed": [
@@ -842,8 +738,6 @@
     {
       "version": "0.34.10",
       "date": "2026-10-16",
-      "title": "Upload and attach in one step",
-      "summary": "Add a file to a page straight from the details sidebar.",
       "highlights": [
         {
           "title": "Upload File",
@@ -853,17 +747,12 @@
         }
       ],
       "more": {
-        "Fixed": [
-          "Long label names no longer squash their checkbox in the label picker.",
-          "The attach menu finds files with accents in their name, so \"Übungs\" finds \"Übungsblatt 2.pdf\"."
-        ]
+        "Fixed": ["Long label names no longer squash their checkbox in the label picker."]
       }
     },
     {
       "version": "0.34.7",
       "date": "2026-10-16",
-      "title": "Markdown files open again",
-      "summary": "Markdown files with a divider or front matter show their text, and open dark by default.",
       "highlights": [],
       "more": {
         "Fixed": [
@@ -908,8 +797,6 @@
     {
       "version": "0.34.3",
       "date": "2026-10-15",
-      "title": "Split view fix",
-      "summary": "Hiding the details sidebar in split view only affects your side.",
       "highlights": [],
       "more": {
         "Fixed": [
@@ -920,8 +807,6 @@
     {
       "version": "0.34.2",
       "date": "2026-10-15",
-      "title": "Dashboard fix",
-      "summary": "The dashboard summary no longer repeats your next session.",
       "highlights": [],
       "more": {
         "Fixed": ["The dashboard summary mentions a session that is about to start only once."]
@@ -941,8 +826,6 @@
     {
       "version": "0.34.0",
       "date": "2026-10-15",
-      "title": "Split view",
-      "summary": "Two groups of tabs side by side, each with its own tabs and history.",
       "highlights": [
         {
           "title": "Split view",
@@ -1057,8 +940,7 @@
         ],
         "Improved": [
           "Right click any item and choose Copy ID, right below Copy Link, to copy the ID you see on it, like `TSK-12`.",
-          "Click a file embedded in a page to open it in Nookly, or use Open in Nookly on its toolbar.",
-          "A one time reset of the What's new list is gone now that it did its job."
+          "Click a file embedded in a page to open it in Nookly, or use Open in Nookly on its toolbar."
         ]
       }
     },
@@ -1073,8 +955,6 @@
     {
       "version": "0.33.1",
       "date": "2026-10-13",
-      "title": "A roomier Dashboard calendar",
-      "summary": "The calendar shows more of your day.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -1112,8 +992,6 @@
     {
       "version": "0.32.6",
       "date": "2026-10-11",
-      "title": "Agent files in folders",
-      "summary": "The Agent settings now list your files down the side, with folders.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -1124,8 +1002,6 @@
     {
       "version": "0.32.5",
       "date": "2026-10-10",
-      "title": "What's new after any update",
-      "summary": "Updating from an older version always shows what changed.",
       "highlights": [],
       "more": {
         "Fixed": [
@@ -1136,8 +1012,6 @@
     {
       "version": "0.32.4",
       "date": "2026-10-10",
-      "title": "A cleaner page edge",
-      "summary": "The main area now matches the sidebar.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -1148,8 +1022,6 @@
     {
       "version": "0.32.1",
       "date": "2026-10-10",
-      "title": "What's new covers every update",
-      "summary": "Updating after a few versions shows all of them.",
       "highlights": [],
       "more": {
         "Improved": [
