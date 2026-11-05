@@ -15,7 +15,7 @@
       ],
       "more": {
         "Improved": [
-          "The Files page, notes and the details sidebar show a drop area while you drag a file over them, and notes mark where a dropped file lands in blue."
+          "The Files page and the details sidebar show a drop area while you drag a file over them, and notes show a drop box right where the file will land."
         ],
         "Fixed": [
           "Fixed dragging a file onto Nookly covering the whole app with that file until you restarted."

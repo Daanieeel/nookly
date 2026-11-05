@@ -6,7 +6,7 @@ All notable changes to Nookly are listed here.
 
 ### Added
 
-- Drop files from your computer onto the Files page to import them, or onto any page to attach them. In a note or jot, a dropped file lands right where you drop it. The Files page, notes and the details sidebar show a drop area while you drag a file over them, and notes mark where a dropped file lands in blue.
+- Drop files from your computer onto the Files page to import them, or onto any page to attach them. In a note or jot, a dropped file lands right where you drop it. The Files page and the details sidebar show a drop area while you drag a file over them, and notes show a drop box right where the file will land.
 
 ### Fixed
 

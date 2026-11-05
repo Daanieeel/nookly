@@ -49,19 +49,46 @@ describe("dragging a file over the block editor", () => {
   });
   afterEach(uninstallTauriMock);
 
-  it("boxes the page in with a drop area until the file leaves or lands", async () => {
-    const files = { dataTransfer: { types: ["Files"] } };
-    const { container, queryByText } = renderWithProviders(
+  const files = { dataTransfer: { types: ["Files"] } };
+
+  /// What ProseMirror's drop cursor draws, the blue line, positioned inside the editor's box.
+  function addDropCursor(root: Element) {
+    const cursor = document.createElement("div");
+    cursor.className = "nookly-drop-cursor";
+    Object.assign(cursor.style, { left: "52px", top: "120px", width: "400px", height: "2px" });
+    root.appendChild(cursor);
+  }
+
+  it("shows a drop box where the blue line is, and only there", async () => {
+    const { container, queryByTestId } = renderWithProviders(
       <BlockEditor entityId="e1" spaceId="s1" />,
     );
     const content = await findEditor(container);
+    const root = container.firstElementChild!;
     fireEvent.dragEnter(content, files);
-    expect(queryByText("Drop to add files")).not.toBeNull();
+    fireEvent.dragOver(content, files);
+    // No line, no box: the file would not land anywhere.
+    expect(queryByTestId("file-drop-slot")).toBeNull();
+    addDropCursor(root);
+    fireEvent.dragOver(content, files);
+    expect(queryByTestId("file-drop-slot")).not.toBeNull();
+    expect(queryByTestId("file-drop-overlay")).toBeNull();
+  });
+
+  it("removes the box when the file leaves or lands", async () => {
+    const { container, queryByTestId } = renderWithProviders(
+      <BlockEditor entityId="e1" spaceId="s1" />,
+    );
+    const content = await findEditor(container);
+    addDropCursor(container.firstElementChild!);
+    fireEvent.dragEnter(content, files);
+    fireEvent.dragOver(content, files);
     fireEvent.dragLeave(content, files);
-    expect(queryByText("Drop to add files")).toBeNull();
+    expect(queryByTestId("file-drop-slot")).toBeNull();
     fireEvent.dragEnter(content, files);
+    fireEvent.dragOver(content, files);
     fireEvent.drop(content, files);
-    expect(queryByText("Drop to add files")).toBeNull();
+    expect(queryByTestId("file-drop-slot")).toBeNull();
   });
 });
 

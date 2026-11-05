@@ -29,7 +29,7 @@ import {
   type JSONNode,
   nodeToBlockInput,
 } from "./block-markdown";
-import { FileDropOverlay } from "#/features/files/FileDropOverlay.tsx";
+import { FileDropSlot, type DropSlot } from "#/features/files/FileDropOverlay.tsx";
 import { useFileDragOver } from "#/hooks/use-file-drag-over.ts";
 import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
 import { newCodeBlockLanguage } from "./default-code-language";
@@ -78,6 +78,23 @@ function persistedOf(block: Block): PersistedBlock {
 /// Tiptap/ProseMirror editor owns the whole page, exactly like Notion. Each
 /// top-level node still round-trips to one row in the existing per-block backend
 /// (`block-markdown.ts`); this component's only extra job is reconciling the two.
+/// Reads where ProseMirror's drop cursor, the blue line, is drawn inside the editor. A line
+/// between blocks spans the block; a caret between letters is narrow, so the box takes the
+/// width of the page instead. `null` while there is no line.
+function dropSlotOf(root: HTMLElement | null): DropSlot | null {
+  const line = root?.querySelector<HTMLElement>(".nookly-drop-cursor");
+  if (!root || !line) return null;
+  const top = parseFloat(line.style.top) + parseFloat(line.style.height) / 2;
+  const left = parseFloat(line.style.left);
+  const width = parseFloat(line.style.width);
+  if ([top, left, width].some(Number.isNaN)) return null;
+  if (width > MIN_BLOCK_LINE_WIDTH) return { top, left, width };
+  return { top, left: GUTTER_WIDTH, width: Math.max(0, root.clientWidth - GUTTER_WIDTH) };
+}
+
+/// A drop cursor wider than this is the line between two blocks.
+const MIN_BLOCK_LINE_WIDTH = 8;
+
 export function BlockEditor({
   entityId,
   spaceId,
@@ -298,6 +315,8 @@ function HydratedBlockEditor({
 
   const pasteFiles = usePasteFiles(spaceId, entityId);
   const { over, dragProps } = useFileDragOver();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [slot, setSlot] = useState<DropSlot | null>(null);
 
   // Settings load before the first page opens, so this sets the variables once for the session.
   useEffect(applyPageTypography, []);
@@ -606,7 +625,13 @@ function HydratedBlockEditor({
   });
 
   return (
-    <div className="relative" {...dragProps} {...blockContextTarget}>
+    <div
+      ref={rootRef}
+      className="relative"
+      {...dragProps}
+      onDragOver={() => setSlot(dropSlotOf(rootRef.current))}
+      {...blockContextTarget}
+    >
       <TableControls editor={editor} />
       <TableRowHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />
       <TableColumnHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />
@@ -623,7 +648,7 @@ function HydratedBlockEditor({
         />
       )}
       <EditorContent editor={editor} />
-      {over && <FileDropOverlay label="Drop to add files" className="inset-0" />}
+      {over && slot && <FileDropSlot slot={slot} label="Drop to add file" />}
       <VimIndicator editor={editor} />
       {pasteFiles.popover}
     </div>
