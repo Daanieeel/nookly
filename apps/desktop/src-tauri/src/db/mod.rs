@@ -248,10 +248,10 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             return Err(e);
         }
     };
-    // A debug build (`bun run dev`) that opens an empty database gets sample data.
+    // A debug build (`bun run dev`) adds the sample data once.
     #[cfg(debug_assertions)]
-    match dev_seed::seed_if_empty(&conn) {
-        Ok(true) => tracing::info!("filled the empty development database with sample data"),
+    match dev_seed::seed_if_missing(&conn) {
+        Ok(true) => tracing::info!("added sample data to the development database"),
         Ok(false) => {}
         Err(e) => {
             tracing::warn!(error = %e, "could not add sample data to the development database")

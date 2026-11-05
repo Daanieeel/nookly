@@ -1,10 +1,9 @@
-//! Sample data for `bun run dev`. A debug build that opens an empty database fills it with
-//! two Spaces of believable content, so every screen has something to show. A database that
-//! already has a Space is never touched, and a release build never compiles this in.
+//! Sample data for `bun run dev`. A debug build adds two Spaces of believable content, so
+//! every screen has something to show. It only ever adds, once: a database that already
+//! holds the sample Space is left alone, and nothing already there is changed. A release
+//! build never compiles this in.
 //!
-//! Set `NOOKLY_NO_SEED=1` to start empty on purpose. To add the sample data next to what a
-//! development database already holds, start with `NOOKLY_SEED=1` (`bun run dev:seed`); it
-//! adds the Spaces once and changes nothing that is there.
+//! Set `NOOKLY_NO_SEED=1` to start without it.
 
 use chrono::{Duration, Local};
 use rusqlite::Connection;
@@ -18,31 +17,20 @@ use crate::error::AppResult;
 /// Name of the first sample Space, which marks a database as already holding the sample data.
 const SAMPLE_SPACE: &str = "University";
 
-/// Adds the sample data when the development database is empty, or when `NOOKLY_SEED=1`
-/// asks for it next to what is already there. Returns whether it did.
-pub fn seed_if_empty(conn: &Connection) -> AppResult<bool> {
+/// Adds the sample data unless the database already holds it. Returns whether it did.
+pub fn seed_if_missing(conn: &Connection) -> AppResult<bool> {
     if std::env::var_os("NOOKLY_NO_SEED").is_some() {
         return Ok(false);
     }
-    let force = std::env::var("NOOKLY_SEED").is_ok_and(|v| v == "1");
-    run(conn, force)
+    run(conn)
 }
 
-/// `force` adds the sample Spaces next to existing ones, once. It only ever adds: nothing
-/// that is already in the database is changed.
-fn run(conn: &Connection, force: bool) -> AppResult<bool> {
-    let existing = spaces::list_spaces(conn)?;
-    let wanted = if force {
-        !existing.iter().any(|s| s.name == SAMPLE_SPACE)
-    } else {
-        existing.is_empty()
-    };
-    if !wanted {
-        if !existing.is_empty() {
-            tracing::info!(
-                "kept the development database as it is; start with NOOKLY_SEED=1 to add the sample data next to it"
-            );
-        }
+/// Only ever adds: nothing that is already in the database is changed.
+fn run(conn: &Connection) -> AppResult<bool> {
+    if spaces::list_spaces(conn)?
+        .iter()
+        .any(|s| s.name == SAMPLE_SPACE)
+    {
         return Ok(false);
     }
     crate::db::atomically(conn, || seed(conn))?;
@@ -300,7 +288,7 @@ mod tests {
     #[test]
     fn fills_an_empty_database_with_two_spaces_and_linked_content() {
         let conn = test_conn();
-        assert!(run(&conn, false).unwrap());
+        assert!(run(&conn).unwrap());
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM spaces"), 2);
         for kind in [
             "task",
@@ -323,7 +311,7 @@ mod tests {
     #[test]
     fn links_across_the_two_spaces() {
         let conn = test_conn();
-        run(&conn, false).unwrap();
+        run(&conn).unwrap();
         let across = count(
             &conn,
             "SELECT COUNT(*) FROM relationships r
@@ -335,20 +323,11 @@ mod tests {
     }
 
     #[test]
-    fn never_touches_a_database_that_already_has_a_space() {
-        let conn = test_conn();
-        spaces::create_space(&conn, "Mine".into(), None, "#000".into()).unwrap();
-        assert!(!run(&conn, false).unwrap());
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM spaces"), 1);
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities"), 0);
-    }
-
-    #[test]
     fn seeds_only_once() {
         let conn = test_conn();
-        assert!(run(&conn, false).unwrap());
+        assert!(run(&conn).unwrap());
         let entities = count(&conn, "SELECT COUNT(*) FROM entities");
-        assert!(!run(&conn, false).unwrap());
+        assert!(!run(&conn).unwrap());
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities"), entities);
     }
 
@@ -357,22 +336,22 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("nookly-dev-seed-{}", crate::db::new_id()));
         {
             let conn = crate::db::connect(&dir).unwrap();
-            assert!(run(&conn, false).unwrap());
+            assert!(run(&conn).unwrap());
         }
         // The next launch finds the data and leaves it alone.
         let conn = crate::db::connect(&dir).unwrap();
-        assert!(!run(&conn, false).unwrap());
+        assert!(!run(&conn).unwrap());
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM spaces"), 2);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
-    fn can_be_added_next_to_what_a_database_already_holds() {
+    fn is_added_next_to_what_a_database_already_holds() {
         let conn = test_conn();
         let mine = spaces::create_space(&conn, "Mine".into(), None, "#000".into()).unwrap();
         let note = notes::create_page(&conn, mine.id.clone(), "note", "Keep me".into()).unwrap();
 
-        assert!(run(&conn, true).unwrap());
+        assert!(run(&conn).unwrap());
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM spaces"), 3);
         let kept: String = conn
             .query_row(
@@ -387,20 +366,13 @@ mod tests {
     }
 
     #[test]
-    fn asking_again_does_not_add_a_second_copy() {
+    fn a_database_with_the_sample_space_gets_no_second_copy() {
         let conn = test_conn();
         spaces::create_space(&conn, "Mine".into(), None, "#000".into()).unwrap();
-        assert!(run(&conn, true).unwrap());
+        assert!(run(&conn).unwrap());
         let entities = count(&conn, "SELECT COUNT(*) FROM entities");
-        assert!(!run(&conn, true).unwrap());
+        assert!(!run(&conn).unwrap());
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities"), entities);
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM spaces"), 3);
-    }
-
-    #[test]
-    fn leaves_a_database_with_a_space_alone_unless_asked() {
-        let conn = test_conn();
-        spaces::create_space(&conn, "Mine".into(), None, "#000".into()).unwrap();
-        assert!(!run(&conn, false).unwrap());
     }
 }
