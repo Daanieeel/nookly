@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.63.2 (2026-11-05)
+
+### Changed
+
+- Behind the scenes cleanup of the PDF viewer. Nothing looks or works differently.
+
 ## 0.63.1 (2026-11-05)
 
 ### Changed
