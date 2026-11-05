@@ -3,10 +3,14 @@
 //! holds the sample Space is left alone, and nothing already there is changed. A release
 //! build never compiles this in.
 //!
+//! The University Space also gets a large batch of linked lecture notes, so the relationship
+//! graph can be tried at scale: a hub with more links than the graph shows, chains, and
+//! weekly recaps that join the two courses.
+//!
 //! Set `NOOKLY_NO_SEED=1` to start without it.
 
 use chrono::{Duration, Local};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 use crate::db::block_types::BlockAttrs;
 use crate::db::{
@@ -17,6 +21,58 @@ use crate::error::AppResult;
 /// Name of the first sample Space, which marks a database as already holding the sample data.
 const SAMPLE_SPACE: &str = "University";
 
+/// Title of the hub note that marks the large batch of notes as already added.
+const BULK_HUB: &str = "Semester overview";
+
+const ALGEBRA_TOPICS: [&str; 20] = [
+    "Vector spaces",
+    "Linear independence",
+    "Basis and dimension",
+    "Linear maps",
+    "Kernel and image",
+    "Rank nullity theorem",
+    "Matrix representation",
+    "Change of basis",
+    "Determinants",
+    "Cofactor expansion",
+    "Eigenvalues",
+    "Diagonalisation",
+    "Inner products",
+    "Orthogonality",
+    "Gram Schmidt",
+    "Projections",
+    "Least squares",
+    "Symmetric matrices",
+    "Spectral theorem",
+    "Singular values",
+];
+
+const ALGORITHM_TOPICS: [&str; 20] = [
+    "Asymptotic analysis",
+    "Recurrences",
+    "Divide and conquer",
+    "Merge sort",
+    "Quicksort",
+    "Heaps",
+    "Hash tables",
+    "Binary search trees",
+    "Balanced trees",
+    "Graph traversal",
+    "Shortest paths",
+    "Minimum spanning trees",
+    "Dynamic programming",
+    "Knapsack",
+    "Greedy algorithms",
+    "Network flow",
+    "NP completeness",
+    "Reductions",
+    "Approximation",
+    "Randomised algorithms",
+];
+
+/// Weeks that get a recap note joining the two courses.
+const RECAP_WEEKS: usize = 12;
+
 /// Adds the sample data unless the database already holds it. Returns whether it did.
 pub fn seed_if_missing(conn: &Connection) -> AppResult<bool> {
     if std::env::var_os("NOOKLY_NO_SEED").is_some() {
@@ -25,16 +81,39 @@ pub fn seed_if_missing(conn: &Connection) -> AppResult<bool> {
     run(conn)
 }
 
-/// Only ever adds: nothing that is already in the database is changed.
+/// Only ever adds: nothing that is already in the database is changed. The base sample and
+/// the large batch of notes are each added once, so a database seeded before the batch existed
+/// still gets it.
 fn run(conn: &Connection) -> AppResult<bool> {
-    if spaces::list_spaces(conn)?
+    let mut added = false;
+    if !spaces::list_spaces(conn)?
         .iter()
         .any(|s| s.name == SAMPLE_SPACE)
     {
-        return Ok(false);
+        crate::db::atomically(conn, || seed(conn))?;
+        added = true;
     }
-    crate::db::atomically(conn, || seed(conn))?;
-    Ok(true)
+    let uni = spaces::list_spaces(conn)?
+        .into_iter()
+        .find(|s| s.name == SAMPLE_SPACE);
+    if let Some(uni) = uni {
+        if find_in_space(conn, &uni.id, BULK_HUB)?.is_none() {
+            crate::db::atomically(conn, || seed_study_notes(conn, &uni.id))?;
+            added = true;
+        }
+    }
+    Ok(added)
+}
+
+/// The id of the item called `title` in a Space, if there is one.
+fn find_in_space(conn: &Connection, space: &str, title: &str) -> AppResult<Option<String>> {
+    Ok(conn
+        .query_row(
+            "SELECT id FROM entities WHERE space_id = ?1 AND title = ?2 LIMIT 1",
+            [space, title],
+            |row| row.get(0),
+        )
+        .optional()?)
 }
 
 /// A date `days` from today, as the app stores dates.
@@ -276,6 +355,98 @@ fn seed(conn: &Connection) -> AppResult<()> {
     Ok(())
 }
 
+/// Lecture notes for both courses, weekly recaps and one overview hub, all linked, in the
+/// University Space. The hub links to more notes than the graph shows per ring.
+fn seed_study_notes(conn: &Connection, uni: &str) -> AppResult<()> {
+    let mut lectures: Vec<Vec<String>> = Vec::new();
+    for (course, topics) in [
+        ("Linear Algebra", ALGEBRA_TOPICS),
+        ("Algorithms", ALGORITHM_TOPICS),
+    ] {
+        let mut ids = Vec::new();
+        for (i, topic) in topics.iter().enumerate() {
+            let title = format!("{course} lecture {}: {topic}", i + 1);
+            let page = notes::create_page(conn, uni.into(), "note", title.clone())?;
+            let summary = format!("Key ideas from the {topic} lecture, with one worked example.");
+            write_page(
+                conn,
+                &page.id,
+                &title,
+                &[&summary, "Questions to ask next time."],
+            )?;
+            ids.push(page.id);
+        }
+        link_chain(conn, &ids)?;
+        lectures.push(ids);
+    }
+
+    let mut recaps = Vec::new();
+    for week in 0..RECAP_WEEKS {
+        let title = format!("Week {} recap", week + 1);
+        let page = notes::create_page(conn, uni.into(), "note", title.clone())?;
+        write_page(
+            conn,
+            &page.id,
+            &title,
+            &["What was covered, and what is still unclear."],
+        )?;
+        for course in &lectures {
+            link(conn, &page.id, &course[week], "relates-to")?;
+        }
+        recaps.push(page.id);
+    }
+    link_chain(conn, &recaps)?;
+
+    let hub = notes::create_page(conn, uni.into(), "note", BULK_HUB.into())?;
+    write_page(
+        conn,
+        &hub.id,
+        BULK_HUB,
+        &["Every lecture and recap of the term in one place."],
+    )?;
+    for id in lectures.iter().flatten().chain(&recaps) {
+        link(conn, &hub.id, id, "relates-to")?;
+    }
+    link_known_items(conn, uni, &hub.id, &lectures)
+}
+
+/// Each note links to the next one, and every third also to the one three on.
+fn link_chain(conn: &Connection, ids: &[String]) -> AppResult<()> {
+    for (i, id) in ids.iter().enumerate() {
+        if let Some(next) = ids.get(i + 1) {
+            link(conn, id, next, "relates-to")?;
+        }
+        if let Some(skip) = ids.get(i + 3).filter(|_| i % 3 == 0) {
+            link(conn, id, skip, "relates-to")?;
+        }
+    }
+    Ok(())
+}
+
+/// Ties the batch to the base sample (the cheat sheet, the exams, the problem set) when those
+/// are still there, so the graph reaches into the rest of the Space.
+fn link_known_items(
+    conn: &Connection,
+    uni: &str,
+    hub: &str,
+    lectures: &[Vec<String>],
+) -> AppResult<()> {
+    let ties = [
+        ("Eigenvalues cheat sheet", &lectures[0][10]),
+        ("Complexity notes", &lectures[1][0]),
+        ("Linear Algebra midterm", &lectures[0][12]),
+        ("Algorithms final", &lectures[1][19]),
+        ("Problem set 3", &lectures[0][9]),
+    ];
+    for (title, lecture) in ties {
+        if let Some(known) = find_in_space(conn, uni, title)? {
+            link(conn, lecture, &known, "relates-to")?;
+            link(conn, hub, &known, "relates-to")?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -374,5 +545,39 @@ mod tests {
         assert!(!run(&conn).unwrap());
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM entities"), entities);
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM spaces"), 3);
+    }
+
+    #[test]
+    fn adds_a_large_linked_batch_of_notes_to_the_university_space() {
+        let conn = test_conn();
+        run(&conn).unwrap();
+        let uni = spaces::list_spaces(&conn)
+            .unwrap()
+            .into_iter()
+            .find(|s| s.name == SAMPLE_SPACE)
+            .unwrap()
+            .id;
+        let notes_in_uni = count(
+            &conn,
+            &format!("SELECT COUNT(*) FROM entities WHERE type = 'note' AND space_id = '{uni}'"),
+        );
+        assert!(notes_in_uni >= 50, "only {notes_in_uni} notes");
+        // More direct links than the graph shows in one ring, so its cap is exercised.
+        let hub = find_in_space(&conn, &uni, BULK_HUB).unwrap().unwrap();
+        let hub_links = count(
+            &conn,
+            &format!("SELECT COUNT(*) FROM relationships WHERE from_entity_id = '{hub}'"),
+        );
+        assert!(hub_links > 50, "hub has {hub_links} links");
+    }
+
+    #[test]
+    fn a_database_seeded_before_the_batch_existed_still_gets_it_once() {
+        let conn = test_conn();
+        seed(&conn).unwrap();
+        let before = count(&conn, "SELECT COUNT(*) FROM entities");
+        assert!(run(&conn).unwrap());
+        assert!(count(&conn, "SELECT COUNT(*) FROM entities") > before + 50);
+        assert!(!run(&conn).unwrap());
     }
 }
