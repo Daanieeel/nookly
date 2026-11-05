@@ -1722,6 +1722,11 @@
         "description": "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx, code/plain text files) with no search content yet — never indexed, or the last attempt found nothing. See the `reindex` bulk action.",
         "kind": "boolean",
         "name": "needsReindex"
+      },
+      {
+        "description": "Read only. Where an imported File came from, as a key the importing module chose (a file from Moodle is `moodle:<its address>`); `null` for any other File.",
+        "kind": "text",
+        "name": "origin"
       }
     ],
     "convertsTo": [

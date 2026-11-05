@@ -16,7 +16,10 @@ fn data_dir(app: &AppHandle) -> AppResult<PathBuf> {
 /// The newest crash the person has not dismissed yet, or none.
 #[tauri::command]
 pub fn latest_crash_report(app: AppHandle) -> AppResult<Option<CrashReport>> {
-    Ok(crash_report::latest_unseen(&data_dir(&app)?))
+    Ok(crash_report::latest_unseen(
+        &data_dir(&app)?,
+        env!("CARGO_PKG_VERSION"),
+    ))
 }
 
 /// Marks the crash at `occurred_at` (and every older one) as dealt with.

@@ -14,7 +14,7 @@ const PALETTES = [
 ] as const;
 
 /// The same course always gets the same colors.
-export function paletteOf(courseId: number): string {
+function paletteOf(courseId: number): string {
   return PALETTES[Math.abs(courseId) % PALETTES.length] ?? PALETTES[0];
 }
 

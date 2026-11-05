@@ -26,6 +26,8 @@ import { FileViewerThemeCards, ThemeCards } from "./theme-cards.tsx";
 import {
   DisplayNameControl,
   NumberControl,
+  PageFontControl,
+  PageTextSample,
   SnapControl,
   TodayColorControl,
   TodayIntensityControl,
@@ -71,7 +73,7 @@ const SECTIONS = {
   general: ["Profile", "Date and time", "Tasks", "About"],
   appearance: ["Theme"],
   calendar: ["Defaults", "Week and day", "Current day", "Connections"],
-  notes: ["Code", "Editing", "Spelling", "LaTeX"],
+  notes: ["Text", "Code", "Editing", "Spelling", "LaTeX"],
   backup: ["Status", "Backup", "Restore"],
   agent: ["Files"],
   shortcuts: [...SHORTCUT_SECTIONS],
@@ -156,6 +158,21 @@ const SETTING_UI = {
   "notes.formatCodeOnPaste": {
     section: "Code",
     control: <SwitchControl settingId="notes.formatCodeOnPaste" label="Format code when pasted" />,
+  },
+  "notes.editorFont": { section: "Text", control: <PageFontControl /> },
+  // The live sample takes the width of the page, under the row's title.
+  "notes.editorFontSize": {
+    section: "Text",
+    control: (
+      <NumberControl
+        settingId="notes.editorFontSize"
+        label="Page text size"
+        unit="px"
+        min={12}
+        max={24}
+      />
+    ),
+    footer: <PageTextSample />,
   },
   "notes.vimMode": {
     section: "Editing",

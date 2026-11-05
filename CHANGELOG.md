@@ -2,11 +2,48 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.61.2 (2026-11-04)
+## 0.63.2 (2026-11-05)
 
 ### Changed
 
 - Behind the scenes cleanup of the PDF viewer. Nothing looks or works differently.
+
+## 0.63.1 (2026-11-05)
+
+### Changed
+
+- Behind the scenes cleanup of how tabs are kept. Nothing looks or works differently.
+
+## 0.63.0 (2026-11-05)
+
+### Added
+
+- **Name and label Moodle files as you import them.** Importing a file from Moodle now opens a window where you can rename it, pick labels and attach it to a course before it goes into your Space. Nookly suggests a name, a label for the course and its section, and the matching course.
+- **Show in Nookly.** A Moodle file you already imported shows a Show in Nookly button instead of Import, which takes you to the file.
+
+## 0.62.1 (2026-11-05)
+
+### Changed
+
+- **Steadier behind the scenes.** Small cleanups to keep Nookly stable. Nothing looks different.
+
+## 0.62.0 (2026-11-05)
+
+### Added
+
+- **Page font and size.** Choose the font and size of the text in your pages under Settings, Editor, with a live sample that shows the change before you go back to your page.
+
+## 0.61.2 (2026-11-05)
+
+### Changed
+
+- Small behind the scenes tidy up. Nothing looks or works differently.
+
+## 0.61.1 (2026-11-05)
+
+### Fixed
+
+- **Closed unexpectedly message.** The message no longer shows up after an update for something that happened in an older version, and its buttons now fit inside the window.
 
 ## 0.61.0 (2026-11-04)
 
