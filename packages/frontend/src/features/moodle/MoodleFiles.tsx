@@ -1,10 +1,5 @@
-import {
-  IconChevronRight,
-  IconDownload,
-  IconExternalLink,
-  IconFileImport,
-} from "@tabler/icons-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { IconChevronRight, IconDownload, IconExternalLink } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ReactNode } from "react";
 import {
@@ -12,18 +7,20 @@ import {
   StatusButtonContent,
   StatusIcon,
   statusOf,
-  useActionStatus,
 } from "#/components/action-feedback.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { importFile } from "#/lib/api/files.ts";
-import { type MoodleFile, moodleFilePath, moodleOpenFile } from "#/lib/api/moodle.ts";
-import { qk } from "#/lib/query-keys.ts";
+import { type MoodleFile, moodleOpenFile } from "#/lib/api/moodle.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { formatShortDate } from "#/lib/datetime.ts";
 import { messageOf } from "./moodle-login.ts";
-import { fileSize, fileTypeLabel } from "./moodle-format.ts";
+import { fileFacts } from "./moodle-format.ts";
 import { type Look, fileLook } from "./moodle-icons.tsx";
+import {
+  type ImportContext,
+  ImportFileButton,
+  ImportFileDialog,
+  useImportFile,
+} from "./MoodleImport.tsx";
 
 /// A row of the course: a tile, a title, a line of facts under it, and one click to open it.
 /// Buttons for other things go in `trailing`, beside the row rather than inside it.
@@ -78,17 +75,6 @@ export function ItemRow({
   );
 }
 
-/// What a file says about itself: its type, size, name when the title isn't it, and when it
-/// last changed.
-export function fileFacts(file: MoodleFile, title?: string): string[] {
-  return [
-    file.kind === "url" ? "Link" : fileTypeLabel(file.fileName),
-    file.kind !== "url" && file.fileSize > 0 && fileSize(file.fileSize),
-    title !== undefined && title !== file.fileName && file.fileName,
-    file.timeModified > 0 && formatShortDate(new Date(file.timeModified * 1000)),
-  ].filter((fact): fact is string => typeof fact === "string");
-}
-
 /// Opening a file with the system's app (a link in the browser), with its state in place.
 export function useOpenFile(file: MoodleFile) {
   const isLink = file.kind === "url";
@@ -125,73 +111,6 @@ export function OpenFileButton({ opening }: { opening: ReturnType<typeof useOpen
   );
 }
 
-/// Copying a file of the course into a Space of Nookly as a File of its own: it comes down from
-/// Moodle first if it hasn't. Links are not files and are left out.
-export function useImportFile(file: MoodleFile, spaceId: string | undefined) {
-  const queryClient = useQueryClient();
-  const importing = useMutation({
-    mutationFn: async () => {
-      if (spaceId === undefined) throw new Error("Open this from a Space to import it.");
-      return importFile(spaceId, await moodleFilePath(file));
-    },
-    onSuccess: () =>
-      spaceId === undefined
-        ? undefined
-        : Promise.all([
-            queryClient.invalidateQueries({ queryKey: qk.files.bySpace(spaceId) }),
-            queryClient.invalidateQueries({ queryKey: qk.entities.bySpace(spaceId) }),
-          ]),
-  });
-  const status = useActionStatus(importing);
-  return { importing, status, available: spaceId !== undefined && file.kind !== "url" };
-}
-
-/// The button that imports a file into Nookly, showing in place how it went.
-export function ImportFileButton({ state }: { state: ReturnType<typeof useImportFile> }) {
-  const { importing, status, available } = state;
-  if (!available) return null;
-  const label = status === "success" ? "Imported into Nookly" : "Import into Nookly";
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="iconSm"
-          aria-label={label}
-          disabled={importing.isPending}
-          onClick={() => importing.mutate()}
-        >
-          <StatusIcon status={status} idle={<IconFileImport size={14} />} size={14} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-/// The same actions as labelled buttons, for a place with room for words.
-export function ImportFileAction({ state }: { state: ReturnType<typeof useImportFile> }) {
-  const { importing, status, available } = state;
-  if (!available) return null;
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      className="w-full justify-start"
-      disabled={importing.isPending}
-      onClick={() => importing.mutate()}
-    >
-      <StatusButtonContent
-        status={status}
-        icon={<IconFileImport />}
-        label="Import into Nookly"
-        successLabel="Imported into Nookly"
-        errorLabel="Couldn't import, try again"
-      />
-    </Button>
-  );
-}
-
 export function OpenFileAction({ opening }: { opening: ReturnType<typeof useOpenFile> }) {
   const { open, isLink } = opening;
   return (
@@ -214,7 +133,16 @@ export function OpenFileAction({ opening }: { opening: ReturnType<typeof useOpen
 
 /// The files and links of an item outside the course's own page, an assignment or a post. A
 /// file downloads once and opens with the system's app for it; a link goes to the browser.
-export function MoodleFiles({ files, spaceId }: { files: MoodleFile[]; spaceId?: string }) {
+export function MoodleFiles({
+  files,
+  spaceId,
+  context,
+}: {
+  files: MoodleFile[];
+  spaceId?: string;
+  /// Where the files sit in the course, to suggest how to import them.
+  context: ImportContext;
+}) {
   const shown = files.filter((f) => f.fileUrl && (f.kind !== "content" || f.fileName));
   if (shown.length === 0) return null;
   return (
@@ -224,15 +152,24 @@ export function MoodleFiles({ files, spaceId }: { files: MoodleFile[]; spaceId?:
           key={`${file.filePath}${file.fileName}${file.fileUrl}`}
           file={file}
           spaceId={spaceId}
+          context={context}
         />
       ))}
     </ul>
   );
 }
 
-function FileRow({ file, spaceId }: { file: MoodleFile; spaceId?: string }) {
+function FileRow({
+  file,
+  spaceId,
+  context,
+}: {
+  file: MoodleFile;
+  spaceId?: string;
+  context: ImportContext;
+}) {
   const opening = useOpenFile(file);
-  const importing = useImportFile(file, spaceId);
+  const importing = useImportFile(file, spaceId, context);
   const { open } = opening;
   return (
     <li className="flex flex-col gap-1">
@@ -250,7 +187,7 @@ function FileRow({ file, spaceId }: { file: MoodleFile; spaceId?: string }) {
         }
       />
       <FieldError message={open.isError && messageOf(open.error)} />
-      <FieldError message={importing.importing.isError && messageOf(importing.importing.error)} />
+      <ImportFileDialog state={importing} />
     </li>
   );
 }

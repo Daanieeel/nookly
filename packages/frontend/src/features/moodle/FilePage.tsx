@@ -17,14 +17,13 @@ import type { FileEntity } from "#/lib/api/types.ts";
 import type { MoodleFile } from "#/lib/api/moodle.ts";
 import { formatDate } from "#/lib/datetime.ts";
 import { useCourseName } from "./CoursePage.tsx";
+import { OpenFileAction, OpenFileButton, useOpenFile } from "./MoodleFiles.tsx";
 import {
   ImportFileAction,
   ImportFileButton,
-  OpenFileAction,
-  OpenFileButton,
+  ImportFileDialog,
   useImportFile,
-  useOpenFile,
-} from "./MoodleFiles.tsx";
+} from "./MoodleImport.tsx";
 import { useMoodleNavigate } from "./MoodleFrame.tsx";
 import { MoodleEmpty, MoodleError } from "./MoodleStates.tsx";
 import { MoodleWebUrlContext } from "./moodle-context.ts";
@@ -55,7 +54,8 @@ export function FilePage({
   const contents = useMoodleContents(courseId);
   const courseName = useCourseName(courseId);
   const go = useMoodleNavigate(spaceId);
-  const module = contents.data?.data.flatMap((s) => s.modules).find((m) => m.id === cmid);
+  const section = contents.data?.data.find((s) => s.modules.some((m) => m.id === cmid));
+  const module = section?.modules.find((m) => m.id === cmid);
   const file = module?.contents[index];
   const local = useMoodleLocalFile(file);
   const single = module !== undefined && module.contents.length === 1;
@@ -126,8 +126,11 @@ export function FilePage({
               file={file}
               spaceId={spaceId}
               webUrl={webUrl}
+              courseId={courseId}
               courseName={courseName}
+              sectionName={section?.name}
               itemName={module?.name ?? title}
+              single={single}
               onCourse={(e) => go(coursePath(courseId), e)}
             />
           )}
@@ -142,18 +145,29 @@ function FileSidebar({
   file,
   spaceId,
   webUrl,
+  courseId,
   courseName,
+  sectionName,
   itemName,
+  single,
   onCourse,
 }: {
   file: MoodleFile;
   spaceId: string;
   webUrl: string;
+  courseId: number;
   courseName: string;
+  sectionName?: string;
   itemName: string;
+  /// Whether the file is the whole item, so the item's name names it.
+  single: boolean;
   onCourse: (event: React.MouseEvent) => void;
 }) {
-  const importing = useImportFile(file, spaceId);
+  const importing = useImportFile(file, spaceId, {
+    courseId,
+    sectionName,
+    itemName: single ? itemName : undefined,
+  });
   const opening = useOpenFile(file);
   const kind = file.kind === "url" ? LINK_KIND : fileKindOfName(file.fileName);
   // The slim rail of a collapsed sidebar keeps the actions as icons.
@@ -177,39 +191,42 @@ function FileSidebar({
     </div>
   );
   return (
-    <RightSidebarFrame actions={() => null} railActions={railActions}>
-      <section aria-label="Actions" className="flex flex-col gap-1.5">
-        <ImportFileAction state={importing} />
-        <OpenFileAction opening={opening} />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start"
-          onClick={() => void openUrl(webUrl)}
-        >
-          <IconExternalLink />
-          Open in Moodle
-        </Button>
-        <FieldError message={importing.importing.isError && messageOf(importing.importing.error)} />
-        <FieldError message={opening.open.isError && messageOf(opening.open.error)} />
-      </section>
-      <section aria-label="Properties" className="flex flex-col gap-3">
-        <Property label="Kind">
-          <kind.icon size={14} className={cn("mt-0.5 shrink-0", kind.tone)} />
-          {kind.label}
-        </Property>
-        <Property label="File name">{file.fileName}</Property>
-        {file.fileSize > 0 && <Property label="Size">{fileSize(file.fileSize)}</Property>}
-        {file.timeModified > 0 && (
-          <Property label="Changed">{formatDate(new Date(file.timeModified * 1000))}</Property>
-        )}
-        <Property label="Course" onClick={onCourse}>
-          {courseName}
-        </Property>
-        <Property label="Item">{itemName}</Property>
-        <Property label="Source">{new URL(webUrl).host}</Property>
-      </section>
-    </RightSidebarFrame>
+    <>
+      <RightSidebarFrame actions={() => null} railActions={railActions}>
+        <section aria-label="Actions" className="flex flex-col gap-1.5">
+          <ImportFileAction state={importing} />
+          <OpenFileAction opening={opening} />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start"
+            onClick={() => void openUrl(webUrl)}
+          >
+            <IconExternalLink />
+            Open in Moodle
+          </Button>
+          <FieldError message={opening.open.isError && messageOf(opening.open.error)} />
+        </section>
+        <section aria-label="Properties" className="flex flex-col gap-3">
+          <Property label="Kind">
+            <kind.icon size={14} className={cn("mt-0.5 shrink-0", kind.tone)} />
+            {kind.label}
+          </Property>
+          <Property label="File name">{file.fileName}</Property>
+          {file.fileSize > 0 && <Property label="Size">{fileSize(file.fileSize)}</Property>}
+          {file.timeModified > 0 && (
+            <Property label="Changed">{formatDate(new Date(file.timeModified * 1000))}</Property>
+          )}
+          <Property label="Course" onClick={onCourse}>
+            {courseName}
+          </Property>
+          <Property label="Item">{itemName}</Property>
+          <Property label="Source">{new URL(webUrl).host}</Property>
+        </section>
+      </RightSidebarFrame>
+      {/* Outside the frame, so it stays when the sidebar folds into its rail. */}
+      <ImportFileDialog state={importing} />
+    </>
   );
 }
 
@@ -297,6 +314,7 @@ function standIn(file: MoodleFile, path: string, spaceId: string): FileEntity {
     url: null,
     originalFilename: file.fileName,
     sourcePath: null,
+    origin: null,
     needsReindex: false,
     labelIds: [],
     indexedContent: null,

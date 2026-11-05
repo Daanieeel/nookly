@@ -1,14 +1,78 @@
 {
   "versions": [
     {
-      "version": "0.61.1",
-      "date": "2026-11-04",
+      "version": "0.63.1",
+      "date": "2026-11-05",
       "title": "Behind the scenes",
       "summary": "A small cleanup. Nothing looks or works differently.",
       "highlights": [],
       "more": {
         "Improved": [
           "Behind the scenes cleanup of how tabs are kept. Nothing looks or works differently."
+        ]
+      }
+    },
+    {
+      "version": "0.63.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "Smarter Moodle imports",
+          "description": "Importing a Moodle file now lets you rename it, pick labels and attach it to a course first, with suggestions ready.",
+          "icon": "file-import",
+          "tag": "Improved"
+        },
+        {
+          "title": "Show in Nookly",
+          "description": "Moodle files you already imported show a button that takes you straight to them.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.62.1",
+      "date": "2026-11-05",
+      "title": "Steadier behind the scenes",
+      "summary": "Small cleanups to keep Nookly stable.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Small cleanups to keep Nookly stable. Nothing looks different."
+        ]
+      }
+    },
+    {
+      "version": "0.62.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "Choose your page font and size",
+          "description": "Pick a default, serif or mono font and a text size for your pages under Settings, Editor, and see a live sample as you change them.",
+          "icon": "palette",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.61.2",
+      "date": "2026-11-05",
+      "title": "Small tidy up",
+      "summary": "Nothing looks or works differently.",
+      "highlights": [],
+      "more": {
+        "Improved": ["Small behind the scenes tidy up."]
+      }
+    },
+    {
+      "version": "0.61.1",
+      "date": "2026-11-05",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The closed unexpectedly message no longer shows up after an update, and its buttons now fit inside the window."
         ]
       }
     },
@@ -189,7 +253,9 @@
       "date": "2026-10-30",
       "highlights": [],
       "more": {
-        "Fixed": ["Typing `^` in an empty code or math block no longer breaks the block."]
+        "Fixed": [
+          "Typing `^` in an empty code or math block no longer breaks the block."
+        ]
       }
     },
     {
@@ -431,7 +497,9 @@
         }
       ],
       "more": {
-        "Improved": ["A file in a page can name the last page of its interval, like pages 3 to 9."]
+        "Improved": [
+          "A file in a page can name the last page of its interval, like pages 3 to 9."
+        ]
       }
     },
     {
@@ -439,7 +507,9 @@
       "date": "2026-10-20",
       "highlights": [],
       "more": {
-        "Improved": ["Exports to PDF, Word and OpenDocument start on A4 instead of Letter."]
+        "Improved": [
+          "Exports to PDF, Word and OpenDocument start on A4 instead of Letter."
+        ]
       }
     },
     {
@@ -447,7 +517,9 @@
       "date": "2026-10-20",
       "highlights": [],
       "more": {
-        "Improved": ["Cmd or Ctrl and a click on a file in a page opens it in a new Nookly tab."]
+        "Improved": [
+          "Cmd or Ctrl and a click on a file in a page opens it in a new Nookly tab."
+        ]
       }
     },
     {
@@ -455,7 +527,9 @@
       "date": "2026-10-20",
       "highlights": [],
       "more": {
-        "Improved": ["The Open settings file button is now called Show settings file."]
+        "Improved": [
+          "The Open settings file button is now called Show settings file."
+        ]
       }
     },
     {
@@ -470,7 +544,9 @@
         }
       ],
       "more": {
-        "Improved": ["Saving a page as Markdown now happens in the same Export dialog."]
+        "Improved": [
+          "Saving a page as Markdown now happens in the same Export dialog."
+        ]
       }
     },
     {
@@ -485,7 +561,9 @@
         }
       ],
       "more": {
-        "Improved": ["Clear filters always sits next to the Filter button, above your filters."]
+        "Improved": [
+          "Clear filters always sits next to the Filter button, above your filters."
+        ]
       }
     },
     {
@@ -505,7 +583,9 @@
       "date": "2026-10-16",
       "highlights": [],
       "more": {
-        "Fixed": ["Files scroll smoothly even with hundreds of PDFs, without lag or blank gaps."]
+        "Fixed": [
+          "Files scroll smoothly even with hundreds of PDFs, without lag or blank gaps."
+        ]
       }
     },
     {
@@ -781,7 +861,9 @@
       "summary": "The dashboard summary no longer repeats your next session.",
       "highlights": [],
       "more": {
-        "Fixed": ["The dashboard summary mentions a session that is about to start only once."]
+        "Fixed": [
+          "The dashboard summary mentions a session that is about to start only once."
+        ]
       }
     },
     {
@@ -814,7 +896,9 @@
           "Lists, grids and the details sidebar fit the width of their side of a split.",
           "Long pages stay smooth: parts scrolled out of view are not laid out until you get there."
         ],
-        "Fixed": ["Tabs are announced once by screen readers, without their close button."]
+        "Fixed": [
+          "Tabs are announced once by screen readers, without their close button."
+        ]
       }
     },
     {
@@ -924,7 +1008,9 @@
       "date": "2026-10-13",
       "highlights": [],
       "more": {
-        "Improved": ["The Dashboard calendar keeps a minimum height of 800 pixels."]
+        "Improved": [
+          "The Dashboard calendar keeps a minimum height of 800 pixels."
+        ]
       }
     },
     {
