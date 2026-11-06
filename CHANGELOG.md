@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.65.1 (2026-11-06)
+
+### Fixed
+
+- Links now always open in your default browser, never inside Nookly.
+
 ## 0.65.0 (2026-11-05)
 
 ### Added

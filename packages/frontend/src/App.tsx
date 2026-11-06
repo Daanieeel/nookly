@@ -20,6 +20,7 @@ import { NewTaskDialog } from "#/features/tasks/NewTaskDialog.tsx";
 import { useAutoBackup } from "#/features/backup/backup-run.ts";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
+import { useExternalLinks } from "#/hooks/use-external-links.ts";
 import { usePastePlainText } from "#/hooks/use-paste-plain-text.ts";
 import { FILE_DROP_ATTRIBUTE, useWindowFileDrop } from "#/hooks/use-window-file-drop.ts";
 import {
@@ -181,6 +182,7 @@ function Shell() {
   useAutoBackup();
   useScopedSelectAll();
   usePastePlainText();
+  useExternalLinks();
   const queryClient = useQueryClient();
   // Files dragged in from outside are cancelled everywhere (the webview would otherwise open
   // one over the whole app), and imported where a view takes them.
