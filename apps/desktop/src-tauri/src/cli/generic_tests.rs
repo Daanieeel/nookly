@@ -1015,7 +1015,6 @@ fn update_space_moves_the_entity_or_names_its_owner() {
             "exam",
             "session",
             "session_template",
-            "study_block",
             "sub_task"
         ])
     );
@@ -2252,7 +2251,7 @@ fn schema_lists_every_registered_type_once_in_order() {
     sorted.sort_unstable();
     sorted.dedup();
     assert_eq!(sorted, names);
-    assert!(names.len() >= 18);
+    assert!(names.len() >= 17);
 }
 
 #[test]

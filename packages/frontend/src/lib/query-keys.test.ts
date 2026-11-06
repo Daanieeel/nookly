@@ -35,7 +35,6 @@ describe("qk", () => {
       qk.courses,
       qk.semesters,
       qk.exams,
-      qk.studyBlocks,
       qk.decks,
       qk.bookmarks,
       qk.files,

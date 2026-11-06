@@ -126,7 +126,6 @@ export const qk = {
     ...spaceList("exams"),
     all: ["exams-all"] as const,
   },
-  studyBlocks: spaceList("study-blocks"),
   decks: {
     ...spaceList("decks"),
     summaries: ["deck-summaries"] as const,

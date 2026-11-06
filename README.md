@@ -37,7 +37,7 @@ Nookly runs on your computer, keeps your data in a local database, and is open s
 | ✅  | **Tasks**                  | In the style of Jira and Linear, with custom statuses, deadlines, labels and real subtasks.                        |
 | 📝  | **Notes**                  | A block editor for headings, lists, tables and syntax highlighted code. Any page exports to plain Markdown.        |
 | 💭  | **Jots**                   | Capture raw thoughts quickly and refine them into Notes later.                                                     |
-| 🎓  | **University**             | Courses, Semesters, Sessions, Exams (with index cards and study blocks) and Assignments.                           |
+| 🎓  | **University**             | Courses, Semesters, Sessions, Exams (with index cards) and Assignments.                                            |
 | 📎  | **Files and Bookmarks**    | Reference material lives next to the work it belongs to.                                                           |
 | 🔗  | **Relationships**          | Connect any item to any other, in both directions. Attach a file to a task or find everything related to a course. |
 | 🧭  | **Dashboard and Search**   | Dashboard, Pinned, Recents and Search help you get back to anything quickly, across all Spaces.                    |

@@ -1645,8 +1645,7 @@
       "relationshipTypes": [
         "deck-exam",
         "exam-course",
-        "relates-to",
-        "study-block-exam"
+        "relates-to"
       ],
       "supportsBlocks": true
     },
@@ -3373,106 +3372,6 @@
           "name": "updatedAt"
         }
       ],
-      "blockCommands": null,
-      "blockPage": null,
-      "bulkActions": [],
-      "childCollections": [],
-      "computedFields": [],
-      "convertsTo": [],
-      "description": "A scheduled block of study time for an Exam.",
-      "entityActions": [],
-      "entityType": "study_block",
-      "fields": [
-        {
-          "description": "ISO date. Set at creation only.",
-          "kind": "date",
-          "name": "date",
-          "requiredOnCreate": true,
-          "writableOnUpdate": false
-        },
-        {
-          "description": "\"HH:MM\", 24-hour. Set at creation only.",
-          "kind": "text",
-          "name": "endTime",
-          "requiredOnCreate": true,
-          "writableOnUpdate": false
-        },
-        {
-          "description": "The Exam this study block belongs to (structural: exactly one).",
-          "kind": {
-            "entityType": "exam",
-            "type": "entity_ref"
-          },
-          "name": "examId",
-          "requiredOnCreate": true,
-          "writableOnUpdate": false
-        },
-        {
-          "description": "\"HH:MM\", 24-hour. Set at creation only.",
-          "kind": "text",
-          "name": "startTime",
-          "requiredOnCreate": true,
-          "writableOnUpdate": false
-        }
-      ],
-      "relationshipTypes": [
-        "study-block-exam"
-      ],
-      "supportsBlocks": false
-    },
-    {
-      "baseFields": [
-        {
-          "description": "Read-only",
-          "kind": "datetime",
-          "name": "createdAt"
-        },
-        {
-          "description": "Read-only; set by delete, cleared by restore",
-          "kind": "datetime",
-          "name": "deletedAt"
-        },
-        {
-          "description": "Optional emoji/icon, set via --icon",
-          "kind": "text",
-          "name": "icon"
-        },
-        {
-          "description": "Stable unique id (UUID), generated",
-          "kind": "text",
-          "name": "id"
-        },
-        {
-          "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
-          "kind": "text",
-          "name": "key"
-        },
-        {
-          "description": "Read-only; set whenever the entity is opened in the app, null if never",
-          "kind": "datetime",
-          "name": "lastOpenedAt"
-        },
-        {
-          "description": "Set via --pinned true|false",
-          "kind": "boolean",
-          "name": "pinned"
-        },
-        {
-          "description": "Space this entity belongs to",
-          "kind": "entity_ref(space)",
-          "name": "spaceId"
-        },
-        {
-          "description": "User-editable title, set via --title",
-          "kind": "text",
-          "name": "title"
-        },
-        {
-          "description": "Read-only",
-          "kind": "datetime",
-          "name": "updatedAt"
-        }
-      ],
       "blockCommands": {
         "add": "nookly cli sub_task add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]",
         "blockAttrs": {
@@ -4521,14 +4420,6 @@
       "label": "Note for session",
       "name": "session-note",
       "toType": "note"
-    },
-    {
-      "description": "Ties a study block to the exam it prepares for.",
-      "fromType": "study_block",
-      "inverseLabel": "has study block",
-      "label": "Study block for exam",
-      "name": "study-block-exam",
-      "toType": "exam"
     },
     {
       "description": "Makes this task a sub-task of another task.",

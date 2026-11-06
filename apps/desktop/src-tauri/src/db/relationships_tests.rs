@@ -293,7 +293,6 @@ fn every_core_and_module_type_is_registered() {
         "sub-task-of",
         "session-course",
         "exam-course",
-        "study-block-exam",
         "assignment-course",
         "deck-exam",
         "sequel-of",
@@ -332,7 +331,6 @@ fn structural_types_declare_their_end_types() {
     expect("sub-task-of", "sub_task", "task");
     expect("session-course", "session", "course");
     expect("exam-course", "exam", "course");
-    expect("study-block-exam", "study_block", "exam");
     expect("assignment-course", "assignment", "course");
 }
 

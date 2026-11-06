@@ -16,7 +16,6 @@ const TYPE_LABELS = new Map<string, string>([
   ["session_template", "Session"],
   ["exam", "Exam"],
   ["index_card_deck", "Deck"],
-  ["study_block", "Study Block"],
   ["assignment", "Assignment"],
   ["file", "File"],
   ["bookmark", "Bookmark"],
@@ -29,7 +28,7 @@ export function labelForType(type: string): string {
   return TYPE_LABELS.get(type) ?? "Item";
 }
 
-/// The type as a list heading: "Notes", "Study Blocks", "Index card decks" as "Decks".
+/// The type as a list heading: "Notes", "Index card decks" as "Decks".
 export function pluralLabel(type: string): string {
   const label = labelForType(type);
   return label.endsWith("s") ? label : `${label}s`;

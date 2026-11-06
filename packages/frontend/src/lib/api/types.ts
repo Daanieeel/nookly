@@ -398,13 +398,6 @@ export interface DeckStats {
   reviewedToday: number;
 }
 
-export interface StudyBlock {
-  entity: Entity;
-  date: string;
-  startTime: string;
-  endTime: string;
-}
-
 /// A Course's free text details.
 export interface CourseDetails {
   professor: string | null;

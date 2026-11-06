@@ -157,7 +157,6 @@ fn sweep_space(conn: &Connection, id: &str) -> AppResult<()> {
         "calendar_entry_templates",
         "calendar_entries",
         "exams",
-        "study_blocks",
         "assignments",
         "files",
         "bookmarks",

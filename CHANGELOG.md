@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.65.4 (2026-11-06)
+
+### Fixed
+
+- Calendar entries no longer show up in search, since they have no page of their own.
+
 ## 0.65.3 (2026-11-06)
 
 ### Fixed

@@ -184,8 +184,7 @@ function ModuleItems({
   }
 }
 
-/// The plain entity row, for types without a list page of their own (decks,
-/// study blocks) and for anything a module list doesn't return.
+/// The plain entity row, for types without a list page of their own (decks) and for anything a module list doesn't return.
 function Fallback({ entities }: { entities: Entity[] }) {
   return (
     <div className="flex flex-col">
