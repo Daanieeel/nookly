@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.66.1",
+      "date": "2026-11-06",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "On Mac, Nookly now tidies the list of apps allowed to read your saved logins, so it no longer collects an entry for every old version."
+        ]
+      }
+    },
+    {
       "version": "0.66.0",
       "date": "2026-11-06",
       "highlights": [

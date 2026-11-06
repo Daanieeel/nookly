@@ -14,6 +14,7 @@ mod db;
 mod dictionary_file;
 mod error;
 mod external_calendars;
+mod keychain_tidy;
 mod logging;
 mod moodle;
 mod spelling;

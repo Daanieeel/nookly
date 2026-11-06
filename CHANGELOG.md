@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.66.1 (2026-11-06)
+
+### Changed
+
+- On Mac, Nookly now tidies the list of apps allowed to read your saved logins, so it no longer collects an entry for every old version.
+
 ## 0.66.0 (2026-11-06)
 
 ### Added

@@ -21,30 +21,31 @@ fn service_for(identifier: &str) -> String {
     }
 }
 
-fn entry(provider: Provider) -> AppResult<keyring::Entry> {
-    let user = match provider {
+fn account(provider: Provider) -> &'static str {
+    match provider {
         Provider::Google => "google",
         Provider::Icloud => "icloud",
         Provider::Moodle => "moodle",
-    };
-    keyring::Entry::new(&service(), user).map_err(keychain_error)
+    }
+}
+
+fn entry(provider: Provider) -> AppResult<keyring::Entry> {
+    keyring::Entry::new(&service(), account(provider)).map_err(keychain_error)
 }
 
 pub fn set(provider: Provider, secret: &str) -> AppResult<()> {
+    crate::keychain_tidy::forget_secret_backup(&service(), account(provider));
     entry(provider)?
         .set_password(secret)
         .map_err(keychain_error)
 }
 
 pub fn get(provider: Provider) -> AppResult<Option<String>> {
-    match entry(provider)?.get_password() {
-        Ok(secret) => Ok(Some(secret)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(keychain_error(e)),
-    }
+    crate::keychain_tidy::get_secret(&service(), account(provider)).map_err(keychain_message)
 }
 
 pub fn delete(provider: Provider) -> AppResult<()> {
+    crate::keychain_tidy::forget_secret_backup(&service(), account(provider));
     match entry(provider)?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(keychain_error(e)),
@@ -52,6 +53,10 @@ pub fn delete(provider: Provider) -> AppResult<()> {
 }
 
 fn keychain_error(e: keyring::Error) -> AppError {
+    keychain_message(e.to_string())
+}
+
+fn keychain_message(e: String) -> AppError {
     AppError::Remote(format!("Couldn't access the system keychain: {e}"))
 }
 
