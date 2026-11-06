@@ -86,10 +86,14 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      # A cache saved on a tag run can never be read by the next tag, so tags only
+      # restore. The release-cache workflow builds the same thing on main and
+      # saves it, which tags are allowed to read.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
-          key: ${{ matrix.target }}
+          shared-key: release-${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: oven-sh/setup-bun@v2
 
