@@ -1,19 +1,14 @@
 import { qk } from "#/lib/query-keys.ts";
-import { IconCalendarTime, IconCards } from "@tabler/icons-react";
+import { IconCards } from "@tabler/icons-react";
 import { StatusPropertyRow } from "#/features/tasks/StatusPropertyRow.tsx";
 import { type QueryKey, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { useForm } from "@tanstack/react-form";
 import { useEffect, useRef, useState } from "react";
-import { z } from "zod";
-import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { FieldError } from "#/components/action-feedback.tsx";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { NumberProperty, TextProperty, TimeProperty } from "#/components/property-fields.tsx";
 import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
-import { Button } from "@nookly/ui/components/button";
-import { DateInput } from "#/components/date-input.tsx";
 import { CoursePickerField, useCourseLookup } from "#/features/courses/course-lookup.tsx";
 import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
 import {
@@ -43,15 +38,13 @@ import {
   updateExamWeight,
 } from "#/lib/api/exams.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
-import { createStudyBlock, listStudyBlocks } from "#/lib/api/studyBlocks.ts";
 import type { Entity, Exam } from "#/lib/api/types.ts";
-import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { EXAM_STATUSES, examStatus, examStatusKind, weightPercent } from "./exam-model";
 
 /// An Exam's page, laid out like a Task's: description editor, Tasks and Notes
-/// linked to it (plus its Decks and Study blocks) where sub-tasks would be, and
+/// linked to it (plus its Decks) where sub-tasks would be, and
 /// a Linear style properties panel in the right sidebar.
 export function ExamDetailView({ entity }: { entity: Entity }) {
   // The related Tasks tab draws Task status and due date controls.
@@ -297,8 +290,8 @@ function PropertiesPanel({ exam }: { exam: Exam }) {
   );
 }
 
-/// The Decks and Study blocks tabs: both belong to exactly one exam, so they
-/// are created here rather than linked.
+/// The Decks tab: a deck belongs to exactly one exam, so it is created here
+/// rather than linked.
 function useExamTabs(exam: Entity): ExtraTab[] {
   const queryClient = useQueryClient();
   const { spaceId } = exam;
@@ -310,19 +303,11 @@ function useExamTabs(exam: Entity): ExtraTab[] {
     queryKey: qk.decks.bySpace(spaceId),
     queryFn: () => listDecks(spaceId),
   });
-  const { data: blocks = [] } = useQuery({
-    queryKey: qk.studyBlocks.bySpace(spaceId),
-    queryFn: () => listStudyBlocks(spaceId),
-  });
 
   const fromIds = (type: string) =>
     new Set(links.filter((l) => l.relationshipType === type).map((l) => l.fromEntityId));
   const deckIds = fromIds("deck-exam");
-  const blockIds = fromIds("study-block-exam");
   const examDecks = decks.filter((d) => deckIds.has(d.id));
-  const examBlocks = blocks
-    .filter((b) => blockIds.has(b.entity.id))
-    .sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`));
 
   const refresh = (bySpace: (spaceId: string) => QueryKey) =>
     Promise.all([
@@ -360,45 +345,6 @@ function useExamTabs(exam: Entity): ExtraTab[] {
               refresh(qk.decks.bySpace),
               queryClient.invalidateQueries({ queryKey: qk.decks.summariesBySpace(spaceId) }),
             ]);
-          }}
-          onDone={done}
-        />
-      ),
-    },
-    {
-      id: "study-blocks",
-      label: "Study blocks",
-      icon: <IconCalendarTime size={14} />,
-      count: examBlocks.length,
-      noun: "Study block",
-      rows: examBlocks.map((block) => (
-        <RelatedRow
-          key={block.entity.id}
-          entity={block.entity}
-          leading={
-            <span className="flex size-6 shrink-0 items-center justify-center">
-              <IconCalendarTime size={14} className="text-muted-foreground" />
-            </span>
-          }
-          trailing={
-            <span className="pointer-events-none shrink-0 text-xs text-muted-foreground tabular-nums">
-              {`${formatWeekday(block.date, "short")}, ${formatShortDate(block.date)} · ${formatClock(block.startTime)} to ${formatClock(block.endTime)}`}
-            </span>
-          }
-        />
-      )),
-      renderAdd: (done) => (
-        <StudyBlockAddRow
-          onAdd={async (date) => {
-            await createStudyBlock(
-              spaceId,
-              `Study: ${exam.title}`,
-              exam.id,
-              date,
-              "18:00",
-              "20:00",
-            );
-            await refresh(qk.studyBlocks.bySpace);
           }}
           onDone={done}
         />
@@ -476,66 +422,6 @@ function TitleAddRow({
       <div className="pl-8">
         <FieldError message={add.isError && errorLabel} />
       </div>
-    </div>
-  );
-}
-
-/// Picks a day for a new two hour evening study block.
-const studyBlockSchema = z.object({ date: z.string().min(1, "Pick a day") });
-
-function StudyBlockAddRow({
-  onAdd,
-  onDone,
-}: {
-  onAdd: (date: string) => Promise<void>;
-  onDone: () => void;
-}) {
-  const form = useForm({
-    defaultValues: { date: "" },
-    validators: { onChange: studyBlockSchema },
-    onSubmit: ({ value }) => {
-      if (!add.isPending) add.mutate(value.date);
-    },
-  });
-  const add = useMutation({ mutationFn: onAdd, onSuccess: onDone });
-  return (
-    <div className="flex flex-col gap-1 border-b border-border/60 py-2 pl-1">
-      <div className="flex items-start gap-2">
-        <form.Field name="date">
-          {(field) => (
-            <FormField
-              label="Study block date"
-              required
-              error={fieldMessage(field)}
-              className="max-w-56"
-            >
-              <DateInput
-                aria-label="Study block date"
-                value={field.state.value || null}
-                onChange={(day) => field.handleChange(day ?? "")}
-              />
-            </FormField>
-          )}
-        </form.Field>
-        <form.Subscribe selector={hasVisibleErrors}>
-          {(blocked) => (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="mt-5.5"
-              disabled={blocked}
-              onClick={() => void form.handleSubmit()}
-            >
-              <PendingIcon pending={add.isPending} failed={add.isError} idle={null} />
-              Schedule 18:00 to 20:00
-            </Button>
-          )}
-        </form.Subscribe>
-        <Button variant="ghost" size="sm" className="mt-5.5" onClick={onDone}>
-          Cancel
-        </Button>
-      </div>
-      <FieldError message={add.isError && "Couldn't schedule, try again"} />
     </div>
   );
 }

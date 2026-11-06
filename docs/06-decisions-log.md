@@ -56,21 +56,13 @@ Each entry follows a lightweight ADR format: the decision, why it was made, and 
 
 ---
 
-### Five pairs are structural relationships
+### Four pairs are structural relationships
 
-Task and Sub-task, Session and Course, Exam and Course, Study Block and Exam, and Assignment and Course. Deck and Exam was one until Decks became their own module (see below).
+Task and Sub-task, Session and Course, Exam and Course, and Assignment and Course. Deck and Exam was one until Decks became their own module (see below).
 
 **Why:** the child is meaningless without its parent. A session without a course makes no sense. Structural relationships are enforced at the data layer, not just by convention, which sets them apart from generic, unenforced ones like a Course `sequel-of`.
 
 **Rejected:** treating every relationship as equally generic. That would allow orphaned Sessions, Exams, and Assignments with no parent, which never makes sense in the real world.
-
----
-
-### Study schedules use a new Study Block entity, not Sessions or Tasks
-
-**Why:** a Session must have a Course, and study prep is not a lecture, so reusing Sessions would break that rule. A Task is a checklist item and not native to a calendar, which makes it a poor fit for time-boxed study and the future calendar view.
-
-**Rejected:** reusing Session (breaks the structural rule) and reusing Task (wrong semantics, breaks the calendar view design).
 
 ---
 

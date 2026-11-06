@@ -61,9 +61,6 @@ pub mod space_modules;
 pub mod spaces;
 #[cfg(test)]
 mod spaces_tests;
-pub mod study_blocks;
-#[cfg(test)]
-mod study_blocks_tests;
 pub mod task_json;
 pub mod tasks;
 #[cfg(test)]

@@ -214,8 +214,6 @@ fn command_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send +
         commands::decks::study_queue,
         commands::decks::review_card,
         commands::decks::undo_review,
-        commands::study_blocks::create_study_block,
-        commands::study_blocks::list_study_blocks,
         commands::assignments::create_assignment,
         commands::assignments::list_assignments,
         commands::assignments::list_assignments_all_spaces,

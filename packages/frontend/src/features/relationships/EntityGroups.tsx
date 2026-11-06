@@ -34,7 +34,6 @@ const RELATIONSHIP_TYPE_ORDER = [
   "course_notes",
   "index_card_deck",
   "recipe",
-  "study_block",
   "semester",
   "view",
   "session",

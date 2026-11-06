@@ -335,7 +335,7 @@ inventory::submit! {
         supports_blocks: true,
         description: "A graded exam belonging to exactly one Course.",
         fields: EXAM_FIELDS,
-        relationship_types: &["exam-course", "deck-exam", "study-block-exam", "relates-to"],
+        relationship_types: &["exam-course", "deck-exam", "relates-to"],
         create: cli_create_exam,
         update: cli_update_exam,
         get: cli_get_exam,

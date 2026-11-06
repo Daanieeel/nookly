@@ -6,7 +6,6 @@ describe("pluralLabel", () => {
     ["note", "Notes"],
     ["file", "Files"],
     ["session", "Sessions"],
-    ["study_block", "Study Blocks"],
     ["index_card_deck", "Decks"],
     ["course_notes", "Course Notes"],
     ["never_heard_of_it", "Items"],
