@@ -1,6 +1,24 @@
 {
   "versions": [
     {
+      "version": "0.66.0",
+      "date": "2026-11-06",
+      "highlights": [
+        {
+          "title": "Pictures on flashcards",
+          "description": "Cards are written in the note editor, so they can hold pictures, formulas, tables and more. Click a picture while studying to see it larger.",
+          "icon": "cards",
+          "tag": "New",
+          "shortcuts": ["Mod+Enter"]
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Shared deck files now include the pictures of their cards, and can be up to 100 MB."
+        ]
+      }
+    },
+    {
       "version": "0.65.3",
       "date": "2026-11-06",
       "highlights": [],

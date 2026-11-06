@@ -545,6 +545,32 @@ pub fn create_block(
     )
 }
 
+/// A block's content and attrs as they are stored: attrs and content checked against the
+/// block type, mentions written with a key turned into ids, a pasted markdown table in the
+/// editor's own shape. Shared by page blocks and the blocks on a flashcard.
+pub fn prepare_block(
+    conn: &Connection,
+    block_type: &str,
+    content: String,
+    attrs: BlockAttrs,
+) -> AppResult<(String, BlockAttrs)> {
+    block_types::validate_attrs(block_type, &attrs)?;
+    let content = if mention_keys::holds_mentions(block_type) {
+        mention_keys::keys_to_ids(conn, &content)?
+    } else {
+        content
+    };
+    block_types::validate_content(block_type, &content)?;
+    let mut merged = BlockAttrs::new();
+    block_types::merge_attrs(block_type, &mut merged, attrs);
+    let content = if block_type == "table" {
+        normalize_table_content(&content).0
+    } else {
+        content
+    };
+    Ok((content, merged))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn create_block_with_attrs(
     conn: &Connection,
@@ -556,21 +582,7 @@ pub fn create_block_with_attrs(
     filename: Option<String>,
     attrs: BlockAttrs,
 ) -> AppResult<Block> {
-    block_types::validate_attrs(&block_type, &attrs)?;
-    let content = if mention_keys::holds_mentions(&block_type) {
-        mention_keys::keys_to_ids(conn, &content)?
-    } else {
-        content
-    };
-    block_types::validate_content(&block_type, &content)?;
-    let mut merged = BlockAttrs::new();
-    block_types::merge_attrs(&block_type, &mut merged, attrs);
-    let attrs = merged;
-    let content = if block_type == "table" {
-        normalize_table_content(&content).0
-    } else {
-        content
-    };
+    let (content, attrs) = prepare_block(conn, &block_type, content, attrs)?;
     let position = match position {
         Some(p) => p,
         None => {

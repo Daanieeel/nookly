@@ -253,10 +253,9 @@ fn read_import_file(path: &str) -> AppResult<String> {
     let size = std::fs::metadata(path)
         .map_err(|e| AppError::Io(format!("{path}: {e}")))?
         .len();
-    if size > crate::db::portable::MAX_IMPORT_BYTES {
-        return Err(AppError::InvalidInput(
-            "this file is too large to import (the limit is 20 MB)".into(),
-        ));
+    let limit = crate::db::portable::largest_import_bytes();
+    if size > limit {
+        return Err(crate::db::portable::too_large(limit));
     }
     std::fs::read_to_string(path).map_err(|e| AppError::Io(format!("{path}: {e}")))
 }

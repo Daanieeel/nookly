@@ -632,7 +632,7 @@ pub(crate) fn percent_decode(s: &str) -> String {
 }
 
 /// Just a file name: no folders, nothing hidden, nothing empty.
-fn sanitize(name: &str) -> Option<String> {
+pub(crate) fn sanitize(name: &str) -> Option<String> {
     let name = name
         .rsplit(['/', '\\'])
         .next()?

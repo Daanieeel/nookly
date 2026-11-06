@@ -197,7 +197,7 @@ fn preview(text: &str) -> AppResult<PortablePreview> {
 }
 
 inventory::submit! {
-    PortableDef { entity_type: "assignment", format: FORMAT, version: VERSION, parent_type: Some("course"), noun: "assignment", export: export_assignment_json, preview, import: Importer::Filed(import_assignment_json) }
+    PortableDef { entity_type: "assignment", format: FORMAT, version: VERSION, parent_type: Some("course"), noun: "assignment", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_assignment_json, preview, import: Importer::Filed(import_assignment_json) }
 }
 
 #[cfg(test)]

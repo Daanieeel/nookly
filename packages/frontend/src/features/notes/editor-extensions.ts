@@ -48,7 +48,8 @@ import { VimMode } from "./vim-extension";
 
 export interface EditorExtensionOptions {
   spaceId: string;
-  /// The page being edited.
+  /// The page being edited. Empty for text that is not a page (a flashcard): a File added
+  /// there is not attached to anything.
   pageId: string;
   /// Read live, so mentions and the "/" menu see entities loaded after the editor.
   getEntities: () => Entity[];
@@ -61,6 +62,8 @@ export interface EditorExtensionOptions {
   sessionOf?: (entity: Entity) => SessionOccurrence | undefined;
   /// The spell checker the editor underlines with; the app's shared one by default.
   spellSource?: SpellSource;
+  /// The hint on an empty line.
+  placeholder?: string;
 }
 
 /// Every extension of the page editor, in one place so tests build the very same schema.
@@ -72,6 +75,7 @@ export function editorExtensions({
   hasPages = () => false,
   sessionOf = () => undefined,
   spellSource = spellController(),
+  placeholder = "Type “/” for commands, or just start writing…",
 }: EditorExtensionOptions): Extensions {
   return [
     StarterKit.configure({
@@ -101,9 +105,7 @@ export function editorExtensions({
       defaultLanguage: "plaintext",
       getNewLanguage: getNewCodeLanguage,
     }),
-    Placeholder.configure({
-      placeholder: "Type “/” for commands, or just start writing…",
-    }),
+    Placeholder.configure({ placeholder }),
     // `cellMinWidth` is the narrowest a column gets before the table scrolls sideways.
     TableKit.configure({ table: { resizable: true, cellMinWidth: 120 } }),
     PinnedColumns,

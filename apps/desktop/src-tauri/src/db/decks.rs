@@ -1,4 +1,5 @@
 use crate::db::entities::Entity;
+use crate::db::page_json::BlockJson;
 use crate::db::relationships::{Cardinality, MovesWith, RelationshipTypeDef};
 use crate::db::schema::{
     ChildActionDef, ChildCollectionDef, ComputedFieldDef, CreateInput, EntitySchemaDef, FieldDef,
@@ -152,8 +153,14 @@ pub struct NextDue {
 pub struct IndexCard {
     pub id: String,
     pub deck_entity_id: String,
+    /// The front as markdown text. A card written with blocks keeps the markdown of its blocks
+    /// here too, so anything that only reads text still gets the card.
     pub front: String,
     pub back: String,
+    /// The front as blocks, the way the card editor writes it. `None` on a card that has not
+    /// been edited since faces became blocks: it shows `front` until then.
+    pub front_blocks: Option<Vec<BlockJson>>,
+    pub back_blocks: Option<Vec<BlockJson>>,
     /// `new`, `learning`, `review` or `relearning`.
     pub state: String,
     pub due_at: String,
@@ -295,6 +302,8 @@ fn row_to_card(row: &rusqlite::Row) -> rusqlite::Result<IndexCard> {
         deck_entity_id: row.get("deck_entity_id")?,
         front: row.get("front")?,
         back: row.get("back")?,
+        front_blocks: blocks_of(row.get("front_blocks")?),
+        back_blocks: blocks_of(row.get("back_blocks")?),
         next: next_due(&schedule, Utc::now()),
         state: schedule.state,
         due_at: schedule.due_at,
@@ -321,11 +330,90 @@ pub fn get_card(conn: &Connection, card_id: &str) -> AppResult<IndexCard> {
     .ok_or_else(|| AppError::NotFound(format!("index card {card_id}")))
 }
 
+/// One side of a card, as written: text with inline markdown, or blocks.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Face {
+    Text(String),
+    Blocks(Vec<BlockJson>),
+}
+
+impl From<String> for Face {
+    fn from(text: String) -> Self {
+        Face::Text(text)
+    }
+}
+
+impl From<&str> for Face {
+    fn from(text: &str) -> Self {
+        Face::Text(text.into())
+    }
+}
+
+impl From<Vec<BlockJson>> for Face {
+    fn from(blocks: Vec<BlockJson>) -> Self {
+        Face::Blocks(blocks)
+    }
+}
+
+impl Face {
+    /// What a command that takes both forms was given; blocks win over text.
+    pub fn given(text: Option<String>, blocks: Option<Vec<BlockJson>>) -> Option<Face> {
+        blocks.map(Face::Blocks).or(text.map(Face::Text))
+    }
+}
+
+/// Stored blocks back to a list. A column that does not parse is treated as no blocks, so
+/// the card still shows its text.
+fn blocks_of(raw: Option<String>) -> Option<Vec<BlockJson>> {
+    serde_json::from_str(&raw?).ok()
+}
+
+/// `(text, blocks column)` of a face as it is stored. Blocks are checked like the blocks of
+/// a page, and their markdown goes in the text column.
+fn stored_face(conn: &Connection, face: Face) -> AppResult<(String, Option<String>)> {
+    let blocks = match face {
+        Face::Text(text) => return Ok((text, None)),
+        Face::Blocks(blocks) => blocks,
+    };
+    let mut prepared = Vec::with_capacity(blocks.len());
+    for (index, block) in blocks.into_iter().enumerate() {
+        if !crate::db::page_json::is_known_type(&block.block_type) {
+            return Err(AppError::InvalidInput(format!(
+                "block {}: '{}' is not a block type",
+                index + 1,
+                block.block_type
+            )));
+        }
+        let (content, attrs) =
+            crate::db::notes::prepare_block(conn, &block.block_type, block.content, block.attrs)
+                .map_err(|e| match e {
+                    AppError::InvalidInput(reason) => {
+                        AppError::InvalidInput(format!("block {}: {reason}", index + 1))
+                    }
+                    other => other,
+                })?;
+        prepared.push(BlockJson {
+            block_type: block.block_type,
+            content,
+            language: block.language,
+            filename: block.filename,
+            attrs,
+        });
+    }
+    let markdown = prepared
+        .iter()
+        .map(|b| crate::db::notes::block_to_markdown(&crate::db::page_json::block_from_json(b)))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let text = crate::db::mention_keys::ids_to_keys(conn, &markdown)?;
+    Ok((text, Some(crate::error::to_json_string(&prepared)?)))
+}
+
 pub fn create_card(
     conn: &Connection,
     deck_entity_id: String,
-    front: String,
-    back: String,
+    front: Face,
+    back: Face,
 ) -> AppResult<IndexCard> {
     let deck = crate::db::entities::get_entity(conn, &deck_entity_id)?;
     if deck.entity_type != "index_card_deck" {
@@ -334,28 +422,35 @@ pub fn create_card(
             deck.entity_type
         )));
     }
+    let (front, front_blocks) = stored_face(conn, front)?;
+    let (back, back_blocks) = stored_face(conn, back)?;
     let id = super::new_id();
     let now = super::now();
     conn.execute(
-        "INSERT INTO index_cards (id, deck_entity_id, front, back, due_at, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?5)",
-        params![id, deck_entity_id, front, back, now],
+        "INSERT INTO index_cards (id, deck_entity_id, front, back, front_blocks, back_blocks, due_at, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, ?7)",
+        params![id, deck_entity_id, front, back, front_blocks, back_blocks, now],
     )?;
     get_card(conn, &id)
 }
 
+/// Rewrites the given sides; a side left out stays as it is. Writing a side as text drops
+/// its blocks, writing it as blocks replaces its text.
 pub fn update_card(
     conn: &Connection,
     card_id: &str,
-    front: Option<String>,
-    back: Option<String>,
+    front: Option<Face>,
+    back: Option<Face>,
 ) -> AppResult<IndexCard> {
     get_card(conn, card_id)?;
-    conn.execute(
-        "UPDATE index_cards SET front = COALESCE(?1, front), back = COALESCE(?2, back), updated_at = ?3
-         WHERE id = ?4",
-        params![front, back, super::now(), card_id],
-    )?;
+    for (column, face) in [("front", front), ("back", back)] {
+        let Some(face) = face else { continue };
+        let (text, blocks) = stored_face(conn, face)?;
+        conn.execute(
+            &format!("UPDATE index_cards SET {column} = ?1, {column}_blocks = ?2, updated_at = ?3 WHERE id = ?4"),
+            params![text, blocks, super::now(), card_id],
+        )?;
+    }
     get_card(conn, card_id)
 }
 
@@ -626,16 +721,35 @@ const CARD_FIELDS: &[FieldDef] = &[
     FieldDef {
         name: "front",
         kind: FieldKind::LongText,
-        required_on_create: true,
+        required_on_create: false,
         writable_on_update: true,
-        description: "The prompt side. Inline markdown: **bold**, *italic*, `code`, $math$.",
+        description: "The prompt side as inline markdown: **bold**, *italic*, `code`, $math$. Required to create unless \
+                      frontBlocks is given. For a card written with blocks it reads as their markdown. Setting it \
+                      replaces the front's blocks with this text.",
     },
     FieldDef {
         name: "back",
         kind: FieldKind::LongText,
-        required_on_create: true,
+        required_on_create: false,
         writable_on_update: true,
-        description: "The answer side, same inline markdown as front.",
+        description: "The answer side, same as front. Required to create unless backBlocks is given.",
+    },
+    FieldDef {
+        name: "frontBlocks",
+        kind: FieldKind::Object,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "The prompt side as blocks, a JSON array of { type, content, language?, filename?, attrs? } \
+                      like the blocks of a note (`describe` lists the block types and their content formats). \
+                      An `image` block mentions a File, [photo.png](mention:<file-id>). Wins over front. Read \
+                      back as null on a card that has only text.",
+    },
+    FieldDef {
+        name: "backBlocks",
+        kind: FieldKind::Object,
+        required_on_create: false,
+        writable_on_update: true,
+        description: "The answer side as blocks, same as frontBlocks. Wins over back.",
     },
 ];
 
@@ -718,19 +832,42 @@ fn cli_get_card(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
     get_card(conn, id).and_then(card_json)
 }
 
+/// The side a command gives as text or as blocks (blocks win), or a clear error when the
+/// blocks are not a list of blocks.
+fn cli_face(fields: &JsonMap, text: &str, blocks: &str) -> AppResult<Option<Face>> {
+    let parsed = match fields.get(blocks) {
+        None | Some(serde_json::Value::Null) => None,
+        Some(value) => Some(
+            serde_json::from_value::<Vec<BlockJson>>(value.clone()).map_err(|e| {
+                AppError::InvalidInput(format!(
+                    "{blocks} must be a JSON array of blocks ({{ \"type\", \"content\" }}): {e}"
+                ))
+            })?,
+        ),
+    };
+    Ok(Face::given(
+        crate::db::schema::field_str(fields, text),
+        parsed,
+    ))
+}
+
 fn cli_create_card(
     conn: &Connection,
     deck_id: &str,
     fields: &JsonMap,
 ) -> AppResult<serde_json::Value> {
-    let front = crate::db::schema::require_str(fields, "front")?;
-    let back = crate::db::schema::require_str(fields, "back")?;
+    let front = cli_face(fields, "front", "frontBlocks")?.ok_or_else(|| {
+        AppError::InvalidInput("--field front=<text> or frontBlocks=<blocks> is required".into())
+    })?;
+    let back = cli_face(fields, "back", "backBlocks")?.ok_or_else(|| {
+        AppError::InvalidInput("--field back=<text> or backBlocks=<blocks> is required".into())
+    })?;
     create_card(conn, deck_id.into(), front, back).and_then(card_json)
 }
 
 fn cli_update_card(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
-    let front = crate::db::schema::field_str(fields, "front");
-    let back = crate::db::schema::field_str(fields, "back");
+    let front = cli_face(fields, "front", "frontBlocks")?;
+    let back = cli_face(fields, "back", "backBlocks")?;
     update_card(conn, id, front, back).and_then(card_json)
 }
 

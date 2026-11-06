@@ -1,5 +1,6 @@
-use crate::db::decks::{self, DeckStats, DeckSummary, IndexCard};
+use crate::db::decks::{self, DeckStats, DeckSummary, Face, IndexCard};
 use crate::db::entities::Entity;
+use crate::db::page_json::BlockJson;
 use crate::db::DbState;
 use crate::error::AppResult;
 use tauri::State;
@@ -58,9 +59,17 @@ pub fn deck_stats(state: State<DbState>, deck_entity_id: String) -> AppResult<De
 pub fn create_card(
     state: State<DbState>,
     deck_entity_id: String,
-    front: String,
-    back: String,
+    front: Option<String>,
+    back: Option<String>,
+    front_blocks: Option<Vec<BlockJson>>,
+    back_blocks: Option<Vec<BlockJson>>,
 ) -> AppResult<IndexCard> {
+    let side = |text, blocks, name: &str| {
+        Face::given(text, blocks)
+            .ok_or_else(|| crate::error::AppError::InvalidInput(format!("a card needs a {name}")))
+    };
+    let front = side(front, front_blocks, "front")?;
+    let back = side(back, back_blocks, "back")?;
     let conn = state.conn()?;
     decks::create_card(&conn, deck_entity_id, front, back)
 }
@@ -71,9 +80,16 @@ pub fn update_card(
     card_id: String,
     front: Option<String>,
     back: Option<String>,
+    front_blocks: Option<Vec<BlockJson>>,
+    back_blocks: Option<Vec<BlockJson>>,
 ) -> AppResult<IndexCard> {
     let conn = state.conn()?;
-    decks::update_card(&conn, &card_id, front, back)
+    decks::update_card(
+        &conn,
+        &card_id,
+        Face::given(front, front_blocks),
+        Face::given(back, back_blocks),
+    )
 }
 
 #[tauri::command]

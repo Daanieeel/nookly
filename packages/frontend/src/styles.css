@@ -957,6 +957,22 @@
     0 1px 2px rgb(0 0 0 / 0.06),
     0 8px 24px -12px rgb(0 0 0 / 0.25);
 }
+/* A card face is the block editor with no page around it (`CardFaceEditor.tsx`): no gutter for
+   block handles, and a short prompt reads large on the front like a word written across a card. */
+.tiptap-content.card-face {
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  outline: none;
+}
+.tiptap-content.card-face-front :is(p, h1, h2, h3, h4, h5, h6) {
+  text-align: center;
+}
+.tiptap-content.card-face-front > p {
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
 /* Recipe banner (`RecipeDetailView.tsx`): fades the photo itself to true
    transparency via a mask, rather than laying a color-tinted gradient div on
    top of it, so it blends cleanly into the page background instead of

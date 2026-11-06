@@ -817,6 +817,14 @@ fn all() -> Vec<M<'static>> {
         -- imported. Files imported before this stay empty.
         ALTER TABLE files ADD COLUMN origin TEXT;
         ",
+    ), M::up(
+        "
+        -- Card fronts and backs become blocks. The JSON list of blocks sits next to the old
+        -- `front` and `back` text, which stays as it is: a card without blocks keeps showing
+        -- its text and gets blocks the first time it is edited.
+        ALTER TABLE index_cards ADD COLUMN front_blocks TEXT;
+        ALTER TABLE index_cards ADD COLUMN back_blocks TEXT;
+        ",
     )]
 }
 
@@ -1650,6 +1658,7 @@ mod history {
         0xafdae1e221857ce0,
         0x1500e2b69ba5ee38,
         0x9e34fce273f8823e,
+        0xaed3619d950f3a70,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

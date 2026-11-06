@@ -3,7 +3,7 @@
 //! a new portable type needs no new command.
 
 use crate::db::entities::Entity;
-use crate::db::portable::{self, PortablePreview, MAX_IMPORT_BYTES};
+use crate::db::portable::{self, PortablePreview};
 use crate::db::DbState;
 use crate::error::{AppError, AppResult};
 use tauri::State;
@@ -31,10 +31,9 @@ fn read_file(path: &str) -> AppResult<String> {
     let size = std::fs::metadata(path)
         .map_err(|err| AppError::Io(err.to_string()))?
         .len();
-    if size > MAX_IMPORT_BYTES {
-        return Err(AppError::InvalidInput(
-            "this file is too large to import (the limit is 20 MB)".into(),
-        ));
+    let limit = portable::largest_import_bytes();
+    if size > limit {
+        return Err(portable::too_large(limit));
     }
     std::fs::read_to_string(path).map_err(|err| AppError::Io(err.to_string()))
 }
