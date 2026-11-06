@@ -23,8 +23,8 @@ The schema tells you _what_ exists. These notes tell you _how to think_ about it
 
 - **Spaces are folders.** Every entry lives in exactly one Space. Put new entries in the Space where related entries already live. A Course's exam goes in that Course's Space.
 - **Jot vs. Note.** A Jot is a raw, often untitled scrap captured quickly (usually during a lecture). A Note is a properly written page. "Refining" a Jot means `nookly cli jot refine <id>`, which creates the new Note (same title) linked to the Jot, and then writing the content. The Jot itself stays untouched. See `WORKFLOWS.md` for the full learning pipeline.
-- **Session vs. Appointment vs. Study Block.** Sessions are my course's class meetings (lectures, tutorials). Appointments are personal calendar entries. Study Blocks are self-scheduled prep time for a specific exam. Never create one when I mean another.
-- **Required parents.** Sessions, Exams, and Assignments always belong to a Course. Flashcard decks and Study Blocks always belong to an Exam. Sub-tasks always belong to a Task. `agent-instructions` has the authoritative list.
+- **Session vs. Appointment.** Sessions are my course's class meetings (lectures, tutorials). Appointments are personal calendar entries. Never create one when I mean another.
+- **Required parents.** Sessions, Exams, and Assignments always belong to a Course. Flashcard decks always belong to an Exam. Sub-tasks always belong to a Task. `agent-instructions` has the authoritative list.
 - **Labels belong to one Space.** A label with the same name in two Spaces is two different labels. Don't assume a label from my Private Space exists in my Study Space.
 - **Files are attachments.** Link a File or Bookmark to a Note, Jot or similar with `attached-file`, almost never with `relates-to`.
 - **Links are typed.** Connect entries through the relationship system (`nookly cli relate`), picking the link type that actually describes the connection. Don't invent new link types.

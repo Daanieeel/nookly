@@ -84,7 +84,7 @@ There are exactly seven. Adding another requires a deliberate decision.
 1. **Dashboard:** a single, global page of flat sections. Its content is editable, but the page itself cannot be duplicated. Per-Space and user-created dashboards may come later, but are out of scope for now.
 2. **Calendar:** a unified calendar layering the external calendar overlay, every Space's Sessions, and every Space's Calendar entries into one view, positioned directly below Dashboard. Sessions and Calendar entries render in their origin Space's accent color and are editable in place; the external overlay stays read only. It does not replace either module's own per-Space calendar.
 3. **Pinned:** a section at the top of the sidebar holding individually pinned items of any type from any Space.
-4. **Search:** smart, full-text search across the whole app. It counts as a utility rather than a view, so it ignores the Space wall.
+4. **Search:** smart, full-text search across the whole app. It counts as a utility rather than a view, so it ignores the Space wall. Calendar entries are never results: they have no page of their own.
 5. **Recents:** quick access to the last few entities actually opened, of any type and from any Space. Unlike Pinned, it is automatic rather than curated by hand. It lives in the `Cmd+K` palette only; there is no Recents page.
 
 6. **Tasks:** an overview of every Space's tasks, positioned directly below Calendar. Each row shows its origin Space as a color coded chip. It lists, filters and edits in place; creating a task still happens inside its Space. Both overviews can be saved as Views and take the same view presets as their Space pages.

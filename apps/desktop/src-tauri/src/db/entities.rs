@@ -41,7 +41,6 @@ pub fn key_prefix(entity_type: &str) -> &'static str {
         "calendar_entry" | "calendar_entry_template" => "CAL",
         "exam" => "EXM",
         "index_card_deck" => "DCK",
-        "study_block" => "STB",
         "assignment" => "ASG",
         "file" => "FIL",
         "bookmark" => "BMK",
@@ -302,7 +301,6 @@ fn untitled_label(entity_type: &str) -> String {
         "session" | "session_template" => "Session",
         "exam" => "Exam",
         "index_card_deck" => "Deck",
-        "study_block" => "Study Block",
         "assignment" => "Assignment",
         "file" => "File",
         "bookmark" => "Bookmark",
@@ -676,7 +674,6 @@ fn sweep_entity(conn: &Connection, id: &str) -> AppResult<()> {
         "DELETE FROM index_cards WHERE deck_entity_id = ?1",
         params![id],
     )?;
-    conn.execute("DELETE FROM study_blocks WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM assignments WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM files WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM bookmarks WHERE entity_id = ?1", params![id])?;

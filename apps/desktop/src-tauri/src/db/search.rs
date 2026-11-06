@@ -133,9 +133,10 @@ impl Binds {
 }
 
 /// The `AND ...` conditions that narrow a source to the request's Space, types and
-/// labels. `id`, `space` and `kind` are the SQL expressions of the entity a row resolves to.
+/// labels, and leave out types that are never a result. `id`, `space` and `kind` are the SQL expressions of the entity a row resolves to.
 fn narrowing(req: &SearchRequest, binds: &mut Binds, id: &str, space: &str, kind: &str) -> String {
-    let mut sql = String::new();
+    // Calendar entries have no page of their own, so they are never a result.
+    let mut sql = format!(" AND {kind} NOT IN ('calendar_entry', 'calendar_entry_template')");
     if let Some(space_id) = &req.space_id {
         sql.push_str(&format!(" AND {space} = {}", binds.bind(space_id.as_str())));
     }
@@ -638,6 +639,40 @@ mod tests {
 
         assert!(search(&conn, "algorithms", None).unwrap().is_empty());
         assert!(search(&conn, "syllabus", None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn calendar_entries_never_appear_in_search_results() {
+        let conn = crate::db::test_conn();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        for kind in ["calendar_entry", "calendar_entry_template"] {
+            let entity = create_entity(
+                &conn,
+                space.id.clone(),
+                kind.into(),
+                "Dentist appointment".into(),
+                None,
+            )
+            .unwrap();
+            assert!(search(&conn, "dentist", None).unwrap().is_empty(), "{kind}");
+            assert!(
+                search(&conn, &entity.key.to_lowercase(), None)
+                    .unwrap()
+                    .is_empty(),
+                "{kind} by key"
+            );
+        }
+        let session = create_entity(
+            &conn,
+            space.id.clone(),
+            "session".into(),
+            "Dentist study session".into(),
+            None,
+        )
+        .unwrap();
+        let hits = search(&conn, "dentist", None).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].entity_id, session.id);
     }
 
     #[test]

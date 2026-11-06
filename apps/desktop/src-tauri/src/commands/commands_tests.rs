@@ -164,8 +164,6 @@ ipc_commands![
     decks::study_queue,
     decks::review_card,
     decks::undo_review,
-    study_blocks::create_study_block,
-    study_blocks::list_study_blocks,
     assignments::create_assignment,
     assignments::list_assignments,
     assignments::list_assignments_all_spaces,
@@ -2524,44 +2522,6 @@ fn assignments_update_unknown_is_not_found() {
         json!({ "entityId": MISSING, "status": "evaluated", "grade": null }),
         "NotFound",
     );
-}
-
-// ------------------------------------------------------------ study blocks
-
-#[test]
-fn study_blocks_create_and_list() {
-    let h = Harness::new();
-    let space = h.space("S");
-    let course = h.course(&space, "C");
-    let exam = h.exam(&space, &course);
-    let block = h.ok(
-        "create_study_block",
-        json!({
-            "spaceId": space,
-            "title": "Review",
-            "examId": exam,
-            "date": "2026-06-01",
-            "startTime": "09:00",
-            "endTime": "10:00",
-        }),
-    );
-    assert_eq!(block["date"], "2026-06-01");
-    let listed = h.ok("list_study_blocks", json!({ "spaceId": space }));
-    assert_eq!(
-        listed,
-        h.db(|c| to_json(db::study_blocks::list_study_blocks(c, &space).unwrap()))
-    );
-    assert_eq!(listed.as_array().unwrap().len(), 1);
-}
-
-#[test]
-fn study_blocks_require_every_field() {
-    let h = Harness::new();
-    let message = h.args_err(
-        "create_study_block",
-        json!({ "spaceId": MISSING, "title": "x", "examId": MISSING, "date": "2026-01-01", "startTime": "09:00" }),
-    );
-    assert!(message.contains("endTime"), "{message}");
 }
 
 // ------------------------------------------------------------------- decks

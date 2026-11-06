@@ -290,15 +290,7 @@ export const SETTINGS = {
     title: "Session length",
     description:
       "How long a new session is when you click an empty slot or press New. Dragging on the calendar still sets its own length. In minutes, 5 to 720.",
-    synonyms: [
-      "duration",
-      "study block",
-      "lesson length",
-      "minutes",
-      "time",
-      "default length",
-      "calendar",
-    ],
+    synonyms: ["duration", "lesson length", "minutes", "time", "default length", "calendar"],
     default: 90,
     schema: minutes,
   }),

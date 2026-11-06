@@ -14,7 +14,6 @@ export const TYPE_GROUPS: { key: string; label: string; types: string[] }[] = [
   },
   { key: "exams", label: "Exams", types: ["exam"] },
   { key: "decks", label: "Decks", types: ["index_card_deck"] },
-  { key: "study_blocks", label: "Study Blocks", types: ["study_block"] },
   { key: "assignments", label: "Assignments", types: ["assignment"] },
   { key: "files", label: "Files", types: ["file"] },
   { key: "bookmarks", label: "Bookmarks", types: ["bookmark"] },

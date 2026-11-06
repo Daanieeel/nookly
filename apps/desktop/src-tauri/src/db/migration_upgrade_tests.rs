@@ -326,16 +326,6 @@ pub(crate) fn populate(conn: &Connection) -> Fixture {
         None,
     );
     b.entity(
-        "e-study",
-        "sp-uni",
-        "study_block",
-        "Revise",
-        "STB",
-        1,
-        T1,
-        None,
-    );
-    b.entity(
         "e-asg",
         "sp-uni",
         "assignment",
@@ -586,15 +576,6 @@ pub(crate) fn populate(conn: &Connection) -> Fixture {
             ("scheduled_days", i(3)),
             ("previous", t("{}")),
             ("reviewed_at", t(T2)),
-        ],
-    );
-    b.insert(
-        "study_blocks",
-        &[
-            ("entity_id", t("e-study")),
-            ("date", t("2026-01-07")),
-            ("start_time", t("14:00")),
-            ("end_time", t("16:00")),
         ],
     );
     b.insert(
