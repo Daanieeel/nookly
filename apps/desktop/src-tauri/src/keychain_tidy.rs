@@ -19,6 +19,7 @@ const MARKS_FILE: &str = "keychain-tidied";
 
 pub trait Secrets {
     fn get(&self, service: &str, account: &str) -> Result<Option<String>, String>;
+    #[cfg(any(target_os = "macos", test))]
     fn set(&self, service: &str, account: &str, secret: &str) -> Result<(), String>;
     fn delete(&self, service: &str, account: &str) -> Result<(), String>;
 }
@@ -106,6 +107,7 @@ impl Secrets for SystemKeychain {
             Err(e) => Err(e.to_string()),
         }
     }
+    #[cfg(any(target_os = "macos", test))]
     fn set(&self, service: &str, account: &str, secret: &str) -> Result<(), String> {
         keyring::Entry::new(service, account)
             .map_err(|e| e.to_string())?
