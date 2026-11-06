@@ -9,10 +9,12 @@
 //! only then is the original replaced. If the app stops half way, the next read finds the
 //! copy and puts it back.
 
+#[cfg(any(target_os = "macos", test))]
 use std::path::{Path, PathBuf};
 
 /// Suffix of the temporary copy kept while an item is rewritten.
 const BACKUP_SUFFIX: &str = ".tidy-backup";
+#[cfg(any(target_os = "macos", test))]
 const MARKS_FILE: &str = "keychain-tidied";
 
 pub trait Secrets {
@@ -21,6 +23,7 @@ pub trait Secrets {
     fn delete(&self, service: &str, account: &str) -> Result<(), String>;
 }
 
+#[cfg(any(target_os = "macos", test))]
 /// Which items were already rewritten, so it never happens twice.
 pub trait Marks {
     fn is_done(&self, service: &str, account: &str) -> bool;
@@ -31,6 +34,7 @@ fn backup_of(account: &str) -> String {
     format!("{account}{BACKUP_SUFFIX}")
 }
 
+#[cfg(any(target_os = "macos", test))]
 /// Reads a saved secret and, the first time, rewrites its keychain item. A failure while
 /// rewriting never fails the read: the secret is returned either way.
 pub fn read(
@@ -56,6 +60,7 @@ pub fn read(
     Ok(Some(secret))
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn rewrite(store: &dyn Secrets, marks: &dyn Marks, service: &str, account: &str, secret: &str) {
     let backup = backup_of(account);
     // The copy has to exist and read back right before the original is touched.
@@ -133,9 +138,11 @@ pub fn forget_secret_backup(service: &str, account: &str) {
     forget_backup(&SystemKeychain, service, account);
 }
 
+#[cfg(any(target_os = "macos", test))]
 /// Marks kept in a file of the app data folder, one `service/account` per line.
 pub struct FileMarks(pub PathBuf);
 
+#[cfg(any(target_os = "macos", test))]
 impl FileMarks {
     pub fn in_app_data() -> Option<Self> {
         let dir = crate::db::standalone_app_data_dir().ok()?;
@@ -147,6 +154,7 @@ impl FileMarks {
     }
 }
 
+#[cfg(any(target_os = "macos", test))]
 impl Marks for FileMarks {
     fn is_done(&self, service: &str, account: &str) -> bool {
         let line = format!("{service}/{account}");
