@@ -20,6 +20,8 @@ use tokio::sync::Mutex;
 const CONNECTION_FILE: &str = "moodle.json";
 const CACHE_DIR: &str = "moodle-cache";
 const FILES_DIR: &str = "moodle-files";
+/// Keychain service of the Moodle token.
+const SERVICE: &str = "nookly-moodle";
 
 /// How long a started sign in can be finished.
 const LOGIN_WINDOW: Duration = Duration::from_secs(15 * 60);
@@ -47,22 +49,20 @@ impl Keychain {
     }
 
     fn entry(&self) -> AppResult<keyring::Entry> {
-        keyring::Entry::new("nookly-moodle", &self.account).map_err(keychain_error)
+        keyring::Entry::new(SERVICE, &self.account).map_err(keychain_error)
     }
 }
 
 impl TokenStore for Keychain {
     fn get(&self) -> AppResult<Option<String>> {
-        match self.entry()?.get_password() {
-            Ok(token) => Ok(Some(token)),
-            Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(keychain_error(e)),
-        }
+        crate::keychain_tidy::get_secret(SERVICE, &self.account).map_err(keychain_error)
     }
     fn set(&self, token: &str) -> AppResult<()> {
+        crate::keychain_tidy::forget_secret_backup(SERVICE, &self.account);
         self.entry()?.set_password(token).map_err(keychain_error)
     }
     fn delete(&self) -> AppResult<()> {
+        crate::keychain_tidy::forget_secret_backup(SERVICE, &self.account);
         match self.entry()?.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
             Err(e) => Err(keychain_error(e)),
@@ -70,7 +70,7 @@ impl TokenStore for Keychain {
     }
 }
 
-fn keychain_error(e: keyring::Error) -> AppError {
+fn keychain_error(e: impl std::fmt::Display) -> AppError {
     AppError::Remote(format!("Couldn't access the system keychain: {e}"))
 }
 

@@ -261,10 +261,11 @@ describe("swiping between Spaces", () => {
   });
 
   it("takes a second swipe after the fingers lifted for a moment, without waiting for the slide", async () => {
-    // The clock can be moved on by hand: a short pause is all that tells two swipes apart.
-    const realNow = performance.now.bind(performance);
+    // The clock only moves by hand: a short pause is all that tells two swipes apart, and real time
+    // passing between two events (a slow machine) would make the swipe look slower than it was.
+    const start = performance.now();
     let ahead = 0;
-    const now = vi.spyOn(performance, "now").mockImplementation(() => realNow() + ahead);
+    const now = vi.spyOn(performance, "now").mockImplementation(() => start + ahead);
     setup();
     const target = await slot("Uni");
     const fire = (sizes: number[]) => {
@@ -280,12 +281,13 @@ describe("swiping between Spaces", () => {
     fire([3, 6, 10, 15, 22, 30, 40, 40, 30, 22, 16, 11]);
     // It went on from Work to Home, from where the first one was still sliding in.
     expect(useNavStore.getState().activeSpaceId).toBe("space-3");
+    // The slide runs on the real clock again, which its animation frames read.
+    now.mockRestore();
     await vi.waitFor(
       () => expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1),
       settled,
     );
     expect(pane("space-3")?.style.transform).toBe("");
-    now.mockRestore();
   });
 
   it("still switches by click or key while a swipe is going on", async () => {
