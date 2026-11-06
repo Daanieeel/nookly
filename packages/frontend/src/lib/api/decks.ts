@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { CardRating, DeckStats, DeckSummary, Entity, IndexCard } from "./types";
+import type { CardBlock, CardRating, DeckStats, DeckSummary, Entity, IndexCard } from "./types";
 
 export function createDeck(spaceId: string, title: string, examId: string | null): Promise<Entity> {
   return invoke("create_deck", { spaceId, title, examId });
@@ -28,14 +28,17 @@ export function getDeckStats(deckEntityId: string): Promise<DeckStats> {
   return invoke("deck_stats", { deckEntityId });
 }
 
-export function createCard(deckEntityId: string, front: string, back: string): Promise<IndexCard> {
-  return invoke("create_card", { deckEntityId, front, back });
+/// The sides of a card as the blocks the card editor writes.
+export interface CardFaces {
+  frontBlocks: CardBlock[];
+  backBlocks: CardBlock[];
 }
 
-export function updateCard(
-  cardId: string,
-  patch: { front?: string; back?: string },
-): Promise<IndexCard> {
+export function createCard(deckEntityId: string, faces: CardFaces): Promise<IndexCard> {
+  return invoke("create_card", { deckEntityId, ...faces });
+}
+
+export function updateCard(cardId: string, patch: Partial<CardFaces>): Promise<IndexCard> {
   return invoke("update_card", { cardId, ...patch });
 }
 

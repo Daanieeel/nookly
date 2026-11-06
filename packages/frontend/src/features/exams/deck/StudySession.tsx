@@ -17,7 +17,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { getDeckStats, getStudyQueue, reviewCard, undoReview } from "#/lib/api/decks.ts";
 import type { CardRating, IndexCard } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
-import { CardText, faceTextSize } from "./card-text";
+import { faceSummary } from "./card-blocks";
+import { CardFace } from "./CardFace";
 import { formatInterval, invalidateDeck, isTypingTarget } from "./deck-data";
 import { CardSurface, FlipCard, STATE_TONE, stateGroup } from "./index-card";
 
@@ -36,7 +37,15 @@ const RATINGS: {
 /// Studying a deck like with paper cards: read the front, turn it over, say how
 /// well you knew it. FSRS picks when it comes back. Space turns the card and then
 /// counts as Good, 1 to 4 rate, Z undoes the last rating, Esc leaves.
-export function StudySession({ deckId, onExit }: { deckId: string; onExit: () => void }) {
+export function StudySession({
+  deckId,
+  spaceId,
+  onExit,
+}: {
+  deckId: string;
+  spaceId: string;
+  onExit: () => void;
+}) {
   const queryClient = useQueryClient();
   const reduceMotion = useReducedMotion();
   const { data: queue = [], isFetched } = useQuery({
@@ -208,11 +217,10 @@ export function StudySession({ deckId, onExit }: { deckId: string; onExit: () =>
                 exit="gone"
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
               >
-                <button
-                  type="button"
-                  className="block w-full cursor-pointer rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- turning the card by click is a pointer shortcut; the Show answer button and Space are the keyboard way, and a button here could not hold the card's own links and pictures */}
+                <div
+                  className="block w-full cursor-pointer rounded-lg text-left"
                   onClick={() => !flipped && setFlipped(true)}
-                  aria-label={flipped ? "Answer shown" : "Show answer"}
                 >
                   <FlipCard
                     flipped={flipped}
@@ -227,26 +235,20 @@ export function StudySession({ deckId, onExit }: { deckId: string; onExit: () =>
                         corner={current.lapses > 0 ? `forgotten ${current.lapses}×` : null}
                       >
                         <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-8 pb-7 text-center">
-                          <CardText
-                            text={current.front}
-                            className={cn("font-medium", faceTextSize(current.front))}
-                          />
+                          <CardFace card={current} side="front" spaceId={spaceId} />
                         </div>
                       </CardSurface>
                     }
                     back={
                       <CardSurface side="back" label="Answer">
                         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-7 pb-2">
-                          <CardText
-                            text={current.front}
-                            className="text-sm/7 text-muted-foreground"
-                          />
-                          <CardText text={current.back} className="text-base/7" />
+                          <CardFace card={current} side="front" spaceId={spaceId} muted />
+                          <CardFace card={current} side="back" spaceId={spaceId} />
                         </div>
                       </CardSurface>
                     }
                   />
-                </button>
+                </div>
               </motion.div>
             </AnimatePresence>
           </div>
@@ -284,7 +286,7 @@ export function StudySession({ deckId, onExit }: { deckId: string; onExit: () =>
           <div className="flex justify-center">
             <FieldError message={review.isError && "Couldn't save the rating, try again"} />
           </div>
-          <StatusAnnouncer message={flipped ? `Answer: ${current.back}` : null} />
+          <StatusAnnouncer message={flipped ? `Answer: ${faceSummary(current, "back")}` : null} />
         </>
       ) : (
         isFetched && (

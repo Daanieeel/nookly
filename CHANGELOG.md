@@ -2,6 +2,18 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.66.0 (2026-11-06)
+
+### Added
+
+- Flashcards are now written in the same editor as notes, so a card can hold pictures, formulas, tables and more. Press Tab to flip the card, Enter for a new line and Cmd+Enter to add it to the deck.
+- While studying, click a picture on a card to see it larger.
+- Deck files now carry the pictures of their cards, so a shared deck arrives complete. Deck files can be up to 100 MB.
+
+### Changed
+
+- Cards you wrote before keep their text and turn into blocks the first time you edit them.
+
 ## 0.65.4 (2026-11-06)
 
 ### Fixed

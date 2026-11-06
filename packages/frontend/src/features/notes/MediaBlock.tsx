@@ -623,6 +623,7 @@ function MediaPicker({
   const status = useActionStatus(upload);
   // The block still shows the file if attaching it to the page's context fails.
   const attachToPage = (fileId: string) =>
+    pageId &&
     void inheritPageContext(queryClient, pageId, fileId).catch(() => {
       notify.error("Couldn't attach the file to this page", {
         description: "Try attaching it again.",

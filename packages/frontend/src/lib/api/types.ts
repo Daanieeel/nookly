@@ -362,11 +362,25 @@ export interface Exam {
 export type CardState = "new" | "learning" | "review" | "relearning";
 export type CardRating = "again" | "hard" | "good" | "easy";
 
+/// One block of a card face, the shape of a note's block without the page it belongs to.
+export interface CardBlock {
+  type: BlockType;
+  content: string;
+  language?: string | null;
+  filename?: string | null;
+  attrs?: BlockAttrs;
+}
+
 export interface IndexCard {
   id: string;
   deckEntityId: string;
+  /// The front as markdown text. A card written with blocks holds their markdown here.
   front: string;
   back: string;
+  /// The faces as blocks. `null` for a card nobody has edited since faces became blocks:
+  /// it shows its text until then.
+  frontBlocks: CardBlock[] | null;
+  backBlocks: CardBlock[] | null;
   state: CardState;
   dueAt: string;
   stability: number;

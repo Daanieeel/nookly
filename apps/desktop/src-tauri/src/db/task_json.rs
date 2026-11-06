@@ -319,7 +319,7 @@ fn preview(text: &str) -> AppResult<PortablePreview> {
 }
 
 inventory::submit! {
-    PortableDef { entity_type: "task", format: FORMAT, version: VERSION, parent_type: None, noun: "task", export: export_task_json, preview, import: Importer::Plain(import_task_json) }
+    PortableDef { entity_type: "task", format: FORMAT, version: VERSION, parent_type: None, noun: "task", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_task_json, preview, import: Importer::Plain(import_task_json) }
 }
 
 #[cfg(test)]

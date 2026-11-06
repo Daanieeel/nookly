@@ -43,7 +43,8 @@ import { NOOKLY_FILE_FILTER, acceptedFormats, importFailureReason } from "./impo
 import { findDuplicate, suggestRelations } from "./import-suggestions.ts";
 
 /// The importer refuses a file above this size; a dropped file is checked before it is read.
-const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
+/// The largest of any file; the backend applies the lower limit of the other formats.
+const MAX_IMPORT_BYTES = 100 * 1024 * 1024;
 
 /// Where a file's contents come from: a path the native picker gave, or the text of a
 /// file that was dropped or pasted (the webview hands over contents, not a path).
@@ -97,7 +98,7 @@ async function readDroppedFile(file: File): Promise<Source> {
   );
   if (!allowed) throw new Error(`Only ${acceptedFormats()} can be imported.`);
   if (file.size > MAX_IMPORT_BYTES) {
-    throw new Error("This file is too large to import (the limit is 20 MB).");
+    throw new Error("This file is too large to import (the limit is 100 MB).");
   }
   return { kind: "text", text: await file.text() };
 }

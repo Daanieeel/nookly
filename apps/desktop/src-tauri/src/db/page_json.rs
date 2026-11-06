@@ -21,7 +21,6 @@ use std::sync::LazyLock;
 
 pub const FORMAT: &str = "nookly-page";
 pub const VERSION: u32 = 1;
-pub use crate::db::portable::MAX_IMPORT_BYTES;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PageJson {
@@ -33,7 +32,7 @@ pub struct PageJson {
     pub blocks: Vec<BlockJson>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BlockJson {
     #[serde(rename = "type")]
     pub block_type: String,
@@ -51,7 +50,7 @@ static MENTION: LazyLock<regex::Regex> = LazyLock::new(|| {
 });
 
 /// Mention links as their label, so a reference to another entity reads as plain text.
-fn strip_mentions(text: &str) -> String {
+pub(crate) fn strip_mentions(text: &str) -> String {
     MENTION.replace_all(text, "$1").into_owned()
 }
 
@@ -100,11 +99,32 @@ fn export_block(block: &Block) -> BlockJson {
     }
 }
 
-fn export_attrs(attrs: &BlockAttrs) -> BlockAttrs {
+pub(crate) fn export_attrs(attrs: &BlockAttrs) -> BlockAttrs {
     attrs
         .iter()
         .map(|(key, value)| (key.clone(), strip_mentions(value)))
         .collect()
+}
+
+/// A block stored outside a page (on a flashcard) as it travels.
+pub(crate) fn export_json_block(block: &BlockJson) -> BlockJson {
+    export_block(&block_from_json(block))
+}
+
+/// A block of a flashcard as the page block the shared writers read.
+pub(crate) fn block_from_json(block: &BlockJson) -> Block {
+    Block {
+        id: String::new(),
+        entity_id: String::new(),
+        position: 0,
+        block_type: block.block_type.clone(),
+        content: block.content.clone(),
+        language: block.language.clone(),
+        filename: block.filename.clone(),
+        attrs: block.attrs.clone(),
+        created_at: String::new(),
+        updated_at: String::new(),
+    }
 }
 
 /// The blocks of any page-like entity (a note, a task, an assignment) as they travel.
@@ -136,11 +156,7 @@ pub fn export_page_json(conn: &Connection, entity_id: &str) -> AppResult<String>
 
 /// Reads and checks a document without touching the database.
 fn parse(text: &str) -> AppResult<PageJson> {
-    if text.len() as u64 > MAX_IMPORT_BYTES {
-        return Err(AppError::InvalidInput(
-            "this file is too large to import (the limit is 20 MB)".into(),
-        ));
-    }
+    crate::db::portable::check_size(text)?;
     let page: PageJson = serde_json::from_str(text)
         .map_err(|e| AppError::InvalidInput(format!("this is not a Nookly page file ({e})")))?;
     if page.format != FORMAT {
@@ -245,14 +261,14 @@ fn portable_preview(text: &str) -> AppResult<PortablePreview> {
 }
 
 inventory::submit! {
-    PortableDef { entity_type: "note", format: FORMAT, version: VERSION, parent_type: None, noun: "page", export: export_page_json, preview: portable_preview, import: Importer::Plain(import_page_json) }
+    PortableDef { entity_type: "note", format: FORMAT, version: VERSION, parent_type: None, noun: "page", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_page_json, preview: portable_preview, import: Importer::Plain(import_page_json) }
 }
 inventory::submit! {
-    PortableDef { entity_type: "jot", format: FORMAT, version: VERSION, parent_type: None, noun: "page", export: export_page_json, preview: portable_preview, import: Importer::Plain(import_page_json) }
+    PortableDef { entity_type: "jot", format: FORMAT, version: VERSION, parent_type: None, noun: "page", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_page_json, preview: portable_preview, import: Importer::Plain(import_page_json) }
 }
 
 /// The standard block types and every registered custom one.
-fn is_known_type(block_type: &str) -> bool {
+pub(crate) fn is_known_type(block_type: &str) -> bool {
     const STANDARD: &[&str] = &[
         "paragraph",
         "heading1",
@@ -274,6 +290,7 @@ fn is_known_type(block_type: &str) -> bool {
 mod tests {
     use super::*;
     use crate::db::notes::{create_block_with_attrs, list_blocks};
+    use crate::db::portable::MAX_IMPORT_BYTES;
     use crate::db::{fixture, Fixture};
 
     fn add(fx: &Fixture, page: &str, block_type: &str, content: &str, attrs: &[(&str, &str)]) {

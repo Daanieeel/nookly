@@ -46,6 +46,75 @@ fn command_failing_flag_validation_writes_nothing() {
 }
 
 #[test]
+fn deck_cards_take_and_return_blocks_through_the_cli() {
+    let dir = std::env::temp_dir().join(format!("nookly-cli-test-{}", crate::db::new_id()));
+    let conn = crate::db::connect(&dir).unwrap();
+    let space =
+        crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+    let deck = crate::db::decks::create_deck(&conn, space.id.clone(), "Deck".into(), None).unwrap();
+    let blocks = r#"[{"type":"heading2","content":"Powerhouse"},{"type":"paragraph","content":"Which **organelle**?"}]"#;
+    let line: Vec<String> = [
+        "index_card_deck",
+        "add-card",
+        deck.id.as_str(),
+        "--field",
+        &format!("frontBlocks={blocks}"),
+        "--field",
+        "back=The mitochondrion",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let card = dispatch(&conn, line).unwrap();
+    assert_eq!(card["frontBlocks"][1]["type"], "paragraph");
+    assert_eq!(card["front"], "## Powerhouse\n\nWhich **organelle**?");
+    assert!(card["backBlocks"].is_null());
+
+    // Writing text over a side drops its blocks.
+    let card_id = card["id"].as_str().unwrap();
+    let plain = run(
+        &conn,
+        &format!("index_card_deck update-card {card_id} --field front=Plain"),
+    )
+    .unwrap();
+    assert!(plain["card"]["frontBlocks"].is_null());
+    assert_eq!(plain["card"]["front"], "Plain");
+
+    // A block that is not a block, or blocks that are not a list, are refused.
+    for bad in [
+        r#"[{"type":"nonsense","content":"x"}]"#,
+        r#"{"type":"paragraph"}"#,
+    ] {
+        let line: Vec<String> = [
+            "index_card_deck".to_string(),
+            "update-card".to_string(),
+            card_id.to_string(),
+            "--field".to_string(),
+            format!("backBlocks={bad}"),
+        ]
+        .to_vec();
+        assert!(dispatch(&conn, line).is_err(), "{bad}");
+    }
+
+    // A duplicate keeps the blocks.
+    let line: Vec<String> = [
+        "index_card_deck",
+        "update-card",
+        card_id,
+        "--field",
+        &format!("backBlocks={blocks}"),
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    dispatch(&conn, line).unwrap();
+    let copy = run(&conn, &format!("index_card_deck duplicate {}", deck.id)).unwrap();
+    let copy_id = copy["data"]["id"].as_str().unwrap();
+    let cards = run(&conn, &format!("index_card_deck cards {copy_id}")).unwrap();
+    assert_eq!(cards["count"], 1);
+}
+
+#[test]
 fn child_collection_verbs_manage_deck_cards() {
     let dir = std::env::temp_dir().join(format!("nookly-cli-test-{}", crate::db::new_id()));
     let conn = crate::db::connect(&dir).unwrap();

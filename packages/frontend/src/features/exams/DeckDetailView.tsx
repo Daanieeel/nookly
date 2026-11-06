@@ -35,6 +35,7 @@ import { formatTimestamp } from "#/features/tasks/task-model.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import type { DeckStats, Entity, IndexCard } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { faceSummary } from "./deck/card-blocks";
 import { CardText } from "./deck/card-text";
 import { CardWriter } from "./deck/CardWriter";
 import {
@@ -93,6 +94,7 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
           <CardWriter
             key={mode.editing?.id ?? "new"}
             deckId={entity.id}
+            spaceId={entity.spaceId}
             count={cards.length}
             editing={mode.editing}
             onDone={overview}
@@ -100,7 +102,7 @@ export function DeckDetailView({ entity }: { entity: Entity }) {
         </div>
       ) : mode.kind === "study" ? (
         <div className="py-2">
-          <StudySession deckId={entity.id} onExit={overview} />
+          <StudySession deckId={entity.id} spaceId={entity.spaceId} onExit={overview} />
         </div>
       ) : (
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
@@ -245,11 +247,11 @@ function MiniCard({ card, onOpen }: { card: IndexCard; onOpen: () => void }) {
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`Edit card: ${card.front}`}
+        aria-label={`Edit card: ${faceSummary(card, "front")}`}
         className="index-card-mini flex aspect-5/3 w-full flex-col rounded-md border border-border bg-card p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="line-clamp-3 min-h-0 flex-1 text-sm">
-          <CardText text={card.front} />
+          <CardText text={faceSummary(card, "front")} />
         </span>
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
           <span className={cn("size-1.5 rounded-full bg-current", STATE_TONE[group])} />

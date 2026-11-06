@@ -78,11 +78,13 @@ export function usePasteFiles(spaceId: string, pageId: string) {
       });
       void queryClient.invalidateQueries({ queryKey: qk.labels.bySpace(spaceId) });
       // Same for the page's context: the file stays imported if attaching fails.
-      await inheritPageContext(queryClient, pageId, stored.entity.id).catch(() => {
-        notify.error(`Couldn't attach ${filename} to this page`, {
-          description: "Relate it to the page by hand.",
+      if (pageId) {
+        await inheritPageContext(queryClient, pageId, stored.entity.id).catch(() => {
+          notify.error(`Couldn't attach ${filename} to this page`, {
+            description: "Relate it to the page by hand.",
+          });
         });
-      });
+      }
       const node = view.state.schema.nodes[kind]?.create({
         rows: mentionMarkdown(filename, stored.entity.id),
       });

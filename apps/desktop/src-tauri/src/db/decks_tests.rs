@@ -447,7 +447,13 @@ fn card_text_round_trips_unicode_and_long_content() {
     let space = test_space(&conn, "S");
     let d = deck(&conn, &space.id, "D");
     let long = "∑ ".repeat(5000);
-    let c = create_card(&conn, d.id.clone(), "¿Qué hora es? 🕐".into(), long.clone()).unwrap();
+    let c = create_card(
+        &conn,
+        d.id.clone(),
+        "¿Qué hora es? 🕐".into(),
+        long.clone().into(),
+    )
+    .unwrap();
     let stored = get_card(&conn, &c.id).unwrap();
     assert_eq!(stored.front, "¿Qué hora es? 🕐");
     assert_eq!(stored.back, long);
@@ -654,4 +660,135 @@ fn cli_card_review_requires_a_valid_rating() {
     fields.insert("rating".into(), serde_json::json!(3));
     let value = (review.run)(&conn, &c.id, &fields).unwrap();
     assert_eq!(value["reps"], 1);
+}
+
+// --- cards written with blocks -------------------------------------------------
+
+fn block(block_type: &str, content: &str) -> crate::db::page_json::BlockJson {
+    crate::db::page_json::BlockJson {
+        block_type: block_type.into(),
+        content: content.into(),
+        language: None,
+        filename: None,
+        attrs: Default::default(),
+    }
+}
+
+#[test]
+fn a_card_written_with_blocks_keeps_them_and_their_markdown_as_text() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let d = deck(&conn, &space.id, "D");
+    let c = create_card(
+        &conn,
+        d.id.clone(),
+        vec![
+            block("paragraph", "What is **ATP**?"),
+            block("heading2", "Hint"),
+        ]
+        .into(),
+        vec![block("bulleted_list", "energy")].into(),
+    )
+    .unwrap();
+    assert_eq!(c.front, "What is **ATP**?\n\n## Hint");
+    assert_eq!(c.back, "- energy");
+    let front = c.front_blocks.as_ref().unwrap();
+    assert_eq!(front.len(), 2);
+    assert_eq!(front[1].block_type, "heading2");
+    assert_eq!(c.back_blocks.as_ref().unwrap()[0].content, "energy");
+    // And it reads back the same.
+    assert_eq!(get_card(&conn, &c.id).unwrap().front_blocks, c.front_blocks);
+}
+
+#[test]
+fn a_card_with_only_text_has_no_blocks() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let d = deck(&conn, &space.id, "D");
+    let c = card(&conn, &d.id, "plain");
+    assert!(c.front_blocks.is_none() && c.back_blocks.is_none());
+}
+
+#[test]
+fn editing_text_drops_blocks_and_editing_blocks_replaces_text() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let d = deck(&conn, &space.id, "D");
+    let c = create_card(&conn, d.id.clone(), "F".into(), "B".into()).unwrap();
+    let blocks = update_card(
+        &conn,
+        &c.id,
+        Some(vec![block("paragraph", "new")].into()),
+        None,
+    )
+    .unwrap();
+    assert_eq!((blocks.front.as_str(), blocks.back.as_str()), ("new", "B"));
+    assert!(blocks.front_blocks.is_some() && blocks.back_blocks.is_none());
+    let text = update_card(&conn, &c.id, Some("again".into()), None).unwrap();
+    assert_eq!(text.front, "again");
+    assert!(text.front_blocks.is_none());
+}
+
+#[test]
+fn blocks_are_checked_like_the_blocks_of_a_page() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let d = deck(&conn, &space.id, "D");
+    for bad in [
+        block("not_a_block", "x"),
+        block("image", "photo.png"),
+        block("callout", "x"),
+    ] {
+        let blocks = if bad.block_type == "callout" {
+            let mut b = bad;
+            b.attrs.insert("variant".into(), "nonsense".into());
+            b
+        } else {
+            bad
+        };
+        let err = create_card(&conn, d.id.clone(), vec![blocks].into(), "B".into()).unwrap_err();
+        assert!(matches!(err, AppError::InvalidInput(_)), "{err}");
+        assert!(err.to_string().contains("block 1"), "{err}");
+    }
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM index_cards"), 0);
+}
+
+#[test]
+fn a_face_can_hold_an_image_of_a_file_and_a_formula() {
+    let conn = test_conn();
+    let space = test_space(&conn, "S");
+    let d = deck(&conn, &space.id, "D");
+    let c = create_card(
+        &conn,
+        d.id.clone(),
+        vec![
+            block("image", "https://example.com/cell.png"),
+            block("equation", "E = mc^2"),
+        ]
+        .into(),
+        "B".into(),
+    )
+    .unwrap();
+    assert_eq!(c.front_blocks.unwrap().len(), 2);
+}
+
+#[test]
+fn migration_leaves_existing_cards_as_text_without_blocks() {
+    use crate::db::migrations::MIGRATIONS;
+    let mut conn = Connection::open_in_memory().unwrap();
+    MIGRATIONS
+        .to_version(&mut conn, *crate::db::migrations::MIGRATION_COUNT - 1)
+        .unwrap();
+    let space = crate::db::spaces::create_space(&conn, "S".into(), None, "#000".into()).unwrap();
+    let d = create_deck(&conn, space.id, "D".into(), None).unwrap();
+    conn.execute(
+        "INSERT INTO index_cards (id, deck_entity_id, front, back, due_at, created_at, updated_at)
+         VALUES ('old', ?1, 'Q', 'A', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+        params![d.id],
+    )
+    .unwrap();
+    MIGRATIONS.to_latest(&mut conn).unwrap();
+    let c = get_card(&conn, "old").unwrap();
+    assert_eq!((c.front.as_str(), c.back.as_str()), ("Q", "A"));
+    assert!(c.front_blocks.is_none() && c.back_blocks.is_none());
 }

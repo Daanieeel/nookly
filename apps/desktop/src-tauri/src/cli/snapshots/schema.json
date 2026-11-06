@@ -1947,17 +1947,31 @@
           "description": "The deck's index cards, each a front and a back scheduled with FSRS.",
           "fields": [
             {
-              "description": "The answer side, same inline markdown as front.",
+              "description": "The answer side, same as front. Required to create unless backBlocks is given.",
               "kind": "long_text",
               "name": "back",
-              "requiredOnCreate": true,
+              "requiredOnCreate": false,
               "writableOnUpdate": true
             },
             {
-              "description": "The prompt side. Inline markdown: **bold**, *italic*, `code`, $math$.",
+              "description": "The answer side as blocks, same as frontBlocks. Wins over back.",
+              "kind": "object",
+              "name": "backBlocks",
+              "requiredOnCreate": false,
+              "writableOnUpdate": true
+            },
+            {
+              "description": "The prompt side as inline markdown: **bold**, *italic*, `code`, $math$. Required to create unless frontBlocks is given. For a card written with blocks it reads as their markdown. Setting it replaces the front's blocks with this text.",
               "kind": "long_text",
               "name": "front",
-              "requiredOnCreate": true,
+              "requiredOnCreate": false,
+              "writableOnUpdate": true
+            },
+            {
+              "description": "The prompt side as blocks, a JSON array of { type, content, language?, filename?, attrs? } like the blocks of a note (`describe` lists the block types and their content formats). An `image` block mentions a File, [photo.png](mention:<file-id>). Wins over front. Read back as null on a card that has only text.",
+              "kind": "object",
+              "name": "frontBlocks",
+              "requiredOnCreate": false,
               "writableOnUpdate": true
             }
           ],
@@ -1992,7 +2006,7 @@
         "format": "nookly-deck",
         "import": "nookly cli index_card_deck import --file <path> --space <id>",
         "parentType": null,
-        "version": 1
+        "version": 2
       },
       "relationshipTypes": [
         "deck-exam"
