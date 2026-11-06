@@ -95,6 +95,22 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      # tauri only accepts a signing identity macOS trusts, and a self-signed
+      # certificate is not trusted until it is marked as valid for code signing.
+      - name: Trust signing certificate (macOS)
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$APPLE_CERTIFICATE" | base64 -d > "$RUNNER_TEMP/signing.p12"
+          openssl pkcs12 -in "$RUNNER_TEMP/signing.p12" -clcerts -nokeys \
+            -passin env:APPLE_CERTIFICATE_PASSWORD -out "$RUNNER_TEMP/signing.pem"
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign \
+            -k /Library/Keychains/System.keychain "$RUNNER_TEMP/signing.pem"
+          rm -f "$RUNNER_TEMP/signing.p12" "$RUNNER_TEMP/signing.pem"
+
       # macOS builds are signed with a self-signed certificate (no notarization,
       # no Apple Developer account). The signature pins the app to the
       # certificate instead of a per build hash, so the keychain keeps trusting

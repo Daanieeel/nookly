@@ -2,11 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.65.2 (2026-11-06)
+## 0.65.3 (2026-11-06)
 
 ### Fixed
 
 - Nookly for Mac is now code signed, so updating no longer asks for your computer password again to reach your saved logins. This is not Apple notarization, so macOS may still show a warning the first time you open Nookly.
+
+## 0.65.2 (2026-11-06)
+
+### Changed
+
+- The Mac version was not published for this release. Nothing else changed.
 
 ## 0.65.1 (2026-11-06)
 
