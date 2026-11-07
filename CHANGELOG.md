@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.67.0 (2026-11-07)
+
+### Changed
+
+- The Calendar page in Settings now shows a small week that follows your choices, so you see the first day, the opening hour, the colour of today, the length of new items and the snap step change as you set them.
+
+### Fixed
+
+- The colour and intensity choices for the current day now work properly with screen readers.
+
 ## 0.66.1 (2026-11-06)
 
 ### Changed

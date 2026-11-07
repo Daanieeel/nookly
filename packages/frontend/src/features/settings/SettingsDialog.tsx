@@ -22,6 +22,7 @@ import { isShortcutName, keySynonyms } from "#/lib/shortcuts.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cancelPendingShortcut } from "./shortcut-editing.ts";
 import { ShortcutConflictDialog } from "./ShortcutConflictDialog.tsx";
+import { CalendarPage } from "./CalendarPage.tsx";
 import { ShortcutsPage } from "./ShortcutsTab.tsx";
 import { SettingRow } from "./SettingRow.tsx";
 import {
@@ -50,6 +51,7 @@ function Row({ row }: { row: RowSpec }) {
 /// One page's rows under their section headings, in display order.
 function PageRows({ page }: { page: PageId }) {
   if (page === "shortcuts") return <ShortcutsPage />;
+  if (page === "calendar") return <CalendarPage />;
   const rows = ROWS.filter((r) => pageOf(r) === page);
   const sections = [...new Set(rows.map((r) => r.section))];
   const showHeadings = sections.length > 1;

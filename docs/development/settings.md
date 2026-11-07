@@ -22,6 +22,8 @@ A setting read where it is used (a calendar length, the snap, the notes editor's
 
 A row with no stored value (a button that opens a dialog or runs something, like Back up now) goes in `ACTION_ROWS` instead.
 
+The Calendar page is `CalendarPage.tsx`, like Shortcuts a page of its own: a week preview (`CalendarPreview.tsx`) drawn from the calendar settings, then the settings as fields grouped by what they change. Each field takes its title, description and control from the setting's row, so search still lists them as plain rows.
+
 The Editor page's Text section sets the font (`notes.editorFont`) and size (`notes.editorFontSize`) of pages. [`page-typography.ts`](../../packages/frontend/src/features/notes/page-typography.ts) puts them in CSS variables on the document, `.page-editor` in `styles.css` reads them, and the sample under the size row reads the same settings.
 
 The Backup tab holds everything about backups inline: a status card (last backup, size, folder, Back up now, a failed backup shown as an alert), the folder, the daily switch and Restore (the controls live in [`features/backup`](../../packages/frontend/src/features/backup)). A restore still ends in `ConfirmPermanentDialog` with a typed phrase.

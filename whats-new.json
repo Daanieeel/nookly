@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.67.0",
+      "date": "2026-11-07",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The Calendar page in Settings shows a small week that follows your choices, with the settings grouped by what they change."
+        ],
+        "Fixed": [
+          "The colour and intensity choices for the current day now work properly with screen readers."
+        ]
+      }
+    },
+    {
       "version": "0.66.1",
       "date": "2026-11-06",
       "highlights": [],
