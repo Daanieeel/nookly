@@ -183,7 +183,8 @@ function TabsControl<T extends string>({
     >
       <TabsList aria-label={label} className="w-full">
         {options.map((o) => (
-          <TabsTrigger key={o.value} value={o.value}>
+          // These tabs choose a value and have no panel, so there is nothing to control.
+          <TabsTrigger key={o.value} value={o.value} aria-controls={undefined}>
             {o.label}
           </TabsTrigger>
         ))}
