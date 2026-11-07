@@ -149,25 +149,81 @@ fn write_page(conn: &Connection, page_id: &str, heading: &str, lines: &[&str]) -
     Ok(())
 }
 
+/// The ids the sample's relationships and pins are built from.
+struct Sample {
+    midterm: String,
+    review: String,
+    practice: String,
+    room: String,
+    slides: String,
+    cheat: String,
+    complexity: String,
+    jot: String,
+    wiki: String,
+    trip: String,
+    passport: String,
+    packing: String,
+    week: String,
+}
+
 fn seed(conn: &Connection) -> AppResult<()> {
     let uni = spaces::create_space(conn, SAMPLE_SPACE.into(), None, "#6366f1".into())?.id;
     let home = spaces::create_space(conn, "Home".into(), None, "#10b981".into())?.id;
 
-    // University: a semester with two courses, their exams and assignments.
+    let midterm = seed_courses(conn, &uni)?;
+    let (review, practice, room, slides) = seed_study_tasks(conn, &uni)?;
+    let (cheat, complexity, jot, wiki) = seed_university_notes(conn, &uni)?;
+    let (trip, passport, packing, week) = seed_home(conn, &home)?;
+
+    link_sample(
+        conn,
+        &Sample {
+            midterm,
+            review,
+            practice,
+            room,
+            slides,
+            cheat: cheat.clone(),
+            complexity,
+            jot,
+            wiki,
+            trip,
+            passport,
+            packing,
+            week: week.clone(),
+        },
+    )?;
+
+    for id in [&cheat, &week] {
+        entities::update_entity(
+            conn,
+            id,
+            entities::EntityPatch {
+                pinned: Some(true),
+                ..Default::default()
+            },
+        )?;
+    }
+    Ok(())
+}
+
+/// University: a semester with two courses, their exams and assignments. Returns the id of the
+/// Linear Algebra midterm.
+fn seed_courses(conn: &Connection, uni: &str) -> AppResult<String> {
     courses::create_semester(
         conn,
-        uni.clone(),
+        uni.into(),
         "Autumn 2026".into(),
         Some(day(-45)),
         Some(day(75)),
         None,
         Some(2026),
     )?;
-    let algebra = courses::create_course(conn, uni.clone(), "Linear Algebra".into())?;
-    let algorithms = courses::create_course(conn, uni.clone(), "Algorithms".into())?;
+    let algebra = courses::create_course(conn, uni.into(), "Linear Algebra".into())?;
+    let algorithms = courses::create_course(conn, uni.into(), "Algorithms".into())?;
     let midterm = exams::create_exam(
         conn,
-        uni.clone(),
+        uni.into(),
         "Linear Algebra midterm".into(),
         algebra.id.clone(),
         Some(day(9)),
@@ -175,7 +231,7 @@ fn seed(conn: &Connection) -> AppResult<()> {
     )?;
     exams::create_exam(
         conn,
-        uni.clone(),
+        uni.into(),
         "Algorithms final".into(),
         algorithms.id.clone(),
         Some(day(41)),
@@ -183,7 +239,7 @@ fn seed(conn: &Connection) -> AppResult<()> {
     )?;
     let problem_set = assignments::create_assignment(
         conn,
-        uni.clone(),
+        uni.into(),
         "Problem set 3".into(),
         algebra.id.clone(),
         Some(day(4)),
@@ -196,18 +252,23 @@ fn seed(conn: &Connection) -> AppResult<()> {
     )?;
     assignments::create_assignment(
         conn,
-        uni.clone(),
+        uni.into(),
         "Graph project".into(),
         algorithms.id.clone(),
         Some(day(16)),
     )?;
+    Ok(midterm.entity.id)
+}
 
-    let study = labels::create_label(conn, uni.clone(), "Study".into(), "#3b82f6".into())?;
-    let admin = labels::create_label(conn, uni.clone(), "Admin".into(), "#f59e0b".into())?;
+/// University: labelled tasks. Returns the ids of the review, practice, study room and slides
+/// tasks.
+fn seed_study_tasks(conn: &Connection, uni: &str) -> AppResult<(String, String, String, String)> {
+    let study = labels::create_label(conn, uni.into(), "Study".into(), "#3b82f6".into())?;
+    let admin = labels::create_label(conn, uni.into(), "Admin".into(), "#f59e0b".into())?;
 
     let review = tasks::create_task(
         conn,
-        uni.clone(),
+        uni.into(),
         "Review eigenvalue lecture".into(),
         None,
         Some(day(2)),
@@ -216,7 +277,7 @@ fn seed(conn: &Connection) -> AppResult<()> {
     labels::attach_label(conn, &review.entity.id, &study.id)?;
     let practice = tasks::create_task(
         conn,
-        uni.clone(),
+        uni.into(),
         "Practice past midterm questions".into(),
         None,
         Some(day(7)),
@@ -224,7 +285,7 @@ fn seed(conn: &Connection) -> AppResult<()> {
     labels::attach_label(conn, &practice.entity.id, &study.id)?;
     let room = tasks::create_task(
         conn,
-        uni.clone(),
+        uni.into(),
         "Book a study room".into(),
         None,
         Some(day(1)),
@@ -232,7 +293,7 @@ fn seed(conn: &Connection) -> AppResult<()> {
     labels::attach_label(conn, &room.entity.id, &admin.id)?;
     let enrol = tasks::create_task(
         conn,
-        uni.clone(),
+        uni.into(),
         "Confirm exam registration".into(),
         None,
         Some(day(-2)),
@@ -241,14 +302,27 @@ fn seed(conn: &Connection) -> AppResult<()> {
     tasks::update_task_status(conn, &enrol.entity.id, "done")?;
     let slides = tasks::create_task(
         conn,
-        uni.clone(),
+        uni.into(),
         "Print the algorithm slides".into(),
         None,
         None,
     )?;
     tasks::create_subtask(conn, slides.entity.id.clone(), "Find a printer".into())?;
+    Ok((
+        review.entity.id,
+        practice.entity.id,
+        room.entity.id,
+        slides.entity.id,
+    ))
+}
 
-    let cheat = notes::create_page(conn, uni.clone(), "note", "Eigenvalues cheat sheet".into())?;
+/// University: two notes, a jot and a bookmark. Returns the ids of the cheat sheet, the
+/// complexity notes, the jot and the bookmark.
+fn seed_university_notes(
+    conn: &Connection,
+    uni: &str,
+) -> AppResult<(String, String, String, String)> {
+    let cheat = notes::create_page(conn, uni.into(), "note", "Eigenvalues cheat sheet".into())?;
     write_page(
         conn,
         &cheat.id,
@@ -259,7 +333,7 @@ fn seed(conn: &Connection) -> AppResult<()> {
             "The trace is the sum of the eigenvalues, the determinant is their product.",
         ],
     )?;
-    let complexity = notes::create_page(conn, uni.clone(), "note", "Complexity notes".into())?;
+    let complexity = notes::create_page(conn, uni.into(), "note", "Complexity notes".into())?;
     write_page(
         conn,
         &complexity.id,
@@ -269,7 +343,7 @@ fn seed(conn: &Connection) -> AppResult<()> {
             "Binary search is O(log n), merge sort is O(n log n), Dijkstra with a heap is O((V + E) log V).",
         ],
     )?;
-    let jot = notes::create_page(conn, uni.clone(), "jot", "Ask about office hours".into())?;
+    let jot = notes::create_page(conn, uni.into(), "jot", "Ask about office hours".into())?;
     write_page(
         conn,
         &jot.id,
@@ -278,22 +352,26 @@ fn seed(conn: &Connection) -> AppResult<()> {
     )?;
     let wiki = bookmarks::create_bookmark(
         conn,
-        uni.clone(),
+        uni.into(),
         "https://en.wikipedia.org/wiki/Eigenvalues_and_eigenvectors".into(),
     )?;
+    Ok((cheat.id, complexity.id, jot.id, wiki.entity.id))
+}
 
-    // Home: errands and a weekly plan that reaches across to the University Space.
-    let errands = labels::create_label(conn, home.clone(), "Errands".into(), "#ef4444".into())?;
+/// Home: errands and a weekly plan. Returns the ids of the trip task, the passport task, the
+/// packing list and the weekly plan.
+fn seed_home(conn: &Connection, home: &str) -> AppResult<(String, String, String, String)> {
+    let errands = labels::create_label(conn, home.into(), "Errands".into(), "#ef4444".into())?;
     let trip = tasks::create_task(
         conn,
-        home.clone(),
+        home.into(),
         "Plan the weekend trip".into(),
         None,
         Some(day(5)),
     )?;
     let passport = tasks::create_task(
         conn,
-        home.clone(),
+        home.into(),
         "Renew passport".into(),
         None,
         Some(day(14)),
@@ -301,13 +379,13 @@ fn seed(conn: &Connection) -> AppResult<()> {
     labels::attach_label(conn, &passport.entity.id, &errands.id)?;
     let groceries = tasks::create_task(
         conn,
-        home.clone(),
+        home.into(),
         "Buy groceries".into(),
         None,
         Some(day(0)),
     )?;
     labels::attach_label(conn, &groceries.entity.id, &errands.id)?;
-    let week = notes::create_page(conn, home.clone(), "note", "Weekly planning".into())?;
+    let week = notes::create_page(conn, home.into(), "note", "Weekly planning".into())?;
     write_page(
         conn,
         &week.id,
@@ -317,41 +395,33 @@ fn seed(conn: &Connection) -> AppResult<()> {
             "Keep Friday evening free for the trip.",
         ],
     )?;
-    let packing = notes::create_page(conn, home.clone(), "note", "Packing list".into())?;
+    let packing = notes::create_page(conn, home.into(), "note", "Packing list".into())?;
     write_page(
         conn,
         &packing.id,
         "Packing list",
         &["Passport", "Charger", "Rain jacket"],
     )?;
+    Ok((trip.entity.id, passport.entity.id, packing.id, week.id))
+}
 
-    // Relationships, so the graph and the Relationships sections have something to draw.
-    link(conn, &cheat.id, &review.entity.id, "relates-to")?;
-    link(conn, &cheat.id, &midterm.entity.id, "relates-to")?;
-    link(conn, &cheat.id, &wiki.entity.id, "relates-to")?;
-    link(conn, &cheat.id, &complexity.id, "relates-to")?;
-    link(conn, &review.entity.id, &practice.entity.id, "blocks")?;
-    link(conn, &room.entity.id, &practice.entity.id, "blocks")?;
-    link(conn, &practice.entity.id, &midterm.entity.id, "relates-to")?;
-    link(conn, &jot.id, &midterm.entity.id, "relates-to")?;
-    link(conn, &complexity.id, &slides.entity.id, "relates-to")?;
-    link(conn, &trip.entity.id, &packing.id, "relates-to")?;
-    link(conn, &passport.entity.id, &trip.entity.id, "blocks")?;
+/// Relationships, so the graph and the Relationships sections have something to draw.
+fn link_sample(conn: &Connection, s: &Sample) -> AppResult<()> {
+    link(conn, &s.cheat, &s.review, "relates-to")?;
+    link(conn, &s.cheat, &s.midterm, "relates-to")?;
+    link(conn, &s.cheat, &s.wiki, "relates-to")?;
+    link(conn, &s.cheat, &s.complexity, "relates-to")?;
+    link(conn, &s.review, &s.practice, "blocks")?;
+    link(conn, &s.room, &s.practice, "blocks")?;
+    link(conn, &s.practice, &s.midterm, "relates-to")?;
+    link(conn, &s.jot, &s.midterm, "relates-to")?;
+    link(conn, &s.complexity, &s.slides, "relates-to")?;
+    link(conn, &s.trip, &s.packing, "relates-to")?;
+    link(conn, &s.passport, &s.trip, "blocks")?;
     // Across Spaces, flagged in the graph and the Relationships section.
-    link(conn, &week.id, &midterm.entity.id, "relates-to")?;
-    link(conn, &week.id, &practice.entity.id, "relates-to")?;
-    link(conn, &week.id, &trip.entity.id, "relates-to")?;
-
-    for id in [&cheat.id, &week.id] {
-        entities::update_entity(
-            conn,
-            id,
-            entities::EntityPatch {
-                pinned: Some(true),
-                ..Default::default()
-            },
-        )?;
-    }
+    link(conn, &s.week, &s.midterm, "relates-to")?;
+    link(conn, &s.week, &s.practice, "relates-to")?;
+    link(conn, &s.week, &s.trip, "relates-to")?;
     Ok(())
 }
 

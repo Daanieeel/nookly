@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.67.1 (2026-11-07)
+
+### Changed
+
+- Small behind the scenes tidy up. Nothing looks or works differently.
+
 ## 0.67.0 (2026-11-07)
 
 ### Changed

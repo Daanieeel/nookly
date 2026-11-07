@@ -78,6 +78,11 @@ fn app_menu<R: tauri::Runtime>(
 }
 
 /// Every command the interface can call, by name. Adding a command means adding a line here.
+///
+/// This is one flat `generate_handler!` list, and the macro takes the whole list at once, so it
+/// cannot be split per module. Its length grows with the number of commands, not with the
+/// complexity of the code.
+#[allow(clippy::too_many_lines)]
 fn command_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         commands::spaces::create_space,
