@@ -16,7 +16,11 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, createContext, useContext, useState } from "react";
-import { StatusButtonContent, statusOf, useActionStatus } from "#/components/action-feedback.tsx";
+import {
+  type ActionStatus,
+  StatusButtonContent,
+  useActionStatus,
+} from "#/components/action-feedback.tsx";
 import { Calendar } from "#/components/date-input.tsx";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
@@ -319,6 +323,7 @@ function ConvertButton({
   className?: string;
 }) {
   const convert = useConvertToBookmark(file);
+  const status = useActionStatus(convert, { revertErrors: true });
   return (
     <Button
       variant={emphasis ? "secondary" : "ghost"}
@@ -327,7 +332,7 @@ function ConvertButton({
       onClick={() => !convert.isPending && convert.mutate()}
     >
       <StatusButtonContent
-        status={statusOf(convert)}
+        status={status}
         icon={<IconBookmark />}
         label="Convert to Bookmark"
         successLabel="Converted"
@@ -356,6 +361,7 @@ function LinkOnly({ file }: { file: FileEntity }) {
   const kind = fileKind(file);
   const download = useDownloadLocalCopy(file);
   const isWebpage = download.data?.kind === "webpage";
+  const downloadStatus = useActionStatus(download, { revertErrors: true });
   return (
     <div className="flex size-full flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border p-6 text-center">
       <div className="flex size-16 items-center justify-center rounded-xl bg-muted/60">
@@ -376,11 +382,11 @@ function LinkOnly({ file }: { file: FileEntity }) {
             onClick={() => !download.isPending && download.mutate()}
           >
             <StatusButtonContent
-              status={statusOf(download)}
+              status={downloadStatus}
               icon={<IconDownload />}
-              label="Download Local Copy"
-              successLabel="Downloaded"
-              errorLabel="Couldn't download, try again"
+              label="Copy into Nookly"
+              successLabel="Copied"
+              errorLabel="Couldn't copy, is the link still there?"
             />
           </Button>
         )}
@@ -442,11 +448,7 @@ function OpenButton({
 }) {
   const kind = fileKind(file);
   const linkOnly = isLinkOnly(file);
-  const label = !linkOnly
-    ? "Open with Default App"
-    : kind.id === "link"
-      ? "Open Link"
-      : `Open in ${kind.label}`;
+  const label = !linkOnly ? "Open" : kind.id === "link" ? "Open Link" : `Open in ${kind.label}`;
   return (
     <Button
       variant={variant}
@@ -478,7 +480,7 @@ function FileProperties({ file }: { file: FileEntity }) {
   const saveCopy = useMutation({
     mutationFn: () => saveFileCopy(file),
   });
-  const saveStatusRaw = useActionStatus(saveCopy);
+  const saveStatusRaw = useActionStatus(saveCopy, { revertErrors: true });
   // A cancelled save dialog resolves `null`: back to rest, not success.
   const saveStatus = saveStatusRaw === "success" && saveCopy.data === null ? "idle" : saveStatusRaw;
 
@@ -530,18 +532,34 @@ function FileProperties({ file }: { file: FileEntity }) {
         </AddedDatePicker>
       </PropertyRow>
 
-      <div className="mt-2 flex flex-col gap-0.5">
-        <OpenButton file={file} className="justify-start" />
-        {filePath(file) && <OpenInMenu file={file} />}
-        <ReplaceButton file={file} />
-        {isLinkOnly(file) && <DownloadButton file={file} />}
-        {file.url && <ConvertButton file={file} className="justify-start" />}
-        {isReference(file) && <CopyIntoStorageButton file={file} />}
-        {pointsAtFile(file) && canLocate(file.reference?.status) && (
-          <LocateFileButton file={file} className="justify-start" />
-        )}
-        {filePath(file) && (
-          <>
+      <FileActions file={file} saveStatus={saveStatus} saveCopy={() => saveCopy.mutate()} />
+    </section>
+  );
+}
+
+/// What can be done with the file, in three groups: see it, sort out where it lives, change or
+/// export it. A group with nothing to offer takes no space, so the divider only sits between
+/// groups that are there.
+function FileActions({
+  file,
+  saveStatus,
+  saveCopy,
+}: {
+  file: FileEntity;
+  saveStatus: ActionStatus;
+  saveCopy: () => void;
+}) {
+  const onDisk = Boolean(filePath(file));
+  const locate = pointsAtFile(file) && canLocate(file.reference?.status);
+  const groups: { id: string; present: boolean; items: ReactNode }[] = [
+    {
+      id: "open",
+      present: true,
+      items: (
+        <>
+          <OpenButton file={file} className="justify-start" />
+          {onDisk && <OpenInMenu file={file} />}
+          {onDisk && (
             <Button
               variant="ghost"
               size="sm"
@@ -551,11 +569,34 @@ function FileProperties({ file }: { file: FileEntity }) {
               <IconFolderOpen />
               {REVEAL_LABEL}
             </Button>
+          )}
+        </>
+      ),
+    },
+    {
+      id: "where",
+      present: locate || isReference(file) || isLinkOnly(file) || Boolean(file.url),
+      items: (
+        <>
+          {locate && <LocateFileButton file={file} className="justify-start" />}
+          {isReference(file) && <CopyIntoStorageButton file={file} />}
+          {isLinkOnly(file) && <DownloadButton file={file} />}
+          {file.url && <ConvertButton file={file} className="justify-start" />}
+        </>
+      ),
+    },
+    {
+      id: "change",
+      present: true,
+      items: (
+        <>
+          <ReplaceButton file={file} />
+          {onDisk && (
             <Button
               variant="ghost"
               size="sm"
               className="justify-start gap-1.5"
-              onClick={() => saveStatus !== "pending" && saveCopy.mutate()}
+              onClick={() => saveStatus !== "pending" && saveCopy()}
             >
               <StatusButtonContent
                 status={saveStatus}
@@ -565,10 +606,21 @@ function FileProperties({ file }: { file: FileEntity }) {
                 errorLabel="Couldn't save, try again"
               />
             </Button>
-          </>
-        )}
-      </div>
-    </section>
+          )}
+        </>
+      ),
+    },
+  ];
+  const shown = groups.filter((group) => group.present);
+  return (
+    <div className="mt-2 flex flex-col gap-0.5">
+      {shown.map((group, index) => (
+        <div key={group.id} className="flex flex-col gap-0.5">
+          {index > 0 && <hr className="my-1 border-border" />}
+          {group.items}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -617,6 +669,7 @@ function Value({ title, children }: { title?: string; children: React.ReactNode 
 function DownloadButton({ file }: { file: FileEntity }) {
   const download = useDownloadLocalCopy(file);
   const webpage = download.data?.kind === "webpage";
+  const status = useActionStatus(download, { revertErrors: true });
   return (
     <Button
       variant="ghost"
@@ -625,11 +678,13 @@ function DownloadButton({ file }: { file: FileEntity }) {
       onClick={() => !download.isPending && download.mutate()}
     >
       <StatusButtonContent
-        status={webpage ? "error" : statusOf(download)}
+        status={webpage ? "error" : status}
         icon={<IconDownload />}
-        label="Download Local Copy"
-        successLabel="Downloaded"
-        errorLabel={webpage ? "It's a webpage, not a file" : "Couldn't download, try again"}
+        label="Copy into Nookly"
+        successLabel="Copied"
+        errorLabel={
+          webpage ? "It's a webpage, not a file" : "Couldn't copy, is the link still there?"
+        }
       />
     </Button>
   );
@@ -653,7 +708,7 @@ function ReplaceButton({ file }: { file: FileEntity }) {
       return refreshDatabaseData(queryClient);
     },
   });
-  const raw = useActionStatus(replace);
+  const raw = useActionStatus(replace, { revertErrors: true });
   // A cancelled open dialog resolves `null`: back to rest, not success.
   const status = raw === "success" && replace.data === null ? "idle" : raw;
   return (
@@ -725,7 +780,7 @@ export function LocateFileButton({
         queryClient.invalidateQueries({ queryKey: qk.files.text(entity.id) }),
       ]),
   });
-  const status = statusOf(locate);
+  const status = useActionStatus(locate, { revertErrors: true });
   return (
     <Button
       variant={variant}
@@ -774,6 +829,7 @@ function CopyIntoStorageButton({ file }: { file: FileEntity }) {
         queryClient.invalidateQueries({ queryKey: qk.files.bySpace(entity.spaceId) }),
       ]),
   });
+  const copyStatus = useActionStatus(copy, { revertErrors: true });
   return (
     <Button
       variant="ghost"
@@ -782,7 +838,7 @@ function CopyIntoStorageButton({ file }: { file: FileEntity }) {
       onClick={() => !copy.isPending && copy.mutate()}
     >
       <StatusButtonContent
-        status={statusOf(copy)}
+        status={copyStatus}
         icon={<IconCopy />}
         label="Copy into Nookly"
         successLabel="Copied"
@@ -839,12 +895,12 @@ function OpenInMenu({
           variant="ghost"
           size="sm"
           className="justify-start gap-1.5"
-          aria-label={failed ? "Couldn't open the file there, try again" : "Open in…"}
+          aria-label={failed ? "Couldn't open the file there, try again" : "Open With…"}
         >
           <StatusButtonContent
             status={pending ? "pending" : failed ? "error" : "idle"}
             icon={<IconAppWindow />}
-            label="Open in…"
+            label="Open With…"
             errorLabel="Couldn't open, try again"
           />
           <IconChevronRight className="ml-auto text-muted-foreground" />

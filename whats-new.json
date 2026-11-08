@@ -11,7 +11,11 @@
           "tag": "New"
         }
       ],
-      "more": {}
+      "more": {
+        "Improved": [
+          "The actions on a file's page are grouped into opening it, where it lives, and changing it, and a file that only exists as a link now offers Copy into Nookly."
+        ]
+      }
     },
     {
       "version": "0.69.0",

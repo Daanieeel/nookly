@@ -1,7 +1,8 @@
 import { mockConvertFileSrc } from "@tauri-apps/api/mocks";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ERROR_REVERT_MS } from "#/components/action-feedback.tsx";
 import type { FileEntity, ReferenceFacts, ReferenceStateKey } from "#/lib/api/types.ts";
 import { makeFile } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
@@ -118,6 +119,44 @@ describe("a File that points at a file on disk", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(screen.queryByText("Available")).toBeNull();
     expect(screen.getAllByText("Missing").length).toBeGreaterThan(1);
+  });
+
+  it("puts the actions in groups: see it, where it lives, change it", async () => {
+    const file = pointer("missing", true);
+    mockCommand("get_file", file);
+    renderWithProviders(<FileDetailView entity={file.entity} />);
+    await screen.findAllByRole("button", { name: "Locate…" });
+    const sidebar = screen.getByRole("region", { name: "Properties" });
+    const order = Array.from(sidebar.querySelectorAll("button, hr")).map((el) =>
+      el.tagName === "HR" ? "|" : (el.textContent ?? "").trim(),
+    );
+    const flat = order.join(" / ");
+    expect(flat).toMatch(
+      /Open \/ Open With… \/ (Reveal in Finder|Show in Folder) \/ \| \/ Locate… \/ Copy into Nookly \/ \| \/ Replace File… \/ Save a Copy…/,
+    );
+  });
+
+  it("puts a failed copy back to a plain button after a while", async () => {
+    const file = pointer("available", true);
+    mockCommand("get_file", file);
+    mockCommand("check_reference", { state: "available", asOf: null });
+    mockCommandWith("copy_file_into_storage", () => {
+      throw new Error("the original is gone");
+    });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderWithProviders(<FileDetailView entity={file.entity} />);
+      const copy = await screen.findByRole("button", { name: "Copy into Nookly" });
+      await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(copy);
+      expect((await screen.findAllByText(/Couldn't copy/)).length).toBeGreaterThan(0);
+      await act(async () => {
+        vi.advanceTimersByTime(ERROR_REVERT_MS);
+      });
+      expect(screen.queryAllByText(/Couldn't copy/)).toEqual([]);
+      expect(screen.getByRole("button", { name: "Copy into Nookly" })).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows a stored file with no state at all", async () => {
