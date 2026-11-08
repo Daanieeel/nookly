@@ -1,6 +1,23 @@
 {
   "versions": [
     {
+      "version": "0.69.0",
+      "date": "2026-11-08",
+      "highlights": [
+        {
+          "title": "Zoom the relationship graph",
+          "description": "Zoom out to see everything in the second ring at once, zoom in for detail, or fit the whole graph to your view.",
+          "icon": "hierarchy",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Fixed": [
+          "The relationship graph now scrolls up, down, left and right in one swipe when the second ring is on."
+        ]
+      }
+    },
+    {
       "version": "0.68.0",
       "date": "2026-11-07",
       "highlights": [
