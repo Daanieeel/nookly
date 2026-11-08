@@ -535,3 +535,17 @@ A mind map is the `mindmap` block, an indented list with one idea per line, not 
 **Dragging:** dragged positions are editor owned layout data in a versioned `layout` block attr, the way the circuit block keeps its drawing. The attr holds an id per outline line (a parallel list) and, for each moved node, its offset from the automatic place; a node's offset adds to its parent's, so a dragged branch takes its subtree along. Dragging never changes the outline, and "Reset layout" clears the attr. Ids are never written into the outline text. Every outline edit, from the editor or the CLI, goes through a line diff (longest common subsequence) between the old and new text: unchanged lines, lines moved elsewhere and lines edited in place keep their id, new lines get a fresh one, deleted lines drop theirs, and positions that match no line are cleaned up. A layout made for other text (a pasted or externally written outline) is cleared, so its nodes use the automatic layout and the outline is never touched. The editor follows its own edits in a plugin; a write without a layout of its own, such as the CLI's, is followed in `update_block`. The two implementations share their test cases. Exports and markdown ignore positions and lay out from the outline alone.
 
 **Rejected:** inline markers like `{#a1b2}` (they would leak into markdown, the CLI and every export), and keying positions by path or text (renaming or reordering would lose them).
+
+---
+
+### One view engine for every entity type
+
+A View config is one versioned JSON object: `version`, `source` (the entity type, read from `module` when missing), an optional `scope` (a relationship type and direction, read against the page the View sits in), `filters` and `display`. Option filters (`is`, `isNot`) and conditions (empty, contains, date ranges, number comparisons) share the stored `filters` list, so an older release drops what it can't read instead of misreading it. The table layout keeps its sort and column widths in `display.table`. Each type registers a `ViewSource` with its fields (`features/views/engine/sources/`), and a page embeds one with `EntityView`. Saving over a stored config keeps every key, filter and display option it could not read, and the backend refuses to save over a config from a newer `version`.
+
+**Filtering runs in the frontend.** The list commands already load a Space's items, and filtering and sorting 20,000 Tasks stays well inside its budget (`filters and sorts 20,000 tasks within its budget`). One evaluator in TypeScript means no second copy in Rust that could drift. Rust only checks what the CLI writes.
+
+**Why:** a Course page needs "its Assignments, sorted by due date" without a page specific list, and stored Views must open exactly as before.
+
+**Revisit when:** a list grows past what the budget test covers, then move the scope and option filters into the list query first.
+
+**Rejected:** a migration rewriting stored configs (touches real Views for no gain), user defined properties, and mixed type views.

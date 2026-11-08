@@ -1,6 +1,25 @@
 {
   "versions": [
     {
+      "version": "0.70.0",
+      "date": "2026-11-08",
+      "highlights": [
+        {
+          "title": "Table layout",
+          "description": "Show Tasks and Assignments as a table, sort by any column and drag its edge to resize it.",
+          "icon": "table",
+          "tag": "New"
+        },
+        {
+          "title": "Conditions",
+          "description": "Narrow a list to empty fields, titles that contain a word, dates in a range or numbers above or below a value.",
+          "icon": "filter",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.69.0",
       "date": "2026-11-08",
       "highlights": [],

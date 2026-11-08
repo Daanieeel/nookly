@@ -212,7 +212,7 @@ export function ViewTable<T extends RowData, C>({
 
   const headerProps = new Map<string, HeaderProps>();
   const cells = new Map<string, (item: RowData) => ReactNode>();
-  const columns: ColumnDef<DataTableFeatures, T>[] = shown.map(({ field, width }) => {
+  const columns: ColumnDef<DataTableFeatures, T>[] = shown.map(({ field, width }, index) => {
     const size = live?.field === field.id ? live.width : width;
     headerProps.set(field.id, {
       label: field.label,
@@ -241,6 +241,8 @@ export function ViewTable<T extends RowData, C>({
         label: field.label,
         width: field.fit ? "fit" : field.id === "title" ? "third" : "fill",
         size,
+        // A narrow window drops the later columns instead of scrolling sideways.
+        hideBelow: field.id === "title" || index < 3 ? undefined : index < 5 ? "md" : "lg",
       },
     };
   });
@@ -257,6 +259,7 @@ export function ViewTable<T extends RowData, C>({
     <TableParts.Provider value={{ headerProps, cells }}>
       <DataTable
         table={tanstack}
+        scrollX={false}
         onRowClick={onOpen}
         rowContextTarget={rowContextTarget}
         groups={groups}

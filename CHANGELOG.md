@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.70.0 (2026-11-08)
+
+### Added
+
+- Tasks and Assignments can now be shown as a table. Sort by any column from its header, drag a column edge to resize it, and pick the columns you want in Display. Saved views remember all of it.
+- New conditions next to filters: show items with an empty or filled field, titles that contain a word, dates before, after or between two days, and numbers like effort or grade above or below a value.
+
 ## 0.69.0 (2026-11-08)
 
 ### Added
