@@ -1,6 +1,23 @@
 {
   "versions": [
     {
+      "version": "0.70.0",
+      "date": "2026-11-08",
+      "highlights": [
+        {
+          "title": "Add to a group of related items",
+          "description": "Each group in the sidebar has its own plus button that opens the list of that kind of item, with a way to create a new one and link it right away.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The Relate to button is now called Link, and each step of the picker says what it asks."
+        ]
+      }
+    },
+    {
       "version": "0.69.0",
       "date": "2026-11-08",
       "highlights": [],
