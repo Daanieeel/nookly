@@ -7,10 +7,22 @@ import { qk } from "#/lib/query-keys.ts";
 import { EntityRow } from "./EntityRow";
 
 /// A very small headline over one group of sidebar rows, which it also names for screen readers.
-function RowGroup({ label, children }: { label: string; children: ReactNode }) {
+function RowGroup({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  /// Control at the right end of the headline, like a "+" to add to this group.
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div role="group" aria-label={label} className="flex flex-col gap-0.5">
-      <p className="px-2 pt-1 text-xs text-muted-foreground/70">{label}</p>
+      <div className="flex h-6 items-center justify-between gap-1 pt-1">
+        <p className="px-2 text-xs text-muted-foreground/70">{label}</p>
+        {action}
+      </div>
       {children}
     </div>
   );
@@ -82,13 +94,17 @@ export function EntityGroups({
 /// `EntityGroups` for rows known only by entity id: groups what has loaded by type,
 /// and holds the rest as placeholder rows until its type is known.
 /// With `ranked`, the groups follow the fixed relationship order instead.
+/// With `renderAction`, each group's headline gets the control it returns, given the
+/// group's entity types (more than one when types share a label) and its items.
 export function TypeGroups<T extends { key: string; entityId: string }>({
   items,
   renderRow,
+  renderAction,
   ranked = false,
 }: {
   items: T[];
   renderRow: (item: T) => ReactNode;
+  renderAction?: (label: string, entityTypes: string[], items: T[]) => ReactNode;
   ranked?: boolean;
 }) {
   const results = useQueries({
@@ -106,7 +122,15 @@ export function TypeGroups<T extends { key: string; entityId: string }>({
     <>
       {groupByType(loaded, (item) => types.get(item.entityId) ?? "", ranked).map(
         ([label, group]) => (
-          <RowGroup key={label} label={label}>
+          <RowGroup
+            key={label}
+            label={label}
+            action={renderAction?.(
+              label,
+              [...new Set(group.map((i) => types.get(i.entityId) ?? ""))],
+              group,
+            )}
+          >
             {group.map((item) => (
               <div key={item.key}>{renderRow(item)}</div>
             ))}

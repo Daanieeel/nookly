@@ -2,6 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.69.0 (2026-11-08)
+
+### Added
+
+- Each group of related items in the sidebar of a note or jot now has its own plus button. It opens the list of that kind of item straight away, so you only pick which one to link.
+- When you link something, you can now create a new item for the one you are on and link it in one go, for example a new note, task or deck, or an assignment or exam from a course.
+
+### Changed
+
+- The Relate to button is now called Link, and each step of the picker says what it asks.
+
 ## 0.68.0 (2026-11-07)
 
 ### Added
