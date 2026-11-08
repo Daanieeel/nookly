@@ -8,13 +8,13 @@ A reference is either its own entity (`type = reference`, key `REF-n`: a link or
 
 Worked out live on each device, never stored in the record. A file that is fine on the Mac is "Not on this device" on the phone, so a stored state would be wrong somewhere.
 
-| State               | Meaning                                      |
-| ------------------- | -------------------------------------------- |
-| Available           | The file is found, Moodle answers            |
-| Offline, as of ...  | Cannot be reached, the last answer is shown  |
-| Missing             | The path is gone or the link is dead         |
-| Needs sign in       | The token expired or is missing              |
-| Not on this device  | A path that exists on another device only    |
+| State              | Meaning                                     |
+| ------------------ | ------------------------------------------- |
+| Available          | The file is found, Moodle answers           |
+| Offline, as of ... | Cannot be reached, the last answer is shown |
+| Missing            | The path is gone or the link is dead        |
+| Needs sign in      | The token expired or is missing             |
+| Not on this device | A path that exists on another device only   |
 
 One wording for each, in `lib/reference-state.ts`, drawn by `ReferenceStateBadge`. The badge shows the state; its tooltip explains it. "As of" is shown only for Offline, so an Available reference carries no date.
 

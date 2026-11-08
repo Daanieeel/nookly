@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.70.0",
+      "date": "2026-11-08",
+      "highlights": [
+        {
+          "title": "Files that tell you where they stand",
+          "description": "A file you added by path now shows whether Nookly can find it. If it moved, or lives on another device, Locate points Nookly at it again here.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.69.0",
       "date": "2026-11-08",
       "highlights": [],

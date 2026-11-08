@@ -10,7 +10,7 @@ import {
   mockCommandWith,
   uninstallTauriMock,
 } from "#/test/tauri.ts";
-import type { Reference } from "#/lib/api/types.ts";
+import type { Reference, ReferenceStatus } from "#/lib/api/types.ts";
 import { ReferenceDetailView } from "./ReferenceDetailView.tsx";
 
 beforeEach(() => {
@@ -49,7 +49,7 @@ describe("the page of a reference", () => {
   it("checks again on request", async () => {
     const reference = course();
     mockCommand("get_reference", reference);
-    let answer = { state: "offline", asOf: "2026-11-01T10:00:00Z" };
+    let answer: ReferenceStatus = { state: "offline", asOf: "2026-11-01T10:00:00Z" };
     mockCommandWith("check_reference", () => answer);
     renderWithProviders(<ReferenceDetailView entity={reference.entity} />);
     expect(await screen.findByText(/^Offline, as of/)).toBeTruthy();
