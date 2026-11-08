@@ -303,7 +303,10 @@ fn validate_fields(
     if for_create {
         for key in fields.keys() {
             if let Some(f) = known.get(key.as_str()) {
-                if !f.required_on_create && !f.writable_on_update {
+                if !f.required_on_create
+                    && !f.writable_on_update
+                    && !schema::is_create_only(entity_type, f.name)
+                {
                     return Err(AppError::InvalidInput(format!(
                         "field '{key}' on '{entity_type}' is read only, it can't be set at creation"
                     )));

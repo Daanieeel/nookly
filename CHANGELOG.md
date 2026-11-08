@@ -2,6 +2,16 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.71.0 (2026-11-08)
+
+### Added
+
+- Files you added by path now show whether Nookly can find them: Available, Missing, or Not on this device. When a file moved, or was added on another device, Locate points Nookly at the same file on this device without changing anything on your other devices.
+
+### Changed
+
+- The actions on a file's page are grouped into opening it, where it lives, and changing it. Failed file buttons go back to normal after a few seconds, and a file that only exists as a link now offers Copy into Nookly.
+
 ## 0.70.0 (2026-11-08)
 
 ### Added

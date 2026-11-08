@@ -825,6 +825,41 @@ fn all() -> Vec<M<'static>> {
         ALTER TABLE index_cards ADD COLUMN front_blocks TEXT;
         ALTER TABLE index_cards ADD COLUMN back_blocks TEXT;
         ",
+    ), M::up(
+        "
+        -- References: one record for every pointer to something Nookly does not own (a file
+        -- on disk, a link, a Moodle course). Only identity and the last known facts are
+        -- kept; whether the target can be reached is worked out live on each device.
+        -- `origin_device_id` is the device a file path was typed on. A reference made before
+        -- devices were told apart has none until the app first starts on a device.
+        CREATE TABLE entity_references (
+            entity_id TEXT PRIMARY KEY REFERENCES entities(id),
+            provider TEXT NOT NULL,
+            remote_id TEXT NOT NULL,
+            last_known_title TEXT,
+            last_seen_at TEXT,
+            last_result TEXT,
+            origin_device_id TEXT
+        );
+        -- Where a file reference lives on each device. One reference, a path per device.
+        CREATE TABLE reference_device_paths (
+            reference_id TEXT NOT NULL REFERENCES entities(id),
+            device_id TEXT NOT NULL,
+            path TEXT NOT NULL,
+            PRIMARY KEY (reference_id, device_id)
+        );
+        -- Files that only point elsewhere (a typed path, or a link never downloaded) get a
+        -- reference under the same id. Nothing in `files` or `entities` is changed, so the
+        -- Files page reads the same and an older release still finds every column it knew.
+        INSERT INTO entity_references (entity_id, provider, remote_id, last_known_title)
+        SELECT f.entity_id,
+               CASE WHEN f.source_path IS NOT NULL THEN 'file' ELSE 'link' END,
+               COALESCE(f.source_path, f.url),
+               e.title
+        FROM files f
+        JOIN entities e ON e.id = f.entity_id
+        WHERE f.local_path IS NULL AND (f.source_path IS NOT NULL OR f.url IS NOT NULL);
+        ",
     )]
 }
 
@@ -1591,6 +1626,166 @@ mod due_session_after_backfill {
 }
 
 #[cfg(test)]
+mod reference_backfill {
+    use super::{MIGRATIONS, MIGRATION_COUNT};
+    use rusqlite::{params, Connection};
+
+    /// The schema version right before the reference entity migration.
+    const BEFORE: usize = 49;
+
+    fn space(conn: &Connection) {
+        conn.execute(
+            "INSERT INTO spaces (id, name, color, created_at, updated_at)
+             VALUES ('sp', 'Space', '#000', '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')",
+            [],
+        )
+        .unwrap();
+    }
+
+    fn file(
+        conn: &Connection,
+        id: &str,
+        local_path: Option<&str>,
+        source_path: Option<&str>,
+        url: Option<&str>,
+        deleted: bool,
+    ) {
+        conn.execute(
+            "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, deleted_at, key_prefix, key_number)
+             VALUES (?1, 'sp', 'file', ?2, '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', ?3, 'FIL',
+                     (SELECT COUNT(*) + 1 FROM entities))",
+            params![
+                id,
+                format!("Title of {id}"),
+                deleted.then_some("2026-02-01T00:00:00+00:00"),
+            ],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO files (entity_id, local_path, url, original_filename, source_path)
+             VALUES (?1, ?2, ?3, ?1, ?4)",
+            params![id, local_path, url, source_path],
+        )
+        .unwrap();
+    }
+
+    fn reference(conn: &Connection, id: &str) -> Option<(String, String, Option<String>)> {
+        conn.query_row(
+            "SELECT provider, remote_id, last_known_title FROM entity_references WHERE entity_id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .ok()
+    }
+
+    #[test]
+    fn files_that_point_elsewhere_get_a_reference_and_managed_files_do_not() {
+        assert!(*MIGRATION_COUNT > BEFORE);
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        space(&conn);
+        file(&conn, "path", None, Some("/Users/me/a.pdf"), None, false);
+        file(
+            &conn,
+            "link",
+            None,
+            None,
+            Some("https://example.com/a.pdf"),
+            false,
+        );
+        file(
+            &conn,
+            "trashed",
+            None,
+            Some("/Users/me/gone.pdf"),
+            None,
+            true,
+        );
+        file(&conn, "managed", Some("/store/m.pdf"), None, None, false);
+        file(
+            &conn,
+            "downloaded",
+            Some("/store/d.pdf"),
+            None,
+            Some("https://example.com/d.pdf"),
+            false,
+        );
+        file(
+            &conn,
+            "copied",
+            Some("/store/c.pdf"),
+            Some("/Users/me/c.pdf"),
+            None,
+            false,
+        );
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+
+        assert_eq!(
+            reference(&conn, "path"),
+            Some((
+                "file".into(),
+                "/Users/me/a.pdf".into(),
+                Some("Title of path".into())
+            ))
+        );
+        assert_eq!(
+            reference(&conn, "link"),
+            Some((
+                "link".into(),
+                "https://example.com/a.pdf".into(),
+                Some("Title of link".into())
+            ))
+        );
+        assert_eq!(
+            reference(&conn, "trashed").map(|r| r.0),
+            Some("file".into())
+        );
+        for managed in ["managed", "downloaded", "copied"] {
+            assert_eq!(reference(&conn, managed), None, "{managed}");
+        }
+        // The old rows stay exactly as they were, so a rollback still finds them.
+        let kept: (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT source_path, url FROM files WHERE entity_id = 'path'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(kept, (Some("/Users/me/a.pdf".into()), None));
+        let type_of: String = conn
+            .query_row("SELECT type FROM entities WHERE id = 'path'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(type_of, "file");
+    }
+
+    #[test]
+    fn the_migrated_references_belong_to_no_device_yet() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_version(&mut conn, BEFORE).unwrap();
+        space(&conn);
+        file(&conn, "path", None, Some("/Users/me/a.pdf"), None, false);
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+        let origin: Option<String> = conn
+            .query_row(
+                "SELECT origin_device_id FROM entity_references WHERE entity_id = 'path'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(origin, None);
+        let paths: i64 = conn
+            .query_row("SELECT COUNT(*) FROM reference_device_paths", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(paths, 0);
+    }
+}
+
+#[cfg(test)]
 mod history {
     use super::all;
     use std::collections::hash_map::DefaultHasher;
@@ -1659,6 +1854,7 @@ mod history {
         0x1500e2b69ba5ee38,
         0x9e34fce273f8823e,
         0xaed3619d950f3a70,
+        0x3ffa45a8e96d52a1,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

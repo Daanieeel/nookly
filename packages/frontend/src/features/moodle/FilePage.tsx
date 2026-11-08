@@ -314,6 +314,8 @@ function standIn(file: MoodleFile, path: string, spaceId: string): FileEntity {
     url: null,
     originalFilename: file.fileName,
     sourcePath: null,
+    reference: null,
+    availability: null,
     origin: null,
     needsReindex: false,
     labelIds: [],

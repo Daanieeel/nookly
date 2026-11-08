@@ -7,8 +7,10 @@ import { cn } from "@nookly/ui/lib/utils";
 
 export type ActionStatus = "idle" | "pending" | "success" | "error";
 
-/// Success reverts on its own; errors stay until the user acts again.
+/// Success reverts on its own; errors stay until the user acts again, unless the control asks
+/// for them to revert too (`useActionStatus` with `revertErrors`), after `ERROR_REVERT_MS`.
 export const SUCCESS_REVERT_MS = 2000;
+export const ERROR_REVERT_MS = 5000;
 
 interface MutationLike {
   isPending: boolean;
@@ -25,13 +27,19 @@ export function statusOf(mutation: MutationLike): ActionStatus {
 }
 
 /// Returns the mutation's status, resetting a success back to idle after `SUCCESS_REVERT_MS`.
-export function useActionStatus(mutation: MutationLike): ActionStatus {
-  const { isSuccess, reset } = mutation;
+/// With `revertErrors`, an error goes back to idle too, after `ERROR_REVERT_MS`, so a button
+/// that failed becomes a plain button again instead of staying red.
+export function useActionStatus(
+  mutation: MutationLike,
+  { revertErrors = false }: { revertErrors?: boolean } = {},
+): ActionStatus {
+  const { isSuccess, isError, reset } = mutation;
   useEffect(() => {
-    if (!isSuccess) return;
-    const timer = setTimeout(reset, SUCCESS_REVERT_MS);
+    const delay = isSuccess ? SUCCESS_REVERT_MS : isError && revertErrors ? ERROR_REVERT_MS : null;
+    if (delay === null) return;
+    const timer = setTimeout(reset, delay);
     return () => clearTimeout(timer);
-  }, [isSuccess, reset]);
+  }, [isSuccess, isError, revertErrors, reset]);
   return statusOf(mutation);
 }
 

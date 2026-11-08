@@ -541,3 +541,109 @@ fn disconnecting_forgets_the_site_but_keeps_downloaded_files() {
     assert!(!status.connected && status.site_url.is_none());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+// --- references: is the Moodle object still there? ---------------------------------------
+
+fn courses_answer() -> (&'static str, Value) {
+    (
+        "core_enrol_get_users_courses",
+        json!([{ "id": 4, "shortname": "MA1", "fullname": "Maths 1" }]),
+    )
+}
+
+fn assignments_answer() -> (&'static str, Value) {
+    (
+        "mod_assign_get_assignments",
+        json!({ "courses": [{ "assignments": [{ "id": 9, "cmid": 90, "name": "Sheet 1" }] }] }),
+    )
+}
+
+#[test]
+fn a_reference_to_a_course_moodle_lists_is_available_with_its_title() {
+    let moodle = site_answering(vec![courses_answer()]);
+    let dir = temp_dir();
+    let state = state_for(&moodle, &dir);
+    assert_eq!(
+        run(state.probe_reference("moodle_course", "4")),
+        (Probe::Reached, Some("Maths 1".into()))
+    );
+    // A course the site no longer lists is gone, not offline.
+    assert_eq!(
+        run(state.probe_reference("moodle_course", "5")),
+        (Probe::Gone, None)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_reference_to_an_assignment_looks_in_its_course() {
+    let moodle = site_answering(vec![assignments_answer()]);
+    let dir = temp_dir();
+    let state = state_for(&moodle, &dir);
+    assert_eq!(
+        run(state.probe_reference("moodle_assignment", "4:9")),
+        (Probe::Reached, Some("Sheet 1".into()))
+    );
+    assert_eq!(
+        run(state.probe_reference("moodle_assignment", "4:10")),
+        (Probe::Gone, None)
+    );
+    assert_eq!(
+        run(state.probe_reference("moodle_assignment", "garbage")),
+        (Probe::Gone, None)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_site_that_does_not_answer_is_offline_even_with_a_cache_of_the_course() {
+    let down = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = down.clone();
+    let moodle = start(move |_| {
+        if flag.load(std::sync::atomic::Ordering::SeqCst) {
+            Response::hang_up()
+        } else {
+            Response::json(json!([{ "id": 4, "fullname": "Maths 1" }]))
+        }
+    });
+    let dir = temp_dir();
+    let state = state_for(&moodle, &dir);
+    // The cache would answer for the course page; the reference must not be fooled by it.
+    run(state.courses()).unwrap();
+    down.store(true, std::sync::atomic::Ordering::SeqCst);
+    assert_eq!(
+        run(state.probe_reference("moodle_course", "4")),
+        (Probe::Unreachable, None)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_refused_token_and_a_missing_sign_in_both_need_signing_in() {
+    let moodle = start(|_| {
+        Response::json(json!({
+            "exception": "moodle_exception", "errorcode": "invalidtoken",
+            "message": "Invalid token - token expired"
+        }))
+    });
+    let dir = temp_dir();
+    let state = state_for(&moodle, &dir);
+    assert_eq!(
+        run(state.probe_reference("moodle_course", "4")),
+        (Probe::SignInNeeded, None)
+    );
+
+    // Connected once, token since gone (a restored backup, a cleared keychain).
+    let no_token = MoodleState::signed_in(&dir, Memory::with(None), moodle.site.clone());
+    assert_eq!(
+        run(no_token.probe_reference("moodle_course", "4")),
+        (Probe::SignInNeeded, None)
+    );
+    // Never connected at all.
+    let fresh = MoodleState::with_tokens(&temp_dir(), Memory::with(None));
+    assert_eq!(
+        run(fresh.probe_reference("moodle_course", "4")),
+        (Probe::SignInNeeded, None)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}

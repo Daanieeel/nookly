@@ -678,6 +678,14 @@ fn sweep_entity(conn: &Connection, id: &str) -> AppResult<()> {
     conn.execute("DELETE FROM files WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM bookmarks WHERE entity_id = ?1", params![id])?;
     conn.execute(
+        "DELETE FROM reference_device_paths WHERE reference_id = ?1",
+        params![id],
+    )?;
+    conn.execute(
+        "DELETE FROM entity_references WHERE entity_id = ?1",
+        params![id],
+    )?;
+    conn.execute(
         "DELETE FROM note_settings WHERE entity_id = ?1",
         params![id],
     )?;
