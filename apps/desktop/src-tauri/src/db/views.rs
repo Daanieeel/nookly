@@ -13,6 +13,27 @@ pub const VIEW_MODULES: &[&str] = &[
     "assignments-overview",
 ];
 
+/// The `version` the app writes View configs with. A config without one is version 1.
+/// Mirrors `VIEW_CONFIG_VERSION` in `packages/frontend/src/features/views/engine/types.ts`.
+pub const VIEW_CONFIG_VERSION: i64 = 2;
+
+/// The entity type a module page's Views show. Mirrors `viewSourceOf` in
+/// `packages/frontend/src/lib/api/views.ts`.
+pub fn source_of(module: &str) -> &'static str {
+    match module {
+        "tasks" | "tasks-overview" => "task",
+        _ => "assignment",
+    }
+}
+
+/// The `version` a stored config says it has, 1 when it has none or can't be read.
+fn stored_version(config: &str) -> i64 {
+    serde_json::from_str::<serde_json::Value>(config)
+        .ok()
+        .and_then(|v| v.get("version").and_then(serde_json::Value::as_i64))
+        .unwrap_or(1)
+}
+
 /// `tasks-overview` and `assignments-overview` are the cross-Space pages. Their Views still live in one Space,
 /// since every entity does, but show the tasks of all of them.
 ///
@@ -130,6 +151,12 @@ pub fn get_view(conn: &Connection, entity_id: &str) -> AppResult<View> {
 
 pub fn update_view_config(conn: &Connection, entity_id: &str, config: String) -> AppResult<View> {
     check_config(&config)?;
+    // A newer Nookly may have stored what this one can't read; saving over it would lose it.
+    if stored_version(&get_view(conn, entity_id)?.config) > VIEW_CONFIG_VERSION {
+        return Err(AppError::InvalidInput(
+            "this View was saved by a newer version of Nookly. Update Nookly to change it".into(),
+        ));
+    }
     let changed = conn.execute(
         "UPDATE views SET config = ?1 WHERE entity_id = ?2",
         params![config, entity_id],
@@ -183,7 +210,208 @@ pub fn reorder_views(
 
 const AGE_VALUES: &[&str] = &["today", "week", "last", "earlier"];
 const DATE_VALUES: &[&str] = &["overdue", "today", "week", "later", "none"];
-const LAYOUTS: &[&str] = &["list", "board"];
+const LAYOUTS: &[&str] = &["list", "board", "table"];
+/// The layouts that group and can show their empty groups.
+const GROUPED_LAYOUTS: &[&str] = &["list", "board"];
+const SCOPE_DIRECTIONS: &[&str] = &["outgoing", "incoming", "both"];
+
+/// How a field of a source compares, which decides the conditions it takes.
+#[derive(Clone, Copy, PartialEq)]
+enum Kind {
+    Text,
+    Number,
+    Date,
+    /// An option (a status) or the entities it points at (labels, a Course): only the
+    /// text conditions and the empty checks.
+    Choice,
+}
+
+/// The table columns and condition fields of each source. Mirrors the field registry in
+/// `packages/frontend/src/features/views/engine/sources/`.
+const TASK_FIELDS: &[(&str, Kind)] = &[
+    ("key", Kind::Text),
+    ("title", Kind::Text),
+    ("status", Kind::Choice),
+    ("labels", Kind::Choice),
+    ("start", Kind::Date),
+    ("due", Kind::Date),
+    ("effort", Kind::Number),
+    ("course", Kind::Choice),
+    ("completedAt", Kind::Date),
+    ("space", Kind::Choice),
+    ("created", Kind::Date),
+    ("updated", Kind::Date),
+];
+const ASSIGNMENT_FIELDS: &[(&str, Kind)] = &[
+    ("key", Kind::Text),
+    ("title", Kind::Text),
+    ("status", Kind::Choice),
+    ("due", Kind::Date),
+    ("course", Kind::Choice),
+    ("grade", Kind::Number),
+    ("weight", Kind::Number),
+    ("evaluatedAt", Kind::Date),
+    ("space", Kind::Choice),
+    ("created", Kind::Date),
+    ("updated", Kind::Date),
+];
+
+fn fields_of(source: &str) -> &'static [(&'static str, Kind)] {
+    if source == "task" {
+        TASK_FIELDS
+    } else {
+        ASSIGNMENT_FIELDS
+    }
+}
+
+const ANY_KIND: &[Kind] = &[Kind::Text, Kind::Number, Kind::Date, Kind::Choice];
+
+/// The richer filters, and the kinds of field each fits.
+const CONDITION_OPERATORS: &[(&str, &[Kind])] = &[
+    ("isEmpty", ANY_KIND),
+    ("isNotEmpty", ANY_KIND),
+    ("contains", &[Kind::Text, Kind::Choice]),
+    ("notContains", &[Kind::Text, Kind::Choice]),
+    ("before", &[Kind::Date]),
+    ("after", &[Kind::Date]),
+    ("between", &[Kind::Date]),
+    ("eq", &[Kind::Number]),
+    ("lt", &[Kind::Number]),
+    ("lte", &[Kind::Number]),
+    ("gt", &[Kind::Number]),
+    ("gte", &[Kind::Number]),
+];
+
+fn is_day(value: &str) -> bool {
+    chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok() && value.len() == 10
+}
+
+/// Checks one richer filter: its field fits its operator, and its values fit both.
+fn validate_condition(
+    source: &str,
+    id: &str,
+    operator: &str,
+    kinds: &[Kind],
+    filter: &serde_json::Value,
+) -> AppResult<()> {
+    let Some((_, kind)) = fields_of(source).iter().find(|(name, _)| *name == id) else {
+        let names: Vec<_> = fields_of(source).iter().map(|(n, _)| *n).collect();
+        return Err(bad(format!(
+            "unknown field '{id}' for {operator}. Use one of: {}",
+            names.join(", ")
+        )));
+    };
+    if !kinds.contains(kind) {
+        return Err(bad(format!("'{operator}' does not fit field '{id}'")));
+    }
+    if filter.get("join").is_some() {
+        return Err(bad(format!(
+            "'{operator}' takes no join; conditions always join with and"
+        )));
+    }
+    let values = string_list(
+        "filter values",
+        filter.get("values").unwrap_or(&serde_json::Value::Null),
+    )?;
+    let ok = match operator {
+        "isEmpty" | "isNotEmpty" => true,
+        "contains" | "notContains" => values.len() == 1 && !values[0].trim().is_empty(),
+        "before" | "after" => values.len() == 1 && is_day(values[0]),
+        "between" => values.len() == 2 && values.iter().all(|v| is_day(v)),
+        _ => values.len() == 1 && values[0].trim().parse::<f64>().is_ok_and(f64::is_finite),
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(bad(format!(
+            "values of '{operator}' on '{id}' must be: {}",
+            match operator {
+                "contains" | "notContains" => "one text",
+                "before" | "after" => "one day as YYYY-MM-DD",
+                "between" => "two days as YYYY-MM-DD",
+                _ => "one number",
+            }
+        )))
+    }
+}
+
+/// Checks the table layout's sort and columns against the source's fields.
+fn validate_table(source: &str, table: &serde_json::Value) -> AppResult<()> {
+    let table = table
+        .as_object()
+        .ok_or_else(|| bad("display.table must be an object".into()))?;
+    let known = |field: &serde_json::Value, what: &str| -> AppResult<()> {
+        let names: Vec<_> = fields_of(source).iter().map(|(n, _)| *n).collect();
+        one_of(what, field, &names)
+    };
+    for (key, value) in table {
+        let entries = value
+            .as_array()
+            .ok_or_else(|| bad(format!("display.table.{key} must be an array")))?;
+        match key.as_str() {
+            "sort" => {
+                for rule in entries {
+                    known(
+                        rule.get("field").unwrap_or(&serde_json::Value::Null),
+                        "display.table.sort field",
+                    )?;
+                    one_of(
+                        "display.table.sort direction",
+                        rule.get("direction").unwrap_or(&serde_json::Value::Null),
+                        &["asc", "desc"],
+                    )?;
+                }
+            }
+            "columns" => {
+                for column in entries {
+                    known(
+                        column.get("field").unwrap_or(&serde_json::Value::Null),
+                        "display.table.columns field",
+                    )?;
+                    if column.get("width").is_some_and(|w| !w.is_number()) {
+                        return Err(bad("a column width must be a number of pixels".into()));
+                    }
+                }
+            }
+            other => return Err(bad(format!("unknown display.table option '{other}'"))),
+        }
+    }
+    Ok(())
+}
+
+/// Checks `version`, `source` and `scope`, the keys a config says about itself.
+fn validate_meta(module: &str, root: &serde_json::Map<String, serde_json::Value>) -> AppResult<()> {
+    if let Some(version) = root.get("version") {
+        if !version
+            .as_i64()
+            .is_some_and(|v| (1..=VIEW_CONFIG_VERSION).contains(&v))
+        {
+            return Err(bad(format!(
+                "version must be a number from 1 to {VIEW_CONFIG_VERSION}"
+            )));
+        }
+    }
+    if let Some(source) = root.get("source") {
+        one_of("source", source, &[source_of(module)])?;
+    }
+    if let Some(scope) = root.get("scope") {
+        let relationship = scope
+            .get("relationship")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        if crate::db::relationships::lookup_relationship_type(relationship).is_none() {
+            return Err(bad(format!(
+                "scope.relationship '{relationship}' is not a relationship type"
+            )));
+        }
+        one_of(
+            "scope.direction",
+            scope.get("direction").unwrap_or(&serde_json::Value::Null),
+            SCOPE_DIRECTIONS,
+        )?;
+    }
+    Ok(())
+}
 
 /// What one module's View config may contain. Mirrors the filter fields and display
 /// options in `packages/frontend/src/features/{tasks,assignments}`. A filter with
@@ -328,19 +556,35 @@ fn validate_config(module: &str, config: &str) -> AppResult<()> {
     let root = value
         .as_object()
         .ok_or_else(|| AppError::InvalidInput("view config must be a JSON object".into()))?;
-    if let Some(key) = root.keys().find(|k| *k != "filters" && *k != "display") {
+    const KEYS: &[&str] = &["version", "source", "scope", "filters", "display"];
+    if let Some(key) = root.keys().find(|k| !KEYS.contains(&k.as_str())) {
         return Err(bad(format!(
-            "unknown key '{key}'. Use only 'filters' and 'display'"
+            "unknown key '{key}'. Use only {}",
+            KEYS.join(", ")
         )));
     }
+    validate_meta(module, root)?;
+    let source = source_of(module);
 
     if let Some(filters) = root.get("filters") {
         let filters = filters
             .as_array()
             .ok_or_else(|| bad("filters must be an array".into()))?;
         let mut seen = Vec::new();
+        let mut conditions = Vec::new();
         for f in filters {
             let id = f.get("fieldId").and_then(|v| v.as_str()).unwrap_or("");
+            let operator = f.get("operator").and_then(|v| v.as_str()).unwrap_or("");
+            if let Some((_, kinds)) = CONDITION_OPERATORS.iter().find(|(o, _)| *o == operator) {
+                if conditions.contains(&(id, operator)) {
+                    return Err(bad(format!(
+                        "condition '{operator}' on '{id}' appears twice"
+                    )));
+                }
+                conditions.push((id, operator));
+                validate_condition(source, id, operator, kinds, f)?;
+                continue;
+            }
             let Some((_, allowed)) = spec.filters.iter().find(|(name, _)| *name == id) else {
                 let names: Vec<_> = spec.filters.iter().map(|(n, _)| *n).collect();
                 return Err(bad(format!(
@@ -352,10 +596,14 @@ fn validate_config(module: &str, config: &str) -> AppResult<()> {
                 return Err(bad(format!("filter field '{id}' appears twice")));
             }
             seen.push(id);
+            let operators: Vec<_> = ["is", "isNot"]
+                .into_iter()
+                .chain(CONDITION_OPERATORS.iter().map(|(o, _)| *o))
+                .collect();
             one_of(
                 "filter operator",
                 f.get("operator").unwrap_or(&serde_json::Value::Null),
-                &["is", "isNot"],
+                &operators,
             )?;
             if let Some(join) = f.get("join") {
                 one_of("filter join", join, &["and", "or"])?;
@@ -390,7 +638,7 @@ fn validate_config(module: &str, config: &str) -> AppResult<()> {
                 "showEmpty" => {
                     let ok = v.as_object().is_some_and(|o| {
                         o.iter()
-                            .all(|(k, b)| LAYOUTS.contains(&k.as_str()) && b.is_boolean())
+                            .all(|(k, b)| GROUPED_LAYOUTS.contains(&k.as_str()) && b.is_boolean())
                     });
                     if !ok {
                         return Err(bad(
@@ -402,6 +650,7 @@ fn validate_config(module: &str, config: &str) -> AppResult<()> {
                 "hiddenColumns" => {
                     string_list("display.hiddenColumns", v)?;
                 }
+                "table" => validate_table(source, v)?,
                 "properties" if !spec.properties.is_empty() => {
                     let props = string_list("display.properties", v)?;
                     if let Some(p) = props.iter().find(|p| !spec.properties.contains(p)) {
@@ -433,7 +682,7 @@ const VIEW_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C); both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+        description: "JSON object {\"version\":2,\"source\",\"scope\",\"filters\":[{\"fieldId\":..,\"operator\":..,\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids],\"table\":{\"sort\":[{\"field\",\"direction\":\"asc\"|\"desc\"}],\"columns\":[{\"field\",\"width\":pixels}]}}}, every key optional; '{}' opens the module with its defaults. Checked on write. version: 1 or 2 (the app writes 2). source: the entity type shown, task for tasks and tasks-overview, assignment for assignments and assignments-overview; left out it is read from module. scope: {\"relationship\":a relationship type,\"direction\":\"outgoing\"|\"incoming\"|\"both\"}, shows only the items linked to the page the View sits in (outgoing: the item links to the page); on its module page it is ignored. Option filters use operator \"is\"|\"isNot\" with option values; a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C). Conditions use the other operators on a field, always joined with and: isEmpty and isNotEmpty (values []), contains and notContains (one text, on text and choice fields), before and after (one day YYYY-MM-DD) and between (two days) on date fields, eq, lt, lte, gt and gte (one number) on number fields. Fields, which table.sort and table.columns also name: task: key, title, status, labels, course, space (choice or text), start, due, completedAt, created, updated (date), effort (number). assignment: key, title, status, course, space, due, evaluatedAt, created, updated, grade and weight (number). tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board|table, subGrouping takes the grouping values, a board needs a grouping other than none, a table shows table.columns (the type's default columns when empty) sorted by table.sort (the ordering when empty). tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
     },
     FieldDef {
         name: "position",
@@ -489,7 +738,7 @@ inventory::submit! {
     EntitySchemaDef {
         entity_type: "view",
         supports_blocks: false,
-        description: "A saved View of a module page (Tasks or Assignments): a name plus the filters and display options to reopen it with.",
+        description: "A saved View of a module page (Tasks or Assignments): a name plus the filters, conditions and display options (list, board or table) to reopen it with.",
         fields: VIEW_FIELDS,
         relationship_types: &["relates-to"],
         create: cli_create_view,
@@ -709,6 +958,110 @@ mod tests {
                 "{module} {config}"
             );
         }
+    }
+
+    #[test]
+    fn cli_config_takes_the_view_engine_keys() {
+        let good = r#"{"version":2,"source":"assignment","scope":{"relationship":"assignment-course","direction":"outgoing"},"filters":[{"fieldId":"status","operator":"is","values":["submitted"]},{"fieldId":"due","operator":"between","values":["2026-11-01","2026-11-30"]},{"fieldId":"due","operator":"isEmpty","values":[]},{"fieldId":"grade","operator":"gte","values":["4.5"]},{"fieldId":"title","operator":"contains","values":["essay"]}],"display":{"layout":"table","table":{"sort":[{"field":"due","direction":"asc"}],"columns":[{"field":"title","width":320},{"field":"course"}]}}}"#;
+        assert!(validate_config("assignments", good).is_ok());
+        assert!(validate_config(
+            "tasks-overview",
+            r#"{"version":1,"source":"task","filters":[{"fieldId":"effort","operator":"lt","values":["3"]},{"fieldId":"created","operator":"after","values":["2026-01-01"]}],"display":{"layout":"table","table":{"sort":[],"columns":[{"field":"space"}]}}}"#
+        )
+        .is_ok());
+
+        for (module, config) in [
+            // A View of a module page shows that module's type.
+            ("tasks", r#"{"source":"assignment"}"#),
+            ("tasks", r#"{"version":3}"#),
+            ("tasks", r#"{"version":"2"}"#),
+            (
+                "tasks",
+                r#"{"scope":{"relationship":"no-such-link","direction":"outgoing"}}"#,
+            ),
+            (
+                "tasks",
+                r#"{"scope":{"relationship":"relates-to","direction":"sideways"}}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"weight","operator":"gt","values":["1"]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"effort","operator":"before","values":["2026-01-01"]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"due","operator":"before","values":["soon"]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"due","operator":"between","values":["2026-01-01"]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"effort","operator":"gt","values":["many"]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"title","operator":"contains","values":[""]}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"filters":[{"fieldId":"due","operator":"isEmpty","values":[],"join":"or"}]}"#,
+            ),
+            (
+                "tasks",
+                r#"{"display":{"table":{"sort":[{"field":"grade","direction":"asc"}]}}}"#,
+            ),
+            (
+                "tasks",
+                r#"{"display":{"table":{"sort":[{"field":"due","direction":"up"}]}}}"#,
+            ),
+            (
+                "tasks",
+                r#"{"display":{"table":{"columns":[{"field":"title","width":"wide"}]}}}"#,
+            ),
+            ("tasks", r#"{"display":{"table":{"rows":[]}}}"#),
+            ("tasks", r#"{"display":{"showEmpty":{"table":true}}}"#),
+        ] {
+            assert!(
+                validate_config(module, config).is_err(),
+                "{module} {config}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_config_saved_by_a_newer_version_is_never_overwritten() {
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        let newer =
+            r#"{"version":99,"filters":[{"fieldId":"due","operator":"someday","values":[]}]}"#;
+        let view = create_view(
+            &conn,
+            space.id.clone(),
+            "From the future".into(),
+            "tasks".into(),
+            newer.into(),
+            None,
+        )
+        .unwrap();
+        assert!(update_view_config(&conn, &view.entity.id, r#"{"version":2}"#.into()).is_err());
+        assert_eq!(get_view(&conn, &view.entity.id).unwrap().config, newer);
+
+        // A config from before versions, or one that can't be read, saves as usual.
+        let old = create_view(
+            &conn,
+            space.id.clone(),
+            "Old".into(),
+            "tasks".into(),
+            r#"{"filters":[]}"#.into(),
+            None,
+        )
+        .unwrap();
+        assert!(update_view_config(&conn, &old.entity.id, r#"{"version":2}"#.into()).is_ok());
     }
 
     #[test]
