@@ -1,5 +1,5 @@
 import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
-import { IconChevronLeft } from "@tabler/icons-react";
+import { IconChevronLeft, IconPlus } from "@tabler/icons-react";
 import { Command } from "cmdk";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -14,9 +14,10 @@ import type { Entity, RelationshipTypeInfo, SessionOccurrence } from "#/lib/api/
 import { formatShortDate } from "#/lib/datetime.ts";
 import { dialogPopover } from "#/lib/dialog-popover.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
-import { displayTitle } from "#/lib/entity-title.ts";
+import { displayTitle, labelForType } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { sessionMatches, sessionWhen } from "#/lib/session-search.ts";
+import { type PickerCreator, pickerCreator } from "./picker-create.ts";
 
 /// One way to link: a relationship type read from this item's side. `reverse`
 /// means this item is the type's `to` end, so the new link points at it.
@@ -35,7 +36,7 @@ const SYMMETRIC_TYPES = new Set(["relates-to"]);
 
 /// Every way an item of `entityType` can be linked, with the target type each
 /// way allows: "Session of course" only for sessions, and only toward courses.
-function relateOptions(types: RelationshipTypeInfo[], entityType: string): RelateOption[] {
+export function relateOptions(types: RelationshipTypeInfo[], entityType: string): RelateOption[] {
   return types.flatMap((t) => {
     const options: RelateOption[] = [];
     // A File or Bookmark is what gets attached, so it only ever offers "attached to".
@@ -43,7 +44,7 @@ function relateOptions(types: RelationshipTypeInfo[], entityType: string): Relat
       t.name === "attached-file" && (entityType === "file" || entityType === "bookmark");
     if (!attaches && (t.fromType === null || t.fromType === entityType)) {
       options.push({
-        key: `${t.name}:forward`,
+        key: optionKey(t.name, false),
         type: t.name,
         reverse: false,
         label: t.label,
@@ -55,7 +56,7 @@ function relateOptions(types: RelationshipTypeInfo[], entityType: string): Relat
     const reverseFits = typed ? t.toType === entityType : !SYMMETRIC_TYPES.has(t.name);
     if (reverseFits) {
       options.push({
-        key: `${t.name}:reverse`,
+        key: optionKey(t.name, true),
         type: t.name,
         reverse: true,
         label: t.inverseLabel.charAt(0).toUpperCase() + t.inverseLabel.slice(1),
@@ -67,12 +68,33 @@ function relateOptions(types: RelationshipTypeInfo[], entityType: string): Relat
   });
 }
 
+/// The `key` of the option for a relationship type read from one side, so a row already
+/// linked can be matched to the way of linking it again. Symmetric links have only one.
+export function optionKey(type: string, reverse: boolean): string {
+  return `${type}:${reverse && !SYMMETRIC_TYPES.has(type) ? "reverse" : "forward"}`;
+}
+
 function typeName(entityType: string): string {
   return entityType.replace(/_/g, " ");
 }
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/// What a creating row hands back: how to create the item, what to call it and the way to
+/// link it.
+export interface CreateRequest {
+  creator: PickerCreator;
+  title: string;
+  option: RelateOption;
+}
+
+/// Where to open the picker when the place it opens from already decides the first steps:
+/// the type to relate to and, when every link there is of one kind, that relation's `key`.
+export interface PickerStart {
+  targetType: string;
+  optionKey?: string;
 }
 
 /// A popover with the picker in it. Search for what to relate to; the relationship type
@@ -83,14 +105,18 @@ export function RelatePickerPopover({
   entityType,
   types,
   trigger,
+  start,
   onSelect,
+  onCreate,
 }: {
   spaceId: string;
   exclude: string;
   entityType: string;
   types: RelationshipTypeInfo[];
   trigger: React.ReactNode;
+  start?: PickerStart;
   onSelect: (target: Entity, relationshipType: string, reverse: boolean) => void;
+  onCreate?: (request: CreateRequest) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -102,10 +128,18 @@ export function RelatePickerPopover({
           exclude={exclude}
           entityType={entityType}
           types={types}
+          start={start}
           onSelect={(target, relationshipType, reverse) => {
             onSelect(target, relationshipType, reverse);
             setOpen(false);
           }}
+          onCreate={
+            onCreate &&
+            ((request) => {
+              onCreate(request);
+              setOpen(false);
+            })
+          }
         />
       </PopoverContent>
     </Popover>
@@ -126,28 +160,43 @@ const ROW =
 const HEADING =
   "**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:pt-2 **:[[cmdk-group-heading]]:pb-1 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-muted-foreground";
 
-/// The picker, in three steps that each ask one thing: what type of thing to relate to,
-/// how (the relationship type, skipped when only one fits), and which one. The last step
+/// The picker, in three steps that each ask one thing: what type of thing to link, how
+/// (the relationship type, skipped when only one fits), and which one. The last step
 /// leads with what belongs with this item (its course, that course's pages and sessions)
-/// before anything is typed, then searches everything of the type in one list. The
-/// choices made so far stay on top, and Back (or Backspace in an empty search) undoes the
-/// last one.
+/// before anything is typed, then searches everything of the type in one list, and with
+/// `onCreate` offers a new item to create and link in one go. The choices made so far stay
+/// on top, and Back (or Backspace in an empty search) undoes the last one. With `start`
+/// the steps the place it opens from decides are already made and cannot be undone here.
 export function RelatePicker({
   spaceId,
   exclude,
   entityType,
   types,
+  start,
   onSelect,
+  onCreate,
 }: {
   spaceId: string;
   exclude: string;
   entityType: string;
   types: RelationshipTypeInfo[];
+  start?: PickerStart;
   onSelect: (target: Entity, relationshipType: string, reverse: boolean) => void;
+  onCreate?: (request: CreateRequest) => void;
 }) {
   const options = useMemo(() => relateOptions(types, entityType), [types, entityType]);
-  const [targetType, setTargetType] = useState<string | null>(null);
-  const [option, setOption] = useState<RelateOption | null>(null);
+  const [targetType, setTargetType] = useState<string | null>(start?.targetType ?? null);
+  const [option, setOption] = useState<RelateOption | null>(() => {
+    if (!start) return null;
+    const fitting = candidatesOf(options, start.targetType);
+    return (
+      fitting.find((o) => o.key === start.optionKey) ??
+      (fitting.length === 1 ? fitting[0] : null) ??
+      null
+    );
+  });
+  // The first step Back can reach: what was decided before the picker opened stays decided.
+  const [floor] = useState(() => (!start ? 1 : option ? 3 : 2));
   // The relationship step was skipped, so Back from the items goes past it.
   const [skipped, setSkipped] = useState(false);
   const [search, setSearch] = useState("");
@@ -165,10 +214,7 @@ export function RelatePicker({
   const sessionById = new Map(sessions.map((s) => [s.entity.id, s]));
   const related = useRelatedIds(exclude, entityType, targetType !== null);
 
-  const candidatesFor = (type: string) =>
-    options
-      .filter((o) => o.targetType === null || o.targetType === type)
-      .toSorted((a, b) => Number(b.targetType !== null) - Number(a.targetType !== null));
+  const candidatesFor = (type: string) => candidatesOf(options, type);
   const others = entities.filter((entity) => entity.id !== exclude);
 
   // Step 1: the types that have something to relate to and a way to do it.
@@ -192,6 +238,7 @@ export function RelatePicker({
   };
   const back = () => {
     setSearch("");
+    if (step <= floor) return;
     if (step === 3 && !skipped) setOption(null);
     else {
       setOption(null);
@@ -250,6 +297,31 @@ export function RelatePicker({
 
   const placeholder =
     step === 1 ? "Search types…" : step === 2 ? "Search relations…" : "Search what to relate to…";
+  const prompt =
+    step === 1
+      ? "What do you want to link?"
+      : step === 2
+        ? `How is it linked to this ${labelForType(entityType)}?`
+        : `Which ${labelForType(targetType ?? "")}?`;
+  const creator =
+    onCreate && option && targetType ? pickerCreator(targetType, option, entityType) : null;
+  const createFooter = creator && option && onCreate && (
+    <div className="border-t border-border p-1">
+      <Button
+        variant="secondary"
+        className="h-auto w-full justify-start gap-2.5 px-2 py-1.5 text-left font-normal"
+        onClick={() => onCreate({ creator, title: query, option })}
+      >
+        <IconPlus size={16} className="shrink-0" />
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate font-medium">Create a new {typeName(creator.type)}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {query ? `Called “${query}”` : "Name it later"}
+          </span>
+        </span>
+      </Button>
+    </div>
+  );
 
   return (
     <Command
@@ -261,17 +333,19 @@ export function RelatePicker({
       {step > 1 && (
         <nav
           aria-label="Relation"
-          className="flex items-center gap-1 border-b border-border px-1.5 py-1 text-xs"
+          className="flex min-h-8 items-center gap-1 border-b border-border px-1.5 py-1 text-xs"
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-6 shrink-0"
-            aria-label="Back"
-            onClick={back}
-          >
-            <IconChevronLeft size={14} />
-          </Button>
+          {step > floor && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 shrink-0"
+              aria-label="Back"
+              onClick={back}
+            >
+              <IconChevronLeft size={14} />
+            </Button>
+          )}
           <span className="min-w-0 truncate text-muted-foreground">
             {capitalize(typeName(entityType))}
             {option ? (
@@ -285,12 +359,13 @@ export function RelatePicker({
           </span>
         </nav>
       )}
+      <p className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">{prompt}</p>
       <Command.Input
         autoFocus
         value={search}
         onValueChange={setSearch}
         onKeyDown={(event) => {
-          if (event.key === "Backspace" && step > 1 && search === "") back();
+          if (event.key === "Backspace" && step > floor && search === "") back();
         }}
         placeholder={placeholder}
         className="h-9 min-w-0 border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
@@ -331,7 +406,7 @@ export function RelatePicker({
           ))}
         {step === 3 &&
           (query ? (
-            matches.map(row)
+            <>{matches.map(row)}</>
           ) : (
             <>
               {suggested.length > 0 && (
@@ -352,8 +427,16 @@ export function RelatePicker({
             </>
           ))}
       </Command.List>
+      {createFooter}
     </Command>
   );
+}
+
+/// The ways to link an item to something of `type`, the most specific first.
+function candidatesOf(options: RelateOption[], type: string): RelateOption[] {
+  return options
+    .filter((o) => o.targetType === null || o.targetType === type)
+    .toSorted((a, b) => Number(b.targetType !== null) - Number(a.targetType !== null));
 }
 
 function newestFirst(a: Target, b: Target): number {

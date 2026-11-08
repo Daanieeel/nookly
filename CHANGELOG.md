@@ -2,12 +2,23 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.70.0 (2026-11-08)
+## 0.71.0 (2026-11-08)
 
 ### Added
 
 - Tasks and Assignments can now be shown as a table. Sort by any column from its header, drag a column edge to resize it, and pick the columns you want in Display. Saved views remember all of it.
 - New conditions next to filters: show items with an empty or filled field, titles that contain a word, dates before, after or between two days, and numbers like effort or grade above or below a value.
+
+## 0.70.0 (2026-11-08)
+
+### Added
+
+- Each group of related items in the sidebar of a note or jot now has its own plus button. It opens the list of that kind of item straight away, so you only pick which one to link.
+- When you link something, you can now create a new item for the one you are on and link it in one go, for example a new note, task or deck, or an assignment or exam from a course.
+
+### Changed
+
+- The Relate to button is now called Link, and each step of the picker says what it asks.
 
 ## 0.69.0 (2026-11-08)
 
