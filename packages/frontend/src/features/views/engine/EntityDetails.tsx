@@ -40,8 +40,9 @@ const DETAILS = {
   task: (entity) => <SourceDetails source={VIEW_SOURCES.task} entity={entity} />,
   assignment: (entity) => <SourceDetails source={VIEW_SOURCES.assignment} entity={entity} />,
   exam: (entity) => <SourceDetails source={VIEW_SOURCES.exam} entity={entity} />,
-  // A Note has neither a status nor a date worth a row's room.
+  // A Note or Jot has neither a status nor a date worth a row's room.
   note: () => null,
+  jot: () => null,
 } satisfies { [K in ViewSourceType]: (entity: Entity) => ReactNode };
 
 const isSourceType = (type: string): type is ViewSourceType => type in DETAILS;
