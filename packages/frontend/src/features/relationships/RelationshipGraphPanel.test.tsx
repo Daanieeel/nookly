@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
@@ -128,6 +128,73 @@ describe("RelationshipGraphPanel", () => {
     await waitFor(() =>
       expect(screen.getAllByRole("button", { name: /^Item x/ })).toHaveLength(GRAPH_RING_CAP),
     );
+  });
+
+  describe("zoom", () => {
+    const zoomOf = async () => {
+      const list = await screen.findByRole("list", { name: "Related items" });
+      const scaled = list.closest<HTMLElement>("[style*='--graph-zoom']");
+      return Number(scaled?.style.getPropertyValue("--graph-zoom"));
+    };
+
+    it("starts at the natural size", async () => {
+      setup({ me: [link("r1", "me", "a")] });
+      expect(await zoomOf()).toBe(1);
+    });
+
+    it("zooms out and back in with the zoom buttons", async () => {
+      const { user } = setup({ me: [link("r1", "me", "a")] });
+      await screen.findByRole("button", { name: /Item a/ });
+      await user.click(screen.getByRole("button", { name: "Zoom Out" }));
+      const out = await zoomOf();
+      expect(out).toBeLessThan(1);
+      await user.click(screen.getByRole("button", { name: "Zoom In" }));
+      expect(await zoomOf()).toBeGreaterThan(out);
+    });
+
+    it("stops zooming out at the limit", async () => {
+      const { user } = setup({ me: [link("r1", "me", "a")] });
+      await screen.findByRole("button", { name: /Item a/ });
+      const out = screen.getByRole("button", { name: "Zoom Out" });
+      for (let i = 0; i < 12; i++) await user.click(out);
+      expect(out).toBeDisabled();
+      expect(await zoomOf()).toBeGreaterThan(0);
+    });
+
+    it("zooms with Ctrl and the mouse wheel", async () => {
+      setup({ me: [link("r1", "me", "a")] });
+      const list = await screen.findByRole("list", { name: "Related items" });
+      const scroller = list.closest<HTMLElement>(".overflow-auto");
+      if (!scroller) throw new Error("graph scroller not found");
+      fireEvent.wheel(scroller, { deltaY: 100, ctrlKey: true });
+      expect(await zoomOf()).toBeLessThan(1);
+    });
+
+    it("leaves a plain wheel scroll alone", async () => {
+      setup({ me: [link("r1", "me", "a")] });
+      const list = await screen.findByRole("list", { name: "Related items" });
+      const scroller = list.closest<HTMLElement>(".overflow-auto");
+      if (!scroller) throw new Error("graph scroller not found");
+      fireEvent.wheel(scroller, { deltaY: 100 });
+      expect(await zoomOf()).toBe(1);
+    });
+
+    it("brings the graph back to fit the view", async () => {
+      const { user } = setup({ me: [link("r1", "me", "a")] });
+      await screen.findByRole("button", { name: /Item a/ });
+      await user.click(screen.getByRole("button", { name: "Zoom In" }));
+      await user.click(screen.getByRole("button", { name: "Fit To View" }));
+      expect(await zoomOf()).toBe(1);
+    });
+
+    it("fits everything again when the second ring grows the graph", async () => {
+      const { user } = setup({ me: [link("r1", "me", "a")], a: [link("r2", "a", "c")] });
+      await screen.findByRole("button", { name: /Item a/ });
+      await user.click(screen.getByRole("button", { name: "Zoom In" }));
+      await user.click(screen.getByRole("switch", { name: "Second ring" }));
+      await screen.findByRole("button", { name: /Item c/ });
+      expect(await zoomOf()).toBe(1);
+    });
   });
 
   it("has no accessibility violations", async () => {
