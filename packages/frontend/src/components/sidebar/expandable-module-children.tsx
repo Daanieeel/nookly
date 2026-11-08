@@ -24,7 +24,7 @@ import { qk } from "#/lib/query-keys.ts";
 import { reorderedViews } from "./reorder-views.ts";
 
 /// Modules whose row expands to list their saved Views.
-export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>(["tasks", "assignments"]);
+export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>(["tasks", "assignments", "notes", "jots"]);
 
 export function ViewRow({
   view,

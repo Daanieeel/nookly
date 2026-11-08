@@ -2,7 +2,7 @@ import { IconChecklist, IconSchool, IconTag } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { entityFilterOption, type FilterField } from "#/components/filter-menu.tsx";
-import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
+import { LabelDot } from "#/components/label-chip.tsx";
 import { taskFilterFields } from "#/features/tasks/task-filter-fields.tsx";
 import {
   type StatusKind,
@@ -22,6 +22,7 @@ import {
   type BaseContext,
   dayField,
   keyField,
+  labelsField,
   numberField,
   relatedField,
   spaceField,
@@ -89,23 +90,7 @@ export const TASK_FIELDS: ViewField<Task, TaskContext>[] = [
     },
     (task) => task.statusId,
   ),
-  {
-    id: "labels",
-    label: "Labels",
-    kind: "entity",
-    value: (task) => task.labelIds,
-    text: (task, ctx) =>
-      labelsOf(task, ctx)
-        .map((l) => l.name)
-        .join(", "),
-    cell: (task, ctx) => (
-      <span className="flex min-w-0 items-center gap-1">
-        {labelsOf(task, ctx).map((label) => (
-          <LabelChip key={label.id} label={label} />
-        ))}
-      </span>
-    ),
-  },
+  labelsField((task) => task.labelIds, labelsOf),
   dayField("start", "Start date", (task) => task.startDate),
   dayField("due", "Due date", (task) => task.dueDate),
   {

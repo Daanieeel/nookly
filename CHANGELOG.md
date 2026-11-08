@@ -8,6 +8,7 @@ All notable changes to Nookly are listed here.
 
 - Tasks and Assignments can now be shown as a table. Sort by any column from its header, drag a column edge to resize it, and pick the columns you want in Display. Saved views remember all of it.
 - New conditions next to filters: show items with an empty or filled field, titles that contain a word, dates before, after or between two days, and numbers like effort or grade above or below a value.
+- Notes and Jots can now be saved as views, listed under their rows in the sidebar like those of Tasks. A view remembers its filters, conditions and sort.
 
 ## 0.70.0 (2026-11-08)
 

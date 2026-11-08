@@ -8,6 +8,8 @@ export const VIEW_MODULES = [
   "assignments",
   "tasks-overview",
   "assignments-overview",
+  "notes",
+  "jots",
 ] as const;
 export type ViewModule = (typeof VIEW_MODULES)[number];
 
@@ -22,12 +24,25 @@ export type SpaceViewModule = Exclude<ViewModule, OverviewModule>;
 
 /// The entity type a module page's Views show. A View that stores no `source` shows its
 /// module's. Mirrors `source_of` in `src-tauri/src/db/views.rs`.
-export function viewSourceOf(module: ViewModule): "task" | "assignment" {
-  return module === "tasks" || module === "tasks-overview" ? "task" : "assignment";
+export function viewSourceOf(module: ViewModule): "task" | "assignment" | "note" | "jot" {
+  switch (module) {
+    case "tasks":
+    case "tasks-overview":
+      return "task";
+    case "assignments":
+    case "assignments-overview":
+      return "assignment";
+    case "notes":
+      return "note";
+    case "jots":
+      return "jot";
+  }
 }
 
+const SPACE_VIEW_MODULES = new Set<string>(["tasks", "assignments", "notes", "jots"]);
+
 export function isViewModule(module: string): module is SpaceViewModule {
-  return module === "tasks" || module === "assignments";
+  return SPACE_VIEW_MODULES.has(module);
 }
 
 /// A saved View of a module page. `config` is the JSON its page saved; read it

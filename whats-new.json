@@ -3,6 +3,8 @@
     {
       "version": "0.71.0",
       "date": "2026-11-08",
+      "title": "Tables, conditions and views for Notes",
+      "summary": "Tables for Tasks and Assignments, richer filters and saved views for Notes and Jots.",
       "highlights": [
         {
           "title": "Table layout",
@@ -14,6 +16,12 @@
           "title": "Conditions",
           "description": "Narrow a list to empty fields, titles that contain a word, dates in a range or numbers above or below a value.",
           "icon": "filter",
+          "tag": "New"
+        },
+        {
+          "title": "Views for Notes and Jots",
+          "description": "Save the filters and sort of your Notes or Jots as a view, right under their row in the sidebar.",
+          "icon": "notebook",
           "tag": "New"
         }
       ],

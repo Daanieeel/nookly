@@ -2,7 +2,8 @@ import { type SortingState, useTable } from "@tanstack/react-table";
 import { useMemo } from "react";
 import type { Label, PageSummary } from "#/lib/api/types.ts";
 import { dataTableFeatures } from "#/lib/table-features.ts";
-import { noteColumns, toNoteRows } from "./NotesListView";
+import { noteColumns } from "./NotesListView";
+import { toNoteRows } from "./note-rows";
 import { PageSummaryTable } from "./list-table-shared";
 
 /// Newest edit first, whatever the Notes page is sorted by.

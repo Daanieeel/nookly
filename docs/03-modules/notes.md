@@ -49,6 +49,10 @@ A mention is a link whose label is the entity's title when it was written. Renam
 
 The Notes and Jots pages keep favorite filters per page and Space. The star on a filter chip adds that filter to the bar beside the search field, where one click turns it on or off.
 
+## Saved Views
+
+Notes and Jots take saved Views like Tasks (modules `notes` and `jots`), listed under their sidebar rows. A View opens the same table with its filters, conditions and sort (`display.table`); edits stay a draft until saved, and the page's own sort, Jots preset and quick filters are left alone. The plain page works as before, with no save bar. The view engine sources (`features/views/engine/sources/pages.tsx`) reuse the page rows and filters (`note-rows.ts`, `jot-rows.tsx`), so a Course can show its Notes through `EntityView`.
+
 ## Layout Direction
 
 A full-width document canvas. The writing surface never uses a list plus detail pane split. The page itself is the canvas.

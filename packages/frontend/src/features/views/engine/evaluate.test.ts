@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { makeAssignment, makeEntity, makeExam, makeTask, STATUSES } from "#/test/fixtures.ts";
-import type { Entity, Relationship } from "#/lib/api/types.ts";
+import type { Entity, PageSummary, Relationship } from "#/lib/api/types.ts";
+import { toJotRows } from "#/features/notes/jot-rows.tsx";
+import { toNoteRows } from "#/features/notes/note-rows.ts";
 import { matchesCondition, operatorsFor, readCondition } from "./conditions.ts";
 import { runView, scopeItems, sortItems } from "./evaluate.ts";
 import { assignmentContext, assignmentSource } from "./sources/assignments.tsx";
 import { examSource, type ExamContext } from "./sources/exams.tsx";
+import { jotSource, noteSource, type PageContext } from "./sources/pages.tsx";
 import { taskContext, taskSource } from "./sources/tasks.tsx";
 import type { ViewCondition } from "./types.ts";
 
@@ -20,6 +23,16 @@ const field = (id: string) => {
   if (!found) throw new Error(`no field ${id}`);
   return found;
 };
+const pageCtx: PageContext = { labels: [], spaces: new Map(), now: Date.now() };
+const summary = (patch: Partial<PageSummary> & { entity: Entity }): PageSummary => ({
+  preview: "",
+  lastEditedAt: "2026-10-01T10:00:00Z",
+  labelIds: [],
+  linked: [],
+  session: null,
+  courses: [],
+  ...patch,
+});
 const holds = (condition: ViewCondition, task = makeTask()) =>
   matchesCondition(field(condition.fieldId), condition, task, ctx);
 
@@ -257,6 +270,47 @@ describe("running a view", () => {
       sort: [],
     });
     expect(shown.map((e) => e.entity.id)).toEqual(["march", "undated"]);
+  });
+
+  it("shows Notes of a Course with a word in their title, last edited first", () => {
+    const course = makeEntity({ id: "c1", type: "course", title: "Algorithms" });
+    const page = (id: string, title: string, lastEditedAt: string, courses: Entity[]) =>
+      summary({ entity: makeEntity({ id, type: "note", title }), lastEditedAt, courses });
+    const rows = toNoteRows(
+      [
+        page("old", "Old lecture", "2026-09-01T10:00:00Z", [course]),
+        page("new", "New lecture", "2026-10-01T10:00:00Z", [course]),
+        page("other", "Groceries", "2026-10-02T10:00:00Z", [course]),
+        page("elsewhere", "Joins lecture", "2026-10-03T10:00:00Z", []),
+      ],
+      [],
+    );
+    const shown = runView(noteSource, rows, pageCtx, {
+      filters: [{ fieldId: "course", operator: "is", values: ["c1"] }],
+      conditions: [{ fieldId: "title", operator: "contains", values: ["lecture"] }],
+      sort: [],
+    });
+    expect(shown.map((r) => r.summary.entity.id)).toEqual(["new", "old"]);
+  });
+
+  it("shows the Jots still to refine, untitled ones by their first line", () => {
+    const note = makeEntity({ id: "n1", type: "note" });
+    const rows = toJotRows(
+      [
+        summary({ entity: makeEntity({ id: "done", type: "jot" }), linked: [note] }),
+        summary({
+          entity: makeEntity({ id: "open", type: "jot", title: "" }),
+          preview: "Idea\nmore",
+        }),
+      ],
+      [],
+    );
+    const shown = runView(jotSource, rows, pageCtx, {
+      filters: [{ fieldId: "link", operator: "is", values: ["unlinked"] }],
+      conditions: [],
+      sort: [{ field: "title", direction: "asc" }],
+    });
+    expect(shown.map((r) => [r.summary.entity.id, r.title])).toEqual([["open", "Idea"]]);
   });
 
   /// The open question of the engine: thousands of rows stay fast enough in the webview,

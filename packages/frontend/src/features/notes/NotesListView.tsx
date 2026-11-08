@@ -1,13 +1,7 @@
 import { qk } from "#/lib/query-keys.ts";
 import { IconNotes, IconPin, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  type ColumnDef,
-  functionalUpdate,
-  type SortingState,
-  type Updater,
-  useTable,
-} from "@tanstack/react-table";
+import { type ColumnDef, useTable } from "@tanstack/react-table";
 import { useEffect, useMemo, useState } from "react";
 import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { contextTarget } from "#/components/context-menu/registry.ts";
@@ -22,8 +16,6 @@ import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
 import { listLabels } from "#/lib/api/labels.ts";
 import { createNote, listNoteSummaries } from "#/lib/api/notes.ts";
-import type { Label, PageSummary } from "#/lib/api/types.ts";
-import { displayTitle } from "#/lib/entity-title.ts";
 import {} from "#/lib/relative-time.ts";
 import {} from "#/lib/entity-key.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
@@ -35,13 +27,13 @@ import {
   ListFilterToolbar,
   PageSummaryTable,
   matchesQuery,
-  readStoredSorting,
   titleColumn,
-  writeStoredSorting,
 } from "./list-table-shared";
 import { keyColumn } from "./key-column";
 import { noteFilterFields, passesNoteFilters } from "./note-filters";
-import { notePreviewText } from "./note-preview";
+import { type NoteRow, toNoteRows } from "./note-rows";
+import { PageViewTitle, usePageView } from "./use-page-view";
+import { NOTE_FIELDS } from "#/features/views/engine/sources/pages.tsx";
 import {} from "#/lib/datetime.ts";
 import {} from "#/lib/preferences.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
@@ -49,27 +41,6 @@ import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
   return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
 }
-
-export interface NoteRow {
-  summary: PageSummary;
-  title: string;
-  preview: string;
-  labels: Label[];
-}
-
-/// The table rows of Notes, each with its title, preview and the labels it carries.
-export function toNoteRows(summaries: PageSummary[], spaceLabels: Label[]): NoteRow[] {
-  const labelsById = new Map(spaceLabels.map((l) => [l.id, l]));
-  return summaries.map((summary) => ({
-    summary,
-    title: displayTitle(summary.entity),
-    preview: notePreviewText(summary.preview, summary.entity.title),
-    labels: summary.labelIds.flatMap((id) => labelsById.get(id) ?? []),
-  }));
-}
-
-const readSorting = () => readStoredSorting(STORAGE_KEYS.notesSort);
-const writeSorting = (sorting: SortingState) => writeStoredSorting(STORAGE_KEYS.notesSort, sorting);
 
 export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
   keyColumn<NoteRow>(),
@@ -97,18 +68,18 @@ export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
 export function NotesListView({
   spaceId,
   filterCourseId,
+  viewId,
 }: {
   spaceId: string;
   /// A Course page's "Show more" lands here with this, applied as a regular Course filter.
   filterCourseId?: string;
+  /// A saved View to open the page on.
+  viewId?: string;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<ActiveFilter[]>(() => courseFilter(filterCourseId));
-  useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
   const quick = useQuickFilters(`${STORAGE_KEYS.notesQuickFilters}:${spaceId}`);
-  const [sorting, setSorting] = useState<SortingState>(readSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
   const { data: summaries = [], isPending } = useQuery({
@@ -133,22 +104,33 @@ export function NotesListView({
   useCreateShortcut(startNote);
 
   const rows = useMemo(() => toNoteRows(summaries, spaceLabels), [summaries, spaceLabels]);
+  // Time windows ("Past 7 days") are measured from the latest load, not every render.
+  const now = useMemo(() => Date.now(), [summaries]);
+  const fieldCtx = useMemo(
+    () => ({ labels: spaceLabels, spaces: new Map(), now }),
+    [spaceLabels, now],
+  );
+  const { view, filters, setFilters, sorting, onSortingChange, passes, conditionBar, saveBar } =
+    usePageView({
+      spaceId,
+      module: "notes",
+      viewId,
+      sortKey: STORAGE_KEYS.notesSort,
+      initialFilters: () => courseFilter(filterCourseId),
+      fields: NOTE_FIELDS,
+      ctx: fieldCtx,
+    });
+  // A Course's "Show more" link applies its filter; a saved View brings its own.
+  useEffect(() => {
+    if (!viewId) setFilters(courseFilter(filterCourseId));
+  }, [filterCourseId, viewId, setFilters]);
 
   const filterFields = useMemo(() => noteFilterFields(rows, spaceLabels), [rows, spaceLabels]);
 
-  // Time windows ("Past 7 days") are measured from the latest load, not every render.
-  const now = useMemo(() => Date.now(), [summaries]);
   const needle = query.trim().toLowerCase();
-  const data = useMemo(
-    () => rows.filter((r) => matchesQuery(r, needle, query) && passesNoteFilters(r, filters, now)),
-    [rows, needle, filters, now],
+  const data = rows.filter(
+    (r) => matchesQuery(r, needle, query) && passesNoteFilters(r, filters, now) && passes(r),
   );
-
-  const onSortingChange = (updater: Updater<SortingState>) => {
-    const next = functionalUpdate(updater, sorting);
-    setSorting(next);
-    writeSorting(next);
-  };
 
   const table = useTable({
     features: dataTableFeatures,
@@ -200,16 +182,12 @@ export function NotesListView({
   return (
     <ScrollingListPage
       ready={!isPending}
+      className="relative"
       {...contextTarget("module-view", { spaceId, createLabel: "New Note", create: startNote })}
       top={
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
-              Notes
-              <span className="text-sm font-normal text-muted-foreground tabular-nums">
-                {rows.length}
-              </span>
-            </h1>
+            <PageViewTitle view={view} title="Notes" count={rows.length} />
             <Button
               variant={createStatus === "error" ? "destructive" : "secondary"}
               size="sm"
@@ -234,6 +212,7 @@ export function NotesListView({
             filters={filters}
             onFiltersChange={setFilters}
             quick={quick}
+            conditionBar={conditionBar}
           />
         </>
       }
@@ -257,6 +236,7 @@ export function NotesListView({
           </div>
         )
       )}
+      {saveBar}
     </ScrollingListPage>
   );
 }

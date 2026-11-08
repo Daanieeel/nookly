@@ -8,26 +8,18 @@ import {
   IconFileText,
   IconInbox,
   IconLayoutList,
-  IconLink,
   IconPlus,
-  IconSchool,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  type ColumnDef,
-  functionalUpdate,
-  type SortingState,
-  type Updater,
-  useTable,
-} from "@tanstack/react-table";
+import { type ColumnDef, useTable } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { type ActiveFilter, type FilterField } from "#/components/filter-menu.tsx";
+import type { ActiveFilter } from "#/components/filter-menu.tsx";
 import { ScrollingListPage } from "#/components/scrolling-list-page.tsx";
 import { useQuickFilters } from "#/lib/quick-filters.ts";
 import { Button } from "@nookly/ui/components/button";
@@ -37,7 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { listLabels } from "#/lib/api/labels.ts";
 import { listJotSummaries } from "#/lib/api/notes.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
-import type { Entity, Label, PageSummary, SessionContext, Space } from "#/lib/api/types.ts";
+import type { Entity, SessionContext, Space } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import {} from "#/lib/relative-time.ts";
 import {} from "#/lib/entity-key.ts";
@@ -47,63 +39,23 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
-  EDITED_FILTER_FIELD,
   editedColumn,
-  editedWithin,
   labelsColumn,
-  labelFilterField,
   ListFilterToolbar,
   PageSummaryTable,
   matchesQuery,
-  passesRowFilters,
-  readStoredSorting,
   titleColumn,
-  writeStoredSorting,
 } from "./list-table-shared";
+import { type JotRow, jotFilterFields, passesJotFilters, toJotRows } from "./jot-rows";
+import { PageViewTitle, usePageView } from "./use-page-view";
+import { JOT_FIELDS } from "#/features/views/engine/sources/pages.tsx";
 import { prefetchBlocks } from "./blocks-query";
 import { keyColumn } from "./key-column";
-import { notePreviewText, previewLines } from "./note-preview";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
-export interface JotRow {
-  summary: PageSummary;
-  /// What the Title column shows. An untitled Jot shows its first line instead, and
-  /// an empty one shows nothing rather than a made up title.
-  title: string;
-  titled: boolean;
-  preview: string;
-  labels: Label[];
-  /// Linked to a live (not trashed) Note, i.e. refined into it.
-  refined: boolean;
-}
-
 const DAY = 24 * 60 * 60 * 1000;
-
-const readSorting = () => readStoredSorting(STORAGE_KEYS.jotsSort);
-const writeSorting = (sorting: SortingState) => writeStoredSorting(STORAGE_KEYS.jotsSort, sorting);
-
-/// Whether `row` carries `value` for a filter field. Fields like labels or the edited
-/// window can hold several values at once, so filters test membership, not equality.
-function rowHas(row: JotRow, fieldId: string, value: string, now: number): boolean {
-  switch (fieldId) {
-    case "link":
-      return row.refined === (value === "linked");
-    case "edited":
-      return editedWithin(row.summary, value, now);
-    case "labels":
-      return row.labels.some((l) => l.id === value);
-    case "course":
-      return row.summary.session?.courseId === value;
-    default:
-      return false;
-  }
-}
-
-function passesFilters(row: JotRow, filters: ActiveFilter[], now: number): boolean {
-  return passesRowFilters(row, filters, (r, fieldId, value) => rowHas(r, fieldId, value, now));
-}
 
 interface Preset {
   id: string;
@@ -159,34 +111,6 @@ export function initialJotFilters(): ActiveFilter[] {
   return (PRESETS.find((p) => p.id === id) ?? PRESETS[0])?.filters ?? [];
 }
 
-/// Fields every row can be filtered by; Labels and Course join them when in use.
-const BASE_FILTER_FIELDS: FilterField[] = [
-  {
-    id: "link",
-    label: "Note",
-    icon: IconLink,
-    options: [
-      { value: "linked", label: "Refined into a Note" },
-      { value: "unlinked", label: "Not refined yet" },
-    ],
-  },
-  EDITED_FILTER_FIELD,
-];
-
-export function toRow(summary: PageSummary, labelsById: Map<string, Label>): JotRow {
-  const { entity } = summary;
-  const labels = summary.labelIds.flatMap((id) => labelsById.get(id) ?? []);
-  const refined = summary.linked.some((e) => !e.deletedAt);
-  const base = { summary, labels, refined };
-  if (entity.title.trim()) {
-    const title = displayTitle(entity);
-    return { ...base, title, titled: true, preview: notePreviewText(summary.preview, title) };
-  }
-  // An untitled Jot reads by its content: first line as the title, the rest as preview.
-  const [first = "", ...rest] = previewLines(summary.preview);
-  return { ...base, title: first, titled: false, preview: rest.join(" ") };
-}
-
 /// "Mon 10:00" within the past or coming week, "Sep 14 10:00" otherwise.
 function formatSessionWhen(session: SessionContext, now = new Date()): string {
   const date = new Date(`${session.date}T00:00`);
@@ -198,16 +122,14 @@ function formatSessionWhen(session: SessionContext, now = new Date()): string {
 /// Jots as a data table (docs/skills/data-tables.md, client mode). A Jot is refined by
 /// linking it to the Note it grew into; presets over the filter row split the two
 /// states, with "Unrefined" (the capture inbox) selected on arrival.
-export function JotsListView({ spaceId }: { spaceId: string }) {
+export function JotsListView({ spaceId, viewId }: { spaceId: string; viewId?: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const setQuickJotOpen = useNavStore((s) => s.setQuickJotOpen);
   const jotKey = useShortcut("quickJot");
   useCreateShortcut(() => setQuickJotOpen(true));
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<ActiveFilter[]>(initialJotFilters);
   const quick = useQuickFilters(`${STORAGE_KEYS.jotsQuickFilters}:${spaceId}`);
-  const [sorting, setSorting] = useState<SortingState>(readSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
   const { data: summaries = [], isPending } = useQuery({
@@ -220,58 +142,43 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   });
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
 
-  const rows = useMemo<JotRow[]>(() => {
-    const labelsById = new Map(spaceLabels.map((l) => [l.id, l]));
-    return summaries.map((s) => toRow(s, labelsById));
-  }, [summaries, spaceLabels]);
-
-  const filterFields = useMemo<FilterField[]>(() => {
-    const fields = [...BASE_FILTER_FIELDS];
-    const labels = labelFilterField(spaceLabels, rows);
-    if (labels) fields.push(labels);
-    const courses = new Map<string, string>();
-    for (const r of rows) {
-      const s = r.summary.session;
-      if (s?.courseId) courses.set(s.courseId, s.courseTitle ?? "Untitled Course");
-    }
-    if (courses.size > 0) {
-      fields.push({
-        id: "course",
-        label: "Course",
-        icon: IconSchool,
-        options: [...courses].map(([value, label]) => ({ value, label })),
-      });
-    }
-    return fields;
-  }, [spaceLabels, rows]);
+  const rows = useMemo(() => toJotRows(summaries, spaceLabels), [summaries, spaceLabels]);
+  const filterFields = useMemo(() => jotFilterFields(rows, spaceLabels), [spaceLabels, rows]);
 
   // Time windows ("Past 7 days") are measured from the latest load, not every render.
   const now = useMemo(() => Date.now(), [summaries]);
+  const fieldCtx = useMemo(
+    () => ({ labels: spaceLabels, spaces: new Map(spaces.map((s) => [s.id, s])), now }),
+    [spaceLabels, spaces, now],
+  );
+  const { view, filters, setFilters, sorting, onSortingChange, passes, conditionBar, saveBar } =
+    usePageView({
+      spaceId,
+      module: "jots",
+      viewId,
+      sortKey: STORAGE_KEYS.jotsSort,
+      initialFilters: initialJotFilters,
+      fields: JOT_FIELDS,
+      ctx: fieldCtx,
+    });
   const presetCounts = useMemo(
     () =>
       new Map(
-        PRESETS.map((p) => [p.id, rows.filter((r) => passesFilters(r, p.filters, now)).length]),
+        PRESETS.map((p) => [p.id, rows.filter((r) => passesJotFilters(r, p.filters, now)).length]),
       ),
     [rows, now],
   );
   const activePreset = PRESET_BY_KEY.get(filterKey(filters));
 
   const needle = query.trim().toLowerCase();
-  const data = useMemo(
-    () => rows.filter((r) => matchesQuery(r, needle, query) && passesFilters(r, filters, now)),
-    [rows, needle, filters, now],
+  const data = rows.filter(
+    (r) => matchesQuery(r, needle, query) && passesJotFilters(r, filters, now) && passes(r),
   );
 
   const columns = useMemo(
     () => buildColumns({ spaceId, spaces, queryClient, openEntity }),
     [spaceId, spaces, queryClient, openEntity],
   );
-
-  const onSortingChange = (updater: Updater<SortingState>) => {
-    const next = functionalUpdate(updater, sorting);
-    setSorting(next);
-    writeSorting(next);
-  };
 
   const table = useTable({
     features: dataTableFeatures,
@@ -319,6 +226,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   return (
     <ScrollingListPage
       ready={!isPending}
+      className="relative"
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "New Jot",
@@ -327,12 +235,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
       top={
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
-              Jots
-              <span className="text-sm font-normal text-muted-foreground tabular-nums">
-                {rows.length}
-              </span>
-            </h1>
+            <PageViewTitle view={view} title="Jots" count={rows.length} />
             {newJotButton}
           </div>
 
@@ -346,7 +249,8 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
                 className="gap-1.5"
                 onClick={() => {
                   setFilters(preset.filters);
-                  preferences.set(STORAGE_KEYS.jotsPreset, preset.id);
+                  // On a View a preset is a change to it, not the page's own choice.
+                  if (!view) preferences.set(STORAGE_KEYS.jotsPreset, preset.id);
                 }}
               >
                 <preset.icon size={14} />
@@ -367,6 +271,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
             filters={filters}
             onFiltersChange={setFilters}
             quick={quick}
+            conditionBar={conditionBar}
           />
         </>
       }
@@ -394,6 +299,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
           </div>
         )
       )}
+      {saveBar}
     </ScrollingListPage>
   );
 }
