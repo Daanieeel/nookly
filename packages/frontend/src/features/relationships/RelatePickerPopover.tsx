@@ -305,29 +305,22 @@ export function RelatePicker({
         : `Which ${labelForType(targetType ?? "")}?`;
   const creator =
     onCreate && option && targetType ? pickerCreator(targetType, option, entityType) : null;
-  const createRow = creator && option && onCreate && (
-    <Command.Item
-      key="create-new"
-      value="create-new"
-      onSelect={() => onCreate({ creator, title: query, option })}
-      // Last, so Enter links the best match, but pinned to the foot so it is always in view.
-      className={cn(
-        ROW,
-        "sticky bottom-0 -mx-1 mt-1 rounded-none border-t border-border bg-popover px-3 py-2.5",
-      )}
-    >
-      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
-        <IconPlus size={16} />
-      </span>
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate font-medium">
-          New {labelForType(creator.type)} for this {labelForType(entityType)}
+  const createFooter = creator && option && onCreate && (
+    <div className="border-t border-border p-1">
+      <Button
+        variant="secondary"
+        className="h-auto w-full justify-start gap-2.5 px-2 py-1.5 text-left font-normal"
+        onClick={() => onCreate({ creator, title: query, option })}
+      >
+        <IconPlus size={16} className="shrink-0" />
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate font-medium">Create a new {typeName(creator.type)}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {query ? `Called “${query}”` : "Name it later"}
+          </span>
         </span>
-        <span className="truncate text-xs text-muted-foreground">
-          {query ? `Called “${query}”` : "Name it later"}
-        </span>
-      </span>
-    </Command.Item>
+      </Button>
+    </div>
   );
 
   return (
@@ -377,7 +370,7 @@ export function RelatePicker({
         placeholder={placeholder}
         className="h-9 min-w-0 border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
       />
-      <Command.List className={cn("max-h-72 overflow-y-auto px-1 pt-1", !creator && "pb-1")}>
+      <Command.List className="max-h-72 overflow-y-auto p-1">
         <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
           No matches.
         </Command.Empty>
@@ -413,10 +406,7 @@ export function RelatePicker({
           ))}
         {step === 3 &&
           (query ? (
-            <>
-              {matches.map(row)}
-              {createRow}
-            </>
+            <>{matches.map(row)}</>
           ) : (
             <>
               {suggested.length > 0 && (
@@ -434,10 +424,10 @@ export function RelatePicker({
                   {hiddenCount} more, search to find them
                 </p>
               )}
-              {createRow}
             </>
           ))}
       </Command.List>
+      {createFooter}
     </Command>
   );
 }

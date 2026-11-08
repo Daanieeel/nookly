@@ -440,10 +440,8 @@ describe("RelationshipsPanel, relating a file", () => {
   it("keeps attachments out of the menu for anything else, which has the Attachments panel", async () => {
     // Only "Related to" fits, so the step is skipped and the items show, then the way to
     // create a new one.
-    expect(await relateFrom("note")).toEqual([
-      expect.stringContaining("Wave notes"),
-      expect.stringContaining("New Note for this Note"),
-    ]);
+    expect(await relateFrom("note")).toEqual([expect.stringContaining("Wave notes")]);
+    expect(screen.getByRole("button", { name: /Create a new note/ })).toBeTruthy();
     expect(screen.queryByText(/Attached/)).toBeNull();
   });
 });
@@ -561,7 +559,7 @@ describe("RelationshipsPanel, creating from the picker", () => {
     await user.click(await screen.findByRole("option", { name: /^Note/ }));
     await user.click(await screen.findByRole("option", { name: /Blocked by/ }));
     await user.type(await screen.findByPlaceholderText("Search what to relate to…"), "Plan");
-    await user.click(await screen.findByRole("option", { name: /New Note for this Course/ }));
+    await user.click(await screen.findByRole("button", { name: /Create a new note/ }));
     await waitFor(() => expect(callsOf("create_relationship")).toHaveLength(1));
     expect(callsOf("create_note")).toEqual([{ spaceId: "space-1", title: "Plan" }]);
     expect(callsOf("create_relationship")[0]).toMatchObject({
@@ -577,7 +575,7 @@ describe("RelationshipsPanel, creating from the picker", () => {
       entity: makeEntity({ id: "a-new", type: "assignment", title: "Essay 3" }),
     });
     await user.click(await screen.findByRole("button", { name: "Add Assignment" }));
-    await user.click(await screen.findByRole("option", { name: /New Assignment for this Course/ }));
+    await user.click(await screen.findByRole("button", { name: /Create a new assignment/ }));
     await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));
     expect(callsOf("create_assignment")[0]).toMatchObject({ courseId: "me", spaceId: "space-1" });
     expect(callsOf("create_relationship")).toEqual([]);

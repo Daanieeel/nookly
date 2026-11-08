@@ -111,7 +111,8 @@ describe("dialogs and menus have no axe violations", () => {
         onCreate={() => {}}
       />,
     );
-    await screen.findByRole("option", { name: /New Note for this Note/ });
+    await screen.findByRole("option", { name: /Wave notes/ });
+    await screen.findByRole("button", { name: /Create a new note/ });
     await expectNoA11yViolations();
   });
 
