@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
@@ -119,6 +119,29 @@ describe("RelationshipGraphPanel", () => {
     expect(screen.queryByRole("button", { name: /Item c/ })).toBeNull();
     await user.click(screen.getByRole("switch", { name: "Second ring" }));
     expect(await screen.findByRole("button", { name: /Item c/ })).toBeInTheDocument();
+  });
+
+  it("lets a diagonal trackpad swipe scroll both ways when only one way has room", async () => {
+    setup({ me: [link("r1", "me", "a")] });
+    const node = await screen.findByRole("button", { name: /Item a/ });
+    const scroller = node.closest<HTMLElement>(".overflow-auto");
+    if (!scroller) throw new Error("graph scroller not found");
+    // The graph is taller than the panel but not wider, as a second ring often is.
+    const metrics = { scrollHeight: 900, clientHeight: 500, scrollWidth: 700, clientWidth: 700 };
+    for (const [key, value] of Object.entries(metrics)) {
+      Object.defineProperty(scroller, key, { configurable: true, value });
+    }
+    scroller.scrollTop = 200;
+    // The dialog's scroll lock cancels a whole wheel event when its main direction cannot
+    // scroll, which also throws away the vertical part of a mostly sideways swipe.
+    const wheel = new WheelEvent("wheel", {
+      deltaX: 12,
+      deltaY: 5,
+      bubbles: true,
+      cancelable: true,
+    });
+    fireEvent(node, wheel);
+    expect(wheel.defaultPrevented).toBe(false);
   });
 
   it("says how many items it left out when a ring is full", async () => {
