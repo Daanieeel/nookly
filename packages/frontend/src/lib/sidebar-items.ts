@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { z } from "zod";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { addMissingDefaults } from "#/lib/ordered-prefs.ts";
 import { preferences } from "#/lib/preferences.ts";
 
 /// The cross-Space entries at the top of the sidebar, in their default order. The
@@ -42,16 +43,7 @@ export function normalizeSidebarItems(stored: StoredItem[]): SidebarItemPref[] {
     seen.add(id);
     kept.push({ id, hidden: hidden === true });
   }
-  // A new item slots in after the item that precedes it by default, not at the end.
-  for (const item of DEFAULT_ITEMS.filter((i) => !seen.has(i.id))) {
-    const defaultIndex = SIDEBAR_ITEM_IDS.indexOf(item.id);
-    const before = SIDEBAR_ITEM_IDS.slice(0, defaultIndex)
-      .toReversed()
-      .map((id) => kept.findIndex((k) => k.id === id))
-      .find((i) => i !== -1);
-    kept.splice(before === undefined ? 0 : before + 1, 0, item);
-  }
-  return kept;
+  return addMissingDefaults(SIDEBAR_ITEM_IDS, kept, (id) => ({ id, hidden: false }));
 }
 
 function read(): SidebarItemPref[] {

@@ -24,7 +24,7 @@ const storedTable = z.object({
 });
 
 /// `stored` is the table part of a display as it was saved, still unchecked.
-export function normalizeTableDisplay(stored: Partial<TableDisplay> | undefined): TableDisplay {
+export function normalizeTableDisplay(stored: unknown): TableDisplay {
   const parsed = storedTable.safeParse(stored);
   if (!parsed.success) return DEFAULT_TABLE;
   const seen = new Set<string>();
