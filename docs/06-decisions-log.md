@@ -549,3 +549,13 @@ A View config is one versioned JSON object: `version`, `source` (the entity type
 **Revisit when:** a list grows past what the budget test covers, then move the scope and option filters into the list query first.
 
 **Rejected:** a migration rewriting stored configs (touches real Views for no gain), user defined properties, and mixed type views.
+
+---
+
+### Related items as page sections on structured pages
+
+A page with a structured body (the Course first) shows its related items as sections, one per related type, each an `EntityView` scoped to the page (`features/page-sections/`). The module sets the sections and their default order; the user hides, reorders and folds them per page type, and each section keeps its table sort and columns. These preferences are per device (`nookly:page-sections`), like the sidebar's order. A section the stored list lacks slots in after its default predecessor. On these pages the right sidebar's Relationships list folds to a count. Markdown pages (Notes, Jots) keep the sidebar list, with each row showing its status, date and Space chip read from its view source.
+
+**Why:** the things people look for on a Course sat in the longest, farthest sidebar section and could not be sorted. Building sections as views means a user made View can replace one later without a second layout.
+
+**Open:** which other pages count as structured (Exam, Assignment) and their default sections, and letting the user add a view of their own to a page.

@@ -175,7 +175,7 @@ export function ExamsListView({
 
 /// The Exams page's timeline: past exams fade out above, the next one stands out, later ones
 /// follow in order, and exams without a date wait below. Also drawn on a Course page.
-export function ExamTimeline({
+function ExamTimeline({
   exams,
   courseOf,
   onOpen,

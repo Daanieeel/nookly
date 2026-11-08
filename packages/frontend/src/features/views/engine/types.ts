@@ -95,7 +95,8 @@ export interface ViewField<T, C> {
   /// The table cell. Defaults to `text`, or the value as text.
   cell?: (item: T, ctx: C) => ReactNode;
   /// A relationship this field is read from, like `assignment-course` for an Assignment's
-  /// Course. Only documents where the value comes from.
+  /// Course. A view scoped to that relationship also keeps the items whose value holds the
+  /// page, so a Note written for one of a Course's Sessions shows on the Course too.
   relationship?: string;
   /// A column that sizes to its content; the rest share the room left.
   fit?: boolean;

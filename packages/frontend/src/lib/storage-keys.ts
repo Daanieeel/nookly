@@ -33,6 +33,7 @@ export const STORAGE_KEYS = {
   filesDisplay: "nookly:files-display",
   bookmarksDisplay: "nookly:bookmarks-display",
   relatedTab: "nookly:related-tab",
+  pageSections: "nookly:page-sections",
   sessionsView: "nookly:sessions-view",
   calendarModuleView: "nookly:calendar-module-view",
   calendarView: "nookly:calendar-view",

@@ -108,7 +108,8 @@ export const NOTE_FIELDS: ViewField<NoteRow, PageContext>[] = [
   relatedField({
     id: "course",
     label: "Course",
-    relationship: "relates-to",
+    // Linked to the Course directly, or written for one of its Sessions.
+    relationship: "course-notes",
     lookup: (row: NoteRow) => row.summary.courses,
   }),
   {

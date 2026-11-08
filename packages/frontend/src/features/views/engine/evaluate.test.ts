@@ -168,6 +168,18 @@ const edge = (from: string, to: string, relationshipType: string): Relationship 
   createdAt: "",
 });
 
+function makeNoteSummary(id: string, courses: Entity[]) {
+  return {
+    entity: makeEntity({ id, type: "note", title: id }),
+    preview: "",
+    lastEditedAt: "2026-11-01T10:00:00.000Z",
+    labelIds: [],
+    linked: [],
+    session: null,
+    courses,
+  };
+}
+
 describe("scope", () => {
   const course: Entity = makeEntity({ id: "course", type: "course", title: "Physics" });
   const mine = makeAssignment({}, { id: "mine" });
@@ -228,6 +240,24 @@ describe("scope", () => {
     expect(ids(shown)).toEqual(["sooner", "later"]);
     const courseField = assignmentSource.fields.find((f) => f.id === "course");
     expect(courseField?.text?.(mine, actx)).toBe("Physics");
+  });
+
+  it("also keeps items whose field reads the scope's relationship and holds the page", () => {
+    // A Note written for one of the Course's Sessions belongs to the Course too, though
+    // only its Session links to it. The Note's Course field already knows that.
+    const linked = makeNoteSummary("linked", [course]);
+    const viaSession = makeNoteSummary("via-session", [course]);
+    const elsewhere = makeNoteSummary("elsewhere", []);
+    const rows = toNoteRows([linked, viaSession, elsewhere], []);
+    const shown = runView(noteSource, rows, pageCtx, {
+      filters: [],
+      conditions: [],
+      sort: [],
+      scope: { relationship: "course-notes", direction: "incoming" },
+      anchorId: course.id,
+      edges: [edge("course", "linked", "course-notes")],
+    });
+    expect(shown.map((r) => r.summary.entity.id).toSorted()).toEqual(["linked", "via-session"]);
   });
 
   it("ignores the scope without a page to scope to", () => {

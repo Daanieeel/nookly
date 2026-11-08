@@ -3,8 +3,8 @@
     {
       "version": "0.71.0",
       "date": "2026-11-08",
-      "title": "Tables, conditions and views for Notes",
-      "summary": "Tables for Tasks and Assignments, richer filters and saved views for Notes and Jots.",
+      "title": "Tables, views and course sections",
+      "summary": "Sort lists as tables, narrow them with conditions, save views of your Notes and Jots, and find everything about a course on its page.",
       "highlights": [
         {
           "title": "Table layout",
@@ -23,9 +23,20 @@
           "description": "Save the filters and sort of your Notes or Jots as a view, right under their row in the sidebar.",
           "icon": "notebook",
           "tag": "New"
+        },
+        {
+          "title": "Sections on the course page",
+          "description": "Sessions, Assignments, Tasks, Exams and Notes each get a section you can sort, fold, hide and reorder, with a plus button to add to it.",
+          "icon": "layout-columns",
+          "tag": "New"
         }
       ],
-      "more": {}
+      "more": {
+        "Improved": [
+          "On a course page, the sidebar now shows only how many links there are, with all of them one click away.",
+          "Related tasks, assignments and exams in the sidebar now show their status and date, and items from another Space show which one."
+        ]
+      }
     },
     {
       "version": "0.70.0",
