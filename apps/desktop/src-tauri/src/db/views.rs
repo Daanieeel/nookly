@@ -11,6 +11,8 @@ pub const VIEW_MODULES: &[&str] = &[
     "assignments",
     "tasks-overview",
     "assignments-overview",
+    "notes",
+    "jots",
 ];
 
 /// The `version` the app writes View configs with. A config without one is version 1.
@@ -22,6 +24,8 @@ pub const VIEW_CONFIG_VERSION: i64 = 2;
 pub fn source_of(module: &str) -> &'static str {
     match module {
         "tasks" | "tasks-overview" => "task",
+        "notes" => "note",
+        "jots" => "jot",
         _ => "assignment",
     }
 }
@@ -209,6 +213,8 @@ pub fn reorder_views(
 // --- CLI config validation --------------------------------------------------
 
 const AGE_VALUES: &[&str] = &["today", "week", "last", "earlier"];
+/// The rolling windows of the Notes and Jots "Last edited" filter.
+const EDITED_VALUES: &[&str] = &["today", "week", "month"];
 const DATE_VALUES: &[&str] = &["overdue", "today", "week", "later", "none"];
 const LAYOUTS: &[&str] = &["list", "board", "table"];
 /// The layouts that group and can show their empty groups.
@@ -256,11 +262,40 @@ const ASSIGNMENT_FIELDS: &[(&str, Kind)] = &[
     ("updated", Kind::Date),
 ];
 
+/// Notes and Jots share the fields of a page; Jots add the Note they were refined into
+/// and the Session they were taken in.
+const NOTE_FIELDS: &[(&str, Kind)] = &[
+    ("key", Kind::Text),
+    ("title", Kind::Text),
+    ("preview", Kind::Text),
+    ("labels", Kind::Choice),
+    ("course", Kind::Choice),
+    ("pinned", Kind::Choice),
+    ("edited", Kind::Date),
+    ("space", Kind::Choice),
+    ("created", Kind::Date),
+    ("updated", Kind::Date),
+];
+const JOT_FIELDS: &[(&str, Kind)] = &[
+    ("key", Kind::Text),
+    ("title", Kind::Text),
+    ("preview", Kind::Text),
+    ("linked", Kind::Choice),
+    ("session", Kind::Choice),
+    ("labels", Kind::Choice),
+    ("course", Kind::Choice),
+    ("edited", Kind::Date),
+    ("space", Kind::Choice),
+    ("created", Kind::Date),
+    ("updated", Kind::Date),
+];
+
 fn fields_of(source: &str) -> &'static [(&'static str, Kind)] {
-    if source == "task" {
-        TASK_FIELDS
-    } else {
-        ASSIGNMENT_FIELDS
+    match source {
+        "task" => TASK_FIELDS,
+        "note" => NOTE_FIELDS,
+        "jot" => JOT_FIELDS,
+        _ => ASSIGNMENT_FIELDS,
     }
 }
 
@@ -414,11 +449,14 @@ fn validate_meta(module: &str, root: &serde_json::Map<String, serde_json::Value>
 }
 
 /// What one module's View config may contain. Mirrors the filter fields and display
-/// options in `packages/frontend/src/features/{tasks,assignments}`. A filter with
+/// options in `packages/frontend/src/features/{tasks,assignments,notes}`. A filter with
 /// `None` values takes ids that only exist per Space (statuses, labels, courses).
 struct ConfigSpec {
     module: &'static str,
     filters: &'static [(&'static str, Option<&'static [&'static str]>)],
+    layouts: &'static [&'static str],
+    /// Empty for a page without groups, which then takes no grouping, ordering,
+    /// showEmpty or hiddenColumns.
     groupings: &'static [&'static str],
     orderings: &'static [&'static str],
     /// Card and row properties a display can show. Empty when the module has none.
@@ -436,6 +474,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
         ],
+        layouts: LAYOUTS,
         groupings: &[
             "status", "label", "start", "due", "created", "updated", "none",
         ],
@@ -457,6 +496,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ),
             ("effort", None),
         ],
+        layouts: LAYOUTS,
         groupings: &[
             "status", "space", "start", "due", "created", "updated", "none",
         ],
@@ -484,6 +524,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
         ],
+        layouts: LAYOUTS,
         groupings: &[
             "deadline", "created", "updated", "status", "grade", "course", "space", "none",
         ],
@@ -512,12 +553,40 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
         ],
+        layouts: LAYOUTS,
         groupings: &[
             "deadline", "created", "updated", "status", "grade", "course", "none",
         ],
         orderings: &[
             "auto", "due", "created", "updated", "title", "status", "grade",
         ],
+        properties: &[],
+    },
+    ConfigSpec {
+        module: "notes",
+        filters: &[
+            ("course", None),
+            ("labels", None),
+            ("pinned", Some(&["pinned", "unpinned"])),
+            ("edited", Some(EDITED_VALUES)),
+            ("created", Some(AGE_VALUES)),
+        ],
+        layouts: &["table"],
+        groupings: &[],
+        orderings: &[],
+        properties: &[],
+    },
+    ConfigSpec {
+        module: "jots",
+        filters: &[
+            ("link", Some(&["linked", "unlinked"])),
+            ("edited", Some(EDITED_VALUES)),
+            ("labels", None),
+            ("course", None),
+        ],
+        layouts: &["table"],
+        groupings: &[],
+        orderings: &[],
         properties: &[],
     },
 ];
@@ -630,12 +699,15 @@ fn validate_config(module: &str, config: &str) -> AppResult<()> {
         let display = display
             .as_object()
             .ok_or_else(|| bad("display must be an object".into()))?;
+        let grouped = !spec.groupings.is_empty();
         for (key, v) in display {
             match key.as_str() {
-                "layout" => one_of("display.layout", v, LAYOUTS)?,
-                "grouping" | "subGrouping" => one_of(&format!("display.{key}"), v, spec.groupings)?,
-                "ordering" => one_of("display.ordering", v, spec.orderings)?,
-                "showEmpty" => {
+                "layout" => one_of("display.layout", v, spec.layouts)?,
+                "grouping" | "subGrouping" if grouped => {
+                    one_of(&format!("display.{key}"), v, spec.groupings)?
+                }
+                "ordering" if grouped => one_of("display.ordering", v, spec.orderings)?,
+                "showEmpty" if grouped => {
                     let ok = v.as_object().is_some_and(|o| {
                         o.iter()
                             .all(|(k, b)| GROUPED_LAYOUTS.contains(&k.as_str()) && b.is_boolean())
@@ -647,7 +719,7 @@ fn validate_config(module: &str, config: &str) -> AppResult<()> {
                         ));
                     }
                 }
-                "hiddenColumns" => {
+                "hiddenColumns" if grouped => {
                     string_list("display.hiddenColumns", v)?;
                 }
                 "table" => validate_table(source, v)?,
@@ -682,7 +754,7 @@ const VIEW_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "JSON object {\"version\":2,\"source\",\"scope\",\"filters\":[{\"fieldId\":..,\"operator\":..,\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids],\"table\":{\"sort\":[{\"field\",\"direction\":\"asc\"|\"desc\"}],\"columns\":[{\"field\",\"width\":pixels}]}}}, every key optional; '{}' opens the module with its defaults. Checked on write. version: 1 or 2 (the app writes 2). source: the entity type shown, task for tasks and tasks-overview, assignment for assignments and assignments-overview; left out it is read from module. scope: {\"relationship\":a relationship type,\"direction\":\"outgoing\"|\"incoming\"|\"both\"}, shows only the items linked to the page the View sits in (outgoing: the item links to the page); on its module page it is ignored. Option filters use operator \"is\"|\"isNot\" with option values; a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C). Conditions use the other operators on a field, always joined with and: isEmpty and isNotEmpty (values []), contains and notContains (one text, on text and choice fields), before and after (one day YYYY-MM-DD) and between (two days) on date fields, eq, lt, lte, gt and gte (one number) on number fields. Fields, which table.sort and table.columns also name: task: key, title, status, labels, course, space (choice or text), start, due, completedAt, created, updated (date), effort (number). assignment: key, title, status, course, space, due, evaluatedAt, created, updated, grade and weight (number). tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board|table, subGrouping takes the grouping values, a board needs a grouping other than none, a table shows table.columns (the type's default columns when empty) sorted by table.sort (the ordering when empty). tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+        description: "JSON object {\"version\":2,\"source\",\"scope\",\"filters\":[{\"fieldId\":..,\"operator\":..,\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids],\"table\":{\"sort\":[{\"field\",\"direction\":\"asc\"|\"desc\"}],\"columns\":[{\"field\",\"width\":pixels}]}}}, every key optional; '{}' opens the module with its defaults. Checked on write. version: 1 or 2 (the app writes 2). source: the entity type shown, task for tasks and tasks-overview, assignment for assignments and assignments-overview, note for notes, jot for jots; left out it is read from module. scope: {\"relationship\":a relationship type,\"direction\":\"outgoing\"|\"incoming\"|\"both\"}, shows only the items linked to the page the View sits in (outgoing: the item links to the page); on its module page it is ignored. Option filters use operator \"is\"|\"isNot\" with option values; a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C). Conditions use the other operators on a field, always joined with and: isEmpty and isNotEmpty (values []), contains and notContains (one text, on text and choice fields), before and after (one day YYYY-MM-DD) and between (two days) on date fields, eq, lt, lte, gt and gte (one number) on number fields. Fields, which table.sort and table.columns also name: task: key, title, status, labels, course, space (choice or text), start, due, completedAt, created, updated (date), effort (number). assignment: key, title, status, course, space, due, evaluatedAt, created, updated, grade and weight (number). note: key, title, preview, labels, course, pinned, space, edited, created, updated (date). jot: key, title, preview, linked (the Notes it was refined into), session, labels, course, space, edited, created, updated (date). tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board|table, subGrouping takes the grouping values, a board needs a grouping other than none, a table shows table.columns (the type's default columns when empty) sorted by table.sort (the ordering when empty). tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space. notes: filter fields course and labels (Course and label ids), pinned (pinned|unpinned), edited (today|week|month, the past day, 7 or 30 days), created (today|week|last|earlier); layout table only, no grouping or ordering. jots: filter fields link (linked|unlinked, refined into a Note or not), edited (today|week|month), labels and course (ids); layout table only, no grouping or ordering.",
     },
     FieldDef {
         name: "position",
@@ -738,7 +810,7 @@ inventory::submit! {
     EntitySchemaDef {
         entity_type: "view",
         supports_blocks: false,
-        description: "A saved View of a module page (Tasks or Assignments): a name plus the filters, conditions and display options (list, board or table) to reopen it with.",
+        description: "A saved View of a module page (Tasks, Assignments, Notes or Jots): a name plus the filters, conditions and display options (list, board or table) to reopen it with.",
         fields: VIEW_FIELDS,
         relationship_types: &["relates-to"],
         create: cli_create_view,
@@ -883,7 +955,7 @@ mod tests {
                 None,
             )
         };
-        assert!(create("notes", "{}").is_err());
+        assert!(create("recipes", "{}").is_err());
         assert!(create("tasks", "not json").is_err());
         assert!(create("tasks", "[]").is_err());
         // A refused create leaves no half made entity behind.
@@ -1025,6 +1097,75 @@ mod tests {
             ),
             ("tasks", r#"{"display":{"table":{"rows":[]}}}"#),
             ("tasks", r#"{"display":{"showEmpty":{"table":true}}}"#),
+        ] {
+            assert!(
+                validate_config(module, config).is_err(),
+                "{module} {config}"
+            );
+        }
+    }
+
+    #[test]
+    fn notes_and_jots_take_views_of_their_own() {
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        for module in ["notes", "jots"] {
+            let view = create_view(
+                &conn,
+                space.id.clone(),
+                "Lectures".into(),
+                module.into(),
+                "{}".into(),
+                None,
+            )
+            .unwrap();
+            assert_eq!(view.module, module);
+        }
+        assert_eq!(
+            list_views(&conn, &space.id, Some("notes")).unwrap().len(),
+            1
+        );
+        assert_eq!(list_views(&conn, &space.id, Some("jots")).unwrap().len(), 1);
+        assert_eq!(source_of("notes"), "note");
+        assert_eq!(source_of("jots"), "jot");
+    }
+
+    #[test]
+    fn cli_config_of_notes_and_jots_is_checked_against_their_page() {
+        let notes = r#"{"version":2,"source":"note","scope":{"relationship":"relates-to","direction":"both"},"filters":[{"fieldId":"course","operator":"is","values":["any-course-id"]},{"fieldId":"labels","operator":"isNot","values":["any-label-id"]},{"fieldId":"pinned","operator":"is","values":["pinned"],"join":"or"},{"fieldId":"edited","operator":"is","values":["week"]},{"fieldId":"created","operator":"is","values":["last"]},{"fieldId":"title","operator":"contains","values":["lecture"]},{"fieldId":"edited","operator":"after","values":["2026-10-01"]}],"display":{"layout":"table","table":{"sort":[{"field":"edited","direction":"desc"}]}}}"#;
+        assert!(validate_config("notes", notes).is_ok());
+        let jots = r#"{"source":"jot","filters":[{"fieldId":"link","operator":"is","values":["unlinked"]},{"fieldId":"edited","operator":"is","values":["today"]},{"fieldId":"course","operator":"is","values":["any-course-id"]},{"fieldId":"preview","operator":"isEmpty","values":[]}],"display":{"table":{"sort":[{"field":"title","direction":"asc"}]}}}"#;
+        assert!(validate_config("jots", jots).is_ok());
+
+        for (module, config) in [
+            ("notes", r#"{"source":"jot"}"#),
+            ("jots", r#"{"source":"note"}"#),
+            (
+                "notes",
+                r#"{"filters":[{"fieldId":"link","operator":"is","values":["linked"]}]}"#,
+            ),
+            (
+                "jots",
+                r#"{"filters":[{"fieldId":"pinned","operator":"is","values":["pinned"]}]}"#,
+            ),
+            (
+                "notes",
+                r#"{"filters":[{"fieldId":"edited","operator":"is","values":["year"]}]}"#,
+            ),
+            (
+                "notes",
+                r#"{"filters":[{"fieldId":"edited","operator":"gt","values":["3"]}]}"#,
+            ),
+            // The Notes and Jots pages are always a table, without groups.
+            ("notes", r#"{"display":{"layout":"board"}}"#),
+            ("jots", r#"{"display":{"layout":"list"}}"#),
+            ("notes", r#"{"display":{"grouping":"status"}}"#),
+            ("jots", r#"{"display":{"ordering":"due"}}"#),
+            ("notes", r#"{"display":{"properties":["key"]}}"#),
+            (
+                "notes",
+                r#"{"display":{"table":{"sort":[{"field":"due","direction":"asc"}]}}}"#,
+            ),
         ] {
             assert!(
                 validate_config(module, config).is_err(),

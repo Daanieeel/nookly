@@ -219,6 +219,45 @@ describe("a view inside a page", () => {
     expect(parseEntityViewConfig("nope")).toEqual(DEFAULT_ENTITY_VIEW);
   });
 
+  it("shows a Course's Notes through their links to it", async () => {
+    const course = makeEntity({ id: "course", type: "course", title: "Physics", spaceId: "s1" });
+    const note = (id: string, title: string) => ({
+      entity: makeEntity({ id, type: "note", title, spaceId: "s1" }),
+      preview: "",
+      lastEditedAt: "2026-10-01T10:00:00Z",
+      labelIds: [],
+      linked: [],
+      session: null,
+      courses: id === "linked" ? [course] : [],
+    });
+    mockCommand("list_note_summaries", [note("linked", "Optics"), note("loose", "Groceries")]);
+    mockCommand("list_labels", []);
+    mockCommand("list_spaces", [makeSpace({ id: "s1" })]);
+    mockCommand("list_relationships", [
+      {
+        id: "e1",
+        fromEntityId: "linked",
+        toEntityId: "course",
+        relationshipType: "relates-to",
+        fromBlockId: null,
+        toBlockId: null,
+        createdAt: "",
+      },
+    ]);
+    renderWithProviders(
+      <EntityView
+        source="note"
+        spaceId="s1"
+        anchorId="course"
+        scope={{ relationship: "relates-to", direction: "both" }}
+        config={DEFAULT_ENTITY_VIEW}
+      />,
+    );
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(2));
+    expect(screen.getByText("Optics")).toBeInTheDocument();
+    expect(screen.queryByText("Groceries")).toBeNull();
+  });
+
   it("lists any registered type, like Exams", async () => {
     mockCommand("list_exams", [makeExam({}, { id: "e1", title: "Final exam" })]);
     mockCommand("list_spaces", []);

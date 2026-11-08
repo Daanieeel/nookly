@@ -3,7 +3,7 @@ import type { ActiveFilter } from "#/components/filter-menu.tsx";
 import type { Entity } from "#/lib/api/types.ts";
 import { makeEntity, makeLabel } from "#/test/fixtures.ts";
 import { noteFilterFields, passesNoteFilters } from "./note-filters";
-import type { NoteRow } from "./NotesListView";
+import type { NoteRow } from "./note-rows";
 
 const NOW = Date.parse("2026-10-07T12:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;

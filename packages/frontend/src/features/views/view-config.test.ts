@@ -112,6 +112,8 @@ describe("view config version, source and scope", () => {
       newer: false,
     });
     expect(parseViewMeta("{}", "assignments-overview").source).toBe("assignment");
+    expect(parseViewMeta("{}", "notes").source).toBe("note");
+    expect(parseViewMeta("{}", "jots").source).toBe("jot");
     expect(parseViewMeta("not json", "tasks-overview")).toEqual({
       version: 1,
       source: "task",

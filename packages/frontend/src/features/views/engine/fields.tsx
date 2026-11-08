@@ -1,9 +1,10 @@
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
+import { LabelChip } from "#/components/label-chip.tsx";
 import { SpaceChip } from "#/components/space-chip.tsx";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import type { StatusKind } from "#/features/tasks/task-model.ts";
-import type { Entity, Space, TaskStatus } from "#/lib/api/types.ts";
+import type { Entity, Label, Space, TaskStatus } from "#/lib/api/types.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import type { ViewField } from "./types.ts";
@@ -188,5 +189,30 @@ export function relatedField<T, C>({
         </span>
       );
     },
+  };
+}
+
+/// The Labels an item carries. `ids` are the stored ids, `labels` the ones the Space
+/// still has, which the cell and text show.
+export function labelsField<T, C>(
+  ids: (item: T) => string[],
+  labels: (item: T, ctx: C) => Label[],
+): ViewField<T, C> {
+  return {
+    id: "labels",
+    label: "Labels",
+    kind: "entity",
+    value: (item) => ids(item),
+    text: (item, ctx) =>
+      labels(item, ctx)
+        .map((l) => l.name)
+        .join(", "),
+    cell: (item, ctx) => (
+      <span className="flex min-w-0 items-center gap-1">
+        {labels(item, ctx).map((label) => (
+          <LabelChip key={label.id} label={label} />
+        ))}
+      </span>
+    ),
   };
 }

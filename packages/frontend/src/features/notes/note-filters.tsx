@@ -9,11 +9,11 @@ import { ageBucket } from "#/features/assignments/assignment-model.ts";
 import { CREATED_FILTER_FIELD } from "#/features/tasks/shared-view-defs.tsx";
 import {
   EDITED_FILTER_FIELD,
-  editedWithin,
+  editedWindows,
   labelFilterField,
-  passesRowFilters,
+  passesValueFilters,
 } from "./list-table-shared";
-import type { NoteRow } from "./NotesListView";
+import type { NoteRow } from "./note-rows";
 
 const PINNED_FILTER_FIELD: FilterField = {
   id: "pinned",
@@ -25,28 +25,28 @@ const PINNED_FILTER_FIELD: FilterField = {
   ],
 };
 
-/// Whether `row` carries `value` for a filter field. Labels and Courses can hold
-/// several values at once, so filters test membership, not equality.
-function noteHas(row: NoteRow, fieldId: string, value: string, now: number): boolean {
+/// The values a Note has under a filter field. Labels, Courses and the edited windows
+/// can hold several at once, so filters test membership.
+export function noteFilterValue(row: NoteRow, fieldId: string, now: number): string | string[] {
   const { entity } = row.summary;
   switch (fieldId) {
     case "course":
-      return row.summary.courses.some((c) => c.id === value);
+      return row.summary.courses.map((c) => c.id);
     case "labels":
-      return row.labels.some((l) => l.id === value);
+      return row.labels.map((l) => l.id);
     case "pinned":
-      return entity.pinned === (value === "pinned");
+      return entity.pinned ? "pinned" : "unpinned";
     case "edited":
-      return editedWithin(row.summary, value, now);
+      return editedWindows(row.summary, now);
     case "created":
-      return ageBucket(entity.createdAt, new Date(now)) === value;
+      return ageBucket(entity.createdAt, new Date(now));
     default:
-      return false;
+      return [];
   }
 }
 
 export function passesNoteFilters(row: NoteRow, filters: ActiveFilter[], now: number): boolean {
-  return passesRowFilters(row, filters, (r, fieldId, value) => noteHas(r, fieldId, value, now));
+  return passesValueFilters(row, filters, (r, fieldId) => noteFilterValue(r, fieldId, now));
 }
 
 /// Course and Labels are offered only when some Note carries one; Pinned and the

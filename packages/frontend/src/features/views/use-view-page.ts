@@ -20,7 +20,8 @@ import type { ViewCondition } from "./engine/types.ts";
 /// or opened on a saved View. On a View both start as saved and edits are a draft
 /// until `save`. Off a View the same holds against the page's own saved default: the
 /// display through `remember` and the filters under `filtersKey` (per Space when the
-/// page has one), both per device.
+/// page has one), both per device. A page without `filtersKey` keeps no filters of its
+/// own: off a View it opens on `defaultFilters` every time.
 export function useViewPage<D>({
   spaceId,
   module,
@@ -39,14 +40,14 @@ export function useViewPage<D>({
   normalizeDisplay: (stored: Partial<D>) => D;
   remember: (display: D) => void;
   /// Preference key the page's saved default filters live under.
-  filtersKey: string;
+  filtersKey?: string;
   defaultFilters: ActiveFilter[];
 }) {
   const queryClient = useQueryClient();
-  const key = spaceId ? `${filtersKey}:${spaceId}` : filtersKey;
+  const key = filtersKey && (spaceId ? `${filtersKey}:${spaceId}` : filtersKey);
   // The page's own saved default: what it opens as when it is not on a View.
   const readPlain = (): ViewConfig<D> => {
-    const raw = preferences.get(key);
+    const raw = key ? preferences.get(key) : null;
     // The option filters and the conditions share the one stored list, as in a View.
     const stored = raw ? parseViewConfig(`{"filters":${raw}}`, normalizeDisplay) : null;
     return {
@@ -58,7 +59,7 @@ export function useViewPage<D>({
   const [plain, setPlain] = useState(readPlain);
   const [display, setDisplayState] = useState<D>(plain.display);
   const [filters, setFilters] = useState<ActiveFilter[]>(
-    () => (viewId ? undefined : pendingFilters(key)) ?? plain.filters,
+    () => (viewId || !key ? undefined : pendingFilters(key)) ?? plain.filters,
   );
   const [conditions, setConditions] = useState<ViewCondition[]>(plain.conditions);
 
@@ -108,7 +109,9 @@ export function useViewPage<D>({
     mutationFn: async () => {
       if (!viewId) {
         remember(display);
-        preferences.set(key, JSON.stringify([...filters, ...completeConditions(conditions)]));
+        if (key) {
+          preferences.set(key, JSON.stringify([...filters, ...completeConditions(conditions)]));
+        }
         setPlain({ filters, conditions, display });
         return null;
       }

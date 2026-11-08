@@ -163,6 +163,8 @@ const SOURCE_VIEWS = {
   task: (props) => <SourceView source={VIEW_SOURCES.task} {...props} />,
   assignment: (props) => <SourceView source={VIEW_SOURCES.assignment} {...props} />,
   exam: (props) => <SourceView source={VIEW_SOURCES.exam} {...props} />,
+  note: (props) => <SourceView source={VIEW_SOURCES.note} {...props} />,
+  jot: (props) => <SourceView source={VIEW_SOURCES.jot} {...props} />,
 } satisfies { [K in ViewSourceType]: (props: EntityViewProps) => ReactNode };
 
 export function EntityView({ source, ...props }: EntityViewProps & { source: ViewSourceType }) {
