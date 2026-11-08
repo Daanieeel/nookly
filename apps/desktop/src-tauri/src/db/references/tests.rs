@@ -555,3 +555,33 @@ fn the_cli_describes_references_and_runs_locate_and_check() {
         );
     }
 }
+
+#[test]
+fn every_file_says_whether_it_is_found_a_stored_copy_included() {
+    let (conn, space) = setup();
+    let dir = std::env::temp_dir().join(format!("nookly-ref-{}", crate::db::new_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let stored =
+        crate::db::files::import_file(&conn, &dir, space.clone(), &scratch("s.pdf")).unwrap();
+    assert!(stored.reference.is_none());
+    assert_eq!(
+        stored.availability.as_ref().unwrap().state,
+        ReferenceState::Available
+    );
+
+    // The stored bytes were deleted behind Nookly's back.
+    std::fs::remove_file(stored.local_path.as_ref().unwrap()).unwrap();
+    let gone = crate::db::files::get_file(&conn, &stored.entity.id).unwrap();
+    assert_eq!(gone.availability.unwrap().state, ReferenceState::Missing);
+
+    // A pointer's availability is its reference's state.
+    let pointer = reference_file(&conn, space.clone(), &scratch("p.pdf")).unwrap();
+    assert_eq!(pointer.availability, pointer.reference.unwrap().status);
+
+    // A link never downloaded needs the network to be asked: no answer yet.
+    conn.execute("UPDATE files SET local_path = NULL, source_path = NULL, url = 'https://a.dev/x.pdf' WHERE entity_id = ?1", [&stored.entity.id]).unwrap();
+    conn.execute("INSERT INTO entity_references (entity_id, provider, remote_id) VALUES (?1, 'link', 'https://a.dev/x.pdf')", [&stored.entity.id]).unwrap();
+    let link = crate::db::files::get_file(&conn, &stored.entity.id).unwrap();
+    assert_eq!(link.availability, None);
+    assert_eq!(link.reference.unwrap().provider, "link");
+}

@@ -1,5 +1,5 @@
 use crate::db::entities::Entity;
-use crate::db::references::{self, ReferenceFacts};
+use crate::db::references::{self, Probe, ReferenceFacts, ReferenceStatus};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -42,6 +42,10 @@ pub struct FileEntity {
     /// live for a file on disk; a link is looked at with `check_reference`. `None` for a
     /// File stored in Nookly. `source_path` is this device's path for a pointer File.
     pub reference: Option<ReferenceFacts>,
+    /// Whether this device finds the file right now, for every File that has bytes to look
+    /// for: a stored copy is found or missing, a pointer to a file is its reference's state.
+    /// `None` for a link that was never downloaded (it needs the network: `check_reference`).
+    pub availability: Option<ReferenceStatus>,
     #[serde(skip)]
     has_indexed_content: bool,
 }
@@ -67,6 +71,7 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
         label_ids: Vec::new(),
         indexed_content: None,
         reference: None,
+        availability: None,
         has_indexed_content,
     })
 }
@@ -77,7 +82,13 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
 /// followed by their reference from the upgrade, so `files.source_path` is kept but no
 /// longer the source of truth.
 fn resolve_reference(conn: &Connection, file: &mut FileEntity) -> AppResult<()> {
-    if file.local_path.is_some() {
+    if let Some(stored) = file.local_path.as_deref() {
+        let probe = if Path::new(stored).is_file() {
+            Probe::Reached
+        } else {
+            Probe::Gone
+        };
+        file.availability = Some(references::status_from(probe, None));
         return Ok(());
     }
     let Some(facts) = references::facts_for(conn, &file.entity.id)? else {
@@ -88,6 +99,7 @@ fn resolve_reference(conn: &Connection, file: &mut FileEntity) -> AppResult<()> 
         file.needs_reindex =
             !file.has_indexed_content && file.source_path.as_deref().is_some_and(is_indexable);
     }
+    file.availability = facts.status.clone();
     file.reference = Some(facts);
     Ok(())
 }

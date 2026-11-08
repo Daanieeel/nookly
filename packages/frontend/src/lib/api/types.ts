@@ -549,6 +549,10 @@ export interface FileEntity {
   /// Present while the File only points at a file or link elsewhere (nothing stored in
   /// Nookly). `null` for a File Nookly stores itself.
   reference: ReferenceFacts | null;
+  /// Whether this device finds the file right now: a stored copy is `available` or `missing`,
+  /// a pointer to a file is its reference's state. `null` for a link never downloaded, which
+  /// needs a check.
+  availability: ReferenceStatus | null;
 }
 
 export interface Bookmark {

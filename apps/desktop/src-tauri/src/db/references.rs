@@ -590,6 +590,17 @@ inventory::submit! {
 
 inventory::submit! {
     crate::db::schema::ComputedFieldDef {
+        entity_type: "file",
+        name: "availability",
+        kind: FieldKind::Object,
+        description: "Read only. `{ state, asOf }`: whether this device finds the file right now, \
+                      for every File with bytes to look for (a stored copy is `available` or \
+                      `missing`). `null` for a link never downloaded: run the `check` action.",
+    }
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
         entity_type: "reference",
         name: "lastKnownTitle",
         kind: FieldKind::Text,

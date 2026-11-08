@@ -513,7 +513,7 @@ function FileProperties({ file }: { file: FileEntity }) {
           </Value>
         </PropertyRow>
       )}
-      {file.reference && <ReferenceStateRow file={file} />}
+      <FileStateRow file={file} />
       <PropertyRow label="Added">
         <AddedDatePicker
           value={file.entity.createdAt.slice(0, 10)}
@@ -730,19 +730,19 @@ function ReplaceButton({ file }: { file: FileEntity }) {
 }
 
 /// Makes a file added by path independent of the original: Nookly keeps its own copy.
-/// Where a File that only points elsewhere stands on this device right now.
-function ReferenceStateRow({ file }: { file: FileEntity }) {
+/// Where a File stands on this device right now.
+function FileStateRow({ file }: { file: FileEntity }) {
   const { reference } = file;
-  // A file on disk is answered by the page's own data, which is read fresh each time. A look
-  // kept from a minute ago must not outvote it; only a link needs the network to be asked.
-  const onDisk = reference?.provider === "file";
-  const check = useReferenceCheck(file.entity.id, reference?.status, !onDisk);
-  const status = onDisk ? reference?.status : (check.data ?? reference?.status);
-  if (!reference || !status) return null;
+  // A file with bytes to look for is answered by the page's own data, which is read fresh each
+  // time. A look kept from a minute ago must not outvote it; only a link needs the network.
+  const needsLook = Boolean(reference) && reference?.provider !== "file" && !file.availability;
+  const check = useReferenceCheck(file.entity.id, reference?.status, needsLook);
+  const status = file.availability ?? (needsLook ? (check.data ?? reference?.status) : null);
+  if (!status) return null;
   return (
     <PropertyRow label="State">
       <div className="flex h-7 items-center px-2">
-        <ReferenceStateBadge status={status} provider={reference.provider} />
+        <ReferenceStateBadge status={status} provider={reference?.provider ?? "file"} />
       </div>
     </PropertyRow>
   );

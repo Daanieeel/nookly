@@ -149,6 +149,7 @@ export function makeFile(
     originalFilename: null,
     sourcePath: null,
     reference: null,
+    availability: null,
     origin: null,
     needsReindex: false,
     labelIds: [],

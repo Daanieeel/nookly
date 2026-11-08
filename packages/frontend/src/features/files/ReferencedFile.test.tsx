@@ -44,6 +44,7 @@ function pointer(state: ReferenceStateKey, onThisDevice: boolean): FileEntity {
     originalFilename: "notes.txt",
     sourcePath: onThisDevice ? "/Users/me/notes.txt" : null,
     reference,
+    availability: reference.status,
   });
 }
 
@@ -159,12 +160,28 @@ describe("a File that points at a file on disk", () => {
     }
   });
 
-  it("shows a stored file with no state at all", async () => {
-    const file = makeFile({ localPath: "/files/notes.txt", originalFilename: "notes.txt" });
+  it("shows a stored file's state too, without a Locate button", async () => {
+    const file = makeFile({
+      localPath: "/files/notes.txt",
+      originalFilename: "notes.txt",
+      availability: { state: "available", asOf: null },
+    });
     mockCommand("get_file", file);
     renderWithProviders(<FileDetailView entity={file.entity} />);
     await screen.findByRole("button", { name: "Copy content" });
-    expect(screen.queryByText("Available")).toBeNull();
+    expect(await screen.findByText("Available")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Locate…" })).toBeNull();
     expect(callsOf("check_reference")).toEqual([]);
+  });
+
+  it("says when a stored copy is gone from storage", async () => {
+    const file = makeFile({
+      localPath: "/files/notes.txt",
+      originalFilename: "notes.txt",
+      availability: { state: "missing", asOf: null },
+    });
+    mockCommand("get_file", file);
+    renderWithProviders(<FileDetailView entity={file.entity} />);
+    expect(await screen.findByText("Missing")).toBeTruthy();
   });
 });
