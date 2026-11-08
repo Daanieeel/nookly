@@ -1,45 +1,10 @@
-use crate::db::references::{self, Probe, Reference, ReferenceStatus};
+use crate::db::references::{self, Probe, ReferenceStatus};
 use crate::db::DbState;
 use crate::error::{AppError, AppResult};
 use crate::moodle::service::MoodleState;
 use tauri::State;
 
-#[tauri::command]
-pub fn create_reference(
-    state: State<DbState>,
-    space_id: String,
-    provider: String,
-    remote_id: String,
-    title: Option<String>,
-) -> AppResult<Reference> {
-    let conn = state.conn()?;
-    references::create_reference(&conn, space_id, &provider, &remote_id, title.as_deref())
-}
-
-#[tauri::command]
-pub fn get_reference(state: State<DbState>, entity_id: String) -> AppResult<Reference> {
-    let conn = state.conn()?;
-    references::get_reference(&conn, &entity_id)
-}
-
-#[tauri::command]
-pub fn list_references(state: State<DbState>, space_id: String) -> AppResult<Vec<Reference>> {
-    let conn = state.conn()?;
-    references::list_references(&conn, &space_id)
-}
-
-#[tauri::command]
-pub fn retarget_reference(
-    state: State<DbState>,
-    entity_id: String,
-    remote_id: String,
-) -> AppResult<Reference> {
-    let conn = state.conn()?;
-    references::retarget(&conn, &entity_id, &remote_id)
-}
-
-/// Looks at the target of a reference now, on this device, and returns what it found.
-/// Works for a reference entity and for a File that only points elsewhere. A file only
+/// Looks at where a File points now, on this device, and returns what it found. A file only
 /// needs the disk, a link the network, and a Moodle object the signed in session. What
 /// the look found is kept as the last known result; the state itself is never stored.
 #[tauri::command]

@@ -147,9 +147,7 @@ export const qk = {
     byId: (id: string | null) => ["bookmark", id] as const,
   },
   references: {
-    ...spaceList("references"),
-    byId: (id: string | undefined) => ["reference", id] as const,
-    /// What looking at the target now found, for a reference entity or a File.
+    /// What looking at the target now found, for a File that only points elsewhere.
     check: (id: string) => ["reference-check", id] as const,
   },
   files: {

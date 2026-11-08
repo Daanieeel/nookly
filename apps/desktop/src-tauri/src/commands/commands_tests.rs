@@ -201,10 +201,6 @@ ipc_commands![
     files::list_open_with_apps,
     office::office_converter_available,
     office_install::libreoffice_install_options,
-    references::create_reference,
-    references::get_reference,
-    references::list_references,
-    references::retarget_reference,
     references::check_reference,
     bookmarks::create_bookmark,
     bookmarks::list_bookmarks,
@@ -4477,56 +4473,26 @@ fn portable_export_to_an_unwritable_path_is_an_io_error() {
 }
 
 #[test]
-fn references_are_made_read_listed_checked_and_retargeted_over_ipc() {
+fn a_kept_link_is_checked_over_ipc() {
     let h = Harness::new();
     let space = h.space("S");
-    let made = h.ok(
-        "create_reference",
-        json!({
-            "spaceId": space, "provider": "moodle_course", "remoteId": "42", "title": "Physics"
-        }),
-    );
-    assert_eq!(made["entity"]["type"], "reference");
-    assert_eq!(made["provider"], "moodle_course");
-    assert_eq!(made["remoteId"], "42");
-    assert_eq!(made["lastKnownTitle"], "Physics");
+    // Nothing listens on port 1, so the link cannot be reached.
+    let file =
+        h.db(|c| db::files::add_link(c, space.clone(), "http://127.0.0.1:1/a.pdf", None).unwrap());
     assert_eq!(
-        made["status"],
-        Value::Null,
-        "needs Moodle, so not known without a look"
+        file.availability, None,
+        "a link needs a look, so no answer yet"
     );
-    let id = id_of(&made);
-
+    let id = file.entity.id;
     assert_eq!(
-        h.ok("get_reference", json!({ "entityId": id }))["remoteId"],
-        "42"
+        h.ok("check_reference", json!({ "entityId": id }))["state"],
+        "offline"
     );
+    let after = h.db(|c| db::files::get_file(c, &id).unwrap());
     assert_eq!(
-        h.ok("list_references", json!({ "spaceId": space }))
-            .as_array()
-            .unwrap()
-            .len(),
-        1
+        after.reference.unwrap().last_result.as_deref(),
+        Some("offline")
     );
-    let moved = h.ok(
-        "retarget_reference",
-        json!({ "entityId": id, "remoteId": "43" }),
-    );
-    assert_eq!(moved["remoteId"], "43");
-
-    // Not signed in to Moodle in the test app: the answer is "needs sign in".
-    let status = h.ok("check_reference", json!({ "entityId": id }));
-    assert_eq!(status["state"], "needsSignIn");
-    let after = h.ok("get_reference", json!({ "entityId": id }));
-    assert_eq!(after["lastResult"], "needs_sign_in");
-
-    let bad = h.app_err(
-        "create_reference",
-        json!({ "spaceId": space, "provider": "link", "remoteId": "nope" }),
-        "InvalidInput",
-    );
-    assert!(bad.contains("web address"), "{bad}");
-    h.app_err("get_reference", json!({ "entityId": MISSING }), "NotFound");
 }
 
 #[test]

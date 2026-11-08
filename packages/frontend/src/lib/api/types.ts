@@ -519,11 +519,6 @@ export interface ReferenceFacts {
   status: ReferenceStatus | null;
 }
 
-/// A pointer to something Nookly does not own: a link, a Moodle course or assignment.
-export interface Reference extends ReferenceFacts {
-  entity: Entity;
-}
-
 export interface FileEntity {
   entity: Entity;
   localPath: string | null;

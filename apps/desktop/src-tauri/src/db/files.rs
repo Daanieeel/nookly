@@ -488,6 +488,48 @@ pub fn reference_file(conn: &Connection, space_id: String, path: &Path) -> AppRe
     get_file(conn, &entity.id)
 }
 
+/// Keeps a link as a File without downloading it: the File shows whether the link answers,
+/// and Copy into Nookly downloads it whenever the person wants the bytes. `title` is its name
+/// (the link's file name when blank).
+pub fn add_link(
+    conn: &Connection,
+    space_id: String,
+    link: &str,
+    title: Option<&str>,
+) -> AppResult<FileEntity> {
+    let link = link.trim();
+    let parsed = url::Url::parse(link)
+        .ok()
+        .filter(|u| matches!(u.scheme(), "http" | "https"))
+        .ok_or_else(|| {
+            AppError::InvalidInput(format!(
+                "'{link}' is not a web address (it must start with http:// or https://)"
+            ))
+        })?;
+    let name = parsed
+        .path_segments()
+        .and_then(|mut segments| segments.next_back().map(str::to_string))
+        .filter(|segment| !segment.is_empty())
+        .or_else(|| parsed.host_str().map(str::to_string))
+        .unwrap_or_else(|| link.to_string());
+    let title = title
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .unwrap_or(&name)
+        .to_string();
+    crate::db::atomically(conn, || {
+        let entity =
+            crate::db::entities::create_entity(conn, space_id, "file".into(), title.clone(), None)?;
+        conn.execute(
+            "INSERT INTO files (entity_id, local_path, provider, url, original_filename)
+             VALUES (?1, NULL, ?2, ?3, ?4)",
+            params![entity.id, detect_provider(link), link, name],
+        )?;
+        references::add_link_reference(conn, &entity.id, &title, link)?;
+        get_file(conn, &entity.id)
+    })
+}
+
 /// Tells Nookly where a referenced file is on this device: the same document picked
 /// again after it moved, or on a device it was not added on. Only this device's path
 /// changes; the File, its labels and relationships stay.
@@ -967,11 +1009,20 @@ const FILE_FIELDS: &[FieldDef] = &[
                       edits to the original but breaks if that is moved; set copyIntoStorage=true to copy it in.",
     },
     FieldDef {
+        name: "linkUrl",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "A web address to keep as a link without downloading it. The File shows \
+                      whether the link answers (`check`), and `copyIntoStorage=true` downloads it \
+                      later. Use `url` instead to download it now.",
+    },
+    FieldDef {
         name: "copyIntoStorage",
         kind: FieldKind::Boolean,
         required_on_create: false,
         writable_on_update: true,
-        description: "Update only: true copies a referenced file (sourcePath) into Nookly's own storage.",
+        description: "Update only: true copies a referenced file (sourcePath) or downloads a kept link (linkUrl) into Nookly's own storage.",
     },
     FieldDef {
         name: "url",
@@ -1007,6 +1058,16 @@ const FILE_FIELDS: &[FieldDef] = &[
 fn cli_create_file(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
     let local_path = crate::db::schema::field_str(&input.fields, "localPath");
     let url = crate::db::schema::field_str(&input.fields, "url");
+    if let Some(link) = crate::db::schema::field_str(&input.fields, "linkUrl") {
+        if local_path.is_some() || url.is_some() || input.fields.contains_key("sourcePath") {
+            return Err(AppError::InvalidInput(
+                "pass exactly one of --field localPath=..., sourcePath=..., url=... or linkUrl=..."
+                    .into(),
+            ));
+        }
+        let title = Some(input.title.as_str());
+        return crate::error::to_json(add_link(conn, input.space_id, &link, title)?);
+    }
     if let Some(path) = crate::db::schema::field_str(&input.fields, "sourcePath") {
         if local_path.is_some() || url.is_some() {
             return Err(AppError::InvalidInput(
@@ -1070,7 +1131,26 @@ fn cli_update_file(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
         let files_dir = crate::db::standalone_app_data_dir()
             .map_err(|e| AppError::Db(e.to_string()))?
             .join("files");
-        copy_into_storage(conn, &files_dir, id)?;
+        let file = get_file(conn, id)?;
+        match (
+            &file.url,
+            file.local_path.is_none() && file.source_path.is_none(),
+        ) {
+            // A kept link has no bytes yet: fetching them is its copy.
+            (Some(link), true) => match download(link)? {
+                Download::File { filename, bytes } => {
+                    attach_download(conn, &files_dir, id, &filename, &bytes)?;
+                }
+                Download::Webpage => {
+                    return Err(AppError::InvalidInput(format!(
+                        "{link} is a webpage, not a file; convert it to a bookmark instead"
+                    )))
+                }
+            },
+            _ => {
+                copy_into_storage(conn, &files_dir, id)?;
+            }
+        }
     }
     if let Some(added) = crate::db::schema::field_str(fields, "added") {
         set_added_at(conn, id, &added)?;

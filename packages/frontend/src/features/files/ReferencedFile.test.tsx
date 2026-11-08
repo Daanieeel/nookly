@@ -154,10 +154,34 @@ describe("a File that points at a file on disk", () => {
         vi.advanceTimersByTime(ERROR_REVERT_MS);
       });
       expect(screen.queryAllByText(/Couldn't copy/)).toEqual([]);
-      expect(screen.getByRole("button", { name: "Copy into Nookly" })).toBeTruthy();
+      expect(screen.getAllByRole("button", { name: "Copy into Nookly" }).length).toBeGreaterThan(0);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("asks the network about a link that was kept without downloading it", async () => {
+    const file = makeFile({
+      url: "https://example.com/sample.pdf",
+      originalFilename: "sample.pdf",
+      reference: {
+        provider: "link",
+        remoteId: "https://example.com/sample.pdf",
+        lastKnownTitle: "sample.pdf",
+        lastSeenAt: null,
+        lastResult: null,
+        pathOnThisDevice: null,
+        status: null,
+      },
+    });
+    mockCommand("get_file", file);
+    mockCommand("check_reference", { state: "missing", asOf: null });
+    renderWithProviders(<FileDetailView entity={file.entity} />);
+    expect((await screen.findAllByText("Missing")).length).toBeGreaterThan(0);
+    expect(callsOf("check_reference")).toEqual([{ entityId: file.entity.id }]);
+    // A dead link has no file to locate, only a copy to try again.
+    expect(screen.queryByRole("button", { name: "Locate…" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Copy into Nookly" }).length).toBeGreaterThan(0);
   });
 
   it("shows a stored file's state too, without a Locate button", async () => {

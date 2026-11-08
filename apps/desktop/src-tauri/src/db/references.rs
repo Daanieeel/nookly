@@ -1,22 +1,20 @@
-//! References: one record for every pointer to something Nookly does not own, such as a
-//! file on disk, a link or a Moodle course. A reference keeps identity (which provider,
-//! which path, link or id) and the last facts seen (a title, when it was last reached),
-//! never the content: a Moodle grade or a post is still read live from Moodle.
+//! References: the record behind a File that only points at something Nookly does not own, such
+//! as a file on disk, a link or a Moodle object. It keeps who it points at (provider, path, link
+//! or id) and the last facts seen (a title, when it last answered), never the content: a Moodle
+//! grade or a post is still read live from Moodle.
+//!
+//! A reference is never something the user sees as such. The File keeps its type, id and key, so
+//! its relationships, mentions and the Files page work as they always did, and a reference is
+//! just a File that knows whether it can be found.
 //!
 //! Whether the target can be reached right now is **worked out live on each device and never
 //! stored** in the record, because the answer depends on the device: a file that is fine on
 //! the Mac is "Not on this device" on the phone. See [`ReferenceState`] for the five answers.
 //!
-//! A reference is either its own entity (`type = 'reference'`: a link or a Moodle course) or
-//! belongs to a File that only points elsewhere (the File keeps its type and id, so its
-//! relationships, mentions and the Files page stay as they are). Both are rows of
-//! `entity_references`, and both get the same states, `Locate...` and CLI verbs.
-//!
-//! A file path is remembered per device (`reference_device_paths`), so one reference can
-//! point at the same document on every device that has it.
+//! A file path is remembered per device (`reference_device_paths`), so one File can point at
+//! the same document on every device that has it.
 
-use crate::db::entities::Entity;
-use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
+use crate::db::schema::{FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -24,19 +22,13 @@ use std::path::Path;
 
 /// A path typed or picked on a device.
 pub const PROVIDER_FILE: &str = "file";
-/// A web address that is not a webpage to keep (that is a Bookmark).
+/// A web address a File keeps without downloading it.
 pub const PROVIDER_LINK: &str = "link";
+/// Moodle providers are only looked at, in the app where Moodle is signed in: no way to make one
+/// from the UI yet.
 pub const PROVIDER_MOODLE_COURSE: &str = "moodle_course";
 /// `remote_id` is `<course id>:<assignment id>`.
 pub const PROVIDER_MOODLE_ASSIGNMENT: &str = "moodle_assignment";
-
-/// The providers a reference can be created for on its own. A file path becomes a
-/// reference through the Files module (`file create --field sourcePath=...`).
-pub const STANDALONE_PROVIDERS: &[&str] = &[
-    PROVIDER_LINK,
-    PROVIDER_MOODLE_COURSE,
-    PROVIDER_MOODLE_ASSIGNMENT,
-];
 
 /// The five answers to "can I get to it?". One wording for each, everywhere.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -109,14 +101,6 @@ pub struct ReferenceFacts {
     /// Worked out now for a file, which only needs the disk. For a link or a Moodle object
     /// it needs the network, so it is `None` here and `check_reference` finds it.
     pub status: Option<ReferenceStatus>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Reference {
-    pub entity: Entity,
-    #[serde(flatten)]
-    pub facts: ReferenceFacts,
 }
 
 struct Row {
@@ -214,10 +198,6 @@ pub fn facts_for(conn: &Connection, id: &str) -> AppResult<Option<ReferenceFacts
     facts_for_device(conn, id, &crate::db::device::current())
 }
 
-fn require_facts(conn: &Connection, id: &str) -> AppResult<ReferenceFacts> {
-    facts_for(conn, id)?.ok_or_else(|| AppError::NotFound(format!("reference {id}")))
-}
-
 /// Gives a File that points at `path` on `device` its reference, and remembers the path
 /// for that device.
 pub fn add_file_reference(
@@ -234,6 +214,21 @@ pub fn add_file_reference(
         params![entity_id, path, title, crate::db::now(), device],
     )?;
     set_device_path(conn, entity_id, device, path)
+}
+
+/// Gives a File that keeps a link, without a stored copy, its reference.
+pub fn add_link_reference(
+    conn: &Connection,
+    entity_id: &str,
+    title: &str,
+    url: &str,
+) -> AppResult<()> {
+    conn.execute(
+        "INSERT INTO entity_references (entity_id, provider, remote_id, last_known_title)
+         VALUES (?1, 'link', ?2, ?3)",
+        params![entity_id, url, title],
+    )?;
+    Ok(())
 }
 
 /// Makes the references that came from an upgrade belong to `device`: they were all typed
@@ -405,176 +400,7 @@ pub fn finish_check(
     Ok(status_from(probe, last_seen.as_deref()))
 }
 
-// --- the reference entity ----------------------------------------------------------------
-
-fn normalized(provider: &str, remote_id: &str) -> AppResult<String> {
-    crate::db::require_one_of("provider", provider, STANDALONE_PROVIDERS)?;
-    let remote_id = remote_id.trim();
-    if remote_id.is_empty() {
-        return Err(AppError::InvalidInput("remoteId must not be empty".into()));
-    }
-    match provider {
-        PROVIDER_LINK => {
-            let url = url::Url::parse(remote_id).map_err(|_| {
-                AppError::InvalidInput(format!("'{remote_id}' is not a web address"))
-            })?;
-            if !matches!(url.scheme(), "http" | "https") {
-                return Err(AppError::InvalidInput(
-                    "a link must start with http:// or https://".into(),
-                ));
-            }
-        }
-        PROVIDER_MOODLE_COURSE => {
-            remote_id.parse::<i64>().map_err(|_| {
-                AppError::InvalidInput("a Moodle course's remoteId is its numeric id".into())
-            })?;
-        }
-        _ => {
-            let ok = remote_id
-                .split_once(':')
-                .is_some_and(|(c, a)| c.parse::<i64>().is_ok() && a.parse::<i64>().is_ok());
-            if !ok {
-                return Err(AppError::InvalidInput(
-                    "a Moodle assignment's remoteId is '<course id>:<assignment id>'".into(),
-                ));
-            }
-        }
-    }
-    Ok(remote_id.to_string())
-}
-
-/// Makes a reference entity. `title` is its name in Nookly (the target's title when the
-/// caller has it); a blank one falls back to the remote id.
-pub fn create_reference(
-    conn: &Connection,
-    space_id: String,
-    provider: &str,
-    remote_id: &str,
-    title: Option<&str>,
-) -> AppResult<Reference> {
-    let remote_id = normalized(provider, remote_id)?;
-    let title = title
-        .map(str::trim)
-        .filter(|t| !t.is_empty())
-        .unwrap_or(&remote_id)
-        .to_string();
-    crate::db::atomically(conn, || {
-        let entity = crate::db::entities::create_entity(
-            conn,
-            space_id,
-            "reference".into(),
-            title.clone(),
-            None,
-        )?;
-        conn.execute(
-            "INSERT INTO entity_references (entity_id, provider, remote_id, last_known_title)
-             VALUES (?1, ?2, ?3, ?4)",
-            params![entity.id, provider, remote_id, title],
-        )?;
-        get_reference(conn, &entity.id)
-    })
-}
-
-/// Points a reference at another target. What was known about the old one no longer applies.
-pub fn retarget(conn: &Connection, id: &str, remote_id: &str) -> AppResult<Reference> {
-    let current = require_facts(conn, id)?;
-    let remote_id = normalized(&current.provider, remote_id)?;
-    if remote_id != current.remote_id {
-        conn.execute(
-            "UPDATE entity_references
-             SET remote_id = ?1, last_seen_at = NULL, last_result = NULL WHERE entity_id = ?2",
-            params![remote_id, id],
-        )?;
-    }
-    get_reference(conn, id)
-}
-
-pub fn get_reference(conn: &Connection, id: &str) -> AppResult<Reference> {
-    let entity = crate::db::entities::get_entity(conn, id)?;
-    if entity.entity_type != "reference" {
-        return Err(AppError::NotFound(format!("reference {id}")));
-    }
-    Ok(Reference {
-        entity,
-        facts: require_facts(conn, id)?,
-    })
-}
-
-pub fn list_references(conn: &Connection, space_id: &str) -> AppResult<Vec<Reference>> {
-    let mut stmt = conn.prepare(
-        "SELECT id FROM entities
-         WHERE space_id = ?1 AND type = 'reference' AND deleted_at IS NULL
-         ORDER BY created_at DESC",
-    )?;
-    let ids: Vec<String> = stmt
-        .query_map(params![space_id], |r| r.get(0))?
-        .collect::<Result<_, _>>()?;
-    ids.iter().map(|id| get_reference(conn, id)).collect()
-}
-
-// --- CLI schema registration -------------------------------------------------------------
-
-const REFERENCE_FIELDS: &[FieldDef] = &[
-    FieldDef {
-        name: "provider",
-        kind: FieldKind::Enum(STANDALONE_PROVIDERS),
-        required_on_create: true,
-        writable_on_update: false,
-        description: "What the reference points at: `link` (a web address), `moodle_course` or \
-                      `moodle_assignment`. A file on disk is a File: `file create --field sourcePath=...`.",
-    },
-    FieldDef {
-        name: "remoteId",
-        kind: FieldKind::Text,
-        required_on_create: true,
-        writable_on_update: true,
-        description: "Where it points: the web address for a link, the course id for a Moodle \
-                      course, `<course id>:<assignment id>` for a Moodle assignment. Changing it \
-                      forgets the last known facts.",
-    },
-];
-
-fn cli_create_reference(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
-    let provider = crate::db::schema::require_str(&input.fields, "provider")?;
-    let remote_id = crate::db::schema::require_str(&input.fields, "remoteId")?;
-    let reference = create_reference(
-        conn,
-        input.space_id,
-        &provider,
-        &remote_id,
-        Some(&input.title),
-    )?;
-    crate::error::to_json(reference)
-}
-
-fn cli_update_reference(
-    conn: &Connection,
-    id: &str,
-    fields: &JsonMap,
-) -> AppResult<serde_json::Value> {
-    if let Some(remote_id) = crate::db::schema::field_str(fields, "remoteId") {
-        retarget(conn, id, &remote_id)?;
-    }
-    cli_get_reference(conn, id)
-}
-
-fn cli_get_reference(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    crate::error::to_json(get_reference(conn, id)?)
-}
-
-fn cli_list_references(
-    conn: &Connection,
-    space_id: Option<&str>,
-    _include_deleted: bool,
-) -> AppResult<Vec<serde_json::Value>> {
-    let space_id = space_id.ok_or_else(|| {
-        AppError::InvalidInput("reference list requires --space <space-id>".into())
-    })?;
-    list_references(conn, space_id)?
-        .into_iter()
-        .map(crate::error::to_json)
-        .collect::<AppResult<Vec<_>>>()
-}
+// --- CLI -------------------------------------------------------------------------------------
 
 inventory::submit! {
     crate::db::schema::ComputedFieldDef {
@@ -596,67 +422,6 @@ inventory::submit! {
         description: "Read only. `{ state, asOf }`: whether this device finds the file right now, \
                       for every File with bytes to look for (a stored copy is `available` or \
                       `missing`). `null` for a link never downloaded: run the `check` action.",
-    }
-}
-
-inventory::submit! {
-    crate::db::schema::ComputedFieldDef {
-        entity_type: "reference",
-        name: "lastKnownTitle",
-        kind: FieldKind::Text,
-        description: "Read only. The title the target had when it was last reached.",
-    }
-}
-inventory::submit! {
-    crate::db::schema::ComputedFieldDef {
-        entity_type: "reference",
-        name: "lastSeenAt",
-        kind: FieldKind::DateTime,
-        description: "Read only. When the target last answered. `null` if it never did.",
-    }
-}
-inventory::submit! {
-    crate::db::schema::ComputedFieldDef {
-        entity_type: "reference",
-        name: "lastResult",
-        kind: FieldKind::Enum(&["available", "offline", "missing", "needs_sign_in"]),
-        description: "Read only. The last live answer. Whether it can be reached right now is \
-                      never stored: run the `check` action.",
-    }
-}
-inventory::submit! {
-    crate::db::schema::ComputedFieldDef {
-        entity_type: "reference",
-        name: "pathOnThisDevice",
-        kind: FieldKind::Text,
-        description: "Read only. For a file: where it is on this device; `null` when it is not on this device.",
-    }
-}
-inventory::submit! {
-    crate::db::schema::ComputedFieldDef {
-        entity_type: "reference",
-        name: "status",
-        kind: FieldKind::Object,
-        description: "Read only. `{ state, asOf }` where state is `available`, `offline`, \
-                      `missing`, `needsSignIn` or `notOnThisDevice`, worked out now. Only given \
-                      for a file; run the `check` action for a link.",
-    }
-}
-
-inventory::submit! {
-    EntitySchemaDef {
-        entity_type: "reference",
-        supports_blocks: false,
-        description: "A pointer to something Nookly does not own, like a Moodle course or a link. \
-                      It keeps the target's identity and last known title, never its content, so \
-                      it can be linked to other items. Whether the target can be reached is \
-                      worked out live (the `check` action) and never stored.",
-        fields: REFERENCE_FIELDS,
-        relationship_types: &["relates-to", "attached-file"],
-        create: cli_create_reference,
-        update: cli_update_reference,
-        get: cli_get_reference,
-        list: cli_list_references,
     }
 }
 
@@ -719,7 +484,7 @@ macro_rules! reference_actions {
         )*
     };
 }
-reference_actions!("reference", "file");
+reference_actions!("file");
 
 #[cfg(test)]
 mod tests;

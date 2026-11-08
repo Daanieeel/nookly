@@ -85,11 +85,6 @@ fn sample(f: &FieldDef, variant: usize) -> Option<Value> {
         FieldKind::Text if f.name == "startTime" => pick(json!("09:00"), json!("09:30")),
         FieldKind::Text if f.name == "examTime" => pick(json!("09:00"), json!("14:30")),
         FieldKind::Text if f.name == "endTime" => pick(json!("10:00"), json!("11:30")),
-        // A reference's target: the generated `provider` is the first one, a link.
-        FieldKind::Text if f.name == "remoteId" => pick(
-            json!("https://example.com/a"),
-            json!("https://example.com/b"),
-        ),
         FieldKind::Text if f.name.to_lowercase().contains("url") => pick(
             json!("https://example.com/a"),
             json!("https://example.com/b"),
@@ -3965,4 +3960,54 @@ fn changing_a_block_to_a_missing_path_warns_and_keeps_the_path() {
         &["note", "update-block", &block_id, "--content", ""],
     ));
     assert_eq!(kind_of(&err), "InvalidInput");
+}
+
+#[test]
+fn a_file_can_keep_a_link_without_downloading_it() {
+    let f = fx();
+    let made = cli(
+        &f.conn,
+        &[
+            "file",
+            "create",
+            "--space",
+            &f.space,
+            "--title",
+            "Sample",
+            "--field",
+            "linkUrl=https://example.com/sample.pdf",
+        ],
+    )
+    .unwrap();
+    assert_eq!(made["data"]["entity"]["type"], "file");
+    assert_eq!(made["data"]["url"], "https://example.com/sample.pdf");
+    assert_eq!(made["data"]["localPath"], Value::Null);
+    assert_eq!(made["data"]["reference"]["provider"], "link");
+    // One source at a time, and only a web address.
+    let clash = err_of(cli(
+        &f.conn,
+        &[
+            "file",
+            "create",
+            "--space",
+            &f.space,
+            "--field",
+            "linkUrl=https://a.dev/x",
+            "--field",
+            "url=https://a.dev/y",
+        ],
+    ));
+    assert_eq!(kind_of(&clash), "InvalidInput");
+    let bad = err_of(cli(
+        &f.conn,
+        &[
+            "file",
+            "create",
+            "--space",
+            &f.space,
+            "--field",
+            "linkUrl=not a link",
+        ],
+    ));
+    assert_eq!(kind_of(&bad), "InvalidInput");
 }

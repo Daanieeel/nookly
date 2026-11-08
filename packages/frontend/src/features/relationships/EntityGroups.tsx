@@ -27,7 +27,6 @@ const RELATIONSHIP_TYPE_ORDER = [
   "note",
   "jot",
   "file",
-  "reference",
   "course",
   "exam",
   "calendar_entry",

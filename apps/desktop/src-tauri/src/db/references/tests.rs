@@ -17,6 +17,18 @@ fn scratch(name: &str) -> std::path::PathBuf {
     path
 }
 
+/// A File that keeps a link and has no stored copy.
+fn link_file(conn: &Connection, space: &str, url: &str) -> String {
+    crate::db::files::add_link(conn, space.to_string(), url, None)
+        .unwrap()
+        .entity
+        .id
+}
+
+fn facts(conn: &Connection, id: &str) -> ReferenceFacts {
+    facts_for(conn, id).unwrap().unwrap()
+}
+
 #[test]
 fn each_probe_means_one_state_and_offline_shows_the_last_answer() {
     let seen = Some("2026-11-01T10:00:00+00:00");
@@ -93,129 +105,114 @@ fn a_link_is_looked_at_with_a_real_request() {
 }
 
 #[test]
-fn a_reference_entity_can_be_made_read_searched_and_linked() {
+fn a_kept_link_is_a_regular_file_that_knows_whether_it_answers() {
     let (conn, space) = setup();
-    let course = crate::db::courses::create_course(&conn, space.clone(), "Physics".into()).unwrap();
-    let reference = create_reference(
+    let file = crate::db::files::add_link(
         &conn,
         space.clone(),
-        PROVIDER_MOODLE_COURSE,
-        " 42 ",
-        Some("Physics 101"),
+        " https://example.com/docs/sample.pdf ",
+        None,
     )
     .unwrap();
-    assert_eq!(reference.entity.entity_type, "reference");
-    assert_eq!(reference.entity.key, "REF-1");
-    assert_eq!(reference.entity.title, "Physics 101");
-    assert_eq!(reference.facts.remote_id, "42");
+    // To the user and to everything else it is a File: type, key, title, link.
+    assert_eq!(file.entity.entity_type, "file");
+    assert!(file.entity.key.starts_with("FIL-"));
+    assert_eq!(file.entity.title, "sample.pdf");
     assert_eq!(
-        reference.facts.last_known_title.as_deref(),
-        Some("Physics 101")
+        file.url.as_deref(),
+        Some("https://example.com/docs/sample.pdf")
     );
-    assert_eq!(reference.facts.status, None);
+    assert_eq!(file.local_path, None);
+    assert_eq!(file.source_path, None);
+    let reference = file.reference.expect("a reference behind it");
+    assert_eq!(reference.provider, PROVIDER_LINK);
+    assert_eq!(reference.last_known_title.as_deref(), Some("sample.pdf"));
+    // It is listed with the Space's other Files and found by title like them.
+    assert_eq!(
+        crate::db::files::list_files(&conn, &space).unwrap().len(),
+        1
+    );
+    let hits = crate::db::search::search(&conn, "sample.pdf", None).unwrap();
+    assert!(hits.iter().any(|h| h.entity_id == file.entity.id));
+    // No entity of any other type was made for it.
+    let others: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM entities WHERE type != 'file'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(others, 0);
+}
 
-    // Linkable through the one relationship system, and findable by title.
-    crate::db::relationships::create_relationship(
+#[test]
+fn a_kept_link_takes_a_title_and_falls_back_to_the_host() {
+    let (conn, space) = setup();
+    let named = crate::db::files::add_link(
         &conn,
-        course.id.clone(),
-        reference.entity.id.clone(),
-        "relates-to".into(),
-        None,
-        None,
+        space.clone(),
+        "https://a.dev/x.pdf",
+        Some("Syllabus"),
     )
     .unwrap();
-    let hits = crate::db::search::search(&conn, "Physics 101", None).unwrap();
-    assert!(hits.iter().any(|h| h.entity_id == reference.entity.id));
-    assert_eq!(list_references(&conn, &space).unwrap().len(), 1);
+    assert_eq!(named.entity.title, "Syllabus");
+    let bare = crate::db::files::add_link(&conn, space, "https://a.dev/", Some("  ")).unwrap();
+    assert_eq!(bare.entity.title, "a.dev");
 }
 
 #[test]
-fn a_reference_with_no_title_is_named_after_its_target() {
+fn a_link_that_is_not_a_web_address_is_refused_before_anything_is_written() {
     let (conn, space) = setup();
-    let reference =
-        create_reference(&conn, space, PROVIDER_LINK, "https://a.dev/x", Some("  ")).unwrap();
-    assert_eq!(reference.entity.title, "https://a.dev/x");
-}
-
-#[test]
-fn bad_targets_are_refused_before_anything_is_written() {
-    let (conn, space) = setup();
-    for (provider, remote) in [
-        ("file", "/tmp/a.pdf"),
-        ("nope", "x"),
-        (PROVIDER_LINK, "ftp://a.dev"),
-        (PROVIDER_LINK, "not a url"),
-        (PROVIDER_LINK, "   "),
-        (PROVIDER_MOODLE_COURSE, "abc"),
-        (PROVIDER_MOODLE_ASSIGNMENT, "12"),
-        (PROVIDER_MOODLE_ASSIGNMENT, "a:b"),
-    ] {
+    for bad in ["ftp://a.dev/x", "not a url", "   ", "/Users/me/a.pdf"] {
         assert!(
-            create_reference(&conn, space.clone(), provider, remote, None).is_err(),
-            "{provider} {remote}"
+            crate::db::files::add_link(&conn, space.clone(), bad, None).is_err(),
+            "{bad}"
         );
     }
     let entities: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM entities WHERE type = 'reference'",
+            "SELECT COUNT(*) FROM entities WHERE type = 'file'",
             [],
             |r| r.get(0),
         )
         .unwrap();
     assert_eq!(entities, 0);
-    assert!(create_reference(&conn, space, PROVIDER_MOODLE_ASSIGNMENT, "12:34", None).is_ok());
-}
-
-#[test]
-fn pointing_a_reference_elsewhere_forgets_what_was_known() {
-    let (conn, space) = setup();
-    let r = create_reference(&conn, space, PROVIDER_LINK, "https://a.dev", None).unwrap();
-    record_probe(&conn, &r.entity.id, Probe::Reached, Some("A site")).unwrap();
-    let same = retarget(&conn, &r.entity.id, "https://a.dev").unwrap();
-    assert_eq!(same.facts.last_result.as_deref(), Some("available"));
-    let moved = retarget(&conn, &r.entity.id, "https://b.dev").unwrap();
-    assert_eq!(moved.facts.remote_id, "https://b.dev");
-    assert_eq!(moved.facts.last_seen_at, None);
-    assert_eq!(moved.facts.last_result, None);
 }
 
 #[test]
 fn a_probe_keeps_the_last_answer_and_only_a_reached_one_moves_last_seen() {
     let (conn, space) = setup();
-    let r = create_reference(&conn, space, PROVIDER_LINK, "https://a.dev", None).unwrap();
-    let id = r.entity.id;
-    assert_eq!(get_reference(&conn, &id).unwrap().facts.last_result, None);
+    let id = link_file(&conn, &space, "https://a.dev/x.pdf");
+    assert_eq!(facts(&conn, &id).last_result, None);
 
     record_probe(&conn, &id, Probe::Unreachable, None).unwrap();
-    let facts = get_reference(&conn, &id).unwrap().facts;
-    assert_eq!(facts.last_result.as_deref(), Some("offline"));
-    assert_eq!(facts.last_seen_at, None);
+    let now = facts(&conn, &id);
+    assert_eq!(now.last_result.as_deref(), Some("offline"));
+    assert_eq!(now.last_seen_at, None);
 
     record_probe(&conn, &id, Probe::Reached, Some("Real title")).unwrap();
-    let facts = get_reference(&conn, &id).unwrap().facts;
-    assert_eq!(facts.last_result.as_deref(), Some("available"));
-    assert_eq!(facts.last_known_title.as_deref(), Some("Real title"));
-    let seen = facts.last_seen_at.clone().expect("seen");
+    let now = facts(&conn, &id);
+    assert_eq!(now.last_result.as_deref(), Some("available"));
+    assert_eq!(now.last_known_title.as_deref(), Some("Real title"));
+    let seen = now.last_seen_at.clone().expect("seen");
 
     // Going offline later keeps when it last answered, which "Offline, as of" shows.
     record_probe(&conn, &id, Probe::Unreachable, None).unwrap();
-    let facts = get_reference(&conn, &id).unwrap().facts;
-    assert_eq!(facts.last_result.as_deref(), Some("offline"));
-    assert_eq!(facts.last_seen_at.as_deref(), Some(seen.as_str()));
-    // The entity's own title, which the user may have changed, is never touched.
-    assert_eq!(
-        get_reference(&conn, &id).unwrap().entity.title,
-        "https://a.dev"
-    );
+    let now = facts(&conn, &id);
+    assert_eq!(now.last_result.as_deref(), Some("offline"));
+    assert_eq!(now.last_seen_at.as_deref(), Some(seen.as_str()));
+    // The File's own title, which the user may have changed, is never touched.
+    let title: String = conn
+        .query_row("SELECT title FROM entities WHERE id = ?1", [&id], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(title, "x.pdf");
 
     // What a device lacks says nothing about the target.
     record_probe(&conn, &id, Probe::NotHere, Some("ignored")).unwrap();
     assert_eq!(
-        get_reference(&conn, &id)
-            .unwrap()
-            .facts
-            .last_known_title
-            .as_deref(),
+        facts(&conn, &id).last_known_title.as_deref(),
         Some("Real title")
     );
 }
@@ -223,38 +220,30 @@ fn a_probe_keeps_the_last_answer_and_only_a_reached_one_moves_last_seen() {
 #[test]
 fn looking_again_soon_does_not_write_again() {
     let (conn, space) = setup();
-    let r = create_reference(&conn, space, PROVIDER_LINK, "https://a.dev", None).unwrap();
-    record_probe(&conn, &r.entity.id, Probe::Reached, None).unwrap();
+    let id = link_file(&conn, &space, "https://a.dev/x.pdf");
+    record_probe(&conn, &id, Probe::Reached, None).unwrap();
     // Pretend the last look was a moment ago, with a marker only a write would remove.
     let marker = crate::db::now();
     conn.execute(
         "UPDATE entity_references SET last_seen_at = ?1 WHERE entity_id = ?2",
-        params![marker, r.entity.id],
+        params![marker, id],
     )
     .unwrap();
-    record_probe(&conn, &r.entity.id, Probe::Reached, None).unwrap();
+    record_probe(&conn, &id, Probe::Reached, None).unwrap();
     assert_eq!(
-        get_reference(&conn, &r.entity.id)
-            .unwrap()
-            .facts
-            .last_seen_at
-            .as_deref(),
+        facts(&conn, &id).last_seen_at.as_deref(),
         Some(marker.as_str())
     );
     // An hour later it is written again.
     let old = (chrono::Utc::now() - chrono::Duration::hours(2)).to_rfc3339();
     conn.execute(
         "UPDATE entity_references SET last_seen_at = ?1 WHERE entity_id = ?2",
-        params![old, r.entity.id],
+        params![old, id],
     )
     .unwrap();
-    record_probe(&conn, &r.entity.id, Probe::Reached, None).unwrap();
+    record_probe(&conn, &id, Probe::Reached, None).unwrap();
     assert_ne!(
-        get_reference(&conn, &r.entity.id)
-            .unwrap()
-            .facts
-            .last_seen_at
-            .as_deref(),
+        facts(&conn, &id).last_seen_at.as_deref(),
         Some(old.as_str())
     );
 }
@@ -328,9 +317,8 @@ fn locating_refuses_a_missing_file_a_non_file_and_a_non_reference() {
     assert!(locate_on_device(&conn, &file.entity.id, "d", &nothing).is_err());
     assert_eq!(device_path(&conn, &file.entity.id, "d").unwrap(), None);
 
-    let link =
-        create_reference(&conn, space.clone(), PROVIDER_LINK, "https://a.dev", None).unwrap();
-    assert!(locate_on_device(&conn, &link.entity.id, "d", &scratch("x")).is_err());
+    let link = link_file(&conn, &space, "https://a.dev/x.pdf");
+    assert!(locate_on_device(&conn, &link, "d", &scratch("x")).is_err());
 
     let note = crate::db::notes::create_page(&conn, space, "note", "N".into()).unwrap();
     assert!(locate_on_device(&conn, &note.id, "d", &scratch("x")).is_err());
@@ -390,25 +378,33 @@ fn checking_without_moodle_looks_at_files_and_links_and_refuses_moodle() {
         Some("missing")
     );
 
-    let course = create_reference(&conn, space, PROVIDER_MOODLE_COURSE, "7", None).unwrap();
-    assert!(check_without_moodle(&conn, &course.entity.id, TEST_DEVICE).is_err());
+    // A Moodle pointer is only looked at inside the app, where Moodle is signed in.
+    let course = link_file(&conn, &space, "https://a.dev/x.pdf");
+    conn.execute(
+        "UPDATE entity_references SET provider = 'moodle_course', remote_id = '7' WHERE entity_id = ?1",
+        [&course],
+    )
+    .unwrap();
+    assert!(check_without_moodle(&conn, &course, TEST_DEVICE).is_err());
 }
 
 #[test]
-fn a_reference_is_trashed_with_the_rest_and_never_erased_by_itself() {
+fn a_kept_link_is_trashed_with_the_rest_and_only_emptying_trash_erases_its_record() {
     let (conn, space) = setup();
-    let r = create_reference(&conn, space, PROVIDER_LINK, "https://a.dev", None).unwrap();
-    crate::db::entities::soft_delete_entity(&conn, &r.entity.id).unwrap();
+    let id = link_file(&conn, &space, "https://a.dev/x.pdf");
+    crate::db::entities::soft_delete_entity(&conn, &id).unwrap();
     // Soft deleted: the record is still there to restore.
-    assert!(get_reference(&conn, &r.entity.id).is_ok());
-    assert!(list_references(&conn, &r.entity.space_id)
+    assert_eq!(facts(&conn, &id).provider, PROVIDER_LINK);
+    assert!(crate::db::files::list_files(&conn, &space)
         .unwrap()
         .is_empty());
-    crate::db::entities::restore_entity(&conn, &r.entity.id).unwrap();
-    assert_eq!(list_references(&conn, &r.entity.space_id).unwrap().len(), 1);
+    crate::db::entities::restore_entity(&conn, &id).unwrap();
+    assert_eq!(
+        crate::db::files::list_files(&conn, &space).unwrap().len(),
+        1
+    );
 
-    // Only emptying Trash by hand removes the rows, all of them.
-    crate::db::entities::soft_delete_entity(&conn, &r.entity.id).unwrap();
+    crate::db::entities::soft_delete_entity(&conn, &id).unwrap();
     crate::db::entities::empty_trash(&conn).unwrap();
     for table in ["entity_references", "reference_device_paths"] {
         let rows: i64 = conn
@@ -539,12 +535,12 @@ fn a_moved_file_reads_missing_and_locating_finds_it_again() {
 }
 
 #[test]
-fn the_cli_describes_references_and_runs_locate_and_check() {
+fn references_are_no_entity_type_of_their_own_and_the_cli_offers_locate_and_check_on_files() {
     let defs: Vec<&str> = inventory::iter::<crate::db::schema::EntitySchemaDef>()
         .map(|d| d.entity_type)
         .collect();
-    assert!(defs.contains(&"reference"));
-    for entity_type in ["reference", "file"] {
+    assert!(!defs.contains(&"reference"));
+    for entity_type in ["file"] {
         let names: Vec<&str> = crate::db::schema::entity_actions(entity_type)
             .iter()
             .map(|a| a.name)

@@ -1833,11 +1833,18 @@
           "writableOnUpdate": true
         },
         {
-          "description": "Update only: true copies a referenced file (sourcePath) into Nookly's own storage.",
+          "description": "Update only: true copies a referenced file (sourcePath) or downloads a kept link (linkUrl) into Nookly's own storage.",
           "kind": "boolean",
           "name": "copyIntoStorage",
           "requiredOnCreate": false,
           "writableOnUpdate": true
+        },
+        {
+          "description": "A web address to keep as a link without downloading it. The File shows whether the link answers (`check`), and `copyIntoStorage=true` downloads it later. Use `url` instead to download it now.",
+          "kind": "text",
+          "name": "linkUrl",
+          "requiredOnCreate": false,
+          "writableOnUpdate": false
         },
         {
           "description": "Path to a local file to copy in and attach. Exactly one of localPath/url is required on create. On update it replaces the stored copy with a newer version (same entity, labels and relationships; the previous copy stays on disk).",
@@ -3095,152 +3102,6 @@
           "kind": "text",
           "name": "tagIds",
           "requiredOnCreate": false,
-          "writableOnUpdate": true
-        }
-      ],
-      "relationshipTypes": [
-        "attached-file",
-        "relates-to"
-      ],
-      "supportsBlocks": false
-    },
-    {
-      "baseFields": [
-        {
-          "description": "Read-only",
-          "kind": "datetime",
-          "name": "createdAt"
-        },
-        {
-          "description": "Read-only; set by delete, cleared by restore",
-          "kind": "datetime",
-          "name": "deletedAt"
-        },
-        {
-          "description": "Optional emoji/icon, set via --icon",
-          "kind": "text",
-          "name": "icon"
-        },
-        {
-          "description": "Stable unique id (UUID), generated",
-          "kind": "text",
-          "name": "id"
-        },
-        {
-          "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
-          "kind": "text",
-          "name": "key"
-        },
-        {
-          "description": "Read-only; set whenever the entity is opened in the app, null if never",
-          "kind": "datetime",
-          "name": "lastOpenedAt"
-        },
-        {
-          "description": "Set via --pinned true|false",
-          "kind": "boolean",
-          "name": "pinned"
-        },
-        {
-          "description": "Space this entity belongs to",
-          "kind": "entity_ref(space)",
-          "name": "spaceId"
-        },
-        {
-          "description": "User-editable title, set via --title",
-          "kind": "text",
-          "name": "title"
-        },
-        {
-          "description": "Read-only",
-          "kind": "datetime",
-          "name": "updatedAt"
-        }
-      ],
-      "blockCommands": null,
-      "blockPage": null,
-      "bulkActions": [],
-      "childCollections": [],
-      "computedFields": [
-        {
-          "description": "Read only. The title the target had when it was last reached.",
-          "kind": "text",
-          "name": "lastKnownTitle"
-        },
-        {
-          "description": "Read only. The last live answer. Whether it can be reached right now is never stored: run the `check` action.",
-          "kind": {
-            "type": "enum",
-            "values": [
-              "available",
-              "missing",
-              "needs_sign_in",
-              "offline"
-            ]
-          },
-          "name": "lastResult"
-        },
-        {
-          "description": "Read only. When the target last answered. `null` if it never did.",
-          "kind": "datetime",
-          "name": "lastSeenAt"
-        },
-        {
-          "description": "Read only. For a file: where it is on this device; `null` when it is not on this device.",
-          "kind": "text",
-          "name": "pathOnThisDevice"
-        },
-        {
-          "description": "Read only. `{ state, asOf }` where state is `available`, `offline`, `missing`, `needsSignIn` or `notOnThisDevice`, worked out now. Only given for a file; run the `check` action for a link.",
-          "kind": "object",
-          "name": "status"
-        }
-      ],
-      "convertsTo": [],
-      "description": "A pointer to something Nookly does not own, like a Moodle course or a link. It keeps the target's identity and last known title, never its content, so it can be linked to other items. Whether the target can be reached is worked out live (the `check` action) and never stored.",
-      "entityActions": [
-        {
-          "command": "nookly cli reference check <id> [--title <title>]",
-          "description": "Looks at the target now and returns its state: available, offline, missing, needsSignIn or notOnThisDevice. A Moodle reference can only be checked inside the app.",
-          "fields": [],
-          "name": "check"
-        },
-        {
-          "command": "nookly cli reference locate <id> [--title <title>]",
-          "description": "Tells Nookly where the same file is on this device (only this device's path changes). Use it when the file moved, or came from another device.",
-          "fields": [
-            {
-              "description": "Path of the same file on this device.",
-              "kind": "text",
-              "name": "path",
-              "requiredOnCreate": true,
-              "writableOnUpdate": false
-            }
-          ],
-          "name": "locate"
-        }
-      ],
-      "entityType": "reference",
-      "fields": [
-        {
-          "description": "What the reference points at: `link` (a web address), `moodle_course` or `moodle_assignment`. A file on disk is a File: `file create --field sourcePath=...`.",
-          "kind": {
-            "type": "enum",
-            "values": [
-              "link",
-              "moodle_assignment",
-              "moodle_course"
-            ]
-          },
-          "name": "provider",
-          "requiredOnCreate": true,
-          "writableOnUpdate": false
-        },
-        {
-          "description": "Where it points: the web address for a link, the course id for a Moodle course, `<course id>:<assignment id>` for a Moodle assignment. Changing it forgets the last known facts.",
-          "kind": "text",
-          "name": "remoteId",
-          "requiredOnCreate": true,
           "writableOnUpdate": true
         }
       ],
