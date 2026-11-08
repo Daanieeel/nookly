@@ -1,7 +1,7 @@
 {
   "versions": [
     {
-      "version": "0.69.0",
+      "version": "0.70.0",
       "date": "2026-11-08",
       "highlights": [
         {
@@ -14,6 +14,19 @@
       "more": {
         "Improved": [
           "The Relate to button is now called Link, and each step of the picker says what it asks."
+        ]
+      }
+    },
+    {
+      "version": "0.69.0",
+      "date": "2026-11-08",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "You can now zoom the relationship graph out and in, or fit it to your view, so the second ring is fully visible."
+        ],
+        "Fixed": [
+          "The relationship graph now scrolls up, down, left and right in one swipe when the second ring is on."
         ]
       }
     },
@@ -96,7 +109,9 @@
       "date": "2026-11-06",
       "highlights": [],
       "more": {
-        "Fixed": ["Links now always open in your default browser, never inside Nookly."]
+        "Fixed": [
+          "Links now always open in your default browser, never inside Nookly."
+        ]
       }
     },
     {
@@ -386,7 +401,9 @@
       "date": "2026-10-30",
       "highlights": [],
       "more": {
-        "Fixed": ["Typing `^` in an empty code or math block no longer breaks the block."]
+        "Fixed": [
+          "Typing `^` in an empty code or math block no longer breaks the block."
+        ]
       }
     },
     {
@@ -606,7 +623,9 @@
         }
       ],
       "more": {
-        "Improved": ["A file in a page can name the last page of its interval, like pages 3 to 9."]
+        "Improved": [
+          "A file in a page can name the last page of its interval, like pages 3 to 9."
+        ]
       }
     },
     {
@@ -614,7 +633,9 @@
       "date": "2026-10-20",
       "highlights": [],
       "more": {
-        "Improved": ["Exports to PDF, Word and OpenDocument start on A4 instead of Letter."]
+        "Improved": [
+          "Exports to PDF, Word and OpenDocument start on A4 instead of Letter."
+        ]
       }
     },
     {
@@ -622,7 +643,9 @@
       "date": "2026-10-20",
       "highlights": [],
       "more": {
-        "Improved": ["Cmd or Ctrl and a click on a file in a page opens it in a new Nookly tab."]
+        "Improved": [
+          "Cmd or Ctrl and a click on a file in a page opens it in a new Nookly tab."
+        ]
       }
     },
     {
@@ -630,7 +653,9 @@
       "date": "2026-10-20",
       "highlights": [],
       "more": {
-        "Improved": ["The Open settings file button is now called Show settings file."]
+        "Improved": [
+          "The Open settings file button is now called Show settings file."
+        ]
       }
     },
     {
@@ -645,7 +670,9 @@
         }
       ],
       "more": {
-        "Improved": ["Saving a page as Markdown now happens in the same Export dialog."]
+        "Improved": [
+          "Saving a page as Markdown now happens in the same Export dialog."
+        ]
       }
     },
     {
@@ -660,7 +687,9 @@
         }
       ],
       "more": {
-        "Improved": ["Clear filters always sits next to the Filter button, above your filters."]
+        "Improved": [
+          "Clear filters always sits next to the Filter button, above your filters."
+        ]
       }
     },
     {
@@ -680,7 +709,9 @@
       "date": "2026-10-16",
       "highlights": [],
       "more": {
-        "Fixed": ["Files scroll smoothly even with hundreds of PDFs, without lag or blank gaps."]
+        "Fixed": [
+          "Files scroll smoothly even with hundreds of PDFs, without lag or blank gaps."
+        ]
       }
     },
     {
@@ -851,7 +882,9 @@
         }
       ],
       "more": {
-        "Fixed": ["Long label names no longer squash their checkbox in the label picker."]
+        "Fixed": [
+          "Long label names no longer squash their checkbox in the label picker."
+        ]
       }
     },
     {
@@ -913,7 +946,9 @@
       "date": "2026-10-15",
       "highlights": [],
       "more": {
-        "Fixed": ["The dashboard summary mentions a session that is about to start only once."]
+        "Fixed": [
+          "The dashboard summary mentions a session that is about to start only once."
+        ]
       }
     },
     {
@@ -944,7 +979,9 @@
           "Lists, grids and the details sidebar fit the width of their side of a split.",
           "Long pages stay smooth: parts scrolled out of view are not laid out until you get there."
         ],
-        "Fixed": ["Tabs are announced once by screen readers, without their close button."]
+        "Fixed": [
+          "Tabs are announced once by screen readers, without their close button."
+        ]
       }
     },
     {
@@ -1053,7 +1090,9 @@
       "date": "2026-10-13",
       "highlights": [],
       "more": {
-        "Improved": ["The Dashboard calendar keeps a minimum height of 800 pixels."]
+        "Improved": [
+          "The Dashboard calendar keeps a minimum height of 800 pixels."
+        ]
       }
     },
     {

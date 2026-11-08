@@ -2,7 +2,7 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.69.0 (2026-11-08)
+## 0.70.0 (2026-11-08)
 
 ### Added
 
@@ -12,6 +12,16 @@ All notable changes to Nookly are listed here.
 ### Changed
 
 - The Relate to button is now called Link, and each step of the picker says what it asks.
+
+## 0.69.0 (2026-11-08)
+
+### Added
+
+- You can now zoom out, zoom in and fit the relationship graph to your view, and the second ring opens fully visible.
+
+### Fixed
+
+- Fixed the relationship graph not scrolling up, down, left and right in one swipe when the second ring is on.
 
 ## 0.68.0 (2026-11-07)
 

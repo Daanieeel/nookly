@@ -72,6 +72,8 @@ Changing persisted state also means:
 
 UI work: dialogs and menus get an axe test (`vitest-axe`, see `src/test/axe.ts`), and every permanent action uses `ConfirmPermanentDialog`.
 
+Branches are cleaned up after merge, always. Once a branch is merged (a PR, or an agent branch folded into another), delete it locally and on the remote (`git branch -d <branch>`, `git push origin --delete <branch>`) and remove any worktree it used (`git worktree remove <path>`, then `git worktree prune`). This covers branches and worktrees created for delegated agents too. Use `-d`, never `-D`: if git refuses because the branch is not merged, stop and check before deleting anything.
+
 Report only checks, read them and do not silence them: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
 
 When adding new features or tests and you want confirm everything works as intended, make sure to run those tests in isolation from the others. This way we are saving time when implementing that would have otherwise been wasted by waiting on tests that are not needed for the feature. CI will catch bugs or unwanted behavior that have cross-contaminated other features.
