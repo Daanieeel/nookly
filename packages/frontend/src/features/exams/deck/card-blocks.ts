@@ -47,11 +47,11 @@ export function faceBlocks(card: Pick<IndexCard, Side | "frontBlocks" | "backBlo
   return blocks && blocks.length > 0 ? blocks : textToBlocks(card[side]);
 }
 
-/// Blocks that are drawn from source (formulas, diagrams, circuits, plots) show what they
+/// Blocks that are drawn from source (formulas, diagrams, circuits, plots, mind maps) show what they
 /// draw rather than the source, on a card that is only read.
 export function forReading(blocks: CardBlock[]): CardBlock[] {
   return blocks.map((block) =>
-    ["equation", "math", "diagram", "circuit", "plot"].includes(block.type)
+    ["equation", "math", "diagram", "circuit", "plot", "mindmap"].includes(block.type)
       ? { ...block, attrs: { ...block.attrs, view: "rendered" } }
       : block,
   );
@@ -134,6 +134,7 @@ export function faceSummary(
     ["diagram", "Diagram"],
     ["circuit", "Circuit"],
     ["plot", "Plot"],
+    ["mindmap", "Mind map"],
   ]);
   const lines = blocks.map((b) => {
     const name = named.get(b.type);

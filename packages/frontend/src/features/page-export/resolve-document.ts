@@ -16,6 +16,7 @@ export interface FigureRenderers {
   diagram: (source: string) => Promise<ExportImage | null>;
   circuit: (source: string) => Promise<ExportImage | null>;
   plot: (source: string) => Promise<ExportImage | null>;
+  mindmap: (source: string) => Promise<ExportImage | null>;
   image: (source: { fileId?: string; url?: string; path?: string }) => Promise<ExportImage | null>;
   /// Where a link to an entity points outside Nookly (a File's or Bookmark's URL), or null
   /// when it points nowhere there, which leaves its text unlinked.
@@ -43,6 +44,8 @@ function drawFigure(source: FigureSource, renderers: FigureRenderers) {
       return attempt(() => renderers.circuit(source.source));
     case "plot":
       return attempt(() => renderers.plot(source.source));
+    case "mindmap":
+      return attempt(() => renderers.mindmap(source.source));
     case "image":
       return attempt(() => renderers.image(source));
   }

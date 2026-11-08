@@ -36,6 +36,7 @@ pub mod mention_keys;
 #[cfg(test)]
 pub(crate) mod migration_upgrade_tests;
 mod migrations;
+pub mod mindmap_layout;
 pub mod notes;
 mod ocr;
 mod office_text;

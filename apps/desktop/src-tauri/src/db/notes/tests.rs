@@ -770,3 +770,137 @@ fn block_to_markdown_renders_a_table_block() {
         "| Name | Age |\n|---|---|\n| Alice | 30 |\n| Bob | 25 |"
     );
 }
+
+fn mindmap_with_layout(conn: &Connection, content: &str, layout: &str) -> Block {
+    let space = crate::db::spaces::create_space(conn, "Study".into(), None, "#000".into()).unwrap();
+    let page = create_page(conn, space.id, "note", "Maps".into()).unwrap();
+    create_block_with_attrs(
+        conn,
+        &page.id,
+        "mindmap".into(),
+        content.into(),
+        None,
+        None,
+        None,
+        BlockAttrs::from([("layout".to_string(), layout.to_string())]),
+    )
+    .unwrap()
+}
+
+const MAP_LAYOUT: &str = r#"{"v":1,"ids":["p","r","w"],"positions":{"w":{"x":12.0,"y":8.0}}}"#;
+
+fn patch_content(content: &str, attrs: Option<BlockAttrs>) -> BlockPatch {
+    BlockPatch {
+        content: Some(content.into()),
+        attrs,
+        ..BlockPatch::default()
+    }
+}
+
+#[test]
+fn an_outline_edited_from_outside_the_editor_keeps_where_nodes_were_dragged() {
+    let conn = crate::db::test_conn();
+    let block = mindmap_with_layout(&conn, "Plan\n  Read\n  Write", MAP_LAYOUT);
+    let updated = update_block(
+        &conn,
+        &block.id,
+        patch_content("Plan\n  Read\n  Draft\n  Write", None),
+    )
+    .unwrap();
+    let layout: serde_json::Value = serde_json::from_str(&updated.attrs["layout"]).unwrap();
+    let ids: Vec<&str> = layout["ids"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|id| id.as_str().unwrap())
+        .collect();
+    assert_eq!((ids[0], ids[1], ids[3]), ("p", "r", "w"));
+    assert_eq!(ids.len(), 4);
+    assert_eq!(
+        layout["positions"],
+        serde_json::json!({ "w": { "x": 12.0, "y": 8.0 } })
+    );
+    // What is stored is what was returned.
+    assert_eq!(get_block(&conn, &block.id).unwrap().attrs, updated.attrs);
+}
+
+#[test]
+fn deleting_the_only_moved_line_removes_the_layout() {
+    let conn = crate::db::test_conn();
+    let block = mindmap_with_layout(&conn, "Plan\n  Read\n  Write", MAP_LAYOUT);
+    let updated = update_block(&conn, &block.id, patch_content("Plan\n  Read", None)).unwrap();
+    assert!(!updated.attrs.contains_key("layout"));
+}
+
+#[test]
+fn a_write_that_brings_its_own_layout_is_stored_as_it_is() {
+    let conn = crate::db::test_conn();
+    let block = mindmap_with_layout(&conn, "Plan\n  Read\n  Write", MAP_LAYOUT);
+    let mine = r#"{"v":1,"ids":["a","b"],"positions":{"b":{"x":1.0,"y":2.0}}}"#;
+    let updated = update_block(
+        &conn,
+        &block.id,
+        patch_content(
+            "Plan\n  Read",
+            Some(BlockAttrs::from([("layout".to_string(), mine.to_string())])),
+        ),
+    )
+    .unwrap();
+    assert_eq!(updated.attrs["layout"], mine);
+}
+
+#[test]
+fn changing_only_other_attrs_leaves_the_layout_alone() {
+    let conn = crate::db::test_conn();
+    let block = mindmap_with_layout(&conn, "Plan\n  Read\n  Write", MAP_LAYOUT);
+    let updated = update_block(
+        &conn,
+        &block.id,
+        BlockPatch {
+            attrs: Some(BlockAttrs::from([(
+                "view".to_string(),
+                "rendered".to_string(),
+            )])),
+            ..BlockPatch::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(updated.attrs["layout"], MAP_LAYOUT);
+}
+
+#[test]
+fn clearing_the_layout_brings_back_the_automatic_one() {
+    let conn = crate::db::test_conn();
+    let block = mindmap_with_layout(&conn, "Plan\n  Read\n  Write", MAP_LAYOUT);
+    let updated = update_block(
+        &conn,
+        &block.id,
+        BlockPatch {
+            attrs: Some(BlockAttrs::from([("layout".to_string(), String::new())])),
+            ..BlockPatch::default()
+        },
+    )
+    .unwrap();
+    assert!(!updated.attrs.contains_key("layout"));
+    assert_eq!(updated.content, "Plan\n  Read\n  Write");
+}
+
+#[test]
+fn an_outline_with_no_layout_is_edited_as_before() {
+    let conn = crate::db::test_conn();
+    let space =
+        crate::db::spaces::create_space(&conn, "Study".into(), None, "#000".into()).unwrap();
+    let page = create_page(&conn, space.id, "note", "Maps".into()).unwrap();
+    let block = create_block(
+        &conn,
+        &page.id,
+        "mindmap".into(),
+        "Plan".into(),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    let updated = update_block(&conn, &block.id, patch_content("Plan\n  Read", None)).unwrap();
+    assert!(!updated.attrs.contains_key("layout"));
+}

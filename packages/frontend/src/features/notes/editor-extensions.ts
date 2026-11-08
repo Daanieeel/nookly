@@ -40,7 +40,14 @@ import { Spellcheck, type SpellSource } from "../spellcheck/spellcheck-extension
 import { TabIndent } from "./tab-indent-extension";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
-import { CircuitBlock, Diagram, Equation, MathBlock, PlotBlock } from "./source-block-extensions";
+import {
+  CircuitBlock,
+  Diagram,
+  Equation,
+  MathBlock,
+  MindmapBlock,
+  PlotBlock,
+} from "./source-block-extensions";
 import { PinnedColumns } from "./table-pinned-columns";
 import { Toggle, ToggleHeading } from "./toggle-extension";
 import { UniqueBlockId } from "./unique-block-id";
@@ -146,6 +153,7 @@ export function editorExtensions({
     Diagram,
     CircuitBlock,
     PlotBlock,
+    MindmapBlock,
     EntityCard.configure({ spaceId, pageId }),
     Image.configure({ spaceId, pageId }),
     Video.configure({ spaceId, pageId }),

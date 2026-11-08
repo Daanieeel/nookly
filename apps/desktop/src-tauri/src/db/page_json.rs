@@ -565,6 +565,7 @@ mod tests {
                 "diagram" => "flowchart LR\n  A --> B".to_string(),
                 "circuit" => "S = A ^ B".to_string(),
                 "plot" => "f(x) = x^2".to_string(),
+                "mindmap" => "Plan\n  Read".to_string(),
                 "entity_card" | "bookmark" | "image" | "video" | "audio" | "file" => m.clone(),
                 "embed" => "https://example.com".to_string(),
                 "divider" | "callout" => String::new(),

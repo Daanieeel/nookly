@@ -1,4 +1,4 @@
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { IconAlertTriangle, IconArrowBackUp } from "@tabler/icons-react";
 import { Selection } from "@tiptap/pm/state";
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
 import { type ComponentType, Fragment, useEffect, useRef, useState } from "react";
@@ -19,6 +19,25 @@ export interface InteractiveProps {
   onSourceChange: (code: string) => void;
 }
 
+/// What a preview is given when its block keeps editor owned data beside the code: the
+/// stored value and, in a page that can be edited, a way to save a new one.
+export interface PreviewState {
+  value: string;
+  onChange?: (next: string) => void;
+}
+
+/// Data a preview keeps in an attr of its own, such as where the user dragged the nodes of a
+/// mind map. Never part of the code, so every export and the CLI read the code alone.
+export interface LayoutAttr {
+  attr: string;
+  /// The stored value after the code changed from `before` to `after`.
+  follow: (before: string, after: string, value: string) => string;
+  /// The value with nothing moved, or `null` when there is nothing to undo.
+  reset: (value: string) => string | null;
+  /// Tooltip and name of the button that resets it.
+  resetLabel: string;
+}
+
 export interface SourceBlockOptions {
   label: string;
   icon: ComponentType<{ className?: string }>;
@@ -27,13 +46,20 @@ export interface SourceBlockOptions {
   /// What the empty block's preview says instead.
   emptyLabel: string;
   /// Draws `source` into `element`, resolving to an error message or `null`.
-  render: (source: string, element: HTMLElement, dark: boolean) => Promise<string | null>;
+  render: (
+    source: string,
+    element: HTMLElement,
+    dark: boolean,
+    state?: PreviewState,
+  ) => Promise<string | null>;
   /// Center the preview, for a single display equation.
   centered: boolean;
   /// Tooltip and name of a button that copies the code, shown in every view.
   copyLabel?: string;
   /// A short guide to writing the code, shown below it on the code view.
   legend?: ComponentType;
+  /// Data the preview keeps in an attr of its own beside the code.
+  layout?: LayoutAttr;
   /// A third view between the code and the preview, where the block is edited by
   /// hand. It keeps its work in a `drawing` attr.
   interactive?: ComponentType<InteractiveProps>;
@@ -108,6 +134,15 @@ function SourceBlockView({
   const [macros] = useSetting("notes.latexMacros");
   const previewRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // The options object is a new one on every render of the node view; what is in it is not.
+  // Depending on the object would redraw the preview on every selection change, which also
+  // throws away a drag in progress.
+  const { layout, render } = options;
+  const layoutValue = layout ? String(node.attrs[layout.attr] ?? "") : "";
+  const editable = editor.isEditable;
+  // The effect below must not redraw just because the callback is a new one.
+  const update = useRef(updateAttributes);
+  update.current = updateAttributes;
 
   useEffect(() => {
     const element = previewRef.current;
@@ -117,13 +152,19 @@ function SourceBlockView({
       return;
     }
     let cancelled = false;
-    void options.render(source, element, dark).then((message) => {
+    const state: PreviewState | undefined = layout && {
+      value: layoutValue,
+      onChange: editable ? (next) => update.current({ [layout.attr]: next }) : undefined,
+    };
+    void render(source, element, dark, state).then((message) => {
       if (!cancelled) setError(message);
     });
     return () => {
       cancelled = true;
     };
-  }, [rendered, source, dark, options, macros]);
+  }, [rendered, source, dark, render, macros, layout, layoutValue, editable]);
+
+  const resetTo = layout && rendered && editable ? layout.reset(layoutValue) : null;
 
   const replaceSource = (code: string) => {
     const pos = getPos();
@@ -159,6 +200,22 @@ function SourceBlockView({
           <span className="truncate">{options.label}</span>
         </span>
         <div className="flex min-w-0 shrink-0 items-center gap-1">
+          {layout && resetTo !== null && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="muted"
+                  size="iconSm"
+                  aria-label={layout.resetLabel}
+                  onClick={() => updateAttributes({ [layout.attr]: resetTo })}
+                  className="size-6"
+                >
+                  <IconArrowBackUp className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{layout.resetLabel}</TooltipContent>
+            </Tooltip>
+          )}
           {options.copyLabel && (
             <Tooltip>
               <TooltipTrigger asChild>

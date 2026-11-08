@@ -523,3 +523,15 @@ Search is one SQL statement that returns a single ranked list: key matches, then
 **Why:** scanning headings was slower than reading a list. Two result lists meant two sets of code. Loading every entity and label before the first letter was the main cost of opening.
 
 **Rejected:** an in memory index in the frontend (a second copy of the data that can drift, the full text index already is the index) and a fixed typing pause (it only delays the first answer).
+
+---
+
+### Mind maps are a custom block drawn from an outline
+
+A mind map is the `mindmap` block, an indented list with one idea per line, not a module. It has no life outside the page it sits on, and `diagram`, `circuit` and `plot` already have the same shape. The outline text is the only source of truth: markdown export, the CLI and the PDF, Word and OpenDocument exports all read it, and the layout is worked out from it the same way every time. Folding branches in the preview is only a view and never changes the outline.
+
+**Why:** one text that every reader understands keeps the block fully covered by the CLI and the exports without a second format to keep in sync. Dragging only moves nodes inside the block; it does not turn into a free canvas.
+
+**Dragging:** dragged positions are editor owned layout data in a versioned `layout` block attr, the way the circuit block keeps its drawing. The attr holds an id per outline line (a parallel list) and, for each moved node, its offset from the automatic place; a node's offset adds to its parent's, so a dragged branch takes its subtree along. Dragging never changes the outline, and "Reset layout" clears the attr. Ids are never written into the outline text. Every outline edit, from the editor or the CLI, goes through a line diff (longest common subsequence) between the old and new text: unchanged lines, lines moved elsewhere and lines edited in place keep their id, new lines get a fresh one, deleted lines drop theirs, and positions that match no line are cleaned up. A layout made for other text (a pasted or externally written outline) is cleared, so its nodes use the automatic layout and the outline is never touched. The editor follows its own edits in a plugin; a write without a layout of its own, such as the CLI's, is followed in `update_block`. The two implementations share their test cases. Exports and markdown ignore positions and lay out from the outline alone.
+
+**Rejected:** inline markers like `{#a1b2}` (they would leak into markdown, the CLI and every export), and keying positions by path or text (renaming or reordering would lose them).

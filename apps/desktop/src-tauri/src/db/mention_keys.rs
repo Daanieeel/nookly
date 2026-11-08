@@ -11,7 +11,9 @@ use std::sync::LazyLock;
 
 /// Blocks that hold source text, which must stay exactly as written: a mention shaped
 /// string inside a code block is code, not a link.
-const VERBATIM_BLOCK_TYPES: &[&str] = &["code", "equation", "math", "diagram", "circuit", "plot"];
+const VERBATIM_BLOCK_TYPES: &[&str] = &[
+    "code", "equation", "math", "diagram", "circuit", "plot", "mindmap",
+];
 
 /// `](mention:JOT-12)` or `](mention:JOT-12#blockId)`, in any case.
 static KEY_TARGET: LazyLock<regex::Regex> = LazyLock::new(|| {

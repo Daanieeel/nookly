@@ -162,6 +162,19 @@ fn plot_exports_its_code_and_has_a_preview() {
 }
 
 #[test]
+fn mindmap_exports_its_outline_and_has_a_preview() {
+    let outline = "Plan\n  Read\n    Chapter 1\n  Write\n";
+    let md = (lookup("mindmap").unwrap().to_markdown)(&block("mindmap", outline, &[]));
+    assert_eq!(md, "```mindmap\nPlan\n  Read\n    Chapter 1\n  Write\n```");
+    let attr = |key: &str, value: &str| BlockAttrs::from([(key.to_string(), value.to_string())]);
+    assert!(validate_attrs("mindmap", &attr("view", "rendered")).is_ok());
+    assert!(validate_attrs("mindmap", &attr("view", "interactive")).is_err());
+    assert!(validate_attrs("mindmap", &attr("drawing", "{}")).is_err());
+    // Any text is an outline, so nothing is turned away.
+    assert!(validate_content("mindmap", "- anything\n\tat all").is_ok());
+}
+
+#[test]
 fn math_exports_as_display_math() {
     let equation = (lookup("equation").unwrap().to_markdown)(&block("equation", "E = mc^2", &[]));
     assert_eq!(equation, "$$\nE = mc^2\n$$");
@@ -468,4 +481,23 @@ fn merge_attrs_clears_empty_values_and_drops_undeclared_keys() {
         BlockAttrs::from([("title".to_string(), String::new())]),
     );
     assert!(attrs.is_empty());
+}
+
+#[test]
+fn mindmap_keeps_where_nodes_were_dragged_in_a_layout_attr() {
+    let attr = |key: &str, value: &str| BlockAttrs::from([(key.to_string(), value.to_string())]);
+    assert!(validate_attrs(
+        "mindmap",
+        &attr("layout", "{\"v\":1,\"ids\":[],\"positions\":{}}")
+    )
+    .is_ok());
+    // Only a mind map has one.
+    assert!(validate_attrs("plot", &attr("layout", "{}")).is_err());
+    // The layout is not the outline: the markdown has the outline alone.
+    let md = (lookup("mindmap").unwrap().to_markdown)(&block(
+        "mindmap",
+        "Plan\n  Read",
+        &[("layout", "{\"v\":1,\"ids\":[\"a\",\"b\"],\"positions\":{}}")],
+    ));
+    assert_eq!(md, "```mindmap\nPlan\n  Read\n```");
 }

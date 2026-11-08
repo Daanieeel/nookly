@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { settings } from "#/lib/settings/settings.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { editorExtensions } from "./editor-extensions";
+import { readLayout } from "./mindmap/positions";
 import { SourceBlock } from "./SourceBlock";
 
 let editor: Editor | null = null;
@@ -388,4 +389,126 @@ describe("where the code of a source block holds its text", () => {
       expect(document.querySelector("pre.code-block-body code")).toBeNull();
     },
   );
+});
+
+const OUTLINE = "Plan\n  Read\n  Write";
+const LAYOUT = JSON.stringify({
+  v: 1,
+  ids: ["p", "r", "w"],
+  positions: { w: { x: 12, y: 8 } },
+});
+
+const mindmap = (attrs: Record<string, string> = {}, text = OUTLINE): JSONContent => ({
+  type: "mindmap",
+  attrs: { blockId: "m1", ...attrs },
+  content: [{ type: "text", text }],
+});
+
+const layoutOf = (target: Editor) => {
+  const parsed = readLayout(String(attrsOf(target).layout ?? ""));
+  return parsed.kind === "known" ? parsed.layout : null;
+};
+
+describe("where a mind map keeps what was dragged", () => {
+  it("keeps the ids of the lines it had when the outline is edited", async () => {
+    const { editor: target } = await open(mindmap({ layout: LAYOUT }));
+    act(() => {
+      target.view.dispatch(target.state.tr.insertText("\n  Rest", 1 + OUTLINE.length));
+    });
+    const layout = layoutOf(target);
+    expect(layout?.ids.slice(0, 3)).toEqual(["p", "r", "w"]);
+    expect(layout?.ids).toHaveLength(4);
+    expect(layout?.positions).toEqual({ w: { x: 12, y: 8 } });
+  });
+
+  it("drops the position of a line that was deleted, and the layout once none is left", async () => {
+    const { editor: target } = await open(mindmap({ layout: LAYOUT }));
+    act(() => {
+      target.view.dispatch(target.state.tr.delete(1 + "Plan\n  Read".length, 1 + OUTLINE.length));
+    });
+    expect(layoutOf(target)).toBeNull();
+  });
+
+  it("keeps the position of a line that was renamed", async () => {
+    const { editor: target } = await open(mindmap({ layout: LAYOUT }));
+    act(() => {
+      target.view.dispatch(target.state.tr.insertText(" now", 1 + OUTLINE.length));
+    });
+    expect(layoutOf(target)?.ids).toEqual(["p", "r", "w"]);
+    expect(layoutOf(target)?.positions).toEqual({ w: { x: 12, y: 8 } });
+  });
+
+  it("leaves a block with no layout, such as a pasted outline, without one", async () => {
+    const { editor: target } = await open(mindmap());
+    act(() => {
+      target.view.dispatch(target.state.tr.insertText("\n  More", 1 + OUTLINE.length));
+    });
+    expect(layoutOf(target)).toBeNull();
+  });
+
+  it("saves a drag on the preview in the layout attr, not in the outline", async () => {
+    const { editor: target } = await open(mindmap({ view: "rendered" }));
+    const node = await waitFor(() => {
+      const found = document.querySelector('[data-node="0.1"]');
+      if (!found) throw new Error("not drawn yet");
+      return found;
+    });
+    const at = (type: string, x: number, y: number) =>
+      new MouseEvent(type, { bubbles: true, button: 0, clientX: x, clientY: y });
+    const preview =
+      node.closest(".source-block-preview > div") ?? node.parentElement?.parentElement;
+    act(() => {
+      node.dispatchEvent(at("pointerdown", 10, 10));
+      preview?.dispatchEvent(at("pointermove", 40, 10));
+      preview?.dispatchEvent(at("pointerup", 40, 10));
+    });
+    const layout = layoutOf(target);
+    expect(layout?.ids).toHaveLength(3);
+    expect(Object.values(layout?.positions ?? {})).toEqual([{ x: 30, y: 0 }]);
+    expect(target.state.doc.firstChild?.textContent).toBe(OUTLINE);
+  });
+
+  it("offers to reset the layout on the preview only when something was moved", async () => {
+    const { editor: target } = await open(mindmap({ view: "rendered" }));
+    expect(screen.queryByRole("button", { name: "Reset layout" })).toBeNull();
+    act(() => {
+      target.commands.updateAttributes("mindmap", { layout: LAYOUT });
+    });
+    const reset = await screen.findByRole("button", { name: "Reset layout" });
+    act(() => reset.click());
+    expect(layoutOf(target)).toBeNull();
+    expect(target.state.doc.firstChild?.textContent).toBe(OUTLINE);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Reset layout" })).toBeNull());
+  });
+
+  it("does not offer the reset on the code view, or in a page that cannot be edited", async () => {
+    const { editor: target } = await open(mindmap({ layout: LAYOUT }));
+    expect(screen.queryByRole("button", { name: "Reset layout" })).toBeNull();
+    act(() => {
+      target.commands.updateAttributes("mindmap", { view: "rendered" });
+      target.setEditable(false);
+    });
+    await screen.findByRole("button", { name: "Preview", pressed: true });
+    expect(screen.queryByRole("button", { name: "Reset layout" })).toBeNull();
+  });
+
+  // A press on a node also moves the editor's selection, which renders the block again (with
+  // a new options object, in the app). The preview must not be drawn again for that, or a drag
+  // loses its node before it starts. jsdom keeps the options object, so the drag surviving a
+  // redraw is also pinned in `mindmap/render.test.ts`.
+  it("keeps the drawn preview when only the selection changes", async () => {
+    const { editor: target } = await open(mindmap({ view: "rendered" }));
+    const drawn = await waitFor(() => {
+      const found = document.querySelector("[data-node]");
+      if (!found) throw new Error("not drawn yet");
+      return found;
+    });
+    act(() => {
+      target.commands.setNodeSelection(0);
+    });
+    act(() => {
+      target.commands.setTextSelection(1);
+    });
+    expect(document.querySelector("[data-node]")).toBe(drawn);
+  });
 });

@@ -3,6 +3,9 @@ import { renderDiagram } from "#/features/notes/diagram.ts";
 import { drawCircuit } from "#/features/notes/circuit/draw.ts";
 import { layoutCircuit } from "#/features/notes/circuit/layout.ts";
 import { parseCircuit } from "#/features/notes/circuit/parse.ts";
+import { drawMindmap } from "#/features/notes/mindmap/draw.ts";
+import { layoutMindmap } from "#/features/notes/mindmap/layout.ts";
+import { parseMindmap } from "#/features/notes/mindmap/parse.ts";
 import { drawPlot } from "#/features/notes/plot/draw.ts";
 import { loadFormulas } from "#/features/notes/plot/formula.ts";
 import { parsePlot } from "#/features/notes/plot/parse.ts";
@@ -149,6 +152,9 @@ export const appFigureRenderers: FigureRenderers = {
     const formulas = await loadFormulas().catch(ignoreError("reading a figure for export"));
     return svgToPng(drawPlot(parsePlot(source), false, formulas));
   },
+  // Whole map: what the preview folds away is still on the page.
+  mindmap: async (source) =>
+    svgToPng(drawMindmap(layoutMindmap(parseMindmap(source), new Set()), false)),
   image: async ({ fileId, url, path: localPath }) => {
     // A file on this computer, when it is there: a missing one leaves the caption instead.
     if (localPath) {

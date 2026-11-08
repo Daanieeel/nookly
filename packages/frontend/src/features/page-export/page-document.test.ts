@@ -152,6 +152,11 @@ describe("pageDocument", () => {
       source: { type: "plot", source: "f(x) = x^2" },
       fallback: "f(x) = x^2",
     });
+    expect(one(block("mindmap", "Plan\n  Read"))[0]).toMatchObject({
+      source: { type: "mindmap", source: "Plan\n  Read" },
+      fallback: "Plan\n  Read",
+    });
+    expect(one(block("mindmap", " "))).toEqual([]);
     expect(one(block("equation", " "))).toEqual([]);
   });
 

@@ -1,17 +1,28 @@
-import { IconChartLine, IconCpu, IconMathFunction, IconSchema, IconSum } from "@tabler/icons-react";
+import {
+  IconChartLine,
+  IconCpu,
+  IconHierarchy2,
+  IconMathFunction,
+  IconSchema,
+  IconSum,
+} from "@tabler/icons-react";
 import { CircuitLegend } from "./circuit/CircuitLegend";
 import { CircuitCanvas } from "./circuit/CircuitCanvas";
 import { renderCircuit } from "./circuit/render";
 import { renderDiagram } from "./diagram";
+import { MindmapLegend } from "./mindmap/MindmapLegend";
+import { newId, reconcileLayout, resetLayout } from "./mindmap/positions";
+import { renderMindmap } from "./mindmap/render";
 import { PlotLegend } from "./plot/PlotLegend";
 import { renderPlot } from "./plot/render";
 import type { Node as ProseNode } from "@tiptap/pm/model";
 import { NodeSelection, Selection, TextSelection } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { mergeAttributes, Node, ReactNodeViewRenderer } from "@tiptap/react";
-import { Plugin } from "@tiptap/pm/state";
+import { Plugin, type Transaction } from "@tiptap/pm/state";
+import { Mapping } from "@tiptap/pm/transform";
 import { mathBlockLatex, renderMath } from "./math";
-import { hidesCode, SourceBlock, type SourceBlockOptions } from "./SourceBlock";
+import { hidesCode, type LayoutAttr, SourceBlock, type SourceBlockOptions } from "./SourceBlock";
 
 /// Whether `node` is a block named `name` that is showing its preview, not its code.
 function hiddenBlock(
@@ -47,6 +58,18 @@ function sourceBlock(name: string, defaults: SourceBlockOptions) {
               attributes.drawing ? { "data-drawing": attributes.drawing } : {},
           },
         }),
+        // What the preview keeps beside the code, such as where nodes were dragged.
+        ...(defaults.layout && {
+          [defaults.layout.attr]: {
+            default: "",
+            parseHTML: (element: HTMLElement) =>
+              element.getAttribute(`data-${defaults.layout?.attr}`) ?? "",
+            renderHTML: (attributes: Record<string, string | undefined>) => {
+              const value = attributes[defaults.layout?.attr ?? ""];
+              return value ? { [`data-${defaults.layout?.attr}`]: value } : {};
+            },
+          },
+        }),
         view: {
           default: "source",
           parseHTML: (element: HTMLElement) => element.getAttribute("data-view") ?? "source",
@@ -70,7 +93,9 @@ function sourceBlock(name: string, defaults: SourceBlockOptions) {
     // instead, and a caret that lands in it anyway is moved out.
     addProseMirrorPlugins() {
       const hidden = (node: ProseNode | null | undefined) => hiddenBlock(node, name, this.options);
+      const { layout } = this.options;
       return [
+        ...(layout ? [followCodeEdits(name, layout)] : []),
         new Plugin({
           appendTransaction: (_transactions, _old, state) => {
             const { selection, doc } = state;
@@ -138,6 +163,37 @@ function sourceBlock(name: string, defaults: SourceBlockOptions) {
   });
 }
 
+/// Keeps what a preview stores beside the code in step with the code: when the code of a
+/// block changes, in the editor or by a paste, the stored data follows the change in the
+/// same step, so it is never saved against code it was not made for.
+function followCodeEdits(name: string, layout: LayoutAttr): Plugin {
+  return new Plugin({
+    appendTransaction: (transactions, oldState, newState) => {
+      if (!transactions.some((tr) => tr.docChanged)) return null;
+      const mapping = new Mapping();
+      for (const tr of transactions) mapping.appendMapping(tr.mapping);
+      const back = mapping.invert();
+      let fix: Transaction | null = null;
+      newState.doc.descendants((node, pos) => {
+        if (node.type.name !== name) return;
+        const before = oldState.doc.nodeAt(back.map(pos));
+        if (before?.type.name !== name || before.textContent === node.textContent) return false;
+        const stored = String(node.attrs[layout.attr] ?? "");
+        // Changed on purpose in the same step: not ours to follow.
+        if (String(before.attrs[layout.attr] ?? "") !== stored) return false;
+        const next = layout.follow(before.textContent, node.textContent, stored);
+        if (next === stored) return false;
+        fix = (fix ?? newState.tr).setNodeMarkup(pos, undefined, {
+          ...node.attrs,
+          [layout.attr]: next,
+        });
+        return false;
+      });
+      return fix;
+    },
+  });
+}
+
 /// Whether the caret is on the first or last line of its block. Needs layout, so a
 /// missing one (no real browser) counts as not at the edge.
 function endOfTextblock(view: EditorView, direction: "up" | "down"): boolean {
@@ -181,7 +237,7 @@ export const Diagram = sourceBlock("diagram", {
   icon: IconSchema,
   sourceLabel: "Mermaid",
   emptyLabel: "Empty diagram",
-  render: renderDiagram,
+  render: (source, element, dark) => renderDiagram(source, element, dark),
   centered: true,
 });
 
@@ -209,4 +265,23 @@ export const PlotBlock = sourceBlock("plot", {
   centered: true,
   copyLabel: "Copy code",
   legend: PlotLegend,
+});
+
+/// Ideas branching from a topic, drawn from an indented list. The outline is the
+/// source of truth: folding branches in the preview never changes it.
+export const MindmapBlock = sourceBlock("mindmap", {
+  label: "Mind map",
+  icon: IconHierarchy2,
+  sourceLabel: "Outline",
+  emptyLabel: "Empty mind map",
+  render: renderMindmap,
+  centered: true,
+  copyLabel: "Copy outline",
+  legend: MindmapLegend,
+  layout: {
+    attr: "layout",
+    follow: (before, after, value) => reconcileLayout(before, after, value, newId),
+    reset: resetLayout,
+    resetLabel: "Reset layout",
+  },
 });

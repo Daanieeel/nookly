@@ -290,6 +290,7 @@ export function blockToNode(block: Block): JSONNode {
     case "diagram":
     case "circuit":
     case "plot":
+    case "mindmap":
       return {
         type: block.blockType,
         attrs: {
@@ -297,6 +298,8 @@ export function blockToNode(block: Block): JSONNode {
           view: block.attrs.view ?? "source",
           // Only a circuit has a hand drawing to keep.
           ...(block.blockType === "circuit" && { drawing: block.attrs.drawing ?? "" }),
+          // Only a mind map keeps where its nodes were dragged.
+          ...(block.blockType === "mindmap" && { layout: block.attrs.layout ?? "" }),
         },
         content: block.content ? [{ type: "text", text: block.content }] : undefined,
       };
@@ -508,6 +511,7 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
     case "diagram":
     case "circuit":
     case "plot":
+    case "mindmap":
       return {
         blockId,
         blockType: node.type,
@@ -515,6 +519,7 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
         attrs: {
           view: asString(node.attrs?.view) ?? "source",
           ...(node.type === "circuit" && { drawing: asString(node.attrs?.drawing) ?? "" }),
+          ...(node.type === "mindmap" && { layout: asString(node.attrs?.layout) ?? "" }),
         },
       };
     case "toggle":
