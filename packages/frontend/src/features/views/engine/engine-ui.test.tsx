@@ -211,7 +211,8 @@ describe("a view inside a page", () => {
     const [, report] = rows;
     if (!report) throw new Error("no second row");
     expect(within(report).getByText("Submitted")).toBeInTheDocument();
-    expect(within(report).getByText("Physics")).toBeInTheDocument();
+    // Every row's Course is the page itself, so the scoped view leaves that column out.
+    expect(within(report).queryByText("Physics")).toBeNull();
   });
 
   it("opens a saved View's config, falling back to a table", () => {
@@ -230,5 +231,84 @@ describe("a view inside a page", () => {
       />,
     );
     expect(await screen.findByRole("button", { name: /Final exam/ })).toBeInTheDocument();
+  });
+
+  it("shows linked items from other Spaces too, flagged with their Space", async () => {
+    const course = makeEntity({ id: "course", type: "course", title: "Physics", spaceId: "s1" });
+    const home = makeTask({}, { id: "home", title: "Read chapter", spaceId: "s1" });
+    const away = makeTask({}, { id: "away", title: "Book a room", spaceId: "s2" });
+    const unlinked = makeTask({}, { id: "unlinked", title: "Unrelated", spaceId: "s2" });
+    mockCommand("list_tasks", [home]);
+    mockCommand("list_tasks_all", [home, away, unlinked]);
+    mockCommand("list_task_statuses", STATUSES);
+    mockCommand("list_labels", []);
+    mockCommand("list_courses", [course]);
+    mockCommand("list_spaces", [
+      makeSpace({ id: "s1", name: "Uni" }),
+      makeSpace({ id: "s2", name: "Work" }),
+    ]);
+    mockCommand(
+      "list_relationships",
+      ["home", "away"].map((id) => ({
+        id: `${id}-link`,
+        fromEntityId: "course",
+        toEntityId: id,
+        relationshipType: "relates-to",
+        fromBlockId: null,
+        toBlockId: null,
+        createdAt: "",
+      })),
+    );
+
+    renderWithProviders(
+      <EntityView
+        source="task"
+        spaceId="s1"
+        includeOtherSpaces
+        anchorId="course"
+        scope={{ relationship: "relates-to", direction: "both" }}
+        config={{
+          ...DEFAULT_ENTITY_VIEW,
+          display: {
+            layout: "table",
+            table: { sort: [], columns: [{ field: "title" }, { field: "course" }] },
+          },
+        }}
+      />,
+    );
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(3));
+    const row = (title: string) => {
+      const found = screen.getByText(title).closest("tr");
+      if (!found) throw new Error(`no row for ${title}`);
+      return found;
+    };
+    expect(within(row("Book a room")).getByTitle("Space: Work")).toBeInTheDocument();
+    expect(within(row("Read chapter")).queryByTitle(/Space:/)).toBeNull();
+    expect(screen.queryByText("Unrelated")).toBeNull();
+    // The Course column would only ever name the page the view sits in.
+    expect(screen.queryByRole("columnheader", { name: /Course/ })).toBeNull();
+  });
+
+  it("hands what it shows and how many to the frame around it", async () => {
+    mockCommand("list_exams", [
+      makeExam({}, { id: "e1", title: "Midterm" }),
+      makeExam({}, { id: "e2", title: "Final exam" }),
+    ]);
+    mockCommand("list_spaces", []);
+    renderWithProviders(
+      <EntityView
+        source="exam"
+        spaceId="s1"
+        config={DEFAULT_ENTITY_VIEW}
+        frame={({ count, body }) => (
+          <section aria-label="Exams">
+            <h2>{count === null ? "Loading" : `${count} exams`}</h2>
+            {body}
+          </section>
+        )}
+      />,
+    );
+    expect(await screen.findByRole("heading", { name: "2 exams" })).toBeInTheDocument();
+    expect(screen.getByText("Midterm")).toBeInTheDocument();
   });
 });

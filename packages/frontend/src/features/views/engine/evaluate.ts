@@ -27,6 +27,27 @@ export function scopeItems<T>(
   return items.filter((item) => linked.has(entityOf(item).id));
 }
 
+/// `scopeItems`, plus the items whose field read from the scope's relationship holds the
+/// page: a link the field follows further than one edge, like a Note's Course through its
+/// Session.
+function inScope<T, C>(
+  source: ViewSource<T, C>,
+  items: T[],
+  ctx: C,
+  scope: ViewScope,
+  anchorId: string,
+  edges: Relationship[],
+): T[] {
+  const linked = new Set(scopeItems(items, source.entityOf, scope, anchorId, edges));
+  const field = source.fields.find((f) => f.relationship === scope.relationship);
+  if (!field) return items.filter((item) => linked.has(item));
+  return items.filter((item) => {
+    if (linked.has(item)) return true;
+    const value = field.value(item, ctx);
+    return Array.isArray(value) ? value.includes(anchorId) : value === anchorId;
+  });
+}
+
 /// "is" keeps an item having any chosen value, "is not" one having none of them.
 function passesOptionFilters<T, C>(
   item: T,
@@ -113,7 +134,7 @@ export interface ViewQuery {
 export function runView<T, C>(source: ViewSource<T, C>, items: T[], ctx: C, query: ViewQuery): T[] {
   const { scope, anchorId, edges } = query;
   const scoped =
-    scope && anchorId ? scopeItems(items, source.entityOf, scope, anchorId, edges ?? []) : items;
+    scope && anchorId ? inScope(source, items, ctx, scope, anchorId, edges ?? []) : items;
   const kept = scoped.filter(
     (item) =>
       passesOptionFilters(item, query.filters, source.filterValue, ctx) &&
