@@ -1,6 +1,14 @@
 import { IconTopologyStar3 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { SpaceChip } from "#/components/space-chip.tsx";
@@ -21,6 +29,8 @@ import { qk } from "#/lib/query-keys.ts";
 import { armNewTabIntent, useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { layoutGraph, type Point } from "./graph-layout.ts";
+import { fitZoom, stepZoom, wheelZoom } from "./graph-zoom.ts";
+import { GraphZoomControls } from "./GraphZoomControls.tsx";
 import {
   GRAPH_RING_CAP,
   type GraphEdge,
@@ -117,100 +127,162 @@ function GraphCanvas({
   const layout = layoutGraph(graph);
   const [active, setActive] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  // The spot of the canvas (0 to 1 across and down) to keep in the middle of the view while zooming.
+  const focus = useRef<Point | null>(null);
 
-  // Start with the item in view, however big the graph grew.
+  const zoomTo = useCallback(
+    (next: number) => {
+      const el = scroller.current;
+      if (el) {
+        const box = layout.size * zoomRef.current;
+        focus.current = {
+          x: (el.scrollLeft + el.clientWidth / 2) / box,
+          y: (el.scrollTop + el.clientHeight / 2) / box,
+        };
+      }
+      zoomRef.current = next;
+      setZoom(next);
+    },
+    [layout.size],
+  );
+  const fit = useCallback(() => {
+    const el = scroller.current;
+    zoomTo(fitZoom(layout.size, el?.clientWidth ?? 0, el?.clientHeight ?? 0));
+  }, [layout.size, zoomTo]);
+
+  // A graph that grew, like with the second ring, starts zoomed so all of it shows.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    const next = fitZoom(layout.size, el?.clientWidth ?? 0, el?.clientHeight ?? 0);
+    zoomRef.current = next;
+    setZoom(next);
+  }, [layout.size]);
+
+  // Keep the item in view at the start and the same spot in view while zooming.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const at = focus.current ?? { x: 0.5, y: 0.5 };
+    focus.current = null;
+    el.scrollLeft = at.x * layout.size * zoom - el.clientWidth / 2;
+    el.scrollTop = at.y * layout.size * zoom - el.clientHeight / 2;
+  }, [layout.size, zoom]);
+
+  // Ctrl or Cmd with the wheel, which is also how a trackpad pinch arrives, zooms. It needs a
+  // listener that is not passive, so the page itself doesn't zoom as well.
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    el.scrollLeft = (layout.size - el.clientWidth) / 2;
-    el.scrollTop = (layout.size - el.clientHeight) / 2;
-  }, [layout.size]);
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      zoomTo(wheelZoom(zoomRef.current, event.deltaY));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoomTo]);
 
   const showAllLabels = graph.edges.length <= LABEL_ALL_UP_TO;
   const others = graph.nodes.filter((n) => n.ring > 0);
   const center = layout.positions.get(entity.id);
 
   return (
-    <div
-      ref={scroller}
-      className="min-h-0 flex-1 overflow-auto"
-      // The panel's scroll lock cancels a whole wheel event when its main direction cannot
-      // scroll, which breaks a diagonal trackpad swipe. This area scrolls itself.
-      onWheel={(event) => event.stopPropagation()}
-    >
+    <div className="relative min-h-0 flex-1">
       <div
-        className="relative m-auto size-(--graph-size)"
-        // SAFETY: `--graph-size` only ever receives the layout's pixel size.
-        style={{ "--graph-size": `${layout.size}px` } as CSSProperties}
+        ref={scroller}
+        className="size-full overflow-auto"
+        // The panel's scroll lock cancels a whole wheel event when its main direction cannot
+        // scroll, which breaks a diagonal trackpad swipe. This area scrolls itself.
+        onWheel={(event) => event.stopPropagation()}
       >
-        <svg
-          aria-hidden="true"
-          width={layout.size}
-          height={layout.size}
-          className="absolute inset-0 text-border"
+        <div
+          className="relative m-auto size-(--graph-box)"
+          // SAFETY: `--graph-box` only ever receives the zoomed pixel size.
+          style={{ "--graph-box": `${layout.size * zoom}px` } as CSSProperties}
         >
-          {graph.edges.map((edge) => {
-            const a = layout.positions.get(edge.from);
-            const b = layout.positions.get(edge.to);
-            if (!a || !b) return null;
-            const lit = active === edge.from || active === edge.to;
-            return (
-              <line
-                key={`${edge.from}|${edge.to}`}
-                x1={a.x}
-                y1={a.y}
-                x2={b.x}
-                y2={b.y}
-                stroke="currentColor"
-                strokeWidth={lit ? 2 : 1}
-                className={cn("motion-safe:transition-colors", lit && "text-muted-foreground")}
-              />
-            );
-          })}
-        </svg>
-        {graph.edges.map((edge) => {
-          const a = layout.positions.get(edge.from);
-          const b = layout.positions.get(edge.to);
-          const lit = active === edge.from || active === edge.to;
-          if (!a || !b || !(showAllLabels || lit)) return null;
-          return <EdgeLabel key={`${edge.from}|${edge.to}`} edge={edge} from={a} to={b} />;
-        })}
-        {center && (
           <div
-            className="absolute top-(--y) left-(--x) flex w-28 -translate-1/2 items-center justify-center gap-1.5 rounded-md border border-primary/60 bg-accent px-2 py-1.5 text-xs font-medium"
-            // SAFETY: `--x` and `--y` only ever receive pixel coordinates from the layout.
-            style={{ "--x": `${center.x}px`, "--y": `${center.y}px` } as CSSProperties}
+            className="absolute top-0 left-0 size-(--graph-size) origin-top-left scale-(--graph-zoom)"
+            // SAFETY: `--graph-size` and `--graph-zoom` only ever receive the layout's pixel size and a number.
+            style={{ "--graph-size": `${layout.size}px`, "--graph-zoom": zoom } as CSSProperties}
           >
-            <EntityIcon entity={entity} size={14} className="shrink-0 text-muted-foreground" />
-            <span className="truncate">{displayTitle(entity)}</span>
-          </div>
-        )}
-        <ul aria-label="Related items">
-          {others.map((node) => {
-            const point = layout.positions.get(node.id);
-            if (!point) return null;
-            return (
-              <li
-                key={node.id}
-                className="absolute top-(--y) left-(--x) -translate-1/2"
+            <svg
+              aria-hidden="true"
+              width={layout.size}
+              height={layout.size}
+              className="absolute inset-0 text-border"
+            >
+              {graph.edges.map((edge) => {
+                const a = layout.positions.get(edge.from);
+                const b = layout.positions.get(edge.to);
+                if (!a || !b) return null;
+                const lit = active === edge.from || active === edge.to;
+                return (
+                  <line
+                    key={`${edge.from}|${edge.to}`}
+                    x1={a.x}
+                    y1={a.y}
+                    x2={b.x}
+                    y2={b.y}
+                    stroke="currentColor"
+                    strokeWidth={lit ? 2 : 1}
+                    className={cn("motion-safe:transition-colors", lit && "text-muted-foreground")}
+                  />
+                );
+              })}
+            </svg>
+            {graph.edges.map((edge) => {
+              const a = layout.positions.get(edge.from);
+              const b = layout.positions.get(edge.to);
+              const lit = active === edge.from || active === edge.to;
+              if (!a || !b || !(showAllLabels || lit)) return null;
+              return <EdgeLabel key={`${edge.from}|${edge.to}`} edge={edge} from={a} to={b} />;
+            })}
+            {center && (
+              <div
+                className="absolute top-(--y) left-(--x) flex w-28 -translate-1/2 items-center justify-center gap-1.5 rounded-md border border-primary/60 bg-accent px-2 py-1.5 text-xs font-medium"
                 // SAFETY: `--x` and `--y` only ever receive pixel coordinates from the layout.
-                style={{ "--x": `${point.x}px`, "--y": `${point.y}px` } as CSSProperties}
-                onMouseEnter={() => setActive(node.id)}
-                onMouseLeave={() => setActive(null)}
-                onFocus={() => setActive(node.id)}
-                onBlur={() => setActive(null)}
+                style={{ "--x": `${center.x}px`, "--y": `${center.y}px` } as CSSProperties}
               >
-                <GraphNodeButton
-                  entityId={node.id}
-                  currentSpaceId={entity.spaceId}
-                  labels={labelsOf(graph.edges, node.id)}
-                  onClose={onClose}
-                />
-              </li>
-            );
-          })}
-        </ul>
+                <EntityIcon entity={entity} size={14} className="shrink-0 text-muted-foreground" />
+                <span className="truncate">{displayTitle(entity)}</span>
+              </div>
+            )}
+            <ul aria-label="Related items">
+              {others.map((node) => {
+                const point = layout.positions.get(node.id);
+                if (!point) return null;
+                return (
+                  <li
+                    key={node.id}
+                    className="absolute top-(--y) left-(--x) -translate-1/2"
+                    // SAFETY: `--x` and `--y` only ever receive pixel coordinates from the layout.
+                    style={{ "--x": `${point.x}px`, "--y": `${point.y}px` } as CSSProperties}
+                    onMouseEnter={() => setActive(node.id)}
+                    onMouseLeave={() => setActive(null)}
+                    onFocus={() => setActive(node.id)}
+                    onBlur={() => setActive(null)}
+                  >
+                    <GraphNodeButton
+                      entityId={node.id}
+                      currentSpaceId={entity.spaceId}
+                      labels={labelsOf(graph.edges, node.id)}
+                      onClose={onClose}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
       </div>
+      <GraphZoomControls
+        zoom={zoom}
+        onZoomOut={() => zoomTo(stepZoom(zoom, -1))}
+        onZoomIn={() => zoomTo(stepZoom(zoom, 1))}
+        onFit={fit}
+      />
     </div>
   );
 }
