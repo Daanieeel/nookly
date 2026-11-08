@@ -4,8 +4,8 @@ import type { ColumnSetting, SortRule, TableDisplay } from "./types.ts";
 /// Reading the table layout's stored sort and columns, checking every entry like the rest
 /// of a display, so an outdated or hand edited (CLI) one loses only what is invalid.
 
-export const MIN_COLUMN_WIDTH = 60;
-export const MAX_COLUMN_WIDTH = 800;
+const MIN_COLUMN_WIDTH = 60;
+const MAX_COLUMN_WIDTH = 800;
 
 export const DEFAULT_TABLE: TableDisplay = { sort: [], columns: [] };
 

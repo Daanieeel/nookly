@@ -79,10 +79,7 @@ const sameValues = (a: ConditionOperator, b: ConditionOperator) =>
   operatorsFor("date").includes(a) === operatorsFor("date").includes(b) &&
   operatorsFor("number").includes(a) === operatorsFor("number").includes(b);
 
-export function newCondition(
-  field: ConditionFieldInfo,
-  operator: ConditionOperator,
-): ViewCondition {
+function newCondition(field: ConditionFieldInfo, operator: ConditionOperator): ViewCondition {
   return { fieldId: field.id, operator, values: startingValues(operator, []) };
 }
 

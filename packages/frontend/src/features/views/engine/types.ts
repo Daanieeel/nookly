@@ -13,8 +13,6 @@ import type { Entity } from "#/lib/api/types.ts";
 /// `VIEW_CONFIG_VERSION` in `src-tauri/src/db/views.rs`.
 export const VIEW_CONFIG_VERSION = 2;
 
-export type ViewLayout = "list" | "board" | "table";
-
 /// The filters beyond picking options (`is`, `isNot`), kept in the same stored `filters`
 /// list. `values` holds what the operator compares with: nothing for the empty checks,
 /// one text, one day (`YYYY-MM-DD`) or one number, or two days for `between`.

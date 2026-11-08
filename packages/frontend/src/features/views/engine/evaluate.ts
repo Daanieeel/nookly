@@ -28,7 +28,7 @@ export function scopeItems<T>(
 }
 
 /// "is" keeps an item having any chosen value, "is not" one having none of them.
-export function passesOptionFilters<T, C>(
+function passesOptionFilters<T, C>(
   item: T,
   filters: ActiveFilter[],
   filterValue: (item: T, fieldId: string, ctx: C) => string | string[],

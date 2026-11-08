@@ -21,7 +21,7 @@ const Muted = ({ children }: { children: string }) => (
 );
 
 /// A day or timestamp, short like the rest of the app (`Sep 24`).
-export function dayCell(value: string | null) {
+function dayCell(value: string | null) {
   return value ? <Muted>{formatShortDate(value)}</Muted> : null;
 }
 

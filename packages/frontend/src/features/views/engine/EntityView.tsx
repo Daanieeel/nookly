@@ -19,9 +19,9 @@ import { ViewTable, shownFields } from "./ViewTable.tsx";
 /// Module pages with a board (Tasks, Assignments) run the same engine with their own
 /// layouts instead.
 
-export type EntityViewLayout = "list" | "table";
+type EntityViewLayout = "list" | "table";
 
-export interface EntityViewDisplay {
+interface EntityViewDisplay {
   layout: EntityViewLayout;
   table: TableDisplay;
 }
@@ -38,7 +38,7 @@ export const DEFAULT_ENTITY_VIEW: EntityViewConfig = {
   display: { layout: "table", table: DEFAULT_TABLE },
 };
 
-export function normalizeEntityViewDisplay(stored: Partial<EntityViewDisplay>): EntityViewDisplay {
+function normalizeEntityViewDisplay(stored: Partial<EntityViewDisplay>): EntityViewDisplay {
   return {
     layout: stored.layout === "list" ? "list" : "table",
     table: normalizeTableDisplay(stored.table),

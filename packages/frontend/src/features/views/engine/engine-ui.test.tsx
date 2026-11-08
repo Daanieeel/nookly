@@ -13,7 +13,7 @@ import {
 import { renderWithProviders } from "#/test/render.tsx";
 import { mockCommand } from "#/test/tauri.ts";
 import { AddConditionButton, ConditionChips, type ConditionFieldInfo } from "./ConditionBar.tsx";
-import { DEFAULT_ENTITY_VIEW, EntityView } from "./EntityView.tsx";
+import { DEFAULT_ENTITY_VIEW, EntityView, parseEntityViewConfig } from "./EntityView.tsx";
 import { taskContext, taskSource } from "./sources/tasks.tsx";
 import { DEFAULT_TABLE } from "./table-display.ts";
 import type { TableDisplay, ViewCondition } from "./types.ts";
@@ -212,6 +212,11 @@ describe("a view inside a page", () => {
     if (!report) throw new Error("no second row");
     expect(within(report).getByText("Submitted")).toBeInTheDocument();
     expect(within(report).getByText("Physics")).toBeInTheDocument();
+  });
+
+  it("opens a saved View's config, falling back to a table", () => {
+    expect(parseEntityViewConfig('{"display":{"layout":"list"}}').display.layout).toBe("list");
+    expect(parseEntityViewConfig("nope")).toEqual(DEFAULT_ENTITY_VIEW);
   });
 
   it("lists any registered type, like Exams", async () => {

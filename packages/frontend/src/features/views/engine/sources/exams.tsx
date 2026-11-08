@@ -39,7 +39,7 @@ const entityOf = (exam: Exam) => exam.entity;
 
 const textOrNull = (text: string | null) => (text?.trim() ? text : null);
 
-export const EXAM_FIELDS: ViewField<Exam, ExamContext>[] = [
+const EXAM_FIELDS: ViewField<Exam, ExamContext>[] = [
   keyField(entityOf),
   titleField(entityOf),
   statusField(
