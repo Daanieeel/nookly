@@ -58,7 +58,7 @@ export interface NoteRow {
 }
 
 /// The table rows of Notes, each with its title, preview and the labels it carries.
-export function toNoteRows(summaries: PageSummary[], spaceLabels: Label[]): NoteRow[] {
+function toNoteRows(summaries: PageSummary[], spaceLabels: Label[]): NoteRow[] {
   const labelsById = new Map(spaceLabels.map((l) => [l.id, l]));
   return summaries.map((summary) => ({
     summary,

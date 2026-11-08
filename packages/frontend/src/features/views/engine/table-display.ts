@@ -18,22 +18,27 @@ const column = z.object({
   field: z.string().min(1),
   width: z.number().finite().optional().catch(undefined),
 });
-const storedTable = z.object({
+/// A table as stored, its entries still unchecked one by one.
+export const storedTable = z.object({
   sort: z.array(z.json()).catch([]),
   columns: z.array(z.json()).catch([]),
 });
 
 /// `stored` is the table part of a display as it was saved, still unchecked.
-export function normalizeTableDisplay(stored: unknown): TableDisplay {
+export function normalizeTableDisplay(stored: Partial<TableDisplay> | undefined): TableDisplay {
   const parsed = storedTable.safeParse(stored);
-  if (!parsed.success) return DEFAULT_TABLE;
+  return parsed.success ? readStoredTable(parsed.data) : DEFAULT_TABLE;
+}
+
+/// Keeps each sort rule and column that is still valid, every column once.
+export function readStoredTable(stored: z.infer<typeof storedTable>): TableDisplay {
   const seen = new Set<string>();
   return {
-    sort: parsed.data.sort.flatMap((entry): SortRule[] => {
+    sort: stored.sort.flatMap((entry): SortRule[] => {
       const rule = sortRule.safeParse(entry);
       return rule.success ? [rule.data] : [];
     }),
-    columns: parsed.data.columns.flatMap((entry): ColumnSetting[] => {
+    columns: stored.columns.flatMap((entry): ColumnSetting[] => {
       const read = column.safeParse(entry);
       if (!read.success || seen.has(read.data.field)) return [];
       seen.add(read.data.field);

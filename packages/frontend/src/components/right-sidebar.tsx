@@ -10,6 +10,7 @@ import { LabelsPanel } from "#/features/relationships/LabelsPanel.tsx";
 import { MentionedInPanel } from "#/features/relationships/MentionedInPanel.tsx";
 import { MentionedPanel } from "#/features/relationships/MentionedPanel.tsx";
 import { RelationshipsPanel } from "#/features/relationships/RelationshipsPanel.tsx";
+import { PAGE_SECTION_TYPES } from "#/features/page-sections/PageSections.tsx";
 import type { Entity } from "#/lib/api/types.ts";
 import {
   clampRightSidebarWidth,
@@ -32,6 +33,8 @@ function ToggleShortcut() {
 }
 
 /// Fixed section order: Attachments, Mentioned, Mentioned in, Relationships.
+/// On a page that shows its related items in sections of its body (a Course), the
+/// Relationships list folds to a count with every link one click away.
 /// Relationships renders last because it's usually the largest section, and
 /// putting it first pushed every other section far down the sidebar.
 /// A Jot gets a Refine into New Note button above everything else.
@@ -68,7 +71,7 @@ export function RightSidebar({
       <AttachmentsPanel entity={entity} />
       <MentionedPanel entity={entity} />
       <MentionedInPanel entity={entity} />
-      <RelationshipsPanel entity={entity} />
+      <RelationshipsPanel entity={entity} compact={PAGE_SECTION_TYPES.has(entity.type)} />
     </RightSidebarFrame>
   );
 }

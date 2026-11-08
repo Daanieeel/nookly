@@ -3,6 +3,8 @@
     {
       "version": "0.71.0",
       "date": "2026-11-08",
+      "title": "Tables, conditions and course sections",
+      "summary": "Sort lists as tables, narrow them with conditions, and find everything about a course right on its page.",
       "highlights": [
         {
           "title": "Table layout",
@@ -15,9 +17,20 @@
           "description": "Narrow a list to empty fields, titles that contain a word, dates in a range or numbers above or below a value.",
           "icon": "filter",
           "tag": "New"
+        },
+        {
+          "title": "Sections on the course page",
+          "description": "Sessions, Assignments, Tasks, Exams and Notes each get a section you can sort, fold, hide and reorder, with a plus button to add to it.",
+          "icon": "layout-columns",
+          "tag": "New"
         }
       ],
-      "more": {}
+      "more": {
+        "Improved": [
+          "On a course page, the sidebar now shows only how many links there are, with all of them one click away.",
+          "Related tasks, assignments and exams in the sidebar now show their status and date, and items from another Space show which one."
+        ]
+      }
     },
     {
       "version": "0.70.0",

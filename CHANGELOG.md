@@ -8,6 +8,12 @@ All notable changes to Nookly are listed here.
 
 - Tasks and Assignments can now be shown as a table. Sort by any column from its header, drag a column edge to resize it, and pick the columns you want in Display. Saved views remember all of it.
 - New conditions next to filters: show items with an empty or filled field, titles that contain a word, dates before, after or between two days, and numbers like effort or grade above or below a value.
+- A course page now shows its Sessions, Assignments, Tasks, Exams and Notes as sections you can sort, fold, hide and reorder, each with its own plus button. Notes written for one of the course's sessions show there too.
+
+### Changed
+
+- On a course page, the sidebar now shows only how many links there are, with all of them one click away.
+- Related tasks, assignments and exams in the sidebar now show their status and date, and items from another Space show which one.
 
 ## 0.70.0 (2026-11-08)
 

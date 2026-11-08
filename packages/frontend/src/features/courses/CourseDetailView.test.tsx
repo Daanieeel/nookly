@@ -8,7 +8,12 @@ import {
   makeEntity,
   makeExam,
   makeSession,
+  makeTask,
+  STATUSES,
 } from "#/test/fixtures.ts";
+import { expectNoA11yViolations } from "#/test/axe.ts";
+import { preferences } from "#/lib/preferences.ts";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import {
   installTauriMock,
@@ -30,6 +35,13 @@ const link = (from: string, type: string): Relationship => ({
   fromBlockId: null,
   toBlockId: null,
   createdAt: "2026-03-01T00:00:00.000Z",
+});
+
+/// A link from the Course to `to`, like its Notes.
+const linkFrom = (type: string, to: string): Relationship => ({
+  ...link("c1", type),
+  id: `c1-${type}-${to}`,
+  toEntityId: to,
 });
 
 // Wednesday 11 March 2026, 8:00. Only the date is faked, so queries still settle.
@@ -73,6 +85,8 @@ beforeEach(() => {
           link("s-mine", "session-course"),
           link("e-mine", "exam-course"),
           link("a-open", "assignment-course"),
+          linkFrom("course-notes", "n2"),
+          linkFrom("relates-to", "t-mine"),
         ]
       : [],
   );
@@ -92,6 +106,14 @@ beforeEach(() => {
     ),
     makeAssignment({ status: "in_progress" }, { id: "a-other", title: "Foreign sheet" }),
   ]);
+  mockCommand("list_tasks", [
+    makeTask({ statusId: "todo" }, { id: "t-mine", title: "Revise graphs", key: "TSK-4" }),
+    makeTask({ statusId: "todo" }, { id: "t-other", title: "Water plants", key: "TSK-5" }),
+  ]);
+  mockCommand("list_tasks_all", []);
+  mockCommand("list_task_statuses", STATUSES);
+  mockCommand("list_courses", [course, otherCourse]);
+  mockCommand("list_relationship_types", []);
   mockCommand("list_decks", []);
   mockCommand("list_spaces", []);
   mockCommand("get_course_grades", { grade: null, gradedWeight: 0, gradedCount: 0, itemCount: 0 });
@@ -124,13 +146,17 @@ function closestOf(element: Element, selector: string): HTMLElement {
 const renderCourse = () => renderWithProviders(<CourseDetailView entity={course} />);
 
 describe("the course page", () => {
-  it("orders its parts: notes editor, stat boxes, sessions, assignments, notes, exams", async () => {
+  const SECTIONS = ["Sessions", "Assignments", "Tasks", "Exams", "Notes"];
+  const sectionHeadings = () =>
+    screen
+      .getAllByRole("heading", { level: 2 })
+      .map((h) => h.textContent ?? "")
+      .filter((h) => SECTIONS.includes(h));
+
+  it("orders its parts: notes editor, stat boxes, then a section per related type", async () => {
     renderCourse();
-    await screen.findByRole("heading", { name: "Exams" });
-    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(
-      headings.filter((h) => ["Sessions", "Assignments", "Notes", "Exams"].includes(h ?? "")),
-    ).toEqual(["Sessions", "Assignments", "Notes", "Exams"]);
+    await screen.findByRole("heading", { name: "Notes" });
+    expect(sectionHeadings()).toEqual(SECTIONS);
     const editor = await waitFor(() => {
       const found = document.querySelector(".tiptap-content");
       if (!found) throw new Error("the editor has not mounted");
@@ -161,33 +187,52 @@ describe("the course page", () => {
     expect(block("Dentist").className).toContain("opacity-40");
   });
 
-  it("lists assignments as the Assignments page does, with a named status", async () => {
+  it("lists the course's assignments with a named status, and their count", async () => {
     renderCourse();
-    const open = await screen.findByRole("button", { name: "Open Sheet 1" });
-    const row = closestOf(open, "div");
-    expect(within(row).getByRole("button", { name: /currently In progress/ })).toBeInTheDocument();
-    expect(screen.queryByText("in_progress")).toBeNull();
-    expect(screen.queryByText("Foreign sheet")).toBeNull();
+    const section = await screen.findByRole("region", { name: "Assignments" });
+    expect(await within(section).findByText("Sheet 1")).toBeInTheDocument();
+    expect(within(section).getByText("In progress")).toBeInTheDocument();
+    expect(within(section).queryByText("Foreign sheet")).toBeNull();
+    expect(within(section).getByText("1")).toBeInTheDocument();
   });
 
-  it("rolls up the five most recently edited notes of the course, newest first", async () => {
+  it("lists the tasks related to the course", async () => {
     renderCourse();
-    await screen.findByText("Newest note");
-    const rows = screen
+    const section = await screen.findByRole("region", { name: "Tasks" });
+    expect(await within(section).findByText("Revise graphs")).toBeInTheDocument();
+    expect(within(section).queryByText("Water plants")).toBeNull();
+  });
+
+  it("lists the course's exams", async () => {
+    renderCourse();
+    const section = await screen.findByRole("region", { name: "Exams" });
+    expect(await within(section).findByText("Final")).toBeInTheDocument();
+    expect(within(section).queryByText("Joins exam")).toBeNull();
+  });
+
+  it("lists the course's notes, also those written for its sessions, newest first", async () => {
+    renderCourse();
+    const section = await screen.findByRole("region", { name: "Notes" });
+    await within(section).findByText("Newest note");
+    const rows = within(section)
       .getAllByRole("row")
-      .map((r) => r.textContent ?? "")
-      .filter((t) => /note/i.test(t));
-    expect(rows.map((t) => t.match(/(Newest|Second|Third|Fourth|Fifth|Oldest) note/)?.[0])).toEqual(
-      ["Newest note", "Second note", "Third note", "Fourth note", "Fifth note"],
-    );
-    expect(screen.queryByText("Oldest note")).toBeNull();
-    expect(screen.queryByText("Other course note")).toBeNull();
+      .slice(1)
+      .map((r) => r.textContent?.match(/(Newest|Second|Third|Fourth|Fifth|Oldest) note/)?.[0]);
+    expect(rows).toEqual([
+      "Newest note",
+      "Second note",
+      "Third note",
+      "Fourth note",
+      "Fifth note",
+      "Oldest note",
+    ]);
+    expect(within(section).queryByText("Other course note")).toBeNull();
   });
 
-  it("opens the Notes page on this course with Show more", async () => {
+  it("opens the Notes page on this course from the section's View all", async () => {
     const { user } = renderCourse();
-    await screen.findByText("Newest note");
-    await user.click(screen.getByRole("button", { name: /Show more/ }));
+    const section = await screen.findByRole("region", { name: "Notes" });
+    await user.click(within(section).getByRole("button", { name: /View all/ }));
     expect(useNavStore.getState().view).toEqual({
       kind: "module",
       spaceId: "space-1",
@@ -196,18 +241,9 @@ describe("the course page", () => {
     });
   });
 
-  it("draws exams as the Exams page does, on its timeline", async () => {
-    renderCourse();
-    const timeline = await screen.findByRole("list", { name: "Exam timeline" });
-    expect(within(timeline).getByText("Final")).toBeInTheDocument();
-    expect(within(timeline).queryByText("Joins exam")).toBeNull();
-    expect(within(timeline).getByText("Next up")).toBeInTheDocument();
-  });
-
   it("still opens a filtered page from the other sections' View all", async () => {
     const { user } = renderCourse();
-    await screen.findByRole("heading", { name: "Assignments" });
-    const section = closestOf(screen.getByRole("heading", { name: "Assignments" }), "div.flex-col");
+    const section = await screen.findByRole("region", { name: "Assignments" });
     await act(async () => {
       await user.click(within(section).getByRole("button", { name: /View all/ }));
     });
@@ -215,5 +251,56 @@ describe("the course page", () => {
       module: "assignments",
       filterCourseId: "c1",
     });
+  });
+
+  it("folds a section from its title and remembers it", async () => {
+    const { user, unmount } = renderCourse();
+    const section = await screen.findByRole("region", { name: "Assignments" });
+    await within(section).findByText("Sheet 1");
+    const toggle = within(section).getByRole("button", { name: "Assignments" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(section).queryByText("Sheet 1")).toBeNull();
+    // The count stays, so a folded section still says what it holds.
+    expect(within(section).getByText("1")).toBeInTheDocument();
+
+    unmount();
+    renderCourse();
+    const again = await screen.findByRole("region", { name: "Assignments" });
+    expect(within(again).getByRole("button", { name: "Assignments" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("hides a section from Customize sections, and shows it again", async () => {
+    const { user } = renderCourse();
+    await screen.findByRole("region", { name: "Exams" });
+    await user.click(screen.getByRole("button", { name: "Customize sections" }));
+    // Only the popover: the Course's notes editor is checked with the editor.
+    await expectNoA11yViolations(await screen.findByRole("dialog", { name: "Customize sections" }));
+    await user.click(screen.getByRole("button", { name: "Hide Exams" }));
+    expect(screen.queryByRole("region", { name: "Exams" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show Exams" }));
+    expect(await screen.findByRole("region", { name: "Exams" })).toBeInTheDocument();
+  });
+
+  it("shows the sections in the order the user saved", async () => {
+    preferences.set(
+      STORAGE_KEYS.pageSections,
+      // Assignments and Tasks are missing, so they follow Sessions as they do by default.
+      JSON.stringify({ course: [{ id: "notes" }, { id: "exams" }, { id: "sessions" }] }),
+    );
+    renderCourse();
+    await screen.findByRole("region", { name: "Notes" });
+    expect(sectionHeadings()).toEqual(["Notes", "Exams", "Sessions", "Assignments", "Tasks"]);
+  });
+
+  it("adds to a section from its +, with the picker already on that type", async () => {
+    const { user } = renderCourse();
+    const section = await screen.findByRole("region", { name: "Tasks" });
+    await user.click(within(section).getByRole("button", { name: "Add Task" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 });

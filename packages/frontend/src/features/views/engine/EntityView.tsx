@@ -10,13 +10,7 @@ import { parseViewConfig } from "../view-config.ts";
 import { runView } from "./evaluate.ts";
 import { VIEW_SOURCES, type ViewSourceType } from "./sources.ts";
 import { DEFAULT_TABLE, normalizeTableDisplay } from "./table-display.ts";
-import type {
-  TableDisplay,
-  ViewCondition,
-  ViewField,
-  ViewScope,
-  ViewSource,
-} from "./types.ts";
+import type { TableDisplay, ViewCondition, ViewField, ViewScope, ViewSource } from "./types.ts";
 import { ViewTable, shownFields } from "./ViewTable.tsx";
 
 /// One view of any registered entity type, ready to sit inside a page: a Course's

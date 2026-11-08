@@ -1,5 +1,6 @@
 import { qk } from "#/lib/query-keys.ts";
-import { IconLink, IconPlus } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconLink, IconPlus } from "@tabler/icons-react";
+import { useState } from "react";
 import { type Query, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatusButtonContent, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { Button } from "@nookly/ui/components/button";
@@ -116,9 +117,9 @@ function startFor(
   return { targetType, optionKey: keys.size === 1 ? [...keys][0] : undefined };
 }
 
-/// The "+" on a group of related items: opens the picker already set to the group's type
+/// The "+" on a group of related items, here and in a page's sections: opens the picker already set to the group's type
 /// and relation, so only which one is left, with a way to create a new one there.
-function SectionAdd({
+export function SectionAdd({
   entity,
   types,
   label,
@@ -160,8 +161,17 @@ function SectionAdd({
 
 /// Right sidebar, section 1 of 4 (§1.5) — every relationship except attachments,
 /// which the Attachments panel below covers on its own.
-export function RelationshipsPanel({ entity }: { entity: Entity }) {
+/// `compact` is for a page that shows its related items in sections of its own body: the
+/// list folds to a count, with every link one click away.
+export function RelationshipsPanel({
+  entity,
+  compact = false,
+}: {
+  entity: Entity;
+  compact?: boolean;
+}) {
   const queryClient = useQueryClient();
+  const [expanded, setExpanded] = useState(false);
 
   const { data: relationships = [] } = useQuery({
     queryKey: qk.relationships.of(entity.id),
@@ -216,37 +226,54 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
         onCreate={relate.create}
       />
 
-      <TypeGroups
-        ranked
-        items={rows}
-        renderAction={(label, entityTypes, group) => {
-          const start = startFor(pickableTypes, entity, entityTypes, group);
-          return (
-            start && (
-              <SectionAdd entity={entity} types={pickableTypes} label={label} start={start} />
-            )
-          );
-        }}
-        renderRow={(r) => (
-          <div className="group flex items-center gap-1">
-            <div className="min-w-0 flex-1">
-              <EntityRow entityId={r.entityId} currentSpaceId={entity.spaceId} label={r.label} />
+      {compact && visible.length > 0 && (
+        <Button
+          variant="muted"
+          size="sm"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+          className="h-7 w-full justify-start gap-1.5 px-2 font-normal [&_svg]:size-3.5"
+        >
+          {expanded ? <IconChevronDown /> : <IconChevronRight />}
+          {expanded
+            ? "Hide links"
+            : `Show all ${visible.length} link${visible.length === 1 ? "" : "s"}`}
+        </Button>
+      )}
+
+      {(!compact || expanded) && (
+        <TypeGroups
+          ranked
+          items={rows}
+          renderAction={(label, entityTypes, group) => {
+            const start = startFor(pickableTypes, entity, entityTypes, group);
+            return (
+              start && (
+                <SectionAdd entity={entity} types={pickableTypes} label={label} start={start} />
+              )
+            );
+          }}
+          renderRow={(r) => (
+            <div className="group flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <EntityRow entityId={r.entityId} currentSpaceId={entity.spaceId} label={r.label} />
+              </div>
+              <RemoveLinkButton
+                label="Remove relationship"
+                errorLabel="Couldn't remove relationship, try again"
+                onRemove={async () => {
+                  await deleteRelationship(r.key);
+                  await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) }),
+                    queryClient.invalidateQueries({ queryKey: qk.jots.unrefined }),
+                    queryClient.invalidateQueries({ predicate: isJotSummaries }),
+                  ]);
+                }}
+              />
             </div>
-            <RemoveLinkButton
-              label="Remove relationship"
-              errorLabel="Couldn't remove relationship, try again"
-              onRemove={async () => {
-                await deleteRelationship(r.key);
-                await Promise.all([
-                  queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) }),
-                  queryClient.invalidateQueries({ queryKey: qk.jots.unrefined }),
-                  queryClient.invalidateQueries({ predicate: isJotSummaries }),
-                ]);
-              }}
-            />
-          </div>
-        )}
-      />
+          )}
+        />
+      )}
     </SidebarSection>
   );
 }

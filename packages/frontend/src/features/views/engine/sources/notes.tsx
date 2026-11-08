@@ -36,7 +36,7 @@ const entityOf = (note: PageSummary) => note.entity;
 const labelsOf = (note: PageSummary, ctx: NoteContext) =>
   note.labelIds.flatMap((id) => ctx.labelById.get(id) ?? []);
 
-export const NOTE_FIELDS: ViewField<PageSummary, NoteContext>[] = [
+const NOTE_FIELDS: ViewField<PageSummary, NoteContext>[] = [
   titleField(entityOf),
   // Linked to the Course directly, or written for one of its Sessions.
   relatedField({

@@ -1,9 +1,9 @@
 import { findNextSession } from "#/features/sessions/next-session.ts";
 import {
-  IconArrowRight,
   IconCalendarStats,
   IconChartBar,
   IconCards,
+  IconChecklist,
   IconClipboardList,
   IconNotes,
   IconWriting,
@@ -21,33 +21,27 @@ import { differenceInCalendarDays } from "date-fns";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
 import { TextProperty } from "#/components/property-fields.tsx";
 import { PropertyRow } from "#/components/property-row.tsx";
-import { Button } from "@nookly/ui/components/button";
 import { CardContent, CardHeader, CardTitle } from "@nookly/ui/components/card";
 import { InteractiveCard } from "@nookly/ui/components/interactive-card";
-import { EmptyState } from "#/components/empty-state.tsx";
 import {
   getCourseDetails,
   getCourseGrades,
   getCourseNotes,
   updateCourseProfessor,
 } from "#/lib/api/courses.ts";
-import { AssignmentRow } from "#/features/assignments/assignment-views.tsx";
-import { ExamTimeline } from "#/features/exams/ExamsListView.tsx";
-import { RecentNotesTable } from "#/features/notes/RecentNotesTable.tsx";
 import { getDeckStats, listDecks } from "#/lib/api/decks.ts";
-import { listLabels } from "#/lib/api/labels.ts";
-import { listNoteSummaries } from "#/lib/api/notes.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { BlockEditor } from "#/features/notes/BlockEditor.tsx";
 import { CourseWeekCutout } from "./CourseWeekCutout.tsx";
+import { type PageSectionDef, PageSections } from "#/features/page-sections/PageSections.tsx";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
 import { qk } from "#/lib/query-keys.ts";
 
-/// Notes a Course page rolls up before "Show more".
-const RECENT_NOTES = 5;
+/// The sections of a Course page, in their default order.
+const COURSE_SECTION_IDS = ["sessions", "assignments", "tasks", "exams", "notes"] as const;
 
 const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "evaluated"]);
 
@@ -67,8 +61,8 @@ function formatGrade(grade: number): string {
 /// Course detail body (§ course sub-dashboard plan) — header, right sidebar
 /// (Relationships incl. Semester/sequel-prequel, Attachments, Mentioned) all
 /// come free from `EntityDetailLayout`, exactly like every other entity type.
-/// Only the body — Course Notes, the bento quick-access grid, and the
-/// Sessions, Assignments, Notes and Exams sections — is Course-specific.
+/// Only the body — Course Notes, the bento quick-access grid, and a section per
+/// related type (Sessions, Assignments, Tasks, Exams, Notes) — is Course-specific.
 export function CourseDetailView({ entity }: { entity: Entity }) {
   return (
     <EntityDetailLayout entity={entity} sidebar={<PropertiesPanel course={entity} />}>
@@ -146,18 +140,6 @@ function CourseBody({ course }: { course: Entity }) {
     queryFn: () => listDecks(spaceId),
   });
 
-  const { data: noteSummaries = [] } = useQuery({
-    queryKey: qk.entities.noteSummaries(spaceId),
-    queryFn: () => listNoteSummaries(spaceId),
-  });
-  const { data: spaceLabels = [] } = useQuery({
-    queryKey: qk.labels.bySpace(spaceId),
-    queryFn: () => listLabels(spaceId),
-  });
-  const courseNoteSummaries = noteSummaries.filter((n) =>
-    n.courses.some((c) => c.id === course.id),
-  );
-
   const { courseSessions, courseExams, courseAssignments } = courseLinkedItems(
     relationships,
     course.id,
@@ -207,9 +189,54 @@ function CourseBody({ course }: { course: Entity }) {
     ...courseSessions.map((s) => s.entity.id),
     ...courseExams.map((e) => e.entity.id),
   ]);
-  const assignmentsByDue = [...courseAssignments].sort((a, b) =>
-    (a.dueDate ?? "").localeCompare(b.dueDate ?? ""),
-  );
+
+  const sections: PageSectionDef[] = [
+    {
+      id: "sessions",
+      title: "Sessions",
+      icon: IconCalendarStats,
+      add: { targetType: "session", relationship: "session-course", reverse: true },
+      onViewAll: () => viewAll("sessions"),
+      body: <CourseWeekCutout courseIds={courseCalendarIds} />,
+    },
+    {
+      id: "assignments",
+      title: "Assignments",
+      icon: IconClipboardList,
+      source: "assignment",
+      scope: { relationship: "assignment-course", direction: "outgoing" },
+      table: { sort: [{ field: "due", direction: "asc" }], columns: [] },
+      add: { targetType: "assignment", relationship: "assignment-course", reverse: true },
+      onViewAll: () => viewAll("assignments"),
+    },
+    {
+      id: "tasks",
+      title: "Tasks",
+      icon: IconChecklist,
+      source: "task",
+      scope: { relationship: "relates-to", direction: "both" },
+      add: { targetType: "task", relationship: "relates-to", reverse: false },
+    },
+    {
+      id: "exams",
+      title: "Exams",
+      icon: IconWriting,
+      source: "exam",
+      scope: { relationship: "exam-course", direction: "outgoing" },
+      table: { sort: [{ field: "date", direction: "asc" }], columns: [] },
+      add: { targetType: "exam", relationship: "exam-course", reverse: true },
+      onViewAll: () => viewAll("exams"),
+    },
+    {
+      id: "notes",
+      title: "Notes",
+      icon: IconNotes,
+      source: "note",
+      scope: { relationship: "course-notes", direction: "incoming" },
+      add: { targetType: "note", relationship: "course-notes", reverse: false },
+      onViewAll: () => viewAll("notes"),
+    },
+  ];
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -302,60 +329,7 @@ function CourseBody({ course }: { course: Entity }) {
         )}
       </div>
 
-      <CourseSection title="Sessions" onViewAll={() => viewAll("sessions")}>
-        <CourseWeekCutout courseIds={courseCalendarIds} />
-      </CourseSection>
-
-      <CourseSection
-        title="Assignments"
-        onViewAll={() => viewAll("assignments")}
-        empty={courseAssignments.length === 0}
-        emptyIcon={IconClipboardList}
-        emptyLabel="No assignments yet"
-      >
-        <div className="flex flex-col overflow-hidden rounded-lg border border-border [&>*:last-child]:border-b-0">
-          {assignmentsByDue.map((a) => (
-            <AssignmentRow
-              key={a.entity.id}
-              assignment={a}
-              course={course}
-              onOpen={() => openEntity(a.entity.id, spaceId)}
-            />
-          ))}
-        </div>
-      </CourseSection>
-
-      <CourseSection
-        title="Notes"
-        actionLabel="Show more"
-        onViewAll={() => viewAll("notes")}
-        empty={courseNoteSummaries.length === 0}
-        emptyIcon={IconNotes}
-        emptyLabel="No notes yet"
-      >
-        <RecentNotesTable
-          summaries={courseNoteSummaries}
-          labels={spaceLabels}
-          spaceId={spaceId}
-          limit={RECENT_NOTES}
-        />
-      </CourseSection>
-
-      <CourseSection
-        title="Exams"
-        onViewAll={() => viewAll("exams")}
-        empty={courseExams.length === 0}
-        emptyIcon={IconWriting}
-        emptyLabel="No exams yet"
-      >
-        <div className="flex flex-col gap-6 py-2 pr-2">
-          <ExamTimeline
-            exams={courseExams}
-            courseOf={new Map(courseExams.map((e) => [e.entity.id, course]))}
-            onOpen={(exam) => openEntity(exam.entity.id, spaceId)}
-          />
-        </div>
-      </CourseSection>
+      <PageSections entity={course} defaultIds={COURSE_SECTION_IDS} sections={sections} />
     </div>
   );
 }
@@ -384,40 +358,5 @@ function BentoCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-0.5 pb-4">{children}</CardContent>
     </InteractiveCard>
-  );
-}
-
-function CourseSection({
-  title,
-  onViewAll,
-  actionLabel = "View all",
-  empty = false,
-  emptyIcon,
-  emptyLabel,
-  children,
-}: {
-  title: string;
-  onViewAll: () => void;
-  /// What the button that opens the section's full page says.
-  actionLabel?: string;
-  empty?: boolean;
-  emptyIcon?: TablerIcon;
-  emptyLabel?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={onViewAll}>
-          {actionLabel} <IconArrowRight size={12} />
-        </Button>
-      </div>
-      {empty && emptyIcon && emptyLabel ? (
-        <EmptyState icon={emptyIcon} title={emptyLabel} compact />
-      ) : (
-        children
-      )}
-    </div>
   );
 }

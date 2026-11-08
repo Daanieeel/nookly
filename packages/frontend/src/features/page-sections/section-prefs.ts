@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { z } from "zod";
 import { create } from "zustand";
-import { normalizeTableDisplay } from "#/features/views/engine/table-display.ts";
+import { readStoredTable, storedTable } from "#/features/views/engine/table-display.ts";
 import type { TableDisplay } from "#/features/views/engine/types.ts";
 import { addMissingDefaults } from "#/lib/ordered-prefs.ts";
 import { preferences } from "#/lib/preferences.ts";
@@ -23,14 +23,20 @@ const storedSection = z.object({
   id: z.string().min(1),
   hidden: z.json().optional(),
   collapsed: z.json().optional(),
-  table: z.json().optional(),
+  table: storedTable.optional().catch(undefined),
 });
-const storedSections = z.array(z.json());
+const json = z.json();
+/// A stored value as it was read, still unchecked.
+type StoredJson = z.infer<typeof json>;
+const storedSections = z.array(json);
 /// Every page type's list, by entity type. A type this version doesn't know is kept as is.
-const storedAll = z.record(z.string(), z.json());
+const storedAll = z.record(z.string(), json);
 
 /// The stored list of one page type, checked entry by entry against `defaultIds`.
-export function normalizeSectionPrefs(defaultIds: readonly string[], stored: unknown): SectionPref[] {
+export function normalizeSectionPrefs(
+  defaultIds: readonly string[],
+  stored: StoredJson | undefined,
+): SectionPref[] {
   const list = storedSections.safeParse(stored);
   const kept: SectionPref[] = [];
   for (const entry of list.success ? list.data : []) {
@@ -39,13 +45,13 @@ export function normalizeSectionPrefs(defaultIds: readonly string[], stored: unk
     const { id, hidden, collapsed, table } = parsed.data;
     if (!defaultIds.includes(id) || kept.some((k) => k.id === id)) continue;
     const pref: SectionPref = { id, hidden: hidden === true, collapsed: collapsed === true };
-    if (typeof table === "object" && table !== null) pref.table = normalizeTableDisplay(table);
+    if (table) pref.table = readStoredTable(table);
     kept.push(pref);
   }
   return addMissingDefaults(defaultIds, kept, (id) => ({ id, hidden: false, collapsed: false }));
 }
 
-function readAll(): Record<string, unknown> {
+function readAll(): Record<string, StoredJson> {
   try {
     const raw = preferences.get(STORAGE_KEYS.pageSections);
     const parsed = raw ? storedAll.safeParse(JSON.parse(raw)) : null;
