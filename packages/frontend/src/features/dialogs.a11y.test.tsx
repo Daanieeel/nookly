@@ -87,6 +87,35 @@ describe("dialogs and menus have no axe violations", () => {
     await expectNoA11yViolations();
   });
 
+  it("RelatePicker opened from a section, with a new item to create", async () => {
+    mockCommand("list_entities", [makeEntity({ id: "n1", type: "note", title: "Wave notes" })]);
+    mockCommand("list_sessions", []);
+    mockCommand("list_relationships", []);
+    renderWithProviders(
+      <RelatePicker
+        spaceId="space-1"
+        exclude="me"
+        entityType="note"
+        types={[
+          {
+            name: "relates-to",
+            label: "Related to",
+            inverseLabel: "related from",
+            description: "",
+            fromType: null,
+            toType: null,
+          },
+        ]}
+        start={{ targetType: "note", optionKey: "relates-to:forward" }}
+        onSelect={() => {}}
+        onCreate={() => {}}
+      />,
+    );
+    await screen.findByRole("option", { name: /Wave notes/ });
+    await screen.findByRole("button", { name: /Create a new note/ });
+    await expectNoA11yViolations();
+  });
+
   it("QuickCreateSessionDialog", async () => {
     setDateTimeSettings({ timeFormat: "european", dateFormat: "american" });
     mockCommand("list_entities", [
