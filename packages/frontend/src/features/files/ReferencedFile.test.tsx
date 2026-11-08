@@ -107,6 +107,19 @@ describe("a File that points at a file on disk", () => {
     expect(screen.queryByRole("button", { name: "Copy content" })).toBeNull();
   });
 
+  it("never lets an older answer contradict the file's own state", async () => {
+    // The file was deleted after an earlier look found it: the page and the sidebar agree.
+    const file = pointer("missing", true);
+    mockCommand("get_file", file);
+    mockCommand("check_reference", { state: "available", asOf: null });
+    renderWithProviders(<FileDetailView entity={file.entity} />);
+    expect((await screen.findAllByText("Missing")).length).toBeGreaterThan(1);
+    // Give an answer that came from a look time to land, if the page were to ask for one.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText("Available")).toBeNull();
+    expect(screen.getAllByText("Missing").length).toBeGreaterThan(1);
+  });
+
   it("shows a stored file with no state at all", async () => {
     const file = makeFile({ localPath: "/files/notes.txt", originalFilename: "notes.txt" });
     mockCommand("get_file", file);

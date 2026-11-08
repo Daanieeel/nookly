@@ -678,8 +678,11 @@ function ReplaceButton({ file }: { file: FileEntity }) {
 /// Where a File that only points elsewhere stands on this device right now.
 function ReferenceStateRow({ file }: { file: FileEntity }) {
   const { reference } = file;
-  const check = useReferenceCheck(file.entity.id, reference?.status);
-  const status = check.data ?? reference?.status;
+  // A file on disk is answered by the page's own data, which is read fresh each time. A look
+  // kept from a minute ago must not outvote it; only a link needs the network to be asked.
+  const onDisk = reference?.provider === "file";
+  const check = useReferenceCheck(file.entity.id, reference?.status, !onDisk);
+  const status = onDisk ? reference?.status : (check.data ?? reference?.status);
   if (!reference || !status) return null;
   return (
     <PropertyRow label="State">
