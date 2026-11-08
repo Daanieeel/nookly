@@ -355,10 +355,11 @@ nookly cli note add-block <id> --type equation --content '\int_0^1 x^2\,dx = \fr
 nookly cli note add-block <id> --type diagram --content "$(printf 'flowchart LR\n  Idea --> Draft --> Done')"
 nookly cli note add-block <id> --type math --content "$(printf '(a+b)^2 &= (a+b)(a+b) \\\\\n&= a^2 + 2ab + b^2')"
 nookly cli note add-block <id> --type circuit --content "$(printf 'S = A ^ B\nC = A & B')"
+nookly cli note add-block <id> --type mindmap --content "$(printf 'Plan\n  Read\n    Chapter 1\n  Write')"
 nookly cli note add-block <id> --type plot --content "$(printf 'f(x) = x^2 - 2\nA = (1, -1)\nx: -5..5')"
 ```
 
-Equation, math, diagram, circuit and plot blocks added here open on the preview. Pass
+Equation, math, diagram, circuit, plot and mindmap blocks added here open on the preview. Pass
 `--attr view=source` to show the code instead.
 
 Inline math goes straight into paragraph text as `$…$` (`The area is $\pi r^2$`); a literal

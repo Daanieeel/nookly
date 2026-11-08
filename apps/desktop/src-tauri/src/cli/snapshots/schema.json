@@ -177,6 +177,22 @@
                 ]
               }
             ],
+            "mindmap": [
+              {
+                "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+                "kind": "text",
+                "name": "layout"
+              },
+              {
+                "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+                "kind": "enum",
+                "name": "view",
+                "values": [
+                  "rendered",
+                  "source"
+                ]
+              }
+            ],
             "numbered_list": [
               {
                 "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
@@ -307,6 +323,7 @@
           "heading1 to heading6": "The heading text, no leading '#'.",
           "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
           "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+          "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
           "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
           "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
           "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
@@ -343,6 +360,7 @@
           "heading6",
           "image",
           "math",
+          "mindmap",
           "numbered_list",
           "paragraph",
           "plot",
@@ -991,6 +1009,22 @@
                 ]
               }
             ],
+            "mindmap": [
+              {
+                "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+                "kind": "text",
+                "name": "layout"
+              },
+              {
+                "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+                "kind": "enum",
+                "name": "view",
+                "values": [
+                  "rendered",
+                  "source"
+                ]
+              }
+            ],
             "numbered_list": [
               {
                 "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
@@ -1121,6 +1155,7 @@
           "heading1 to heading6": "The heading text, no leading '#'.",
           "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
           "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+          "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
           "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
           "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
           "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
@@ -1157,6 +1192,7 @@
           "heading6",
           "image",
           "math",
+          "mindmap",
           "numbered_list",
           "paragraph",
           "plot",
@@ -1390,6 +1426,22 @@
                 ]
               }
             ],
+            "mindmap": [
+              {
+                "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+                "kind": "text",
+                "name": "layout"
+              },
+              {
+                "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+                "kind": "enum",
+                "name": "view",
+                "values": [
+                  "rendered",
+                  "source"
+                ]
+              }
+            ],
             "numbered_list": [
               {
                 "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
@@ -1520,6 +1572,7 @@
           "heading1 to heading6": "The heading text, no leading '#'.",
           "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
           "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+          "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
           "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
           "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
           "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
@@ -1556,6 +1609,7 @@
           "heading6",
           "image",
           "math",
+          "mindmap",
           "numbered_list",
           "paragraph",
           "plot",
@@ -2190,6 +2244,22 @@
                 ]
               }
             ],
+            "mindmap": [
+              {
+                "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+                "kind": "text",
+                "name": "layout"
+              },
+              {
+                "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+                "kind": "enum",
+                "name": "view",
+                "values": [
+                  "rendered",
+                  "source"
+                ]
+              }
+            ],
             "numbered_list": [
               {
                 "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
@@ -2320,6 +2390,7 @@
           "heading1 to heading6": "The heading text, no leading '#'.",
           "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
           "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+          "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
           "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
           "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
           "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
@@ -2356,6 +2427,7 @@
           "heading6",
           "image",
           "math",
+          "mindmap",
           "numbered_list",
           "paragraph",
           "plot",
@@ -2580,6 +2652,22 @@
                 ]
               }
             ],
+            "mindmap": [
+              {
+                "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+                "kind": "text",
+                "name": "layout"
+              },
+              {
+                "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+                "kind": "enum",
+                "name": "view",
+                "values": [
+                  "rendered",
+                  "source"
+                ]
+              }
+            ],
             "numbered_list": [
               {
                 "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
@@ -2710,6 +2798,7 @@
           "heading1 to heading6": "The heading text, no leading '#'.",
           "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
           "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+          "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
           "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
           "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
           "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
@@ -2746,6 +2835,7 @@
           "heading6",
           "image",
           "math",
+          "mindmap",
           "numbered_list",
           "paragraph",
           "plot",
@@ -3510,6 +3600,22 @@
                 ]
               }
             ],
+            "mindmap": [
+              {
+                "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+                "kind": "text",
+                "name": "layout"
+              },
+              {
+                "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+                "kind": "enum",
+                "name": "view",
+                "values": [
+                  "rendered",
+                  "source"
+                ]
+              }
+            ],
             "numbered_list": [
               {
                 "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
@@ -3640,6 +3746,7 @@
           "heading1 to heading6": "The heading text, no leading '#'.",
           "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
           "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+          "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
           "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
           "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
           "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
@@ -3676,6 +3783,7 @@
           "heading6",
           "image",
           "math",
+          "mindmap",
           "numbered_list",
           "paragraph",
           "plot",
@@ -3939,6 +4047,22 @@
                 ]
               }
             ],
+            "mindmap": [
+              {
+                "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+                "kind": "text",
+                "name": "layout"
+              },
+              {
+                "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+                "kind": "enum",
+                "name": "view",
+                "values": [
+                  "rendered",
+                  "source"
+                ]
+              }
+            ],
             "numbered_list": [
               {
                 "description": "Counts the list in letters instead of numbers, with this first marker: 'a.', 'a)', 'A.' or 'A)'. Omit for 1, 2, 3.",
@@ -4069,6 +4193,7 @@
           "heading1 to heading6": "The heading text, no leading '#'.",
           "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
           "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+          "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
           "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
           "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
           "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
@@ -4105,6 +4230,7 @@
           "heading6",
           "image",
           "math",
+          "mindmap",
           "numbered_list",
           "paragraph",
           "plot",

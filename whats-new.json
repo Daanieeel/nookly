@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.68.0",
+      "date": "2026-11-07",
+      "highlights": [
+        {
+          "title": "Mind maps",
+          "description": "Write your ideas as an indented list and Nookly draws them as a map. Drag ideas where you want them, and click one to fold or open its branches.",
+          "icon": "hierarchy",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.67.0",
       "date": "2026-11-07",
       "highlights": [],

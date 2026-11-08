@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.68.0 (2026-11-07)
+
+### Added
+
+- A new Mind map block. Write your ideas as an indented list and Nookly draws them as a map around the first line. In the preview, click an idea with branches to fold or open them, and drag any idea to move it together with everything under it. Reset layout brings back the automatic layout. Mind maps also show up in PDF, Word and OpenDocument exports, laid out automatically.
+
 ## 0.67.1 (2026-11-07)
 
 ### Changed

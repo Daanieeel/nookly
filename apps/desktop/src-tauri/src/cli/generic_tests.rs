@@ -3303,7 +3303,7 @@ fn stored_view(fx: &Fx, note: &str) -> Option<String> {
 
 #[test]
 fn source_blocks_made_through_the_cli_start_on_the_preview() {
-    for block_type in ["equation", "math", "diagram", "circuit", "plot"] {
+    for block_type in ["equation", "math", "diagram", "circuit", "plot", "mindmap"] {
         let fx = fx();
         let (note, _) = new_note(&fx, "Preview");
         cli(
@@ -3325,6 +3325,52 @@ fn source_blocks_made_through_the_cli_start_on_the_preview() {
             "{block_type}"
         );
     }
+}
+
+#[test]
+fn editing_a_mind_map_outline_through_the_cli_keeps_where_nodes_were_dragged() {
+    let fx = fx();
+    let (note, _) = new_note(&fx, "Map");
+    let layout = r#"{"v":1,"ids":["p","r","w"],"positions":{"w":{"x":12.0,"y":8.0}}}"#;
+    let added = cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &note,
+            "--type",
+            "mindmap",
+            "--content",
+            "Plan\n  Read\n  Write",
+            "--attr",
+            &format!("layout={layout}"),
+        ],
+    )
+    .unwrap();
+    let block_id = added["block"]["id"].as_str().unwrap().to_string();
+    let updated = cli(
+        &fx.conn,
+        &[
+            "note",
+            "update-block",
+            &block_id,
+            "--content",
+            "Plan\n  Read\n  Draft\n  Write",
+        ],
+    )
+    .unwrap();
+    let stored: serde_json::Value =
+        serde_json::from_str(updated["block"]["attrs"]["layout"].as_str().unwrap()).unwrap();
+    assert_eq!(stored["ids"].as_array().unwrap().len(), 4);
+    assert_eq!(stored["ids"][3], "w");
+    assert_eq!(stored["positions"]["w"]["x"], 12.0);
+    // Clearing it brings back the automatic layout.
+    let cleared = cli(
+        &fx.conn,
+        &["note", "update-block", &block_id, "--attr", "layout="],
+    )
+    .unwrap();
+    assert!(cleared["block"]["attrs"].get("layout").is_none());
 }
 
 #[test]

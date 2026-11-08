@@ -14,6 +14,7 @@ import {
   IconMathFunction,
   IconMathXDivideY2,
   IconChartLine,
+  IconHierarchy2,
   IconCpu,
   IconSchema,
   IconSum,
@@ -326,6 +327,13 @@ export const SLASH_ITEMS: SlashItem[] = [
     description: "Functions and points in a coordinate system",
     icon: <IconChartLine size={15} />,
     run: (editor, range) => setSourceBlock(editor, range, "plot"),
+  },
+  {
+    title: "Mind map",
+    group: "Math and diagrams",
+    description: "Ideas branching from a topic, from an indented list",
+    icon: <IconHierarchy2 size={15} />,
+    run: (editor, range) => setSourceBlock(editor, range, "mindmap"),
   },
   {
     title: "Image",

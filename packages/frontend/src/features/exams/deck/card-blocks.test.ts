@@ -5,6 +5,7 @@ import {
   EMPTY_FACE,
   faceBlocks,
   faceSummary,
+  forReading,
   isFaceEmpty,
   nodesToBlocks,
   sameFace,
@@ -96,6 +97,13 @@ describe("isFaceEmpty and sameFace", () => {
   });
 });
 
+describe("forReading", () => {
+  it("shows a mind map as drawn", () => {
+    const [block] = forReading([{ type: "mindmap", content: "Plan", attrs: { view: "source" } }]);
+    expect(block?.attrs?.view).toBe("rendered");
+  });
+});
+
 describe("faceSummary", () => {
   it("is the text of an old card", () => {
     expect(faceSummary(card(), "front")).toBe("Q");
@@ -113,5 +121,11 @@ describe("faceSummary", () => {
         "front",
       ),
     ).toBe("See Notes Image");
+  });
+
+  it("names a mind map instead of reading its outline", () => {
+    expect(
+      faceSummary(card({ frontBlocks: [{ type: "mindmap", content: "Plan\n  Read" }] }), "front"),
+    ).toBe("Mind map");
   });
 });

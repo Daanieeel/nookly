@@ -1149,7 +1149,7 @@ fn block_add(page: &BlockPage, args: &Args) -> AppResult<Value> {
     // code, so they open on the preview unless `--attr view=...` says otherwise.
     if matches!(
         block_type.as_str(),
-        "equation" | "math" | "diagram" | "circuit" | "plot"
+        "equation" | "math" | "diagram" | "circuit" | "plot" | "mindmap"
     ) {
         attrs
             .entry("view".to_string())

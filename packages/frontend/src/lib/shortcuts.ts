@@ -482,7 +482,7 @@ export const FIXED_SHORTCUTS: FixedShortcut[] = [
     scopes: EDITOR,
   },
   {
-    label: "Show the result of a formula, diagram, circuit or plot",
+    label: "Show the result of a formula, diagram, circuit, plot or mind map",
     section: "Editor",
     keys: ["Mod+Enter"],
     scopes: EDITOR,

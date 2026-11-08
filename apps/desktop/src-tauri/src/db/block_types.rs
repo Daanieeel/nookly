@@ -1054,6 +1054,33 @@ inventory::submit! {
     }
 }
 
+// --- mind map --------------------------------------------------------------
+
+const LAYOUT_ATTR: BlockAttrDef = BlockAttrDef {
+    name: "layout",
+    kind: AttrKind::Text,
+    description:
+        "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per \
+         outline line and the offsets of the nodes that were moved. Independent of the outline, \
+         which it never changes. It follows outline edits made here. Leave it alone unless \
+         copying a block; clear it to bring back the automatic layout.",
+};
+
+inventory::submit! {
+    BlockTypeDef {
+        block_type: "mindmap",
+        content_format: "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). \
+                         The first line is the middle of the map and the lines indented under it are its \
+                         branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" \
+                         is ignored. Several lines that are not indented make separate maps, one below the \
+                         other. The map is laid out from this text alone.",
+        attrs: &[VIEW_ATTR, LAYOUT_ATTR],
+        validate: accept_anything,
+        // The outline in a fence: no markdown viewer draws the map, but every idea stays readable.
+        to_markdown: |block| format!("```mindmap\n{}\n```", block.content.trim_end()),
+    }
+}
+
 // --- entity card -----------------------------------------------------------
 
 /// The one `[title](mention:<id>)` link a card is, or nothing yet.

@@ -645,6 +645,7 @@ pub fn get_block(conn: &Connection, block_id: &str) -> AppResult<Block> {
 
 pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> AppResult<Block> {
     let mut block = get_block(conn, block_id)?;
+    let content_before = block.content.clone();
     if let Some(content) = patch.content {
         block.content = content;
     }
@@ -666,6 +667,27 @@ pub fn update_block(conn: &Connection, block_id: &str, patch: BlockPatch) -> App
     let attrs_patch = patch.attrs.unwrap_or_default();
     block_types::validate_attrs(&block.block_type, &attrs_patch)?;
     block_types::validate_content(&block.block_type, &block.content)?;
+    // A write that does not bring its own layout (the CLI's) edits the outline under the one
+    // stored, so the stored ids follow the change. The editor always brings its own, already
+    // followed.
+    if block.block_type == "mindmap"
+        && block.content != content_before
+        && !attrs_patch.contains_key("layout")
+    {
+        if let Some(stored) = block.attrs.get("layout") {
+            let followed = crate::db::mindmap_layout::reconcile(
+                &content_before,
+                &block.content,
+                stored,
+                &mut crate::db::mindmap_layout::new_id,
+            );
+            if followed.is_empty() {
+                block.attrs.remove("layout");
+            } else {
+                block.attrs.insert("layout".into(), followed);
+            }
+        }
+    }
     block_types::merge_attrs(&block.block_type, &mut block.attrs, attrs_patch);
     let now = super::now();
     let attrs_column = attrs_json(&block.attrs)?;
@@ -725,7 +747,9 @@ fn list_to_markdown(block: &Block, bullet: Option<&str>) -> String {
 }
 
 /// Block types whose content is not prose, so `=={green}` or `{red}x{/}` in it is just text.
-const LITERAL_BLOCK_TYPES: &[&str] = &["code", "equation", "math", "diagram", "circuit", "plot"];
+const LITERAL_BLOCK_TYPES: &[&str] = &[
+    "code", "equation", "math", "diagram", "circuit", "plot", "mindmap",
+];
 
 /// A highlight's colour (`=={green}text==`) and a text colour (`{red}text{/}`) are kept in the
 /// page only; a markdown export has the plain `==text==` and the plain text.

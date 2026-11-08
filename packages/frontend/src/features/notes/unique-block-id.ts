@@ -27,6 +27,7 @@ const TOP_LEVEL_BLOCK_TYPES = [
   "diagram",
   "circuit",
   "plot",
+  "mindmap",
   "entity_card",
   "image",
   "video",

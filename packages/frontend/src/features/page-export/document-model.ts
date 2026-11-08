@@ -93,6 +93,7 @@ export type FigureSource =
   | { type: "diagram"; source: string }
   | { type: "circuit"; source: string }
   | { type: "plot"; source: string }
+  | { type: "mindmap"; source: string }
   /// An image file the page shows, by File id or URL.
   | { type: "image"; fileId?: string; url?: string; path?: string };
 

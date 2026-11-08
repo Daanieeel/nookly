@@ -61,6 +61,14 @@ const SAMPLES = {
     content: [text("Y = A & B")],
   },
   plot: { type: "plot", attrs: { view: "rendered" }, content: [text("f(x) = x^2")] },
+  mindmap: {
+    type: "mindmap",
+    attrs: {
+      view: "rendered",
+      layout: '{"v":1,"ids":["a","b"],"positions":{"b":{"x":4,"y":-2}}}',
+    },
+    content: [text("Plan\n  Read")],
+  },
   divider: { type: "divider" },
   timeline: atom("timeline", "2026\tStart\tnow", { title: "Plan" }),
   progress: atom("progress", "Reading\t3\t10", { title: "Goals" }),
