@@ -486,6 +486,44 @@ export interface Assignment {
   evaluatedAt: string | null;
 }
 
+/// The five answers to "can I get to it?", worked out live on each device and never stored.
+export type ReferenceStateKey =
+  | "available"
+  | "offline"
+  | "missing"
+  | "needsSignIn"
+  | "notOnThisDevice";
+
+export interface ReferenceStatus {
+  state: ReferenceStateKey;
+  /// For `offline`: when the target last answered; null if it never did.
+  asOf: string | null;
+}
+
+export type ReferenceProvider = "file" | "link" | "moodle_course" | "moodle_assignment";
+
+/// What a reference stores, and what this device can tell about it.
+export interface ReferenceFacts {
+  provider: ReferenceProvider;
+  /// The path, link or id on the provider's side. A file's is the path on the device it was
+  /// added on; `pathOnThisDevice` is the one to open.
+  remoteId: string;
+  /// The title the target had when it was last reached.
+  lastKnownTitle: string | null;
+  lastSeenAt: string | null;
+  /// The last live answer: `available`, `offline`, `missing` or `needs_sign_in`.
+  lastResult: string | null;
+  /// For a file: where it is on this device; null when it is not on this device.
+  pathOnThisDevice: string | null;
+  /// Known right away for a file on disk. A link or a Moodle object needs a check.
+  status: ReferenceStatus | null;
+}
+
+/// A pointer to something Nookly does not own: a link, a Moodle course or assignment.
+export interface Reference extends ReferenceFacts {
+  entity: Entity;
+}
+
 export interface FileEntity {
   entity: Entity;
   localPath: string | null;
@@ -508,6 +546,9 @@ export interface FileEntity {
   /// Only populated by `getFile` (a single File); `listFiles` always returns
   /// `null` here to keep listing many Files cheap.
   indexedContent: string | null;
+  /// Present while the File only points at a file or link elsewhere (nothing stored in
+  /// Nookly). `null` for a File Nookly stores itself.
+  reference: ReferenceFacts | null;
 }
 
 export interface Bookmark {

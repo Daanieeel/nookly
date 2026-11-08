@@ -16,6 +16,7 @@ pub mod decks;
 mod decks_tests;
 #[cfg(debug_assertions)]
 mod dev_seed;
+pub mod device;
 pub mod entities;
 pub mod exams;
 #[cfg(test)]
@@ -47,6 +48,7 @@ pub mod portable;
 pub mod recipes;
 #[cfg(test)]
 mod recipes_tests;
+pub mod references;
 pub mod relationships;
 #[cfg(test)]
 mod relationships_tests;
@@ -353,6 +355,10 @@ pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std
         tracing::error!(error = %e, "could not bring the database to the latest version");
         return Err(e.into());
     }
+    // References that came from an upgrade were all typed on this one device.
+    let device = device::id_in(app_data_dir);
+    device::set_current(&device);
+    references::adopt_legacy(&conn, &device)?;
     Ok(conn)
 }
 

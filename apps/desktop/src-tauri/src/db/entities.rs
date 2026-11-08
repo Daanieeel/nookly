@@ -44,6 +44,7 @@ pub fn key_prefix(entity_type: &str) -> &'static str {
         "assignment" => "ASG",
         "file" => "FIL",
         "bookmark" => "BMK",
+        "reference" => "REF",
         "recipe" => "RCP",
         "view" => "VEW",
         _ => "ENT",
@@ -304,6 +305,7 @@ fn untitled_label(entity_type: &str) -> String {
         "assignment" => "Assignment",
         "file" => "File",
         "bookmark" => "Bookmark",
+        "reference" => "Reference",
         "recipe" => "Recipe",
         "view" => "View",
         "space" => "Space",
@@ -677,6 +679,14 @@ fn sweep_entity(conn: &Connection, id: &str) -> AppResult<()> {
     conn.execute("DELETE FROM assignments WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM files WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM bookmarks WHERE entity_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM reference_device_paths WHERE reference_id = ?1",
+        params![id],
+    )?;
+    conn.execute(
+        "DELETE FROM entity_references WHERE entity_id = ?1",
+        params![id],
+    )?;
     conn.execute(
         "DELETE FROM note_settings WHERE entity_id = ?1",
         params![id],

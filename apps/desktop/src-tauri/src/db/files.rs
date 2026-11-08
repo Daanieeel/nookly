@@ -1,4 +1,5 @@
 use crate::db::entities::Entity;
+use crate::db::references::{self, ReferenceFacts};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -36,6 +37,13 @@ pub struct FileEntity {
     /// `get_file` does, so listing many Files never pulls their full text
     /// along for the ride. Use `nookly cli file get <id>` to read it.
     pub indexed_content: Option<String>,
+    /// Present while the File only points at a file or link elsewhere (no stored copy):
+    /// what is known about the target, and whether this device can reach it. Worked out
+    /// live for a file on disk; a link is looked at with `check_reference`. `None` for a
+    /// File stored in Nookly. `source_path` is this device's path for a pointer File.
+    pub reference: Option<ReferenceFacts>,
+    #[serde(skip)]
+    has_indexed_content: bool,
 }
 
 fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
@@ -58,7 +66,30 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
         needs_reindex,
         label_ids: Vec::new(),
         indexed_content: None,
+        reference: None,
+        has_indexed_content,
     })
+}
+
+/// For a File that only points elsewhere, replaces the path the row remembers with what is
+/// true on this device (that path, or none when the File is from another device), and
+/// attaches what is known about the target. Rows written before references existed are
+/// followed by their reference from the upgrade, so `files.source_path` is kept but no
+/// longer the source of truth.
+fn resolve_reference(conn: &Connection, file: &mut FileEntity) -> AppResult<()> {
+    if file.local_path.is_some() {
+        return Ok(());
+    }
+    let Some(facts) = references::facts_for(conn, &file.entity.id)? else {
+        return Ok(());
+    };
+    if facts.provider == references::PROVIDER_FILE {
+        file.source_path = facts.path_on_this_device.clone();
+        file.needs_reindex =
+            !file.has_indexed_content && file.source_path.as_deref().is_some_and(is_indexable);
+    }
+    file.reference = Some(facts);
+    Ok(())
 }
 
 /// The exact text `search_index` holds for this File — empty until something's
@@ -434,8 +465,30 @@ pub fn reference_file(conn: &Connection, space_id: String, path: &Path) -> AppRe
          VALUES (?1, NULL, NULL, NULL, ?2, ?3)",
         params![entity.id, filename, path.to_string_lossy()],
     )?;
+    references::add_file_reference(
+        conn,
+        &entity.id,
+        &filename,
+        &path.to_string_lossy(),
+        &crate::db::device::current(),
+    )?;
     index_file_content(conn, &entity.id, &path.to_string_lossy());
     get_file(conn, &entity.id)
+}
+
+/// Tells Nookly where a referenced file is on this device: the same document picked
+/// again after it moved, or on a device it was not added on. Only this device's path
+/// changes; the File, its labels and relationships stay.
+pub fn locate_file(conn: &Connection, entity_id: &str, path: &Path) -> AppResult<FileEntity> {
+    let file = get_file(conn, entity_id)?;
+    if file.local_path.is_some() {
+        return Err(AppError::InvalidInput(
+            "this file is stored in Nookly, there is nothing to locate".into(),
+        ));
+    }
+    references::locate_on_device(conn, entity_id, &crate::db::device::current(), path)?;
+    index_file_content(conn, entity_id, &path.to_string_lossy());
+    get_file(conn, entity_id)
 }
 
 /// Copies a referenced file into storage; the entity stays the same and remembers
@@ -450,7 +503,15 @@ pub fn copy_into_storage(
         return Ok(file);
     }
     let source = file.source_path.ok_or_else(|| {
-        AppError::InvalidInput("this file isn't a reference to a file on disk".into())
+        let elsewhere = file
+            .reference
+            .as_ref()
+            .is_some_and(|r| r.provider == references::PROVIDER_FILE);
+        AppError::InvalidInput(if elsewhere {
+            "this file isn't on this device yet, locate it first".into()
+        } else {
+            "this file isn't a reference to a file on disk".to_string()
+        })
     })?;
     let filename = file.original_filename.unwrap_or_else(|| "untitled".into());
     let local_path = copy_stored(files_dir, &filename, Path::new(&source))?;
@@ -728,6 +789,9 @@ pub fn list_files(conn: &Connection, space_id: &str) -> AppResult<Vec<FileEntity
     ))?;
     let rows = stmt.query_map(params![space_id], row_to_file)?;
     let mut files = rows.collect::<Result<Vec<_>, _>>()?;
+    for file in &mut files {
+        resolve_reference(conn, file)?;
+    }
 
     let index: std::collections::HashMap<String, usize> = files
         .iter()
@@ -759,6 +823,7 @@ pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
             row_to_file,
         )
         .map_err(|_| AppError::NotFound(format!("file {entity_id}")))?;
+    resolve_reference(conn, &mut file)?;
     file.label_ids = crate::db::labels::label_ids_for(conn, entity_id)?;
     file.indexed_content = Some(indexed_content_for(conn, entity_id)?);
     Ok(file)
@@ -776,7 +841,10 @@ pub fn files_needing_reindex(
          ORDER BY e.created_at ASC"
     ))?;
     let rows = stmt.query_map(params![space_id], row_to_file)?;
-    let files: Vec<FileEntity> = rows.collect::<Result<Vec<_>, _>>()?;
+    let mut files: Vec<FileEntity> = rows.collect::<Result<Vec<_>, _>>()?;
+    for file in &mut files {
+        resolve_reference(conn, file)?;
+    }
     Ok(files.into_iter().filter(|f| f.needs_reindex).collect())
 }
 

@@ -85,6 +85,11 @@ fn sample(f: &FieldDef, variant: usize) -> Option<Value> {
         FieldKind::Text if f.name == "startTime" => pick(json!("09:00"), json!("09:30")),
         FieldKind::Text if f.name == "examTime" => pick(json!("09:00"), json!("14:30")),
         FieldKind::Text if f.name == "endTime" => pick(json!("10:00"), json!("11:30")),
+        // A reference's target: the generated `provider` is the first one, a link.
+        FieldKind::Text if f.name == "remoteId" => pick(
+            json!("https://example.com/a"),
+            json!("https://example.com/b"),
+        ),
         FieldKind::Text if f.name.to_lowercase().contains("url") => pick(
             json!("https://example.com/a"),
             json!("https://example.com/b"),

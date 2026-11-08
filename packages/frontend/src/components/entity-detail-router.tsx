@@ -10,6 +10,7 @@ import { FileDetailView } from "#/features/files/FileDetailView.tsx";
 import { SessionDetailView } from "#/features/sessions/SessionDetailView.tsx";
 import { PageDetailView } from "#/features/notes/PageDetailView.tsx";
 import { RecipeDetailView } from "#/features/recipes/RecipeDetailView.tsx";
+import { ReferenceDetailView } from "#/features/references/ReferenceDetailView.tsx";
 import { TaskDetailView } from "#/features/tasks/TaskDetailView.tsx";
 import { getEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
@@ -54,6 +55,8 @@ export function EntityDetailRouter({ entityId }: { entityId: string }) {
       return <FileDetailView entity={entity} />;
     case "recipe":
       return <RecipeDetailView entity={entity} />;
+    case "reference":
+      return <ReferenceDetailView entity={entity} />;
     case "bookmark":
       return <BookmarkRedirect entity={entity} />;
     case "view":

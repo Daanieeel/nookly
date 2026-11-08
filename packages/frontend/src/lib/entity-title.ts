@@ -19,6 +19,7 @@ const TYPE_LABELS = new Map<string, string>([
   ["assignment", "Assignment"],
   ["file", "File"],
   ["bookmark", "Bookmark"],
+  ["reference", "Reference"],
   ["recipe", "Recipe"],
   ["view", "View"],
   ["space", "Space"],

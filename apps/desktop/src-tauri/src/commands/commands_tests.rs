@@ -201,6 +201,11 @@ ipc_commands![
     files::list_open_with_apps,
     office::office_converter_available,
     office_install::libreoffice_install_options,
+    references::create_reference,
+    references::get_reference,
+    references::list_references,
+    references::retarget_reference,
+    references::check_reference,
     bookmarks::create_bookmark,
     bookmarks::list_bookmarks,
     bookmarks::get_bookmark,
@@ -267,6 +272,7 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "copy_file_into_storage",
         "files_reference_copy_and_replace_underlying_db_calls",
     ),
+    ("locate_file", "files_locate_underlying_db_call"),
     (
         "open_file",
         "files_open_reveal_and_open_with_resolve_the_path",
@@ -4468,4 +4474,97 @@ fn portable_export_to_an_unwritable_path_is_an_io_error() {
         "Io",
     );
     assert!(!out.exists());
+}
+
+#[test]
+fn references_are_made_read_listed_checked_and_retargeted_over_ipc() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let made = h.ok(
+        "create_reference",
+        json!({
+            "spaceId": space, "provider": "moodle_course", "remoteId": "42", "title": "Physics"
+        }),
+    );
+    assert_eq!(made["entity"]["type"], "reference");
+    assert_eq!(made["provider"], "moodle_course");
+    assert_eq!(made["remoteId"], "42");
+    assert_eq!(made["lastKnownTitle"], "Physics");
+    assert_eq!(
+        made["status"],
+        Value::Null,
+        "needs Moodle, so not known without a look"
+    );
+    let id = id_of(&made);
+
+    assert_eq!(
+        h.ok("get_reference", json!({ "entityId": id }))["remoteId"],
+        "42"
+    );
+    assert_eq!(
+        h.ok("list_references", json!({ "spaceId": space }))
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let moved = h.ok(
+        "retarget_reference",
+        json!({ "entityId": id, "remoteId": "43" }),
+    );
+    assert_eq!(moved["remoteId"], "43");
+
+    // Not signed in to Moodle in the test app: the answer is "needs sign in".
+    let status = h.ok("check_reference", json!({ "entityId": id }));
+    assert_eq!(status["state"], "needsSignIn");
+    let after = h.ok("get_reference", json!({ "entityId": id }));
+    assert_eq!(after["lastResult"], "needs_sign_in");
+
+    let bad = h.app_err(
+        "create_reference",
+        json!({ "spaceId": space, "provider": "link", "remoteId": "nope" }),
+        "InvalidInput",
+    );
+    assert!(bad.contains("web address"), "{bad}");
+    h.app_err("get_reference", json!({ "entityId": MISSING }), "NotFound");
+}
+
+#[test]
+fn a_referenced_file_is_checked_over_ipc_like_any_reference() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let original = h.dir.file("watched.txt", b"v1");
+    let file = h.db(|c| db::files::reference_file(c, space.clone(), &original).unwrap());
+    let id = file.entity.id;
+    assert_eq!(
+        h.ok("check_reference", json!({ "entityId": id }))["state"],
+        "available"
+    );
+    std::fs::remove_file(&original).unwrap();
+    assert_eq!(
+        h.ok("check_reference", json!({ "entityId": id }))["state"],
+        "missing"
+    );
+    h.app_err(
+        "check_reference",
+        json!({ "entityId": MISSING }),
+        "NotFound",
+    );
+}
+
+#[test]
+fn files_locate_underlying_db_call() {
+    // `locate_file` takes an `AppHandle` (it lets the webview read the file by path), so it
+    // cannot run on the mock runtime: this runs the call it delegates to.
+    let h = Harness::new();
+    let space = h.space("S");
+    let original = h.dir.file("a.txt", b"v1");
+    let file = h.db(|c| db::files::reference_file(c, space.clone(), &original).unwrap());
+    std::fs::remove_file(&original).unwrap();
+    let found = h.dir.file("b.txt", b"v1");
+    let located = h.db(|c| db::files::locate_file(c, &file.entity.id, &found).unwrap());
+    assert_eq!(located.source_path.as_deref(), found.to_str());
+    let nothing = h.dir.path().join("nothing.txt");
+    let err = h.db(|c| db::files::locate_file(c, &file.entity.id, &nothing).unwrap_err());
+    assert!(matches!(err, crate::error::AppError::InvalidInput(_)));
 }

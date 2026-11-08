@@ -9,6 +9,7 @@ import {
   IconExternalLink,
   IconFileUpload,
   IconFolderOpen,
+  IconMapPin,
 } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -38,12 +39,13 @@ import {
   openFileWith,
   downloadLinkedFile,
   getFile,
+  locateFile,
   openFile,
   replaceFile,
   revealFile,
   setFileAddedAt,
 } from "#/lib/api/files.ts";
-import type { Entity, FileEntity } from "#/lib/api/types.ts";
+import type { Entity, FileEntity, ReferenceStatus } from "#/lib/api/types.ts";
 import { formatDate } from "#/lib/datetime.ts";
 import { focusBlockIn, useNavStore } from "#/lib/store/nav.ts";
 import { useTabGroupScope } from "#/components/tab-group-scope.ts";
@@ -63,9 +65,13 @@ import {
   isLinkOnly,
   isReference,
   officeFormat,
+  pointsAtFile,
 } from "./file-kind";
 
 import { CrashFallback, ErrorBoundary } from "#/components/error-boundary.tsx";
+import { ReferenceStateBadge } from "#/features/references/ReferenceStateBadge.tsx";
+import { useReferenceCheck } from "#/features/references/use-reference-check.ts";
+import { canLocate } from "#/lib/reference-state.ts";
 import { refreshDatabaseData } from "#/lib/refresh-data.ts";
 
 const REVEAL_LABEL = navigator.userAgent.includes("Mac") ? "Reveal in Finder" : "Show in Folder";
@@ -134,6 +140,10 @@ export function FileViewer({
   const src = path ? convertFileSrc(path) : null;
   const name = file.originalFilename ?? displayTitle(file.entity);
 
+  const status = file.reference?.status;
+  if (pointsAtFile(file) && status && status.state !== "available") {
+    return <FileUnreachable file={file} status={status} />;
+  }
   if (!src) return <LinkOnly file={file} />;
   const office = officeFormat(file);
   if (office) {
@@ -501,6 +511,7 @@ function FileProperties({ file }: { file: FileEntity }) {
           </Value>
         </PropertyRow>
       )}
+      {file.reference && <ReferenceStateRow file={file} />}
       <PropertyRow label="Added">
         <AddedDatePicker
           value={file.entity.createdAt.slice(0, 10)}
@@ -526,6 +537,9 @@ function FileProperties({ file }: { file: FileEntity }) {
         {isLinkOnly(file) && <DownloadButton file={file} />}
         {file.url && <ConvertButton file={file} className="justify-start" />}
         {isReference(file) && <CopyIntoStorageButton file={file} />}
+        {pointsAtFile(file) && canLocate(file.reference?.status) && (
+          <LocateFileButton file={file} className="justify-start" />
+        )}
         {filePath(file) && (
           <>
             <Button
@@ -661,6 +675,91 @@ function ReplaceButton({ file }: { file: FileEntity }) {
 }
 
 /// Makes a file added by path independent of the original: Nookly keeps its own copy.
+/// Where a File that only points elsewhere stands on this device right now.
+function ReferenceStateRow({ file }: { file: FileEntity }) {
+  const { reference } = file;
+  const check = useReferenceCheck(file.entity.id, reference?.status);
+  const status = check.data ?? reference?.status;
+  if (!reference || !status) return null;
+  return (
+    <PropertyRow label="State">
+      <div className="flex h-7 items-center px-2">
+        <ReferenceStateBadge status={status} provider={reference.provider} />
+      </div>
+    </PropertyRow>
+  );
+}
+
+/// Picks the same file on this device. Only this device's path changes: the File, its
+/// labels and relationships stay, and so does the path it has on other devices.
+export function LocateFileButton({
+  file,
+  variant = "ghost",
+  className,
+}: {
+  file: FileEntity;
+  variant?: "ghost" | "secondary";
+  className?: string;
+}) {
+  const queryClient = useQueryClient();
+  const { entity } = file;
+  const locate = useMutation({
+    mutationFn: async () => {
+      const picked = await open({
+        multiple: false,
+        directory: false,
+        title: `Locate ${file.originalFilename ?? displayTitle(entity)}`,
+      });
+      if (!picked) return null;
+      return locateFile(entity.id, picked);
+    },
+    onSuccess: (located) =>
+      located &&
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.files.byId(entity.id) }),
+        queryClient.invalidateQueries({ queryKey: qk.files.bySpace(entity.spaceId) }),
+        queryClient.invalidateQueries({ queryKey: qk.references.check(entity.id) }),
+        queryClient.invalidateQueries({ queryKey: qk.files.text(entity.id) }),
+      ]),
+  });
+  const status = statusOf(locate);
+  return (
+    <Button
+      variant={variant}
+      size="sm"
+      className={cn("gap-1.5", className)}
+      onClick={() => status !== "pending" && locate.mutate()}
+    >
+      <StatusButtonContent
+        status={locate.isSuccess && locate.data === null ? "idle" : status}
+        icon={<IconMapPin />}
+        label="Locate…"
+        successLabel="Located"
+        errorLabel="Couldn't use that file, try again"
+      />
+    </Button>
+  );
+}
+
+/// A File that only points at a file on disk, which this device can't see right now: it was
+/// added on another device, or it moved or was deleted. Offers the two ways out.
+function FileUnreachable({ file, status }: { file: FileEntity; status: ReferenceStatus }) {
+  const kind = fileKind(file);
+  const name = file.originalFilename ?? displayTitle(file.entity);
+  return (
+    <div className="flex size-full flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border p-6 text-center">
+      <div className="flex size-16 items-center justify-center rounded-xl bg-muted/60">
+        <kind.icon size={32} stroke={1.5} className={kind.tone} />
+      </div>
+      <div className="flex max-w-full flex-col items-center gap-2">
+        <p className="truncate text-sm font-medium">{name}</p>
+        <ReferenceStateBadge status={status} provider="file" />
+      </div>
+      <LocateFileButton file={file} variant="secondary" />
+    </div>
+  );
+}
+
 function CopyIntoStorageButton({ file }: { file: FileEntity }) {
   const queryClient = useQueryClient();
   const { entity } = file;

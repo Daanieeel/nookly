@@ -9,6 +9,7 @@ use super::api::{list_param, param, ApiError, Client};
 use super::login;
 use super::model::*;
 use super::site::Site;
+use crate::db::references::{Probe, PROVIDER_MOODLE_ASSIGNMENT, PROVIDER_MOODLE_COURSE};
 use crate::error::{AppError, AppResult};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -101,6 +102,19 @@ struct Pending {
 struct Inner {
     connection: Option<Connection>,
     pending: Option<Pending>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct CourseAssignments {
+    assignments: Vec<Assignment>,
+}
+
+/// What `mod_assign_get_assignments` answers with.
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct AssignmentsAnswer {
+    courses: Vec<CourseAssignments>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -353,6 +367,69 @@ impl MoodleState {
         }
     }
 
+    /// Looks at the Moodle object a reference (`db::references`) points to, live and never
+    /// from the cache: the answer is whether Moodle shows it right now. Returns what the
+    /// look found and the object's title if it answered. A site with no sign in, or a
+    /// token Moodle refuses, is `SignInNeeded`; a site that does not answer is
+    /// `Unreachable`; an object the site no longer lists is `Gone`.
+    pub async fn probe_reference(
+        &self,
+        provider: &str,
+        remote_id: &str,
+    ) -> (Probe, Option<String>) {
+        let Ok((client, connection)) = self.connection().await else {
+            return (Probe::SignInNeeded, None);
+        };
+        let looked = match provider {
+            PROVIDER_MOODLE_COURSE => {
+                let Ok(course_id) = remote_id.parse::<i64>() else {
+                    return (Probe::Gone, None);
+                };
+                client
+                    .call::<Vec<Course>>(
+                        "core_enrol_get_users_courses",
+                        vec![param("userid", connection.user_id)],
+                    )
+                    .await
+                    .map(|courses| {
+                        courses
+                            .into_iter()
+                            .find(|c| c.id == course_id)
+                            .map(|c| c.full_name)
+                    })
+            }
+            PROVIDER_MOODLE_ASSIGNMENT => {
+                let Some((course_id, assignment_id)) = remote_id
+                    .split_once(':')
+                    .and_then(|(c, a)| Some((c.parse::<i64>().ok()?, a.parse::<i64>().ok()?)))
+                else {
+                    return (Probe::Gone, None);
+                };
+                client
+                    .call::<AssignmentsAnswer>(
+                        "mod_assign_get_assignments",
+                        list_param("courseids", &[course_id]),
+                    )
+                    .await
+                    .map(|answer| {
+                        answer
+                            .courses
+                            .into_iter()
+                            .flat_map(|c| c.assignments)
+                            .find(|a| a.id == assignment_id)
+                            .map(|a| a.name)
+                    })
+            }
+            _ => return (Probe::Gone, None),
+        };
+        match looked {
+            Ok(Some(title)) => (Probe::Reached, Some(title)),
+            Ok(None) => (Probe::Gone, None),
+            Err(ApiError::Auth(_)) => (Probe::SignInNeeded, None),
+            Err(ApiError::Offline(_) | ApiError::Server(_)) => (Probe::Unreachable, None),
+        }
+    }
+
     pub async fn courses(&self) -> AppResult<Fetched<Vec<Course>>> {
         self.cached("courses", |client, c| async move {
             client
@@ -383,20 +460,10 @@ impl MoodleState {
     }
 
     pub async fn assignments(&self, course_id: i64) -> AppResult<Fetched<Vec<Assignment>>> {
-        #[derive(Deserialize, Default)]
-        #[serde(default)]
-        struct CourseAssignments {
-            assignments: Vec<Assignment>,
-        }
-        #[derive(Deserialize, Default)]
-        #[serde(default)]
-        struct Answer {
-            courses: Vec<CourseAssignments>,
-        }
         self.cached(
             &format!("assignments/{course_id}"),
             |client, _| async move {
-                let answer: Answer = client
+                let answer: AssignmentsAnswer = client
                     .call(
                         "mod_assign_get_assignments",
                         list_param("courseids", &[course_id]),
