@@ -131,7 +131,13 @@ function GraphCanvas({
   const center = layout.positions.get(entity.id);
 
   return (
-    <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
+    <div
+      ref={scroller}
+      className="min-h-0 flex-1 overflow-auto"
+      // The panel's scroll lock cancels a whole wheel event when its main direction cannot
+      // scroll, which breaks a diagonal trackpad swipe. This area scrolls itself.
+      onWheel={(event) => event.stopPropagation()}
+    >
       <div
         className="relative m-auto size-(--graph-size)"
         // SAFETY: `--graph-size` only ever receives the layout's pixel size.
