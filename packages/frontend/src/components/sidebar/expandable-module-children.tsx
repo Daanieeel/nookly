@@ -134,7 +134,7 @@ export function ExpandableModuleChildren({
         spaceId={spaceId}
         module={module}
         // A new View starts from the module's own defaults; its page takes it from there.
-        config={serializeViewConfig([], {})}
+        config={serializeViewConfig({ filters: [], display: {}, module })}
         onSaved={(created) =>
           useNavStore.getState().setView({ kind: "module", spaceId, module, viewId: created.id })
         }

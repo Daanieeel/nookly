@@ -14,6 +14,8 @@ export interface DataTableColumnMeta {
   /// Hides the column below this breakpoint so narrow windows reflow instead of scrolling.
   hideBelow?: "md" | "lg";
   align?: "end";
+  /// A width in pixels the user chose by resizing the column; wins over `width`.
+  size?: number;
 }
 
 /// Client mode tables only (see docs/skills/data-tables.md §8): the full dataset is in

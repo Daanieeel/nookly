@@ -1,10 +1,15 @@
+import { normalizeTableDisplay } from "#/features/views/engine/table-display.ts";
+import type { TableDisplay } from "#/features/views/engine/types.ts";
 import { preferences } from "#/lib/preferences.ts";
 
 /// Shared reading and validating of the remembered display options of the list and
 /// board pages (Tasks, Assignments). Every field is checked again, so an outdated or
 /// hand edited value falls back to its default instead of breaking the page.
 
-export type PageLayout = "list" | "board";
+export type PageLayout = "list" | "board" | "table";
+
+/// The layouts that group into sections or columns and can show the empty ones.
+export type GroupedLayout = "list" | "board";
 
 export interface BaseDisplay<G extends string, O extends string> {
   layout: PageLayout;
@@ -13,12 +18,25 @@ export interface BaseDisplay<G extends string, O extends string> {
   subGrouping: G;
   ordering: O;
   /// Remembered per layout: a board shows every column, a list hides empty groups.
-  showEmpty: Record<PageLayout, boolean>;
+  showEmpty: Record<GroupedLayout, boolean>;
   /// Board columns (group ids) the user hid. Only the board honors it.
   hiddenColumns: string[];
+  /// The table layout's sort and columns.
+  table: TableDisplay;
 }
 
-export const LAYOUTS: { id: PageLayout }[] = [{ id: "list" }, { id: "board" }];
+export const LAYOUTS: { id: PageLayout }[] = [{ id: "list" }, { id: "board" }, { id: "table" }];
+
+/// Whether the page shows its empty groups. A table never does.
+export function showsEmptyGroups(display: {
+  layout: PageLayout;
+  grouping: string;
+  showEmpty: Record<GroupedLayout, boolean>;
+}): boolean {
+  return (
+    display.layout !== "table" && display.showEmpty[display.layout] && display.grouping !== "none"
+  );
+}
 
 export function pick<T extends string>(
   value: string | undefined,
@@ -61,6 +79,7 @@ export function normalizeBaseDisplay<G extends string, O extends string>(
     hiddenColumns: Array.isArray(stored.hiddenColumns)
       ? stored.hiddenColumns.filter((id): id is string => typeof id === "string")
       : [],
+    table: normalizeTableDisplay(stored.table),
   };
 }
 

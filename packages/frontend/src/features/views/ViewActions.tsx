@@ -2,6 +2,7 @@ import { IconStack2 } from "@tabler/icons-react";
 import { useState } from "react";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
+import type { ViewCondition } from "./engine/types.ts";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { Button } from "@nookly/ui/components/button";
@@ -31,6 +32,7 @@ export function ViewSaveBar<D>({
   spaceId,
   module,
   filters,
+  conditions,
   display,
 }: {
   view: SavedView | undefined;
@@ -41,6 +43,7 @@ export function ViewSaveBar<D>({
   spaceId: string;
   module: ViewModule;
   filters: ActiveFilter[];
+  conditions: ViewCondition[];
   display: D;
 }) {
   const status = useActionStatus(save);
@@ -99,7 +102,7 @@ export function ViewSaveBar<D>({
           onOpenChange={setDialogOpen}
           spaceId={spaceId}
           module={module}
-          config={serializeViewConfig(filters, display)}
+          config={serializeViewConfig({ filters, conditions, display, module })}
           onSaved={(created) =>
             useNavStore.getState().setView(viewTarget(module, spaceId, created.id))
           }

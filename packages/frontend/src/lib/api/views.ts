@@ -20,6 +20,12 @@ export type OverviewModule = typeof TASKS_OVERVIEW | typeof ASSIGNMENTS_OVERVIEW
 /// A module with a page of its own inside a Space.
 export type SpaceViewModule = Exclude<ViewModule, OverviewModule>;
 
+/// The entity type a module page's Views show. A View that stores no `source` shows its
+/// module's. Mirrors `source_of` in `src-tauri/src/db/views.rs`.
+export function viewSourceOf(module: ViewModule): "task" | "assignment" {
+  return module === "tasks" || module === "tasks-overview" ? "task" : "assignment";
+}
+
 export function isViewModule(module: string): module is SpaceViewModule {
   return module === "tasks" || module === "assignments";
 }

@@ -161,7 +161,7 @@ export function OverviewNavItem({
         spaceId={spaces.find((s) => s.id === activeSpaceId)?.id ?? spaces[0]?.id ?? ""}
         module={module}
         // A new View starts from the page's own defaults; the page takes it from there.
-        config={serializeViewConfig([], {})}
+        config={serializeViewConfig({ filters: [], display: {}, module })}
         onSaved={(created) => setView(viewTarget(module, created.spaceId, created.id))}
       />
     </SidebarMenuItem>

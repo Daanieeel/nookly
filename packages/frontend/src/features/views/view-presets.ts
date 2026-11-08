@@ -1,4 +1,5 @@
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
+import type { PageLayout } from "#/lib/display-options.ts";
 
 /// A View that ships with the app. Picking one saves it as the user's own View, so
 /// from then on it can be edited, renamed or deleted like any other.
@@ -15,7 +16,7 @@ export interface ViewPreset<D> {
 
 /// How a preset's display reads in its preview.
 export interface DisplaySummary {
-  layout: "list" | "board";
+  layout: PageLayout;
   /// Null without a grouping.
   grouping: string | null;
   ordering: string;

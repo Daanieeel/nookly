@@ -57,6 +57,9 @@ describe("page headers in a narrow split view group", () => {
         filterFields={[]}
         filters={[]}
         onFiltersChange={() => {}}
+        conditionFields={[]}
+        conditions={[]}
+        onConditionsChange={() => {}}
         dirty={false}
         save={{
           mutate: () => {},

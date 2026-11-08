@@ -20,6 +20,7 @@ const DEFAULTS: BaseDisplay<G, O> = {
   ordering: "due",
   showEmpty: { board: true, list: false },
   hiddenColumns: [],
+  table: { sort: [], columns: [] },
 };
 const normalize = (stored: Partial<BaseDisplay<G, O>>) =>
   normalizeBaseDisplay(stored, DEFAULTS, GROUPINGS, ORDERINGS);
@@ -58,6 +59,13 @@ describe("validSubGrouping", () => {
 });
 
 describe("normalizeBaseDisplay", () => {
+  it("keeps the table layout", () => {
+    expect(normalize({ layout: "table", grouping: "none" })).toMatchObject({
+      layout: "table",
+      grouping: "none",
+    });
+  });
+
   it("returns the defaults for an empty value", () => {
     expect(normalize({})).toEqual(DEFAULTS);
   });
@@ -70,12 +78,16 @@ describe("normalizeBaseDisplay", () => {
       ordering: "title",
       showEmpty: { board: false, list: true },
       hiddenColumns: ["done"],
+      table: {
+        sort: [{ field: "due", direction: "desc" }],
+        columns: [{ field: "title", width: 200 }],
+      },
     };
     expect(normalize(display)).toEqual(display);
   });
 
   it("falls back field by field for invalid values", () => {
-    const stored = fromDisk('{"layout":"table","grouping":"priority","ordering":3}');
+    const stored = fromDisk('{"layout":"grid","grouping":"priority","ordering":3}');
     expect(normalize(stored)).toEqual(DEFAULTS);
   });
 
