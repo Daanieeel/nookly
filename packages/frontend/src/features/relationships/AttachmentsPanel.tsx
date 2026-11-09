@@ -11,7 +11,6 @@ import {
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@nookly/ui/components/button";
-import { Input } from "@nookly/ui/components/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { ReferenceStateBadge } from "#/features/references/ReferenceStateBadge.tsx";
 import { getEntity } from "#/lib/api/entities.ts";
@@ -55,39 +54,40 @@ function PathField({ entity, close }: { entity: Entity; close: () => void }) {
   const empty = text.trim() === "";
   return (
     <form
-      className="flex flex-col gap-1 border-b border-border p-1"
+      className="border-b border-border"
       onSubmit={(e) => {
         e.preventDefault();
         if (!empty && !attach.isPending) attach.mutate(text);
       }}
     >
-      <div className="flex items-center gap-1">
-        <Input
+      <div className="flex items-center pr-1">
+        <input
           aria-label="File path"
-          placeholder="Or paste a file path"
+          placeholder="Paste a file path…"
           aria-invalid={error !== null || undefined}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
             if (attach.isError) attach.reset();
           }}
+          className="h-9 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
         />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="submit"
-              variant="ghost"
-              size="iconSm"
-              disabled={empty}
-              aria-label="Attach by Path"
-            >
-              <StatusIcon status={statusOf(attach)} idle={<IconArrowUp />} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Attach by Path</TooltipContent>
-        </Tooltip>
+        {(!empty || attach.isPending) && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="submit" variant="ghost" size="iconSm" aria-label="Attach by Path">
+                <StatusIcon status={statusOf(attach)} idle={<IconArrowUp />} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Attach by Path</TooltipContent>
+          </Tooltip>
+        )}
       </div>
-      <FieldError message={error} />
+      {error && (
+        <div className="px-3 pb-2">
+          <FieldError message={error} />
+        </div>
+      )}
     </form>
   );
 }
