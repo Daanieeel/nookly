@@ -35,7 +35,15 @@ export function EntityPickerPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent {...dialogPopover("w-72 p-0")} align="start">
+      <PopoverContent
+        {...dialogPopover("w-72 p-0")}
+        align="start"
+        // Typing starts the search, whatever `header` puts above it.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          e.currentTarget.querySelector<HTMLInputElement>("[cmdk-input]")?.focus();
+        }}
+      >
         {header?.(() => setOpen(false))}
         <EntityPickerList
           spaceId={spaceId}

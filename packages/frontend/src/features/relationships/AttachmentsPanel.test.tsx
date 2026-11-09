@@ -78,6 +78,15 @@ describe("AttachmentsPanel", () => {
       return view;
     };
 
+    it("puts the cursor in the search box when it opens, not in the path field", async () => {
+      const me = makeEntity({ id: "me", spaceId: "sp1", type: "note" });
+      await open(me);
+
+      await waitFor(() =>
+        expect(document.activeElement).toBe(screen.getByPlaceholderText("Search this Space…")),
+      );
+    });
+
     it("imports the picked file into the Space and attaches it to the page", async () => {
       const me = makeEntity({ id: "me", spaceId: "sp1", type: "note" });
       mockCommand("plugin:dialog|open", "/tmp/report.pdf");
