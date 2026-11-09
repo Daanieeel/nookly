@@ -304,6 +304,18 @@ pub async fn copy_file_into_storage(app: AppHandle, entity_id: String) -> AppRes
     .await
 }
 
+/// Tells Nookly where a referenced file is on this device: the same file picked again
+/// after it moved, or on a device it was not added on. Only this device's path changes.
+#[tauri::command]
+pub async fn locate_file(app: AppHandle, entity_id: String, path: String) -> AppResult<FileEntity> {
+    let file = blocking_db(&app, move |conn| {
+        files::locate_file(conn, &entity_id, std::path::Path::new(&path))
+    })
+    .await?;
+    allow_reference(&app, &file);
+    Ok(file)
+}
+
 /// Where a File's bytes are: the stored copy, else the referenced original.
 fn file_on_disk(state: &State<DbState>, entity_id: &str) -> AppResult<String> {
     let conn = state.conn()?;

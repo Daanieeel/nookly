@@ -59,7 +59,7 @@ registerEntityType<FileEntity>({
     {
       id: "download-local-copy",
       group: "type",
-      label: "Download Local Copy",
+      label: "Copy into Nookly",
       icon: IconCloudDownload,
       when: ({ record }) => Boolean(record?.url && !record.localPath && !record.sourcePath),
       run: async ({ entity }, helpers) => {

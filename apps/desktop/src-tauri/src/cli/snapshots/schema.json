@@ -1768,6 +1768,11 @@
       "childCollections": [],
       "computedFields": [
         {
+          "description": "Read only. `{ state, asOf }`: whether this device finds the file right now, for every File with bytes to look for (a stored copy is `available` or `missing`). `null` for a link never downloaded: run the `check` action.",
+          "kind": "object",
+          "name": "availability"
+        },
+        {
           "description": "Read only. The full text last extracted/OCR'd for this File — the exact content `search` matches against. Only populated by `get` (a single File by id); `list` always returns `null` here to keep listing many Files cheap regardless of their extracted text size.",
           "kind": "long_text",
           "name": "indexedContent"
@@ -1781,6 +1786,11 @@
           "description": "Read only. Where an imported File came from, as a key the importing module chose (a file from Moodle is `moodle:<its address>`); `null` for any other File.",
           "kind": "text",
           "name": "origin"
+        },
+        {
+          "description": "Read only. Present when the File only points at a file or link elsewhere: `{ provider, remoteId, lastKnownTitle, lastSeenAt, lastResult, pathOnThisDevice, status }`. `null` for a File Nookly stores itself. See the `locate` and `check` actions.",
+          "kind": "object",
+          "name": "reference"
         }
       ],
       "convertsTo": [
@@ -1791,7 +1801,28 @@
         }
       ],
       "description": "A file stored in Nookly: imported from disk or downloaded from a link.",
-      "entityActions": [],
+      "entityActions": [
+        {
+          "command": "nookly cli file check <id> [--title <title>]",
+          "description": "Looks at the target now and returns its state: available, offline, missing, needsSignIn or notOnThisDevice. A Moodle reference can only be checked inside the app.",
+          "fields": [],
+          "name": "check"
+        },
+        {
+          "command": "nookly cli file locate <id> [--title <title>]",
+          "description": "Tells Nookly where the same file is on this device (only this device's path changes). Use it when the file moved, or came from another device.",
+          "fields": [
+            {
+              "description": "Path of the same file on this device.",
+              "kind": "text",
+              "name": "path",
+              "requiredOnCreate": true,
+              "writableOnUpdate": false
+            }
+          ],
+          "name": "locate"
+        }
+      ],
       "entityType": "file",
       "fields": [
         {
@@ -1802,11 +1833,18 @@
           "writableOnUpdate": true
         },
         {
-          "description": "Update only: true copies a referenced file (sourcePath) into Nookly's own storage.",
+          "description": "Update only: true copies a referenced file (sourcePath) or downloads a kept link (linkUrl) into Nookly's own storage.",
           "kind": "boolean",
           "name": "copyIntoStorage",
           "requiredOnCreate": false,
           "writableOnUpdate": true
+        },
+        {
+          "description": "A web address to keep as a link without downloading it. The File shows whether the link answers (`check`), and `copyIntoStorage=true` downloads it later. Use `url` instead to download it now.",
+          "kind": "text",
+          "name": "linkUrl",
+          "requiredOnCreate": false,
+          "writableOnUpdate": false
         },
         {
           "description": "Path to a local file to copy in and attach. Exactly one of localPath/url is required on create. On update it replaces the stored copy with a newer version (same entity, labels and relationships; the previous copy stays on disk).",

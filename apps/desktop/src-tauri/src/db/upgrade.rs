@@ -71,6 +71,9 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     (48, &[]),
     // New columns; nothing existing changes.
     (49, &[]),
+    // Two new tables, and a reference for each File that only points elsewhere. No
+    // existing column changes: `files` and `entities` stay exactly as they were.
+    (50, &[]),
 ];
 
 /// Tables a migration renamed, old name first.
@@ -410,7 +413,8 @@ fn upgrade_copy(
         .into();
     let after = fingerprint(&conn)
         .map_err(|e| fail("could not check the database after the update", &e))?;
-    let found = problems(&before, &after, from, to, strict_from, declared);
+    let mut found = problems(&before, &after, from, to, strict_from, declared);
+    found.extend(reference_problems(&conn, from, to));
     if !found.is_empty() {
         return Err(found);
     }
@@ -418,4 +422,38 @@ fn upgrade_copy(
     conn.close()
         .map_err(|(_, e)| fail("could not close the upgraded copy", &e))?;
     Ok(())
+}
+
+/// The migration that gave pointer Files a reference (`REFERENCES_MIGRATION`) must have
+/// given every one of them exactly one, with the path or link they had, and left `files`
+/// alone. Anything else stops the upgrade: the original database is never replaced.
+pub(crate) const REFERENCES_MIGRATION: usize = 50;
+
+pub(crate) fn reference_problems(conn: &Connection, from: usize, to: usize) -> Vec<String> {
+    if !(from < REFERENCES_MIGRATION && to >= REFERENCES_MIGRATION) {
+        return Vec::new();
+    }
+    let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap_or(-1) };
+    let mut found = Vec::new();
+    let pointers = count(
+        "SELECT COUNT(*) FROM files WHERE local_path IS NULL AND (source_path IS NOT NULL OR url IS NOT NULL)",
+    );
+    let referenced = count("SELECT COUNT(*) FROM entity_references");
+    if pointers != referenced {
+        found.push(format!(
+            "{pointers} files point elsewhere but {referenced} references were made for them"
+        ));
+    }
+    // Every reference holds what its File held: the path, or else the link.
+    let different = count(
+        "SELECT COUNT(*) FROM entity_references r JOIN files f ON f.entity_id = r.entity_id
+         WHERE r.remote_id IS NOT COALESCE(f.source_path, f.url)
+            OR r.provider IS NOT CASE WHEN f.source_path IS NOT NULL THEN 'file' ELSE 'link' END",
+    );
+    if different != 0 {
+        found.push(format!(
+            "{different} references do not point where their File pointed"
+        ));
+    }
+    found
 }

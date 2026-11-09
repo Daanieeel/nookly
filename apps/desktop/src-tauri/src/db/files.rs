@@ -1,4 +1,5 @@
 use crate::db::entities::Entity;
+use crate::db::references::{self, Probe, ReferenceFacts, ReferenceStatus};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -36,6 +37,17 @@ pub struct FileEntity {
     /// `get_file` does, so listing many Files never pulls their full text
     /// along for the ride. Use `nookly cli file get <id>` to read it.
     pub indexed_content: Option<String>,
+    /// Present while the File only points at a file or link elsewhere (no stored copy):
+    /// what is known about the target, and whether this device can reach it. Worked out
+    /// live for a file on disk; a link is looked at with `check_reference`. `None` for a
+    /// File stored in Nookly. `source_path` is this device's path for a pointer File.
+    pub reference: Option<ReferenceFacts>,
+    /// Whether this device finds the file right now, for every File that has bytes to look
+    /// for: a stored copy is found or missing, a pointer to a file is its reference's state.
+    /// `None` for a link that was never downloaded (it needs the network: `check_reference`).
+    pub availability: Option<ReferenceStatus>,
+    #[serde(skip)]
+    has_indexed_content: bool,
 }
 
 fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
@@ -58,7 +70,38 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
         needs_reindex,
         label_ids: Vec::new(),
         indexed_content: None,
+        reference: None,
+        availability: None,
+        has_indexed_content,
     })
+}
+
+/// For a File that only points elsewhere, replaces the path the row remembers with what is
+/// true on this device (that path, or none when the File is from another device), and
+/// attaches what is known about the target. Rows written before references existed are
+/// followed by their reference from the upgrade, so `files.source_path` is kept but no
+/// longer the source of truth.
+fn resolve_reference(conn: &Connection, file: &mut FileEntity) -> AppResult<()> {
+    if let Some(stored) = file.local_path.as_deref() {
+        let probe = if Path::new(stored).is_file() {
+            Probe::Reached
+        } else {
+            Probe::Gone
+        };
+        file.availability = Some(references::status_from(probe, None));
+        return Ok(());
+    }
+    let Some(facts) = references::facts_for(conn, &file.entity.id)? else {
+        return Ok(());
+    };
+    if facts.provider == references::PROVIDER_FILE {
+        file.source_path = facts.path_on_this_device.clone();
+        file.needs_reindex =
+            !file.has_indexed_content && file.source_path.as_deref().is_some_and(is_indexable);
+    }
+    file.availability = facts.status.clone();
+    file.reference = Some(facts);
+    Ok(())
 }
 
 /// The exact text `search_index` holds for this File — empty until something's
@@ -434,8 +477,72 @@ pub fn reference_file(conn: &Connection, space_id: String, path: &Path) -> AppRe
          VALUES (?1, NULL, NULL, NULL, ?2, ?3)",
         params![entity.id, filename, path.to_string_lossy()],
     )?;
+    references::add_file_reference(
+        conn,
+        &entity.id,
+        &filename,
+        &path.to_string_lossy(),
+        &crate::db::device::current(),
+    )?;
     index_file_content(conn, &entity.id, &path.to_string_lossy());
     get_file(conn, &entity.id)
+}
+
+/// Keeps a link as a File without downloading it: the File shows whether the link answers,
+/// and Copy into Nookly downloads it whenever the person wants the bytes. `title` is its name
+/// (the link's file name when blank).
+pub fn add_link(
+    conn: &Connection,
+    space_id: String,
+    link: &str,
+    title: Option<&str>,
+) -> AppResult<FileEntity> {
+    let link = link.trim();
+    let parsed = url::Url::parse(link)
+        .ok()
+        .filter(|u| matches!(u.scheme(), "http" | "https"))
+        .ok_or_else(|| {
+            AppError::InvalidInput(format!(
+                "'{link}' is not a web address (it must start with http:// or https://)"
+            ))
+        })?;
+    let name = parsed
+        .path_segments()
+        .and_then(|mut segments| segments.next_back().map(str::to_string))
+        .filter(|segment| !segment.is_empty())
+        .or_else(|| parsed.host_str().map(str::to_string))
+        .unwrap_or_else(|| link.to_string());
+    let title = title
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .unwrap_or(&name)
+        .to_string();
+    crate::db::atomically(conn, || {
+        let entity =
+            crate::db::entities::create_entity(conn, space_id, "file".into(), title.clone(), None)?;
+        conn.execute(
+            "INSERT INTO files (entity_id, local_path, provider, url, original_filename)
+             VALUES (?1, NULL, ?2, ?3, ?4)",
+            params![entity.id, detect_provider(link), link, name],
+        )?;
+        references::add_link_reference(conn, &entity.id, &title, link)?;
+        get_file(conn, &entity.id)
+    })
+}
+
+/// Tells Nookly where a referenced file is on this device: the same document picked
+/// again after it moved, or on a device it was not added on. Only this device's path
+/// changes; the File, its labels and relationships stay.
+pub fn locate_file(conn: &Connection, entity_id: &str, path: &Path) -> AppResult<FileEntity> {
+    let file = get_file(conn, entity_id)?;
+    if file.local_path.is_some() {
+        return Err(AppError::InvalidInput(
+            "this file is stored in Nookly, there is nothing to locate".into(),
+        ));
+    }
+    references::locate_on_device(conn, entity_id, &crate::db::device::current(), path)?;
+    index_file_content(conn, entity_id, &path.to_string_lossy());
+    get_file(conn, entity_id)
 }
 
 /// Copies a referenced file into storage; the entity stays the same and remembers
@@ -450,7 +557,15 @@ pub fn copy_into_storage(
         return Ok(file);
     }
     let source = file.source_path.ok_or_else(|| {
-        AppError::InvalidInput("this file isn't a reference to a file on disk".into())
+        let elsewhere = file
+            .reference
+            .as_ref()
+            .is_some_and(|r| r.provider == references::PROVIDER_FILE);
+        AppError::InvalidInput(if elsewhere {
+            "this file isn't on this device yet, locate it first".into()
+        } else {
+            "this file isn't a reference to a file on disk".to_string()
+        })
     })?;
     let filename = file.original_filename.unwrap_or_else(|| "untitled".into());
     let local_path = copy_stored(files_dir, &filename, Path::new(&source))?;
@@ -728,6 +843,9 @@ pub fn list_files(conn: &Connection, space_id: &str) -> AppResult<Vec<FileEntity
     ))?;
     let rows = stmt.query_map(params![space_id], row_to_file)?;
     let mut files = rows.collect::<Result<Vec<_>, _>>()?;
+    for file in &mut files {
+        resolve_reference(conn, file)?;
+    }
 
     let index: std::collections::HashMap<String, usize> = files
         .iter()
@@ -759,6 +877,7 @@ pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
             row_to_file,
         )
         .map_err(|_| AppError::NotFound(format!("file {entity_id}")))?;
+    resolve_reference(conn, &mut file)?;
     file.label_ids = crate::db::labels::label_ids_for(conn, entity_id)?;
     file.indexed_content = Some(indexed_content_for(conn, entity_id)?);
     Ok(file)
@@ -776,7 +895,10 @@ pub fn files_needing_reindex(
          ORDER BY e.created_at ASC"
     ))?;
     let rows = stmt.query_map(params![space_id], row_to_file)?;
-    let files: Vec<FileEntity> = rows.collect::<Result<Vec<_>, _>>()?;
+    let mut files: Vec<FileEntity> = rows.collect::<Result<Vec<_>, _>>()?;
+    for file in &mut files {
+        resolve_reference(conn, file)?;
+    }
     Ok(files.into_iter().filter(|f| f.needs_reindex).collect())
 }
 
@@ -887,11 +1009,20 @@ const FILE_FIELDS: &[FieldDef] = &[
                       edits to the original but breaks if that is moved; set copyIntoStorage=true to copy it in.",
     },
     FieldDef {
+        name: "linkUrl",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "A web address to keep as a link without downloading it. The File shows \
+                      whether the link answers (`check`), and `copyIntoStorage=true` downloads it \
+                      later. Use `url` instead to download it now.",
+    },
+    FieldDef {
         name: "copyIntoStorage",
         kind: FieldKind::Boolean,
         required_on_create: false,
         writable_on_update: true,
-        description: "Update only: true copies a referenced file (sourcePath) into Nookly's own storage.",
+        description: "Update only: true copies a referenced file (sourcePath) or downloads a kept link (linkUrl) into Nookly's own storage.",
     },
     FieldDef {
         name: "url",
@@ -927,6 +1058,16 @@ const FILE_FIELDS: &[FieldDef] = &[
 fn cli_create_file(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
     let local_path = crate::db::schema::field_str(&input.fields, "localPath");
     let url = crate::db::schema::field_str(&input.fields, "url");
+    if let Some(link) = crate::db::schema::field_str(&input.fields, "linkUrl") {
+        if local_path.is_some() || url.is_some() || input.fields.contains_key("sourcePath") {
+            return Err(AppError::InvalidInput(
+                "pass exactly one of --field localPath=..., sourcePath=..., url=... or linkUrl=..."
+                    .into(),
+            ));
+        }
+        let title = Some(input.title.as_str());
+        return crate::error::to_json(add_link(conn, input.space_id, &link, title)?);
+    }
     if let Some(path) = crate::db::schema::field_str(&input.fields, "sourcePath") {
         if local_path.is_some() || url.is_some() {
             return Err(AppError::InvalidInput(
@@ -990,7 +1131,26 @@ fn cli_update_file(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
         let files_dir = crate::db::standalone_app_data_dir()
             .map_err(|e| AppError::Db(e.to_string()))?
             .join("files");
-        copy_into_storage(conn, &files_dir, id)?;
+        let file = get_file(conn, id)?;
+        match (
+            &file.url,
+            file.local_path.is_none() && file.source_path.is_none(),
+        ) {
+            // A kept link has no bytes yet: fetching them is its copy.
+            (Some(link), true) => match download(link)? {
+                Download::File { filename, bytes } => {
+                    attach_download(conn, &files_dir, id, &filename, &bytes)?;
+                }
+                Download::Webpage => {
+                    return Err(AppError::InvalidInput(format!(
+                        "{link} is a webpage, not a file; convert it to a bookmark instead"
+                    )))
+                }
+            },
+            _ => {
+                copy_into_storage(conn, &files_dir, id)?;
+            }
+        }
     }
     if let Some(added) = crate::db::schema::field_str(fields, "added") {
         set_added_at(conn, id, &added)?;

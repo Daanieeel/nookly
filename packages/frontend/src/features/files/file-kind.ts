@@ -103,6 +103,12 @@ export function isReference(file: FileEntity): boolean {
   return !file.localPath && Boolean(file.sourcePath);
 }
 
+/// Added by path on some device and not stored in Nookly. On a device it was not added on,
+/// the path is not ours: `isReference` is false there, this stays true.
+export function pointsAtFile(file: FileEntity): boolean {
+  return !file.localPath && file.reference?.provider === "file";
+}
+
 /// The file's bytes on disk: the stored copy, else the referenced original.
 export function filePath(file: FileEntity): string | null {
   return file.localPath ?? file.sourcePath;

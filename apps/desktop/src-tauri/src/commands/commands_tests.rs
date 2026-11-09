@@ -201,6 +201,7 @@ ipc_commands![
     files::list_open_with_apps,
     office::office_converter_available,
     office_install::libreoffice_install_options,
+    references::check_reference,
     bookmarks::create_bookmark,
     bookmarks::list_bookmarks,
     bookmarks::get_bookmark,
@@ -267,6 +268,7 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "copy_file_into_storage",
         "files_reference_copy_and_replace_underlying_db_calls",
     ),
+    ("locate_file", "files_locate_underlying_db_call"),
     (
         "open_file",
         "files_open_reveal_and_open_with_resolve_the_path",
@@ -4468,4 +4470,67 @@ fn portable_export_to_an_unwritable_path_is_an_io_error() {
         "Io",
     );
     assert!(!out.exists());
+}
+
+#[test]
+fn a_kept_link_is_checked_over_ipc() {
+    let h = Harness::new();
+    let space = h.space("S");
+    // Nothing listens on port 1, so the link cannot be reached.
+    let file =
+        h.db(|c| db::files::add_link(c, space.clone(), "http://127.0.0.1:1/a.pdf", None).unwrap());
+    assert_eq!(
+        file.availability, None,
+        "a link needs a look, so no answer yet"
+    );
+    let id = file.entity.id;
+    assert_eq!(
+        h.ok("check_reference", json!({ "entityId": id }))["state"],
+        "offline"
+    );
+    let after = h.db(|c| db::files::get_file(c, &id).unwrap());
+    assert_eq!(
+        after.reference.unwrap().last_result.as_deref(),
+        Some("offline")
+    );
+}
+
+#[test]
+fn a_referenced_file_is_checked_over_ipc_like_any_reference() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let original = h.dir.file("watched.txt", b"v1");
+    let file = h.db(|c| db::files::reference_file(c, space.clone(), &original).unwrap());
+    let id = file.entity.id;
+    assert_eq!(
+        h.ok("check_reference", json!({ "entityId": id }))["state"],
+        "available"
+    );
+    std::fs::remove_file(&original).unwrap();
+    assert_eq!(
+        h.ok("check_reference", json!({ "entityId": id }))["state"],
+        "missing"
+    );
+    h.app_err(
+        "check_reference",
+        json!({ "entityId": MISSING }),
+        "NotFound",
+    );
+}
+
+#[test]
+fn files_locate_underlying_db_call() {
+    // `locate_file` takes an `AppHandle` (it lets the webview read the file by path), so it
+    // cannot run on the mock runtime: this runs the call it delegates to.
+    let h = Harness::new();
+    let space = h.space("S");
+    let original = h.dir.file("a.txt", b"v1");
+    let file = h.db(|c| db::files::reference_file(c, space.clone(), &original).unwrap());
+    std::fs::remove_file(&original).unwrap();
+    let found = h.dir.file("b.txt", b"v1");
+    let located = h.db(|c| db::files::locate_file(c, &file.entity.id, &found).unwrap());
+    assert_eq!(located.source_path.as_deref(), found.to_str());
+    let nothing = h.dir.path().join("nothing.txt");
+    let err = h.db(|c| db::files::locate_file(c, &file.entity.id, &nothing).unwrap_err());
+    assert!(matches!(err, crate::error::AppError::InvalidInput(_)));
 }

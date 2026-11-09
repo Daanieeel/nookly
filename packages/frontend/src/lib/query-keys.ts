@@ -146,6 +146,10 @@ export const qk = {
     ...spaceList("bookmarks"),
     byId: (id: string | null) => ["bookmark", id] as const,
   },
+  references: {
+    /// What looking at the target now found, for a File that only points elsewhere.
+    check: (id: string) => ["reference-check", id] as const,
+  },
   files: {
     ...spaceList("files"),
     byId: (id: string | undefined) => ["file", id] as const,

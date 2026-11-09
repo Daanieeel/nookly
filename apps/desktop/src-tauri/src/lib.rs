@@ -276,6 +276,8 @@ fn command_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send +
         commands::files::reindex_missing_files,
         commands::files::get_file,
         commands::files::export_file,
+        commands::references::check_reference,
+        commands::files::locate_file,
         commands::bookmarks::create_bookmark,
         commands::bookmarks::list_bookmarks,
         commands::bookmarks::get_bookmark,

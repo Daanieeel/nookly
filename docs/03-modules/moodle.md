@@ -2,7 +2,7 @@
 
 A read only window onto the user's Moodle site, so they rarely need the website just to read or download something. Every page has an Open in Moodle button for the same page on the site. Nookly never writes to Moodle: no submitting, posting, or marking things done.
 
-It has no entities of its own, like [Grades](grades.md). Nothing from Moodle is an entity: it has no Space of its own, takes no relationships, and is not searched or exposed through the CLI (see [the decision](../06-decisions-log.md#moodle-is-a-read-only-module-with-no-entities)). One Moodle site is connected for the whole app, and the module can be added to any Space.
+It has no entities of its own, like [Grades](grades.md). Nothing read from Moodle is an entity: it has no Space of its own and is not searched. A [reference](references.md) behind a File can check whether Moodle still shows a course or assignment (see [the decision](../06-decisions-log.md#moodle-is-a-read-only-module-with-no-entities)). One Moodle site is connected for the whole app, and the module can be added to any Space.
 
 ## Pages
 

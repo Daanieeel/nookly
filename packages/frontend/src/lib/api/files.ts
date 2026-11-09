@@ -92,6 +92,12 @@ export function copyFileIntoStorage(entityId: string): Promise<FileEntity> {
   return invoke("copy_file_into_storage", { entityId });
 }
 
+/// Tells Nookly where a referenced file is on this device: the same file picked again after
+/// it moved, or on a device it was not added on. Only this device's path changes.
+export function locateFile(entityId: string, path: string): Promise<FileEntity> {
+  return invoke("locate_file", { entityId, path });
+}
+
 /// Opens the file (stored copy or referenced original) in its default app.
 export function openFile(entityId: string): Promise<void> {
   return invoke("open_file", { entityId });

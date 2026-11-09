@@ -254,7 +254,17 @@ Moodle courses, assignments, grades and forum posts are read from the user's sit
 
 **Rejected:** importing Moodle into Courses and Assignments (conflict handling and stale copies), and a username and password login (fails on single sign on sites).
 
-**Open:** linking a Moodle course to a Nookly Course, so the Moodle pages show inside it, needs a relationship to something that is not an entity. Not decided.
+**Amended:** linking a Moodle course to a Nookly Course needs a relationship to something that is not an entity. That is now a hidden reference behind a File (see [below](#references-are-a-hidden-record-behind-a-file-not-an-entity)): the Moodle data is still not copied.
+
+---
+
+### References are a hidden record behind a File, not an entity
+
+A reference holds identity and a last known title for a file path, a link or a Moodle object, and gives a File an availability: one of five states, worked out live on each device and never stored (see [References](03-modules/references.md)).
+
+**Why:** each feature handled a missing or offline target its own way or not at all, and with cloud sync a file path from one device means nothing on another. Users should see only Files, so a reference is never an entity of its own: a File that only points elsewhere keeps its type, id and key, and the record sits behind it. Relationships, mentions, the Files page and the old columns (for a rollback) do not change.
+
+**Rejected:** a visible `reference` entity (a second kind of thing in every list and picker), storing the state in the synced record (wrong on some device), and copying Moodle content into entities (stale copies). Bookmarks are untouched: they own real content (favicon, preview, snapshot).
 
 ---
 

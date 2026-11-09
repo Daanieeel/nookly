@@ -23,6 +23,7 @@ pub mod office_install;
 pub mod office_thumbnail;
 pub mod portable;
 pub mod recipes;
+pub mod references;
 pub mod relationships;
 pub mod search;
 pub mod sessions;
