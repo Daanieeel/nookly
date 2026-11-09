@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.72.0",
+      "date": "2026-11-09",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "You can now attach a file by its path from the sidebar of any page, and it shows whether Nookly can find it."
+        ]
+      }
+    },
+    {
       "version": "0.71.0",
       "date": "2026-11-08",
       "highlights": [

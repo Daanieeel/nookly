@@ -29,6 +29,6 @@ Bookmarks live inside a Space like any other page. They are not global.
 
 ## Creation UX
 
-**Files:** drag and drop is the main way in, either onto the Files grid or straight onto any entity's Attachments section. The standard file picker is only a fallback.
+**Files:** drag and drop is the main way in, either onto the Files grid or straight onto any entity's Attachments section. The standard file picker is only a fallback. A path typed or pasted into the Attachments picker works as on the Files bar: the file is referenced where it lives and attached, and its row shows the availability badge when it is a pointer or cannot be found.
 
 **Bookmarks:** start from a pasted URL. The moment a URL is pasted, show a live preview of the fetched metadata (or the offline placeholder) as confirmation.

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.72.0 (2026-11-09)
+
+### Added
+
+- You can now attach a file by its path from the sidebar of any page, not only upload one. The file stays where it is, shows whether Nookly can find it, and can be copied into Nookly later from its page.
+
 ## 0.71.0 (2026-11-08)
 
 ### Added
