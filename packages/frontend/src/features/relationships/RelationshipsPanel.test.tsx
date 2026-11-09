@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { RelationshipTypeInfo } from "#/lib/api/types.ts";
-import { makeEntity, makeSession } from "#/test/fixtures.ts";
+import { makeEntity, makeSession, makeSpace, makeTask, STATUSES } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { RelatePicker } from "./RelatePickerPopover.tsx";
@@ -105,6 +105,75 @@ describe("RelationshipsPanel order", () => {
       "View",
       "Session",
     ]);
+  });
+});
+
+describe("RelationshipsPanel on a page with sections", () => {
+  it("shrinks to a count, with every link one click away", async () => {
+    const me = makeEntity({ id: "me", type: "course" });
+    mockCommand("list_relationships", [
+      { ...base, id: "r1", fromEntityId: "me", toEntityId: "a", relationshipType: "blocks" },
+      { ...base, id: "r2", fromEntityId: "b", toEntityId: "me", relationshipType: "blocks" },
+    ]);
+    mockCommand("list_relationship_types", [type("blocks", "Blocks", "Blocked by")]);
+    mockCommand("list_spaces", []);
+    mockCommandWith("get_entity", (args) => {
+      const id = args && "id" in args ? String(args.id) : "";
+      return makeEntity({ id, title: `Item ${id}`, type: "note" });
+    });
+    const { user } = renderWithProviders(<RelationshipsPanel entity={me} compact />);
+
+    const toggle = await screen.findByRole("button", { name: "Show all 2 links" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("group", { name: "Note" })).toBeNull();
+    await user.click(toggle);
+    const notes = await screen.findByRole("group", { name: "Note" });
+    await waitFor(() =>
+      expect(within(notes).getAllByRole("button", { name: /Item/ })).toHaveLength(2),
+    );
+    expect(screen.getByRole("button", { name: "Hide links" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+});
+
+describe("RelationshipsPanel rows", () => {
+  it("shows a related task's status and due date, and the Space of an item from another one", async () => {
+    const me = makeEntity({ id: "me", type: "note", spaceId: "s1" });
+    const task = makeTask(
+      { statusId: "doing", dueDate: "2026-03-14" },
+      { id: "t1", title: "Revise graphs", spaceId: "s1" },
+    );
+    mockCommand("list_relationships", [
+      { ...base, id: "r1", fromEntityId: "me", toEntityId: "t1", relationshipType: "relates-to" },
+      { ...base, id: "r2", fromEntityId: "me", toEntityId: "n9", relationshipType: "relates-to" },
+    ]);
+    mockCommand("list_relationship_types", [type("relates-to", "Related to", "Related from")]);
+    mockCommand("list_spaces", [
+      makeSpace({ id: "s1", name: "Uni" }),
+      makeSpace({ id: "s2", name: "Work" }),
+    ]);
+    mockCommand("list_tasks", [task]);
+    mockCommand("list_task_statuses", STATUSES);
+    mockCommand("list_labels", []);
+    mockCommand("list_courses", []);
+    mockCommandWith("get_entity", (args) => {
+      const id = args && "id" in args ? String(args.id) : "";
+      return id === "t1"
+        ? task.entity
+        : makeEntity({ id, title: "Team wiki", type: "note", spaceId: "s2" });
+    });
+    renderWithProviders(<RelationshipsPanel entity={me} />);
+
+    const tasks = await screen.findByRole("group", { name: "Task" });
+    const row = await within(tasks).findByRole("button", { name: /Revise graphs/ });
+    await waitFor(() => expect(within(row).getByText("Mar 14")).toBeInTheDocument());
+    expect(within(row).getByLabelText(/In Progress/i)).toBeInTheDocument();
+    const notes = screen.getByRole("group", { name: "Note" });
+    const wiki = await within(notes).findByRole("button", { name: /Team wiki/ });
+    expect(within(wiki).getByTitle("Space: Work")).toBeInTheDocument();
+    expect(within(row).queryByTitle(/Space:/)).toBeNull();
   });
 });
 

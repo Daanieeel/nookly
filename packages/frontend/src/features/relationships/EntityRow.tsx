@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
-import { Badge } from "@nookly/ui/components/badge";
+import { SpaceChip } from "#/components/space-chip.tsx";
+import { EntityDetails } from "#/features/views/engine/EntityDetails.tsx";
 import { getEntity } from "#/lib/api/entities.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -48,11 +49,10 @@ export function EntityRow({
         {displayTitle(entity)}
       </span>
       {label && <span className="shrink-0 text-xs text-muted-foreground">{label}</span>}
-      {otherSpace && (
-        <Badge variant="outline" className="ml-auto shrink-0">
-          {otherSpace.name}
-        </Badge>
-      )}
+      <span className="ml-auto flex shrink-0 items-center gap-1.5">
+        <EntityDetails entity={entity} />
+        {otherSpace && <SpaceChip space={otherSpace} />}
+      </span>
     </button>
   );
 }

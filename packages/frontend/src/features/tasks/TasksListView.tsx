@@ -1,4 +1,5 @@
 import { IconCalendarStats, IconChecklist, IconSchool, IconTag } from "@tabler/icons-react";
+import { showsEmptyGroups } from "#/lib/display-options.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SUCCESS_REVERT_MS } from "#/components/action-feedback.tsx";
@@ -39,18 +40,36 @@ import {
   writeDisplay,
 } from "./task-model";
 import { taskFilterFields } from "./task-filter-fields";
+import { passesConditions } from "#/features/views/engine/conditions.ts";
+import { TASK_FIELDS, taskContext, taskSource } from "#/features/views/engine/sources/tasks.tsx";
+import { ViewTable, groupsForTable } from "#/features/views/engine/ViewTable.tsx";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 const NO_FILTERS: ActiveFilter[] = [];
 
+/// A Space's own page has no use for a Space field.
+const SPACE_HIDDEN_FIELDS = ["space"];
+const SPACE_CONDITION_FIELDS = TASK_FIELDS.filter((f) => !SPACE_HIDDEN_FIELDS.includes(f.id));
+
 /// The Tasks page, modeled on Linear: a header with view tabs, a filter and display
 /// bar, then a board (default) or a grouped list. C opens the create modal.
 export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
-  const { display, setDisplay, filters, setFilters, view, dirty, save, discard } = useViewPage({
+  const {
+    display,
+    setDisplay,
+    filters,
+    setFilters,
+    conditions,
+    setConditions,
+    view,
+    dirty,
+    save,
+    discard,
+  } = useViewPage({
     spaceId,
     module: "tasks",
     viewId,
@@ -153,14 +172,21 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
     return fields;
   }, [statuses, labels, tasks, kindOf, courses, semesters, effortScale]);
 
+  const fieldCtx = useMemo(
+    () => taskContext({ statuses, labels, courses, spaces: [], effortScale }),
+    [statuses, labels, courses, effortScale],
+  );
   const visible = useMemo(
     () =>
       orderTasks(
-        tasks.filter((t) => passesFilters(t, filters)),
+        tasks.filter(
+          (t) =>
+            passesFilters(t, filters) && passesConditions(t, conditions, TASK_FIELDS, fieldCtx),
+        ),
         display.ordering,
         statuses,
       ),
-    [tasks, filters, display.ordering, statuses],
+    [tasks, filters, conditions, fieldCtx, display.ordering, statuses],
   );
 
   const groups = useMemo(
@@ -170,7 +196,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
         taskGroupDefs(display.grouping, statuses, labels, kindOf),
         taskGroupDefs(display.subGrouping, statuses, labels, kindOf),
         "All tasks",
-        display.showEmpty[display.layout] && display.grouping !== "none",
+        showsEmptyGroups(display),
       ),
     [visible, display, statuses, labels, kindOf],
   );
@@ -259,6 +285,9 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
           filterFields={filterFields}
           filters={filters}
           onFiltersChange={setFilters}
+          conditionFields={SPACE_CONDITION_FIELDS}
+          conditions={conditions}
+          onConditionsChange={setConditions}
           dirty={dirty}
           save={save}
           onDiscard={discard}
@@ -278,6 +307,17 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
           </div>
         ) : groups.length === 0 ? (
           <NoMatchesNotice text="No tasks match this view." onClear={() => setFilters([])} />
+        ) : display.layout === "table" ? (
+          <ViewTable
+            source={taskSource}
+            items={visible}
+            ctx={fieldCtx}
+            table={display.table}
+            onTableChange={(table) => setDisplay({ ...display, table })}
+            onOpen={openTask}
+            groups={groupsForTable(groups, display.grouping)}
+            hiddenFields={SPACE_HIDDEN_FIELDS}
+          />
         ) : display.layout === "board" ? (
           <TaskBoard
             groups={groups}

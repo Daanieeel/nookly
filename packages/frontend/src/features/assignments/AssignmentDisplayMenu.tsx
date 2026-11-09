@@ -1,3 +1,6 @@
+import { Separator } from "@nookly/ui/components/separator";
+import { assignmentSource } from "#/features/views/engine/sources/assignments.tsx";
+import { TableColumnToggles } from "#/features/views/engine/TableColumnToggles.tsx";
 import {
   type BoardMenuProps,
   BoardOrderingRows,
@@ -62,6 +65,17 @@ export function AssignmentDisplayMenu({
         columns={columns}
         set={set}
       />
+      {display.layout === "table" && (
+        <>
+          <Separator />
+          <TableColumnToggles
+            source={assignmentSource}
+            table={display.table}
+            onChange={(table) => set({ table })}
+            hiddenFields={crossSpace ? undefined : ["space"]}
+          />
+        </>
+      )}
     </DisplayPopover>
   );
 }

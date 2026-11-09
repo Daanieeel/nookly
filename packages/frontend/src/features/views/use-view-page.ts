@@ -9,16 +9,19 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { viewTarget } from "./view-target";
 import {
   type ViewConfig,
+  completeConditions,
   parseViewConfig,
   sameViewConfig,
   serializeViewConfig,
 } from "./view-config";
+import type { ViewCondition } from "./engine/types.ts";
 
 /// The filters and display a list page (Tasks, Assignments) works with, on its own
 /// or opened on a saved View. On a View both start as saved and edits are a draft
 /// until `save`. Off a View the same holds against the page's own saved default: the
 /// display through `remember` and the filters under `filtersKey` (per Space when the
-/// page has one), both per device.
+/// page has one), both per device. A page without `filtersKey` keeps no filters of its
+/// own: off a View it opens on `defaultFilters` every time.
 export function useViewPage<D>({
   spaceId,
   module,
@@ -37,26 +40,28 @@ export function useViewPage<D>({
   normalizeDisplay: (stored: Partial<D>) => D;
   remember: (display: D) => void;
   /// Preference key the page's saved default filters live under.
-  filtersKey: string;
+  filtersKey?: string;
   defaultFilters: ActiveFilter[];
 }) {
   const queryClient = useQueryClient();
-  const key = spaceId ? `${filtersKey}:${spaceId}` : filtersKey;
+  const key = filtersKey && (spaceId ? `${filtersKey}:${spaceId}` : filtersKey);
   // The page's own saved default: what it opens as when it is not on a View.
   const readPlain = (): ViewConfig<D> => {
-    const raw = preferences.get(key);
+    const raw = key ? preferences.get(key) : null;
+    // The option filters and the conditions share the one stored list, as in a View.
+    const stored = raw ? parseViewConfig(`{"filters":${raw}}`, normalizeDisplay) : null;
     return {
-      filters: raw
-        ? parseViewConfig(`{"filters":${raw}}`, normalizeDisplay).filters
-        : defaultFilters,
+      filters: stored ? stored.filters : defaultFilters,
+      conditions: stored ? stored.conditions : [],
       display: readDisplay(),
     };
   };
   const [plain, setPlain] = useState(readPlain);
   const [display, setDisplayState] = useState<D>(plain.display);
   const [filters, setFilters] = useState<ActiveFilter[]>(
-    () => (viewId ? undefined : pendingFilters(key)) ?? plain.filters,
+    () => (viewId || !key ? undefined : pendingFilters(key)) ?? plain.filters,
   );
+  const [conditions, setConditions] = useState<ViewCondition[]>(plain.conditions);
 
   const { data: view } = useQuery({
     queryKey: qk.views.byId(viewId),
@@ -75,12 +80,14 @@ export function useViewPage<D>({
   useEffect(() => {
     if (saved) {
       setFilters(saved.filters);
+      setConditions(saved.conditions);
       setDisplayState(saved.display);
       wasView.current = true;
     } else if (!viewId && wasView.current) {
       const fresh = readPlain();
       setPlain(fresh);
       setFilters(fresh.filters);
+      setConditions(fresh.conditions);
       setDisplayState(fresh.display);
       wasView.current = false;
     }
@@ -96,17 +103,23 @@ export function useViewPage<D>({
 
   const baseline = saved ?? plain;
   // Until a View has loaded there is nothing to compare against.
-  const dirty = (!viewId || !!saved) && !sameViewConfig(baseline, { filters, display });
+  const dirty = (!viewId || !!saved) && !sameViewConfig(baseline, { filters, conditions, display });
 
   const save = useMutation({
     mutationFn: async () => {
       if (!viewId) {
         remember(display);
-        preferences.set(key, JSON.stringify(filters));
-        setPlain({ filters, display });
+        if (key) {
+          preferences.set(key, JSON.stringify([...filters, ...completeConditions(conditions)]));
+        }
+        setPlain({ filters, conditions, display });
         return null;
       }
-      return updateViewConfig(viewId, serializeViewConfig(filters, display));
+      return updateViewConfig(
+        viewId,
+        // Over the stored config, so whatever this page does not read stays as it was.
+        serializeViewConfig({ filters, conditions, display, module, previous: activeView?.config }),
+      );
     },
     onSuccess: (updated) => {
       if (!updated) return;
@@ -121,11 +134,14 @@ export function useViewPage<D>({
     setDisplay: setDisplayState,
     filters,
     setFilters,
+    conditions,
+    setConditions,
     view: activeView,
     dirty,
     save,
     discard: () => {
       setFilters(baseline.filters);
+      setConditions(baseline.conditions);
       setDisplayState(baseline.display);
     },
   };

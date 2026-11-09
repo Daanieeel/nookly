@@ -6,6 +6,12 @@ import { EditableViewTitle } from "#/features/views/EditableViewTitle.tsx";
 import { type SaveMutation, ViewSaveBar } from "#/features/views/ViewActions.tsx";
 import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
+import {
+  AddConditionButton,
+  type ConditionFieldInfo,
+  ConditionChips,
+} from "#/features/views/engine/ConditionBar.tsx";
+import type { ViewCondition } from "#/features/views/engine/types.ts";
 import { Button } from "@nookly/ui/components/button";
 import { HEADER_ROW, PageHeaderActions } from "#/components/page-header.tsx";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -28,6 +34,9 @@ export function ModuleViewHeader<D>({
   filterFields,
   filters,
   onFiltersChange,
+  conditionFields,
+  conditions,
+  onConditionsChange,
   dirty,
   save,
   onDiscard,
@@ -45,6 +54,10 @@ export function ModuleViewHeader<D>({
   filterFields: FilterField[];
   filters: ActiveFilter[];
   onFiltersChange: (filters: ActiveFilter[]) => void;
+  /// The fields the richer filters (date ranges, empty, contains, numbers) can compare.
+  conditionFields: ConditionFieldInfo[];
+  conditions: ViewCondition[];
+  onConditionsChange: (conditions: ViewCondition[]) => void;
   dirty: boolean;
   save: SaveMutation;
   onDiscard: () => void;
@@ -76,6 +89,10 @@ export function ModuleViewHeader<D>({
               onFiltersChange={onFiltersChange}
               part="button"
             />
+            <AddConditionButton
+              fields={conditionFields}
+              onAdd={(condition) => onConditionsChange([...conditions, condition])}
+            />
             {displayMenu}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -102,6 +119,11 @@ export function ModuleViewHeader<D>({
           onFiltersChange={onFiltersChange}
           part="chips"
         />
+        <ConditionChips
+          fields={conditionFields}
+          conditions={conditions}
+          onChange={onConditionsChange}
+        />
       </header>
       <ViewSaveBar
         view={view}
@@ -111,6 +133,7 @@ export function ModuleViewHeader<D>({
         spaceId={spaceId}
         module={module}
         filters={filters}
+        conditions={conditions}
         display={display}
       />
     </>

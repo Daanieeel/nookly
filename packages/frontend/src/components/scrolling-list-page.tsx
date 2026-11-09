@@ -1,5 +1,6 @@
 import { type HTMLAttributes, type ReactNode, useRef } from "react";
 import { useTabScroll } from "#/hooks/use-tab-scroll.ts";
+import { cn } from "@nookly/ui/lib/utils";
 
 /// A list page whose top (title, search and filters) stays where it is while the list
 /// scrolls underneath it. The list is a scroll area of its own, which is also what a long
@@ -9,6 +10,7 @@ export function ScrollingListPage({
   top,
   children,
   ready = true,
+  className,
   ...rest
 }: {
   top: ReactNode;
@@ -19,7 +21,7 @@ export function ScrollingListPage({
   const bodyRef = useRef<HTMLDivElement>(null);
   useTabScroll(bodyRef, "list", ready);
   return (
-    <div className="flex size-full min-h-0 flex-col" {...rest}>
+    <div className={cn("flex size-full min-h-0 flex-col", className)} {...rest}>
       <div className="flex shrink-0 flex-col gap-3 px-6 pt-6 pb-3">{top}</div>
       <div
         ref={bodyRef}

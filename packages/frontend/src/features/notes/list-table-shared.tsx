@@ -12,6 +12,12 @@ import {
 } from "#/components/filter-menu.tsx";
 import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
 import { QuickFilterBar } from "#/components/quick-filter-bar.tsx";
+import {
+  AddConditionButton,
+  type ConditionFieldInfo,
+  ConditionChips,
+} from "#/features/views/engine/ConditionBar.tsx";
+import type { ViewCondition } from "#/features/views/engine/types.ts";
 import { Input } from "@nookly/ui/components/input";
 import type { Label, PageSummary } from "#/lib/api/types.ts";
 import { matchesKey } from "#/lib/entity-key.ts";
@@ -26,7 +32,7 @@ import { includesFolded } from "#/lib/text-search.ts";
 /// Pieces shared by the Notes and Jots list tables.
 
 const SORTABLE_COLUMNS = new Set(["key", "title", "edited"]);
-const DEFAULT_SORTING: SortingState = [{ id: "edited", desc: true }];
+export const DEFAULT_SORTING: SortingState = [{ id: "edited", desc: true }];
 const MAX_ROW_LABELS = 3;
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -49,20 +55,22 @@ export const EDITED_FILTER_FIELD: FilterField = {
   ],
 };
 
-export function editedWithin(summary: PageSummary, value: string, now: number): boolean {
-  const window = EDITED_WINDOWS.get(value);
-  return window !== undefined && now - Date.parse(summary.lastEditedAt) < window;
+/// The "Last edited" windows a page falls in: edited an hour ago is in all three.
+export function editedWindows(summary: PageSummary, now: number): string[] {
+  const age = now - Date.parse(summary.lastEditedAt);
+  return [...EDITED_WINDOWS].flatMap(([value, window]) => (age < window ? [value] : []));
 }
 
-/// "is" keeps rows matching any chosen value, "is not" keeps rows matching none.
-/// `has` says whether a row carries one value of a field.
-export function passesRowFilters<T>(
+/// "is" keeps rows having any chosen value, "is not" keeps rows having none.
+/// `valueOf` gives the value or values a row has under a field.
+export function passesValueFilters<T>(
   row: T,
   filters: ActiveFilter[],
-  has: (row: T, fieldId: string, value: string) => boolean,
+  valueOf: (row: T, fieldId: string) => string | string[],
 ): boolean {
   return matchesFilters(filters, (f) => {
-    const hit = f.values.some((v) => has(row, f.fieldId, v));
+    const value = valueOf(row, f.fieldId);
+    const hit = f.values.some((v) => (Array.isArray(value) ? value.includes(v) : value === v));
     return f.operator === "is" ? hit : !hit;
   });
 }
@@ -250,6 +258,7 @@ export function ListFilterToolbar({
   filters,
   onFiltersChange,
   quick,
+  conditionBar,
 }: {
   query: string;
   onQueryChange: (query: string) => void;
@@ -259,6 +268,12 @@ export function ListFilterToolbar({
   filters: ActiveFilter[];
   onFiltersChange: (filters: ActiveFilter[]) => void;
   quick: { favorites: string[]; toggle: (fieldId: string) => void };
+  /// The richer filters (contains, date ranges, empty), which a saved View offers.
+  conditionBar?: {
+    fields: ConditionFieldInfo[];
+    conditions: ViewCondition[];
+    onChange: (conditions: ViewCondition[]) => void;
+  };
 }) {
   const filterMenuProps = {
     fields,
@@ -275,7 +290,7 @@ export function ListFilterToolbar({
           placeholder={placeholder}
           ariaLabel={ariaLabel}
         />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
           <FilterMenu
             {...filterMenuProps}
             part="button"
@@ -289,9 +304,16 @@ export function ListFilterToolbar({
               />
             }
           />
+          {conditionBar && (
+            <AddConditionButton
+              fields={conditionBar.fields}
+              onAdd={(condition) => conditionBar.onChange([...conditionBar.conditions, condition])}
+            />
+          )}
         </div>
       </div>
       <FilterMenu {...filterMenuProps} part="chips" />
+      {conditionBar && <ConditionChips {...conditionBar} />}
     </>
   );
 }

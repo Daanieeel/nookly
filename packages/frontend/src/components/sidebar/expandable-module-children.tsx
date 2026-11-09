@@ -24,7 +24,7 @@ import { qk } from "#/lib/query-keys.ts";
 import { reorderedViews } from "./reorder-views.ts";
 
 /// Modules whose row expands to list their saved Views.
-export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>(["tasks", "assignments"]);
+export const EXPANDABLE_MODULE_KEYS = new Set<ModuleKey>(["tasks", "assignments", "notes", "jots"]);
 
 export function ViewRow({
   view,
@@ -134,7 +134,7 @@ export function ExpandableModuleChildren({
         spaceId={spaceId}
         module={module}
         // A new View starts from the module's own defaults; its page takes it from there.
-        config={serializeViewConfig([], {})}
+        config={serializeViewConfig({ filters: [], display: {}, module })}
         onSaved={(created) =>
           useNavStore.getState().setView({ kind: "module", spaceId, module, viewId: created.id })
         }

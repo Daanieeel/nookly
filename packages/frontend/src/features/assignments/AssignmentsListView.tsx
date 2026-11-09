@@ -1,4 +1,10 @@
 import { IconCalendarEvent, IconClipboardCheck, IconSchool } from "@tabler/icons-react";
+import { passesConditions } from "#/features/views/engine/conditions.ts";
+import {
+  ASSIGNMENT_FIELDS,
+  assignmentContext,
+} from "#/features/views/engine/sources/assignments.tsx";
+import { showsEmptyGroups } from "#/lib/display-options.ts";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -45,6 +51,9 @@ import {
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 
+/// A Space's own page has no use for a Space field.
+const SPACE_CONDITION_FIELDS = ASSIGNMENT_FIELDS.filter((f) => f.id !== "space");
+
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
   return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
 }
@@ -74,7 +83,18 @@ export function AssignmentsListView({
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
-  const { display, setDisplay, filters, setFilters, view, dirty, save, discard } = useViewPage({
+  const {
+    display,
+    setDisplay,
+    filters,
+    setFilters,
+    conditions,
+    setConditions,
+    view,
+    dirty,
+    save,
+    discard,
+  } = useViewPage({
     spaceId,
     module: "assignments",
     viewId,
@@ -121,15 +141,16 @@ export function AssignmentsListView({
 
   const filterFields = useMemo<FilterField[]>(() => assignmentFilterFields(courses), [courses]);
 
+  const fieldCtx = useMemo(() => assignmentContext(courses, courseOf, []), [courses, courseOf]);
   const visible = applyFilters(assignments, filters, (a, fieldId) =>
     assignmentFilterValue(a, fieldId, courseOf),
-  );
+  ).filter((a) => passesConditions(a, conditions, SPACE_CONDITION_FIELDS, fieldCtx));
   const groups = buildVisibleGroups(
     orderAssignments(visible, display.grouping, display.ordering),
     assignmentGroupDefs(display.grouping, courses, courseOf),
     assignmentGroupDefs(display.subGrouping, courses, courseOf),
     "All assignments",
-    display.showEmpty[display.layout] && display.grouping !== "none",
+    showsEmptyGroups(display),
   );
 
   const dropKinds = new Set([display.grouping, display.subGrouping]);
@@ -182,6 +203,9 @@ export function AssignmentsListView({
         filterFields={filterFields}
         filters={filters}
         onFiltersChange={setFilters}
+        conditionFields={SPACE_CONDITION_FIELDS}
+        conditions={conditions}
+        onConditionsChange={setConditions}
         dirty={dirty}
         save={save}
         onDiscard={discard}

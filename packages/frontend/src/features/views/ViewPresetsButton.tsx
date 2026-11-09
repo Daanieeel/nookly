@@ -63,7 +63,7 @@ export function ViewPresetsButton<D>({
         spaceId,
         p.name,
         module,
-        serializeViewConfig(p.filters, p.display),
+        serializeViewConfig({ filters: p.filters, display: p.display, module }),
         iconLibraryValue(p.icon, p.color),
       ),
     onSuccess: async (created) => {
@@ -172,7 +172,7 @@ function PresetCard<D>({
         })}
       </div>
       <p className="truncate text-xs text-muted-foreground">
-        {summary.layout === "board" ? "Board" : "List"}
+        {summary.layout === "board" ? "Board" : summary.layout === "table" ? "Table" : "List"}
         {summary.grouping ? `, by ${summary.grouping.toLowerCase()}` : ""}
         {`, ordered by ${summary.ordering.toLowerCase()}`}
       </p>

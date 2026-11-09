@@ -1,4 +1,6 @@
 import { Separator } from "@nookly/ui/components/separator";
+import { taskSource } from "#/features/views/engine/sources/tasks.tsx";
+import { TableColumnToggles } from "#/features/views/engine/TableColumnToggles.tsx";
 import { cn } from "@nookly/ui/lib/utils";
 import {
   type BoardMenuProps,
@@ -74,36 +76,45 @@ export function TaskDisplayMenu({
 
       <Separator />
 
-      <div className="flex flex-col gap-2">
-        <span className="text-xs text-muted-foreground">Display properties</span>
-        <div className="flex flex-wrap gap-1.5">
-          {properties.map((p) => {
-            const on = display.properties.includes(p.id);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                aria-pressed={on}
-                onClick={() =>
-                  set({
-                    properties: on
-                      ? display.properties.filter((id) => id !== p.id)
-                      : properties
-                          .filter((d) => d.id === p.id || display.properties.includes(d.id))
-                          .map((d) => d.id),
-                  })
-                }
-                className={cn(
-                  "h-6 cursor-pointer rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:text-foreground",
-                  on && "border-foreground/20 bg-accent text-foreground",
-                )}
-              >
-                {p.label}
-              </button>
-            );
-          })}
+      {display.layout === "table" ? (
+        <TableColumnToggles
+          source={taskSource}
+          table={display.table}
+          onChange={(table) => set({ table })}
+          hiddenFields={crossSpace ? ["labels", "course"] : ["space"]}
+        />
+      ) : (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs text-muted-foreground">Display properties</span>
+          <div className="flex flex-wrap gap-1.5">
+            {properties.map((p) => {
+              const on = display.properties.includes(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() =>
+                    set({
+                      properties: on
+                        ? display.properties.filter((id) => id !== p.id)
+                        : properties
+                            .filter((d) => d.id === p.id || display.properties.includes(d.id))
+                            .map((d) => d.id),
+                    })
+                  }
+                  className={cn(
+                    "h-6 cursor-pointer rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:text-foreground",
+                    on && "border-foreground/20 bg-accent text-foreground",
+                  )}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </DisplayPopover>
   );
 }

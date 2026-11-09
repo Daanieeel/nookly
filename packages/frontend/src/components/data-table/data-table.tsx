@@ -30,10 +30,18 @@ export interface DataTableGroup<TData> {
 /// Column layout travels as data attributes so the matching classes stay static.
 function columnData(meta: DataTableColumnMeta | undefined) {
   return {
-    "data-width": meta?.width,
+    // A resized column keeps its own width instead.
+    "data-width": meta?.size ? undefined : meta?.width,
     "data-hide-below": meta?.hideBelow,
     "data-align": meta?.align,
+    "data-sized": meta?.size ? true : undefined,
   };
+}
+
+/// A column the user resized keeps exactly that width, as a custom property so the class
+/// (`w-(--col-size)`) stays static.
+function sizeOf(meta: DataTableColumnMeta | undefined): string | undefined {
+  return meta?.size ? `${meta.size}px` : undefined;
 }
 
 /// Room for padding and a sort chevron next to the label, on top of its characters.
@@ -53,7 +61,7 @@ const ROW_HEIGHT = 37;
 const GROUP_HEADING_HEIGHT = 40;
 
 const COLUMN_CLASSES =
-  "min-w-(--col-min) data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 @lg:data-[hide-below=md]:table-cell @lg:data-[width=third]:w-1/3 @3xl:data-[hide-below=lg]:table-cell";
+  "min-w-(--col-min) data-[align=end]:text-right data-[hide-below=lg]:hidden data-[hide-below=md]:hidden data-[width=fill]:max-w-0 data-[width=fit]:w-px data-[width=third]:max-w-0 @lg:data-[hide-below=md]:table-cell @lg:data-[width=third]:w-1/3 @3xl:data-[hide-below=lg]:table-cell data-sized:w-(--col-size) data-sized:max-w-(--col-size) data-sized:min-w-(--col-size)";
 
 export function DataTable<TData extends RowData>({
   table,
@@ -160,7 +168,12 @@ export function DataTable<TData extends RowData>({
           key={cell.id}
           {...columnData(cell.column.columnDef.meta)}
           // SAFETY: only a custom property, which `CSSProperties` can't name.
-          style={{ "--col-min": minWidthOf(cell.column) } as CSSProperties}
+          style={
+            {
+              "--col-min": minWidthOf(cell.column),
+              "--col-size": sizeOf(cell.column.columnDef.meta),
+            } as CSSProperties
+          }
           className={COLUMN_CLASSES}
         >
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -206,7 +219,12 @@ export function DataTable<TData extends RowData>({
                   colSpan={header.colSpan}
                   {...columnData(header.column.columnDef.meta)}
                   // SAFETY: only a custom property, which `CSSProperties` can't name.
-                  style={{ "--col-min": minWidthOf(header.column) } as CSSProperties}
+                  style={
+                    {
+                      "--col-min": minWidthOf(header.column),
+                      "--col-size": sizeOf(header.column.columnDef.meta),
+                    } as CSSProperties
+                  }
                   className={COLUMN_CLASSES}
                 >
                   {header.isPlaceholder

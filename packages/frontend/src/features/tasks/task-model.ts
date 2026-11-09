@@ -16,7 +16,14 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
 import { preferences } from "#/lib/preferences.ts";
-import { normalizeBaseDisplay, readStoredDisplay } from "#/lib/display-options.ts";
+import {
+  type GroupedLayout,
+  type PageLayout,
+  normalizeBaseDisplay,
+  readStoredDisplay,
+} from "#/lib/display-options.ts";
+import { DEFAULT_TABLE } from "#/features/views/engine/table-display.ts";
+import type { TableDisplay } from "#/features/views/engine/types.ts";
 import { AGE_BUCKETS, ageBucket } from "#/features/assignments/assignment-model.ts";
 import { type DisplaySummary, type ViewPreset, is, isNot } from "#/features/views/view-presets.ts";
 
@@ -125,7 +132,7 @@ export function dueTone(task: Task, kind: StatusKind): "overdue" | "soon" | null
 
 export { validSubGrouping } from "#/lib/display-options.ts";
 
-type Layout = "list" | "board";
+type Layout = PageLayout;
 export type Grouping =
   | "status"
   | "label"
@@ -175,9 +182,11 @@ export interface DisplayOptions {
   subGrouping: Grouping;
   ordering: Ordering;
   /// Remembered per layout: a board shows every column, a list hides empty groups.
-  showEmpty: Record<Layout, boolean>;
+  showEmpty: Record<GroupedLayout, boolean>;
   /// Board columns (group ids) the user hid. Only the board honors it.
   hiddenColumns: string[];
+  /// The table layout's sort and columns.
+  table: TableDisplay;
   properties: DisplayProperty[];
 }
 
@@ -188,6 +197,7 @@ export const DEFAULT_DISPLAY: DisplayOptions = {
   ordering: "due",
   showEmpty: { board: true, list: false },
   hiddenColumns: [],
+  table: DEFAULT_TABLE,
   properties: ["key", "status", "labels", "due", "effort", "created"],
 };
 

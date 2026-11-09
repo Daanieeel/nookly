@@ -1,4 +1,10 @@
 import { IconClipboardCheck } from "@tabler/icons-react";
+import { passesConditions } from "#/features/views/engine/conditions.ts";
+import {
+  ASSIGNMENT_FIELDS,
+  assignmentContext,
+} from "#/features/views/engine/sources/assignments.tsx";
+import { showsEmptyGroups } from "#/lib/display-options.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { EmptyState } from "#/components/empty-state.tsx";
@@ -40,7 +46,18 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const activeSpaceId = useNavStore((s) => s.activeSpaceId);
-  const { display, setDisplay, filters, setFilters, view, dirty, save, discard } = useViewPage({
+  const {
+    display,
+    setDisplay,
+    filters,
+    setFilters,
+    conditions,
+    setConditions,
+    view,
+    dirty,
+    save,
+    discard,
+  } = useViewPage({
     // A cross-Space page has no Space of its own; a View's own is read from it.
     spaceId: "",
     module: ASSIGNMENTS_OVERVIEW,
@@ -73,15 +90,19 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
     [spaces, courses],
   );
 
+  const fieldCtx = useMemo(
+    () => assignmentContext(courses, courseOf, spaces),
+    [courses, courseOf, spaces],
+  );
   const visible = applyFilters(assignments, filters, (a, fieldId) =>
     assignmentFilterValue(a, fieldId, courseOf),
-  );
+  ).filter((a) => passesConditions(a, conditions, ASSIGNMENT_FIELDS, fieldCtx));
   const groups = buildVisibleGroups(
     orderAssignments(visible, display.grouping, display.ordering),
     assignmentGroupDefs(display.grouping, courses, courseOf, spaces),
     assignmentGroupDefs(display.subGrouping, courses, courseOf, spaces),
     "All assignments",
-    display.showEmpty[display.layout] && display.grouping !== "none",
+    showsEmptyGroups(display),
   );
 
   const move = useMutation({
@@ -134,6 +155,9 @@ export function AssignmentsOverviewView({ viewId }: { viewId?: string }) {
         filterFields={filterFields}
         filters={filters}
         onFiltersChange={setFilters}
+        conditionFields={ASSIGNMENT_FIELDS}
+        conditions={conditions}
+        onConditionsChange={setConditions}
         dirty={dirty}
         save={save}
         onDiscard={discard}

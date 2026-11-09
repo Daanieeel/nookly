@@ -3,6 +3,7 @@ import {
   IconLayoutGrid,
   IconLayoutKanban,
   IconList,
+  IconTable,
 } from "@tabler/icons-react";
 import type { ComponentType, ReactNode } from "react";
 import { Button } from "@nookly/ui/components/button";
@@ -16,7 +17,7 @@ import {
 } from "@nookly/ui/components/select";
 import { Switch } from "@nookly/ui/components/switch";
 import { cn } from "@nookly/ui/lib/utils";
-import type { CardDisplayBase } from "#/lib/display-options.ts";
+import type { CardDisplayBase, GroupedLayout, PageLayout } from "#/lib/display-options.ts";
 
 /// Shared pieces of the "Display" popovers on Tasks, Assignments, Bookmarks and Files.
 
@@ -58,7 +59,7 @@ export function LayoutTiles<T extends string>({
   onSelect: (id: T) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className={cn("grid gap-2", tiles.length === 3 ? "grid-cols-3" : "grid-cols-2")}>
       {tiles.map((tile) => (
         <button
           key={tile.id}
@@ -129,9 +130,9 @@ export function SelectRow<T extends string>({
 }
 
 interface BoardDisplay {
-  layout: "list" | "board";
+  layout: PageLayout;
   grouping: string;
-  showEmpty: Record<"list" | "board", boolean>;
+  showEmpty: Record<GroupedLayout, boolean>;
   hiddenColumns: string[];
 }
 
@@ -141,9 +142,10 @@ function ShowEmptyRow({
   set,
 }: {
   display: BoardDisplay;
-  set: (patch: { showEmpty: Record<"list" | "board", boolean> }) => void;
+  set: (patch: { showEmpty: Record<GroupedLayout, boolean> }) => void;
 }) {
-  if (display.grouping === "none") return null;
+  // A table leaves out empty groups.
+  if (display.grouping === "none" || display.layout === "table") return null;
   return (
     <OptionRow label="Show empty groups">
       <Switch
@@ -244,14 +246,15 @@ export function CardDisplayMenu<
   );
 }
 
-/// The List and Board layout tiles of the board pages (Tasks, Assignments).
+/// The List, Board and Table layout tiles of the board pages (Tasks, Assignments).
 export const LIST_BOARD_TILES: {
-  id: "list" | "board";
+  id: PageLayout;
   label: string;
   icon: ComponentType<{ size?: number }>;
 }[] = [
   { id: "list", label: "List", icon: IconList },
   { id: "board", label: "Board", icon: IconLayoutKanban },
+  { id: "table", label: "Table", icon: IconTable },
 ];
 
 /// The sub-grouping select of the board pages, hidden without a grouping.
@@ -294,7 +297,7 @@ export function BoardOrderingRows<O extends string>({
   columns: { id: string; name: string }[];
   set: (patch: {
     ordering?: O;
-    showEmpty?: Record<"list" | "board", boolean>;
+    showEmpty?: Record<GroupedLayout, boolean>;
     hiddenColumns?: string[];
   }) => void;
 }) {
@@ -318,10 +321,10 @@ export function BoardOrderingRows<O extends string>({
 /// can't, and a sub-grouping can't repeat the grouping.
 export function boardGroupings<G extends string>(
   available: { id: G; label: string }[],
-  display: { layout: "list" | "board"; grouping: G },
+  display: { layout: PageLayout; grouping: G },
 ) {
   return {
-    groupings: available.filter((g) => display.layout === "list" || g.id !== "none"),
+    groupings: available.filter((g) => display.layout !== "board" || g.id !== "none"),
     subGroupings: available.filter((g) => g.id !== display.grouping),
   };
 }

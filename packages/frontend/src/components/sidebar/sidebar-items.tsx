@@ -1,26 +1,10 @@
 import {
-  DndContext,
-  type DragEndEvent,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
   IconCalendarWeek,
   IconChecklist,
   IconClipboardCheck,
   IconEye,
   IconEyeOff,
   IconFeather,
-  IconGripVertical,
   IconLayoutDashboard,
   IconPin,
   IconSettings,
@@ -28,6 +12,7 @@ import {
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { Button } from "@nookly/ui/components/button";
+import { SortableToggleList } from "#/components/sortable-toggle-list.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { SidebarMenuButton, SidebarMenuItem } from "@nookly/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -36,7 +21,6 @@ import { ASSIGNMENTS_OVERVIEW, TASKS_OVERVIEW } from "#/lib/api/views.ts";
 import {
   type SidebarFixedId,
   type SidebarItemId,
-  type SidebarItemPref,
   useSidebarHidden,
   useSidebarItems,
 } from "#/lib/sidebar-items.ts";
@@ -130,17 +114,6 @@ export function SidebarTrashButton() {
 export function SidebarCustomizeButton() {
   const items = useSidebarItems((s) => s.items);
   const setItems = useSidebarItems((s) => s.setItems);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
-  function onDragEnd({ active, over }: DragEndEvent) {
-    if (!over || active.id === over.id) return;
-    const from = items.findIndex((item) => item.id === active.id);
-    const to = items.findIndex((item) => item.id === over.id);
-    if (from !== -1 && to !== -1) setItems(arrayMove(items, from, to));
-  }
-  const toggle = (id: SidebarItemId) =>
-    setItems(items.map((item) => (item.id === id ? { ...item, hidden: !item.hidden } : item)));
-
   return (
     <div className="flex justify-end">
       <Popover>
@@ -155,18 +128,11 @@ export function SidebarCustomizeButton() {
           <TooltipContent>Customize sidebar</TooltipContent>
         </Tooltip>
         <PopoverContent align="end" className="w-56 p-1.5" aria-label="Customize sidebar">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext
-              items={items.map((item) => item.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <ul className="flex flex-col gap-0.5">
-                {items.map((item) => (
-                  <CustomizeRow key={item.id} item={item} onToggle={() => toggle(item.id)} />
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
+          <SortableToggleList
+            items={items}
+            onChange={setItems}
+            describe={(item) => ITEMS[item.id]}
+          />
           <ul className="mt-1 flex flex-col gap-0.5 border-t border-border pt-1">
             <FixedRow id="trash" label="Trash" icon={IconTrash} />
           </ul>
@@ -199,47 +165,6 @@ function FixedRow({
         <TooltipTrigger asChild>
           <Button variant="ghost" size="iconSm" aria-label={toggleLabel} onClick={() => toggle(id)}>
             {hidden ? <IconEyeOff /> : <IconEye />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{toggleLabel}</TooltipContent>
-      </Tooltip>
-    </li>
-  );
-}
-
-function CustomizeRow({ item, onToggle }: { item: SidebarItemPref; onToggle: () => void }) {
-  const { label, icon: Icon } = ITEMS[item.id];
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: item.id,
-  });
-  const toggleLabel = `${item.hidden ? "Show" : "Hide"} ${label}`;
-
-  return (
-    <li
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        "flex h-8 items-center gap-1.5 rounded-md bg-popover pr-1 pl-0.5 text-sm",
-        isDragging && "relative z-10 shadow-md",
-      )}
-    >
-      <button
-        type="button"
-        aria-label={`Move ${label}`}
-        className="flex size-6 shrink-0 cursor-grab items-center justify-center rounded-sm text-muted-foreground hover:bg-accent active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
-      >
-        <IconGripVertical size={14} />
-      </button>
-      <Icon size={15} className={cn("shrink-0", item.hidden && "text-muted-foreground")} />
-      <span className={cn("min-w-0 flex-1 truncate", item.hidden && "text-muted-foreground")}>
-        {label}
-      </span>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="iconSm" aria-label={toggleLabel} onClick={onToggle}>
-            {item.hidden ? <IconEyeOff /> : <IconEye />}
           </Button>
         </TooltipTrigger>
         <TooltipContent>{toggleLabel}</TooltipContent>

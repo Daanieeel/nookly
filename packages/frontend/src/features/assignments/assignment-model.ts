@@ -29,7 +29,14 @@ import { displayTitle } from "#/lib/entity-title.ts";
 import { mondayWeekStartsOn } from "#/lib/week-start.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { preferences } from "#/lib/preferences.ts";
-import { normalizeBaseDisplay, readStoredDisplay } from "#/lib/display-options.ts";
+import {
+  type GroupedLayout,
+  type PageLayout,
+  normalizeBaseDisplay,
+  readStoredDisplay,
+} from "#/lib/display-options.ts";
+import { DEFAULT_TABLE } from "#/features/views/engine/table-display.ts";
+import type { TableDisplay } from "#/features/views/engine/types.ts";
 import type { StatusKind } from "#/features/tasks/task-model.ts";
 import { type DisplaySummary, type ViewPreset, is } from "#/features/views/view-presets.ts";
 
@@ -153,7 +160,7 @@ export const GRADE_FILTER: { id: string; label: string }[] = [
 
 export { validSubGrouping } from "#/lib/display-options.ts";
 
-type Layout = "list" | "board";
+type Layout = PageLayout;
 export type Grouping =
   | "deadline"
   | "created"
@@ -194,9 +201,11 @@ export interface DisplayOptions {
   subGrouping: Grouping;
   ordering: Ordering;
   /// Remembered per layout: a board shows every column, a list hides empty groups.
-  showEmpty: Record<Layout, boolean>;
+  showEmpty: Record<GroupedLayout, boolean>;
   /// Board columns (group ids) the user hid. Only the board honors it.
   hiddenColumns: string[];
+  /// The table layout's sort and columns.
+  table: TableDisplay;
 }
 
 export const DEFAULT_DISPLAY: DisplayOptions = {
@@ -206,6 +215,7 @@ export const DEFAULT_DISPLAY: DisplayOptions = {
   ordering: "auto",
   showEmpty: { board: true, list: false },
   hiddenColumns: [],
+  table: DEFAULT_TABLE,
 };
 
 /// Every field is checked again, so an outdated value falls back to its default.

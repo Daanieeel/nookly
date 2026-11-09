@@ -1,4 +1,8 @@
 import { IconChecklist } from "@tabler/icons-react";
+import { passesConditions } from "#/features/views/engine/conditions.ts";
+import { TASK_FIELDS, taskContext, taskSource } from "#/features/views/engine/sources/tasks.tsx";
+import { ViewTable, groupsForTable } from "#/features/views/engine/ViewTable.tsx";
+import { showsEmptyGroups } from "#/lib/display-options.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
@@ -39,6 +43,10 @@ import {
 } from "./task-model";
 
 const NO_FILTERS: ActiveFilter[] = [];
+
+/// Labels and Courses belong to a Space, so the overview has neither.
+const OVERVIEW_HIDDEN_FIELDS = ["labels", "course"];
+const OVERVIEW_CONDITION_FIELDS = TASK_FIELDS.filter((f) => !OVERVIEW_HIDDEN_FIELDS.includes(f.id));
 const NO_CREATE = () => undefined;
 const NO_DRAFT: TaskDraft = {};
 
@@ -51,7 +59,18 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const activeSpaceId = useNavStore((s) => s.activeSpaceId);
-  const { display, setDisplay, filters, setFilters, view, dirty, save, discard } = useViewPage({
+  const {
+    display,
+    setDisplay,
+    filters,
+    setFilters,
+    conditions,
+    setConditions,
+    view,
+    dirty,
+    save,
+    discard,
+  } = useViewPage({
     // A cross-Space page has no Space of its own; a View's own is read from it.
     spaceId: "",
     module: TASKS_OVERVIEW,
@@ -109,16 +128,22 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
     [spaces, statuses, kindOf, effortScale],
   );
 
+  const fieldCtx = useMemo(
+    () => taskContext({ statuses: rawStatuses, labels: [], courses: [], spaces, effortScale }),
+    [rawStatuses, spaces, effortScale],
+  );
   const visible = useMemo(
     () =>
       orderTasks(
-        tasks.filter((t) => {
-          return passesFilters(t, filters);
-        }),
+        tasks.filter(
+          (t) =>
+            passesFilters(t, filters) &&
+            passesConditions(t, conditions, OVERVIEW_CONDITION_FIELDS, fieldCtx),
+        ),
         display.ordering,
         statuses,
       ),
-    [tasks, filters, display.ordering, statuses, kindOf],
+    [tasks, filters, conditions, fieldCtx, display.ordering, statuses],
   );
 
   const groups = useMemo(
@@ -128,7 +153,7 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
         taskGroupDefs(display.grouping, statuses, [], kindOf, spaces),
         taskGroupDefs(display.subGrouping, statuses, [], kindOf, spaces),
         "All tasks",
-        display.showEmpty[display.layout] && display.grouping !== "none",
+        showsEmptyGroups(display),
       ),
     [visible, display, statuses, kindOf, spaces],
   );
@@ -187,6 +212,9 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
           filterFields={filterFields}
           filters={filters}
           onFiltersChange={setFilters}
+          conditionFields={OVERVIEW_CONDITION_FIELDS}
+          conditions={conditions}
+          onConditionsChange={setConditions}
           dirty={dirty}
           save={save}
           onDiscard={discard}
@@ -207,6 +235,17 @@ export function TasksOverviewView({ viewId }: { viewId?: string }) {
           <NoMatchesNotice
             text="No tasks match this view."
             onClear={filters.length > 0 ? () => setFilters([]) : undefined}
+          />
+        ) : display.layout === "table" ? (
+          <ViewTable
+            source={taskSource}
+            items={visible}
+            ctx={fieldCtx}
+            table={display.table}
+            onTableChange={(table) => setDisplay({ ...display, table })}
+            onOpen={openTask}
+            groups={groupsForTable(groups, display.grouping)}
+            hiddenFields={OVERVIEW_HIDDEN_FIELDS}
           />
         ) : display.layout === "board" ? (
           <TaskBoard

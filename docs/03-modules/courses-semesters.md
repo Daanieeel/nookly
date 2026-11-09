@@ -12,7 +12,7 @@ A free text `professor` field is edited in the Course page's properties panel an
 
 ### Course Page
 
-Below the Course's own notes editor the page shows, in order: stat tiles, Sessions, Assignments, Notes and Exams. Sessions is a cut out of this week of the calendar, with the Course's Sessions and Exams drawn plainly and everything else faded. Assignments, Notes and Exams look as they do on their own pages. Notes rolls up the five most recently edited Notes linked to the Course, and Show more opens the Notes page filtered to it.
+Below the Course's own notes editor the page shows stat tiles, then a section per related type: Sessions, Assignments, Tasks, Exams and Notes. Sessions is a cut out of this week of the calendar, with the Course's Sessions and Exams drawn plainly and everything else faded. The others are views from the view engine scoped to the Course, as tables the user can sort and pick columns for: Assignments (`assignment-course`), Tasks (`relates-to`), Exams (`exam-course`) and Notes (`course-notes`, plus Notes written for one of the Course's Sessions). Linked items from other Spaces show with their Space. Each section folds from its title, keeps its count while folded, has a "+" that opens the picker on its type and a View all to the filtered module page where one exists. Customize sections hides and reorders them for every Course page alike (`nookly:page-sections`, per device). The right sidebar's Relationships list folds to a count there, with every link one click away.
 
 ### Course Grade
 
