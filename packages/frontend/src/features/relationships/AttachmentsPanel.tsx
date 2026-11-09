@@ -1,5 +1,5 @@
 import { qk } from "#/lib/query-keys.ts";
-import { IconArrowUp, IconPaperclip, IconPlus, IconUpload } from "@tabler/icons-react";
+import { IconArrowUp, IconLink, IconPaperclip, IconPlus, IconUpload } from "@tabler/icons-react";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -60,7 +60,8 @@ function PathField({ entity, close }: { entity: Entity; close: () => void }) {
         if (!empty && !attach.isPending) attach.mutate(text);
       }}
     >
-      <div className="flex items-center pr-1">
+      <div className="flex items-center gap-2 pr-1 pl-3">
+        <IconLink size={14} className="shrink-0 text-muted-foreground" />
         <input
           aria-label="File path"
           placeholder="Paste a file path…"
@@ -70,21 +71,25 @@ function PathField({ entity, close }: { entity: Entity; close: () => void }) {
             setText(e.target.value);
             if (attach.isError) attach.reset();
           }}
-          className="h-9 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"
+          className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
-        {(!empty || attach.isPending) && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="submit" variant="ghost" size="iconSm" aria-label="Attach by Path">
-                <StatusIcon status={statusOf(attach)} idle={<IconArrowUp />} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Attach by Path</TooltipContent>
-          </Tooltip>
-        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="submit"
+              variant="ghost"
+              size="iconSm"
+              disabled={empty}
+              aria-label="Attach by Path"
+            >
+              <StatusIcon status={statusOf(attach)} idle={<IconArrowUp />} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Attach by Path</TooltipContent>
+        </Tooltip>
       </div>
       {error && (
-        <div className="px-3 pb-2">
+        <div className="px-3 pb-2 pl-8">
           <FieldError message={error} />
         </div>
       )}
