@@ -14,7 +14,6 @@ import {
 } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { homeDir, join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -64,6 +63,7 @@ import {
 } from "#/lib/api/files.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
+import { localPath } from "#/lib/local-path.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { useFileDragOver } from "#/hooks/use-file-drag-over.ts";
@@ -98,18 +98,6 @@ function useFreshIds() {
     setTimeout(() => setFresh(new Set()), 2000);
   }, []);
   return [fresh, mark] as const;
-}
-
-/// A local path as typed, pasted or copied from Finder: absolute, `~/`, or a
-/// `file://` URL, with shell escapes and wrapping quotes removed. Null for
-/// anything else.
-async function localPath(text: string): Promise<string | null> {
-  const raw = text.trim().replace(/^(["'])(.*)\1$/, "$2");
-  if (raw.startsWith("file://")) return decodeURIComponent(new URL(raw).pathname);
-  const unescaped = raw.replace(/\\(.)/g, "$1");
-  if (unescaped.startsWith("~/")) return join(await homeDir(), unescaped.slice(2));
-  if (unescaped.startsWith("/")) return unescaped;
-  return null;
 }
 
 /// "example.com/x" gets its scheme; anything that isn't a web address is null.

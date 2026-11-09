@@ -1,6 +1,6 @@
 import { Command } from "cmdk";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
@@ -32,10 +32,20 @@ export function EntityPickerPopover({
   header?: (close: () => void) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent {...dialogPopover("w-72 p-0")} align="start">
+      <PopoverContent
+        {...dialogPopover("w-72 p-0")}
+        align="start"
+        // Typing starts the search, whatever `header` puts above it.
+        ref={contentRef}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          contentRef.current?.querySelector<HTMLInputElement>("[cmdk-input]")?.focus();
+        }}
+      >
         {header?.(() => setOpen(false))}
         <EntityPickerList
           spaceId={spaceId}
