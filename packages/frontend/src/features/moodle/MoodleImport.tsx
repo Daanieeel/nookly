@@ -203,7 +203,7 @@ const NO_COURSE = "none";
 
 /// A quiet pill button, for the suggestions under a field.
 const SUGGESTION_CLASS =
-  "inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex h-6 max-w-full items-center gap-1.5 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
 
 /// A caption and its row of suggestions, named as a group for assistive tech.
 function Suggestions({ caption, children }: { caption: string; children: ReactNode }) {
