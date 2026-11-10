@@ -58,6 +58,9 @@ export function createSuggestionRender<I>(
           props: listProps(props),
           editor: props.editor,
         });
+        // Mounted on the page's body, above a dialog's overlay and still clickable inside one.
+        Object.assign(component.element.style, { zIndex: "60", pointerEvents: "auto" });
+        component.element.setAttribute("data-editor-popup", "");
         sync(props);
       },
       onUpdate: (props) => {

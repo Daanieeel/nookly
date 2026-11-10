@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.74.0 (2026-11-10)
+
+### Added
+
+- The quick New task and New assignment windows now have a description below the title. You can write in it with every block, like on a page, before creating.
+
 ## 0.73.0 (2026-11-10)
 
 ### Added

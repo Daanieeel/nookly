@@ -1,9 +1,9 @@
 import { screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeEntity, makeSpace, makeTask, STATUSES } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { freezeTime } from "#/test/time.ts";
-import { callsOf, mockCommand } from "#/test/tauri.ts";
+import { calledCommands, callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { QuickCreateTask, type TaskDraft } from "./QuickCreateTask";
 import type { Space } from "#/lib/api/types.ts";
 import { statusKind } from "./task-model";
@@ -26,6 +26,7 @@ function setup(
   data: TasksData = DATA,
   spaces: Space[] = [],
   pickSpace = false,
+  onOpenChange: (open: boolean) => void = () => {},
 ) {
   mockCommand("list_entities", [COURSE, NOTE]);
   mockCommand("list_spaces", spaces);
@@ -40,7 +41,7 @@ function setup(
       <QuickCreateTask
         open
         draft={draft}
-        onOpenChange={() => {}}
+        onOpenChange={onOpenChange}
         onCreated={onCreated}
         spaces={pickSpace ? spaces : undefined}
         onSpaceChange={pickSpace ? () => {} : undefined}
@@ -271,5 +272,111 @@ describe("QuickCreateTask related picker", () => {
     await user.click(screen.getByRole("button", { name: "Create task" }));
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(callsOf("create_relationship")).toEqual([]);
+  });
+});
+
+describe("QuickCreateTask description", () => {
+  // ProseMirror asks the document what is under the pointer on a click; jsdom has no such lookup.
+  beforeEach(() => {
+    Object.assign(document, { elementFromPoint: () => null });
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  it("writes what was typed in the description as the blocks of the new task", async () => {
+    mockCommand("create_block", {});
+    const { user, onCreated } = setup();
+    await user.type(screen.getByRole("textbox", { name: "Task title" }), "Read chapter");
+    await user.click(screen.getByRole("textbox", { name: "Task description" }));
+    await user.keyboard("Pages 10 to 20{Enter}Skip the exercises");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(callsOf("create_block")).toEqual([
+      expect.objectContaining({
+        entityId: "task-new",
+        blockType: "paragraph",
+        content: "Pages 10 to 20",
+      }),
+      expect.objectContaining({
+        entityId: "task-new",
+        blockType: "paragraph",
+        content: "Skip the exercises",
+      }),
+    ]);
+  });
+
+  it("writes no blocks when the description was left empty", async () => {
+    mockCommand("create_block", {});
+    const { user, onCreated } = setup();
+    await user.type(screen.getByRole("textbox", { name: "Task title" }), "Read chapter");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(callsOf("create_block")).toEqual([]);
+  });
+
+  it("turns a markdown shortcut in the description into a block", async () => {
+    mockCommand("create_block", {});
+    const { user, onCreated } = setup();
+    await user.type(screen.getByRole("textbox", { name: "Task title" }), "Read chapter");
+    await user.click(screen.getByRole("textbox", { name: "Task description" }));
+    await user.keyboard("# Plan");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(callsOf("create_block")).toEqual([
+      expect.objectContaining({ blockType: "heading1", content: "Plan" }),
+    ]);
+  });
+
+  it("creates with Cmd+Enter from the description, without a line break", async () => {
+    mockCommand("create_block", {});
+    const { user, onCreated } = setup();
+    await user.type(screen.getByRole("textbox", { name: "Task title" }), "Read chapter");
+    await user.click(screen.getByRole("textbox", { name: "Task description" }));
+    await user.keyboard("Pages 10 to 20{Meta>}{Enter}{/Meta}");
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(callsOf("create_block")).toEqual([
+      expect.objectContaining({ content: "Pages 10 to 20" }),
+    ]);
+  });
+
+  it("discards the task and reports the error when the description cannot be saved", async () => {
+    mockCommandWith("create_block", () => {
+      throw new Error("disk full");
+    });
+    mockCommand("soft_delete_entity", null);
+    const { user, onCreated } = setup();
+    await user.type(screen.getByRole("textbox", { name: "Task title" }), "Read chapter");
+    await user.click(screen.getByRole("textbox", { name: "Task description" }));
+    await user.keyboard("Pages 10 to 20");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(calledCommands()).toContain("soft_delete_entity"));
+    expect(callsOf("soft_delete_entity")).toEqual([{ id: "task-new" }]);
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(await screen.findByText("Couldn't create the task, try again")).toBeInTheDocument();
+  });
+});
+
+describe("QuickCreateTask editor menus", () => {
+  // The "/" and "@" menus of the description are mounted outside the dialog. (Clicking one
+  // is not a click outside either; jsdom cannot tell, so that is checked by hand.)
+  function addMenu() {
+    const menu = document.createElement("div");
+    menu.setAttribute("data-editor-popup", "");
+    menu.textContent = "Heading 1";
+    menu.style.pointerEvents = "auto"; // as `suggestion-render.tsx` sets it
+    document.body.appendChild(menu);
+    return menu;
+  }
+
+  it("closes an open menu with Escape before it closes the dialog", async () => {
+    const onOpenChange = vi.fn();
+    const { user } = setup({}, DATA, [], false, onOpenChange);
+    const menu = addMenu();
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).not.toHaveBeenCalled();
+    menu.remove();
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

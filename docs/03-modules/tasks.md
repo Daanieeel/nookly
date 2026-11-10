@@ -44,7 +44,7 @@ A Task has an optional repeat rule: every N days, weeks or months (1 to 365), se
 
 ## Creation UX
 
-A lightweight, keyboard-first quick-create overlay with a title field and inline pickers for status, label, date, and one related entity (a `relates-to` link, prefilled with the Course when the list is filtered to one). Not a full form.
+A lightweight, keyboard-first quick-create overlay with a title field and inline pickers for status, label, date, and one related entity (a `relates-to` link, prefilled with the Course when the list is filtered to one). Not a full form. Below the title sits the description, the full block editor of a page, written before the task exists and saved with it.
 
 - The user can create one task and immediately start the next without closing the overlay.
 - Hovering a board column reveals a "+" that creates a task directly in that status.

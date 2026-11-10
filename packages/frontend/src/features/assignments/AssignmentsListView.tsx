@@ -54,9 +54,12 @@ import { AssignmentGroups } from "./AssignmentGroups";
 import { assignmentFilterFields, assignmentFilterValue } from "./assignment-filter-fields";
 import {
   CreateMoreSwitch,
+  NewEntityBody,
   NewEntityBreadcrumb,
   NewEntityDialog,
 } from "#/components/new-entity-dialog.tsx";
+import type { BlockInput } from "#/features/notes/block-markdown.ts";
+import { saveDraftBlocks } from "#/features/notes/draft-blocks.ts";
 
 /// An inbox to work through: a list bucketed by due date by default, or a board,
 /// either one groupable and sub-groupable by deadline, creation, status or Course.
@@ -227,6 +230,7 @@ const assignmentSchema = z.object({
   course: z.custom<Entity | null>().refine((c): boolean => c !== null, "Pick a course"),
   due: z.custom<DueValue>(),
   ungraded: z.boolean(),
+  body: z.custom<BlockInput[]>(),
 });
 type AssignmentValues = z.infer<typeof assignmentSchema>;
 const emptyAssignment: AssignmentValues = {
@@ -234,6 +238,7 @@ const emptyAssignment: AssignmentValues = {
   course: null,
   due: { dueDate: null, dueSessionOffsetDays: null, dueSessionId: null },
   ungraded: true,
+  body: [],
 };
 
 /// The new assignment dialog, in the style of the new task modal: a breadcrumb, a title
@@ -267,6 +272,8 @@ export function CreateAssignmentDialog({
   const openInNewTab = useNavStore((s) => s.openInNewTab);
   const [spaceId, setSpaceId] = useState(initialSpaceId);
   const [createMore, setCreateMore] = useState(false);
+  /// Changes to start the description over after "Create more" (it starts empty on each opening).
+  const [bodyKey, setBodyKey] = useState(0);
   const titleRef = useRef<HTMLInputElement>(null);
   const { data: allSpaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const space = allSpaces.find((s) => s.id === spaceId);
@@ -291,7 +298,7 @@ export function CreateAssignmentDialog({
   }, [open, initialSpaceId, initialCourse, form]);
 
   const create = useMutation({
-    mutationFn: async ({ title, course: picked, due, ungraded }: AssignmentValues) => {
+    mutationFn: async ({ title, course: picked, due, ungraded, body }: AssignmentValues) => {
       if (!picked) throw new Error("pick a course");
       const created = await createAssignment(
         spaceId,
@@ -302,6 +309,7 @@ export function CreateAssignmentDialog({
         due.dueSessionId,
         ungraded,
       );
+      await saveDraftBlocks(created.entity.id, body);
       if (session) {
         // The assignment exists either way, so a failed link is reported, not retried.
         await createRelationship(created.entity.id, session.id, "relates-to").catch(() =>
@@ -318,6 +326,8 @@ export function CreateAssignmentDialog({
       ]);
       if (createMore) {
         form.setFieldValue("title", "");
+        form.setFieldValue("body", []);
+        setBodyKey((key) => key + 1);
         requestAnimationFrame(() => titleRef.current?.focus());
       } else {
         handleOpenChange(false);
@@ -381,6 +391,13 @@ export function CreateAssignmentDialog({
           />
         )}
       </form.Field>
+
+      <NewEntityBody
+        spaceId={spaceId}
+        editorKey={bodyKey}
+        label="Assignment description"
+        onChange={(blocks) => form.setFieldValue("body", blocks)}
+      />
 
       <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4">
         <form.Field name="course">
