@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.72.1 (2026-11-10)
+
+### Fixed
+
+- Opening and closing the New task dialog, and other dialogs, is no longer slow on a long list of tasks or assignments.
+
 ## 0.72.0 (2026-11-09)
 
 ### Added

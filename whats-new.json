@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.72.1",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Opening and closing the New task dialog, and other dialogs, is no longer slow on a long list of tasks or assignments."
+        ]
+      }
+    },
+    {
       "version": "0.72.0",
       "date": "2026-11-09",
       "highlights": [],
