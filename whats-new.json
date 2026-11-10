@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.72.1",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The import dialog for Moodle files is calmer and easier to use with a keyboard or screen reader, with searchable lists for labels and courses instead of a wall of chips."
+        ]
+      }
+    },
+    {
       "version": "0.72.0",
       "date": "2026-11-09",
       "highlights": [],

@@ -1,13 +1,21 @@
-import { IconFileImport, IconFolderSearch, IconPlus } from "@tabler/icons-react";
+import {
+  IconChevronDown,
+  IconFileImport,
+  IconFolderSearch,
+  IconPlus,
+  IconTag,
+  IconX,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type MouseEvent, useMemo, useState } from "react";
+import { type MouseEvent, type ReactNode, useId, useMemo, useState } from "react";
 import {
   FieldError,
   StatusButtonContent,
   useActionStatus,
   useCloseAfterSuccess,
 } from "#/components/action-feedback.tsx";
-import { LabelDot } from "#/components/label-chip.tsx";
+import { EntityPickerPopover, EntityPickerValue } from "#/components/entity-picker.tsx";
+import { LabelChip } from "#/components/label-chip.tsx";
 import { labelColorFor } from "#/components/label-manager.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {
@@ -20,20 +28,15 @@ import {
 } from "@nookly/ui/components/dialog";
 import { FieldLabel } from "@nookly/ui/components/field-label";
 import { Input } from "@nookly/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@nookly/ui/components/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
+import { LabelsPicker } from "#/features/tasks/task-properties.tsx";
 import { listCourses } from "#/lib/api/courses.ts";
 import { type MoodleFile, moodleFilePath } from "#/lib/api/moodle.ts";
 import { importFileWithDetails, listFiles } from "#/lib/api/files.ts";
 import { listLabels } from "#/lib/api/labels.ts";
-import type { FileEntity, Label } from "#/lib/api/types.ts";
+import type { Entity, FileEntity, Label } from "#/lib/api/types.ts";
+import { displayTitle } from "#/lib/entity-title.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { armNewTabIntent, useNavStore } from "#/lib/store/nav.ts";
 import { fileFacts } from "./moodle-format.ts";
@@ -198,13 +201,38 @@ function ImportForm({
 
 const NO_COURSE = "none";
 
-const chipClass = (selected: boolean) =>
-  cn(
-    "inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border px-2 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-    selected
-      ? "border-primary/40 bg-accent text-foreground"
-      : "border-border text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+/// A quiet pill button, for the suggestions under a field.
+const SUGGESTION_CLASS =
+  "inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
+
+/// A caption and its row of suggestions, named as a group for assistive tech.
+function Suggestions({ caption, children }: { caption: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span id={id} className="text-xs text-muted-foreground">
+        {caption}
+      </span>
+      {/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a fieldset cannot sit in the caption row as `display: contents` */}
+      <div role="group" aria-labelledby={id} className="contents">
+        {children}
+      </div>
+    </div>
   );
+}
+
+/// A label the Space doesn't have yet, shaped like one so the picker lists it beside the rest.
+/// It is only created when the import goes through.
+function draftLabel(name: string, spaceId: string): Label {
+  return {
+    id: keyOf(name),
+    spaceId,
+    name,
+    color: labelColorFor(name),
+    createdAt: "",
+    usageCount: 0,
+  };
+}
 
 function ImportFields({
   state,
@@ -218,7 +246,7 @@ function ImportFields({
   spaceId: string;
   close: () => void;
   labels: Label[];
-  courses: { id: string; title: string }[];
+  courses: Entity[];
   moodleCourse: { shortName: string; fullName: string } | undefined;
 }) {
   const { file, context } = state;
@@ -236,41 +264,40 @@ function ImportFields({
     suggested.filter((name) => existingFor(name) === undefined),
   );
   // The course label starts picked; the rest is one click.
-  const [picked, setPicked] = useState(() => {
+  const [picked, setPicked] = useState<string[]>(() => {
     const first = suggested[0];
-    return new Set(first === undefined ? [] : [keyOf(first, existingFor(first))]);
+    return first === undefined ? [] : [keyOf(first, existingFor(first))];
   });
   const [title, setTitle] = useState(titles[0] ?? file.fileName);
-  const [typed, setTyped] = useState("");
   const [courseId, setCourseId] = useState(
     () => (moodleCourse && matchCourse(courses, moodleCourse)?.id) || NO_COURSE,
   );
+  const course = courses.find((c) => c.id === courseId);
+  const labelsId = useId();
 
-  const toggle = (key: string) =>
-    setPicked((now) => {
-      const next = new Set(now);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
-  const addTyped = () => {
-    const name = typed.trim();
-    if (!name) return;
+  const everyLabel = [...labels, ...newNames.map((name) => draftLabel(name, spaceId))];
+  const chosen = everyLabel.filter((l) => picked.includes(l.id));
+  const toggle = (id: string) =>
+    setPicked((now) => (now.includes(id) ? now.filter((p) => p !== id) : [...now, id]));
+  const add = (name: string) => {
     const existing = existingFor(name);
     if (!existing && !newNames.some((n) => n.toLowerCase() === name.toLowerCase())) {
       setNewNames((now) => [...now, name]);
     }
-    setPicked((now) => new Set(now).add(keyOf(name, existing)));
-    setTyped("");
+    const id = keyOf(name, existing);
+    setPicked((now) => (now.includes(id) ? now : [...now, id]));
   };
+  const offered = suggested.filter((name) => !picked.includes(keyOf(name, existingFor(name))));
+  const otherTitles = titles.filter((t) => t !== title);
 
   const importing = useMutation({
     mutationFn: async () =>
       importFileWithDetails(spaceId, await moodleFilePath(file), {
         origin: originOf(file),
         title: title.trim(),
-        labelIds: labels.filter((l) => picked.has(keyOf(l.name, l))).map((l) => l.id),
+        labelIds: labels.filter((l) => picked.includes(l.id)).map((l) => l.id),
         newLabels: newNames
-          .filter((name) => picked.has(keyOf(name)))
+          .filter((name) => picked.includes(keyOf(name)))
           .map((name) => ({ name, color: labelColorFor(name) })),
         attachTo: courseId === NO_COURSE ? [] : [courseId],
       }),
@@ -294,7 +321,7 @@ function ImportFields({
   const blank = title.trim() === "";
   return (
     <form
-      className="flex min-w-0 flex-col gap-4"
+      className="flex min-w-0 flex-col gap-5"
       onSubmit={(e) => {
         e.preventDefault();
         if (!blank && !importing.isPending && !importing.isSuccess) importing.mutate();
@@ -318,84 +345,100 @@ function ImportFields({
       <div className="flex flex-col gap-1.5">
         <FieldLabel htmlFor="moodle-import-name">Name</FieldLabel>
         <Input id="moodle-import-name" value={title} onChange={(e) => setTitle(e.target.value)} />
-        {titles.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            Or
-            {titles
-              .filter((t) => t !== title)
-              .map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={chipClass(false)}
-                  onClick={() => setTitle(t)}
-                >
-                  <span className="truncate">{t}</span>
-                </button>
-              ))}
-          </div>
+        {otherTitles.length > 0 && (
+          <Suggestions caption="Suggested names">
+            {otherTitles.map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={SUGGESTION_CLASS}
+                onClick={() => setTitle(t)}
+              >
+                <span className="truncate">{t}</span>
+              </button>
+            ))}
+          </Suggestions>
         )}
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <FieldLabel htmlFor="moodle-import-label">Labels</FieldLabel>
-        <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
-          {labels.map((label) => (
-            <button
-              key={label.id}
-              type="button"
-              aria-pressed={picked.has(keyOf(label.name, label))}
-              className={chipClass(picked.has(keyOf(label.name, label)))}
-              onClick={() => toggle(keyOf(label.name, label))}
-            >
-              <LabelDot label={label} />
-              <span className="truncate">{label.name}</span>
-            </button>
-          ))}
-          {newNames.map((name) => (
-            <button
-              key={name}
-              type="button"
-              aria-pressed={picked.has(keyOf(name))}
-              className={chipClass(picked.has(keyOf(name)))}
-              onClick={() => toggle(keyOf(name))}
-            >
-              <IconPlus size={12} aria-hidden="true" />
-              <span className="truncate">{name}</span>
-              <span className="text-muted-foreground">New</span>
-            </button>
-          ))}
-        </div>
-        <Input
-          id="moodle-import-label"
-          value={typed}
-          placeholder="Add a label"
-          onChange={(e) => setTyped(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            // Enter adds the label; it doesn't import.
-            e.preventDefault();
-            addTyped();
-          }}
-        />
+        <FieldLabel id={`${labelsId}-caption`} htmlFor={labelsId}>
+          Labels
+        </FieldLabel>
+        <LabelsPicker labels={everyLabel} selected={picked} onToggle={toggle} onCreate={add}>
+          <button
+            id={labelsId}
+            type="button"
+            aria-label={
+              chosen.length > 0 ? `Labels: ${chosen.map((l) => l.name).join(", ")}` : "Labels"
+            }
+            className="flex min-h-8 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-accent px-3 py-1 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {chosen.length > 0 ? (
+              chosen.map((label) => <LabelChip key={label.id} label={label} />)
+            ) : (
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <IconTag size={14} aria-hidden="true" />
+                Add labels
+              </span>
+            )}
+          </button>
+        </LabelsPicker>
+        {offered.length > 0 && (
+          <Suggestions caption="Suggested labels">
+            {offered.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={SUGGESTION_CLASS}
+                onClick={() => add(name)}
+              >
+                <IconPlus size={12} aria-hidden="true" />
+                <span className="truncate">{name}</span>
+              </button>
+            ))}
+          </Suggestions>
+        )}
       </div>
 
       {courses.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <FieldLabel htmlFor="moodle-import-course">Attach to a course</FieldLabel>
-          <Select value={courseId} onValueChange={setCourseId}>
-            <SelectTrigger id="moodle-import-course" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_COURSE}>No course</SelectItem>
-              {courses.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <EntityPickerPopover
+            spaceId={spaceId}
+            typeFilter="course"
+            onSelect={(course) => setCourseId(course.id)}
+            header={(closePicker) =>
+              course && (
+                <button
+                  type="button"
+                  className="flex w-full cursor-pointer items-center gap-2 border-b border-border px-3 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={() => {
+                    setCourseId(NO_COURSE);
+                    closePicker();
+                  }}
+                >
+                  <IconX size={14} aria-hidden="true" />
+                  No course
+                </button>
+              )
+            }
+            trigger={
+              <button
+                id="moodle-import-course"
+                type="button"
+                aria-label={`Attach to a course: ${course ? displayTitle(course) : "No course"}`}
+                className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-input bg-accent px-3 py-1 text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <EntityPickerValue entity={course ?? null} placeholder="No course" />
+                <IconChevronDown
+                  size={14}
+                  aria-hidden="true"
+                  className="ml-auto shrink-0 text-muted-foreground"
+                />
+              </button>
+            }
+          />
         </div>
       )}
 
@@ -418,7 +461,7 @@ function ImportFields({
   );
 }
 
-/// A label chip's identity: the Label's id when the Space has it, else its lower cased name.
+/// A label's identity in the form: its id when the Space has it, else its lower cased name.
 function keyOf(name: string, existing?: Label): string {
-  return existing ? `label:${existing.id}` : `new:${name.toLowerCase()}`;
+  return existing ? existing.id : `new:${name.toLowerCase()}`;
 }
