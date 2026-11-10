@@ -176,7 +176,7 @@ export function SpaceHeader({
   );
 }
 
-function ModuleRow({
+export function ModuleRow({
   space,
   moduleKey,
   active,
@@ -225,7 +225,7 @@ function ModuleRow({
           {...listeners}
           tabIndex={-1}
           aria-label={`Drag to reorder ${MODULE_LABELS[moduleKey]}`}
-          className="absolute top-1/2 left-0.5 z-10 flex size-4 -translate-y-1/2 cursor-grab items-center justify-center text-sidebar-foreground/0 group-hover/module:text-sidebar-foreground/40 active:cursor-grabbing"
+          className="absolute top-4 left-0.5 z-10 flex size-4 -translate-y-1/2 cursor-grab items-center justify-center text-sidebar-foreground/0 group-hover/module:text-sidebar-foreground/40 active:cursor-grabbing"
         >
           <IconGripVertical size={12} />
         </button>
@@ -251,7 +251,7 @@ function ModuleRow({
               e.stopPropagation();
               setChildrenOpen((v) => !v);
             }}
-            className="absolute top-1/2 right-1 flex size-4 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="absolute top-4 right-1 flex size-4 -translate-y-1/2 items-center justify-center rounded text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"
           >
             <IconChevronRight
               className={cn("size-3.5 transition-transform", childrenOpen && "rotate-90")}

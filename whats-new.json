@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.72.6",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Opening the saved views under Tasks or Assignments in the sidebar no longer makes the move handle and arrow of that item jump down."
+        ]
+      }
+    },
+    {
       "version": "0.72.5",
       "date": "2026-11-10",
       "highlights": [],
