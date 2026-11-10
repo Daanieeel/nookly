@@ -372,7 +372,7 @@ function ImportFields({
             aria-label={
               chosen.length > 0 ? `Labels: ${chosen.map((l) => l.name).join(", ")}` : "Labels"
             }
-            className="flex min-h-8 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-accent px-3 py-1 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex min-h-7 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-accent px-2 py-0.5 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring"
           >
             {chosen.length > 0 ? (
               chosen.map((label) => <LabelChip key={label.id} label={label} />)
