@@ -11,6 +11,16 @@
       }
     },
     {
+      "version": "0.72.8",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The sidebar now slides in and out faster and more smoothly, including when it appears as you move the pointer to the left edge."
+        ]
+      }
+    },
+    {
       "version": "0.72.7",
       "date": "2026-11-10",
       "highlights": [],
