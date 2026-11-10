@@ -550,6 +550,19 @@ describe("dragging inside a source block", () => {
     expect(dragStart(found(".code-block-header")).defaultPrevented).toBe(true);
   });
 
+  it("keeps the text of a preview from being selected, and so dragged, except on a mind map", async () => {
+    await open({
+      type: "math",
+      attrs: { blockId: "m1", view: "rendered" },
+      content: [{ type: "text", text: "x^2" }],
+    });
+    expect(found(".source-block-preview")).toHaveClass("select-none");
+    editor?.destroy();
+    document.body.innerHTML = "";
+    await open(mindmap({ view: "rendered" }));
+    expect(found(".source-block-preview")).not.toHaveClass("select-none");
+  });
+
   it("leaves a drag of the selected code alone", async () => {
     await open({
       type: "math",

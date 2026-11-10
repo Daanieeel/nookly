@@ -310,6 +310,9 @@ function SourceBlockView({
           onDoubleClick={() => show("source")}
           className={cn(
             "source-block-preview",
+            // A mind map is dragged by its nodes; any other preview is only looked at, and
+            // text that cannot be selected cannot be dragged.
+            !layout && "select-none",
             options.centered && "justify-center text-center",
             error && "hidden",
           )}
