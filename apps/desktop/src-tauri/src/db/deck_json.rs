@@ -500,7 +500,7 @@ mod tests {
 
     use crate::db::page_json::BlockJson;
     use crate::db::portable::MAX_IMPORT_BYTES;
-    use crate::db::portable_files::FILE_MENTION;
+    use crate::db::portable_files::{test_images, FILE_MENTION};
     use base64::Engine as _;
 
     fn block(block_type: &str, content: &str) -> BlockJson {
@@ -539,7 +539,8 @@ mod tests {
     fn images_travel_inside_the_file_once_each_and_come_back_as_new_files() {
         let fx = fixture();
         let dir = scratch();
-        let cell = stored(&fx, &dir, "cell.png", b"png bytes");
+        let cell_bytes = test_images::png();
+        let cell = stored(&fx, &dir, "cell.png", &cell_bytes);
         let deck = create_deck(&fx.conn, fx.space.clone(), "Biology".into(), None).unwrap();
         create_card(
             &fx.conn,
@@ -578,9 +579,9 @@ mod tests {
         let new_file = crate::db::files::get_file(&fx.conn, &caps[2]).unwrap();
         assert_ne!(new_file.entity.id, cell.entity.id);
         assert_eq!(new_file.entity.space_id, fx.other_space);
-        assert_eq!(
-            std::fs::read(new_file.local_path.unwrap()).unwrap(),
-            b"png bytes"
+        test_images::assert_same_image(
+            &cell_bytes,
+            &std::fs::read(new_file.local_path.unwrap()).unwrap(),
         );
         // The second card points at the same new File.
         let second = cards[1].back_blocks.as_ref().unwrap();

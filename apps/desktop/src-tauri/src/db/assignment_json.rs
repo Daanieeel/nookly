@@ -566,12 +566,13 @@ mod tests {
     fn files_travel_inside_the_assignment_and_come_back_as_new_files() {
         let fx = fixture();
         let dir = std::env::temp_dir().join(format!("nookly-assignment-{}", crate::db::new_id()));
+        let diagram_bytes = crate::db::portable_files::test_images::png();
         let sheet = crate::db::files::store_file(
             &fx.conn,
             &dir,
             fx.space.clone(),
-            "sheet.pdf",
-            b"%PDF bytes",
+            "diagram.png",
+            &diagram_bytes,
             None,
         )
         .unwrap();
@@ -580,7 +581,7 @@ mod tests {
                 .unwrap();
         std::fs::remove_file(gone.local_path.as_ref().unwrap()).unwrap();
         let a = graded(&fx);
-        for (kind, file) in [("file", &sheet), ("image", &gone)] {
+        for (kind, file) in [("image", &sheet), ("image", &gone)] {
             crate::db::notes::create_block(
                 &fx.conn,
                 &a.id,
@@ -605,7 +606,7 @@ mod tests {
             import_assignment_json_into(&fx.conn, &target, &fx.space, &fx.course, &exported.json)
                 .unwrap();
         let blocks = list_blocks(&fx.conn, &imported.id).unwrap();
-        assert_eq!(blocks[1].block_type, "file");
+        assert_eq!(blocks[1].block_type, "image");
         let id = blocks[1]
             .content
             .split("mention:")
@@ -614,9 +615,9 @@ mod tests {
             .trim_end_matches(')');
         assert_ne!(id, sheet.entity.id);
         let new_file = crate::db::files::get_file(&fx.conn, id).unwrap();
-        assert_eq!(
-            std::fs::read(new_file.local_path.unwrap()).unwrap(),
-            b"%PDF bytes"
+        crate::db::portable_files::test_images::assert_same_image(
+            &diagram_bytes,
+            &std::fs::read(new_file.local_path.unwrap()).unwrap(),
         );
         // The one that could not travel is a paragraph with its name.
         assert_eq!(

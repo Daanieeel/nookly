@@ -311,3 +311,69 @@ pub fn files_fact(count: usize, noun: &str) -> Option<String> {
         n => Some(format!("{n} {noun}s arrive as new Files")),
     }
 }
+
+/// Real images for tests: encoded by the `image` crate (or the app's own icon), so a round trip
+/// is checked by decoding what came out and comparing its pixels, not by comparing made-up
+/// bytes.
+#[cfg(test)]
+pub(crate) mod test_images {
+    use std::io::Cursor;
+
+    pub const WIDTH: u32 = 24;
+    pub const HEIGHT: u32 = 16;
+
+    fn picture() -> image::RgbImage {
+        image::RgbImage::from_fn(WIDTH, HEIGHT, |x, y| {
+            image::Rgb([(x * 10) as u8, (y * 15) as u8, ((x + y) * 6) as u8])
+        })
+    }
+
+    fn encoded(format: image::ImageFormat) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        picture()
+            .write_to(&mut Cursor::new(&mut bytes), format)
+            .unwrap();
+        bytes
+    }
+
+    /// A 24 by 16 PNG of a colour gradient.
+    pub fn png() -> Vec<u8> {
+        encoded(image::ImageFormat::Png)
+    }
+
+    /// The same picture as a JPEG.
+    pub fn jpeg() -> Vec<u8> {
+        encoded(image::ImageFormat::Jpeg)
+    }
+
+    /// The app's own 128 by 128 icon, a PNG file of the repository.
+    pub fn icon() -> Vec<u8> {
+        include_bytes!("../../icons/128x128.png").to_vec()
+    }
+
+    /// `got` is `original` byte for byte, and decodes as an image of the same size and the
+    /// same pixels.
+    pub fn assert_same_image(original: &[u8], got: &[u8]) {
+        assert_eq!(original, got, "the bytes changed on the way");
+        let before = image::load_from_memory(original).expect("the original is an image");
+        let after = image::load_from_memory(got).expect("what arrived is an image");
+        assert_eq!(
+            (before.width(), before.height()),
+            (after.width(), after.height())
+        );
+        assert_eq!(before.to_rgba8().into_raw(), after.to_rgba8().into_raw());
+    }
+
+    #[test]
+    fn the_test_images_are_real_images() {
+        for (bytes, width, height) in [
+            (png(), WIDTH, HEIGHT),
+            (jpeg(), WIDTH, HEIGHT),
+            (icon(), 128, 128),
+        ] {
+            let decoded = image::load_from_memory(&bytes).unwrap();
+            assert_eq!((decoded.width(), decoded.height()), (width, height));
+        }
+        assert_ne!(png(), jpeg());
+    }
+}

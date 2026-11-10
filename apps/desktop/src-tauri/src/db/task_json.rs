@@ -791,16 +791,17 @@ mod tests {
     fn files_of_the_task_and_its_subtasks_travel_once_and_come_back_as_new_files() {
         let fx = fixture();
         let dir = scratch();
+        let shot_bytes = crate::db::portable_files::test_images::jpeg();
         let shot = crate::db::files::store_file(
             &fx.conn,
             &dir,
             fx.space.clone(),
-            "shot.png",
-            b"png bytes",
+            "shot.jpg",
+            &shot_bytes,
             None,
         )
         .unwrap();
-        let mention = format!("[shot.png](mention:{})", shot.entity.id);
+        let mention = format!("[shot.jpg](mention:{})", shot.entity.id);
         let task =
             tasks::create_task(&fx.conn, fx.space.clone(), "Bug".into(), None, None).unwrap();
         let sub = tasks::create_subtask(&fx.conn, task.entity.id.clone(), "Repro".into()).unwrap();
@@ -843,9 +844,9 @@ mod tests {
             .trim_end_matches(')');
         let new_file = crate::db::files::get_file(&fx.conn, id).unwrap();
         assert_eq!(new_file.entity.space_id, fx.other_space);
-        assert_eq!(
-            std::fs::read(new_file.local_path.unwrap()).unwrap(),
-            b"png bytes"
+        crate::db::portable_files::test_images::assert_same_image(
+            &shot_bytes,
+            &std::fs::read(new_file.local_path.unwrap()).unwrap(),
         );
     }
 

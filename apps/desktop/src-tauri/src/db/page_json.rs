@@ -310,6 +310,7 @@ mod tests {
     use super::*;
     use crate::db::notes::{create_block_with_attrs, list_blocks};
     use crate::db::portable::MAX_IMPORT_BYTES;
+    use crate::db::portable_files::test_images;
     use crate::db::{fixture, Fixture};
     use base64::Engine as _;
     use std::path::Path;
@@ -809,8 +810,20 @@ mod tests {
     fn files_travel_inside_the_page_once_each_and_come_back_as_new_files() {
         let fx = fixture();
         let dir = scratch();
-        let cell = stored(&fx, &dir, "cell.png", b"png bytes");
-        let clip = stored(&fx, &dir, "clip.mp4", b"video bytes");
+        let cell_bytes = test_images::png();
+        let photo_bytes = test_images::jpeg();
+        let icon_bytes = test_images::icon();
+        let cell = stored(&fx, &dir, "cell.png", &cell_bytes);
+        let photo = stored(&fx, &dir, "photo.jpg", &photo_bytes);
+        let icon = stored(&fx, &dir, "icon.png", &icon_bytes);
+        // There is no video encoder to make a real clip with: these bytes only have to
+        // survive unchanged.
+        let clip = stored(
+            &fx,
+            &dir,
+            "clip.mp4",
+            b"\x00\x00\x00\x18ftypmp42\xff\xfe not text",
+        );
         let page =
             notes::create_page(&fx.conn, fx.space.clone(), "note", "Biology".into()).unwrap();
         let p = &page.id;
@@ -819,15 +832,19 @@ mod tests {
         add(&fx, p, "image", &mention(&cell), &[]);
         add(&fx, p, "video", &mention(&clip), &[]);
         add(&fx, p, "file", &mention(&cell), &[]);
+        add(&fx, p, "image", &mention(&photo), &[]);
+        add(&fx, p, "image", &mention(&icon), &[]);
 
         let exported = export_page(&fx.conn, p).unwrap();
         assert!(exported.left_as_text.is_empty());
         let value: serde_json::Value = serde_json::from_str(&exported.json).unwrap();
         assert_eq!(value["version"], 2);
         let files = value["files"].as_array().unwrap();
-        assert_eq!(files.len(), 2, "once per File");
+        assert_eq!(files.len(), 4, "once per File");
         assert_eq!(files[0]["name"], "cell.png");
         assert_eq!(files[1]["name"], "clip.mp4");
+        assert_eq!(files[2]["name"], "photo.jpg");
+        assert_eq!(files[3]["name"], "icon.png");
         for private in [cell.entity.id.as_str(), clip.entity.id.as_str()] {
             assert!(!exported.json.contains(private), "{private} leaked");
         }
@@ -836,7 +853,7 @@ mod tests {
         let before = file_count(&fx.conn);
         let imported =
             import_page_json_into(&fx.conn, &target, &fx.other_space, &exported.json).unwrap();
-        assert_eq!(file_count(&fx.conn), before + 2);
+        assert_eq!(file_count(&fx.conn), before + 4);
         let blocks = list_blocks(&fx.conn, &imported.id).unwrap();
         let new_file = |block: &Block| {
             let caps = portable_files::FILE_MENTION
@@ -852,9 +869,9 @@ mod tests {
         );
         assert_ne!(first.entity.id, cell.entity.id);
         assert_eq!(first.entity.space_id, fx.other_space);
-        assert_eq!(
-            std::fs::read(first.local_path.unwrap()).unwrap(),
-            b"png bytes"
+        test_images::assert_same_image(
+            &cell_bytes,
+            &std::fs::read(first.local_path.unwrap()).unwrap(),
         );
         // Every block that showed the same File shows the same new File.
         assert_eq!(new_file(&blocks[2]).entity.id, first.entity.id);
@@ -863,8 +880,17 @@ mod tests {
         assert_eq!(blocks[3].block_type, "video");
         assert_eq!(
             std::fs::read(video.local_path.unwrap()).unwrap(),
-            b"video bytes"
+            std::fs::read(clip.local_path.as_ref().unwrap()).unwrap()
         );
+        // A JPEG and the app's own icon come back as the same pictures too.
+        for (block, original) in [(&blocks[5], &photo_bytes), (&blocks[6], &icon_bytes)] {
+            assert_eq!(block.block_type, "image");
+            let file = new_file(block);
+            test_images::assert_same_image(
+                original,
+                &std::fs::read(file.local_path.unwrap()).unwrap(),
+            );
+        }
         // The original still shows its own File.
         assert!(list_blocks(&fx.conn, p).unwrap()[0]
             .content
