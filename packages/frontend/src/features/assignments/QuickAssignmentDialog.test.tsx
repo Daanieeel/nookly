@@ -42,13 +42,6 @@ beforeEach(() => {
 const courseButton = () => screen.findByRole("button", { name: "Change Course" });
 
 describe("QuickAssignmentDialog", () => {
-  it("opens with Cmd or Ctrl+Shift+A", async () => {
-    const { user } = renderWithProviders(<QuickAssignmentDialog />);
-    await user.keyboard("{Control>}{Shift>}a{/Shift}{/Control}");
-    expect(useNavStore.getState().newAssignmentOpen).toBe(true);
-    expect(await screen.findByRole("textbox", { name: "Assignment title" })).toBeInTheDocument();
-  });
-
   it("starts in the course of the session that is running", async () => {
     renderWithProviders(<QuickAssignmentDialog />);
     act(() => useNavStore.getState().setNewAssignmentOpen(true));

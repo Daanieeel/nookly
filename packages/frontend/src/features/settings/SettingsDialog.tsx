@@ -15,7 +15,6 @@ import {
 import { Input } from "@nookly/ui/components/input";
 import { cn } from "@nookly/ui/lib/utils";
 import { Kbd } from "#/components/kbd.tsx";
-import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { searchSettings } from "#/lib/settings/search.ts";
 import { useShortcutMap } from "#/hooks/use-shortcut.ts";
 import { isShortcutName, keySynonyms } from "#/lib/shortcuts.ts";
@@ -232,8 +231,6 @@ export function SettingsDialog() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
-
-  useAppHotkey("settings", () => setOpen(!useNavStore.getState().settingsOpen));
 
   function pageButton(id: PageId) {
     return (

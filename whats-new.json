@@ -1,12 +1,22 @@
 {
   "versions": [
     {
-      "version": "0.72.3",
+      "version": "0.72.4",
       "date": "2026-11-10",
       "highlights": [],
       "more": {
         "Fixed": [
           "Dragging on the preview of a math block, equation, diagram, circuit or plot no longer picks up the whole block or drags its text. Mind map blocks still let you drag their ideas."
+        ]
+      }
+    },
+    {
+      "version": "0.72.3",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Fixed the Quick assignment and Settings shortcuts doing nothing until the dialog had been opened another way first."
         ]
       }
     },

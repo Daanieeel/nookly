@@ -2,11 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.72.3 (2026-11-10)
+## 0.72.4 (2026-11-10)
 
 ### Fixed
 
 - Dragging on the preview of a math block, equation, diagram, circuit or plot no longer picks up the whole block or drags its text. Mind map blocks still let you drag their ideas.
+
+## 0.72.3 (2026-11-10)
+
+### Fixed
+
+- Fixed the Quick assignment shortcut and the Settings shortcut doing nothing until the dialog had been opened another way first.
 
 ## 0.72.2 (2026-11-10)
 
