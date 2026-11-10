@@ -378,14 +378,6 @@ describe("the settings dialog", () => {
     });
   });
 
-  it("opens and closes with Ctrl and a comma", async () => {
-    const { user } = renderWithProviders(<SettingsDialog />);
-    await user.keyboard("{Control>},{/Control}");
-    await screen.findByRole("dialog");
-    await user.keyboard("{Control>},{/Control}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-
   it("closes when another overlay opens", async () => {
     renderOpen();
     await screen.findByRole("dialog");

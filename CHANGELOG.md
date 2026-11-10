@@ -2,11 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.72.3 (2026-11-10)
+## 0.72.4 (2026-11-10)
 
 ### Changed
 
 - The import dialog for Moodle files is calmer and easier to use with a keyboard or screen reader. Labels and the course are picked from searchable lists, with the course icons shown, instead of a long wall of chips and a plain menu. Suggested names and labels sit under their fields.
+
+## 0.72.3 (2026-11-10)
+
+### Fixed
+
+- Fixed the Quick assignment shortcut and the Settings shortcut doing nothing until the dialog had been opened another way first.
 
 ## 0.72.2 (2026-11-10)
 
