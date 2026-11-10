@@ -358,24 +358,29 @@ describe("QuickCreateTask description", () => {
 });
 
 describe("QuickCreateTask editor menus", () => {
-  // The "/" and "@" menus of the description are mounted outside the dialog. (Clicking one
-  // is not a click outside either; jsdom cannot tell, so that is checked by hand.)
-  function addMenu() {
-    const menu = document.createElement("div");
-    menu.setAttribute("data-editor-popup", "");
-    menu.textContent = "Heading 1";
-    menu.style.pointerEvents = "auto"; // as `suggestion-render.tsx` sets it
-    document.body.appendChild(menu);
-    return menu;
-  }
+  beforeEach(() => {
+    Object.assign(document, { elementFromPoint: () => null });
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
 
-  it("closes an open menu with Escape before it closes the dialog", async () => {
+  it("closes on Escape pressed in the description, like in the title", async () => {
     const onOpenChange = vi.fn();
     const { user } = setup({}, DATA, [], false, onOpenChange);
-    const menu = addMenu();
+    await user.click(screen.getByRole("textbox", { name: "Task description" }));
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("closes on Escape once the slash menu is closed", async () => {
+    const onOpenChange = vi.fn();
+    const { user } = setup({}, DATA, [], false, onOpenChange);
+    await user.click(screen.getByRole("textbox", { name: "Task description" }));
+    await user.keyboard("/");
+    expect(document.querySelector("[data-editor-popup]")?.isConnected).toBe(true);
     await user.keyboard("{Escape}");
     expect(onOpenChange).not.toHaveBeenCalled();
-    menu.remove();
     await user.keyboard("{Escape}");
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });

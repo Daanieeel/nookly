@@ -16,6 +16,7 @@ import {
 import { Switch } from "@nookly/ui/components/switch";
 import type { BlockInput } from "#/features/notes/block-markdown.ts";
 import { DraftBlockEditor } from "#/features/notes/DraftBlockEditor.tsx";
+import { closeEditorMenus } from "#/features/notes/suggestion-render.tsx";
 import type { Space } from "#/lib/api/types.ts";
 import { SpaceIcon } from "./space-chip.tsx";
 
@@ -47,7 +48,7 @@ export function NewEntityDialog({
           if (e.target instanceof Element && e.target.closest(EDITOR_POPUP)) e.preventDefault();
         }}
         onEscapeKeyDown={(e) => {
-          if (document.querySelector(EDITOR_POPUP)) e.preventDefault();
+          if (closeEditorMenus()) e.preventDefault();
         }}
         onOpenAutoFocus={(e) => {
           e.preventDefault();
