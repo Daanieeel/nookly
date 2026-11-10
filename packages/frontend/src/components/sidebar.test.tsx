@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
@@ -511,5 +513,34 @@ describe("accessibility", () => {
     await user.click(await screen.findByRole("button", { name: "Add" }));
     await screen.findByRole("button", { name: "New Space" });
     await expectNoA11yViolations();
+  });
+});
+
+describe("showing a hidden sidebar from the edge", () => {
+  function setupHidden() {
+    mockCommand("list_spaces", spaces);
+    return renderWithProviders(
+      <SidebarProvider defaultOpen={false}>
+        <AppSidebar />
+      </SidebarProvider>,
+    );
+  }
+  const container = () => document.querySelector<HTMLElement>("[data-slot=sidebar-container]")!;
+
+  it("slides in on a quick ease out curve, not a linear one, with the page gap in step", () => {
+    const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
+    const rule = css.match(/\[data-slot="sidebar"\] > :is\(([^)]*)\) \{([^}]*)\}/);
+    expect(rule?.[1]).toContain('[data-slot="sidebar-container"]');
+    expect(rule?.[1]).toContain('[data-slot="sidebar-gap"]');
+    expect(rule?.[2]).toContain("cubic-bezier(0.22, 1, 0.36, 1)");
+  });
+
+  it("comes over the page when the pointer rests on the left edge, and leaves with it", () => {
+    setupHidden();
+    expect(container()).not.toHaveClass("left-0!");
+    fireEvent.mouseEnter(document.querySelector("[aria-hidden=true].fixed")!);
+    expect(container()).toHaveClass("left-0!");
+    fireEvent.mouseLeave(container());
+    expect(container()).not.toHaveClass("left-0!");
   });
 });

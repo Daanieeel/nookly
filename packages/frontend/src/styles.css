@@ -1080,6 +1080,18 @@
   }
 }
 
+/* The sidebar slides in and out on a quick ease out curve instead of the primitive's linear
+   200ms, and the gap that makes room for it moves in step so the page follows. */
+[data-slot="sidebar"] > :is([data-slot="sidebar-container"], [data-slot="sidebar-gap"]) {
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sidebar"] > :is([data-slot="sidebar-container"], [data-slot="sidebar-gap"]) {
+    transition-duration: 0s;
+  }
+}
+
 /* Thin steps of backdrop blur, finer toward the top. Several stacked, each shorter than the one
    before, blur more the closer to the bottom they reach, which tapers the blur off without a mask:
    a mask on a backdrop blur is not applied by every engine, and a blur that ignores it ends in a
