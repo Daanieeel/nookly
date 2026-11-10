@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { EntityIcon } from "#/components/entity-icon.tsx";
+import { EntityKey } from "#/components/entity-key.tsx";
 import { Kbd, KbdGroup } from "#/components/kbd.tsx";
 import { LabelDot } from "#/components/label-chip.tsx";
 import { QuickActions } from "#/components/quick-actions.tsx";
@@ -441,8 +442,8 @@ function distinctByName(lists: Label[][]): Label[] {
   return [...seen.values()];
 }
 
-/// One result: the type icon, the title, a Space chip, and under the title the line of
-/// text that matched when the match was in the body.
+/// One result: the type icon, the title, the entity key, a Space chip, and under the title
+/// the line of text that matched when the match was in the body.
 function ResultRow({
   value,
   entity,
@@ -452,7 +453,7 @@ function ResultRow({
   onOpen,
 }: {
   value: string;
-  entity: { title: string; type: string; icon: string | null };
+  entity: { title: string; type: string; icon: string | null; key: string };
   snippet?: string | null;
   space: Space | undefined;
   terms: string;
@@ -472,6 +473,7 @@ function ResultRow({
           </span>
         )}
       </span>
+      <EntityKey entityKey={entity.key} />
       {space && (
         <span className="flex max-w-36 shrink-0 items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
           <SpaceGlyph space={space} size={12} />

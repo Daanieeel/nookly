@@ -1,12 +1,22 @@
 {
   "versions": [
     {
-      "version": "0.72.2",
+      "version": "0.72.3",
       "date": "2026-11-10",
       "highlights": [],
       "more": {
         "Fixed": [
           "Fixed the Quick assignment and Settings shortcuts doing nothing until the dialog had been opened another way first."
+        ]
+      }
+    },
+    {
+      "version": "0.72.2",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Search and Quick open now show the ID of every result, like NOT-94, next to its title."
         ]
       }
     },

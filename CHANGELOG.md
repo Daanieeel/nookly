@@ -2,11 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.72.2 (2026-11-10)
+## 0.72.3 (2026-11-10)
 
 ### Fixed
 
 - Fixed the Quick assignment shortcut and the Settings shortcut doing nothing until the dialog had been opened another way first.
+
+## 0.72.2 (2026-11-10)
+
+### Changed
+
+- Search and Quick open now show the ID of every result, like NOT-94, next to its title, including recent items.
 
 ## 0.72.1 (2026-11-10)
 

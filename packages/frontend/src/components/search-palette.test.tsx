@@ -49,6 +49,35 @@ async function openSearch() {
   return { ...rendered, input };
 }
 
+describe("entity keys in the rows", () => {
+  it("shows the key on every search result, whether the title or a block matched", async () => {
+    mockCommand("search", [
+      hit({ entityId: "e1", title: "Plan A", key: "NOT-94" }),
+      hit({
+        entityId: "e2",
+        title: "Budget",
+        key: "TSK-7",
+        blockId: "b1",
+        blockEntityId: "e2",
+        snippet: "the \u0001plan\u0002 for May",
+      }),
+    ]);
+    const { user, input } = await openSearch();
+    await user.type(input, "plan");
+    expect(await screen.findByText("NOT-94")).toBeTruthy();
+    expect(screen.getByText("TSK-7")).toBeTruthy();
+  });
+
+  it("shows the key on Recents", async () => {
+    useNavStore.setState({ recents: [{ entityId: "e9", spaceId: "space-1", openedAt: 1 }] });
+    mockCommand("list_entities_by_ids", [
+      makeEntity({ id: "e9", title: "Last opened", type: "note", key: "NOT-12" }),
+    ]);
+    await openSearch();
+    expect(await screen.findByText("NOT-12")).toBeTruthy();
+  });
+});
+
 describe("opening the search palette", () => {
   it("loads nothing but Recents, and no labels, entities or search", async () => {
     useNavStore.setState({ recents: [{ entityId: "e9", spaceId: "space-1", openedAt: 1 }] });
