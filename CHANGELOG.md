@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.72.6 (2026-11-10)
+
+### Fixed
+
+- Opening the saved views under Tasks or Assignments in the sidebar no longer makes the move handle and arrow of that item jump down. They stay beside its icon and title.
+
 ## 0.72.5 (2026-11-10)
 
 ### Fixed
