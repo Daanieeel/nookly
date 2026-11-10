@@ -16,4 +16,4 @@ Like Exams: a list that puts dates and status first. It should look clearly diff
 
 ## Export and Import
 
-An Assignment exports as a `nookly-assignment` file (version 1): title, status, due day, grade, weight, whether it is ungraded and description blocks. Its Tasks and Course are relationships and stay behind (the Course is named as text). Import creates a new Assignment filed under a Course the user picks.
+An Assignment exports as a `nookly-assignment` file (version 2): title, status, due day, grade, weight, whether it is ungraded and description blocks, with the Files those blocks show embedded as base64, once per File (see [notes](notes.md#page-files)). Version 1 files still import. Its Tasks and Course are relationships and stay behind (the Course is named as text). Import creates a new Assignment filed under a Course the user picks.

@@ -51,4 +51,4 @@ A lightweight, keyboard-first quick-create overlay with a title field and inline
 
 ## Export and Import
 
-A Task exports as a `nookly-task` file (version 1): title, status (name and doneness), start and due date, effort, repeat rule, description blocks and its Sub-tasks nested under `subtasks`. Ids, timestamps, Labels, links and the Space stay behind. Import creates a new Task with its Sub-tasks, whole or not at all.
+A Task exports as a `nookly-task` file (version 2): title, status (name and doneness), start and due date, effort, repeat rule, description blocks and its Sub-tasks nested under `subtasks`. Ids, timestamps, Labels, links and the Space stay behind. The Files that blocks of the Task and its Sub-tasks show are embedded as base64, once per File (see [notes](notes.md#page-files)). Import creates a new Task with its Sub-tasks, and the Files as new Files in the chosen Space, whole or not at all. Version 1 files still import.

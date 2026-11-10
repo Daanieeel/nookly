@@ -45,6 +45,7 @@ pub mod page_json;
 #[cfg(test)]
 mod perf_baseline;
 pub mod portable;
+pub mod portable_files;
 pub mod recipes;
 #[cfg(test)]
 mod recipes_tests;

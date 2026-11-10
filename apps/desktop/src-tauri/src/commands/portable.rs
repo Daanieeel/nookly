@@ -16,14 +16,21 @@ pub fn render_entity_json(state: State<DbState>, entity_id: String) -> AppResult
 }
 
 /// Writes the entity as a Nookly file. `path` comes from the native save dialog, so the
-/// user chose it explicitly. Nothing is written when the entity cannot be exported.
+/// user chose it explicitly. Nothing is written when the entity cannot be exported. Returns
+/// the names of the Files that could not go in the file (missing or unreadable), whose
+/// blocks became a paragraph with the name.
 #[tauri::command]
-pub fn export_entity_json(state: State<DbState>, entity_id: String, path: String) -> AppResult<()> {
-    let json = {
+pub fn export_entity_json(
+    state: State<DbState>,
+    entity_id: String,
+    path: String,
+) -> AppResult<Vec<String>> {
+    let exported = {
         let conn = state.conn()?;
-        portable::export_entity(&conn, &entity_id)?
+        portable::export_entity_noted(&conn, &entity_id)?
     };
-    std::fs::write(&path, json).map_err(|err| AppError::Io(err.to_string()))
+    std::fs::write(&path, exported.json).map_err(|err| AppError::Io(err.to_string()))?;
+    Ok(exported.left_as_text)
 }
 
 /// Reads a file for the import dialog. The size limit is checked before the read.

@@ -624,14 +624,19 @@ fn entity_restore(
 fn entity_export(conn: &Connection, entity_type: &str, args: &Args) -> AppResult<Value> {
     let id = args.require_entity(conn, 0, "id")?;
     let portable = portable_def(entity_type)?;
-    let text = (portable.export)(conn, &id)?;
+    let exported = (portable.export)(conn, &id)?;
     match args.flag("out") {
         // Written next to nothing else of Nookly's: the path is the caller's.
         Some(path) => {
-            std::fs::write(&path, &text).map_err(|e| AppError::Io(e.to_string()))?;
-            Ok(json!({ "exported": id, "format": portable.format, "path": path }))
+            std::fs::write(&path, &exported.json).map_err(|e| AppError::Io(e.to_string()))?;
+            let mut result = json!({ "exported": id, "format": portable.format, "path": path });
+            if !exported.left_as_text.is_empty() {
+                // Files that could not go in the file: their blocks became text.
+                result["leftAsText"] = json!(exported.left_as_text);
+            }
+            Ok(result)
         }
-        None => serde_json::from_str(&text).map_err(|e| AppError::Io(e.to_string())),
+        None => serde_json::from_str(&exported.json).map_err(|e| AppError::Io(e.to_string())),
     }
 }
 
