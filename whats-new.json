@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.72.7",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": ["Opening and closing Settings no longer makes the app freeze for a moment."]
+      }
+    },
+    {
       "version": "0.72.6",
       "date": "2026-11-10",
       "highlights": [],

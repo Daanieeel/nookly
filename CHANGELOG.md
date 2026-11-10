@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.72.7 (2026-11-10)
+
+### Fixed
+
+- Opening and closing Settings no longer makes the app freeze for a moment.
+
 ## 0.72.6 (2026-11-10)
 
 ### Fixed
