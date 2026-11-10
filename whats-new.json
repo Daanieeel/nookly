@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.72.2",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Search and Quick open now show the ID of every result, like NOT-94, next to its title."
+        ]
+      }
+    },
+    {
       "version": "0.72.1",
       "date": "2026-11-10",
       "highlights": [],
