@@ -1,8 +1,9 @@
 import { BookmarkSheet } from "#/features/bookmarks/BookmarkSheet.tsx";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { type CSSProperties, type ReactNode, Suspense, lazy, useState } from "react";
+import { type CSSProperties, Suspense, lazy } from "react";
 import { ContextMenuHost } from "#/components/context-menu/context-menu-host.tsx";
 import { CommandsPalette } from "#/components/commands-palette.tsx";
+import { OnFirstOpen } from "#/components/on-first-open.tsx";
 import { QuickOpenPalette, SearchPalette } from "#/components/search-palette.tsx";
 import { AppSidebar } from "#/components/sidebar.tsx";
 import { OtherGroupButton, SplitView, useSplitShown } from "#/components/split-view.tsx";
@@ -81,14 +82,6 @@ const QuickAssignmentDialog = lazy(() =>
     default: m.QuickAssignmentDialog,
   })),
 );
-
-/// Loads a dialog's code the first time it opens, then keeps it mounted so it can close with
-/// its own animation.
-function OnFirstOpen({ open, children }: { open: boolean; children: ReactNode }) {
-  const [opened, setOpened] = useState(open);
-  if (open && !opened) setOpened(true);
-  return opened ? <Suspense fallback={null}>{children}</Suspense> : null;
-}
 
 const PinnedView = lazy(() =>
   import("#/features/dashboard/PinnedView.tsx").then((m) => ({ default: m.PinnedView })),
@@ -174,9 +167,6 @@ function Shell() {
   // With one group (or no room for two) its tabs sit under the titlebar, while there
   // is more than one tab or another group to switch to. Split, each group has its own.
   const showTabBar = useNavStore((s) => !splitShown && (s.tabs.length > 1 || twoGroups));
-  const settingsOpen = useNavStore((s) => s.settingsOpen);
-  const whatsNewOpen = useNavStore((s) => s.whatsNewOpen);
-  const newAssignmentOpen = useNavStore((s) => s.newAssignmentOpen);
   useTabInteractions();
   useOverlayHotkeys();
   useExternalDbChanges();
@@ -229,15 +219,15 @@ function Shell() {
       <QuickOpenPalette />
       <CommandsPalette />
       <QuickJotDialog />
-      <OnFirstOpen open={settingsOpen}>
+      <OnFirstOpen isOpen={(s) => s.settingsOpen}>
         <SettingsDialog />
       </OnFirstOpen>
       <ImportDialog />
       <NewTaskDialog />
-      <OnFirstOpen open={newAssignmentOpen}>
+      <OnFirstOpen isOpen={(s) => s.newAssignmentOpen}>
         <QuickAssignmentDialog />
       </OnFirstOpen>
-      <OnFirstOpen open={whatsNewOpen}>
+      <OnFirstOpen isOpen={(s) => s.whatsNewOpen}>
         <WhatsNewDialog />
       </OnFirstOpen>
       <CrashReportDialog />
