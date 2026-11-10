@@ -32,6 +32,10 @@ Code lives in `apps/desktop/src-tauri/src/moodle/`. The connection (no token) is
 
 The module's page is the `moodlePath` of the module view, so Back, Forward and tabs work as for any page.
 
+## Command line
+
+Agents read Moodle through `nookly cli moodle_<page> list|get` (`cli/remote.rs`), read only and always live. The pages are declared in `moodle/remote.rs`, the registry the CLI's `schema` and `describe` show as `remoteTypes`; a new page is one more entry there. Reads use `MoodleState` and the token in the keychain, so they work with the app closed. `moodle_file download` saves a file to a path the agent names and never overwrites.
+
 ## Calendar
 
 Deadlines show on the Calendar and the Sessions calendar through the Moodle calendar link, connected under Calendar connections (see [External Calendar Overlay](sessions-timetable.md#external-calendar-overlay)). It is a separate connection from the module's sign in.

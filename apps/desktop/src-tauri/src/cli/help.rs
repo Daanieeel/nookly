@@ -81,6 +81,12 @@ pub(super) fn top_level_help() -> Value {
             "space": "nookly cli space <list|create|update|delete|reorder> ...",
             "label": "nookly cli label <list|get|create|update|delete|attach|detach> ...  (attach/detach take several \
                       label ids; get <id> is the reverse lookup, every entity carrying that label)",
+            "remote": "nookly cli <moodle_course|moodle_section|moodle_file|moodle_assignment|moodle_grade|moodle_forum|moodle_discussion|moodle_post> \
+                       <list|get> [--course <id> | --forum <id> | --discussion <id>] ...  (READ ONLY. The user's university Moodle, \
+                       fetched live with the user's saved Moodle sign in; not stored in Nookly, so not entities and not in \
+                       `search`. `schema` lists them under `remoteTypes`, `describe <type>` shows the parent flag. \
+                       `moodle_file download --url <fileUrl> --out <path>` saves a file. Not signed in: ask the user to sign \
+                       in from the Nookly app, the CLI cannot)",
             "agentInstructions": "nookly cli agent-instructions  (a longer prose guide for a coding \
                                    agent that's never used this CLI before, start here, not with \
                                    this --help output, if this is your first call)",
@@ -100,8 +106,8 @@ pub(super) fn agent_instructions() -> Value {
 pub(super) const AGENT_INSTRUCTIONS_MARKDOWN: &str = r##"# Nookly CLI agent guide
 
 Nookly is a personal life organizer app (Notes, Tasks, Courses, Exams, ...). This CLI
-(`nookly cli ...`) is a full read/write interface to the same data the desktop app shows,
-built entirely on one generic pattern. There is no hand-written command for any specific
+(`nookly cli ...`) is a full read/write interface to the same data the desktop app shows
+(Moodle is the exception: read only, see "Moodle" below), built entirely on one generic pattern. There is no hand-written command for any specific
 entity type. That means:
 
 - Every command's output is JSON on stdout, always (pretty-printed on a TTY, compact when
@@ -251,6 +257,38 @@ every File in scope missing content at once and reports `{"checked": <n>, "reind
 Both are safe to run repeatedly. An already-indexed File is left untouched by `reindex`, and
 a File whose extraction genuinely finds nothing (a blank image, an empty spreadsheet) just
 looks like "never tried" and is retried next time rather than treated as a permanent failure.
+
+## Moodle: the user's university, read only
+
+If the user studies with Moodle, the app can show their courses, files, assignments, grades
+and forums. They are not stored in Nookly, so they are **not entities**: no key, Space, labels
+or relationships, no `create`, `update` or `delete`, and `search` does not cover them. `schema`
+lists them under `remoteTypes` and `describe <type>` shows each one's fields. They have their
+own read only `list` and `get`:
+
+```
+nookly cli moodle_course list                                   # ids for --course
+nookly cli moodle_assignment list --course <id>                 # dueDate, openDate; get <id> --course <id> adds your status
+nookly cli moodle_grade list --course <id>
+nookly cli moodle_section list --course <id>                    # weeks/topics with their modules
+nookly cli moodle_file list --course <id>                       # every file and link, flattened
+nookly cli moodle_forum list --course <id>                      # kind "news" is the announcements
+nookly cli moodle_discussion list --forum <forum-id> --limit 5  # the announcement text is in `message`
+nookly cli moodle_post list --discussion <discussionId>
+nookly cli moodle_file download --url <fileUrl> --out ./slides.pdf
+nookly cli file create --space <id> --title Slides --field localPath=./slides.pdf   # keep it in Nookly
+```
+
+Good to know:
+
+- Every read asks Moodle live, with the user's own saved sign in, so you act as the user at their
+  university. Read only what the task needs. When Moodle cannot be reached you get the last
+  answer with `offline: true` and `fetchedAt`.
+- Dates are unix seconds (0 means none), text fields marked `html` are HTML, and `--fields a,b`
+  and `--limit <n>` work on `list` like they do elsewhere.
+- `download` never overwrites: `--out` is a new file, or an existing folder with `--file-name`.
+- Nookly cannot sign in to Moodle for you. If a command says Nookly is not signed in, ask the
+  user to sign in from the Moodle module in the app, then retry. Nothing is ever written to Moodle.
 
 ## Writing safely
 

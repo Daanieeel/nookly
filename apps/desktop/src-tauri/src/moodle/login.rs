@@ -31,6 +31,22 @@ pub fn configured_scheme(plugins: &std::collections::HashMap<String, serde_json:
         .to_string()
 }
 
+static SCHEME: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Records the running app's scheme, before the CLI (which runs without a Tauri `App`)
+/// opens the Moodle service. The scheme only names the keychain entry of the token.
+pub fn set_scheme(scheme: &str) {
+    let _ = SCHEME.set(scheme.to_string());
+}
+
+/// The running app's scheme, `nookly` when none was recorded.
+pub fn scheme() -> String {
+    SCHEME
+        .get()
+        .cloned()
+        .unwrap_or_else(|| DEFAULT_SCHEME.to_string())
+}
+
 pub fn launch_url(site: &Site, passport: &str, scheme: &str) -> Url {
     let mut url = site.page("admin/tool/mobile/launch.php");
     url.query_pairs_mut()

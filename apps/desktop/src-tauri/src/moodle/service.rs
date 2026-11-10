@@ -602,6 +602,13 @@ impl MoodleState {
         ))
     }
 
+    /// Saves a file straight to `dest`, fetched fresh and kept nowhere else. For callers that
+    /// were handed a path, like the CLI: the app's own copies in `moodle-files/` are left alone.
+    pub async fn save_file(&self, url: &str, dest: &Path) -> AppResult<u64> {
+        let (client, _) = self.connection().await?;
+        Ok(client.download(url, dest).await?)
+    }
+
     /// Downloads a file into `moodle-files/` (once; a newer version of the same
     /// file is fetched again) and returns where it is.
     pub async fn download(
@@ -634,7 +641,7 @@ fn image_mime(file_name: &str) -> Option<&'static str> {
 }
 
 /// A name that stays inside its folder, whatever Moodle calls the file.
-fn safe_file_name(name: &str) -> String {
+pub fn safe_file_name(name: &str) -> String {
     let cleaned: String = name
         .chars()
         .map(|c| {
@@ -677,7 +684,7 @@ fn read_assignment_status(answer: &Value) -> AssignmentStatus {
 #[cfg(test)]
 impl MoodleState {
     /// A state already signed in to `site`, for tests that talk to a local server.
-    fn signed_in(dir: &Path, tokens: Box<dyn TokenStore>, site: Site) -> Self {
+    pub(crate) fn signed_in(dir: &Path, tokens: Box<dyn TokenStore>, site: Site) -> Self {
         let state = Self::with_tokens(dir, tokens);
         state.inner.try_lock().unwrap().connection = Some(Connection {
             site,

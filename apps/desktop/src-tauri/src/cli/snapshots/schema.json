@@ -4461,7 +4461,7 @@
       "supportsBlocks": false
     }
   ],
-  "note": "`space` and `label` are core infrastructure, not registered entity types, see `nookly cli space`/`nookly cli label` --help-style usage in `nookly cli` with no args.",
+  "note": "`space` and `label` are core infrastructure, not registered entity types, see `nookly cli space`/`nookly cli label` --help-style usage in `nookly cli` with no args. `remoteTypes` are not stored in Nookly: they are read only and fetched live from the user's Moodle, see `coreCommands.remote` in `nookly cli --help`.",
   "relationshipTypes": [
     {
       "description": "Ties an assignment to its course.",
@@ -4614,6 +4614,503 @@
       "label": "Test",
       "name": "test-one-to-per-from",
       "toType": null
+    }
+  ],
+  "remoteTypes": [
+    {
+      "commands": {
+        "get": "nookly cli moodle_assignment get <id> --course <id>",
+        "list": "nookly cli moodle_assignment list --course <id> [--fields a,b,...] [--limit <n>]"
+      },
+      "description": "An assignment in a course, with its dates. `get` adds the user's own status. Read only, fetched live.",
+      "entityType": "moodle_assignment",
+      "fields": [
+        {
+          "description": "Files attached, each with fileName, fileSize, fileUrl, mimeType and timeModified.",
+          "kind": "list<file>",
+          "name": "attachments"
+        },
+        {
+          "description": "The assignment's module id.",
+          "kind": "integer",
+          "name": "cmid"
+        },
+        {
+          "description": "When late submissions stop. 0 when not set.",
+          "kind": "unix_seconds",
+          "name": "cutOffDate"
+        },
+        {
+          "description": "When it is due. 0 when there is no due date.",
+          "kind": "unix_seconds",
+          "name": "dueDate"
+        },
+        {
+          "description": "Moodle's assignment id.",
+          "kind": "integer",
+          "name": "id"
+        },
+        {
+          "description": "The assignment text, as HTML.",
+          "kind": "html",
+          "name": "intro"
+        },
+        {
+          "description": "Assignment title.",
+          "kind": "text",
+          "name": "name"
+        },
+        {
+          "description": "When submissions open. 0 when not set.",
+          "kind": "unix_seconds",
+          "name": "openDate"
+        }
+      ],
+      "getAdds": "status: { submissionStatus (new, draft, submitted, reopened), gradingStatus, grade, feedback (list of HTML comments) } for the user",
+      "idField": "id",
+      "module": "moodle",
+      "note": "Not an entity: no key, Space, labels or relationships, and it cannot be created, updated or deleted. Fetched live from the user's university with the Moodle sign in saved in the system keychain; if Moodle cannot be reached the last answer is returned with `offline: true`. Needs the user to be signed in to Moodle in the Nookly app.",
+      "parent": {
+        "description": "A moodle_course id",
+        "flag": "course",
+        "required": true
+      },
+      "readOnly": true,
+      "remote": true
+    },
+    {
+      "commands": {
+        "get": "nookly cli moodle_course get <id>",
+        "list": "nookly cli moodle_course list [--fields a,b,...] [--limit <n>]"
+      },
+      "description": "A course the user is enrolled in on their university's Moodle. Read only, fetched live.",
+      "entityType": "moodle_course",
+      "fields": [
+        {
+          "description": "When the course ends. 0 when not set.",
+          "kind": "unix_seconds",
+          "name": "endDate"
+        },
+        {
+          "description": "Full course name.",
+          "kind": "text",
+          "name": "fullName"
+        },
+        {
+          "description": "True when the user hid the course on Moodle.",
+          "kind": "boolean",
+          "name": "hidden"
+        },
+        {
+          "description": "Moodle's course id, the value for --course on the other moodle types.",
+          "kind": "integer",
+          "name": "id"
+        },
+        {
+          "description": "The course banner, when its teachers set one.",
+          "kind": "list<file>",
+          "name": "overviewFiles"
+        },
+        {
+          "description": "Percent complete when the site tracks it, else null.",
+          "kind": "float",
+          "name": "progress"
+        },
+        {
+          "description": "Short name, like a course code.",
+          "kind": "text",
+          "name": "shortName"
+        },
+        {
+          "description": "When the course starts. 0 when not set.",
+          "kind": "unix_seconds",
+          "name": "startDate"
+        },
+        {
+          "description": "The course description, as HTML.",
+          "kind": "html",
+          "name": "summary"
+        }
+      ],
+      "getAdds": null,
+      "idField": "id",
+      "module": "moodle",
+      "note": "Not an entity: no key, Space, labels or relationships, and it cannot be created, updated or deleted. Fetched live from the user's university with the Moodle sign in saved in the system keychain; if Moodle cannot be reached the last answer is returned with `offline: true`. Needs the user to be signed in to Moodle in the Nookly app.",
+      "parent": null,
+      "readOnly": true,
+      "remote": true
+    },
+    {
+      "commands": {
+        "get": "nookly cli moodle_discussion get <discussionId> --forum <id>",
+        "list": "nookly cli moodle_discussion list --forum <id> [--fields a,b,...] [--limit <n>]"
+      },
+      "description": "A discussion in a forum, newest activity first as Moodle orders it, with its first message. For an announcement this is the announcement. Read only, fetched live.",
+      "entityType": "moodle_discussion",
+      "fields": [
+        {
+          "description": "Files attached, each with fileName, fileSize, fileUrl, mimeType and timeModified.",
+          "kind": "list<file>",
+          "name": "attachments"
+        },
+        {
+          "description": "Who started it.",
+          "kind": "text",
+          "name": "author"
+        },
+        {
+          "description": "Moodle's discussion id, the value for --discussion on moodle_post.",
+          "kind": "integer",
+          "name": "discussionId"
+        },
+        {
+          "description": "The first message, as HTML.",
+          "kind": "html",
+          "name": "message"
+        },
+        {
+          "description": "Discussion title.",
+          "kind": "text",
+          "name": "name"
+        },
+        {
+          "description": "How many replies it has.",
+          "kind": "integer",
+          "name": "numReplies"
+        },
+        {
+          "description": "Whether it is pinned to the top.",
+          "kind": "boolean",
+          "name": "pinned"
+        },
+        {
+          "description": "Subject of the first message.",
+          "kind": "text",
+          "name": "subject"
+        },
+        {
+          "description": "When it last changed.",
+          "kind": "unix_seconds",
+          "name": "timeModified"
+        }
+      ],
+      "getAdds": null,
+      "idField": "discussionId",
+      "module": "moodle",
+      "note": "Not an entity: no key, Space, labels or relationships, and it cannot be created, updated or deleted. Fetched live from the user's university with the Moodle sign in saved in the system keychain; if Moodle cannot be reached the last answer is returned with `offline: true`. Needs the user to be signed in to Moodle in the Nookly app.",
+      "parent": {
+        "description": "A moodle_forum id",
+        "flag": "forum",
+        "required": true
+      },
+      "readOnly": true,
+      "remote": true
+    },
+    {
+      "commands": {
+        "download": "nookly cli moodle_file download --url <fileUrl> --out <path> [--file-name <name>]  (A file is `fileUrl` plus `fileName`; save one with `nookly cli moodle_file download --url <fileUrl> --out <path>`. Any `fileUrl` works, also those in attachments of other moodle types. --out is a new file, or an existing folder together with --file-name. Never overwrites.)",
+        "get": "nookly cli moodle_file get <fileUrl> --course <id>",
+        "list": "nookly cli moodle_file list --course <id> [--fields a,b,...] [--limit <n>]"
+      },
+      "description": "A file or link in a course's modules, flattened with the section and module it sits in. Read only, fetched live. `download` saves one to a path.",
+      "entityType": "moodle_file",
+      "fields": [
+        {
+          "description": "File name.",
+          "kind": "text",
+          "name": "fileName"
+        },
+        {
+          "description": "Folder path inside a Moodle folder module.",
+          "kind": "text",
+          "name": "filePath"
+        },
+        {
+          "description": "Size in bytes.",
+          "kind": "integer",
+          "name": "fileSize"
+        },
+        {
+          "description": "Where the file lives on Moodle. Pass it to `download --url`.",
+          "kind": "text",
+          "name": "fileUrl"
+        },
+        {
+          "description": "`file`, `url` (a link, `fileUrl` is where it goes) or `content`.",
+          "kind": "text",
+          "name": "kind"
+        },
+        {
+          "description": "Media type.",
+          "kind": "text",
+          "name": "mimeType"
+        },
+        {
+          "description": "The module the file is in.",
+          "kind": "integer",
+          "name": "moduleId"
+        },
+        {
+          "description": "That module's title.",
+          "kind": "text",
+          "name": "moduleName"
+        },
+        {
+          "description": "What the module is: resource, folder, page, url ...",
+          "kind": "text",
+          "name": "moduleType"
+        },
+        {
+          "description": "The section the file is in.",
+          "kind": "integer",
+          "name": "sectionId"
+        },
+        {
+          "description": "That section's title.",
+          "kind": "text",
+          "name": "sectionName"
+        },
+        {
+          "description": "When the file last changed.",
+          "kind": "unix_seconds",
+          "name": "timeModified"
+        }
+      ],
+      "getAdds": null,
+      "idField": "fileUrl",
+      "module": "moodle",
+      "note": "Not an entity: no key, Space, labels or relationships, and it cannot be created, updated or deleted. Fetched live from the user's university with the Moodle sign in saved in the system keychain; if Moodle cannot be reached the last answer is returned with `offline: true`. Needs the user to be signed in to Moodle in the Nookly app.",
+      "parent": {
+        "description": "A moodle_course id",
+        "flag": "course",
+        "required": true
+      },
+      "readOnly": true,
+      "remote": true
+    },
+    {
+      "commands": {
+        "get": "nookly cli moodle_forum get <id> --course <id>",
+        "list": "nookly cli moodle_forum list --course <id> [--fields a,b,...] [--limit <n>]"
+      },
+      "description": "A forum in a course. The one with kind `news` is the course's announcements. Read only, fetched live.",
+      "entityType": "moodle_forum",
+      "fields": [
+        {
+          "description": "The forum's module id.",
+          "kind": "integer",
+          "name": "cmid"
+        },
+        {
+          "description": "Moodle's forum id, the value for --forum on moodle_discussion.",
+          "kind": "integer",
+          "name": "id"
+        },
+        {
+          "description": "Forum description, as HTML.",
+          "kind": "html",
+          "name": "intro"
+        },
+        {
+          "description": "`news` is the course's announcements.",
+          "kind": "text",
+          "name": "kind"
+        },
+        {
+          "description": "Forum title.",
+          "kind": "text",
+          "name": "name"
+        },
+        {
+          "description": "How many discussions it has.",
+          "kind": "integer",
+          "name": "numDiscussions"
+        }
+      ],
+      "getAdds": null,
+      "idField": "id",
+      "module": "moodle",
+      "note": "Not an entity: no key, Space, labels or relationships, and it cannot be created, updated or deleted. Fetched live from the user's university with the Moodle sign in saved in the system keychain; if Moodle cannot be reached the last answer is returned with `offline: true`. Needs the user to be signed in to Moodle in the Nookly app.",
+      "parent": {
+        "description": "A moodle_course id",
+        "flag": "course",
+        "required": true
+      },
+      "readOnly": true,
+      "remote": true
+    },
+    {
+      "commands": {
+        "get": "nookly cli moodle_grade get <id> --course <id>",
+        "list": "nookly cli moodle_grade list --course <id> [--fields a,b,...] [--limit <n>]"
+      },
+      "description": "One row of the user's grades in a course: graded activities, categories and the course total. Read only, fetched live.",
+      "entityType": "moodle_grade",
+      "fields": [
+        {
+          "description": "The activity's module id.",
+          "kind": "integer",
+          "name": "cmid"
+        },
+        {
+          "description": "The teacher's feedback.",
+          "kind": "html",
+          "name": "feedback"
+        },
+        {
+          "description": "The grade as Moodle shows it.",
+          "kind": "text",
+          "name": "grade"
+        },
+        {
+          "description": "Moodle's grade item id.",
+          "kind": "integer",
+          "name": "id"
+        },
+        {
+          "description": "The activity type for `mod` items, like assign or quiz.",
+          "kind": "text",
+          "name": "itemModule"
+        },
+        {
+          "description": "`course` for the total, `category`, `mod` for graded activities.",
+          "kind": "text",
+          "name": "itemType"
+        },
+        {
+          "description": "Item name, null for the course total.",
+          "kind": "text",
+          "name": "name"
+        },
+        {
+          "description": "The grade as a percentage.",
+          "kind": "text",
+          "name": "percentage"
+        },
+        {
+          "description": "The possible range.",
+          "kind": "text",
+          "name": "range"
+        },
+        {
+          "description": "How much the item counts.",
+          "kind": "text",
+          "name": "weight"
+        }
+      ],
+      "getAdds": null,
+      "idField": "id",
+      "module": "moodle",
+      "note": "Not an entity: no key, Space, labels or relationships, and it cannot be created, updated or deleted. Fetched live from the user's university with the Moodle sign in saved in the system keychain; if Moodle cannot be reached the last answer is returned with `offline: true`. Needs the user to be signed in to Moodle in the Nookly app.",
+      "parent": {
+        "description": "A moodle_course id",
+        "flag": "course",
+        "required": true
+      },
+      "readOnly": true,
+      "remote": true
+    },
+    {
+      "commands": {
+        "get": "nookly cli moodle_post get <id> --discussion <id>",
+        "list": "nookly cli moodle_post list --discussion <id> [--fields a,b,...] [--limit <n>]"
+      },
+      "description": "A post in a forum discussion, oldest first, replies pointing at their parent. Read only, fetched live.",
+      "entityType": "moodle_post",
+      "fields": [
+        {
+          "description": "Files attached, each with fileName, fileSize, fileUrl, mimeType and timeModified.",
+          "kind": "list<file>",
+          "name": "attachments"
+        },
+        {
+          "description": "{ fullName } of the author.",
+          "kind": "object",
+          "name": "author"
+        },
+        {
+          "description": "Moodle's post id.",
+          "kind": "integer",
+          "name": "id"
+        },
+        {
+          "description": "The post, as HTML.",
+          "kind": "html",
+          "name": "message"
+        },
+        {
+          "description": "The post this replies to, 0 for the first post.",
+          "kind": "integer",
+          "name": "parentId"
+        },
+        {
+          "description": "Post subject.",
+          "kind": "text",
+          "name": "subject"
+        },
+        {
+          "description": "When it was posted.",
+          "kind": "unix_seconds",
+          "name": "timeCreated"
+        }
+      ],
+      "getAdds": null,
+      "idField": "id",
+      "module": "moodle",
+      "note": "Not an entity: no key, Space, labels or relationships, and it cannot be created, updated or deleted. Fetched live from the user's university with the Moodle sign in saved in the system keychain; if Moodle cannot be reached the last answer is returned with `offline: true`. Needs the user to be signed in to Moodle in the Nookly app.",
+      "parent": {
+        "description": "A moodle_discussion discussionId",
+        "flag": "discussion",
+        "required": true
+      },
+      "readOnly": true,
+      "remote": true
+    },
+    {
+      "commands": {
+        "get": "nookly cli moodle_section get <id> --course <id>",
+        "list": "nookly cli moodle_section list --course <id> [--fields a,b,...] [--limit <n>]"
+      },
+      "description": "A section of a course's content (a week or a topic) with its modules: pages, files, links, assignments and forums. Read only, fetched live. Files sit in each module's `contents`; `moodle_file list` flattens them.",
+      "entityType": "moodle_section",
+      "fields": [
+        {
+          "description": "Moodle's section id.",
+          "kind": "integer",
+          "name": "id"
+        },
+        {
+          "description": "The section's modules: id, name, modName (page, resource, assign, forum, url ...), url, description (HTML), userVisible and contents (files).",
+          "kind": "list<module>",
+          "name": "modules"
+        },
+        {
+          "description": "Section title.",
+          "kind": "text",
+          "name": "name"
+        },
+        {
+          "description": "Section description, as HTML.",
+          "kind": "html",
+          "name": "summary"
+        },
+        {
+          "description": "Whether the section is visible to the user, null when the site does not say.",
+          "kind": "boolean",
+          "name": "userVisible"
+        }
+      ],
+      "getAdds": null,
+      "idField": "id",
+      "module": "moodle",
+      "note": "Not an entity: no key, Space, labels or relationships, and it cannot be created, updated or deleted. Fetched live from the user's university with the Moodle sign in saved in the system keychain; if Moodle cannot be reached the last answer is returned with `offline: true`. Needs the user to be signed in to Moodle in the Nookly app.",
+      "parent": {
+        "description": "A moodle_course id",
+        "flag": "course",
+        "required": true
+      },
+      "readOnly": true,
+      "remote": true
     }
   ]
 }

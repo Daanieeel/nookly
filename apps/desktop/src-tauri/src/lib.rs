@@ -350,6 +350,9 @@ pub fn run() {
     // the bundle identifier, so it is recorded before either can run.
     let context = tauri::generate_context!();
     db::set_identifier(&context.config().identifier);
+    moodle::login::set_scheme(&moodle::login::configured_scheme(
+        &context.config().plugins.0,
+    ));
 
     // Capture panics to a crash log before `panic = "abort"` kills the process,
     // so any future startup crash is diagnosable without a debug build.
