@@ -6,6 +6,19 @@ import {
   type SuggestionListItem,
 } from "./suggestion-list";
 
+/// The menus showing right now, each with what hides it. A menu's element can stay in the
+/// document after it is hidden, so what is on the page says nothing about it.
+const shownMenus = new Map<object, () => void>();
+
+/// Hides every open "/" or "@" menu and says whether there was one. For a host that sees
+/// Escape before the editor does (a dialog): the press that closed a menu is not also
+/// meant to close the host.
+export function closeEditorMenus(): boolean {
+  const open = [...shownMenus.values()];
+  for (const hide of open) hide();
+  return open.length > 0;
+}
+
 /// Wires one `SuggestionList` popup into `@tiptap/suggestion`'s render lifecycle
 /// (§ notes rewrite) — shared by the "/" block-type menu and the "@" mention menu,
 /// which differ only in what `toItem` turns each raw item into.
@@ -26,6 +39,18 @@ export function createSuggestionRender<I>(
   return () => {
     let component: ReactRenderer<SuggestionListHandle>;
     let unmount: (() => void) | undefined;
+    const token = {};
+
+    function show(props: SuggestionProps<I>) {
+      const stop = props.mount(component.element);
+      const hide = () => {
+        stop();
+        shownMenus.delete(token);
+        unmount = undefined;
+      };
+      shownMenus.set(token, hide);
+      unmount = hide;
+    }
 
     /// Shows the popup, or with `hideWhenEmpty` hides it while nothing matches.
     function sync(props: SuggestionProps<I>) {
@@ -33,7 +58,7 @@ export function createSuggestionRender<I>(
         unmount?.();
         unmount = undefined;
       } else if (!unmount) {
-        unmount = props.mount(component.element);
+        show(props);
       }
     }
 
@@ -58,6 +83,9 @@ export function createSuggestionRender<I>(
           props: listProps(props),
           editor: props.editor,
         });
+        // Mounted on the page's body, above a dialog's overlay and still clickable inside one.
+        Object.assign(component.element.style, { zIndex: "60", pointerEvents: "auto" });
+        component.element.setAttribute("data-editor-popup", "");
         sync(props);
       },
       onUpdate: (props) => {

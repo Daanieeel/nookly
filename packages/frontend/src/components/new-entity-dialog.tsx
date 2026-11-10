@@ -1,5 +1,5 @@
 import { IconChevronRight } from "@tabler/icons-react";
-import type { ReactNode, RefObject } from "react";
+import { type ReactNode, type RefObject, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,8 +14,14 @@ import {
   SelectValue,
 } from "@nookly/ui/components/select";
 import { Switch } from "@nookly/ui/components/switch";
+import type { BlockInput } from "#/features/notes/block-markdown.ts";
+import { DraftBlockEditor } from "#/features/notes/DraftBlockEditor.tsx";
+import { closeEditorMenus } from "#/features/notes/suggestion-render.tsx";
 import type { Space } from "#/lib/api/types.ts";
 import { SpaceIcon } from "./space-chip.tsx";
+
+/// The "/" and "@" menus of the body are mounted outside the dialog (see `suggestion-render.tsx`).
+const EDITOR_POPUP = "[data-editor-popup]";
 
 /// The shell of a quick create modal (new task, new assignment): focuses the title on
 /// open, and Enter in the form or Cmd+Enter anywhere submits.
@@ -36,6 +42,14 @@ export function NewEntityDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-w-2xl gap-0 p-0"
+        // A click in the body's menus is not a click outside, and Escape closes an open
+        // menu before it closes the dialog.
+        onInteractOutside={(e) => {
+          if (e.target instanceof Element && e.target.closest(EDITOR_POPUP)) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (closeEditorMenus()) e.preventDefault();
+        }}
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           titleRef.current?.focus();
@@ -128,6 +142,41 @@ export function CreateMoreSwitch({
       <label htmlFor={id} className="cursor-pointer">
         Create more
       </label>
+    </div>
+  );
+}
+
+/// The body of a quick create modal, below the title: the page editor with every block,
+/// for a page that does not exist yet. `onChange` gets its blocks, which the caller writes
+/// with `saveDraftBlocks` once the page is created. Change `editorKey` to clear it. Another
+/// Space starts it over too, as its mentions and files belong to the Space.
+export function NewEntityBody({
+  spaceId,
+  editorKey,
+  label,
+  onChange,
+}: {
+  spaceId: string;
+  editorKey: number;
+  label: string;
+  onChange: (blocks: BlockInput[]) => void;
+}) {
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const shownIn = useRef(spaceId);
+  useEffect(() => {
+    if (shownIn.current === spaceId) return;
+    shownIn.current = spaceId;
+    onChangeRef.current([]);
+  }, [spaceId]);
+  return (
+    <div className="max-h-64 min-h-18 overflow-y-auto px-4 pb-3">
+      <DraftBlockEditor
+        key={`${spaceId}-${editorKey}`}
+        spaceId={spaceId}
+        label={label}
+        onChange={onChange}
+      />
     </div>
   );
 }

@@ -1118,3 +1118,11 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 2.75rem;
 }
+
+/* The body of a quick create dialog (`DraftBlockEditor.tsx`) is the block editor with no page
+   around it: no gutter for block handles, a few lines tall before it scrolls. */
+.tiptap-content.draft-body {
+  min-height: 4.5rem;
+  padding: 0;
+  font-size: 0.875rem;
+}

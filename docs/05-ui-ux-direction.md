@@ -125,7 +125,7 @@ Replace static input and button rows with:
 
 ### Creation Surface per Type
 
-- **New Task:** a lightweight, keyboard-first quick-create overlay with a title and inline pickers for status, label, and date. The user can create one after another without closing it.
+- **New Task:** a lightweight, keyboard-first quick-create overlay with a title, a description in the full block editor and inline pickers for status, label, and date. The user can create one after another without closing it.
 - **New Note:** drops straight into the document canvas with the cursor focused. Title first, content immediately after. No intermediate form.
 - **New Jot:** near instant. One keystroke or click from anywhere opens a blank capture surface with no friction.
 - **New Session:** created directly in the calendar by clicking or dragging across a time slot. The calendar is the creation surface.
