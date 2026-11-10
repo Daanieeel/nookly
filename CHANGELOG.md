@@ -2,11 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.72.1 (2026-11-10)
+## 0.72.2 (2026-11-10)
 
 ### Fixed
 
 - Fixed the Quick assignment shortcut and the Settings shortcut doing nothing until the dialog had been opened another way first.
+
+## 0.72.1 (2026-11-10)
+
+### Fixed
+
+- Opening and closing the New task dialog, and other dialogs, is no longer slow on a long list of tasks or assignments.
 
 ## 0.72.0 (2026-11-09)
 

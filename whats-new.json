@@ -1,12 +1,22 @@
 {
   "versions": [
     {
-      "version": "0.72.1",
+      "version": "0.72.2",
       "date": "2026-11-10",
       "highlights": [],
       "more": {
         "Fixed": [
           "Fixed the Quick assignment and Settings shortcuts doing nothing until the dialog had been opened another way first."
+        ]
+      }
+    },
+    {
+      "version": "0.72.1",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Opening and closing the New task dialog, and other dialogs, is no longer slow on a long list of tasks or assignments."
         ]
       }
     },
