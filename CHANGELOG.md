@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.73.0 (2026-11-10)
+
+### Added
+
+- Agents using the Nookly command line can now read your Moodle courses, files, assignments, grades and announcements, and save a Moodle file to a place on your computer. They read only and use the Moodle sign in you saved in Nookly.
+
 ## 0.72.8 (2026-11-10)
 
 ### Changed

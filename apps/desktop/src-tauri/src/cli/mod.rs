@@ -23,6 +23,7 @@ mod generic_tests;
 mod help;
 #[cfg(test)]
 mod property_tests;
+mod remote;
 #[cfg(test)]
 mod snapshot_tests;
 mod view;
@@ -221,15 +222,25 @@ fn schema_all() -> Value {
         .map(|d| schema::describe_json(d))
         .collect();
     let relationship_types: Vec<_> = crate::db::relationships::list_relationship_types();
+    let remote_types: Vec<Value> = crate::moodle::remote::all()
+        .iter()
+        .map(crate::moodle::remote::describe_json)
+        .collect();
     json!({
         "entityTypes": entity_types,
+        "remoteTypes": remote_types,
         "relationshipTypes": relationship_types,
         "note": "`space` and `label` are core infrastructure, not registered entity types, see \
-                 `nookly cli space`/`nookly cli label` --help-style usage in `nookly cli` with no args.",
+                 `nookly cli space`/`nookly cli label` --help-style usage in `nookly cli` with no args. \
+                 `remoteTypes` are not stored in Nookly: they are read only and fetched live from the \
+                 user's Moodle, see `coreCommands.remote` in `nookly cli --help`.",
     })
 }
 
 fn describe_one(entity_type: &str) -> AppResult<Value> {
+    if let Some(remote_def) = crate::moodle::remote::lookup(entity_type) {
+        return Ok(crate::moodle::remote::describe_json(remote_def));
+    }
     let def = schema::lookup(entity_type).ok_or_else(|| unknown_entity_type(entity_type))?;
     Ok(schema::describe_json(def))
 }
@@ -262,9 +273,15 @@ fn read_import_file(path: &str) -> AppResult<String> {
 
 fn unknown_entity_type(entity_type: &str) -> AppError {
     let known: Vec<&'static str> = schema::all().iter().map(|d| d.entity_type).collect();
+    let remote: Vec<&'static str> = crate::moodle::remote::all()
+        .iter()
+        .map(|d| d.entity_type)
+        .collect();
     AppError::InvalidInput(format!(
-        "unknown entity type '{entity_type}'. Known types: {}. Run `nookly cli schema` for full details.",
-        known.join(", ")
+        "unknown entity type '{entity_type}'. Known types: {}. Read only Moodle types: {}. \
+         Run `nookly cli schema` for full details.",
+        known.join(", "),
+        remote.join(", ")
     ))
 }
 
@@ -417,6 +434,11 @@ fn resolve_ref_fields(
 }
 
 fn entity_command(conn: &Connection, entity_type: &str, rest: &[String]) -> AppResult<Value> {
+    // Moodle is not stored in the database, so it is not an entity type: it has its own
+    // registry and a read only `list`/`get`.
+    if let Some(remote_def) = crate::moodle::remote::lookup(entity_type) {
+        return remote::remote_command(remote_def, rest);
+    }
     let def = schema::lookup(entity_type).ok_or_else(|| unknown_entity_type(entity_type))?;
     let Some(verb) = rest.first() else {
         return Ok(schema::describe_json(def));
