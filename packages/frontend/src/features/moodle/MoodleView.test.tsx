@@ -482,7 +482,16 @@ describe("a file of a course", () => {
   const space = (imported: ReturnType<typeof makeFile>[] = []) => {
     mockCommand("list_files", imported);
     mockCommand("list_labels", [makeLabel({ id: "lb1", name: "Lectures", color: "#112233" })]);
-    mockCommand("list_courses", [makeEntity({ id: "nc1", type: "course", title: "Maths 1" })]);
+    const courses = [
+      makeEntity({ id: "nc1", type: "course", title: "Maths 1", icon: "📐" }),
+      makeEntity({ id: "nc2", type: "course", title: "Physics 2", key: "CRS-2" }),
+    ];
+    mockCommand("list_courses", courses);
+    // The picker lists the Space's entities, as when relating them.
+    mockCommand("list_entities", [
+      ...courses,
+      makeEntity({ id: "t1", type: "task", title: "Maths 1 homework" }),
+    ]);
     mockCommand("moodle_file_path", "/data/moodle-files/ab12/slides.pdf");
   };
   const imported = (over: Partial<MoodleFile> = {}) =>
@@ -502,18 +511,18 @@ describe("a file of a course", () => {
     // of Nookly with the same name already chosen.
     expect(within(dialog).getByLabelText("Name")).toHaveProperty("value", "Lecture 1 slides.pdf");
     // The file's own name is one click away.
-    expect(within(dialog).getByRole("button", { name: "slides.pdf" })).toBeTruthy();
-    expect(within(dialog).getByRole("button", { name: /MA1/ }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
+    const names = within(dialog).getByRole("group", { name: "Suggested names" });
+    expect(within(names).getByRole("button", { name: "slides.pdf" })).toBeTruthy();
+    // Only what will be applied is in the Labels field. The section is a quick add beside it.
+    expect(within(dialog).getByRole("button", { name: "Labels: MA1" })).toBeTruthy();
+    const suggested = within(dialog).getByRole("group", { name: "Suggested labels" });
+    expect(within(suggested).getByRole("button", { name: "Week 1" })).toBeTruthy();
+    expect(within(suggested).queryByRole("button", { name: "MA1" })).toBeNull();
+    // No wall of every label of the Space in the dialog itself.
+    expect(within(dialog).queryByRole("button", { name: "Lectures" })).toBeNull();
     expect(
-      within(dialog)
-        .getByRole("button", { name: /Week 1/ })
-        .getAttribute("aria-pressed"),
-    ).toBe("false");
-    expect(within(dialog).getByRole("combobox", { name: "Attach to a course" }).textContent).toBe(
-      "Maths 1",
-    );
+      within(dialog).getByRole("button", { name: "Attach to a course: Maths 1" }),
+    ).toBeTruthy();
     // Nothing is imported until the button is pressed.
     expect(callsOf("import_file_with_details")).toHaveLength(0);
     await expectNoA11yViolations();
@@ -529,9 +538,12 @@ describe("a file of a course", () => {
     const name = within(dialog).getByLabelText("Name");
     await user.clear(name);
     await user.type(name, "Week 1 slides");
-    await user.click(within(dialog).getByRole("button", { name: "Lectures" }));
-    await user.click(within(dialog).getByRole("button", { name: /Week 1New/ }));
-    await user.type(within(dialog).getByLabelText("Labels"), "Exam{Enter}");
+    await user.click(within(dialog).getByRole("button", { name: "Week 1" }));
+    await user.click(within(dialog).getByRole("button", { name: /^Labels/ }));
+    await user.click(await screen.findByRole("option", { name: "Lectures" }));
+    await user.type(screen.getByPlaceholderText("Find or create labels…"), "Exam");
+    await user.click(await screen.findByRole("option", { name: "Create “Exam”" }));
+    await user.keyboard("{Escape}");
     await user.click(within(dialog).getByRole("button", { name: "Import" }));
     await waitFor(() =>
       expect(callsOf("import_file_with_details")).toEqual([
@@ -556,6 +568,36 @@ describe("a file of a course", () => {
     expect(callsOf("import_file")).toHaveLength(0);
   });
 
+  it("picks the course from a searchable list of courses with their icons, or none", async () => {
+    withFiles("resource", [file()]);
+    space();
+    mockCommand("import_file_with_details", makeFile({}, { id: "f1" }));
+    const { user } = open("course/4");
+    await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
+    const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
+    await user.click(within(dialog).getByRole("button", { name: /^Attach to a course/ }));
+    // Only courses, searchable like when relating items.
+    expect(await screen.findByRole("option", { name: /Physics 2/ })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: /homework/ })).toBeNull();
+    expect(document.querySelector("[cmdk-item] svg")).not.toBeNull();
+    await user.type(screen.getByPlaceholderText("Search this Space…"), "phys");
+    expect(screen.queryByRole("option", { name: /Maths 1/ })).toBeNull();
+    await user.click(screen.getByRole("option", { name: /Physics 2/ }));
+    expect(
+      within(dialog).getByRole("button", { name: "Attach to a course: Physics 2" }),
+    ).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: /^Attach to a course/ }));
+    await user.click(await screen.findByRole("button", { name: "No course" }));
+    expect(
+      within(dialog).getByRole("button", { name: "Attach to a course: No course" }),
+    ).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(callsOf("import_file_with_details")).toHaveLength(1));
+    expect(callsOf("import_file_with_details")).toEqual([
+      expect.objectContaining({ details: expect.objectContaining({ attachTo: [] }) }),
+    ]);
+  });
+
   it("reuses a label of the Space the course is already named by, instead of making a second", async () => {
     withFiles("resource", [file()]);
     space();
@@ -563,10 +605,43 @@ describe("a file of a course", () => {
     const { user } = open("course/4");
     await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
     const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
-    expect(within(dialog).getByRole("button", { name: "ma1" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    );
-    expect(within(dialog).queryByRole("button", { name: /MA1New/ })).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Labels: ma1" })).toBeTruthy();
+    mockCommand("import_file_with_details", makeFile({}, { id: "f1" }));
+    await user.click(within(dialog).getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(callsOf("import_file_with_details")).toHaveLength(1));
+    // The Space's own label, and no second one made from the course name.
+    expect(callsOf("import_file_with_details")).toEqual([
+      expect.objectContaining({
+        details: expect.objectContaining({ labelIds: ["lb2"], newLabels: [] }),
+      }),
+    ]);
+  });
+
+  it("creates no label of the Space until the import goes through", async () => {
+    withFiles("resource", [file()]);
+    space();
+    const { user } = open("course/4");
+    await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
+    const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
+    await user.click(within(dialog).getByRole("button", { name: /^Labels/ }));
+    await user.type(screen.getByPlaceholderText("Find or create labels…"), "Exam");
+    await user.click(await screen.findByRole("option", { name: "Create “Exam”" }));
+    await user.keyboard("{Escape}");
+    expect(within(dialog).getByRole("button", { name: /^Labels.*Exam/ })).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(callsOf("create_label")).toHaveLength(0);
+    expect(callsOf("import_file_with_details")).toHaveLength(0);
+  });
+
+  it("has no accessibility violations with the label picker open", async () => {
+    withFiles("resource", [file()]);
+    space();
+    const { user } = open("course/4");
+    await user.click(await screen.findByRole("button", { name: "Import into Nookly" }));
+    const dialog = await screen.findByRole("dialog", { name: "Import into Nookly" });
+    await user.click(within(dialog).getByRole("button", { name: /^Labels/ }));
+    expect(await screen.findByRole("option", { name: "Lectures" })).toBeTruthy();
+    await expectNoA11yViolations();
   });
 
   it("says in place when the import failed, and keeps the dialog", async () => {

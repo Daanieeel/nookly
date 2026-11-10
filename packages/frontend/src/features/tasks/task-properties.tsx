@@ -230,7 +230,12 @@ export function LabelsPicker({
       }}
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent {...dialogPopover("w-56")} align={align} onKeyDown={stopKeys}>
+      <PopoverContent
+        {...dialogPopover("w-56")}
+        align={align}
+        aria-label="Labels"
+        onKeyDown={stopKeys}
+      >
         <Command loop filter={accentInsensitiveFilter}>
           <CommandInput
             placeholder={onCreate ? "Find or create labels…" : "Add labels…"}

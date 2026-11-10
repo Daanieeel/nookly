@@ -22,7 +22,7 @@ Through the university's own login page, as the Moodle mobile app does, so singl
 
 ## Importing files
 
-Import opens a dialog first (`MoodleImport.tsx`): the name (the item's name with the file's extension, or the file's own), Labels (the course and the section are suggested, the course one picked, and a Label the Space already has by that name is reused) and the Course of Nookly with the same name, if any. Everything is applied by one command, `import_file_with_details`, so it lands whole or not at all.
+Import opens a dialog first (`MoodleImport.tsx`): the name (the item's name with the file's extension, or the file's own), Labels (one field showing what will be applied, opening the searchable label picker; the course and the section are suggested under it, the course one picked, and a Label the Space already has by that name is reused; new Labels are only created when the import succeeds) and the Course of Nookly with the same name, if any, picked from the same searchable list as when relating items. Everything is applied by one command, `import_file_with_details`, so it lands whole or not at all.
 
 The File keeps its `origin` (`moodle:<address of the file on the site>`), which is how the module knows it was imported: such a file shows Show in Nookly instead of Import. A File in the trash counts as not imported. Files imported before `origin` existed have none and still offer the import.
 

@@ -1,12 +1,22 @@
 {
   "versions": [
     {
-      "version": "0.72.4",
+      "version": "0.72.5",
       "date": "2026-11-10",
       "highlights": [],
       "more": {
         "Fixed": [
           "Dragging on the preview of a math block, equation, diagram, circuit or plot no longer picks up the whole block or drags its text. Mind map blocks still let you drag their ideas."
+        ]
+      }
+    },
+    {
+      "version": "0.72.4",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The import dialog for Moodle files is calmer and easier to use with a keyboard or screen reader, with searchable lists for labels and courses instead of a wall of chips."
         ]
       }
     },
