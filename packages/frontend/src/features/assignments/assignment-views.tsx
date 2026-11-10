@@ -191,7 +191,7 @@ export function AssignmentRow({
   const done = isDone(assignment);
   return (
     <div
-      className="relative flex h-11 items-center gap-3 border-b border-border/60 px-4 transition-colors focus-within:bg-accent/50 hover:bg-accent/40"
+      className="skip-offscreen relative flex h-11 items-center gap-3 border-b border-border/60 px-4 transition-colors focus-within:bg-accent/50 hover:bg-accent/40"
       {...entityTarget(assignment.entity, assignment)}
     >
       <button

@@ -100,7 +100,7 @@ export function TaskRow({
   return (
     <div
       className={cn(
-        "relative flex h-11 items-center gap-2 border-b border-border/60 px-4 transition-colors duration-700 focus-within:bg-accent/50 hover:bg-accent/40",
+        "skip-offscreen relative flex h-11 items-center gap-2 border-b border-border/60 px-4 transition-colors duration-700 focus-within:bg-accent/50 hover:bg-accent/40",
         highlighted && "bg-positive/10",
       )}
       {...entityTarget(task.entity)}
