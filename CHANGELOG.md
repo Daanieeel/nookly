@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.72.1 (2026-11-10)
+
+### Fixed
+
+- Fixed the Quick assignment shortcut and the Settings shortcut doing nothing until the dialog had been opened another way first.
+
 ## 0.72.0 (2026-11-09)
 
 ### Added

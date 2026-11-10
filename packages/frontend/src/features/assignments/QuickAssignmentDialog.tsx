@@ -1,6 +1,5 @@
 import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { findCurrentSession } from "#/features/sessions/next-session.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { listRelationships } from "#/lib/api/relationships.ts";
@@ -34,7 +33,7 @@ async function findRunningSession(queryClient: QueryClient): Promise<RunningSess
   return { session: current.entity, course };
 }
 
-/// The New assignment dialog from anywhere (`quickAssignment`). During a session it starts in
+/// The New assignment dialog from anywhere (`quickAssignment`, registered in `useOverlayHotkeys`). During a session it starts in
 /// that session's Course and links the assignment to the session; otherwise it opens as the
 /// Assignments page does. The new assignment opens in a background tab, so the user stays put. Mounted once at the app root.
 export function QuickAssignmentDialog() {
@@ -45,8 +44,6 @@ export function QuickAssignmentDialog() {
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   // `undefined` until the lookup for this opening is done, so the Course never flickers in.
   const [running, setRunning] = useState<RunningSession | null | undefined>();
-
-  useAppHotkey("quickAssignment", () => setOpen(true));
 
   useEffect(() => {
     if (!open) {

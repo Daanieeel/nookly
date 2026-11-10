@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "0.72.1",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Fixed the Quick assignment and Settings shortcuts doing nothing until the dialog had been opened another way first."
+        ]
+      }
+    },
+    {
       "version": "0.72.0",
       "date": "2026-11-09",
       "highlights": [],
