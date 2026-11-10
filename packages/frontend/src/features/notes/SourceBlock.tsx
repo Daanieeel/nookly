@@ -107,6 +107,16 @@ function useIsDark(): boolean {
   return dark;
 }
 
+/// Stops the browser from picking the block up when a drag starts anywhere but in its code.
+/// Pressing a selected block makes the editor mark it draggable, so dragging a preview, the
+/// header or a drawing would otherwise carry the whole block off (and swallow the pointer
+/// moves a preview handles itself, such as dragging a mind map node). Text in the code can
+/// still be dragged like in any code block.
+function cancelDragOutsideCode(event: Event) {
+  if (event.target instanceof Element && event.target.closest(".code-block-body")) return;
+  event.preventDefault();
+}
+
 /// A code block that can also show what its code draws: LaTeX as a formula,
 /// Mermaid as a diagram. The `view` attr (`source` / `rendered`) picks the side;
 /// the code stays in the document either way, so switching loses nothing.
@@ -133,6 +143,13 @@ function SourceBlockView({
   // The formulas are drawn again when the user's LaTeX commands change.
   const [macros] = useSetting("notes.latexMacros");
   const previewRef = useRef<HTMLDivElement>(null);
+  // Added by hand: the wrapper takes its `onDragStart` from the editor and ignores ours.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    wrapper?.addEventListener("dragstart", cancelDragOutsideCode);
+    return () => wrapper?.removeEventListener("dragstart", cancelDragOutsideCode);
+  }, []);
   const [error, setError] = useState<string | null>(null);
   // The options object is a new one on every render of the node view; what is in it is not.
   // Depending on the object would redraw the preview on every selection change, which also
@@ -193,7 +210,7 @@ function SourceBlockView({
   };
 
   return (
-    <NodeViewWrapper className="source-block my-1" data-view={view}>
+    <NodeViewWrapper ref={wrapperRef} className="source-block my-1" data-view={view}>
       <div className="code-block-header" contentEditable={false}>
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <Icon className="size-3.5 shrink-0" />

@@ -512,3 +512,50 @@ describe("where a mind map keeps what was dragged", () => {
     expect(document.querySelector("[data-node]")).toBe(drawn);
   });
 });
+
+describe("dragging inside a source block", () => {
+  const found = (selector: string) => {
+    const element = document.querySelector(selector);
+    if (!element) throw new Error(`${selector} is not on the page`);
+    return element;
+  };
+  const dragStart = (target: Element) => {
+    const event = new Event("dragstart", { bubbles: true, cancelable: true });
+    act(() => {
+      target.dispatchEvent(event);
+    });
+    return event;
+  };
+
+  it("does not pick the block up when its preview is dragged", async () => {
+    await open({
+      type: "math",
+      attrs: { blockId: "m1", view: "rendered" },
+      content: [{ type: "text", text: "x^2" }],
+    });
+    const preview = await waitFor(() => {
+      const found = document.querySelector(".source-block-preview > div");
+      if (!found?.querySelector(".katex")) throw new Error("not drawn yet");
+      return found;
+    });
+    expect(dragStart(preview.querySelector(".katex") ?? preview).defaultPrevented).toBe(true);
+  });
+
+  it("does not pick the block up when its header is dragged", async () => {
+    await open({
+      type: "equation",
+      attrs: { blockId: "e1", view: "rendered" },
+      content: [{ type: "text", text: "x" }],
+    });
+    expect(dragStart(found(".code-block-header")).defaultPrevented).toBe(true);
+  });
+
+  it("leaves a drag of the selected code alone", async () => {
+    await open({
+      type: "math",
+      attrs: { blockId: "m1" },
+      content: [{ type: "text", text: "x^2" }],
+    });
+    expect(dragStart(found(".code-block-body")).defaultPrevented).toBe(false);
+  });
+});
