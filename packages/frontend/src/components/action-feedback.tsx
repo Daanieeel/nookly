@@ -79,13 +79,14 @@ export function statusTextClass(status: ActionStatus): string | undefined {
   return undefined;
 }
 
-/// Always mounted so screen readers announce each change of `message`.
+/// Announces `message` to screen readers while there is one, and renders nothing otherwise.
+/// An idle live region is never mounted: Radix hides everything outside an open dialog by
+/// walking around every `[aria-live]` element on the page, so one per list row made each
+/// dialog open and close write thousands of attributes. `<output>` is a polite live
+/// region, and one inserted together with its text is announced.
 export function StatusAnnouncer({ message }: { message: string | null }) {
-  return (
-    <span className="sr-only" aria-live="polite">
-      {message ?? ""}
-    </span>
-  );
+  if (!message) return null;
+  return <output className="sr-only">{message}</output>;
 }
 
 /// Closes a dialog or menu as soon as `mutation` succeeds; the close itself is the

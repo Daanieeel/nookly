@@ -1,12 +1,32 @@
 {
   "versions": [
     {
-      "version": "0.72.1",
+      "version": "0.72.3",
       "date": "2026-11-10",
       "highlights": [],
       "more": {
         "Fixed": [
           "Dragging on the preview of a math block, equation, diagram, circuit or plot no longer picks up the whole block or drags its text. Mind map blocks still let you drag their ideas."
+        ]
+      }
+    },
+    {
+      "version": "0.72.2",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Search and Quick open now show the ID of every result, like NOT-94, next to its title."
+        ]
+      }
+    },
+    {
+      "version": "0.72.1",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Opening and closing the New task dialog, and other dialogs, is no longer slow on a long list of tasks or assignments."
         ]
       }
     },

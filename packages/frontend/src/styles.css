@@ -1096,3 +1096,13 @@
 @utility backdrop-blur-step-4 {
   backdrop-filter: blur(1.6px);
 }
+
+/* For a row of a long, unvirtualized list that is exactly `h-11` tall: the browser leaves it
+   unrendered (no style, layout or paint) while it is scrolled out of view. A modal dialog
+   changes `pointer-events` on the body, which every element inherits, so each open and close
+   restyles the whole page; with thousands of rows that took over a second. `auto` in the
+   intrinsic size keeps the scrollbar steady by remembering a row's real height once seen. */
+@utility skip-offscreen {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.75rem;
+}

@@ -2,11 +2,23 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.72.1 (2026-11-10)
+## 0.72.3 (2026-11-10)
 
 ### Fixed
 
 - Dragging on the preview of a math block, equation, diagram, circuit or plot no longer picks up the whole block or drags its text. Mind map blocks still let you drag their ideas.
+
+## 0.72.2 (2026-11-10)
+
+### Changed
+
+- Search and Quick open now show the ID of every result, like NOT-94, next to its title, including recent items.
+
+## 0.72.1 (2026-11-10)
+
+### Fixed
+
+- Opening and closing the New task dialog, and other dialogs, is no longer slow on a long list of tasks or assignments.
 
 ## 0.72.0 (2026-11-09)
 
