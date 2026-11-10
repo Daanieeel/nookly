@@ -1,6 +1,24 @@
 {
   "versions": [
     {
+      "version": "0.75.0",
+      "date": "2026-11-10",
+      "highlights": [
+        {
+          "title": "Pictures travel with your exports",
+          "description": "Exporting a note, jot, task or assignment as a Nookly file now includes its images, videos, sounds and files, so they appear when you import it elsewhere.",
+          "icon": "file-export",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Nookly files can now be up to 100 MB to import.",
+          "Saving a Nookly file tells you if a file could not be included because it is missing."
+        ]
+      }
+    },
+    {
       "version": "0.74.0",
       "date": "2026-11-10",
       "highlights": [

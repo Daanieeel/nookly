@@ -20,18 +20,16 @@
 
 use crate::db::decks::{self, Face};
 use crate::db::entities::Entity;
-use crate::db::page_json::{export_attrs, export_json_block, BlockJson};
+use crate::db::page_json::BlockJson;
 use crate::db::portable::{
-    first_line, parse_document_versions, Importer, PortableDef, PortablePreview, PreviewItem,
-    MAX_DECK_IMPORT_BYTES,
+    first_line, parse_document_versions, Exported, Importer, PortableDef, PortablePreview,
+    PreviewItem,
 };
+use crate::db::portable_files::{self, Embedded, FileFile, Stored};
 use crate::error::{AppError, AppResult};
-use base64::Engine as _;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::path::Path;
 
 pub const FORMAT: &str = "nookly-deck";
 pub const VERSION: u32 = 2;
@@ -67,84 +65,15 @@ struct CardFile {
     back_blocks: Option<Vec<BlockJson>>,
 }
 
-/// One image inside the file, named by `id` in the image blocks that show it.
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields)]
-struct FileFile {
-    id: String,
-    name: String,
-    /// The bytes of the file, base64.
-    data: String,
-}
-
-/// `[name](mention:<file>)`: the whole content of an image block that shows a File.
-static FILE_MENTION: LazyLock<regex::Regex> =
-    LazyLock::new(|| crate::error::literal_regex(r"^\[([^\]]*)\]\(mention:([a-zA-Z0-9-]+)\)$"));
-
-/// The Files a deck's images show, collected while exporting.
-#[derive(Default)]
-struct Embedded {
-    /// File id to its key in the export, `None` for one that cannot travel.
-    keys: HashMap<String, Option<String>>,
-    files: Vec<FileFile>,
-}
-
-impl Embedded {
-    /// The key of the File `id` in the export, adding its bytes the first time. `None` when
-    /// it is not a File of Nookly or its bytes cannot be read.
-    fn embed(&mut self, conn: &Connection, id: &str) -> Option<String> {
-        if let Some(known) = self.keys.get(id) {
-            return known.clone();
-        }
-        let key = self.read(conn, id).map(|(name, bytes)| {
-            let key = format!("file{}", self.files.len() + 1);
-            self.files.push(FileFile {
-                id: key.clone(),
-                name,
-                data: base64::engine::general_purpose::STANDARD.encode(bytes),
-            });
-            key
-        });
-        self.keys.insert(id.to_string(), key.clone());
-        key
-    }
-
-    fn read(&self, conn: &Connection, id: &str) -> Option<(String, Vec<u8>)> {
-        let file = crate::db::files::get_file(conn, id).ok()?;
-        let path = file.local_path.or(file.source_path)?;
-        let bytes = std::fs::read(path).ok()?;
-        let name = file
-            .original_filename
-            .as_deref()
-            .and_then(crate::db::files::sanitize)
-            .or_else(|| crate::db::files::sanitize(&file.entity.title))
-            .unwrap_or_else(|| "image".into());
-        Some((name, bytes))
-    }
-}
-
-/// One block of a card as it travels: an image of a File becomes an image of the file inside
-/// the export, everything else is exported like a page block.
-fn export_block(conn: &Connection, block: &BlockJson, embedded: &mut Embedded) -> BlockJson {
-    if block.block_type == "image" {
-        if let Some(caps) = FILE_MENTION.captures(block.content.trim()) {
-            if let Some(key) = embedded.embed(conn, &caps[2]) {
-                return BlockJson {
-                    block_type: "image".into(),
-                    content: format!("[{}](mention:{key})", &caps[1]),
-                    language: None,
-                    filename: None,
-                    attrs: export_attrs(&block.attrs),
-                };
-            }
-        }
-    }
-    export_json_block(block)
-}
-
 /// The Deck as a `nookly-deck` JSON document: its cards in order, without the ones in the
 /// trash.
+#[cfg(test)]
 pub fn export_deck_json(conn: &Connection, entity_id: &str) -> AppResult<String> {
+    Ok(export_deck(conn, entity_id)?.json)
+}
+
+/// `export_deck_json` that also says which images could not go in the file.
+pub fn export_deck(conn: &Connection, entity_id: &str) -> AppResult<Exported> {
     let entity = crate::db::entities::get_entity(conn, entity_id)?;
     if entity.entity_type != "index_card_deck" {
         return Err(AppError::InvalidInput(format!(
@@ -154,46 +83,33 @@ pub fn export_deck_json(conn: &Connection, entity_id: &str) -> AppResult<String>
     }
     let mut embedded = Embedded::default();
     let mut side = |text: String, blocks: Option<Vec<BlockJson>>| match blocks {
-        Some(blocks) => (
-            None,
-            Some(
-                blocks
-                    .iter()
-                    .map(|b| export_block(conn, b, &mut embedded))
-                    .collect(),
-            ),
-        ),
-        None => (Some(text), None),
+        Some(blocks) => blocks
+            .iter()
+            .map(|b| embedded.json_block(conn, b))
+            .collect::<AppResult<Vec<_>>>()
+            .map(|blocks| (None, Some(blocks))),
+        None => Ok((Some(text), None)),
     };
-    let cards = decks::list_cards(conn, entity_id, false)?
-        .into_iter()
-        .map(|c| {
-            let (front, front_blocks) = side(c.front, c.front_blocks);
-            let (back, back_blocks) = side(c.back, c.back_blocks);
-            CardFile {
-                front,
-                back,
-                front_blocks,
-                back_blocks,
-            }
-        })
-        .collect();
+    let mut cards = Vec::new();
+    for c in decks::list_cards(conn, entity_id, false)? {
+        let (front, front_blocks) = side(c.front, c.front_blocks)?;
+        let (back, back_blocks) = side(c.back, c.back_blocks)?;
+        cards.push(CardFile {
+            front,
+            back,
+            front_blocks,
+            back_blocks,
+        });
+    }
     let file = DeckFile {
         format: FORMAT.into(),
         version: VERSION,
         kind: "deck".into(),
         title: entity.title,
         cards,
-        files: embedded.files,
+        files: embedded.take_files(),
     };
-    let json = serde_json::to_string_pretty(&file).map_err(|e| AppError::Io(e.to_string()))?;
-    if json.len() as u64 > MAX_DECK_IMPORT_BYTES {
-        return Err(AppError::InvalidInput(format!(
-            "this deck with its images is over {} MB, more than Nookly can import again",
-            MAX_DECK_IMPORT_BYTES / (1024 * 1024)
-        )));
-    }
-    Ok(json)
+    embedded.finish("deck", &file)
 }
 
 /// The side of card `number` as a face, from its text or its blocks.
@@ -246,26 +162,14 @@ fn parse(text: &str) -> AppResult<DeckFile> {
         )?;
         face_of(number, "back", card.back.clone(), card.back_blocks.clone())?;
     }
-    if file.version == 1 && !file.files.is_empty() {
-        return Err(AppError::InvalidInput(
-            "this deck file is not valid (a version 1 file cannot hold files)".into(),
-        ));
-    }
+    portable_files::check_version("deck", file.version, &file.files)?;
     Ok(file)
-}
-
-/// Where imported images are stored: the app's own files folder, the same one the app and
-/// the CLI import into.
-fn files_dir() -> AppResult<PathBuf> {
-    Ok(crate::db::standalone_app_data_dir()
-        .map_err(|e| AppError::Db(e.to_string()))?
-        .join("files"))
 }
 
 /// Creates a new Deck, with its cards as new cards, in `space_id` from a `nookly-deck`
 /// document. Images are stored in the app's files folder.
 pub fn import_deck_json(conn: &Connection, space_id: &str, text: &str) -> AppResult<Entity> {
-    import_deck_json_into(conn, &files_dir()?, space_id, text)
+    import_deck_json_into(conn, &portable_files::files_dir()?, space_id, text)
 }
 
 /// `import_deck_json` with the folder the images are stored in. If anything fails, the
@@ -277,74 +181,37 @@ pub fn import_deck_json_into(
     text: &str,
 ) -> AppResult<Entity> {
     let file = parse(text)?;
-    let mut written: Vec<String> = Vec::new();
-    let result = crate::db::atomically(conn, || {
-        let stored = store_images(conn, files_dir, space_id, &file, &mut written)?;
-        let deck = decks::create_deck(conn, space_id.to_string(), file.title.clone(), None)?;
-        for (index, card) in file.cards.iter().enumerate() {
-            let number = index + 1;
-            let front = imported_face(number, "front", &card.front, &card.front_blocks, &stored)?;
-            let back = imported_face(number, "back", &card.back, &card.back_blocks, &stored)?;
-            decks::create_card(conn, deck.id.clone(), front, back)?;
-        }
-        crate::db::entities::get_entity(conn, &deck.id)
-    });
-    if result.is_err() {
-        for path in written {
-            let _ = std::fs::remove_file(path);
-        }
-    }
-    result
-}
-
-/// The new File (its id and name) for each image of the file that a block shows, by its key.
-fn store_images(
-    conn: &Connection,
-    files_dir: &Path,
-    space_id: &str,
-    file: &DeckFile,
-    written: &mut Vec<String>,
-) -> AppResult<HashMap<String, (String, String)>> {
-    let used = used_keys(file);
-    let mut stored = HashMap::new();
-    for image in file.files.iter().filter(|f| used.contains(f.id.as_str())) {
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(image.data.trim())
-            .map_err(|_| {
-                AppError::InvalidInput(format!(
-                    "this deck file is not valid (the data of {} is not base64)",
-                    image.name
-                ))
-            })?;
-        let name = crate::db::files::sanitize(&image.name).unwrap_or_else(|| "image".into());
-        let created = crate::db::files::store_file(
-            conn,
-            files_dir,
-            space_id.to_string(),
-            &name,
-            &bytes,
-            None,
-        )?;
-        written.extend(created.local_path);
-        stored.insert(image.id.clone(), (created.entity.id, name));
-    }
-    Ok(stored)
+    let used = used_keys(&file);
+    portable_files::import_with_files(
+        conn,
+        files_dir,
+        space_id,
+        "deck",
+        &file.files,
+        &used,
+        |stored| {
+            let deck = decks::create_deck(conn, space_id.to_string(), file.title.clone(), None)?;
+            for (index, card) in file.cards.iter().enumerate() {
+                let number = index + 1;
+                let front =
+                    imported_face(number, "front", &card.front, &card.front_blocks, stored)?;
+                let back = imported_face(number, "back", &card.back, &card.back_blocks, stored)?;
+                decks::create_card(conn, deck.id.clone(), front, back)?;
+            }
+            crate::db::entities::get_entity(conn, &deck.id)
+        },
+    )
 }
 
 /// The keys of the files that an image block of some card shows.
 fn used_keys(file: &DeckFile) -> std::collections::HashSet<String> {
-    file.cards
-        .iter()
-        .flat_map(|c| [&c.front_blocks, &c.back_blocks])
-        .flatten()
-        .flatten()
-        .filter(|b| b.block_type == "image")
-        .filter_map(|b| {
-            FILE_MENTION
-                .captures(b.content.trim())
-                .map(|caps| caps[2].to_string())
-        })
-        .collect()
+    portable_files::used_keys(
+        file.cards
+            .iter()
+            .flat_map(|c| [&c.front_blocks, &c.back_blocks])
+            .flatten()
+            .flatten(),
+    )
 }
 
 /// A side of an imported card: its text, or its blocks with every image pointed at the
@@ -354,28 +221,13 @@ fn imported_face(
     side: &str,
     text: &Option<String>,
     blocks: &Option<Vec<BlockJson>>,
-    stored: &HashMap<String, (String, String)>,
+    stored: &Stored,
 ) -> AppResult<Face> {
     let Some(blocks) = blocks else {
         return face_of(number, side, text.clone(), None);
     };
-    let mut imported = Vec::with_capacity(blocks.len());
-    for block in blocks {
-        let mut block = block.clone();
-        if block.block_type == "image" {
-            if let Some(caps) = FILE_MENTION.captures(block.content.trim()) {
-                let (id, name) = stored.get(&caps[2]).ok_or_else(|| {
-                    AppError::InvalidInput(format!(
-                        "this deck file is not valid (the {side} of card {number} shows a file it does not hold: {})",
-                        &caps[2]
-                    ))
-                })?;
-                block.content = format!("[{name}](mention:{id})");
-            }
-        }
-        imported.push(block);
-    }
-    Ok(Face::Blocks(imported))
+    let whose = format!("the {side} of card {number}");
+    Ok(Face::Blocks(stored.point(blocks, "deck", &whose)?))
 }
 
 /// What a side reads as in the import dialog: its text, or the text of its blocks.
@@ -385,7 +237,7 @@ fn preview_text(text: &Option<String>, blocks: &Option<Vec<BlockJson>>) -> Strin
             .iter()
             .map(|b| {
                 if b.block_type == "image" {
-                    match FILE_MENTION.captures(b.content.trim()) {
+                    match portable_files::FILE_MENTION.captures(b.content.trim()) {
                         Some(caps) if !caps[1].is_empty() => format!("Image: {}", &caps[1]),
                         _ => "Image".to_string(),
                     }
@@ -418,14 +270,7 @@ fn preview(text: &str) -> AppResult<PortablePreview> {
         })
         .collect();
     let mut facts = vec!["Cards arrive as new, with no review history".to_string()];
-    let images = used_keys(&file).len();
-    if images > 0 {
-        facts.push(if images == 1 {
-            "1 image arrives as a new File".into()
-        } else {
-            format!("{images} images arrive as new Files")
-        });
-    }
+    facts.extend(portable_files::files_fact(used_keys(&file).len(), "image"));
     Ok(PortablePreview {
         format: FORMAT.into(),
         kind: "deck".into(),
@@ -440,7 +285,7 @@ fn preview(text: &str) -> AppResult<PortablePreview> {
 }
 
 inventory::submit! {
-    PortableDef { entity_type: "index_card_deck", format: FORMAT, version: VERSION, parent_type: None, noun: "deck", max_bytes: MAX_DECK_IMPORT_BYTES, export: export_deck_json, preview, import: Importer::Plain(import_deck_json) }
+    PortableDef { entity_type: "index_card_deck", format: FORMAT, version: VERSION, parent_type: None, noun: "deck", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_deck, preview, import: Importer::Plain(import_deck_json) }
 }
 
 #[cfg(test)]
@@ -654,6 +499,9 @@ mod tests {
     // --- cards with blocks and images ----------------------------------------------
 
     use crate::db::page_json::BlockJson;
+    use crate::db::portable::MAX_IMPORT_BYTES;
+    use crate::db::portable_files::FILE_MENTION;
+    use base64::Engine as _;
 
     fn block(block_type: &str, content: &str) -> BlockJson {
         BlockJson {
@@ -875,7 +723,8 @@ mod tests {
         let p = preview(&text).unwrap();
         assert_eq!(p.items[0].text, "Image: cell.png");
         assert!(p.facts.iter().any(|f| f.contains("1 image")));
-        // Over the usual 20 MB, under the deck's own limit: read; over that: refused.
+        // A file with its images may be well over what a page of text is: read; over the
+        // limit: refused.
         let big = format!(
             r#"{{"format":"nookly-deck","version":2,"kind":"deck","title":"D","cards":[{{"front":"{}","back":"b"}}]}}"#,
             "x".repeat(21 * 1024 * 1024)
@@ -883,7 +732,7 @@ mod tests {
         assert!(crate::db::portable::preview(&big).is_ok());
         let too_big = format!(
             r#"{{"format":"nookly-deck","version":2,"kind":"deck","title":"D","pad":"{}"}}"#,
-            "x".repeat(MAX_DECK_IMPORT_BYTES as usize)
+            "x".repeat(MAX_IMPORT_BYTES as usize)
         );
         let err = crate::db::portable::preview(&too_big).unwrap_err();
         assert!(err.to_string().contains("100 MB"), "{err}");

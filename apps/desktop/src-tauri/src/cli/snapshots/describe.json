@@ -476,7 +476,7 @@
       "format": "nookly-assignment",
       "import": "nookly cli assignment import --file <path> --space <id> --parent <id>",
       "parentType": "course",
-      "version": 1
+      "version": 2
     },
     "relationshipTypes": [
       "assignment-course",
@@ -2503,7 +2503,7 @@
       "format": "nookly-page",
       "import": "nookly cli jot import --file <path> --space <id>",
       "parentType": null,
-      "version": 1
+      "version": 2
     },
     "relationshipTypes": [
       "course-jots",
@@ -2912,7 +2912,7 @@
       "format": "nookly-page",
       "import": "nookly cli note import --file <path> --space <id>",
       "parentType": null,
-      "version": 1
+      "version": 2
     },
     "relationshipTypes": [
       "attached-file",
@@ -4352,7 +4352,7 @@
       "format": "nookly-task",
       "import": "nookly cli task import --file <path> --space <id>",
       "parentType": null,
-      "version": 1
+      "version": 2
     },
     "relationshipTypes": [
       "blocks",

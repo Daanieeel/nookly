@@ -1,26 +1,36 @@
-//! Export and import of one Note or Jot as a Nookly JSON file (`nookly-page`, version 1).
+//! Export and import of one Note or Jot as a Nookly JSON file (`nookly-page`, version 2).
 //!
 //! The file holds the page's blocks with all their settings, so every block type ports
 //! natively and does not pass through standard markdown. What belongs to one Nookly
 //! instance does not travel: ids, timestamps, labels, relationships, the icon and the
-//! Space. Mentions of other entities become plain text, and a block that points at a
-//! File or another entity (images, files, bookmarks, entity cards) becomes a paragraph
-//! with that item's name, since the file or entity does not exist for the reader.
+//! Space. Mentions of other entities become plain text, and a block that points at another
+//! entity (bookmarks, entity cards) becomes a paragraph with that item's name, since the
+//! entity does not exist for the reader. A block that shows a File (an image, a video, a
+//! sound or a file) takes the File along, base64 encoded inside the file (see
+//! `portable_files`); one whose File cannot be read becomes a paragraph with its name.
+//! Version 1 files, without files, still import.
 //!
-//! Import always creates a new page, never changes an existing one, and either lands
-//! whole or not at all.
+//! Import always creates a new page, and the Files as new Files in the same Space, never
+//! changes an existing one, and either lands whole or not at all.
 
 use crate::db::block_types::{self, BlockAttrs};
 use crate::db::entities::Entity;
 use crate::db::notes::{self, Block};
-use crate::db::portable::{first_line, Importer, PortableDef, PortablePreview, PreviewItem};
+use crate::db::portable::{
+    first_line, parse_document_versions, Exported, Importer, PortableDef, PortablePreview,
+    PreviewItem,
+};
+use crate::db::portable_files::{self, Embedded, FileFile};
 use crate::error::{AppError, AppResult};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::sync::LazyLock;
 
 pub const FORMAT: &str = "nookly-page";
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
+/// Versions this reads, newest last.
+const READS: &[u32] = &[1, 2];
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct PageJson {
@@ -30,6 +40,9 @@ pub struct PageJson {
     pub kind: String,
     pub title: String,
     pub blocks: Vec<BlockJson>,
+    /// The Files the blocks show. Version 2 on.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<FileFile>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -54,9 +67,7 @@ pub(crate) fn strip_mentions(text: &str) -> String {
     MENTION.replace_all(text, "$1").into_owned()
 }
 
-/// Block types whose whole content is a mention of a File: shared nowhere but on this
-/// instance.
-const FILE_BLOCKS: &[&str] = &["image", "video", "audio", "file"];
+use crate::db::portable_files::FILE_BLOCKS;
 /// Block types whose whole content is a mention of another entity.
 const ENTITY_BLOCKS: &[&str] = &["entity_card", "bookmark"];
 
@@ -73,7 +84,7 @@ fn paragraph(content: String) -> BlockJson {
 /// One block as it travels. Anything that would only make sense on this instance is
 /// turned into text or dropped, whatever the block type: a block type added later is
 /// covered too, because mentions are stripped from its content and every attr.
-fn export_block(block: &Block) -> BlockJson {
+pub(crate) fn export_block(block: &Block) -> BlockJson {
     let references_instance = FILE_BLOCKS.contains(&block.block_type.as_str())
         || ENTITY_BLOCKS.contains(&block.block_type.as_str());
     if references_instance {
@@ -106,11 +117,6 @@ pub(crate) fn export_attrs(attrs: &BlockAttrs) -> BlockAttrs {
         .collect()
 }
 
-/// A block stored outside a page (on a flashcard) as it travels.
-pub(crate) fn export_json_block(block: &BlockJson) -> BlockJson {
-    export_block(&block_from_json(block))
-}
-
 /// A block of a flashcard as the page block the shared writers read.
 pub(crate) fn block_from_json(block: &BlockJson) -> Block {
     Block {
@@ -127,16 +133,14 @@ pub(crate) fn block_from_json(block: &BlockJson) -> Block {
     }
 }
 
-/// The blocks of any page-like entity (a note, a task, an assignment) as they travel.
-pub fn export_blocks(conn: &Connection, entity_id: &str) -> AppResult<Vec<BlockJson>> {
-    Ok(notes::list_blocks(conn, entity_id)?
-        .iter()
-        .map(export_block)
-        .collect())
+/// The page as a `nookly-page` JSON document.
+#[cfg(test)]
+pub fn export_page_json(conn: &Connection, entity_id: &str) -> AppResult<String> {
+    Ok(export_page(conn, entity_id)?.json)
 }
 
-/// The page as a `nookly-page` JSON document.
-pub fn export_page_json(conn: &Connection, entity_id: &str) -> AppResult<String> {
+/// The page as a `nookly-page` JSON document, and the Files that could not go in it.
+pub fn export_page(conn: &Connection, entity_id: &str) -> AppResult<Exported> {
     let entity = crate::db::entities::get_entity(conn, entity_id)?;
     if !matches!(entity.entity_type.as_str(), "note" | "jot") {
         return Err(AppError::InvalidInput(format!(
@@ -144,53 +148,65 @@ pub fn export_page_json(conn: &Connection, entity_id: &str) -> AppResult<String>
             entity.entity_type
         )));
     }
+    let mut embedded = Embedded::default();
+    let blocks = embedded.blocks(conn, entity_id)?;
     let page = PageJson {
         format: FORMAT.into(),
         version: VERSION,
         kind: entity.entity_type,
         title: entity.title,
-        blocks: export_blocks(conn, entity_id)?,
+        blocks,
+        files: embedded.take_files(),
     };
-    serde_json::to_string_pretty(&page).map_err(|e| AppError::Io(e.to_string()))
+    embedded.finish("page", &page)
 }
 
 /// Reads and checks a document without touching the database.
 fn parse(text: &str) -> AppResult<PageJson> {
-    crate::db::portable::check_size(text)?;
-    let page: PageJson = serde_json::from_str(text)
-        .map_err(|e| AppError::InvalidInput(format!("this is not a Nookly page file ({e})")))?;
-    if page.format != FORMAT {
-        return Err(AppError::InvalidInput(format!(
-            "this is not a Nookly page file (format \"{}\")",
-            page.format
-        )));
-    }
-    if page.version != VERSION {
-        return Err(AppError::InvalidInput(format!(
-            "this page file is version {}, and this version of Nookly reads version {VERSION}",
-            page.version
-        )));
-    }
+    let page: PageJson = parse_document_versions(text, FORMAT, READS, "page")?;
     if !matches!(page.kind.as_str(), "note" | "jot") {
         return Err(AppError::InvalidInput(format!(
             "this page file holds a \"{}\", not a note or a jot",
             page.kind
         )));
     }
+    portable_files::check_version("page", page.version, &page.files)?;
     Ok(page)
 }
 
 /// Creates a new page in `space_id` from a `nookly-page` document. A block type this
 /// version does not know becomes a paragraph, so its text survives. A block that does
 /// not pass the usual checks for its type fails the whole import: nothing is created.
+/// Files are stored in the app's files folder.
 pub fn import_page_json(conn: &Connection, space_id: &str, text: &str) -> AppResult<Entity> {
+    import_page_json_into(conn, &portable_files::files_dir()?, space_id, text)
+}
+
+/// `import_page_json` with the folder the Files are stored in. If anything fails, the
+/// files already written are removed again.
+pub fn import_page_json_into(
+    conn: &Connection,
+    files_dir: &Path,
+    space_id: &str,
+    text: &str,
+) -> AppResult<Entity> {
     let page = parse(text)?;
-    crate::db::atomically(conn, || {
-        let entity =
-            notes::create_page(conn, space_id.to_string(), &page.kind, page.title.clone())?;
-        import_blocks(conn, &entity.id, &page.blocks)?;
-        crate::db::entities::get_entity(conn, &entity.id)
-    })
+    let used = portable_files::used_keys(&page.blocks);
+    portable_files::import_with_files(
+        conn,
+        files_dir,
+        space_id,
+        "page",
+        &page.files,
+        &used,
+        |stored| {
+            let blocks = stored.point(&page.blocks, "page", "a block")?;
+            let entity =
+                notes::create_page(conn, space_id.to_string(), &page.kind, page.title.clone())?;
+            import_blocks(conn, &entity.id, &blocks)?;
+            crate::db::entities::get_entity(conn, &entity.id)
+        },
+    )
 }
 
 /// Adds blocks to an entity that was just created. A block type this version does not
@@ -247,11 +263,14 @@ pub fn preview_blocks(blocks: &[BlockJson]) -> (Vec<PreviewItem>, usize) {
 fn portable_preview(text: &str) -> AppResult<PortablePreview> {
     let page = parse(text)?;
     let (items, converted) = preview_blocks(&page.blocks);
+    let facts = portable_files::files_fact(portable_files::used_keys(&page.blocks).len(), "file")
+        .into_iter()
+        .collect();
     Ok(PortablePreview {
         format: FORMAT.into(),
         kind: page.kind,
         title: page.title,
-        facts: Vec::new(),
+        facts,
         count: items.len(),
         count_label: "block".into(),
         items,
@@ -261,10 +280,10 @@ fn portable_preview(text: &str) -> AppResult<PortablePreview> {
 }
 
 inventory::submit! {
-    PortableDef { entity_type: "note", format: FORMAT, version: VERSION, parent_type: None, noun: "page", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_page_json, preview: portable_preview, import: Importer::Plain(import_page_json) }
+    PortableDef { entity_type: "note", format: FORMAT, version: VERSION, parent_type: None, noun: "page", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_page, preview: portable_preview, import: Importer::Plain(import_page_json) }
 }
 inventory::submit! {
-    PortableDef { entity_type: "jot", format: FORMAT, version: VERSION, parent_type: None, noun: "page", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_page_json, preview: portable_preview, import: Importer::Plain(import_page_json) }
+    PortableDef { entity_type: "jot", format: FORMAT, version: VERSION, parent_type: None, noun: "page", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_page, preview: portable_preview, import: Importer::Plain(import_page_json) }
 }
 
 /// The standard block types and every registered custom one.
@@ -292,6 +311,8 @@ mod tests {
     use crate::db::notes::{create_block_with_attrs, list_blocks};
     use crate::db::portable::MAX_IMPORT_BYTES;
     use crate::db::{fixture, Fixture};
+    use base64::Engine as _;
+    use std::path::Path;
 
     fn add(fx: &Fixture, page: &str, block_type: &str, content: &str, attrs: &[(&str, &str)]) {
         create_block_with_attrs(
@@ -417,7 +438,7 @@ mod tests {
             value,
             serde_json::json!({
                 "format": "nookly-page",
-                "version": 1,
+                "version": 2,
                 "kind": "note",
                 "title": "T",
                 "blocks": [
@@ -439,6 +460,8 @@ mod tests {
             None,
         )
         .unwrap();
+        // Its bytes are gone, so it cannot travel.
+        std::fs::remove_file(file.local_path.as_ref().unwrap()).unwrap();
         let other =
             notes::create_page(&fx.conn, fx.space.clone(), "note", "Elsewhere".into()).unwrap();
         let page = notes::create_page(&fx.conn, fx.space.clone(), "note", "P".into()).unwrap();
@@ -476,7 +499,10 @@ mod tests {
         );
         add(&fx, &page.id, "embed", "https://example.com/video", &[]);
 
-        let json = export_page_json(&fx.conn, &page.id).unwrap();
+        let exported = export_page(&fx.conn, &page.id).unwrap();
+        // The export says which Files it had to leave as text, once each.
+        assert_eq!(exported.left_as_text, vec!["slides.pdf".to_string()]);
+        let json = exported.json;
         assert!(!json.contains("mention:"), "{json}");
         let imported = import_page_json(&fx.conn, &fx.other_space, &json).unwrap();
         let blocks = shape(&fx.conn, &imported.id);
@@ -624,7 +650,7 @@ mod tests {
         };
         let bad = [
             good(serde_json::json!({ "format": "something-else" })),
-            good(serde_json::json!({ "version": 2 })),
+            good(serde_json::json!({ "version": 3 })),
             good(serde_json::json!({ "kind": "task" })),
             "{ broken".to_string(),
             String::new(),
@@ -758,5 +784,176 @@ mod tests {
         );
         assert!(portable_preview("{ nope").is_err());
         assert!(portable_preview(r#"{"format":"x"}"#).is_err());
+    }
+
+    fn scratch() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("nookly-page-json-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn stored(fx: &Fixture, dir: &Path, name: &str, bytes: &[u8]) -> crate::db::files::FileEntity {
+        crate::db::files::store_file(&fx.conn, dir, fx.space.clone(), name, bytes, None).unwrap()
+    }
+
+    fn mention(file: &crate::db::files::FileEntity) -> String {
+        format!("[{}](mention:{})", file.entity.title, file.entity.id)
+    }
+
+    fn file_count(conn: &Connection) -> i64 {
+        conn.query_row("SELECT COUNT(*) FROM files", [], |r| r.get(0))
+            .unwrap()
+    }
+
+    #[test]
+    fn files_travel_inside_the_page_once_each_and_come_back_as_new_files() {
+        let fx = fixture();
+        let dir = scratch();
+        let cell = stored(&fx, &dir, "cell.png", b"png bytes");
+        let clip = stored(&fx, &dir, "clip.mp4", b"video bytes");
+        let page =
+            notes::create_page(&fx.conn, fx.space.clone(), "note", "Biology".into()).unwrap();
+        let p = &page.id;
+        add(&fx, p, "image", &mention(&cell), &[("caption", "A cell")]);
+        add(&fx, p, "paragraph", "In between", &[]);
+        add(&fx, p, "image", &mention(&cell), &[]);
+        add(&fx, p, "video", &mention(&clip), &[]);
+        add(&fx, p, "file", &mention(&cell), &[]);
+
+        let exported = export_page(&fx.conn, p).unwrap();
+        assert!(exported.left_as_text.is_empty());
+        let value: serde_json::Value = serde_json::from_str(&exported.json).unwrap();
+        assert_eq!(value["version"], 2);
+        let files = value["files"].as_array().unwrap();
+        assert_eq!(files.len(), 2, "once per File");
+        assert_eq!(files[0]["name"], "cell.png");
+        assert_eq!(files[1]["name"], "clip.mp4");
+        for private in [cell.entity.id.as_str(), clip.entity.id.as_str()] {
+            assert!(!exported.json.contains(private), "{private} leaked");
+        }
+
+        let target = scratch();
+        let before = file_count(&fx.conn);
+        let imported =
+            import_page_json_into(&fx.conn, &target, &fx.other_space, &exported.json).unwrap();
+        assert_eq!(file_count(&fx.conn), before + 2);
+        let blocks = list_blocks(&fx.conn, &imported.id).unwrap();
+        let new_file = |block: &Block| {
+            let caps = portable_files::FILE_MENTION
+                .captures(&block.content)
+                .unwrap_or_else(|| panic!("{} is not a file mention", block.content));
+            crate::db::files::get_file(&fx.conn, &caps[2]).unwrap()
+        };
+        let first = new_file(&blocks[0]);
+        assert_eq!(blocks[0].block_type, "image");
+        assert_eq!(
+            blocks[0].attrs.get("caption").map(String::as_str),
+            Some("A cell")
+        );
+        assert_ne!(first.entity.id, cell.entity.id);
+        assert_eq!(first.entity.space_id, fx.other_space);
+        assert_eq!(
+            std::fs::read(first.local_path.unwrap()).unwrap(),
+            b"png bytes"
+        );
+        // Every block that showed the same File shows the same new File.
+        assert_eq!(new_file(&blocks[2]).entity.id, first.entity.id);
+        assert_eq!(new_file(&blocks[4]).entity.id, first.entity.id);
+        let video = new_file(&blocks[3]);
+        assert_eq!(blocks[3].block_type, "video");
+        assert_eq!(
+            std::fs::read(video.local_path.unwrap()).unwrap(),
+            b"video bytes"
+        );
+        // The original still shows its own File.
+        assert!(list_blocks(&fx.conn, p).unwrap()[0]
+            .content
+            .contains(&cell.entity.id));
+    }
+
+    #[test]
+    fn a_version_1_page_still_imports_and_cannot_hold_files() {
+        let fx = fixture();
+        let v1 = r#"{"format":"nookly-page","version":1,"kind":"note","title":"Old","blocks":[{"type":"paragraph","content":"hi"}]}"#;
+        let imported = import_page_json(&fx.conn, &fx.space, v1).unwrap();
+        assert_eq!(shape(&fx.conn, &imported.id)[0].1, "hi");
+        assert_eq!(portable_preview(v1).unwrap().count, 1);
+        let with_files = r#"{"format":"nookly-page","version":1,"kind":"note","title":"Old","blocks":[],"files":[{"id":"f","name":"n","data":""}]}"#;
+        let err = import_page_json(&fx.conn, &fx.space, with_files).unwrap_err();
+        assert!(err.to_string().contains("version 1"), "{err}");
+    }
+
+    #[test]
+    fn a_bad_file_refuses_the_whole_page_and_leaves_no_files_behind() {
+        let fx = fixture();
+        let entities = entity_count(&fx.conn);
+        let files = file_count(&fx.conn);
+        let target = scratch();
+        let png = base64::engine::general_purpose::STANDARD.encode(b"png");
+        let doc = |blocks: &str| {
+            format!(
+                r#"{{"format":"nookly-page","version":2,"kind":"note","title":"P","files":[{{"id":"file1","name":"a.png","data":"{png}"}}],"blocks":[{blocks}]}}"#
+            )
+        };
+        let shows = r#"{"type":"image","content":"[a.png](mention:file1)"}"#;
+        let cases = [
+            // A block shows a File the document does not hold.
+            (
+                doc(&format!(
+                    r#"{shows},{{"type":"image","content":"[b.png](mention:file9)"}}"#
+                )),
+                "file9",
+            ),
+            // A later block fails its checks, after the File was written.
+            (
+                doc(&format!(
+                    r#"{shows},{{"type":"callout","content":"c","attrs":{{"variant":"nonsense"}}}}"#
+                )),
+                "block 2",
+            ),
+            (doc(shows).replace(&png, "***not base64***"), "base64"),
+        ];
+        for (text, expected) in cases {
+            let err = import_page_json_into(&fx.conn, &target, &fx.space, &text).unwrap_err();
+            assert!(err.to_string().contains(expected), "{expected}: {err}");
+            assert_eq!(entity_count(&fx.conn), entities, "{expected}");
+            assert_eq!(file_count(&fx.conn), files, "{expected}");
+            let leftovers = std::fs::read_dir(&target).map_or(0, Iterator::count);
+            assert_eq!(leftovers, 0, "a file was left behind: {expected}");
+        }
+    }
+
+    #[test]
+    fn a_name_in_the_file_cannot_reach_outside_the_files_folder() {
+        let fx = fixture();
+        let target = scratch();
+        let png = base64::engine::general_purpose::STANDARD.encode(b"png");
+        let text = format!(
+            r#"{{"format":"nookly-page","version":2,"kind":"note","title":"P","files":[{{"id":"f","name":"../../evil.png","data":"{png}"}}],"blocks":[{{"type":"image","content":"[x](mention:f)"}}]}}"#
+        );
+        let imported = import_page_json_into(&fx.conn, &target, &fx.space, &text).unwrap();
+        let content = &shape(&fx.conn, &imported.id)[0].1;
+        assert!(content.starts_with("[evil.png]"), "{content}");
+        assert_eq!(std::fs::read_dir(&target).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn the_preview_counts_the_files_and_a_page_may_be_as_big_as_a_deck() {
+        let png = base64::engine::general_purpose::STANDARD.encode(b"png");
+        let text = format!(
+            r#"{{"format":"nookly-page","version":2,"kind":"note","title":"P","files":[{{"id":"f","name":"a.png","data":"{png}"}}],"blocks":[{{"type":"image","content":"[a.png](mention:f)"}},{{"type":"video","content":"[a.png](mention:f)"}}]}}"#
+        );
+        let preview = portable_preview(&text).unwrap();
+        assert!(
+            preview.facts.iter().any(|f| f.starts_with("1 file")),
+            "{:?}",
+            preview.facts
+        );
+        // Well over the old 20 MB limit, under the limit of today.
+        let big = format!(
+            r#"{{"format":"nookly-page","version":2,"kind":"note","title":"P","blocks":[{{"type":"paragraph","content":"{}"}}]}}"#,
+            "x".repeat(21 * 1024 * 1024)
+        );
+        assert!(crate::db::portable::preview(&big).is_ok());
     }
 }

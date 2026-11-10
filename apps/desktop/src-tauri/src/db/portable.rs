@@ -16,11 +16,9 @@ use crate::error::{AppError, AppResult};
 use rusqlite::Connection;
 use serde::{de::DeserializeOwned, Serialize};
 
-/// The largest file an import reads, for every format but a deck.
-pub const MAX_IMPORT_BYTES: u64 = 20 * 1024 * 1024;
-
-/// The largest deck file: it carries its images, which base64 makes a third larger.
-pub const MAX_DECK_IMPORT_BYTES: u64 = 100 * 1024 * 1024;
+/// The largest file an import reads. A file carries the Files its blocks show, which base64
+/// makes a third larger.
+pub const MAX_IMPORT_BYTES: u64 = 100 * 1024 * 1024;
 
 /// The largest file any format reads. A file between this and nothing is refused before it
 /// is parsed; the format then applies its own, lower limit.
@@ -30,6 +28,14 @@ pub fn largest_import_bytes() -> u64 {
         .map(|d| d.max_bytes)
         .max()
         .unwrap_or(MAX_IMPORT_BYTES)
+}
+
+/// An entity as a file: its text, and the names of the Files that could not go in it (one
+/// that is missing or unreadable), whose blocks became a paragraph with the name.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Exported {
+    pub json: String,
+    pub left_as_text: Vec<String>,
 }
 
 /// What an import would create, read from the file without touching the database. The
@@ -92,7 +98,7 @@ pub struct PortableDef {
     pub noun: &'static str,
     /// The largest file of this format an import reads.
     pub max_bytes: u64,
-    pub export: fn(&Connection, &str) -> AppResult<String>,
+    pub export: fn(&Connection, &str) -> AppResult<Exported>,
     pub preview: fn(&str) -> AppResult<PortablePreview>,
     pub import: Importer,
 }
@@ -137,11 +143,6 @@ pub fn check_size_for(text: &str, limit: u64) -> AppResult<()> {
     Ok(())
 }
 
-/// Refuses a file over the usual size limit before anything reads it.
-pub fn check_size(text: &str) -> AppResult<()> {
-    check_size_for(text, MAX_IMPORT_BYTES)
-}
-
 /// The `format` a file says it has, before any type reads the rest. The message says
 /// what is wrong when it is not a Nookly file at all.
 pub fn format_of(text: &str) -> AppResult<String> {
@@ -172,17 +173,7 @@ fn def_for_text(text: &str) -> AppResult<&'static PortableDef> {
 
 /// Reads a document of one format: size, JSON, then `format`, `version`, then every field
 /// strictly (an unknown or missing one is an error, so a typo never imports half a file).
-pub fn parse_document<T: DeserializeOwned>(
-    text: &str,
-    format: &str,
-    version: u32,
-    noun: &str,
-) -> AppResult<T> {
-    parse_document_versions(text, format, &[version], noun)
-}
-
-/// `parse_document` for a format that still reads its older versions: `versions` lists
-/// every one it reads, newest last.
+/// `versions` lists every version it reads, newest last.
 pub fn parse_document_versions<T: DeserializeOwned>(
     text: &str,
     format: &str,
@@ -228,6 +219,11 @@ pub fn check_date(field: &str, value: &str) -> AppResult<()> {
 
 /// The entity as a file of its type's format.
 pub fn export_entity(conn: &Connection, entity_id: &str) -> AppResult<String> {
+    Ok(export_entity_noted(conn, entity_id)?.json)
+}
+
+/// `export_entity` that also says which Files could not go in the file.
+pub fn export_entity_noted(conn: &Connection, entity_id: &str) -> AppResult<Exported> {
     let entity = crate::db::entities::get_entity(conn, entity_id)?;
     let def = for_type(&entity.entity_type).ok_or_else(|| {
         let known: Vec<&str> = all().iter().map(|d| d.entity_type).collect();
@@ -322,18 +318,9 @@ mod tests {
             "x".repeat(largest_import_bytes() as usize)
         );
         assert!(matches!(format_of(&huge), Err(AppError::InvalidInput(_))));
-        // Over the usual limit: a task is refused, a deck (which carries images) is not.
-        let big = |format: &str| {
-            format!(
-                r#"{{"format":"{format}","pad":"{}"}}"#,
-                "x".repeat(21 * 1024 * 1024)
-            )
-        };
-        let err = preview(&big("nookly-task")).unwrap_err();
-        assert!(err.to_string().contains("20 MB"), "{err}");
-        assert!(check_size(&big("nookly-task")).is_err());
-        let err = preview(&big("nookly-deck")).unwrap_err();
-        assert!(!err.to_string().contains("too large"), "{err}");
+        // Over the limit of the format, which holds the Files a document carries.
+        let err = preview(&huge).unwrap_err();
+        assert!(err.to_string().contains("100 MB"), "{err}");
     }
 
     #[test]

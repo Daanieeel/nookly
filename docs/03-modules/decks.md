@@ -17,4 +17,4 @@ Cards are records owned by the deck, not entities. They reach the CLI as the dec
 
 ## Export and Import
 
-A Deck exports as a `nookly-deck` file (version 2): title and its cards, as text or as blocks. The pictures of the cards are embedded as base64, once per File. A picture whose File is missing, unreadable or only a path on this computer becomes a paragraph with its name. Scheduling and review history stay behind, so imported cards start as new. Import creates a new Deck, and the pictures as new Files in the chosen Space, whole or not at all. Version 1 files still import. A deck file can be up to 100 MB, other files 20 MB.
+A Deck exports as a `nookly-deck` file (version 2): title and its cards, as text or as blocks. The pictures of the cards are embedded as base64, once per File. A picture whose File is missing, unreadable or only a path on this computer becomes a paragraph with its name. Scheduling and review history stay behind, so imported cards start as new. Import creates a new Deck, and the pictures as new Files in the chosen Space, whole or not at all. Version 1 files still import. Every Nookly file can be up to 100 MB.

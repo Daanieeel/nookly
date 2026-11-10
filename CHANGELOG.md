@@ -2,6 +2,17 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.75.0 (2026-11-10)
+
+### Added
+
+- Exporting a note, jot, task or assignment as a Nookly file now includes its images, videos, sounds and files, so they show up when you import it on another computer or send it to someone.
+
+### Changed
+
+- Nookly files can now be up to 100 MB to import.
+- When saving a Nookly file, Nookly tells you if a file could not be included because it is missing.
+
 ## 0.74.0 (2026-11-10)
 
 ### Added
