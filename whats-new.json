@@ -1,6 +1,33 @@
 {
   "versions": [
     {
+      "version": "1.0.0",
+      "date": "2026-11-10",
+      "title": "Nookly on your phone",
+      "summary": "The same Nookly on iPhone and iPad, always in step with your computer.",
+      "highlights": [
+        {
+          "title": "Nookly for iPhone and iPad",
+          "description": "Sign in with your account and your whole Nookly is on your phone.",
+          "icon": "device-mobile",
+          "tag": "New"
+        },
+        {
+          "title": "Live across devices",
+          "description": "Edits show up on your other devices as you make them, and offline changes catch up when you reconnect.",
+          "icon": "cloud",
+          "tag": "New"
+        },
+        {
+          "title": "You decide on clashes",
+          "description": "When two devices changed the same thing, you pick a version or keep both. Nothing is lost.",
+          "icon": "layout-columns",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
       "version": "0.38.4",
       "date": "2026-10-21",
       "title": "Clearer connection errors",

@@ -2,6 +2,14 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.0.0 (2026-11-10)
+
+### Added
+
+- Nookly is now on your iPhone and iPad. Sign in with the same account and your Spaces, tasks, pages, files and settings are there, ready to use.
+- Changes you make on one device show up on your others as you make them, and everything keeps working offline and catches up when you are back online.
+- If you change the same thing on two devices while one is offline, you choose which version to keep, or keep both.
+
 ## 0.38.4 (2026-10-21)
 
 ### Fixed
