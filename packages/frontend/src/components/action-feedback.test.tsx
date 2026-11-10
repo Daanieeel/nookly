@@ -1,6 +1,11 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ERROR_REVERT_MS, SUCCESS_REVERT_MS, useActionStatus } from "./action-feedback.tsx";
+import {
+  ERROR_REVERT_MS,
+  StatusAnnouncer,
+  SUCCESS_REVERT_MS,
+  useActionStatus,
+} from "./action-feedback.tsx";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -39,5 +44,28 @@ describe("useActionStatus", () => {
     expect(m.reset).not.toHaveBeenCalled();
     act(() => void vi.advanceTimersByTime(1));
     expect(m.reset).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("StatusAnnouncer", () => {
+  it("adds no live region while there is nothing to announce", () => {
+    // Radix hides everything outside an open dialog one element at a time around every live
+    // region on the page, so a list with one per row made dialogs take seconds to open.
+    const { container } = render(
+      <>
+        {Array.from({ length: 50 }, (_, i) => (
+          <StatusAnnouncer key={i} message={null} />
+        ))}
+      </>,
+    );
+    expect(container.querySelectorAll("[aria-live]")).toHaveLength(0);
+  });
+
+  it("announces its message politely", () => {
+    const { rerender } = render(<StatusAnnouncer message={null} />);
+    rerender(<StatusAnnouncer message="Copied TSK-1" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Copied TSK-1");
+    rerender(<StatusAnnouncer message={null} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });
