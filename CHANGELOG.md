@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.72.8 (2026-11-10)
+
+### Changed
+
+- The sidebar now slides in and out faster and more smoothly, including when it appears as you move the pointer to the left edge.
+
 ## 0.72.7 (2026-11-10)
 
 ### Fixed
