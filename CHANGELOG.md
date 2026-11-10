@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.72.5 (2026-11-10)
+
+### Fixed
+
+- Dragging on the preview of a math block, equation, diagram, circuit or plot no longer picks up the whole block or drags its text. Mind map blocks still let you drag their ideas.
+
 ## 0.72.4 (2026-11-10)
 
 ### Changed
