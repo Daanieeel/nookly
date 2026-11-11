@@ -2,23 +2,22 @@
 
 All notable changes to Nookly are listed here.
 
-## 0.38.7 (2026-11-11)
+## 1.0.0 (2026-11-10)
+
+### Added
+
+- Nookly is now on your iPhone and iPad. Sign in with the same account and your Spaces, tasks, pages, files and settings are there, ready to use.
+- Changes you make on one device show up on your others as you make them, and everything keeps working offline and catches up when you are back online.
+- If you change the same thing on two devices while one is offline, you choose which version to keep, or keep both.
 
 ### Changed
 
-- **Clearer differences in Review Changes.** The two versions now sit side by side with line numbers, the other version in red and the one showing now in green, and the words that differ marked inside each line. On a phone they stack, line by line.
-
-## 0.38.6 (2026-11-11)
+- **Clearer differences when two devices disagree.** Review Changes shows both versions side by side with line numbers, the other version in red and the one showing now in green, and marks the words that differ inside each line. On a phone they stack, line by line.
 
 ### Fixed
 
-- **Every change that needs a look is offered.** When two devices changed the same thing at the same moment, the other version was kept but nothing said so. The sync status and Settings now count it, and Review Changes shows it.
-
-## 0.38.5 (2026-11-11)
-
-### Fixed
-
-- **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on, as it was before highlights came in.
+- **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on.
+- **Every change that needs a look is offered.** When two devices changed the same thing at the same moment, the other version was kept but nothing said so. The sync status and Settings now count it.
 
 ## 0.38.4 (2026-10-21)
 
