@@ -1,6 +1,7 @@
 import {
   IconArrowUpRight,
   IconCopyPlus,
+  IconExternalLink,
   IconFingerprint,
   IconFileExport,
   IconFolderShare,
@@ -18,8 +19,8 @@ import type { CSSProperties } from "react";
 import { useCloseAfterSuccess } from "#/components/action-feedback.tsx";
 import { NewLabelForm } from "#/components/label-manager.tsx";
 import { SpaceGlyph } from "#/components/spotlight.tsx";
-import { TrashEntityDialog } from "#/components/trash-entity-dialog.tsx";
-import { hiddenRelationshipTypes } from "#/features/relationships/RelationshipsPanel.tsx";
+import { trashEntity } from "#/components/trash-entity.ts";
+import { pickableRelationshipTypes } from "#/features/relationships/RelationshipsPanel.tsx";
 import { RelatePicker } from "#/features/relationships/RelatePickerPopover.tsx";
 import { duplicateEntity, restoreEntity, updateEntity } from "#/lib/api/entities.ts";
 import { attachLabel, detachLabel, listLabels, listLabelsForEntity } from "#/lib/api/labels.ts";
@@ -28,7 +29,7 @@ import { isPortableType } from "#/lib/api/portable.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { nooklyFileLabel, saveNooklyFile } from "#/features/portable/save-nookly-file.tsx";
 import type { Entity } from "#/lib/api/types.ts";
-import { copyEntityLink, copyText } from "#/lib/clipboard.ts";
+import { copyDeepLink, copyEntityLink, copyText } from "#/lib/clipboard.ts";
 import { viewAfterTrash } from "#/lib/modules.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import {
@@ -83,7 +84,6 @@ function RelateFromMenu({
     queryKey: qk.relationships.types,
     queryFn: listRelationshipTypes,
   });
-  const hidden = hiddenRelationshipTypes(entity);
   const relate = useMutation({
     mutationFn: async (vars: { otherId: string; relationshipType: string; reverse: boolean }) => {
       if (vars.reverse) await createRelationship(vars.otherId, entity.id, vars.relationshipType);
@@ -99,7 +99,7 @@ function RelateFromMenu({
         spaceId={entity.spaceId}
         exclude={entity.id}
         entityType={entity.type}
-        types={types.filter((t) => !hidden.has(t.name))}
+        types={pickableRelationshipTypes(types, entity)}
         onSelect={(target, relationshipType, reverse) => {
           if (!relate.isPending) relate.mutate({ otherId: target.id, relationshipType, reverse });
         }}
@@ -163,10 +163,18 @@ registerActions("entity", [
   {
     id: "copy-link",
     group: "share",
-    label: "Copy Link",
+    label: "Copy Mention",
     icon: IconLink,
-    successLabel: "Link copied",
+    successLabel: "Mention copied",
     run: ({ entity }) => copyEntityLink(entity),
+  },
+  {
+    id: "copy-deep-link",
+    group: "share",
+    label: "Copy Link",
+    icon: IconExternalLink,
+    successLabel: "Link copied",
+    run: ({ entity }) => copyDeepLink(entity),
   },
   {
     id: "copy-id",
@@ -204,17 +212,12 @@ registerActions("entity", [
     icon: IconTrash,
     destructive: true,
     run: ({ entity }, helpers) =>
-      helpers.openDialog((close) => (
-        <TrashEntityDialog
-          entity={entity}
-          open
-          onOpenChange={(open) => !open && close()}
-          onTrashed={() => {
-            if (isViewing(entity)) useNavStore.getState().setView(viewAfterTrash(entity));
-            void helpers.refresh();
-          }}
-        />
-      )),
+      trashEntity(entity, {
+        refresh: helpers.refresh,
+        onTrashed: () => {
+          if (isViewing(entity)) useNavStore.getState().setView(viewAfterTrash(entity));
+        },
+      }),
   },
 ]);
 

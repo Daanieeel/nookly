@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { SqlStatement } from "../sync/sql.ts";
 import { type LocalDb, first, iso, rows, str, write } from "./db.ts";
 import { createEntityStatements } from "./entities.ts";
+import { addFileStatements } from "./files.ts";
 import { importDeckFile, readDeckFile } from "./portable.ts";
 import { EFFORT_STEPS } from "../effort.ts";
 import { createTaskStatements, repeatRuleSchema } from "./tasks.ts";
@@ -74,6 +75,18 @@ const day = z.string().refine((value) => {
   return date.toISOString().slice(0, 10) === value;
 }, "must be a date like 2026-03-10");
 
+/// The versions a Nookly file can have, newest last. Version 2 carries the Files its blocks
+/// show (`files`), and a deck's cards may be written as blocks.
+const VERSIONS = [1, 2];
+const version = z.union([z.literal(1), z.literal(2)]);
+
+/// One File inside a version 2 document, named by `id` in the blocks that show it.
+export const embeddedFile = z
+  .object({ id: z.string(), name: z.string(), data: z.string() })
+  .strict();
+export type EmbeddedFile = z.infer<typeof embeddedFile>;
+const files = z.array(embeddedFile).default([]);
+
 const blockFile = z.object({
   type: z.string(),
   content: z.string(),
@@ -98,10 +111,11 @@ const repeat = repeatRuleSchema.strict().nullish();
 
 const pageFile = z.object({
   format: z.literal("nookly-page"),
-  version: z.literal(1),
+  version,
   kind: z.enum(["note", "jot"]),
   title: z.string(),
   blocks: z.array(blockFile),
+  files,
 });
 
 const subtaskFile = z
@@ -118,7 +132,7 @@ const subtaskFile = z
 const taskFile = z
   .object({
     format: z.literal("nookly-task"),
-    version: z.literal(1),
+    version,
     kind: z.literal("task"),
     title: z.string(),
     status: statusFile,
@@ -128,14 +142,22 @@ const taskFile = z
     repeat,
     blocks: z.array(blockFile).default([]),
     subtasks: z.array(subtaskFile).default([]),
+    files,
   })
   .strict();
 
-const ASSIGNMENT_STATUSES = ["not_started", "in_progress", "submitted", "graded"] as const;
+/// `graded` is what files from before the rename say; it arrives as `evaluated`.
+const ASSIGNMENT_STATUSES = [
+  "not_started",
+  "in_progress",
+  "submitted",
+  "evaluated",
+  "graded",
+] as const;
 const assignmentFile = z
   .object({
     format: z.literal("nookly-assignment"),
-    version: z.literal(1),
+    version,
     kind: z.literal("assignment"),
     title: z.string(),
     course: z.string().nullish(),
@@ -143,7 +165,10 @@ const assignmentFile = z
     dueDate: day.nullish(),
     grade: z.number().finite().min(0).nullish(),
     weight: z.number().finite().min(0).nullish(),
+    /// Not graded at all, like homework. Left out when false.
+    ungraded: z.boolean().default(false),
     blocks: z.array(blockFile).default([]),
+    files,
   })
   .strict();
 
@@ -211,9 +236,9 @@ function parseHeader(text: string): Header {
 function parseNooklyFile(text: string): Parsed {
   const { format, version, json } = parseHeader(text);
   const noun = NOUN.get(format) ?? "item";
-  if (version !== 1) {
+  if (!VERSIONS.some((v) => v === version)) {
     throw new Error(
-      `This ${noun} file is version ${String(version ?? "unknown")}, and this version of Nookly reads version 1.`,
+      `This ${noun} file is version ${String(version ?? "unknown")}, and this version of Nookly reads version ${VERSIONS.join(" and ")}.`,
     );
   }
   if (format === "nookly-deck") return { format, file: readDeckFile(text) };
@@ -406,6 +431,71 @@ export function previewNooklyFile(text: string): ImportPreview {
   };
 }
 
+/// How the phone keeps the bytes of a File that arrives inside a Nookly file: it writes
+/// them where its Files live and says where. Without one, a block that shows such a File
+/// becomes a paragraph with its name, as in a version 1 file.
+export interface ImportOptions {
+  storeFile?: (name: string, base64: string) => Promise<string>;
+}
+
+const FILE_BLOCKS = ["image", "video", "audio", "file"];
+const FILE_MENTION = /^\[([^\]]*)\]\(mention:([a-zA-Z0-9-]+)\)$/;
+
+/// The File a block shows: its label and the key it has in the document.
+function shownFile(block: BlockFile): { label: string; key: string } | null {
+  if (!FILE_BLOCKS.includes(block.type)) return null;
+  const match = FILE_MENTION.exec(block.content.trim());
+  return match ? { label: match[1], key: match[2] } : null;
+}
+
+/// Stores the Files the blocks show and points the blocks at the new Files, in statements
+/// that land with the item. A block that shows a File the document does not hold refuses
+/// the import, as on the desktop.
+async function pointFiles(
+  db: LocalDb,
+  spaceId: string,
+  groups: BlockFile[][],
+  held: EmbeddedFile[],
+  options: ImportOptions,
+): Promise<{ groups: BlockFile[][]; statements: SqlStatement[] }> {
+  const byKey = new Map(held.map((f) => [f.id, f]));
+  const made = new Map<string, { id: string; name: string }>();
+  const statements: SqlStatement[] = [];
+  const out: BlockFile[][] = [];
+  for (const blocks of groups) {
+    const pointed: BlockFile[] = [];
+    for (const [index, block] of blocks.entries()) {
+      const shown = shownFile(block);
+      if (!shown || !byKey.has(shown.key)) {
+        if (shown && held.length > 0) {
+          throw new Error(
+            `This file is not valid (block ${index + 1} shows a file it does not hold: ${shown.key}).`,
+          );
+        }
+        pointed.push(block);
+        continue;
+      }
+      const file = byKey.get(shown.key);
+      if (!file) continue;
+      if (!options.storeFile) {
+        pointed.push({ ...block, type: "paragraph", content: shown.label || file.name, attrs: {} });
+        continue;
+      }
+      let target = made.get(file.id);
+      if (!target) {
+        const localPath = await options.storeFile(file.name, file.data);
+        const added = addFileStatements(db, spaceId, file.name, localPath);
+        statements.push(...added.statements);
+        target = { id: added.id, name: file.name };
+        made.set(file.id, target);
+      }
+      pointed.push({ ...block, content: `[${target.name}](mention:${target.id})` });
+    }
+    out.push(pointed);
+  }
+  return { groups: out, statements };
+}
+
 /// The statements that put a file's blocks on an entity, after its own: an unknown type as a
 /// paragraph with no attributes, a known one with the attributes it declares.
 function blockStatements(db: LocalDb, entityId: string, blocks: BlockFile[]): SqlStatement[] {
@@ -492,18 +582,36 @@ export async function importNooklyFile(
   spaceId: string,
   text: string,
   parentId: string | null = null,
+  options: ImportOptions = {},
 ): Promise<string> {
   const parsed = parseNooklyFile(text);
   if (parsed.format === "nookly-deck") return importDeckFile(db, spaceId, text);
   if (parsed.format === "nookly-page") {
     const made = createEntityStatements(db, spaceId, parsed.file.kind, parsed.file.title);
-    await write(db, [...made.statements, ...blockStatements(db, made.id, parsed.file.blocks)]);
+    const pointed = await pointFiles(db, spaceId, [parsed.file.blocks], parsed.file.files, options);
+    await write(db, [
+      ...pointed.statements,
+      ...made.statements,
+      ...blockStatements(db, made.id, pointed.groups[0]),
+    ]);
     return made.id;
   }
   if (parsed.format === "nookly-task") {
-    const file = parsed.file;
+    const pointed = await pointFiles(
+      db,
+      spaceId,
+      [parsed.file.blocks, ...parsed.file.subtasks.map((sub) => sub.blocks)],
+      parsed.file.files,
+      options,
+    );
+    const file = {
+      ...parsed.file,
+      blocks: pointed.groups[0],
+      subtasks: parsed.file.subtasks.map((sub, i) => ({ ...sub, blocks: pointed.groups[i + 1] })),
+    };
     const made = createTaskStatements(db, spaceId, file.title, null, null);
     const statements: SqlStatement[] = [
+      ...pointed.statements,
       ...made.statements,
       ...(await taskFields(db, made.id, file)),
       {
@@ -537,18 +645,29 @@ export async function importNooklyFile(
   );
   if (!course || str(course.type) !== "course") throw new Error("An assignment goes in a course.");
   const file = parsed.file;
+  const pointed = await pointFiles(db, spaceId, [file.blocks], file.files, options);
   const made = createEntityStatements(db, spaceId, "assignment", file.title);
+  const status = file.status === "graded" ? "evaluated" : file.status;
   await write(db, [
+    ...pointed.statements,
     ...made.statements,
     {
-      sql: "INSERT INTO assignments (entity_id, due_date, status, grade, weight) VALUES (?, ?, ?, ?, ?)",
-      params: [made.id, file.dueDate ?? null, file.status, file.grade ?? null, file.weight ?? null],
+      sql: "INSERT INTO assignments (entity_id, due_date, status, grade, weight, ungraded, evaluated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      params: [
+        made.id,
+        file.dueDate ?? null,
+        status,
+        file.grade ?? null,
+        file.weight ?? null,
+        file.ungraded ? 1 : 0,
+        status === "evaluated" ? iso(db) : null,
+      ],
     },
     {
       sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, 'assignment-course', ?)",
       params: [db.newId(), made.id, parentId, iso(db)],
     },
-    ...blockStatements(db, made.id, file.blocks),
+    ...blockStatements(db, made.id, pointed.groups[0]),
   ]);
   return made.id;
 }

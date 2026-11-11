@@ -5,6 +5,28 @@ export function importFile(spaceId: string, sourcePath: string): Promise<FileEnt
   return invoke("import_file", { spaceId, sourcePath });
 }
 
+/// What the importer chose before the File exists; all of it lands or none of it does.
+export interface ImportDetails {
+  /// Where the File came from, as a key the source chose (`moodle:<address>`).
+  origin?: string;
+  /// The File's name in Nookly; the file's own name when empty.
+  title?: string;
+  labelIds?: string[];
+  /// Labels to create first; one the Space already has by that name is reused.
+  newLabels?: { name: string; color: string }[];
+  /// Entities (a Course) to attach the File to.
+  attachTo?: string[];
+}
+
+/// `importFile` with a name, Labels and attachments chosen first.
+export function importFileWithDetails(
+  spaceId: string,
+  sourcePath: string,
+  details: ImportDetails,
+): Promise<FileEntity> {
+  return invoke("import_file_with_details", { spaceId, sourcePath, details });
+}
+
 /// What a link turned into: a stored File, or a webpage to save as a Bookmark.
 export type LinkImport = { kind: "file"; file: FileEntity } | { kind: "webpage" };
 
@@ -70,6 +92,12 @@ export function copyFileIntoStorage(entityId: string): Promise<FileEntity> {
   return invoke("copy_file_into_storage", { entityId });
 }
 
+/// Tells Nookly where a referenced file is on this device: the same file picked again after
+/// it moved, or on a device it was not added on. Only this device's path changes.
+export function locateFile(entityId: string, path: string): Promise<FileEntity> {
+  return invoke("locate_file", { entityId, path });
+}
+
 /// Opens the file (stored copy or referenced original) in its default app.
 export function openFile(entityId: string): Promise<void> {
   return invoke("open_file", { entityId });
@@ -107,6 +135,9 @@ export function importFileFromBytes(
   bytes: Uint8Array,
 ): Promise<FileEntity> {
   return invoke("import_file_from_bytes", bytes, {
-    headers: { "x-space-id": spaceId, "x-filename": encodeURIComponent(filename) },
+    headers: {
+      "x-space-id": spaceId,
+      "x-filename": encodeURIComponent(filename),
+    },
   });
 }

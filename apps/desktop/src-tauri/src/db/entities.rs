@@ -41,7 +41,6 @@ pub fn key_prefix(entity_type: &str) -> &'static str {
         "calendar_entry" | "calendar_entry_template" => "CAL",
         "exam" => "EXM",
         "index_card_deck" => "DCK",
-        "study_block" => "STB",
         "assignment" => "ASG",
         "file" => "FIL",
         "bookmark" => "BMK",
@@ -302,7 +301,6 @@ fn untitled_label(entity_type: &str) -> String {
         "session" | "session_template" => "Session",
         "exam" => "Exam",
         "index_card_deck" => "Deck",
-        "study_block" => "Study Block",
         "assignment" => "Assignment",
         "file" => "File",
         "bookmark" => "Bookmark",
@@ -540,6 +538,22 @@ pub fn list_entities(
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// The live, listable entities with these ids, in the order given. Same visibility as
+/// `list_entities` (no `course_notes`, nothing hidden or trashed).
+pub fn list_entities_by_ids(conn: &Connection, ids: &[String]) -> AppResult<Vec<Entity>> {
+    let mut stmt = conn.prepare(
+        "SELECT * FROM entities
+         WHERE id = ?1 AND type != 'course_notes' AND hidden_at IS NULL AND deleted_at IS NULL",
+    )?;
+    let mut found = Vec::new();
+    for id in ids {
+        if let Some(entity) = stmt.query_row(params![id], row_to_entity).optional()? {
+            found.push(entity);
+        }
+    }
+    Ok(found)
+}
+
 /// Trashes an entity. A Task takes its live Sub-tasks along, stamped with the same
 /// `deleted_at` so a restore can tell them from Sub-tasks trashed on their own.
 pub fn soft_delete_entity(conn: &Connection, id: &str) -> AppResult<()> {
@@ -660,10 +674,17 @@ fn sweep_entity(conn: &Connection, id: &str) -> AppResult<()> {
         "DELETE FROM index_cards WHERE deck_entity_id = ?1",
         params![id],
     )?;
-    conn.execute("DELETE FROM study_blocks WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM assignments WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM files WHERE entity_id = ?1", params![id])?;
     conn.execute("DELETE FROM bookmarks WHERE entity_id = ?1", params![id])?;
+    conn.execute(
+        "DELETE FROM reference_device_paths WHERE reference_id = ?1",
+        params![id],
+    )?;
+    conn.execute(
+        "DELETE FROM entity_references WHERE entity_id = ?1",
+        params![id],
+    )?;
     conn.execute(
         "DELETE FROM note_settings WHERE entity_id = ?1",
         params![id],

@@ -1,4 +1,4 @@
-//! Export and import of one Task as a Nookly JSON file (`nookly-task`, version 1).
+//! Export and import of one Task as a Nookly JSON file (`nookly-task`, version 2).
 //!
 //! The file holds the Task's title, status, dates, effort, repeat rule and description
 //! blocks, and its Sub-tasks nested under it (one level, as in the app). What belongs to
@@ -7,21 +7,31 @@
 //! doneness, since the statuses are the user's own: an import picks the status with that
 //! name, else the first with the same doneness, else the first one.
 //!
-//! Import creates a new Task and never changes an existing one, lands whole or not at all,
-//! and never starts the next occurrence of a repeating Task that arrives finished.
+//! The Files that blocks of the Task and its Sub-tasks show (images, videos, sounds, files)
+//! travel inside the file, once per File (see `portable_files`). Version 1 files, without
+//! Files, still import.
+//!
+//! Import creates a new Task, and the Files as new Files in the same Space, and never
+//! changes an existing one, lands whole or not at all, and never starts the next occurrence
+//! of a repeating Task that arrives finished.
 
 use crate::db::entities::Entity;
-use crate::db::page_json::{export_blocks, import_blocks, preview_blocks, BlockJson};
+use crate::db::page_json::{import_blocks, preview_blocks, BlockJson};
 use crate::db::portable::{
-    check_date, first_line, parse_document, Importer, PortableDef, PortablePreview, PreviewItem,
+    check_date, first_line, parse_document_versions, Exported, Importer, PortableDef,
+    PortablePreview, PreviewItem,
 };
+use crate::db::portable_files::{self, Embedded, FileFile};
 use crate::db::tasks::{self, RepeatRule, Task, EFFORT_STEPS};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 pub const FORMAT: &str = "nookly-task";
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
+/// Versions this reads, newest last.
+const READS: &[u32] = &[1, 2];
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -44,6 +54,9 @@ struct TaskFile {
     blocks: Vec<BlockJson>,
     #[serde(default)]
     subtasks: Vec<SubtaskFile>,
+    /// The Files the blocks of the Task and its Sub-tasks show. Version 2 on.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    files: Vec<FileFile>,
 }
 
 /// A Sub-task: a Task without a rule to repeat or Sub-tasks of its own.
@@ -97,19 +110,29 @@ fn resolve_status(conn: &Connection, status: &StatusFile) -> AppResult<(String, 
     Ok((found.id.clone(), found.doneness))
 }
 
-fn export_subtask(conn: &Connection, task: &Task) -> AppResult<SubtaskFile> {
+fn export_subtask(
+    conn: &Connection,
+    task: &Task,
+    embedded: &mut Embedded,
+) -> AppResult<SubtaskFile> {
     Ok(SubtaskFile {
         title: task.entity.title.clone(),
         status: status_file(conn, &task.status_id)?,
         start_date: task.start_date.clone(),
         due_date: task.due_date.clone(),
         effort: task.effort,
-        blocks: export_blocks(conn, &task.entity.id)?,
+        blocks: embedded.blocks(conn, &task.entity.id)?,
     })
 }
 
 /// The Task as a `nookly-task` JSON document.
+#[cfg(test)]
 pub fn export_task_json(conn: &Connection, entity_id: &str) -> AppResult<String> {
+    Ok(export_task(conn, entity_id)?.json)
+}
+
+/// The Task as a `nookly-task` JSON document, and the Files that could not go in it.
+pub fn export_task(conn: &Connection, entity_id: &str) -> AppResult<Exported> {
     let entity = crate::db::entities::get_entity(conn, entity_id)?;
     if entity.entity_type == "sub_task" {
         return Err(AppError::InvalidInput(
@@ -123,10 +146,12 @@ pub fn export_task_json(conn: &Connection, entity_id: &str) -> AppResult<String>
         )));
     }
     let task = tasks::get_task(conn, entity_id)?;
+    let mut embedded = Embedded::default();
+    let blocks = embedded.blocks(conn, entity_id)?;
     let mut subtasks = Vec::new();
     for sub in tasks::list_subtasks(conn, entity_id)? {
         if sub.entity.deleted_at.is_none() {
-            subtasks.push(export_subtask(conn, &sub)?);
+            subtasks.push(export_subtask(conn, &sub, &mut embedded)?);
         }
     }
     let file = TaskFile {
@@ -139,10 +164,11 @@ pub fn export_task_json(conn: &Connection, entity_id: &str) -> AppResult<String>
         due_date: task.due_date,
         effort: task.effort,
         repeat: task.repeat,
-        blocks: export_blocks(conn, entity_id)?,
+        blocks,
         subtasks,
+        files: embedded.take_files(),
     };
-    serde_json::to_string_pretty(&file).map_err(|e| AppError::Io(e.to_string()))
+    embedded.finish("task", &file)
 }
 
 fn check_fields(
@@ -176,7 +202,7 @@ fn check_fields(
 
 /// Reads and checks a document without touching the database.
 fn parse(text: &str) -> AppResult<TaskFile> {
-    let file: TaskFile = parse_document(text, FORMAT, VERSION, "task")?;
+    let file: TaskFile = parse_document_versions(text, FORMAT, READS, "task")?;
     if file.kind != "task" {
         return Err(AppError::InvalidInput(format!(
             "this task file holds a \"{}\", not a task",
@@ -203,7 +229,17 @@ fn parse(text: &str) -> AppResult<TaskFile> {
             sub.effort,
         )?;
     }
+    portable_files::check_version("task", file.version, &file.files)?;
     Ok(file)
+}
+
+/// The keys of the Files that a block of the Task or a Sub-task shows.
+fn used_keys(file: &TaskFile) -> std::collections::HashSet<String> {
+    portable_files::used_keys(
+        file.blocks
+            .iter()
+            .chain(file.subtasks.iter().flat_map(|s| &s.blocks)),
+    )
 }
 
 /// Sets what a fresh Task or Sub-task is missing: its status (written directly, so a
@@ -230,35 +266,61 @@ fn fill(
 }
 
 /// Creates a new Task, with its Sub-tasks, in `space_id` from a `nookly-task` document.
+/// Files are stored in the app's files folder.
 pub fn import_task_json(conn: &Connection, space_id: &str, text: &str) -> AppResult<Entity> {
+    import_task_json_into(conn, &portable_files::files_dir()?, space_id, text)
+}
+
+/// `import_task_json` with the folder the Files are stored in. If anything fails, the
+/// files already written are removed again.
+pub fn import_task_json_into(
+    conn: &Connection,
+    files_dir: &Path,
+    space_id: &str,
+    text: &str,
+) -> AppResult<Entity> {
     let file = parse(text)?;
-    crate::db::atomically(conn, || {
-        let task = tasks::create_task(conn, space_id.to_string(), file.title.clone(), None, None)?;
-        let id = &task.entity.id;
-        fill(
-            conn,
-            id,
-            &file.status,
-            &file.start_date,
-            &file.due_date,
-            file.effort,
-            &file.blocks,
-        )?;
-        tasks::set_task_repeat(conn, id, file.repeat)?;
-        for sub in &file.subtasks {
-            let made = tasks::create_subtask(conn, id.clone(), sub.title.clone())?;
+    let used = used_keys(&file);
+    portable_files::import_with_files(
+        conn,
+        files_dir,
+        space_id,
+        "task",
+        &file.files,
+        &used,
+        |stored| {
+            let task =
+                tasks::create_task(conn, space_id.to_string(), file.title.clone(), None, None)?;
+            let id = &task.entity.id;
             fill(
                 conn,
-                &made.entity.id,
-                &sub.status,
-                &sub.start_date,
-                &sub.due_date,
-                sub.effort,
-                &sub.blocks,
+                id,
+                &file.status,
+                &file.start_date,
+                &file.due_date,
+                file.effort,
+                &stored.point(&file.blocks, "task", "a block of the task")?,
             )?;
-        }
-        crate::db::entities::get_entity(conn, id)
-    })
+            tasks::set_task_repeat(conn, id, file.repeat)?;
+            for (index, sub) in file.subtasks.iter().enumerate() {
+                let made = tasks::create_subtask(conn, id.clone(), sub.title.clone())?;
+                fill(
+                    conn,
+                    &made.entity.id,
+                    &sub.status,
+                    &sub.start_date,
+                    &sub.due_date,
+                    sub.effort,
+                    &stored.point(
+                        &sub.blocks,
+                        "task",
+                        &format!("a block of sub-task {}", index + 1),
+                    )?,
+                )?;
+            }
+            crate::db::entities::get_entity(conn, id)
+        },
+    )
 }
 
 fn repeat_words(rule: &RepeatRule) -> String {
@@ -296,6 +358,7 @@ fn preview(text: &str) -> AppResult<PortablePreview> {
             if blocks.len() == 1 { "" } else { "s" }
         ));
     }
+    facts.extend(portable_files::files_fact(used_keys(&file).len(), "file"));
     let items: Vec<PreviewItem> = file
         .subtasks
         .iter()
@@ -319,7 +382,7 @@ fn preview(text: &str) -> AppResult<PortablePreview> {
 }
 
 inventory::submit! {
-    PortableDef { entity_type: "task", format: FORMAT, version: VERSION, parent_type: None, noun: "task", export: export_task_json, preview, import: Importer::Plain(import_task_json) }
+    PortableDef { entity_type: "task", format: FORMAT, version: VERSION, parent_type: None, noun: "task", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_task, preview, import: Importer::Plain(import_task_json) }
 }
 
 #[cfg(test)]
@@ -327,25 +390,7 @@ mod tests {
     use super::*;
     use crate::db::notes::list_blocks;
     use crate::db::tasks::RepeatUnit;
-
-    struct Fixture {
-        conn: Connection,
-        space: String,
-        other_space: String,
-    }
-
-    fn fixture() -> Fixture {
-        let conn = crate::db::test_conn();
-        let space =
-            crate::db::spaces::create_space(&conn, "A".into(), None, "#000".into()).unwrap();
-        let other =
-            crate::db::spaces::create_space(&conn, "B".into(), None, "#111".into()).unwrap();
-        Fixture {
-            conn,
-            space: space.id,
-            other_space: other.id,
-        }
-    }
+    use crate::db::{fixture, Fixture};
 
     fn entity_count(conn: &Connection) -> i64 {
         conn.query_row("SELECT COUNT(*) FROM entities", [], |r| r.get(0))
@@ -619,7 +664,7 @@ mod tests {
                 r#"{"format":"nookly-page","version":1}"#.into(),
                 "not a Nookly task file",
             ),
-            (with(serde_json::json!({ "version": 2 })), "version 2"),
+            (with(serde_json::json!({ "version": 3 })), "version 3"),
             (with(serde_json::json!({ "kind": "deck" })), "not a task"),
             (with(serde_json::json!({ "colour": "red" })), "colour"),
             (
@@ -729,5 +774,103 @@ mod tests {
         let def = crate::db::portable::for_type("task").unwrap();
         assert_eq!(def.format, FORMAT);
         assert!(crate::db::portable::for_type("sub_task").is_none());
+    }
+
+    fn scratch() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("nookly-task-json-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn file_count(conn: &Connection) -> i64 {
+        conn.query_row("SELECT COUNT(*) FROM files", [], |r| r.get(0))
+            .unwrap()
+    }
+
+    #[test]
+    fn files_of_the_task_and_its_subtasks_travel_once_and_come_back_as_new_files() {
+        let fx = fixture();
+        let dir = scratch();
+        let shot_bytes = crate::db::portable_files::test_images::jpeg();
+        let shot = crate::db::files::store_file(
+            &fx.conn,
+            &dir,
+            fx.space.clone(),
+            "shot.jpg",
+            &shot_bytes,
+            None,
+        )
+        .unwrap();
+        let mention = format!("[shot.jpg](mention:{})", shot.entity.id);
+        let task =
+            tasks::create_task(&fx.conn, fx.space.clone(), "Bug".into(), None, None).unwrap();
+        let sub = tasks::create_subtask(&fx.conn, task.entity.id.clone(), "Repro".into()).unwrap();
+        for id in [&task.entity.id, &sub.entity.id] {
+            crate::db::notes::create_block(
+                &fx.conn,
+                id,
+                "image".into(),
+                mention.clone(),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+        }
+
+        let exported = export_task(&fx.conn, &task.entity.id).unwrap();
+        assert!(exported.left_as_text.is_empty());
+        let value: serde_json::Value = serde_json::from_str(&exported.json).unwrap();
+        assert_eq!(value["version"], 2);
+        assert_eq!(value["files"].as_array().unwrap().len(), 1, "once per File");
+        assert!(!exported.json.contains(&shot.entity.id));
+
+        let target = scratch();
+        let before = file_count(&fx.conn);
+        let imported =
+            import_task_json_into(&fx.conn, &target, &fx.other_space, &exported.json).unwrap();
+        assert_eq!(file_count(&fx.conn), before + 1);
+        let on_task = list_blocks(&fx.conn, &imported.id).unwrap();
+        let subs = tasks::list_subtasks(&fx.conn, &imported.id).unwrap();
+        let on_sub = list_blocks(&fx.conn, &subs[0].entity.id).unwrap();
+        assert_eq!(on_task[0].block_type, "image");
+        assert_eq!(on_task[0].content, on_sub[0].content);
+        assert!(!on_task[0].content.contains(&shot.entity.id));
+        let id = on_task[0]
+            .content
+            .split("mention:")
+            .nth(1)
+            .unwrap()
+            .trim_end_matches(')');
+        let new_file = crate::db::files::get_file(&fx.conn, id).unwrap();
+        assert_eq!(new_file.entity.space_id, fx.other_space);
+        crate::db::portable_files::test_images::assert_same_image(
+            &shot_bytes,
+            &std::fs::read(new_file.local_path.unwrap()).unwrap(),
+        );
+    }
+
+    #[test]
+    fn a_version_1_task_still_imports_and_a_missing_file_refuses_the_whole_task() {
+        let fx = fixture();
+        let v1 = with(serde_json::json!({ "version": 1 }));
+        assert!(import_task_json(&fx.conn, &fx.space, &v1).is_ok());
+        let before = entity_count(&fx.conn);
+        let files = file_count(&fx.conn);
+        let target = scratch();
+        let missing = with(serde_json::json!({
+            "version": 2,
+            "subtasks": [{ "title": "S", "status": { "name": "Backlog", "doneness": 0 },
+                "blocks": [{ "type": "image", "content": "[a.png](mention:file9)" }] }]
+        }));
+        let err = import_task_json_into(&fx.conn, &target, &fx.space, &missing).unwrap_err();
+        assert!(err.to_string().contains("sub-task 1"), "{err}");
+        assert!(err.to_string().contains("file9"), "{err}");
+        assert_eq!(entity_count(&fx.conn), before);
+        assert_eq!(file_count(&fx.conn), files);
+        let with_files = with(serde_json::json!({
+            "version": 1, "files": [{ "id": "f", "name": "n", "data": "" }]
+        }));
+        assert!(import_task_json(&fx.conn, &fx.space, &with_files).is_err());
     }
 }

@@ -126,14 +126,14 @@ describe("saving as a Nookly file", () => {
   it("writes an assignment with its course's name, and a deck with its cards only", async () => {
     const course = await createCourse(db, space, "Algorithms");
     const sheet = await createAssignment(db, space, "Sheet 3", course, "2026-11-02");
-    await updateAssignment(db, sheet, { status: "graded", grade: 1.3, weight: 0.2 });
+    await updateAssignment(db, sheet, { status: "evaluated", grade: 1.3, weight: 0.2 });
     expect(await read(sheet)).toEqual({
       format: "nookly-assignment",
       version: 1,
       kind: "assignment",
       title: "Sheet 3",
       course: "Algorithms",
-      status: "graded",
+      status: "evaluated",
       dueDate: "2026-11-02",
       grade: 1.3,
       weight: 0.2,
@@ -191,8 +191,8 @@ describe("opening a Nookly deck file", () => {
     expect(() => readDeckFile(JSON.stringify({ format: "nookly-page", version: 1 }))).toThrow(
       'not a Nookly deck file (format "nookly-page")',
     );
-    expect(() => readDeckFile(JSON.stringify({ format: "nookly-deck", version: 2 }))).toThrow(
-      "version 2",
+    expect(() => readDeckFile(JSON.stringify({ format: "nookly-deck", version: 3 }))).toThrow(
+      "version 3",
     );
     expect(() => readDeckFile(deck({ extra: 1 }))).toThrow("not valid");
     expect(() => readDeckFile(deck({}, [{ front: "a", back: "b", hint: "c" }]))).toThrow(
@@ -259,7 +259,7 @@ describe("what the desktop reads", () => {
   it("assignment sample", async () => {
     const course = await createCourse(db, space, "Algorithms");
     const sheet = await createAssignment(db, space, "Sheet 3", course, "2026-11-02");
-    await updateAssignment(db, sheet, { status: "graded", grade: 1.3, weight: 0.2 });
+    await updateAssignment(db, sheet, { status: "evaluated", grade: 1.3, weight: 0.2 });
     await expect((await exportNooklyFile(db, sheet)).text).toMatchFileSnapshot(
       `${SAMPLES}/assignment.json`,
     );

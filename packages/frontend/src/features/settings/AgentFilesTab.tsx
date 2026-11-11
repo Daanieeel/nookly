@@ -24,6 +24,7 @@ import {
   useActionStatus,
 } from "#/components/action-feedback.tsx";
 import { MiddleEllipsis } from "#/components/middle-ellipsis.tsx";
+import { OpenInAiApp } from "./OpenInAiApp.tsx";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import {
   AGENT_ENTRY_FILE,
@@ -43,6 +44,7 @@ import {
 import { qk } from "#/lib/query-keys.ts";
 import { AgentFileTree, buildAgentTree } from "./AgentFileTree.tsx";
 import { NewAgentFileDialog } from "./NewAgentFileDialog.tsx";
+import { ignoreError } from "#/lib/log.ts";
 
 /// The Agent tab of Settings: the folder to hand to a coding agent and the markdown
 /// files in it, in a vertical explorer with folders, edited in place next to it. Plain file management, no AI. A file is saved when the
@@ -125,7 +127,8 @@ export function AgentFilesTab() {
   useEffect(
     () => () => {
       const { selected: name, text: content, dirty: unsaved } = latest.current;
-      if (unsaved && !writing.current) void writeAgentFile(name, content).catch(() => undefined);
+      if (unsaved && !writing.current)
+        void writeAgentFile(name, content).catch(ignoreError("saving an agent file on close"));
     },
     [],
   );
@@ -197,6 +200,7 @@ export function AgentFilesTab() {
     <div className="flex min-w-0 flex-col gap-3">
       <div className="flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1.5">
         <MiddleEllipsis text={dir ?? "…"} className="flex-1 font-mono text-xs" />
+        <OpenInAiApp />
         <Tooltip>
           <TooltipTrigger asChild>
             <CopyButton

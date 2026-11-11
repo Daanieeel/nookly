@@ -146,6 +146,23 @@ export const SETTING_UI = {
     control: { kind: "text", placeholder: "plaintext" },
   },
   "notes.formatCodeOnPaste": { section: "Code", page: "editor", control: { kind: "switch" } },
+  "notes.editorFont": {
+    section: "Text",
+    page: "editor",
+    control: {
+      kind: "choice",
+      options: [
+        { value: "default", label: "Default" },
+        { value: "serif", label: "Serif" },
+        { value: "mono", label: "Mono" },
+      ],
+    },
+  },
+  "notes.editorFontSize": {
+    section: "Text",
+    page: "editor",
+    control: { kind: "stepper", min: 12, max: 24, step: 1, unit: "px" },
+  },
   "notes.vimMode": { section: "Editing", page: "editor", control: { kind: "switch" } },
   "notes.arrowLigatures": { section: "Editing", page: "editor", control: { kind: "switch" } },
   "notes.latexMacros": {

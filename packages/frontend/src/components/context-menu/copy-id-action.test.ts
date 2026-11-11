@@ -8,7 +8,7 @@ import "./entity-actions.tsx";
 describe("the right click Copy ID", () => {
   it("sits directly below Copy Link", () => {
     const ids = actionsFor("entity").map((a) => a.id);
-    expect(ids.indexOf("copy-id")).toBe(ids.indexOf("copy-link") + 1);
+    expect(ids.indexOf("copy-id")).toBe(ids.indexOf("copy-deep-link") + 1);
   });
 
   it("copies the readable ID, not the internal one", async () => {

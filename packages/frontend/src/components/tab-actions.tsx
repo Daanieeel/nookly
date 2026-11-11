@@ -2,6 +2,8 @@ import {
   IconArrowBarToLeft,
   IconArrowBarToRight,
   IconLayoutColumns,
+  IconArrowsMaximize,
+  IconArrowsMinimize,
   IconPin,
   IconPinnedOff,
   IconX,
@@ -40,6 +42,19 @@ registerActions("tab", [
     shortcutName: "splitRight",
     disabled: (t) => !canSplitRight(layout(), t.tabId),
     run: (t) => useNavStore.getState().splitRight(t.tabId),
+  },
+  {
+    id: "zoom-group",
+    group: "open",
+    label: () => (useNavStore.getState().groupZoomed ? "Show Both Groups" : "Zoom Group"),
+    icon: () => (useNavStore.getState().groupZoomed ? IconArrowsMinimize : IconArrowsMaximize),
+    shortcutName: "toggleGroupZoom",
+    when: () => layout().groups.length > 1,
+    run: (t) => {
+      const group = groupOfTab(layout(), t.tabId);
+      if (group) useNavStore.getState().focusGroup(group.id);
+      useNavStore.getState().toggleGroupZoom();
+    },
   },
   {
     // Also the keyboard way to drag a tab into the other group.

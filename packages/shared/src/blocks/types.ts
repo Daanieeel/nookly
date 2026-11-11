@@ -48,6 +48,8 @@ export type BlockType =
   | "math"
   | "diagram"
   | "circuit"
+  | "plot"
+  | "mindmap"
   | "entity_card"
   | "video"
   | "audio"

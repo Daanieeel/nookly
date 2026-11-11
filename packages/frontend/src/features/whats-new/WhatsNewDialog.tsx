@@ -22,6 +22,7 @@ import { type WhatsNewEntry, type WhatsNewFile, type WhatsNewHighlight } from "#
 import { ChangelogBody } from "./ChangelogBody.tsx";
 import { whatsNewIcon } from "./icons.ts";
 import { Rich } from "./Rich.tsx";
+import { ignoreError } from "#/lib/log.ts";
 
 /// "October 10, 2026" from `2026-10-10`, read as a local day (not UTC, which can land on
 /// the day before).
@@ -48,12 +49,16 @@ function HighlightRow({ highlight }: { highlight: WhatsNewHighlight }) {
               {highlight.tag}
             </Badge>
           )}
-          {highlight.shortcut && (
-            <KbdGroup className="ml-auto">
-              {displayParts(highlight.shortcut).map((part, index) => (
-                <Kbd key={`${index}-${part}`}>{part}</Kbd>
+          {highlight.shortcuts.length > 0 && (
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              {highlight.shortcuts.map((shortcut) => (
+                <KbdGroup key={shortcut}>
+                  {displayParts(shortcut).map((part, index) => (
+                    <Kbd key={`${index}-${part}`}>{part}</Kbd>
+                  ))}
+                </KbdGroup>
               ))}
-            </KbdGroup>
+            </div>
           )}
         </div>
         <Rich text={highlight.description} className="text-xs text-muted-foreground" />
@@ -184,7 +189,9 @@ export function WhatsNewDialog({ notes, changelog }: { notes?: WhatsNewFile; cha
           <DialogFooter>
             <Button
               variant="secondary"
-              onClick={() => void openUrl(CHANGELOG_URL).catch(() => undefined)}
+              onClick={() =>
+                void openUrl(CHANGELOG_URL).catch(ignoreError("opening the changelog"))
+              }
             >
               <IconExternalLink size={14} />
               See full changelog

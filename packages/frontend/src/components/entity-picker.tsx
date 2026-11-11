@@ -1,12 +1,13 @@
-import { Command, defaultFilter } from "cmdk";
+import { Command } from "cmdk";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { listEntities } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { dialogPopover } from "#/lib/dialog-popover.ts";
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import { keyKeywords } from "#/lib/entity-key.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { listSessions } from "#/lib/api/sessions.ts";
@@ -19,6 +20,7 @@ export function EntityPickerPopover({
   onSelect,
   exclude,
   typeFilter,
+  header,
 }: {
   spaceId: string;
   trigger: React.ReactNode;
@@ -26,12 +28,25 @@ export function EntityPickerPopover({
   exclude?: string;
   /// Restricts the picker to one or more entity `type`s. Omit to allow any type.
   typeFilter?: string | string[];
+  /// Pinned above the search box. `close` dismisses the popover.
+  header?: (close: () => void) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent {...dialogPopover("w-72 p-0")} align="start">
+      <PopoverContent
+        {...dialogPopover("w-72 p-0")}
+        align="start"
+        // Typing starts the search, whatever `header` puts above it.
+        ref={contentRef}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          contentRef.current?.querySelector<HTMLInputElement>("[cmdk-input]")?.focus();
+        }}
+      >
+        {header?.(() => setOpen(false))}
         <EntityPickerList
           spaceId={spaceId}
           exclude={exclude}
@@ -85,7 +100,7 @@ export function EntityPickerList({
       const session = sessionById.get(entity.id);
       const score = query
         ? Math.max(
-            defaultFilter(displayTitle(entity), query, keyKeywords(entity.key)),
+            accentInsensitiveFilter(displayTitle(entity), query, keyKeywords(entity.key)),
             session ? Number(sessionMatches(session, query)) : 0,
           )
         : 1;

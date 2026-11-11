@@ -45,6 +45,7 @@ import {
   type MenuSubItem,
 } from "./registry";
 import { captureTextTarget, editableAt, type TextTarget } from "./text-actions";
+import { refreshDatabaseData } from "#/lib/refresh-data.ts";
 
 interface OpenMenu {
   id: number;
@@ -66,7 +67,13 @@ interface Overlay {
 const MENU_CONTENT_SELECTOR = "[data-context-menu-content]";
 
 /// Only trashed entities' own recovery and navigation make sense in a menu.
-const TRASHED_ENTITY_ACTIONS = new Set(["open", "restore", "copy-link", "copy-id"]);
+const TRASHED_ENTITY_ACTIONS = new Set([
+  "open",
+  "restore",
+  "copy-link",
+  "copy-deep-link",
+  "copy-id",
+]);
 
 function isLabelFn<T>(label: string | ((target: T) => string)): label is (target: T) => string {
   return typeof label === "function";
@@ -225,7 +232,7 @@ export function ContextMenuHost() {
         pendingOverlayRef.current = { kind: "popover", render };
         setOpen(false);
       },
-      refresh: () => queryClient.invalidateQueries(),
+      refresh: () => refreshDatabaseData(queryClient),
     }),
     [queryClient],
   );

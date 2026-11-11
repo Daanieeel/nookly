@@ -33,9 +33,9 @@
   },
   "dependencies": {
     "@hocuspocus/provider": "4.7.1",
-    "prosemirror-model": "1.25.11",
+    "prosemirror-model": "1.25.12",
     "prosemirror-state": "1.4.4",
-    "prosemirror-view": "1.42.4",
+    "prosemirror-view": "1.42.6",
     "yjs": "13.6.33",
     "zod": "^4",
     "zustand": "^5"

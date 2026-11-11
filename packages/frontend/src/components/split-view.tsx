@@ -1,4 +1,3 @@
-import { IconLayoutColumns } from "@tabler/icons-react";
 import {
   type CSSProperties,
   type ReactNode,
@@ -24,6 +23,7 @@ import {
   activeTab,
   clampSplitRatio,
 } from "#/lib/store/tab-groups.ts";
+import { parseMoodlePath } from "#/features/moodle/moodle-path.ts";
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
@@ -31,7 +31,7 @@ import { PAGE_PANE_CLASSES } from "#/classes.ts";
 
 /// The narrowest a group gets. Below twice this, the split collapses to the focused
 /// group instead of cramming both in.
-export const MIN_GROUP_WIDTH = 360;
+const MIN_GROUP_WIDTH = 360;
 /// The gap the divider sits in, between the two groups: its `w-3`.
 const DIVIDER_WIDTH = 12;
 const KEYBOARD_STEP = 0.02;
@@ -42,13 +42,14 @@ export function fitsSplit(width: number): boolean {
 
 /// Whether the content area is wide enough to show both groups. Set by `SplitView`,
 /// read by the shell to decide where the focused group's tabs go.
-export const useSplitFits = create<{ fits: boolean }>(() => ({ fits: true }));
+const useSplitFits = create<{ fits: boolean }>(() => ({ fits: true }));
 
 /// Whether both groups are on screen side by side.
 export function useSplitShown(): boolean {
   const twoGroups = useNavStore((s) => s.groups.length > 1);
   const fits = useSplitFits((s) => s.fits);
-  return twoGroups && fits;
+  const zoomed = useNavStore((s) => s.groupZoomed);
+  return twoGroups && fits && !zoomed;
 }
 
 /// Views drawing their own edge to edge chrome, like the Linear style Tasks page.
@@ -61,9 +62,15 @@ const BLEED_MODULES = new Set([
   "decks",
   "files",
   "bookmarks",
+  "notes",
+  "jots",
 ]);
 
 function isBleedView(view: View): boolean {
+  // A file of a Moodle course is read like a File of the Space: it fills the page.
+  if (view.kind === "module" && view.module === "moodle") {
+    return parseMoodlePath(view.moodlePath).page === "file";
+  }
   return (
     view.kind === "entity" ||
     view.kind === "calendar" ||
@@ -102,17 +109,16 @@ function useWidth(ref: RefObject<HTMLElement | null>): number | null {
 export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope) => ReactNode }) {
   const groups = useTabGroups();
   const focusedGroupId = useNavStore((s) => s.focusedGroupId);
+  const zoomed = useNavStore((s) => s.groupZoomed);
   const storedRatio = useNavStore((s) => s.splitRatio);
   const draggingTabId = useNavStore((s) => s.draggingTabId);
   const containerRef = useRef<HTMLDivElement>(null);
   const width = useWidth(containerRef);
   const fits = width === null || fitsSplit(width);
   useEffect(() => useSplitFits.setState({ fits }), [fits]);
-  // Live while the divider is dragged; saved once on release.
-  const [dragRatio, setDragRatio] = useState<number | null>(null);
-  const ratio = fitRatio(dragRatio ?? storedRatio, width);
+  const ratio = fitRatio(storedRatio, width);
 
-  const split = groups.length > 1 && fits;
+  const split = groups.length > 1 && fits && !zoomed;
   const shown = split ? groups : groups.filter((g) => g.id === focusedGroupId);
   const source = draggingTabId
     ? groups.find((g) => g.tabs.some((t) => t.id === draggingTabId))
@@ -122,13 +128,7 @@ export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope)
   shown.forEach((group, index) => {
     if (index === 1) {
       items.push(
-        <SplitDivider
-          key="divider"
-          ratio={ratio}
-          containerRef={containerRef}
-          width={width}
-          onDrag={setDragRatio}
-        />,
+        <SplitDivider key="divider" ratio={ratio} containerRef={containerRef} width={width} />,
       );
     }
     items.push(
@@ -137,7 +137,6 @@ export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope)
         group={group}
         position={split ? (index === 0 ? "left" : "right") : "only"}
         focused={group.id === focusedGroupId}
-        ratio={ratio}
         renderGroup={renderGroup}
         acceptsDrop={split && source !== undefined && source.id !== group.id}
       />,
@@ -145,7 +144,12 @@ export function SplitView({ renderGroup }: { renderGroup: (scope: TabGroupScope)
   });
 
   return (
-    <div ref={containerRef} className="relative flex min-h-0 min-w-0 flex-1">
+    <div
+      ref={containerRef}
+      className="relative flex min-h-0 min-w-0 flex-1"
+      // SAFETY: `--group-share` only ever receives a clamped fraction as a percentage.
+      style={{ "--group-share": `${ratio * 100}%` } as CSSProperties}
+    >
       {items}
       {!split && groups.length === 1 && source && source.tabs.length > 1 && <NewGroupDropZone />}
     </div>
@@ -156,14 +160,12 @@ function GroupPane({
   group,
   position,
   focused,
-  ratio,
   renderGroup,
   acceptsDrop,
 }: {
   group: TabGroup;
   position: "only" | "left" | "right";
   focused: boolean;
-  ratio: number;
   renderGroup: (scope: TabGroupScope) => ReactNode;
   acceptsDrop: boolean;
 }) {
@@ -174,10 +176,11 @@ function GroupPane({
   );
   const split = position !== "only";
   const focus = () => useNavStore.getState().focusGroup(group.id);
-  const Landmark = split ? "section" : "div";
 
+  // Always a `div`: a different element type would remount the page when a split is zoomed.
   return (
-    <Landmark
+    <div
+      role={split ? "region" : undefined}
       aria-label={split ? (position === "left" ? "Left Group" : "Right Group") : undefined}
       data-tab-group={group.id}
       onPointerDownCapture={focus}
@@ -187,23 +190,24 @@ function GroupPane({
         // Half the divider's `w-3` comes off the left group's share.
         position === "left" ? "w-[calc(var(--group-share)-6px)] shrink-0" : "flex-1",
       )}
-      // SAFETY: `--group-share` only ever receives a clamped fraction as a percentage.
-      style={
-        position === "left" ? ({ "--group-share": `${ratio * 100}%` } as CSSProperties) : undefined
-      }
     >
       {split && (
         <TabBar
           groupId={group.id}
           label={position === "left" ? "Left Group Tabs" : "Right Group Tabs"}
-          className="h-8 border-b-0 bg-transparent px-0 pb-1"
+          className={cn(
+            "h-8 border-b-0 bg-transparent px-0 pb-1 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:h-9 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:pt-1",
+            position === "left"
+              ? "group-has-[[data-slot=sidebar][data-state=collapsed]]/app:pl-1"
+              : "group-has-[[data-slot=sidebar][data-state=collapsed]]/app:pr-1",
+          )}
         />
       )}
       <TabGroupContext.Provider value={scope}>
         <PaneBody scope={scope} highlighted={focused && split} renderGroup={renderGroup} />
       </TabGroupContext.Provider>
       {acceptsDrop && <GroupDropZone groupId={group.id} />}
-    </Landmark>
+    </div>
   );
 }
 
@@ -229,6 +233,7 @@ function PaneBody({
       <div data-focused-group={highlighted || undefined} className={PAGE_PANE_CLASSES}>
         <div
           ref={pageRef}
+          data-scroll-root=""
           className={cn(
             "@container min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
             !isBleedView(view) && "p-6",
@@ -258,12 +263,10 @@ function SplitDivider({
   ratio,
   containerRef,
   width,
-  onDrag,
 }: {
   ratio: number;
   containerRef: RefObject<HTMLDivElement | null>;
   width: number | null;
-  onDrag: (ratio: number | null) => void;
 }) {
   const save = (next: number) => useNavStore.getState().setSplitRatio(fitRatio(next, width));
 
@@ -277,9 +280,11 @@ function SplitDivider({
     let latest = ratio;
     document.body.style.userSelect = "none";
     document.body.style.cursor = "col-resize";
+    // The pages are not redrawn while dragging: the groups read `--group-share` from the
+    // container, so moving the divider is one style write per move. The ratio is saved on release.
     const onMove = (move: PointerEvent) => {
       latest = fitRatio((move.clientX - box.left) / box.width, box.width);
-      onDrag(latest);
+      container.style.setProperty("--group-share", `${latest * 100}%`);
     };
     const onUp = () => {
       handle.removeEventListener("pointermove", onMove);
@@ -288,7 +293,6 @@ function SplitDivider({
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
       save(latest);
-      onDrag(null);
     };
     handle.addEventListener("pointermove", onMove);
     handle.addEventListener("pointerup", onUp);
@@ -355,10 +359,38 @@ function GroupDropZone({ groupId }: { groupId: string }) {
       aria-hidden
       {...dropProps}
       className={cn(
-        "absolute inset-x-0 top-8 bottom-0 z-30 rounded-xl border-2 border-dashed transition-colors",
+        "absolute inset-x-0 top-8 bottom-0 z-30 rounded-xl group-has-[[data-slot=sidebar][data-state=collapsed]]/app:top-9 border-2 border-dashed transition-colors",
         dragOver ? "border-primary/60 bg-primary/10" : "border-transparent",
       )}
     />
+  );
+}
+
+/// A window split in two, with the half of the group it stands for filled in.
+function SplitSideIcon({ side }: { side: "left" | "right" }) {
+  return (
+    <svg
+      data-side={side}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M12 4v16" />
+      <path
+        d={
+          side === "left"
+            ? "M5 4h7v16H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
+            : "M12 4h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7z"
+        }
+        fill="currentColor"
+        stroke="none"
+      />
+    </svg>
   );
 }
 
@@ -368,7 +400,8 @@ export function OtherGroupButton() {
   const focusedGroupId = useNavStore((s) => s.focusedGroupId);
   const other = groups.find((g) => g.id !== focusedGroupId);
   if (!other) return null;
-  const label = groups[0].id === other.id ? "Show Left Group" : "Show Right Group";
+  const side = groups[0].id === other.id ? "left" : "right";
+  const label = side === "left" ? "Show Left Group" : "Show Right Group";
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -379,7 +412,7 @@ export function OtherGroupButton() {
           className="ml-auto shrink-0"
           onClick={() => useNavStore.getState().focusGroup(other.id)}
         >
-          <IconLayoutColumns />
+          <SplitSideIcon side={side} />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">{label}</TooltipContent>

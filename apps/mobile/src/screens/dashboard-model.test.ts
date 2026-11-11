@@ -53,7 +53,7 @@ describe("the Dashboard's assignment tabs", () => {
     assignment("a", { dueDate: "2026-10-21" }),
     assignment("b", { dueDate: "2026-10-24" }),
     assignment("c", { dueDate: "2026-10-21", status: "submitted" }),
-    assignment("d", { dueDate: "2026-10-20", dueSessionOffsetDays: 1, status: "graded" }),
+    assignment("d", { dueDate: "2026-10-20", dueSessionOffsetDays: 1, status: "evaluated" }),
   ];
   const ids = (tab: Parameters<typeof assignmentsFor>[0]) =>
     assignmentsFor(tab, all, TODAY).map((a) => a.entity.id);

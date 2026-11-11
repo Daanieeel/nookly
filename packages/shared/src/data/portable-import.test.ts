@@ -107,7 +107,7 @@ describe("reading a Nookly page", () => {
     expect(() => previewNooklyFile(JSON.stringify({ format: "other" }))).toThrow(
       'not a Nookly file (format "other")',
     );
-    expect(() => previewNooklyFile(bad({ version: 2 }))).toThrow("version 2");
+    expect(() => previewNooklyFile(bad({ version: 3 }))).toThrow("version 3");
     expect(() => previewNooklyFile(bad({ kind: "task" }))).toThrow('holds a "task"');
     await expect(
       importNooklyFile(
@@ -204,14 +204,14 @@ describe("reading a Nookly assignment", () => {
     const course = await createCourse(db, space, "Algorithms");
     const other = await createCourse(db, space, "Networks");
     const assignment = await createAssignment(db, space, "Sheet 1", course, "2026-11-05");
-    await updateAssignment(db, assignment, { status: "graded", grade: 1.7, weight: 20 });
+    await updateAssignment(db, assignment, { status: "evaluated", grade: 1.7, weight: 20 });
     await addBlock(db, assignment, "paragraph", "Prove it");
     const { text } = await exportNooklyFile(db, assignment);
     expect(previewNooklyFile(text)).toMatchObject({ kind: "assignment", parentType: "course" });
     await expect(importNooklyFile(db, space, text)).rejects.toThrow("course");
     const made = await importNooklyFile(db, space, text, other);
     expect(await getAssignment(db, made)).toMatchObject({
-      status: "graded",
+      status: "evaluated",
       dueDate: "2026-11-05",
       grade: 1.7,
       weight: 20,
@@ -277,7 +277,7 @@ describe("files written by the desktop", () => {
     const course = await createCourse(db, space, "Algorithms");
     const assignment = await importNooklyFile(db, space, sample("assignment"), course);
     expect(await getAssignment(db, assignment)).toMatchObject({
-      status: "graded",
+      status: "evaluated",
       grade: 8.5,
       weight: 0.25,
       dueDate: "2026-03-10",

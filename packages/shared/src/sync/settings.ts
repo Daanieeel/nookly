@@ -22,6 +22,8 @@ export const SYNCED_SETTINGS = [
   "notes.formatCodeOnPaste",
   "notes.latexMacros",
   "notes.arrowLigatures",
+  "notes.editorFont",
+  "notes.editorFontSize",
 ] as const;
 export type SyncedSetting = (typeof SYNCED_SETTINGS)[number];
 

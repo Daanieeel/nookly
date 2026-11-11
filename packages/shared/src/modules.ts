@@ -17,6 +17,7 @@ export const MODULE_KEYS = [
   "bookmarks",
   "recipes",
   "grades",
+  "moodle",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -36,6 +37,7 @@ export const MODULE_LABELS = {
   bookmarks: "Bookmarks",
   recipes: "Recipes",
   grades: "Grades",
+  moodle: "Moodle",
 } satisfies Record<ModuleKey, string>;
 
 /// Which entity `type`s belong to each module, like `module_keys_for_entity_type` on
@@ -48,7 +50,7 @@ export const MODULE_ENTITY_TYPES = {
   semesters: ["semester"],
   sessions: ["session", "session_template"],
   calendar: ["calendar_entry", "calendar_entry_template"],
-  exams: ["exam", "study_block"],
+  exams: ["exam"],
   decks: ["index_card_deck"],
   assignments: ["assignment"],
   files: ["file"],
@@ -56,6 +58,8 @@ export const MODULE_ENTITY_TYPES = {
   recipes: ["recipe"],
   // A report on Exams and Assignments, with no entities of its own.
   grades: [],
+  // A read only view of the person's Moodle site, with no entities of its own.
+  moodle: [],
 } satisfies Record<ModuleKey, string[]>;
 
 export function isModuleKey(key: string): key is ModuleKey {

@@ -100,7 +100,13 @@ export function assignmentGroupDefs(
           id: "no-grade",
           name: "No grade",
           icon: <IconStarOff size={14} className="text-muted-foreground" />,
-          match: (a: Assignment) => a.grade === null,
+          match: (a: Assignment) => a.grade === null && !a.ungraded,
+        },
+        {
+          id: "ungraded",
+          name: "Ungraded",
+          icon: <IconStarOff size={14} className="text-muted-foreground" />,
+          match: (a: Assignment) => a.ungraded,
         },
       ];
     case "status":

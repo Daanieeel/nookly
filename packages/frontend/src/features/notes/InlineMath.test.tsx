@@ -52,4 +52,13 @@ describe("the inline formula popover", () => {
     expect(render).toHaveBeenCalled();
     expect(screen.queryByRole("textbox", { name: "LaTeX" })).toBeNull();
   });
+
+  it("saves the formula without spaces or line breaks at its ends", async () => {
+    const { user } = await openFormula();
+    await user.type(
+      screen.getByRole("textbox", { name: "LaTeX" }),
+      " y {Shift>}{Enter}{/Shift} {Enter}",
+    );
+    expect(editor?.getText()).toBe("a $x^2 y$");
+  });
 });

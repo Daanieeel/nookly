@@ -2,38 +2,52 @@ import { qk } from "#/lib/query-keys.ts";
 import {
   IconExternalLink,
   IconFile,
+  IconFileOff,
   IconFolderOpen,
   IconArrowUpRight,
-  IconLink,
   IconMovie,
   IconMusic,
+  IconPencil,
   IconPhoto,
   IconReplace,
+  IconRoute,
   IconUpload,
 } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
-import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import { type ComponentType, type MouseEvent, useEffect, useState } from "react";
-import { z } from "zod";
-import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
+import {
+  type ComponentType,
+  type CSSProperties,
+  type MouseEvent,
+  useEffect,
+  useState,
+} from "react";
+import { FieldError, StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
 import { getEntity } from "#/lib/api/entities.ts";
 import { hasPages } from "#/features/files/file-kind.ts";
 import { getFile, importFile } from "#/lib/api/files.ts";
+import {
+  type LocalPathState,
+  checkLocalPath,
+  openLocalPath,
+  reasonOf,
+  revealLocalPath,
+} from "#/lib/api/local-files.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { armNewTabIntent, useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { notify } from "#/components/notify.tsx";
 import { inheritPageContext } from "#/features/relationships/inherit-context.ts";
 import { mentionMarkdown } from "#/features/relationships/mention-utils.ts";
 import { asString, type JSONAttrValue } from "./block-markdown";
+import { mediaTargetError, parseMediaTarget } from "./media-target";
 import { ToolbarButton } from "./ToolbarButton";
 
 export type MediaKind = "image" | "video" | "audio" | "file";
@@ -74,6 +88,27 @@ const KINDS = {
 
 const MENTION = /^\[([^\]]*)\]\(mention:([a-zA-Z0-9-]+)\)$/;
 
+/// What the card says when the file a path names cannot be used right now. The path itself
+/// stays in the block, so the file shows again once it is back.
+const PROBLEMS = {
+  missing: {
+    title: "This file was not found",
+    detail: "It may have been moved or renamed.",
+  },
+  unavailable: {
+    title: "This file's drive or network volume isn't available",
+    detail: "It shows again once it is connected.",
+  },
+  unreadable: {
+    title: "Nookly isn't allowed to read this file",
+    detail: "Check the file's permissions, then it shows again.",
+  },
+  folder: {
+    title: "This path is a folder, not a file",
+    detail: "Edit the path to name a file.",
+  },
+} satisfies Record<Exclude<LocalPathState, "ok">, { title: string; detail: string }>;
+
 interface Source {
   /// What the webview loads: an asset URL for an imported copy, else the URL.
   src: string | null;
@@ -92,12 +127,18 @@ interface SourceState {
   source: Source | null;
   /// The mentioned File entity is gone.
   missing: boolean;
+  /// The file a path names cannot be used right now, and why; `null` for everything else.
+  problem: keyof typeof PROBLEMS | null;
+  /// The block holds a path, whose file is checked on every visit.
+  path: string | null;
 }
 
-/// The media behind a block: a File entity from its mention, or a plain URL.
+/// The media behind a block: a File entity from its mention, a plain URL, or a file on this
+/// computer from its path.
 function useSource(content: string): SourceState {
-  const mention = MENTION.exec(content.trim());
-  const fileId = mention?.[2];
+  const target = parseMediaTarget(content);
+  const fileId = target.kind === "mention" ? target.fileId : undefined;
+  const path = target.kind === "path" ? target.path : undefined;
   const { data: file, isError } = useQuery({
     queryKey: qk.files.byId(fileId),
     queryFn: () => getFile(fileId ?? ""),
@@ -109,7 +150,30 @@ function useSource(content: string): SourceState {
     queryFn: () => getEntity(fileId ?? ""),
     enabled: fileId !== undefined,
   });
-  if (!content.trim()) return { source: null, missing: false };
+  // Looked at again whenever the window comes back, so a drive that was plugged in shows up.
+  const { data: local } = useQuery({
+    queryKey: qk.localFile(path ?? ""),
+    queryFn: () => checkLocalPath(path ?? ""),
+    enabled: path !== undefined,
+    retry: false,
+  });
+  if (target.kind === "empty") return { source: null, missing: false, problem: null, path: null };
+  if (target.kind === "path") {
+    const state = local?.state;
+    return {
+      source: {
+        src: state === "ok" ? convertFileSrc(target.path) : null,
+        name: target.name,
+        localPath: target.path,
+        url: null,
+        entity: null,
+        paged: false,
+      },
+      missing: false,
+      problem: state && state !== "ok" ? state : null,
+      path: target.path,
+    };
+  }
   if (!fileId) {
     const url = content.trim();
     return {
@@ -122,9 +186,11 @@ function useSource(content: string): SourceState {
         paged: false,
       },
       missing: false,
+      problem: null,
+      path: null,
     };
   }
-  if (!file) return { source: null, missing: isError };
+  if (!file) return { source: null, missing: isError, problem: null, path: null };
   return {
     source: {
       src:
@@ -138,6 +204,8 @@ function useSource(content: string): SourceState {
       paged: hasPages(file),
     },
     missing: false,
+    problem: null,
+    path: null,
   };
 }
 
@@ -153,8 +221,12 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   // SAFETY: a file node only ever writes `page` as a string or null.
   const pageAttr = asString(node.attrs.page as JSONAttrValue | undefined) ?? "";
   const page = Number(pageAttr) >= 1 ? Math.floor(Number(pageAttr)) : null;
-  const { source, missing } = useSource(content);
+  // SAFETY: a file node only ever writes `pageTo` as a string or null.
+  const pageToAttr = asString(node.attrs.pageTo as JSONAttrValue | undefined) ?? "";
+  const pageTo = Number(pageToAttr) >= 1 ? Math.floor(Number(pageToAttr)) : null;
+  const { source, missing, problem, path } = useSource(content);
   const editable = editor.isEditable;
+  const [editingPath, setEditingPath] = useState(false);
 
   // The stored mention label is the file's name, so it follows a rename too (the
   // backend rewrites saved blocks; this catches a page open while it happened).
@@ -179,9 +251,25 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   }
 
   const Icon = KINDS[kind].icon;
+  /// A file named by its path opens through the app, which tells why when it cannot.
   const openSource = () => {
-    if (source?.localPath) void openPath(source.localPath);
+    if (path) {
+      openLocalPath(path).catch((error) =>
+        notify.error("Couldn't open the file", { description: reasonOf(error) }),
+      );
+    } else if (source?.localPath) void openPath(source.localPath);
     else if (source?.url) void openUrl(source.url);
+  };
+  const revealSource = () => {
+    if (path) {
+      revealLocalPath(path).catch((error) =>
+        notify.error("Couldn't show the file", { description: reasonOf(error) }),
+      );
+    } else if (source?.localPath) void revealItemInDir(source.localPath);
+  };
+  /// The preview of a file on this computer failed to load, which the card cannot show.
+  const previewFailed = () => {
+    if (path) notify.error("Couldn't preview the file", { description: PROBLEM_HINT });
   };
   /// Cmd or Ctrl and a click on the media itself opens it; a plain click is left alone
   /// (it selects the block, and a video or audio player has its own controls).
@@ -196,11 +284,15 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   const openOnModifierClick = (event: MouseEvent<HTMLElement>) => {
     if (event.metaKey || event.ctrlKey) openSource();
   };
-  /// A plain click on a file's card opens its page in Nookly; Cmd or Ctrl still opens the
-  /// file itself.
+  /// A click on a file's card opens its page in Nookly, and Cmd or Ctrl opens it in a new
+  /// tab. The toolbar's Open File is the way to the system viewer. A card with no file
+  /// behind it (a web link) opens the link on Cmd or Ctrl.
   const openFileCard = (event: MouseEvent<HTMLElement>) => {
-    if (event.metaKey || event.ctrlKey) openSource();
-    else if (kind === "file") openInNookly();
+    const modifier = event.metaKey || event.ctrlKey;
+    if (kind === "file" && source?.entity) {
+      if (modifier) armNewTabIntent();
+      openInNookly();
+    } else if (modifier) openSource();
   };
 
   return (
@@ -212,7 +304,44 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
           kind === "image" && source && !missing ? "w-fit min-w-32 max-w-full" : "w-full",
         )}
       >
-        {missing || !source ? (
+        {editingPath && path !== null ? (
+          <div className="media-picker">
+            <TargetForm
+              noun={KINDS[kind].noun}
+              initial={path}
+              submitLabel="Save"
+              onSubmit={(rows) => {
+                updateAttributes({ rows });
+                setEditingPath(false);
+              }}
+              onCancel={() => setEditingPath(false)}
+            />
+          </div>
+        ) : problem && source ? (
+          <div data-testid="media-problem" className="media-card flex items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-muted-foreground">
+              <IconFileOff className="size-4.5" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-medium">{PROBLEMS[problem].title}</span>
+              <span className="text-xs text-muted-foreground">{PROBLEMS[problem].detail}</span>
+              <span className="truncate font-mono text-xs text-muted-foreground">
+                {source.localPath}
+              </span>
+            </span>
+            {editable && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-7 shrink-0 gap-1.5"
+                onClick={() => setEditingPath(true)}
+              >
+                <IconPencil className="size-3.5" />
+                Edit Path
+              </Button>
+            )}
+          </div>
+        ) : missing || !source ? (
           <div className={cn("media-card", !missing && "h-14 animate-pulse")}>
             {missing && (
               <span className="text-sm text-muted-foreground">This file no longer exists.</span>
@@ -225,10 +354,17 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
             alt={caption || source.name}
             className="media-image"
             onClick={openOnModifierClick}
+            onError={previewFailed}
           />
         ) : kind === "video" && source.src ? (
           // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own video, no captions to offer
-          <video src={source.src} controls preload="metadata" className="media-video" />
+          <video
+            src={source.src}
+            controls
+            preload="metadata"
+            className="media-video"
+            onError={previewFailed}
+          />
         ) : (
           // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- Cmd or Ctrl and click is a pointer shortcut; the toolbar's Open File is the keyboard way
           <div
@@ -247,21 +383,30 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
                 {kind === "file" && source.paged && (editable || page) ? (
                   <PageField
                     page={page}
+                    pageTo={pageTo}
                     editable={editable}
                     onChange={(next) => updateAttributes({ page: next ? String(next) : null })}
+                    onChangeTo={(next) => updateAttributes({ pageTo: next ? String(next) : null })}
                   />
                 ) : (
-                  source.url && (
-                    <span className="truncate text-xs text-muted-foreground">{source.url}</span>
+                  (source.url ?? path) && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {source.url ?? path}
+                    </span>
                   )
                 )}
               </span>
             </div>
-            {kind === "audio" &&
-              source.src && (
-                // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own recording, no captions to offer
-                <audio src={source.src} controls preload="metadata" className="w-full" />
-              )}
+            {kind === "audio" && source.src && (
+              // oxlint-disable-next-line jsx-a11y/media-has-caption -- a user's own recording, no captions to offer
+              <audio
+                src={source.src}
+                controls
+                preload="metadata"
+                className="w-full"
+                onError={previewFailed}
+              />
+            )}
           </div>
         )}
         <div className="media-toolbar">
@@ -270,7 +415,7 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
               <IconArrowUpRight className="size-3.5" />
             </ToolbarButton>
           )}
-          {source && (source.localPath || source.url) && (
+          {source && !problem && (source.localPath || source.url) && (
             <ToolbarButton
               label={source.localPath ? "Open File" : "Open Link"}
               onClick={openSource}
@@ -278,12 +423,14 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
               <IconExternalLink className="size-3.5" />
             </ToolbarButton>
           )}
-          {source?.localPath && (
-            <ToolbarButton
-              label="Show in Folder"
-              onClick={() => source.localPath && void revealItemInDir(source.localPath)}
-            >
+          {source?.localPath && !problem && (
+            <ToolbarButton label="Show in Folder" onClick={revealSource}>
               <IconFolderOpen className="size-3.5" />
+            </ToolbarButton>
+          )}
+          {editable && path !== null && !problem && (
+            <ToolbarButton label="Edit Path" onClick={() => setEditingPath(true)}>
+              <IconPencil className="size-3.5" />
             </ToolbarButton>
           )}
           {editable && (
@@ -310,51 +457,130 @@ export function MediaBlock({ node, updateAttributes, extension, editor }: ReactN
   );
 }
 
-/// The page of a file the block opens on, in the line under its name. It reads as text, not
-/// as a field: a "Page" label and a bare digits field, no box.  Plain text when the block is read only.
-/// Clicking it must not open the file.
+/// The page of a file the block opens on, and optionally the last page of the interval it is
+/// about, in the line under its name. It reads as text, not as a field: a "Page" label and
+/// bare digits fields, no box. The file opens on the first page; the last one is for the reader.
+/// Plain text when the block is read only. Clicking it must not open the file.
 function PageField({
   page,
+  pageTo,
   editable,
   onChange,
+  onChangeTo,
 }: {
   page: number | null;
+  pageTo: number | null;
   editable: boolean;
   onChange: (page: number | null) => void;
+  onChangeTo: (page: number | null) => void;
 }) {
   if (!editable) {
-    return <span className="truncate text-xs text-muted-foreground">Page {page}</span>;
+    return (
+      <span className="truncate text-xs text-muted-foreground">
+        {pageTo ? `Pages ${page} to ${pageTo}` : `Page ${page}`}
+      </span>
+    );
   }
   return (
-    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- only keeps a click on the label from reaching the card, which opens the file
-    <label
-      className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus-within:text-foreground"
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- only keeps a click on the fields from reaching the card, which opens the file
+    <div
+      className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground focus-within:text-foreground hover:text-foreground"
       onClick={(event) => event.stopPropagation()}
     >
       Page
-      <input
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        value={page ?? ""}
-        placeholder="..."
-        aria-label="Open on page"
-        onChange={(event) => {
-          const next = Number(event.target.value.replaceAll(/\D/g, "").slice(0, 5));
-          onChange(next >= 1 ? next : null);
-        }}
-        className="w-16 min-w-0 bg-transparent p-0 text-xs outline-none placeholder:text-muted-foreground/70"
-      />
-    </label>
+      <PageNumberInput value={page} label="Open on page" onChange={onChange} />
+      to
+      <PageNumberInput value={pageTo} label="Open to page" onChange={onChangeTo} />
+    </div>
   );
 }
 
-const linkSchema = z.object({
-  url: z
-    .string()
-    .trim()
-    .regex(/^https?:\/\/\S+$/),
-});
+function PageNumberInput({
+  value,
+  label,
+  onChange,
+}: {
+  value: number | null;
+  label: string;
+  onChange: (page: number | null) => void;
+}) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      value={value ?? ""}
+      placeholder="..."
+      aria-label={label}
+      onChange={(event) => {
+        const next = Number(event.target.value.replaceAll(/\D/g, "").slice(0, 5));
+        onChange(next >= 1 ? next : null);
+      }}
+      // As wide as its digits (at least the placeholder), so the "to" stays next to the number.
+      // SAFETY: a length in characters, which `CSSProperties` can't name as a custom property.
+      style={{ "--digits": `${Math.max(3, String(value ?? "").length)}ch` } as CSSProperties}
+      className="w-(--digits) min-w-0 bg-transparent p-0 text-xs outline-none placeholder:text-muted-foreground/70"
+    />
+  );
+}
+
+/// Why a preview of a file on this computer can fail: the card cannot say more than this.
+const PROBLEM_HINT = "The file may have changed or been moved. Open the file to check it.";
+
+/// The path or link of a block: one field and a button. A value that is neither a full path
+/// nor a link is refused with the reason under the field, before anything is saved. A path to
+/// a file that is not there is saved all the same: it works again once the file is back.
+function TargetForm({
+  noun,
+  initial,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  noun: string;
+  initial: string;
+  submitLabel: string;
+  onSubmit: (rows: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <form
+      className="flex min-w-0 flex-1 flex-col gap-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const message = mediaTargetError(value);
+        setError(message);
+        if (!message) onSubmit(value.trim());
+      }}
+    >
+      <div className="flex min-w-0 items-center gap-1.5">
+        <Input
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- opened by the user to type the value, so focus belongs in the field
+          autoFocus
+          value={value}
+          onChange={(event) => {
+            setValue(event.target.value);
+            if (error) setError(null);
+          }}
+          onKeyDown={(event) => event.key === "Escape" && onCancel()}
+          placeholder="/Users/you/file.pdf or https://"
+          aria-label={`Path or link to the ${noun}`}
+          aria-invalid={error ? true : undefined}
+          className="h-7 min-w-0 flex-1 text-xs"
+        />
+        <Button type="submit" variant="secondary" size="sm" className="h-7">
+          {submitLabel}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" className="h-7" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+      <FieldError message={error} />
+    </form>
+  );
+}
 
 /// The empty block: upload a file, pick one already under Files, or paste a URL.
 function MediaPicker({
@@ -371,12 +597,6 @@ function MediaPicker({
   const queryClient = useQueryClient();
   const { noun, icon: Icon, extensions } = KINDS[kind];
   const [linking, setLinking] = useState(false);
-  // A value that is not a full link is ignored on submit.
-  const form = useForm({
-    defaultValues: { url: "" },
-    validators: { onSubmit: linkSchema },
-    onSubmit: ({ value }) => onPick(value.url.trim()),
-  });
 
   const upload = useMutation({
     mutationFn: async () => {
@@ -403,6 +623,7 @@ function MediaPicker({
   const status = useActionStatus(upload);
   // The block still shows the file if attaching it to the page's context fails.
   const attachToPage = (fileId: string) =>
+    pageId &&
     void inheritPageContext(queryClient, pageId, fileId).catch(() => {
       notify.error("Couldn't attach the file to this page", {
         description: "Try attaching it again.",
@@ -420,32 +641,13 @@ function MediaPicker({
         Add {kind === "image" ? "an" : "a"} {noun}
       </span>
       {linking ? (
-        <form
-          className="flex min-w-0 flex-1 items-center gap-1.5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void form.handleSubmit();
-          }}
-        >
-          <form.Field name="url">
-            {(field) => (
-              <Input
-                // oxlint-disable-next-line jsx-a11y/no-autofocus -- opened by the user to type the value, so focus belongs in the field
-                autoFocus
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-                onKeyDown={(event) => event.key === "Escape" && setLinking(false)}
-                placeholder="https://"
-                aria-label={`Link to the ${noun}`}
-                className="h-7 min-w-0 flex-1 text-xs"
-              />
-            )}
-          </form.Field>
-          <Button type="submit" variant="secondary" size="sm" className="h-7">
-            Add
-          </Button>
-        </form>
+        <TargetForm
+          noun={noun}
+          initial=""
+          submitLabel="Add"
+          onSubmit={onPick}
+          onCancel={() => setLinking(false)}
+        />
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
           <Button
@@ -478,8 +680,8 @@ function MediaPicker({
             className="h-7 gap-1.5"
             onClick={() => setLinking(true)}
           >
-            <IconLink className="size-3.5" />
-            Link
+            <IconRoute className="size-3.5" />
+            Path
           </Button>
         </div>
       )}

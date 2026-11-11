@@ -1,4 +1,4 @@
-import type { ActiveFilter, FilterOperator } from "#/components/filter-menu.tsx";
+import type { ActiveFilter, FilterJoin, FilterOperator } from "#/components/filter-menu.tsx";
 
 /// What a saved View remembers of its page: the applied filters and the display
 /// options (layout, grouping, hidden columns...). `D` is the module's own
@@ -9,11 +9,12 @@ export interface ViewConfig<D> {
 }
 
 interface StoredConfig<D> {
-  filters?: { fieldId?: string; operator?: string; values?: string[] }[];
+  filters?: { fieldId?: string; operator?: string; values?: string[]; join?: string }[];
   display?: Partial<D>;
 }
 
 const OPERATORS: FilterOperator[] = ["is", "isNot"];
+const JOINS: FilterJoin[] = ["and", "or"];
 
 /// Reads a View's JSON back, checking every field like `readDisplay` does, so an
 /// outdated or hand edited (CLI) config loses only what is invalid.
@@ -34,11 +35,13 @@ export function parseViewConfig<D>(
     filters: filters.flatMap((f) => {
       const operator = OPERATORS.find((o) => o === f.operator);
       if (!f.fieldId || !operator || !Array.isArray(f.values)) return [];
+      const join = JOINS.find((j) => j === f.join);
       return [
         {
           fieldId: f.fieldId,
           operator,
           values: f.values.filter((v): v is string => typeof v === "string"),
+          ...(join && { join }),
         },
       ];
     }),

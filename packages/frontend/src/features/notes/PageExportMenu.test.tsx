@@ -14,6 +14,24 @@ async function openMenu() {
   return view;
 }
 
+describe("PageExportMenu", () => {
+  it("offers copying, the Export dialog and the Nookly page file", async () => {
+    await openMenu();
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((item) => item.textContent?.trim())).toEqual([
+      "Copy Page as Markdown",
+      "Export...",
+      "Export as Nookly Page (.json)",
+    ]);
+  });
+
+  it("opens the Export dialog", async () => {
+    const { user } = await openMenu();
+    await user.click(await screen.findByRole("menuitem", { name: "Export..." }));
+    expect(await screen.findByRole("dialog", { name: "Export Page" })).toBeInTheDocument();
+  });
+});
+
 describe("PageExportMenu Nookly page file", () => {
   it("saves the page as a Nookly page file at the chosen path", async () => {
     mockCommand("plugin:dialog|save", "/tmp/Physics week 3.nookly.json");

@@ -466,12 +466,16 @@ export function buildBriefing({
   const lead = leadFor(now, upcoming, exams, today, allClear, seed);
   const active = parts.flatMap((p) => ("clause" in p ? [p.clause] : []));
   const quiet = parts.flatMap((p) => ("quiet" in p ? [p.quiet] : []));
-  // A single exam the lead already named is not said twice.
+  // A single exam, or the next session, that the lead already named is not said twice.
   const examId = exams.length === 1 ? exams[0].entity.id : null;
-  const named = lead.some(
-    (r) => r.kind === "name" && r.target.kind === "entity" && r.target.entityId === examId,
+  const namedInLead = (id: string | undefined) =>
+    id !== undefined &&
+    lead.some((r) => r.kind === "name" && r.target.kind === "entity" && r.target.entityId === id);
+  const clauses = active.filter(
+    (c) =>
+      !(c.key === "exams" && namedInLead(examId ?? undefined)) &&
+      !(c.key === "sessions" && namedInLead(upcoming[0]?.entityId)),
   );
-  const clauses = named ? active.filter((c) => c.key !== "exams") : active;
   // Everything with nothing in it is named once, briefly, as links.
   if (quiet.length > 0) {
     clauses.push({
@@ -489,7 +493,7 @@ export function buildBriefing({
         : pick(seed, SALT.connector + i, [", ", ", plus ", ", and ", ". Also, "] as const),
     );
   const bridge =
-    lead.length === 0
+    lead.length === 0 || clauses.length === 0
       ? ""
       : clauses[0]?.key === "rest"
         ? " "

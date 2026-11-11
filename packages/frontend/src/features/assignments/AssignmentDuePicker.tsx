@@ -2,6 +2,7 @@ import {
   IconCalendarEvent,
   IconCalendarTime,
   IconChevronLeft,
+  IconChevronRight,
   IconSchool,
   IconX,
 } from "@tabler/icons-react";
@@ -10,12 +11,22 @@ import { DueDateChooser } from "#/features/tasks/task-properties.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { NumberInput } from "@nookly/ui/components/number-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { useSpaceSessions } from "#/features/courses/course-queries.ts";
 import { useCourseLookup } from "#/features/courses/course-lookup.tsx";
 import { parseDay, toDay } from "#/features/tasks/task-model.ts";
+import {
+  buildColumns,
+  rangeLabel,
+  stepAnchor,
+  stepLabel,
+  timeToMinutes,
+  visibleDays,
+} from "#/features/sessions/calendar/calendar-model.ts";
+import { TimeGrid } from "#/features/sessions/calendar/TimeGrid.tsx";
 import { dialogPopover } from "#/lib/dialog-popover.ts";
-import { formatClock, formatDate } from "#/lib/datetime.ts";
+import { useWeekStartsOn } from "#/lib/week-start.ts";
 import type { Assignment } from "#/lib/api/types.ts";
 import {
   type AssignmentDue,
@@ -99,7 +110,17 @@ export function DuePicker({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        {...dialogPopover(cn("p-2", step === "date" ? "w-120" : "w-80"))}
+        {...dialogPopover(
+          cn(
+            "max-h-(--radix-popover-content-available-height) p-2",
+            // The week scrolls on its own and shrinks to fit, so the popover never scrolls.
+            step === "pick" ? "flex w-xl flex-col overflow-hidden" : "overflow-y-auto",
+            step === "date" ? "w-120" : step === "choose" || step === "session" ? "w-80" : null,
+          ),
+        )}
+        // Always below the field: flipping above as the steps change size makes it jump.
+        side="bottom"
+        avoidCollisions={false}
         align={align}
         aria-label="Due date"
         ref={contentRef}
@@ -159,7 +180,7 @@ export function DuePicker({
           </div>
         )}
         {step === "pick" && (
-          <div className="flex flex-col gap-2">
+          <div className="flex min-h-0 flex-col gap-2">
             <BackButton onClick={() => setStep("choose")} />
             <SessionChoices
               spaceId={spaceId}
@@ -215,7 +236,13 @@ function OffsetChooser({
         ))}
       </div>
       <div className="flex items-center gap-2 border-t border-border pt-2">
-        <NumberInput value={days} onChange={onDaysChange} min={0} max={MAX_DUE_OFFSET_DAYS} />
+        <NumberInput
+          value={days}
+          onChange={onDaysChange}
+          min={0}
+          max={MAX_DUE_OFFSET_DAYS}
+          aria-label="Days before"
+        />
         <span className="flex-1 text-xs text-muted-foreground">days before</span>
         <Button size="sm" disabled={disabled} onClick={() => onChoose(days)}>
           Set
@@ -225,8 +252,11 @@ function OffsetChooser({
   );
 }
 
-/// The Course's upcoming sessions: pick one, then how long before it the assignment is
-/// due. The assignment follows the picked session.
+/// Minutes of lead time above the week's first session when the week opens.
+const LEAD_MINUTES = 30;
+
+/// The Course's upcoming sessions on a week of the calendar: pick one, then how long
+/// before it the assignment is due. The assignment follows the picked session.
 function SessionChoices({
   spaceId,
   courseId,
@@ -244,6 +274,8 @@ function SessionChoices({
 }) {
   const [days, setDays] = useState(initialDays);
   const [picked, setPicked] = useState<string | null>(initialSessionId);
+  const [week, setWeek] = useState<Date | null>(null);
+  const weekStartsOn = useWeekStartsOn();
   const { data: sessions = [], isPending } = useSpaceSessions(spaceId);
   const { courseOf: sessionCourse } = useCourseLookup(spaceId, "session-course");
   const { courseOf: assignmentCourse } = useCourseLookup(spaceId, "assignment-course");
@@ -252,11 +284,11 @@ function SessionChoices({
   const upcoming = course
     ? upcomingSessions(sessions, course, courseOfSession, toDay(new Date()))
     : [];
-  const selected = upcoming.some((s) => s.entity.id === picked) ? picked : null;
+  const selected = upcoming.find((s) => s.entity.id === picked) ?? null;
 
-  return (
-    <>
-      {upcoming.length === 0 ? (
+  if (upcoming.length === 0) {
+    return (
+      <>
         <p className="px-1 py-2 text-xs text-muted-foreground">
           {!course
             ? "Pick a course first."
@@ -264,37 +296,64 @@ function SessionChoices({
               ? "Loading sessions…"
               : "This course has no upcoming sessions."}
         </p>
-      ) : (
-        <ul
-          aria-label="Upcoming sessions"
-          className="flex max-h-48 flex-col gap-0.5 overflow-y-auto"
-        >
-          {upcoming.map((session) => (
-            <li key={session.entity.id}>
+        <OffsetChooser days={days} onDaysChange={setDays} disabled onChoose={() => {}} />
+      </>
+    );
+  }
+
+  // Opens on the picked session's week, else the next session's.
+  const anchor = week ?? parseDay((selected ?? upcoming[0]).date);
+  const weekDays = visibleDays("week", anchor, weekStartsOn);
+  const first = toDay(weekDays[0]);
+  const last = toDay(weekDays[weekDays.length - 1]);
+  const inWeek = upcoming.filter((s) => s.date >= first && s.date <= last);
+  const earliest = Math.min(...inWeek.map((s) => timeToMinutes(s.startTime)));
+  const steps = [
+    { direction: -1, enabled: upcoming.some((s) => s.date < first) },
+    { direction: 1, enabled: upcoming.some((s) => s.date > last) },
+  ] as const;
+
+  return (
+    <>
+      <div className="flex items-center gap-1">
+        {steps.map(({ direction, enabled }) => (
+          <Tooltip key={direction}>
+            <TooltipTrigger asChild>
               <Button
-                variant={session.entity.id === selected ? "secondary" : "ghost"}
-                size="sm"
-                className="w-full justify-between gap-2"
-                aria-pressed={session.entity.id === selected}
-                onClick={() => setPicked(session.entity.id)}
+                variant="ghost"
+                size="iconSm"
+                aria-label={stepLabel("week", direction)}
+                disabled={!enabled}
+                onClick={() => setWeek(stepAnchor("week", anchor, direction))}
               >
-                <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="shrink-0">{formatDate(parseDay(session.date))}</span>
-                  <span className="truncate text-muted-foreground">{session.entity.title}</span>
-                </span>
-                <span className="shrink-0 text-muted-foreground">
-                  {formatClock(session.startTime)}
-                </span>
+                {direction === -1 ? <IconChevronLeft /> : <IconChevronRight />}
               </Button>
-            </li>
-          ))}
-        </ul>
-      )}
+            </TooltipTrigger>
+            <TooltipContent>{stepLabel("week", direction)}</TooltipContent>
+          </Tooltip>
+        ))}
+        <span className="pl-1 text-sm font-medium">{rangeLabel("week", weekDays, anchor)}</span>
+      </div>
+      <section
+        aria-label="Upcoming sessions"
+        className="flex h-56 min-h-24 shrink flex-col overflow-hidden rounded-lg border"
+      >
+        <TimeGrid
+          key={first}
+          columns={buildColumns(weekDays, upcoming, [])}
+          selection={null}
+          highlightIds={new Set(selected ? [selected.entity.id] : [])}
+          onPickSession={(session) => setPicked(session.entity.id)}
+          initialScrollMinutes={
+            inWeek.length > 0 ? Math.max(0, earliest - LEAD_MINUTES) : undefined
+          }
+        />
+      </section>
       <OffsetChooser
         days={days}
         onDaysChange={setDays}
         disabled={selected === null}
-        onChoose={(offsetDays) => selected && onPick(selected, offsetDays)}
+        onChoose={(offsetDays) => selected && onPick(selected.entity.id, offsetDays)}
       />
     </>
   );

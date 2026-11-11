@@ -231,9 +231,16 @@ export interface AssignmentRecord {
   weight: number | null;
   grade: number | null;
   status: string;
+  /// While it follows the next session: the local moment (`YYYY-MM-DD HH:MM`) that was set,
+  /// so it keeps the session next then once that one starts; null otherwise.
+  dueSessionAfter: string | null;
+  /// Not graded at all, like homework: no grade, and no share of the course's grade.
+  ungraded: boolean;
+  /// When the status last changed to evaluated; null while it is not.
+  evaluatedAt: string | null;
 }
 
-const ASSIGNMENT_SELECT = `SELECT ${ENTITY_COLUMNS}, a.due_date, a.due_session_offset_days, a.weight, a.grade, a.status,
+const ASSIGNMENT_SELECT = `SELECT ${ENTITY_COLUMNS}, a.due_date, a.due_session_offset_days, a.due_session_after, a.weight, a.grade, a.status, a.ungraded, a.evaluated_at,
   ${linkedTo("assignment-course")} AS course_id FROM entities e JOIN assignments a ON a.entity_id = e.id`;
 
 function toAssignment(r: Row): AssignmentRecord {
@@ -245,6 +252,9 @@ function toAssignment(r: Row): AssignmentRecord {
     weight: optNum(r.weight),
     grade: optNum(r.grade),
     status: str(r.status),
+    dueSessionAfter: optStr(r.due_session_after),
+    ungraded: Number(r.ungraded) === 1,
+    evaluatedAt: optStr(r.evaluated_at),
   };
 }
 
@@ -345,8 +355,10 @@ async function resolveDue(db: LocalDb, record: AssignmentRecord): Promise<Assign
       return { ...record, dueDate: day };
     }
   }
+  // The session that was next when it was set, not the one next now.
+  const [afterDay, afterTime] = record.dueSessionAfter?.split(" ") ?? [];
   const dueDate = record.courseId
-    ? await nextSessionDue(db, record.courseId, offset, today, now)
+    ? await nextSessionDue(db, record.courseId, offset, afterDay ?? today, afterTime ?? now)
     : null;
   return { ...record, dueDate };
 }
@@ -428,10 +440,28 @@ export async function setAssignmentDueBeforeSession(
       throw new Error("The session must be one of the assignment's course.");
     }
   }
+  // Following the next session means the one next now, so it stays put once that session
+  // starts. Changing only the days keeps the moment it already has.
+  let after: string | null = null;
+  if (offsetDays !== null && sessionId === null) {
+    const kept = await first(
+      db,
+      `SELECT a.due_session_after AS after FROM assignments a
+         WHERE a.entity_id = ? AND a.due_session_offset_days IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM relationships r
+                           WHERE r.from_entity_id = a.entity_id
+                             AND r.relationship_type = 'assignment-due-session')`,
+      id,
+    );
+    const clock = db.now();
+    after =
+      (kept ? optStr(kept.after) : null) ??
+      `${clock.getFullYear()}-${pad(clock.getMonth() + 1)}-${pad(clock.getDate())} ${pad(clock.getHours())}:${pad(clock.getMinutes())}`;
+  }
   await write(db, [
     {
-      sql: "UPDATE assignments SET due_session_offset_days = ? WHERE entity_id = ?",
-      params: [offsetDays, id],
+      sql: "UPDATE assignments SET due_session_offset_days = ?, due_session_after = ? WHERE entity_id = ?",
+      params: [offsetDays, after, id],
     },
     ...relink(db, id, "assignment-due-session", sessionId),
     { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
@@ -462,6 +492,7 @@ export interface AssignmentPatch {
   weight?: number | null;
   grade?: number | null;
   status?: string;
+  ungraded?: boolean;
 }
 
 export async function updateAssignment(
@@ -472,8 +503,24 @@ export async function updateAssignment(
   await update(db, "assignments", id, {
     weight: patch.weight,
     grade: patch.grade,
-    status: patch.status,
+    ungraded: patch.ungraded === undefined ? undefined : patch.ungraded ? 1 : 0,
   });
+  if (patch.status === undefined) return;
+  // `update_assignment_status`: the stamp is kept while it stays evaluated and cleared
+  // when it is reopened.
+  await write(db, [
+    {
+      sql: `UPDATE assignments SET
+              evaluated_at = CASE
+                WHEN ? <> 'evaluated' THEN NULL
+                WHEN status = 'evaluated' AND evaluated_at IS NOT NULL THEN evaluated_at
+                ELSE ? END,
+              status = ?
+            WHERE entity_id = ?`,
+      params: [patch.status, iso(db), patch.status, id],
+    },
+    { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
+  ]);
 }
 
 /// `update_assignment_due_date`: a fixed day, which stops following a session.
@@ -484,7 +531,7 @@ export async function setAssignmentDueDate(
 ): Promise<void> {
   await write(db, [
     {
-      sql: "UPDATE assignments SET due_date = ?, due_session_offset_days = NULL WHERE entity_id = ?",
+      sql: "UPDATE assignments SET due_date = ?, due_session_offset_days = NULL, due_session_after = NULL WHERE entity_id = ?",
       params: [dueDate, id],
     },
     ...relink(db, id, "assignment-due-session", null),
@@ -660,7 +707,7 @@ export async function updateCard(
 ): Promise<void> {
   await write(db, [
     {
-      sql: "UPDATE index_cards SET front = ?, back = ?, updated_at = ? WHERE id = ?",
+      sql: "UPDATE index_cards SET front = ?, back = ?, front_blocks = NULL, back_blocks = NULL, updated_at = ? WHERE id = ?",
       params: [front, back, iso(db), id],
     },
   ]);

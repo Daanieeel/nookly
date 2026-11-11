@@ -2,16 +2,8 @@ import katex from "katex";
 import "katex/contrib/mhchem";
 import "katex/dist/katex.min.css";
 import { settings } from "#/lib/settings/settings.ts";
+import { GATE_MACROS } from "./gate-macros.ts";
 import { parseLatexMacros } from "#/lib/latex-macros.ts";
-
-/// Logic gate operators, which LaTeX has no commands for: `A \nand B`. The negated
-/// gates are the plain symbol with a bar over it.
-const GATE_MACROS = {
-  "\\xor": "\\mathbin{\\oplus}",
-  "\\nand": "\\mathbin{\\overline{\\wedge}}",
-  "\\nor": "\\mathbin{\\overline{\\vee}}",
-  "\\xnor": "\\mathbin{\\overline{\\oplus}}",
-};
 
 let parsed: { text: string; macros: Record<string, string> } | null = null;
 
@@ -21,6 +13,12 @@ function userMacros(): Record<string, string> {
   const text = settings.get("notes.latexMacros");
   if (parsed?.text !== text) parsed = { text, macros: parseLatexMacros(text).macros };
   return parsed.macros;
+}
+
+/// Every command a formula can use: the gate operators and the user's own, KaTeX style
+/// (`\\name` to its expansion).
+export function latexMacros() {
+  return { ...GATE_MACROS, ...userMacros() };
 }
 
 /// LaTeX rendering for the math blocks and inline math, through KaTeX with the
@@ -40,7 +38,7 @@ export function renderMath(
       strict: "ignore",
       trust: false,
       // KaTeX writes a macro's definitions into this object, so each call gets a copy.
-      macros: { ...GATE_MACROS, ...userMacros(), ...extraMacros },
+      macros: { ...latexMacros(), ...extraMacros },
       output: "htmlAndMathml",
     });
     return null;

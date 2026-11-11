@@ -32,12 +32,17 @@ import {
 import { qk } from "#/lib/query-keys.ts";
 import {
   CreateMoreSwitch,
+  NewEntityBody,
   NewEntityBreadcrumb,
   NewEntityDialog,
 } from "#/components/new-entity-dialog.tsx";
+import type { BlockInput } from "#/features/notes/block-markdown.ts";
+import { saveDraftBlocks } from "#/features/notes/draft-blocks.ts";
 
 /// What a new task starts with, e.g. the status of the column its "+" sits in.
 export interface TaskDraft {
+  /// What the title field starts with, e.g. the words typed after "new task" in the palette.
+  title?: string;
   statusId?: string;
   labelIds?: string[];
   /// What the task starts out related to, e.g. the Course the list is filtered to.
@@ -50,6 +55,7 @@ const taskSchema = z.object({
   labelIds: z.array(z.string()),
   dueDate: z.string().nullable(),
   related: z.custom<Entity>().nullable(),
+  body: z.custom<BlockInput[]>(),
 });
 
 type NewTask = z.infer<typeof taskSchema>;
@@ -60,6 +66,7 @@ const emptyValues: NewTask = {
   labelIds: [],
   dueDate: null,
   related: null,
+  body: [],
 };
 
 /// Linear's "New issue" modal, cut down to the title and three property pills
@@ -95,6 +102,8 @@ export function QuickCreateTask({
     },
   });
   const [createMore, setCreateMore] = useState(false);
+  /// Changes to start the description over after "Create more" (it starts empty on each opening).
+  const [bodyKey, setBodyKey] = useState(0);
   const newLabel = useCreateLabel(spaceId);
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -102,7 +111,7 @@ export function QuickCreateTask({
   useEffect(() => {
     if (!open) return;
     form.reset({
-      title: "",
+      title: draft.title ?? "",
       // Backlog unless whatever opened it says otherwise; without one, the first status.
       statusId:
         draft.statusId ??
@@ -110,12 +119,14 @@ export function QuickCreateTask({
       labelIds: draft.labelIds ?? [],
       dueDate: null,
       related: draft.related ?? null,
+      body: [],
     });
   }, [open, draft, statuses, kindOf, form]);
 
   const create = useMutation({
     mutationFn: async (vars: NewTask) => {
       const task = await createTask(spaceId, vars.title, null, vars.dueDate);
+      await saveDraftBlocks(task.entity.id, vars.body);
       if (vars.statusId && vars.statusId !== task.statusId) {
         await updateTaskStatus(task.entity.id, vars.statusId);
       }
@@ -133,6 +144,8 @@ export function QuickCreateTask({
       onCreated(task);
       if (createMore) {
         form.setFieldValue("title", "");
+        form.setFieldValue("body", []);
+        setBodyKey((key) => key + 1);
         requestAnimationFrame(() => titleRef.current?.focus());
       } else {
         onOpenChange(false);
@@ -182,6 +195,13 @@ export function QuickCreateTask({
           </div>
         )}
       </form.Field>
+
+      <NewEntityBody
+        spaceId={spaceId}
+        editorKey={bodyKey}
+        label="Task description"
+        onChange={(blocks) => form.setFieldValue("body", blocks)}
+      />
 
       <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4">
         <form.Subscribe selector={(state) => state.values}>

@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
 import {
+  AssemblyMark,
   Css3Mark,
+  CMark,
   CPlusPlusMark,
   CSharpMark,
   GnuBashMark,
@@ -31,7 +33,9 @@ export type LanguageIcon = ComponentType<{ className?: string }>;
 /// language family. Kept as a flat list (not derived from the highlighter's loaded languages) so
 /// each one gets a human-readable label and a colored brand icon instead of its raw grammar id.
 export const CODE_LANGUAGES: { value: string; label: string; icon: LanguageIcon }[] = [
+  { value: "asm", label: "Assembly", icon: AssemblyMark },
   { value: "bash", label: "Bash", icon: GnuBashMark },
+  { value: "c", label: "C", icon: CMark },
   { value: "cpp", label: "C++", icon: CPlusPlusMark },
   { value: "csharp", label: "C#", icon: CSharpMark },
   { value: "css", label: "CSS", icon: Css3Mark },
@@ -64,6 +68,11 @@ export const CODE_LANGUAGES: { value: string; label: string; icon: LanguageIcon 
 /// first, the picker couldn't find a matching entry and silently fell back to showing "Plain
 /// Text" even though the block highlighted correctly.
 const DISPLAY_ALIASES = {
+  assembly: "asm",
+  nasm: "asm",
+  yasm: "asm",
+  gas: "asm",
+  s: "asm",
   toml: "ini",
   ts: "typescript",
   js: "javascript",

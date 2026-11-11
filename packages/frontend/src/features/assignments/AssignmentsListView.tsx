@@ -12,7 +12,10 @@ import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { type ActiveFilter, type FilterField, applyFilters } from "#/components/filter-menu.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { DueLabel, PROPERTY_PILL } from "#/features/tasks/task-properties.tsx";
+import { EvaluationToggle } from "./EvaluationToggle";
 import { listSpaces } from "#/lib/api/spaces.ts";
+import { createRelationship } from "#/lib/api/relationships.ts";
+import { notify } from "#/components/notify.tsx";
 import { cn } from "@nookly/ui/lib/utils";
 import { fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { useCourseLookup } from "#/features/courses/course-lookup.tsx";
@@ -51,9 +54,12 @@ import { AssignmentGroups } from "./AssignmentGroups";
 import { assignmentFilterFields, assignmentFilterValue } from "./assignment-filter-fields";
 import {
   CreateMoreSwitch,
+  NewEntityBody,
   NewEntityBreadcrumb,
   NewEntityDialog,
 } from "#/components/new-entity-dialog.tsx";
+import type { BlockInput } from "#/features/notes/block-markdown.ts";
+import { saveDraftBlocks } from "#/features/notes/draft-blocks.ts";
 
 /// An inbox to work through: a list bucketed by due date by default, or a board,
 /// either one groupable and sub-groupable by deadline, creation, status or Course.
@@ -223,12 +229,16 @@ const assignmentSchema = z.object({
   title: z.string(),
   course: z.custom<Entity | null>().refine((c): boolean => c !== null, "Pick a course"),
   due: z.custom<DueValue>(),
+  ungraded: z.boolean(),
+  body: z.custom<BlockInput[]>(),
 });
 type AssignmentValues = z.infer<typeof assignmentSchema>;
 const emptyAssignment: AssignmentValues = {
   title: "",
   course: null,
   due: { dueDate: null, dueSessionOffsetDays: null, dueSessionId: null },
+  ungraded: true,
+  body: [],
 };
 
 /// The new assignment dialog, in the style of the new task modal: a breadcrumb, a title
@@ -242,16 +252,28 @@ export function CreateAssignmentDialog({
   spaces,
   open,
   onOpenChange,
+  initialCourse = null,
+  session = null,
+  openInBackground = false,
 }: {
   spaceId: string;
   spaces?: Space[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /// The Course the dialog starts with, each time it opens.
+  initialCourse?: Entity | null;
+  /// A Session the new assignment is linked to when it is created.
+  session?: Entity | null;
+  /// Opens the new assignment in a tab behind the current one, so the user stays where they are.
+  openInBackground?: boolean;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
+  const openInNewTab = useNavStore((s) => s.openInNewTab);
   const [spaceId, setSpaceId] = useState(initialSpaceId);
   const [createMore, setCreateMore] = useState(false);
+  /// Changes to start the description over after "Create more" (it starts empty on each opening).
+  const [bodyKey, setBodyKey] = useState(0);
   const titleRef = useRef<HTMLInputElement>(null);
   const { data: allSpaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const space = allSpaces.find((s) => s.id === spaceId);
@@ -265,17 +287,36 @@ export function CreateAssignmentDialog({
   });
   const course = useStore(form.store, (state) => state.values.course);
 
+  // A dialog opened from outside starts in the Space and Course it was given.
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpen.current) {
+      setSpaceId(initialSpaceId);
+      form.setFieldValue("course", initialCourse);
+    }
+    wasOpen.current = open;
+  }, [open, initialSpaceId, initialCourse, form]);
+
   const create = useMutation({
-    mutationFn: ({ title, course: picked, due }: AssignmentValues) => {
+    mutationFn: async ({ title, course: picked, due, ungraded, body }: AssignmentValues) => {
       if (!picked) throw new Error("pick a course");
-      return createAssignment(
+      const created = await createAssignment(
         spaceId,
         title.trim() || `${displayTitle(picked)} Assignment`,
         picked.id,
         due.dueDate,
         due.dueSessionOffsetDays,
         due.dueSessionId,
+        ungraded,
       );
+      await saveDraftBlocks(created.entity.id, body);
+      if (session) {
+        // The assignment exists either way, so a failed link is reported, not retried.
+        await createRelationship(created.entity.id, session.id, "relates-to").catch(() =>
+          notify.caution("Assignment created, but not linked to the session"),
+        );
+      }
+      return created;
     },
     onSuccess: async (created, { course: picked }) => {
       await Promise.all([
@@ -285,10 +326,19 @@ export function CreateAssignmentDialog({
       ]);
       if (createMore) {
         form.setFieldValue("title", "");
+        form.setFieldValue("body", []);
+        setBodyKey((key) => key + 1);
         requestAnimationFrame(() => titleRef.current?.focus());
       } else {
         handleOpenChange(false);
-        openEntity(created.entity.id, spaceId);
+        if (openInBackground) {
+          openInNewTab(
+            { kind: "entity", entityId: created.entity.id, spaceId },
+            { activate: false },
+          );
+        } else {
+          openEntity(created.entity.id, spaceId);
+        }
       }
     },
   });
@@ -341,6 +391,13 @@ export function CreateAssignmentDialog({
           />
         )}
       </form.Field>
+
+      <NewEntityBody
+        spaceId={spaceId}
+        editorKey={bodyKey}
+        label="Assignment description"
+        onChange={(blocks) => form.setFieldValue("body", blocks)}
+      />
 
       <div className="flex flex-wrap items-center gap-1.5 px-4 pb-4">
         <form.Field name="course">
@@ -403,6 +460,15 @@ export function CreateAssignmentDialog({
               </DuePicker>
             );
           }}
+        </form.Field>
+        <form.Field name="ungraded">
+          {(field) => (
+            <EvaluationToggle
+              ungraded={field.state.value}
+              onToggle={field.handleChange}
+              className={cn(PROPERTY_PILL, !field.state.value && "border-caution/40 bg-caution/10")}
+            />
+          )}
         </form.Field>
       </div>
 

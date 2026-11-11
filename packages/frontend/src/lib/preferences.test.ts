@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 
 /// A fresh preferences module, as on launch.
@@ -65,6 +66,22 @@ describe("preferences", () => {
     );
   });
 
+  describe("a debug build next to the installed app", () => {
+    const storeCall = z.looseObject({ path: z.string().optional() });
+
+    it("keeps its preferences in its own data folder, never in the installed app's", async () => {
+      // `store_dir` answers with the debug build's data folder (`.dev-data` or
+      // `NOOKLY_DATA_DIR`); a release build answers null and uses the plugin's own.
+      mockCommand("store_dir", "/tmp/fixture");
+      mockCommand("plugin:store|load", 1);
+      mockCommand("plugin:store|entries", []);
+      const { initPreferences } = await freshPreferences();
+      await initPreferences();
+      const loaded = callsOf("plugin:store|load").map((call) => storeCall.parse(call).path);
+      expect(loaded).toEqual(["/tmp/fixture/preferences.json"]);
+    });
+  });
+
   describe("file viewer theme backfill", () => {
     async function load(entries: [string, string][]) {
       mockCommand("plugin:store|load", 7);
@@ -107,6 +124,118 @@ describe("preferences", () => {
         ["nookly:file-viewer-theme-backfill", "1"],
       ]);
       expect(preferences.get("nookly:file-viewer-theme")).toBe("light");
+      expect(callsOf("plugin:store|set")).toEqual([]);
+    });
+  });
+
+  describe("assignment status rename", () => {
+    async function load(entries: [string, string][]) {
+      mockCommand("plugin:store|load", 7);
+      mockCommand("plugin:store|entries", [["nookly:file-viewer-theme-backfill", "1"], ...entries]);
+      mockCommand("plugin:store|set", null);
+      const { initPreferences, preferences } = await freshPreferences();
+      await initPreferences();
+      return preferences;
+    }
+
+    const filters = (fieldId: string, ...values: string[]) =>
+      JSON.stringify([{ fieldId, operator: "is", values }]);
+
+    it("renames graded in the saved status filters of every space and of the overview", async () => {
+      const preferences = await load([
+        ["nookly:assignments-filters:space-1", filters("status", "graded", "submitted")],
+        ["nookly:assignments-filters:space-2", filters("status", "graded")],
+        ["nookly:assignments-overview-filters", filters("status", "graded")],
+      ]);
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe(
+        filters("status", "evaluated", "submitted"),
+      );
+      expect(preferences.get("nookly:assignments-filters:space-2")).toBe(
+        filters("status", "evaluated"),
+      );
+      expect(preferences.get("nookly:assignments-overview-filters")).toBe(
+        filters("status", "evaluated"),
+      );
+    });
+
+    it("leaves the grade filter, other filters and other pages alone", async () => {
+      const grade = filters("grade", "graded");
+      const tasks = filters("status", "graded");
+      const preferences = await load([
+        ["nookly:assignments-filters:space-1", grade],
+        ["nookly:tasks-filters:space-1", tasks],
+      ]);
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe(grade);
+      expect(preferences.get("nookly:tasks-filters:space-1")).toBe(tasks);
+      expect(callsOf("plugin:store|set")).toEqual([]);
+    });
+
+    it("renames a hidden column only when the board is grouped by status", async () => {
+      const preferences = await load([
+        [
+          "nookly:assignments-display",
+          JSON.stringify({ layout: "board", grouping: "status", hiddenColumns: ["graded"] }),
+        ],
+        [
+          "nookly:assignments-overview",
+          JSON.stringify({ layout: "board", grouping: "grade", hiddenColumns: ["graded"] }),
+        ],
+      ]);
+      expect(JSON.parse(preferences.get("nookly:assignments-display") ?? "")).toMatchObject({
+        hiddenColumns: ["evaluated"],
+      });
+      expect(JSON.parse(preferences.get("nookly:assignments-overview") ?? "")).toMatchObject({
+        hiddenColumns: ["graded"],
+      });
+    });
+
+    it("skips what is not JSON", async () => {
+      const preferences = await load([["nookly:assignments-filters:space-1", "nope"]]);
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe("nope");
+    });
+  });
+
+  describe("filter field renames", () => {
+    async function load(entries: [string, string][]) {
+      mockCommand("plugin:store|load", 7);
+      mockCommand("plugin:store|entries", [["nookly:file-viewer-theme-backfill", "1"], ...entries]);
+      mockCommand("plugin:store|set", null);
+      const { initPreferences, preferences } = await freshPreferences();
+      await initPreferences();
+      return preferences;
+    }
+
+    const filters = (...fieldIds: string[]) =>
+      JSON.stringify(fieldIds.map((fieldId) => ({ fieldId, operator: "is", values: ["today"] })));
+
+    it("renames the completed filter of the Tasks pages and the evaluated one of the Assignments pages", async () => {
+      const preferences = await load([
+        ["nookly:tasks-filters:space-1", filters("status", "completed")],
+        ["nookly:tasks-overview-filters", filters("completed")],
+        ["nookly:assignments-filters:space-1", filters("evaluated", "grade")],
+        ["nookly:assignments-overview-filters", filters("evaluated")],
+      ]);
+      expect(preferences.get("nookly:tasks-filters:space-1")).toBe(
+        filters("status", "completedAt"),
+      );
+      expect(preferences.get("nookly:tasks-overview-filters")).toBe(filters("completedAt"));
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe(
+        filters("evaluatedAt", "grade"),
+      );
+      expect(preferences.get("nookly:assignments-overview-filters")).toBe(filters("evaluatedAt"));
+    });
+
+    it("leaves the other pages and the renamed filters alone", async () => {
+      const notes = filters("completed");
+      const done = filters("completedAt");
+      const preferences = await load([
+        ["nookly:notes-filters:space-1", notes],
+        ["nookly:tasks-filters:space-1", done],
+        ["nookly:assignments-filters:space-1", "nope"],
+      ]);
+      expect(preferences.get("nookly:notes-filters:space-1")).toBe(notes);
+      expect(preferences.get("nookly:tasks-filters:space-1")).toBe(done);
+      expect(preferences.get("nookly:assignments-filters:space-1")).toBe("nope");
       expect(callsOf("plugin:store|set")).toEqual([]);
     });
   });

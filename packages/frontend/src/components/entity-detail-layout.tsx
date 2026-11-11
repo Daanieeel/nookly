@@ -15,8 +15,9 @@ import { EntityKeyCopy } from "#/components/entity-key.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { IconPicker } from "#/components/icon-picker.tsx";
 import { RightSidebar } from "#/components/right-sidebar.tsx";
-import { TrashEntityDialog } from "#/components/trash-entity-dialog.tsx";
+import { useTrashEntity } from "#/components/trash-entity.ts";
 import { Button } from "@nookly/ui/components/button";
+import { cn } from "@nookly/ui/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { restoreEntity, updateEntity } from "#/lib/api/entities.ts";
 import type { Entity } from "#/lib/api/types.ts";
@@ -25,6 +26,7 @@ import { viewAfterTrash } from "#/lib/modules.ts";
 import { ConflictBadge } from "#/features/sync/ConflictBadge.tsx";
 import { useViewOnly } from "#/features/sync/view-only.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { sameView } from "#/lib/store/nav-actions.ts";
 import { qk } from "#/lib/query-keys.ts";
 
 export function EntityDetailLayout({
@@ -35,6 +37,7 @@ export function EntityDetailLayout({
   sidebar,
   scrollKey,
   scrollReady = true,
+  flush = false,
   children,
 }: {
   entity: Entity;
@@ -52,12 +55,14 @@ export function EntityDetailLayout({
   scrollKey?: string;
   /// Holds the restore back until the body is tall enough to scroll to it.
   scrollReady?: boolean;
+  /// Drops the margin around the body, for content that fills it, like a file.
+  flush?: boolean;
   children: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
   const setView = useNavStore((s) => s.setView);
   const [title, setTitle] = useState(entity.title);
-  const [trashConfirmOpen, setTrashConfirmOpen] = useState(false);
+  const trash = useTrashEntity();
   const bodyRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const isDeleted = !!entity.deletedAt;
@@ -102,7 +107,17 @@ export function EntityDetailLayout({
           await togglePin.mutateAsync();
         },
       }}
-      onTrash={() => setTrashConfirmOpen(true)}
+      onTrash={() => {
+        // Undo takes the user back to the page they left, unless they went elsewhere since.
+        const before = useNavStore.getState().view;
+        const after = viewAfterTrash(entity);
+        void trash(entity, {
+          onTrashed: () => setView(after),
+          onUndone: () => {
+            if (sameView(useNavStore.getState().view, after)) setView(before);
+          },
+        });
+      }}
       className={className}
     />
   );
@@ -194,7 +209,10 @@ export function EntityDetailLayout({
             {/* The right sidebar hosts these at `lg` and up; below that it's hidden. */}
             {actions("@3xl:hidden")}
           </div>
-          <div ref={bodyRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4">
+          <div
+            ref={bodyRef}
+            className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto", !flush && "p-4")}
+          >
             {children}
           </div>
           {bodyOverlay?.(bodyRef)}
@@ -203,13 +221,6 @@ export function EntityDetailLayout({
           {sidebar}
         </RightSidebar>
       </div>
-
-      <TrashEntityDialog
-        entity={entity}
-        open={trashConfirmOpen}
-        onOpenChange={setTrashConfirmOpen}
-        onTrashed={() => setView(viewAfterTrash(entity))}
-      />
     </div>
   );
 }

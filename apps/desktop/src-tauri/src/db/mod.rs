@@ -14,6 +14,9 @@ pub mod deck_json;
 pub mod decks;
 #[cfg(test)]
 mod decks_tests;
+#[cfg(debug_assertions)]
+mod dev_seed;
+pub mod device;
 pub mod entities;
 pub mod exams;
 #[cfg(test)]
@@ -29,21 +32,29 @@ mod grade_report_tests;
 pub mod labels;
 #[cfg(test)]
 mod labels_tests;
+pub mod local_path;
+pub mod mention_keys;
 #[cfg(test)]
 pub(crate) mod migration_upgrade_tests;
 mod migrations;
+pub mod mindmap_layout;
 pub mod notes;
 mod ocr;
 mod office_text;
 pub mod page_json;
+#[cfg(test)]
+mod perf_baseline;
 pub mod portable;
 #[cfg(test)]
 mod portable_desktop_samples_tests;
+pub mod portable_files;
 #[cfg(test)]
 mod portable_phone_tests;
+mod premerge;
 pub mod recipes;
 #[cfg(test)]
 mod recipes_tests;
+pub mod references;
 pub mod relationships;
 #[cfg(test)]
 mod relationships_tests;
@@ -59,9 +70,6 @@ pub mod space_modules;
 pub mod spaces;
 #[cfg(test)]
 mod spaces_tests;
-pub mod study_blocks;
-#[cfg(test)]
-mod study_blocks_tests;
 pub mod task_json;
 pub mod tasks;
 #[cfg(test)]
@@ -72,11 +80,33 @@ mod upgrade_tests;
 pub mod views;
 
 use rusqlite::Connection;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 use tauri::{Emitter, Manager};
 
 pub struct DbState(pub Mutex<Connection>);
+
+impl DbState {
+    /// The one way a command takes the database lock. A lock poisoned by an
+    /// earlier panic comes back as an error instead of panicking again.
+    pub fn conn(&self) -> crate::error::AppResult<MutexGuard<'_, Connection>> {
+        let started = std::time::Instant::now();
+        let guard = self.0.lock().map_err(|_| {
+            tracing::error!("the database lock is poisoned by an earlier panic");
+            crate::error::AppError::Db(
+                "the database lock is unavailable after an earlier failure, restart Nookly".into(),
+            )
+        })?;
+        let waited = started.elapsed();
+        if waited > crate::logging::SLOW_LOCK_WAIT {
+            tracing::warn!(
+                waited_ms = waited.as_millis() as u64,
+                "waited a long time for the database lock"
+            );
+        }
+        Ok(guard)
+    }
+}
 
 /// Emitted when another process (the CLI, usually an agent) committed to the
 /// database, so the frontend refetches instead of showing stale data.
@@ -151,6 +181,26 @@ pub fn test_space(conn: &Connection, name: &str) -> spaces::Space {
     spaces::create_space(conn, name.into(), None, "#000".into()).unwrap()
 }
 
+/// A database with two Spaces, for the unit tests that check an import stays in its own Space.
+#[cfg(test)]
+pub struct Fixture {
+    pub conn: Connection,
+    pub space: String,
+    pub other_space: String,
+}
+
+#[cfg(test)]
+pub fn fixture() -> Fixture {
+    let conn = test_conn();
+    let space = spaces::create_space(&conn, "A".into(), None, "#000".into()).unwrap();
+    let other = spaces::create_space(&conn, "B".into(), None, "#111".into()).unwrap();
+    Fixture {
+        conn,
+        space: space.id,
+        other_space: other.id,
+    }
+}
+
 /// A space with one course in it, for unit tests.
 #[cfg(test)]
 pub fn test_space_with_course(
@@ -204,6 +254,15 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             return Err(e);
         }
     };
+    // A debug build (`bun run dev`) adds the sample data once.
+    #[cfg(debug_assertions)]
+    match dev_seed::seed_if_missing(&conn) {
+        Ok(true) => tracing::info!("added sample data to the development database"),
+        Ok(false) => {}
+        Err(e) => {
+            tracing::warn!(error = %e, "could not add sample data to the development database")
+        }
+    }
     app.manage(DbState(Mutex::new(conn)));
     watch_external_changes(app.handle().clone());
     Ok(())
@@ -245,7 +304,9 @@ fn watch_external_changes(app: tauri::AppHandle) {
         loop {
             std::thread::sleep(EXTERNAL_CHANGE_POLL);
             let state = app.state::<DbState>();
-            let version = match state.0.lock() {
+            // Never waits for a command that is using the connection: a busy tick is skipped
+            // and the next one reads the same counter.
+            let version = match state.0.try_lock() {
                 Ok(conn) => conn
                     .query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0))
                     .ok(),
@@ -269,17 +330,45 @@ pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std
     let db_path = app_data_dir.join("nookly.db");
     let mut conn = Connection::open(&db_path)?;
     backup_before_migration(&conn, &db_path)?;
+    // A development database from the connected platform branch before `main` was
+    // merged numbers its sync migrations differently (see `premerge`).
+    premerge::rewind(&conn)?;
     let current: usize = migrations::MIGRATIONS.current_version(&conn)?.into();
-    if current > 0 && current < *migrations::MIGRATION_COUNT {
+    let latest = *migrations::MIGRATION_COUNT;
+    if current > latest {
+        tracing::error!(
+            current,
+            latest,
+            "the database is from a newer version of Nookly, refusing to open it"
+        );
+    }
+    if current > 0 && current < latest {
         // An existing database with migrations to run: they run on a copy that has
         // to pass its checks before it replaces the original (see `upgrade`).
+        tracing::info!(from = current, to = latest, "upgrading the database");
         drop(conn);
-        upgrade::run(&db_path)?;
+        let started = std::time::Instant::now();
+        if let Err(e) = upgrade::run(&db_path) {
+            tracing::error!(error = %e, "the database upgrade did not pass its checks, the data was not changed");
+            return Err(e.into());
+        }
+        tracing::info!(
+            duration_ms = started.elapsed().as_millis() as u64,
+            "database upgraded"
+        );
         conn = Connection::open(&db_path)?;
     }
     // A new database migrates here. An upgraded one has nothing left, and a database
     // from a newer version is refused.
-    migrations::MIGRATIONS.to_latest(&mut conn)?;
+    if let Err(e) = migrations::MIGRATIONS.to_latest(&mut conn) {
+        tracing::error!(error = %e, "could not bring the database to the latest version");
+        return Err(e.into());
+    }
+    premerge::restore(&conn)?;
+    // References that came from an upgrade were all typed on this one device.
+    let device = device::id_in(app_data_dir);
+    device::set_current(&device);
+    references::adopt_legacy(&conn, &device)?;
     Ok(conn)
 }
 
@@ -313,6 +402,10 @@ fn backup_before_migration(
         db_path,
         db_path.with_file_name(format!("nookly.db.bak-v{current}")),
     )?;
+    tracing::info!(
+        version = current,
+        "kept a copy of the database before migrating"
+    );
     Ok(())
 }
 
@@ -324,16 +417,124 @@ fn backup_before_migration(
 /// database the GUI does — dev or production.
 pub fn standalone_app_data_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     let base = dirs::data_dir().ok_or("could not resolve platform data directory")?;
-    Ok(resolve_app_data_dir(base.join("com.nookly.app")))
+    Ok(resolve_app_data_dir(default_data_dir(&base, &identifier())))
+}
+
+/// The bundle identifier of the real app.
+const DEFAULT_IDENTIFIER: &str = "com.nookly.app";
+
+static IDENTIFIER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Records the running app's bundle identifier, before anything that runs without a Tauri
+/// `App` (the CLI, the crash log) looks for the data folder. A build installed next to the
+/// real app has an identifier of its own, and so a data folder of its own.
+pub fn set_identifier(identifier: &str) {
+    let _ = IDENTIFIER.set(identifier.to_string());
+}
+
+/// The running app's bundle identifier.
+pub fn identifier() -> String {
+    identifier_or_default(IDENTIFIER.get().map(String::as_str))
+}
+
+fn identifier_or_default(set: Option<&str>) -> String {
+    set.unwrap_or(DEFAULT_IDENTIFIER).to_string()
+}
+
+/// Where Tauri puts an app's data: the platform's data folder and the identifier.
+fn default_data_dir(base: &std::path::Path, identifier: &str) -> std::path::PathBuf {
+    base.join(identifier)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[test]
+    fn the_data_folder_follows_the_bundle_identifier() {
+        let base = std::path::Path::new("/data");
+        assert_eq!(
+            default_data_dir(base, "com.nookly.app"),
+            base.join("com.nookly.app")
+        );
+        // A build installed next to the real app never shares its folder.
+        assert_eq!(
+            default_data_dir(base, "com.nookly.app.dev"),
+            base.join("com.nookly.app.dev")
+        );
+    }
+
+    #[test]
+    fn without_an_identifier_it_is_the_real_apps() {
+        assert_eq!(identifier_or_default(None), "com.nookly.app");
+        assert_eq!(
+            identifier_or_default(Some("com.nookly.app.dev")),
+            "com.nookly.app.dev"
+        );
+    }
+
     fn data_version(conn: &Connection) -> i64 {
         conn.query_row("PRAGMA data_version", [], |row| row.get(0))
             .unwrap()
+    }
+
+    /// A command that panicked while holding the lock poisons it. The next command
+    /// gets an error back instead of panicking too (which would end the app).
+    #[test]
+    fn conn_returns_an_error_instead_of_panicking_when_the_lock_is_poisoned() {
+        let state = std::sync::Arc::new(DbState(Mutex::new(test_conn())));
+        let poisoner = state.clone();
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoner.0.lock().unwrap();
+            panic!("a command panicked while holding the database lock");
+        })
+        .join();
+        assert!(state.0.is_poisoned());
+        let result = state.conn();
+        match result {
+            Err(crate::error::AppError::Db(message)) => {
+                assert!(message.contains("lock"), "unexpected message: {message}");
+            }
+            Err(other) => panic!("expected a database error, got {other:?}"),
+            Ok(_) => panic!("a poisoned lock must not hand out the connection"),
+        }
+    }
+
+    /// A command that waits a long time for the database is the first sign of a freeze,
+    /// so it leaves a warning in the log (with the wait, never what the command was doing).
+    #[test]
+    fn a_long_wait_for_the_database_lock_is_logged() {
+        let state = std::sync::Arc::new(DbState(Mutex::new(test_conn())));
+        let holder = state.clone();
+        let (locked_tx, locked_rx) = std::sync::mpsc::channel();
+        let hold = std::thread::spawn(move || {
+            let _guard = holder.0.lock().unwrap();
+            locked_tx.send(()).unwrap();
+            std::thread::sleep(crate::logging::SLOW_LOCK_WAIT * 3);
+        });
+        locked_rx.recv().unwrap();
+        let log = crate::logging::capture_logs(|| {
+            drop(state.conn().unwrap());
+        });
+        hold.join().unwrap();
+        assert!(log.contains("WARN"), "{log}");
+        assert!(log.contains("database lock"), "{log}");
+    }
+
+    #[test]
+    fn a_quick_lock_is_not_logged() {
+        let state = DbState(Mutex::new(test_conn()));
+        let log = crate::logging::capture_logs(|| {
+            drop(state.conn().unwrap());
+        });
+        assert_eq!(log, "");
+    }
+
+    #[test]
+    fn conn_hands_out_the_connection_when_the_lock_is_healthy() {
+        let state = DbState(Mutex::new(test_conn()));
+        let conn = state.conn().unwrap();
+        assert_eq!(data_version(&conn), data_version(&conn));
     }
 
     /// `watch_external_changes` relies on this: the app's own writes leave its

@@ -22,9 +22,12 @@ function assignment(id: string, over: Partial<Assignment> = {}): Assignment {
     dueDate: null,
     dueSessionOffsetDays: null,
     dueSessionId: null,
+    dueSessionAfter: null,
     weight: null,
     status: "not_started",
     grade: null,
+    ungraded: false,
+    evaluatedAt: null,
     ...over,
   };
 }
@@ -52,7 +55,7 @@ describe("assignmentsFor", () => {
     const list = [
       // Due the day before a session that is today, so it is overdue as well.
       assignment("session", { dueDate: "2026-10-11", dueSessionOffsetDays: 1 }),
-      assignment("graded", { dueDate: "2026-10-12", dueSessionOffsetDays: 0, status: "graded" }),
+      assignment("graded", { dueDate: "2026-10-12", dueSessionOffsetDays: 0, status: "evaluated" }),
       assignment("submitted", {
         dueDate: "2026-10-10",
         dueSessionOffsetDays: 2,
@@ -75,7 +78,7 @@ describe("assignmentsFor", () => {
   it("leaves out handed in assignments from the other tabs", () => {
     const list = [
       assignment("done", { dueDate: TODAY, status: "submitted" }),
-      assignment("graded", { dueDate: TODAY, status: "graded" }),
+      assignment("graded", { dueDate: TODAY, status: "evaluated" }),
       assignment("open", { dueDate: TODAY }),
     ];
     expect(ids(assignmentsFor("dueToday", list, TODAY))).toEqual(["open"]);

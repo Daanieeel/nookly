@@ -6,9 +6,9 @@
 
 ## Native Fields
 
-`due_date` (fixed, or resolved from the Course sessions; the create and edit pickers can also tie it to one session of the Course through an `assignment-due-session` link, so the day follows that session when it moves, and moves on to the next session after it if that one is cancelled or trashed), `status` (not started, in progress, submitted, graded), an optional `grade` and an optional `weight` (its share of the course grade).
+`due_date` (fixed, or resolved from the Course sessions; the create and edit pickers can also tie it to one session of the Course through an `assignment-due-session` link, so the day follows that session when it moves, and moves on to the next session after it if that one is cancelled or trashed), `status` (not started, in progress, submitted, evaluated), an optional `grade` and an optional `weight` (its share of the course grade), and a read only `evaluated_at`, set when the status changes to evaluated, kept while it stays there and cleared on reopening. The Evaluated at filter reads it. An Assignment has an Evaluation, ungraded or graded (new ones start ungraded), for telling homework from graded work. Only a graded one shows the Grade field and counts towards the course grade; going back to ungraded hides the grade but keeps it. The create dialog has the same Ungraded or Graded badge, and a description below the title written in the full block editor.
 
-Assignments do not get Index Cards or Study Blocks. Those stay specific to Exams.
+Assignments do not get Index Cards. Those stay specific to Exams.
 
 ## Layout Direction
 
@@ -16,4 +16,4 @@ Like Exams: a list that puts dates and status first. It should look clearly diff
 
 ## Export and Import
 
-An Assignment exports as a `nookly-assignment` file (version 1): title, status, due day, grade, weight and description blocks. Its Tasks and Course are relationships and stay behind (the Course is named as text). Import creates a new Assignment filed under a Course the user picks.
+An Assignment exports as a `nookly-assignment` file (version 2): title, status, due day, grade, weight, whether it is ungraded and description blocks, with the Files those blocks show embedded as base64, once per File (see [notes](notes.md#page-files)). Version 1 files still import. Its Tasks and Course are relationships and stay behind (the Course is named as text). Import creates a new Assignment filed under a Course the user picks.

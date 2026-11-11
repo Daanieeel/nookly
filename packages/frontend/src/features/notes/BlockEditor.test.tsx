@@ -1,4 +1,4 @@
-import { act, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor } from "@testing-library/react";
 import { TabGroupContext } from "#/components/tab-group-scope.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -39,6 +39,65 @@ describe("the block editor's scroll room", () => {
     const { container } = renderWithProviders(<BlockEditor entityId="e1" spaceId="s1" compact />);
     const content = await findEditor(container);
     expect(content.getAttribute("style") ?? "").not.toContain("padding-bottom");
+  });
+});
+
+describe("dragging a file over the block editor", () => {
+  beforeEach(() => {
+    installTauriMock();
+    mockCommand("list_blocks", []);
+    // ProseMirror's own drop cursor asks the document what is under the pointer; jsdom has no
+    // such lookup. Nothing there leaves the cursor to the line the test draws itself.
+    Object.assign(document, { elementFromPoint: () => null });
+  });
+  afterEach(() => {
+    uninstallTauriMock();
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  const files = { dataTransfer: { types: ["Files"] } };
+
+  /// What ProseMirror's drop cursor draws, the blue line, positioned inside the editor's box.
+  function addDropCursor(root: Element) {
+    const cursor = document.createElement("div");
+    cursor.className = "nookly-drop-cursor";
+    Object.assign(cursor.style, { left: "52px", top: "120px", width: "400px", height: "2px" });
+    root.appendChild(cursor);
+  }
+
+  it("shows a drop box where the blue line is, and only there", async () => {
+    const { container, queryByTestId } = renderWithProviders(
+      <BlockEditor entityId="e1" spaceId="s1" />,
+    );
+    const content = await findEditor(container);
+    const root = container.firstElementChild!;
+    fireEvent.dragEnter(content, files);
+    fireEvent.dragOver(content, files);
+    // No line, no box: the file would not land anywhere.
+    expect(queryByTestId("file-drop-slot")).toBeNull();
+    addDropCursor(root);
+    fireEvent.dragOver(content, files);
+    const box = queryByTestId("file-drop-slot");
+    expect(box).not.toBeNull();
+    // Below the line (120px + its 2px height), with a small gap.
+    expect(box?.style.getPropertyValue("--slot-top")).toBe("128px");
+    expect(queryByTestId("file-drop-overlay")).toBeNull();
+  });
+
+  it("removes the box when the file leaves or lands", async () => {
+    const { container, queryByTestId } = renderWithProviders(
+      <BlockEditor entityId="e1" spaceId="s1" />,
+    );
+    const content = await findEditor(container);
+    addDropCursor(container.firstElementChild!);
+    fireEvent.dragEnter(content, files);
+    fireEvent.dragOver(content, files);
+    fireEvent.dragLeave(content, files);
+    expect(queryByTestId("file-drop-slot")).toBeNull();
+    fireEvent.dragEnter(content, files);
+    fireEvent.dragOver(content, files);
+    fireEvent.drop(content, files);
+    expect(queryByTestId("file-drop-slot")).toBeNull();
   });
 });
 

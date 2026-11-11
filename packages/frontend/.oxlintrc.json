@@ -12,7 +12,7 @@
   },
   "overrides": [
     {
-      "files": ["src/features/notes/language-marks.tsx"],
+      "files": ["src/features/notes/language-marks.tsx", "src/features/settings/ai-app-logos.tsx"],
       "rules": {
         "shadcn/no-raw-colors": "off",
         "shadcn/no-inline-styles": "off"

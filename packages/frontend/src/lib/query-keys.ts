@@ -1,3 +1,5 @@
+import type { SearchRequest } from "#/lib/api/search.ts";
+
 /// Every React Query key in the app. Keys nest from broad to narrow, so invalidating a
 /// `root` (or any shorter key) also refreshes everything built on it, e.g.
 /// `qk.entities.bySpace(id)` is a prefix of `qk.entities.noteSummaries(id)`.
@@ -12,6 +14,7 @@ function spaceList<const Name extends string>(name: Name) {
 }
 
 export const qk = {
+  crashReport: ["crash-report"] as const,
   spaces: ["spaces"] as const,
   spaceModules: (spaceId: string) => ["space-modules", spaceId] as const,
 
@@ -44,9 +47,12 @@ export const qk = {
   noteCodeLanguage: (entityId: string) => ["note-code-language", entityId] as const,
   pageMarkdown: (entityId: string) => ["page-markdown", entityId] as const,
   pageJson: (entityId: string) => ["page-json", entityId] as const,
+  pageExport: (entityId: string) => ["page-export", entityId] as const,
+  pageExportPreview: (entityId: string, options: string) =>
+    ["page-export-preview", entityId, options] as const,
   mentioning: (entityId: string) => ["mentioning-entities", entityId] as const,
-  embeddedPageIds: ["embedded-page-ids"] as const,
-  search: (query: string) => ["search", query] as const,
+  search: (request: SearchRequest) => ["search", request] as const,
+  entitiesByIds: (ids: string[]) => ["entities-by-ids", ids] as const,
   highlight: (language: string | null, text: string) => ["highlight", language, text] as const,
 
   tasks: {
@@ -76,6 +82,23 @@ export const qk = {
     ...spaceList("calendar-entries"),
     all: ["calendar-entries", "all"] as const,
   },
+  moodle: {
+    root: ["moodle"] as const,
+    status: ["moodle", "status"] as const,
+    signIn: ["moodle", "sign-in"] as const,
+    courses: ["moodle", "courses"] as const,
+    contents: (courseId: number) => ["moodle", "contents", courseId] as const,
+    assignments: (courseId: number) => ["moodle", "assignments", courseId] as const,
+    assignmentStatus: (assignmentId: number) =>
+      ["moodle", "assignment-status", assignmentId] as const,
+    grades: (courseId: number) => ["moodle", "grades", courseId] as const,
+    forums: (courseId: number) => ["moodle", "forums", courseId] as const,
+    discussions: (forumId: number) => ["moodle", "discussions", forumId] as const,
+    posts: (discussionId: number) => ["moodle", "posts", discussionId] as const,
+    pageText: (url: string) => ["moodle", "page-text", url] as const,
+    image: (url: string) => ["moodle", "image", url] as const,
+    localFile: (url: string, modified: number) => ["moodle", "local-file", url, modified] as const,
+  },
   externalCalendars: {
     status: ["external-calendars", "status"] as const,
     events: ["external-calendars", "events"] as const,
@@ -103,7 +126,6 @@ export const qk = {
     ...spaceList("exams"),
     all: ["exams-all"] as const,
   },
-  studyBlocks: spaceList("study-blocks"),
   decks: {
     ...spaceList("decks"),
     summaries: ["deck-summaries"] as const,
@@ -124,10 +146,15 @@ export const qk = {
     ...spaceList("bookmarks"),
     byId: (id: string | null) => ["bookmark", id] as const,
   },
+  references: {
+    /// What looking at the target now found, for a File that only points elsewhere.
+    check: (id: string) => ["reference-check", id] as const,
+  },
   files: {
     ...spaceList("files"),
     byId: (id: string | undefined) => ["file", id] as const,
     text: (id: string) => ["file-text", id] as const,
+    shareBytes: (id: string, path: string | null) => ["file-share-bytes", id, path] as const,
     workbook: (id: string, src: string) => ["workbook", id, src] as const,
     openWithApps: (id: string, path: string | null) => ["open-with-apps", id, path] as const,
     officePdf: ["office-pdf"] as const,
@@ -171,6 +198,9 @@ export const qk = {
     folders: ["agent-files", "folders"] as const,
     file: (name: string) => ["agent-files", "file", name] as const,
   },
+  aiApps: ["ai-apps"] as const,
+  spellSuggestions: (word: string) => ["spell-suggestions", word] as const,
+  localFile: (path: string) => ["local-file", path] as const,
   appVersion: ["app-version"] as const,
   appUpdate: ["app-update"] as const,
   cliInstallStatus: ["cli-install-status"] as const,

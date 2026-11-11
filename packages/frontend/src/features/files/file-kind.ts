@@ -66,6 +66,12 @@ export function isReference(file: FileEntity): boolean {
   return !file.localPath && Boolean(file.sourcePath);
 }
 
+/// Added by path on some device and not stored in Nookly. On a device it was not added on,
+/// the path is not ours: `isReference` is false there, this stays true.
+export function pointsAtFile(file: FileEntity): boolean {
+  return !file.localPath && file.reference?.provider === "file";
+}
+
 /// The file's bytes on disk: the stored copy, else the referenced original.
 export function filePath(file: FileEntity): string | null {
   return file.localPath ?? file.sourcePath;
@@ -79,12 +85,25 @@ export function fileExtension(file: FileEntity): string | null {
   return dot > 0 ? name.slice(dot + 1).toLowerCase() : null;
 }
 
-export function fileKind(file: FileEntity): FileKind {
-  const id: KindId = isLinkOnly(file)
-    ? (file.provider ?? "link")
-    : (EXTENSIONS.find(([, exts]) => exts.includes(fileExtension(file) ?? ""))?.[0] ?? "other");
+function kindOfExtension(extension: string | null): FileKind {
+  const id: KindId = EXTENSIONS.find(([, exts]) => exts.includes(extension ?? ""))?.[0] ?? "other";
   return { id, ...KINDS[id] };
 }
+
+export function fileKind(file: FileEntity): FileKind {
+  if (!isLinkOnly(file)) return kindOfExtension(fileExtension(file));
+  const id: KindId = file.provider ?? "link";
+  return { id, ...KINDS[id] };
+}
+
+/// The kind of a file known only by its name, such as one that still lives on a website.
+export function fileKindOfName(fileName: string): FileKind {
+  const dot = fileName.lastIndexOf(".");
+  return kindOfExtension(dot > 0 ? fileName.slice(dot + 1).toLowerCase() : null);
+}
+
+/// The kind of a link to a page.
+export const LINK_KIND: FileKind = { id: "link", ...KINDS.link };
 
 export { TEXT_EXTENSIONS };
 

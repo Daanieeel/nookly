@@ -31,7 +31,10 @@ Layout and view choices the user makes, such as collapsing or resizing a sidebar
 Foundational and required for v1.
 
 - `Cmd+K`: quick navigation, quick create, and quick search (backed by full-text search).
-- `Cmd+P`: quick open, to jump to any item in the style of Linear or VS Code.
+- `Cmd+P`: quick open, to jump to any item in the style of Linear or VS Code. The same list as `Cmd+K`, restricted to titles and keys.
+- `Cmd+Shift+P`: commands.
+
+`Cmd+K` and `Cmd+P` are one component on one search engine. Results are one ranked list, best match first, with no groups. A row has the type icon, the title, a Space chip and, for a body match, one line of the matching text. The top row is selected and `Enter` opens it, `Cmd+Enter` opens it in a new tab and `Cmd+Option+Enter` in the other split group. `Tab` and `Shift+Tab` cycle the type tabs. `in:Space` and `#label` become chips that `Backspace` removes. Nothing loads when the palette opens except Recents, and labels load when `#` is typed. A search shows within 50 ms on 20,000 entities, enforced by `search_stays_within_its_budget_on_20000_entities`.
 
 ## Component Philosophy
 
@@ -122,7 +125,7 @@ Replace static input and button rows with:
 
 ### Creation Surface per Type
 
-- **New Task:** a lightweight, keyboard-first quick-create overlay with a title and inline pickers for status, label, and date. The user can create one after another without closing it.
+- **New Task:** a lightweight, keyboard-first quick-create overlay with a title, a description in the full block editor and inline pickers for status, label, and date. The user can create one after another without closing it.
 - **New Note:** drops straight into the document canvas with the cursor focused. Title first, content immediately after. No intermediate form.
 - **New Jot:** near instant. One keystroke or click from anywhere opens a blank capture surface with no friction.
 - **New Session:** created directly in the calendar by clicking or dragging across a time slot. The calendar is the creation surface.

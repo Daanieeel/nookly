@@ -44,7 +44,6 @@ Structural relationships are a strict subset of relationships whose rules are en
 - **Task and Sub-task:** progress rolls up and changes cascade. Nesting is one level deep only, so a Sub-task cannot have its own Sub-tasks.
 - **Session and Course:** a Session must have exactly one Course.
 - **Exam and Course:** an Exam must have exactly one Course.
-- **Study Block and Exam:** a Study Block must have exactly one Exam.
 - **Assignment and Course:** an Assignment must have exactly one Course.
 
 Everything else is a generic, unrestricted relationship. That includes a Deck filed under an Exam (at most one), Course sequels and prequels, Exams or Assignments linked to Tasks or Notes, and File or Bookmark attachments.

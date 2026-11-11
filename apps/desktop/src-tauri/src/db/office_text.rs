@@ -38,7 +38,10 @@ fn extract_pptx(path: &Path) -> Option<String> {
     let mut slides: Vec<(u32, String)> = Vec::new();
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i).ok()?;
-        let Some(number) = slide_number(entry.name()) else {
+        let Ok(name) = entry.name() else {
+            continue;
+        };
+        let Some(number) = slide_number(&name) else {
             continue;
         };
         let mut xml = String::new();

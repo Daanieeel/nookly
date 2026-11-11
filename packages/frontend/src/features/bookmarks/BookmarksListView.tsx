@@ -1,3 +1,4 @@
+import { PageHeader, PageHeaderActions, PageHeaderTitle } from "#/components/page-header.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUp,
@@ -18,7 +19,12 @@ import { contextTarget, entityTarget } from "#/components/context-menu/registry.
 import { EmptyState } from "#/components/empty-state.tsx";
 import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
-import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
+import {
+  type ActiveFilter,
+  type FilterField,
+  FilterMenu,
+  matchesFilters,
+} from "#/components/filter-menu.tsx";
 import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -44,6 +50,7 @@ import {
   writeDisplay,
 } from "./bookmark-model";
 import { Favicon, Preview } from "./bookmark-preview";
+import { ignoreError } from "#/lib/log.ts";
 
 const MAX_CHIPS = 3;
 
@@ -58,7 +65,7 @@ function looksLikeUrl(text: string): boolean {
 /// "Labels is any of" matches a bookmark carrying any chosen label, "is not" one
 /// carrying none of them.
 function passesFilters(bookmark: Bookmark, filters: ActiveFilter[]): boolean {
-  return filters.every((f) => {
+  return matchesFilters(filters, (f) => {
     const hit =
       f.fieldId === "labels"
         ? bookmark.labelIds.some((id) => f.values.includes(id))
@@ -112,7 +119,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
       // refreshed later. The `og:image` shows while the page itself is captured.
       fetchBookmarkMetadata(bookmark.entity.id, u)
         .then(() => queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(spaceId) }))
-        .catch(() => {})
+        .catch(ignoreError("refreshing bookmark details"))
         .finally(() => capture.mutate(bookmark.entity.id));
       return bookmark;
     },
@@ -241,18 +248,15 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
         create: () => void readClipboardText().then(submit),
       })}
     >
-      <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
-        <h1 className="flex items-center gap-2 text-sm font-medium">
-          <IconBookmark size={16} className="text-muted-foreground" />
-          Bookmarks
-        </h1>
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+      <PageHeader>
+        <PageHeaderTitle icon={IconBookmark}>Bookmarks</PageHeaderTitle>
+        <PageHeaderActions>
           <div className="min-w-0 flex-1">
             <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
           </div>
           <BookmarkDisplayMenu display={display} onChange={setDisplay} />
-        </div>
-      </header>
+        </PageHeaderActions>
+      </PageHeader>
 
       {!isPending && bookmarks.length === 0 && !pendingUrl ? (
         <div className="p-6">

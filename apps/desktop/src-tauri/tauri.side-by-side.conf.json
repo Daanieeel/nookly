@@ -1,0 +1,28 @@
+{
+  "productName": "Nookly Dev",
+  "identifier": "com.nookly.app.dev",
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "icon": [
+      "icons-dev/icon.icns",
+      "icons-dev/512x512.png",
+      "icons-dev/256x256.png",
+      "icons-dev/128x128.png",
+      "icons-dev/64x64.png",
+      "icons-dev/48x48.png",
+      "icons-dev/32x32.png"
+    ],
+    "macOS": {
+      "files": {
+        "Resources/Assets.car": "icons-dev/Assets.car"
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["nookly-dev"]
+      }
+    }
+  }
+}

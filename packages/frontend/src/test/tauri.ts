@@ -1,5 +1,5 @@
 import type { InvokeArgs } from "@tauri-apps/api/core";
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { clearMocks, mockConvertFileSrc, mockIPC } from "@tauri-apps/api/mocks";
 
 /// A fake Tauri backend for tests, installed through Tauri's own IPC mock (the same
 /// seam `invoke`, events and every plugin go through), so no module is replaced.
@@ -9,7 +9,7 @@ import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 /// What a command replies with: a record, a list or a plain value, as the backend sends.
 export type Reply = object | string | number | boolean | null | undefined;
 
-export interface InvokeCall {
+interface InvokeCall {
   cmd: string;
   args: InvokeArgs | undefined;
 }
@@ -28,11 +28,6 @@ export function mockCommand<T extends Reply>(cmd: string, reply: T) {
 /// rejecting) from it makes the `invoke` reject.
 export function mockCommandWith(cmd: string, handler: Handler) {
   handlers.set(cmd, handler);
-}
-
-/// Every call so far, oldest first.
-export function invokeCalls(): InvokeCall[] {
-  return [...calls];
 }
 
 /// The arguments of every call to `cmd`, oldest first.
@@ -59,6 +54,8 @@ export function installTauriMock() {
     },
     { shouldMockEvents: true },
   );
+  // Files on disk are shown through `convertFileSrc`, which needs the platform to name its scheme.
+  mockConvertFileSrc("macos");
 }
 
 export function uninstallTauriMock() {

@@ -27,7 +27,7 @@ export const DEADLINE_BUCKETS = [
 export type DeadlineBucket = (typeof DEADLINE_BUCKETS)[number]["id"];
 
 export const isHandedIn = (a: AssignmentRecord) =>
-  a.status === "submitted" || a.status === "graded";
+  a.status === "submitted" || a.status === "evaluated";
 
 /// The Monday of the week a day is in.
 function weekStart(day: string): string {

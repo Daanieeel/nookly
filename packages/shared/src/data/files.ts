@@ -1,3 +1,4 @@
+import type { SqlStatement } from "../sync/sql.ts";
 import { type LocalDb, first, optStr, rows, write } from "./db.ts";
 import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } from "./entities.ts";
 
@@ -52,15 +53,29 @@ export async function addFile(
   filename: string,
   localPath: string,
 ): Promise<string> {
-  const { id, statements } = createEntityStatements(db, spaceId, "file", filename);
-  await write(db, [
-    ...statements,
-    {
-      sql: "INSERT INTO files (entity_id, local_path, original_filename) VALUES (?, ?, ?)",
-      params: [id, localPath, filename],
-    },
-  ]);
+  const { id, statements } = addFileStatements(db, spaceId, filename, localPath);
+  await write(db, statements);
   return id;
+}
+
+/// `addFile` as statements, for an import that makes a File together with what shows it.
+export function addFileStatements(
+  db: LocalDb,
+  spaceId: string,
+  filename: string,
+  localPath: string,
+) {
+  const made = createEntityStatements(db, spaceId, "file", filename);
+  return {
+    id: made.id,
+    statements: [
+      ...made.statements,
+      {
+        sql: "INSERT INTO files (entity_id, local_path, original_filename) VALUES (?, ?, ?)",
+        params: [made.id, localPath, filename],
+      } satisfies SqlStatement,
+    ],
+  };
 }
 
 /// Google Drive, Dropbox and iCloud links by name, as the desktop recognises them.

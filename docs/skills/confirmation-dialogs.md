@@ -37,11 +37,9 @@ _Examples: permanently delete, empty Trash._
 
 _Examples: move to Trash, archive, deactivate._
 
-- Name the item and the action.
-- Say explicitly that the action **can** be undone, and briefly how ("You can restore this from Trash").
-- Avoid alarming language that implies permanence when there is none. Overstating the risk erodes trust and teaches users to hesitate for no reason.
+Do not ask. Do the action at once and show a toast with an Undo button (`notify.success` with an `action`, see [toasts](../development/toasts.md)). Trash holds the item after the toast is gone. For Trash use `trashEntity` or `useTrashEntity` in `components/trash-entity.ts`.
 
-In Nookly, regular deletes land here, because every delete is a soft delete and Trash is never purged automatically by default (see [soft delete](../02-entity-model.md#soft-delete-and-trash)).
+Keep a dialog only when no instant Undo is possible, such as a bulk move that cannot name what it moved.
 
 ---
 
@@ -93,7 +91,7 @@ _Examples: close with unsaved changes, cancel a flow, navigate away._
 | Category                  | What to name     | What to confirm        | Example button label   |
 | ------------------------- | ---------------- | ---------------------- | ---------------------- |
 | Destructive, irreversible | The item         | Permanent, no recovery | Delete                 |
-| Destructive, reversible   | The item         | Reversible, and how    | Move to Trash          |
+| Destructive, reversible   | No dialog        | Toast with Undo        | Move to Trash          |
 | Costly action             | The effect       | Real-world consequence | Send, Publish, Pay     |
 | Overwrite                 | Old and new      | What is lost           | Overwrite, Replace     |
 | Bulk action               | The count, scope | Scale of impact        | Delete All (6 items)   |

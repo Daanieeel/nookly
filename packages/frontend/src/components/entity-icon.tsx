@@ -57,7 +57,6 @@ const DEFAULT_ICONS = new Map<string, TablerIcon>([
   ["calendar_entry_template", IconCalendarEvent],
   ["exam", IconWriting],
   ["index_card_deck", IconCards],
-  ["study_block", IconClock],
   ["assignment", IconClipboardList],
   ["file", IconFile],
   ["bookmark", IconBookmark],

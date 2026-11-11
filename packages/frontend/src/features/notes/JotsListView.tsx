@@ -11,7 +11,6 @@ import {
   IconLink,
   IconPlus,
   IconSchool,
-  IconTag,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,8 +27,9 @@ import { contextTarget } from "#/components/context-menu/registry.ts";
 import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
-import { LabelDot } from "#/components/label-chip.tsx";
+import { type ActiveFilter, type FilterField } from "#/components/filter-menu.tsx";
+import { ScrollingListPage } from "#/components/scrolling-list-page.tsx";
+import { useQuickFilters } from "#/lib/quick-filters.ts";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -51,7 +51,8 @@ import {
   editedColumn,
   editedWithin,
   labelsColumn,
-  ListSearchInput,
+  labelFilterField,
+  ListFilterToolbar,
   PageSummaryTable,
   matchesQuery,
   passesRowFilters,
@@ -137,7 +138,7 @@ const PRESETS: Preset[] = [
 
 function filterKey(filters: ActiveFilter[]): string {
   return filters
-    .map((f) => `${f.fieldId}:${f.operator}:${[...f.values].sort().join(",")}`)
+    .map((f) => `${f.fieldId}:${f.operator}:${f.join ?? "and"}:${[...f.values].sort().join(",")}`)
     .sort()
     .join("|");
 }
@@ -205,6 +206,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   useCreateShortcut(() => setQuickJotOpen(true));
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<ActiveFilter[]>(initialJotFilters);
+  const quick = useQuickFilters(`${STORAGE_KEYS.jotsQuickFilters}:${spaceId}`);
   const [sorting, setSorting] = useState<SortingState>(readSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
@@ -225,19 +227,8 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
 
   const filterFields = useMemo<FilterField[]>(() => {
     const fields = [...BASE_FILTER_FIELDS];
-    const usedLabels = spaceLabels.filter((l) => rows.some((r) => r.labels.includes(l)));
-    if (usedLabels.length > 0) {
-      fields.push({
-        id: "labels",
-        label: "Labels",
-        icon: IconTag,
-        options: usedLabels.map((l) => ({
-          value: l.id,
-          label: l.name,
-          icon: <LabelDot label={l} />,
-        })),
-      });
-    }
+    const labels = labelFilterField(spaceLabels, rows);
+    if (labels) fields.push(labels);
     const courses = new Map<string, string>();
     for (const r of rows) {
       const s = r.summary.session;
@@ -326,60 +317,62 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   }
 
   return (
-    <div
-      className="flex w-full flex-col gap-3"
+    <ScrollingListPage
+      ready={!isPending}
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "New Jot",
         create: () => setQuickJotOpen(true),
       })}
+      top={
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
+              Jots
+              <span className="text-sm font-normal text-muted-foreground tabular-nums">
+                {rows.length}
+              </span>
+            </h1>
+            {newJotButton}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1">
+            {PRESETS.map((preset) => (
+              <Button
+                key={preset.id}
+                variant={activePreset === preset.id ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={activePreset === preset.id}
+                className="gap-1.5"
+                onClick={() => {
+                  setFilters(preset.filters);
+                  preferences.set(STORAGE_KEYS.jotsPreset, preset.id);
+                }}
+              >
+                <preset.icon size={14} />
+                {preset.label}
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {presetCounts.get(preset.id)}
+                </span>
+              </Button>
+            ))}
+          </div>
+
+          <ListFilterToolbar
+            query={query}
+            onQueryChange={setQuery}
+            placeholder="Filter Jots"
+            ariaLabel="Filter Jots in this Space"
+            fields={filterFields}
+            filters={filters}
+            onFiltersChange={setFilters}
+            quick={quick}
+          />
+        </>
+      }
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
-          Jots
-          <span className="text-sm font-normal text-muted-foreground tabular-nums">
-            {rows.length}
-          </span>
-        </h1>
-        {newJotButton}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1">
-        {PRESETS.map((preset) => (
-          <Button
-            key={preset.id}
-            variant={activePreset === preset.id ? "secondary" : "ghost"}
-            size="sm"
-            aria-pressed={activePreset === preset.id}
-            className="gap-1.5"
-            onClick={() => {
-              setFilters(preset.filters);
-              preferences.set(STORAGE_KEYS.jotsPreset, preset.id);
-            }}
-          >
-            <preset.icon size={14} />
-            {preset.label}
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {presetCounts.get(preset.id)}
-            </span>
-          </Button>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <ListSearchInput
-          query={query}
-          onQueryChange={setQuery}
-          placeholder="Filter Jots"
-          ariaLabel="Filter Jots in this Space"
-        />
-        <div className="flex-1">
-          <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
-        </div>
-      </div>
-
       {data.length > 0 ? (
-        <PageSummaryTable table={table} spaceId={spaceId} />
+        <PageSummaryTable table={table} spaceId={spaceId} scrollX={false} />
       ) : (
         !isPending && (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
@@ -401,7 +394,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
           </div>
         )
       )}
-    </div>
+    </ScrollingListPage>
   );
 }
 

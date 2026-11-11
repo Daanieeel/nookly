@@ -1,7 +1,8 @@
 import { screen } from "@testing-library/react";
 import { mockWindows } from "@tauri-apps/api/mocks";
 import { beforeEach, describe, expect, it } from "vitest";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { expectNoA11yViolations } from "#/test/axe.ts";
+import { tabGroups, useNavStore } from "#/lib/store/nav.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { mockCommand } from "#/test/tauri.ts";
 import { Titlebar } from "./titlebar.tsx";
@@ -34,5 +35,42 @@ describe("Titlebar overflow", () => {
     expect(screen.getByRole("button", { name: /Commands/ }).parentElement?.className).toContain(
       "shrink-0",
     );
+  });
+});
+
+describe("Titlebar split button", () => {
+  beforeEach(() => {
+    mockWindows("main");
+    mockCommand("plugin:window|is_fullscreen", false);
+    useNavStore.setState(useNavStore.getInitialState());
+  });
+
+  it("sits left of Import and offers Split Left and Split Right", async () => {
+    const { user } = renderWithProviders(<Titlebar />);
+    const split = await screen.findByRole("button", { name: "Split" });
+    const importButton = screen.getByRole("button", { name: "Import" });
+    expect(
+      split.compareDocumentPosition(importButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await user.click(split);
+    expect(await screen.findByRole("button", { name: /^Split Left/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Split Right/ })).toBeInTheDocument();
+  });
+
+  it("splits to the chosen side and closes the popover", async () => {
+    const { user } = renderWithProviders(<Titlebar />);
+    await user.click(await screen.findByRole("button", { name: "Split" }));
+    await user.click(await screen.findByRole("button", { name: /^Split Left/ }));
+    const state = useNavStore.getState();
+    expect(tabGroups(state)).toHaveLength(2);
+    expect(state.focusedGroupId).toBe(tabGroups(state)[0].id);
+    expect(screen.queryByRole("button", { name: /^Split Left/ })).not.toBeInTheDocument();
+  });
+
+  it("is an accessible popover", async () => {
+    const { user } = renderWithProviders(<Titlebar />);
+    await user.click(await screen.findByRole("button", { name: "Split" }));
+    await screen.findByRole("button", { name: /^Split Left/ });
+    await expectNoA11yViolations();
   });
 });

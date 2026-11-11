@@ -122,6 +122,13 @@ describe("buildBriefing", () => {
     expect(flat(briefing.lead)).toContain("25 minutes");
   });
 
+  it("does not name the next session again after the lead already did", () => {
+    const { text } = sentence({ sessions: [session("10:13", "Grundlagen")] });
+    expect(text).toContain("13 minutes");
+    expect(text.split("Grundlagen")).toHaveLength(2);
+    expect(text).not.toContain("next up");
+  });
+
   it("does not lead with a session that is hours away", () => {
     const { briefing } = sentence({ sessions: [session("16:00")] });
     expect(flat(briefing.lead)).not.toContain("minutes");

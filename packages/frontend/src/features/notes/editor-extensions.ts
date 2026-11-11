@@ -25,16 +25,29 @@ import {
   Video,
   WebBookmark,
 } from "./custom-block-extensions";
+import { FindInPage } from "./find-in-page";
 import { letterListExtensions } from "./ordered-list-extension";
 import { HeadingAnchors } from "./heading-anchors";
 import { InlineCode, InlineMarkCleanup } from "./inline-mark-cleanup";
 import { Highlight } from "./highlight-extension";
+import { TextColor } from "./text-color-extension";
 import { InlineMath } from "./InlineMath";
 import { Emoji } from "./emoji-extension";
+import { DeepLinkPaste } from "./deep-link-paste-extension";
+import { DuplicateLine } from "./duplicate-line-extension";
+import { spellController } from "../spellcheck/spell-controller";
+import { Spellcheck, type SpellSource } from "../spellcheck/spellcheck-extension";
 import { TabIndent } from "./tab-indent-extension";
 import { Mention } from "./mention-extension";
 import { SlashCommand } from "./slash-command-extension";
-import { CircuitBlock, Diagram, Equation, MathBlock } from "./source-block-extensions";
+import {
+  CircuitBlock,
+  Diagram,
+  Equation,
+  MathBlock,
+  MindmapBlock,
+  PlotBlock,
+} from "./source-block-extensions";
 import { PinnedColumns } from "./table-pinned-columns";
 import { Toggle, ToggleHeading } from "./toggle-extension";
 import { UniqueBlockId } from "./unique-block-id";
@@ -42,7 +55,8 @@ import { VimMode } from "./vim-extension";
 
 export interface EditorExtensionOptions {
   spaceId: string;
-  /// The page being edited.
+  /// The page being edited. Empty for text that is not a page (a flashcard): a File added
+  /// there is not attached to anything.
   pageId: string;
   /// Read live, so mentions and the "/" menu see entities loaded after the editor.
   getEntities: () => Entity[];
@@ -53,8 +67,12 @@ export interface EditorExtensionOptions {
   hasPages?: (entity: Entity) => boolean;
   /// Read live: the occurrence behind a session, so the "@" menu finds it by its day and time.
   sessionOf?: (entity: Entity) => SessionOccurrence | undefined;
-  /// Bound to a live document (`CollaborativeEditor`), whose own history undoes.
+  /// Bound to a live document (`BlockEditor` with a live session), whose own history undoes.
   collaborative?: boolean;
+  /// The spell checker the editor underlines with; the app's shared one by default.
+  spellSource?: SpellSource;
+  /// The hint on an empty line.
+  placeholder?: string;
 }
 
 /// Every extension of the page editor, in one place so tests build the very same schema.
@@ -66,15 +84,22 @@ export function editorExtensions({
   hasPages = () => false,
   sessionOf = () => undefined,
   collaborative = false,
+  spellSource = spellController(),
+  placeholder = "Type “/” for commands, or just start writing…",
 }: EditorExtensionOptions): Extensions {
   return [
     StarterKit.configure({
       ...(collaborative && { undoRedo: false }),
       heading: { levels: [1, 2, 3, 4, 5, 6] },
+      // The line shown where a drop lands; the class colors it (see `styles.css`).
+      dropcursor: { color: false, width: 2, class: "nookly-drop-cursor" },
       link: {
         openOnClick: false,
         autolink: false,
-        protocols: [{ scheme: "mention", optionalSlashes: true }],
+        protocols: [
+          { scheme: "mention", optionalSlashes: true },
+          { scheme: "nookly", optionalSlashes: true },
+        ],
       },
       // Replaced by a dedicated `CodeBlockLowlight` extension below for syntax highlighting.
       codeBlock: false,
@@ -91,7 +116,7 @@ export function editorExtensions({
       defaultLanguage: "plaintext",
       getNewLanguage: getNewCodeLanguage,
     }),
-    Placeholder.configure({ placeholder: "Type “/” for commands, or just start writing…" }),
+    Placeholder.configure({ placeholder }),
     // `cellMinWidth` is the narrowest a column gets before the table scrolls sideways.
     TableKit.configure({ table: { resizable: true, cellMinWidth: 120 } }),
     PinnedColumns,
@@ -100,14 +125,19 @@ export function editorExtensions({
     HeadingAnchors,
     ArrowLigatures,
     Highlight,
+    TextColor,
     InlineCode,
     InlineMarkCleanup,
+    FindInPage,
     BlockSelection,
     SlashCommand.configure({ getEntities }),
     CodeCompletion,
     Mention.configure({ getEntities, hasPages, sessionOf }),
     Emoji,
     TabIndent,
+    DuplicateLine,
+    DeepLinkPaste,
+    Spellcheck.configure({ source: spellSource }),
     Callout,
     Timeline,
     Progress,
@@ -126,6 +156,8 @@ export function editorExtensions({
     MathBlock,
     Diagram,
     CircuitBlock,
+    PlotBlock,
+    MindmapBlock,
     EntityCard.configure({ spaceId, pageId }),
     Image.configure({ spaceId, pageId }),
     Video.configure({ spaceId, pageId }),

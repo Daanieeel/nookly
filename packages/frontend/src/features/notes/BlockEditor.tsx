@@ -1,11 +1,25 @@
 import { qk } from "#/lib/query-keys.ts";
-import { TextSelection } from "@tiptap/pm/state";
-import { useEditor } from "@tiptap/react";
+import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { Selection, TextSelection } from "@tiptap/pm/state";
+import { EditorContent, useEditor } from "@tiptap/react";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { notify } from "#/components/notify.tsx";
-import { createBlock, deleteBlock, reorderBlocks, updateBlock } from "#/lib/api/notes.ts";
-import type { Block } from "#/lib/api/types.ts";
+import { contextTargetAt, makeTarget } from "#/components/context-menu/registry.ts";
+import { listEntities } from "#/lib/api/entities.ts";
+import { listFiles } from "#/lib/api/files.ts";
+import { listSessions } from "#/lib/api/sessions.ts";
+import { hasPages } from "#/features/files/file-kind.ts";
+import {
+  createBlock,
+  deleteBlock,
+  getNoteCodeLanguage,
+  reorderBlocks,
+  updateBlock,
+} from "#/lib/api/notes.ts";
+import type { Block, SessionOccurrence } from "#/lib/api/types.ts";
+import { focusBlockIn, useNavStore } from "#/lib/store/nav.ts";
+import { useTabGroupScope } from "#/components/tab-group-scope.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
   asString,
@@ -15,21 +29,37 @@ import {
   type JSONNode,
   nodeToBlockInput,
 } from "./block-markdown";
+import { FileDropSlot, type DropSlot } from "#/features/files/FileDropOverlay.tsx";
+import { useFileDragOver } from "#/hooks/use-file-drag-over.ts";
+import { BlockHandles, findTopLevelBlock, GUTTER_WIDTH, topLevelElement } from "./BlockHandles";
+import { newCodeBlockLanguage } from "./default-code-language";
+import { applyPageTypography } from "./page-typography";
 import { usePasteFiles } from "./paste-files";
 import { trackActiveEditor } from "#/lib/active-editor.ts";
 import { editorExtensions } from "./editor-extensions";
+import { openLink } from "./open-link";
+import { HighlightColorBar } from "./HighlightColorBar";
+import { TextColorBar } from "./TextColorBar";
+import { TableControls } from "./TableControls";
+import { VimIndicator } from "./VimIndicator";
+import { FindBar, selectedSearchText } from "./FindBar";
+import { selectQuote } from "./quote-range";
+import { tablePartElements } from "./table-part-focus";
+import { misspelledWordAt } from "../spellcheck/spellcheck-extension";
+import { TableColumnHandles } from "./TableColumnHandles";
+import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
 import { usePageEditLock } from "./page-edit-lock.ts";
-import type { PageSection } from "./heading-anchors";
-import { CollaborativeEditor } from "./CollaborativeEditor.tsx";
+import { type PageSession, caretColor, presenceName } from "@nookly/shared/sync";
+import { PAGE_FRAGMENT } from "@nookly/shared/blocks";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCaret from "@tiptap/extension-collaboration-caret";
+import { useViewOnly } from "#/features/sync/view-only.ts";
+import { syncRuntime, useSyncState } from "#/features/sync/sync-instance.ts";
+import { useSetting } from "#/lib/settings/settings.ts";
+import { PresenceBar, usePresence } from "./page-presence.tsx";
 import { usePageSession } from "./use-page-session.ts";
-import {
-  EditorFrame,
-  pageEditorProps,
-  useEditorLookups,
-  useFocusBlockRequest,
-  useSectionsReport,
-} from "./editor-hooks.tsx";
+import { type PageSection, pageSections } from "./heading-anchors";
 
 const DEBOUNCE_MS = 600;
 
@@ -57,37 +87,28 @@ function persistedOf(block: Block): PersistedBlock {
 /// Tiptap/ProseMirror editor owns the whole page, exactly like Notion. Each
 /// top-level node still round-trips to one row in the existing per-block backend
 /// (`block-markdown.ts`); this component's only extra job is reconciling the two.
-type BlockEditorProps = {
-  entityId: string;
-  spaceId: string;
-  /// The page's headings, whenever they change, for a section navigator.
-  onSectionsChange?: (sections: PageSection[]) => void;
-  compact?: boolean;
-  scrollPastEnd?: boolean;
-};
-
-/// A page's editor: on its live document while signed in (`CollaborativeEditor`),
-/// else on its rows, saved block by block.
-export function BlockEditor(props: BlockEditorProps) {
-  const page = usePageSession(props.entityId);
-  if (page.state === "waiting") return <div className={cn(!props.compact && "min-h-40")} />;
-  if (page.state === "live") {
-    return (
-      <CollaborativeEditor
-        key={props.entityId}
-        session={page.session}
-        entityId={props.entityId}
-        spaceId={props.spaceId}
-        compact={props.compact ?? false}
-        scrollPastEnd={props.scrollPastEnd ?? false}
-        onSectionsChange={props.onSectionsChange}
-      />
-    );
-  }
-  return <RowsBlockEditor {...props} />;
+/// Reads where ProseMirror's drop cursor, the blue line, is drawn inside the editor and puts the
+/// box just under it. A line
+/// between blocks spans the block; a caret between letters is narrow, so the box takes the
+/// width of the page instead. `null` while there is no line.
+function dropSlotOf(root: HTMLElement | null): DropSlot | null {
+  const line = root?.querySelector<HTMLElement>(".nookly-drop-cursor");
+  if (!root || !line) return null;
+  const top = parseFloat(line.style.top) + parseFloat(line.style.height) + DROP_BOX_GAP;
+  const left = parseFloat(line.style.left);
+  const width = parseFloat(line.style.width);
+  if ([top, left, width].some(Number.isNaN)) return null;
+  if (width > MIN_BLOCK_LINE_WIDTH) return { top, left, width };
+  return { top, left: GUTTER_WIDTH, width: Math.max(0, root.clientWidth - GUTTER_WIDTH) };
 }
 
-function RowsBlockEditor({
+/// Space between the blue line and the drop box under it.
+const DROP_BOX_GAP = 6;
+
+/// A drop cursor wider than this is the line between two blocks.
+const MIN_BLOCK_LINE_WIDTH = 8;
+
+export function BlockEditor({
   entityId,
   spaceId,
   compact = false,
@@ -107,6 +128,48 @@ function RowsBlockEditor({
   /// the top like in a code editor. For the full-page canvas of notes and jots only:
   /// elsewhere the content below the editor would sit a screen away.
   scrollPastEnd?: boolean;
+}) {
+  // Signed in, a page edits its live document (DECISIONS.md D6); otherwise its rows.
+  const page = usePageSession(entityId);
+  if (page.state === "waiting") return <div className={cn(!compact && "min-h-40")} />;
+  if (page.state === "live") {
+    return (
+      <HydratedBlockEditor
+        key={entityId}
+        entityId={entityId}
+        spaceId={spaceId}
+        compact={compact}
+        scrollPastEnd={scrollPastEnd}
+        initialBlocks={[]}
+        session={page.session}
+        onSectionsChange={onSectionsChange}
+      />
+    );
+  }
+  return (
+    <RowsBlockEditor
+      entityId={entityId}
+      spaceId={spaceId}
+      compact={compact}
+      scrollPastEnd={scrollPastEnd}
+      onSectionsChange={onSectionsChange}
+    />
+  );
+}
+
+/// The page on its rows: created once the blocks are in, saved block by block.
+function RowsBlockEditor({
+  entityId,
+  spaceId,
+  compact,
+  scrollPastEnd,
+  onSectionsChange,
+}: {
+  entityId: string;
+  spaceId: string;
+  compact: boolean;
+  scrollPastEnd: boolean;
+  onSectionsChange?: (sections: PageSection[]) => void;
 }) {
   const { data: blocks } = useQuery(blocksQueryOptions(entityId));
   // A save still landing from the last time this page was open (flushed on
@@ -136,12 +199,14 @@ function RowsBlockEditor({
   );
 }
 
-function HydratedBlockEditor({
+/// Exported for the live page tests, which hand it a document of their own.
+export function HydratedBlockEditor({
   entityId,
   spaceId,
   compact,
   scrollPastEnd,
   initialBlocks,
+  session,
   onSectionsChange,
 }: {
   entityId: string;
@@ -149,11 +214,49 @@ function HydratedBlockEditor({
   compact: boolean;
   scrollPastEnd: boolean;
   initialBlocks: Block[];
+  /// The page's live document: typing merges with every other device as it happens, so
+  /// nothing is saved as rows here and other people's carets show.
+  session?: PageSession;
   onSectionsChange?: (sections: PageSection[]) => void;
 }) {
+  const user = useSyncState((s) => s.user);
+  const [displayName] = useSetting("general.displayName");
+  // The device too, so two devices of one person tell apart: "Ada on Mac".
+  const person = presenceName(
+    displayName.trim() || user?.username || "Someone",
+    syncRuntime.device.name,
+  );
+  const caret = caretColor(user?.id ?? person);
   const queryClient = useQueryClient();
   const { data: serverBlocks } = useQuery(blocksQueryOptions(entityId));
-  const lookups = useEditorLookups(spaceId, entityId);
+  const { data: entities = [] } = useQuery({
+    queryKey: qk.entities.bySpace(spaceId),
+    queryFn: () => listEntities(spaceId, false),
+  });
+
+  const entitiesRef = useRef(entities);
+  entitiesRef.current = entities;
+  // Which files are shown page by page, so a mention of one can name a page.
+  const { data: files = [] } = useQuery({
+    queryKey: qk.files.bySpace(spaceId),
+    queryFn: () => listFiles(spaceId),
+  });
+  // A session is found by its day and time as well as its course, which is its title.
+  const { data: sessions = [] } = useQuery({
+    queryKey: qk.sessions.bySpace(spaceId),
+    queryFn: () => listSessions(spaceId),
+  });
+  const sessionsById = useRef(new Map<string, SessionOccurrence>());
+  sessionsById.current = new Map(sessions.map((s) => [s.entity.id, s]));
+  const pagedFileIds = useRef(new Set<string>());
+  pagedFileIds.current = new Set(files.filter(hasPages).map((f) => f.entity.id));
+  // The note's own code language, read live when a code block is made. A Jot has none.
+  const { data: noteCodeLanguage = null } = useQuery({
+    queryKey: qk.noteCodeLanguage(entityId),
+    queryFn: () => getNoteCodeLanguage(entityId),
+  });
+  const noteCodeLanguageRef = useRef(noteCodeLanguage);
+  noteCodeLanguageRef.current = noteCodeLanguage;
 
   /// Client-generated `blockId` (assigned by `UniqueBlockId`) -> server block id.
   /// Pre-existing blocks bootstrap this as an identity mapping (§ notes rewrite).
@@ -279,31 +382,191 @@ function HydratedBlockEditor({
   }
 
   const pasteFiles = usePasteFiles(spaceId, entityId);
+  const { over, dragProps } = useFileDragOver();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [slot, setSlot] = useState<DropSlot | null>(null);
 
-  const editor = useEditor({
-    content: {
-      type: "doc",
-      content: initialBlocks.length > 0 ? initialBlocks.map(blockToNode) : [{ type: "paragraph" }],
+  // Settings load before the first page opens, so this sets the variables once for the session.
+  useEffect(applyPageTypography, []);
+
+  const editor = useEditor(
+    {
+      // A live page takes its content from its document.
+      ...(!session && {
+        content: {
+          type: "doc",
+          content:
+            initialBlocks.length > 0 ? initialBlocks.map(blockToNode) : [{ type: "paragraph" }],
+        },
+      }),
+      extensions: [
+        ...editorExtensions({
+          spaceId,
+          pageId: entityId,
+          getEntities: () => entitiesRef.current,
+          hasPages: (entity) => pagedFileIds.current.has(entity.id),
+          sessionOf: (entity) => sessionsById.current.get(entity.id),
+          getNewCodeLanguage: () => newCodeBlockLanguage(noteCodeLanguageRef.current),
+          collaborative: Boolean(session),
+        }),
+        // The document keeps its own history; the editor's undo follows it.
+        ...(session
+          ? [
+              Collaboration.configure({ document: session.doc, field: PAGE_FRAGMENT }),
+              CollaborationCaret.configure({
+                provider: session.provider,
+                user: { name: person, color: caret },
+              }),
+            ]
+          : []),
+      ],
+      editorProps: {
+        attributes: {
+          class: cn("tiptap-content page-editor", !compact && "min-h-40"),
+          ...(scrollPastEnd && { style: "padding-bottom: 100vh" }),
+        },
+        handlePaste: (view, event) => pasteFiles.handlePaste(view, event),
+        handleDrop: (view, event) => pasteFiles.handleDrop(view, event),
+        handleClickOn: (_view, _pos, _node, _nodePos, event) => openLink(event, spaceId),
+      },
+      onUpdate: () => {
+        // A live page saves through its document, never as rows.
+        if (session) return;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS);
+      },
     },
-    extensions: editorExtensions({ spaceId, pageId: entityId, ...lookups }),
-    editorProps: pageEditorProps({ compact, scrollPastEnd, spaceId, pasteFiles }),
-    onUpdate: () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS);
+    [session],
+  );
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && session) {
+      editor.commands.updateUser({ name: person, color: caret });
+    }
+  }, [editor, session, person, caret]);
+  const present = usePresence(session ?? null);
+
+  // Find in page, for a page of its own: not an editor embedded in another page.
+  const [findOpen, setFindOpen] = useState(false);
+  const [findFocus, setFindFocus] = useState({ token: 0, seed: "" });
+  useAppHotkey(
+    "findInPage",
+    () => {
+      if (!editor) return;
+      const selected = selectedSearchText(editor);
+      setFindFocus(({ token }) => ({
+        token: token + 1,
+        seed: selected.includes("\n") ? "" : selected,
+      }));
+      setFindOpen(true);
     },
-  });
+    { enabled: !compact },
+  );
 
   // The palette's text commands act on the page last typed in.
   useEffect(() => (editor ? trackActiveEditor(editor) : undefined), [editor]);
 
-  useSectionsReport(editor, onSectionsChange);
+  // Reports the headings after every change to the document, including edits
+  // pulled in from outside, but only when the outline itself changed.
+  const onSectionsChangeRef = useRef(onSectionsChange);
+  onSectionsChangeRef.current = onSectionsChange;
+  useEffect(() => {
+    if (!editor) return;
+    let last = "";
+    const report = () => {
+      const sections = pageSections(editor.state.doc);
+      const key = JSON.stringify(sections);
+      if (key === last) return;
+      last = key;
+      onSectionsChangeRef.current?.(sections);
+    };
+    report();
+    editor.on("transaction", report);
+    return () => {
+      editor.off("transaction", report);
+    };
+  }, [editor]);
 
-  // Blocks created earlier in this editor session still carry their client id.
-  useFocusBlockRequest(
-    editor,
-    entityId,
-    (blockId) => [...idMap].find(([, serverId]) => serverId === blockId)?.[0] ?? blockId,
-  );
+  // Scrolls to a block requested from outside (a block level search result)
+  // once the page has hydrated, then hands the request back.
+  const { groupId } = useTabGroupScope();
+  const focusBlock = useNavStore((s) => focusBlockIn(s, groupId));
+  const clearFocusBlock = useNavStore((s) => s.clearFocusBlock);
+  useEffect(() => {
+    // A page of a file is for the file viewer, not for a page's editor.
+    if (!editor || focusBlock?.entityId !== entityId || !focusBlock.blockId) return;
+    const { blockId, row, column, quote } = focusBlock;
+    // Blocks created earlier in this editor session still carry their client
+    // id, so map the server id back first.
+    const clientId = [...idMap].find(([, serverId]) => serverId === blockId)?.[0] ?? blockId;
+    let frame = 0;
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    let tries = 0;
+
+    /// Found through the document rather than a `[data-block-id]` query: node
+    /// view blocks (code blocks, tables) don't carry node attrs onto their DOM.
+    function locate(): { element: HTMLElement; pos: number } | null {
+      if (!editor) return null;
+      let found: { element: HTMLElement; pos: number } | null = null;
+      editor.state.doc.forEach((node, pos) => {
+        if (found || node.attrs.blockId !== clientId) return;
+        const dom = editor.view.nodeDOM(pos);
+        if (dom instanceof HTMLElement && dom.isConnected) found = { element: dom, pos };
+      });
+      return found;
+    }
+
+    function attempt() {
+      if (!editor) return;
+      const target = locate();
+      if (!target) {
+        // The node may not be rendered yet; give up after about half a second.
+        if (tries++ < 30) frame = requestAnimationFrame(attempt);
+        else clearFocusBlock();
+        return;
+      }
+      const { element, pos } = target;
+      element.scrollIntoView({ block: "center" });
+      element.animate(
+        [
+          { backgroundColor: "color-mix(in oklab, var(--primary) 16%, transparent)" },
+          { backgroundColor: "transparent" },
+        ],
+        { duration: 1800, easing: "ease-out" },
+      );
+      // A link to a row or column of a table marks just those cells, a little stronger.
+      for (const cell of tablePartElements(element, { row, column })) {
+        cell.animate(
+          [
+            { backgroundColor: "color-mix(in oklab, var(--primary) 30%, transparent)" },
+            { backgroundColor: "transparent" },
+          ],
+          { duration: 2400, easing: "ease-out" },
+        );
+      }
+      // Re-center once late layout (syntax highlighting, images) has settled,
+      // and only place the cursor after the closing overlay released focus.
+      settle = setTimeout(() => {
+        clearFocusBlock();
+        if (!element.isConnected) return;
+        element.scrollIntoView({ block: "center" });
+        // `Selection.near` finds the first text position inside the block, which
+        // for a table is its first cell rather than the table node itself.
+        // A link to selected text selects it; when the text has changed, the block is shown.
+        if (!quote || !selectQuote(editor.view, pos, quote)) {
+          const { state } = editor.view;
+          const start = Math.min(pos + 1, state.doc.content.size);
+          editor.view.dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(start))));
+        }
+        editor.commands.focus(null, { scrollIntoView: false });
+      }, 300);
+    }
+
+    frame = requestAnimationFrame(attempt);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(settle);
+    };
+  }, [editor, focusBlock, entityId, clearFocusBlock]);
 
   /// Saves the current document now, cancelling any pending debounce. Kept in a
   /// ref so the unmount cleanup below calls this render's version, not the first.
@@ -344,7 +607,7 @@ function HydratedBlockEditor({
   /// undo step, and puts the cursor back at the same offset in the same block.
   const syncFromServerRef = useRef(() => {});
   syncFromServerRef.current = () => {
-    if (!editor || editor.isDestroyed) return;
+    if (!editor || editor.isDestroyed || session) return;
     if (debounceRef.current || pendingNodesRef.current || reconcile.isPending) return;
     const blocks = queryClient.getQueryData(blocksQueryOptions(entityId).queryKey);
     if (!blocks || matchesPersisted(blocks)) return;
@@ -399,10 +662,13 @@ function HydratedBlockEditor({
   // Split view: the same page open in the other, focused group writes; this copy stays
   // read only and follows along. It also waits for a save the other copy still has in
   // flight, so it never starts typing over an older document.
+  // A live page needs neither: every open copy edits the same document. A page shared to
+  // view only, or one changed by a newer Nookly, stays read only either way.
   const locked = usePageEditLock(entityId, spaceId);
+  const viewOnly = useViewOnly(entityId, spaceId);
   const savesInFlight = useIsMutating({ mutationKey: saveBlocksKey(entityId) });
   const othersSaving = savesInFlight > (reconcile.isPending ? 1 : 0);
-  const readOnly = locked || othersSaving;
+  const readOnly = session ? viewOnly || session.readOnly : locked || othersSaving;
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     if (readOnly && debounceRef.current) flushRef.current();
@@ -424,6 +690,8 @@ function HydratedBlockEditor({
   /// Saves anything still pending, then maps a block's client id to its stored
   /// id, which is what a link to the block has to point at.
   const resolveStoredId = async (blockId: string): Promise<string | null> => {
+    // Block ids in a live document are the stored ids.
+    if (session) return blockId;
     if (debounceRef.current) flushRef.current();
     const saveKey = { mutationKey: saveBlocksKey(entityId) };
     for (let tries = 0; tries < 100 && queryClient.isMutating(saveKey) > 0; tries++) {
@@ -432,12 +700,64 @@ function HydratedBlockEditor({
     return idMap.get(blockId) ?? null;
   };
 
+  /// Right-clicking a block, or the gutter beside it, targets that block; the
+  /// rest of the canvas targets the page as a whole.
+  const blockContextTarget = contextTargetAt((event) => {
+    if (!editor) return undefined;
+    const dom = editor.view.dom;
+    const box = dom.getBoundingClientRect();
+    const inGutter = event.clientX >= box.left && event.clientX < box.left + GUTTER_WIDTH;
+    const probed = inGutter
+      ? document.elementFromPoint(box.left + GUTTER_WIDTH + 1, event.clientY)
+      : event.target instanceof Element
+        ? event.target
+        : null;
+    const element = topLevelElement(dom, probed);
+    const block = element && findTopLevelBlock(editor.view, element);
+    const blockId = block ? asString(block.node.attrs.blockId) : undefined;
+    const at = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
+    const misspelled = (at && misspelledWordAt(editor.state, at.pos)) || undefined;
+    return blockId
+      ? makeTarget("note.block", { editor, blockId, entityId, resolveStoredId, misspelled })
+      : makeTarget("note.canvas", {
+          editor,
+          overText: event.target instanceof Node && dom.contains(event.target),
+        });
+  });
+
   return (
-    <EditorFrame
-      editor={editor}
-      entityId={entityId}
-      resolveStoredId={resolveStoredId}
-      extra={pasteFiles.popover}
-    />
+    <div
+      ref={rootRef}
+      className="relative"
+      {...dragProps}
+      onDragOver={() => setSlot(dropSlotOf(rootRef.current))}
+      {...blockContextTarget}
+    >
+      {session?.readOnly && (
+        <p className="mb-2 text-xs text-caution">
+          This page was changed by a newer Nookly. Update to edit it here.
+        </p>
+      )}
+      <PresenceBar present={present} />
+      <TableControls editor={editor} />
+      <TableRowHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />
+      <TableColumnHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />
+      <BlockHandles editor={editor} />
+      <HighlightColorBar editor={editor} />
+      <TextColorBar editor={editor} />
+      {!compact && (
+        <FindBar
+          editor={editor}
+          open={findOpen}
+          focusToken={findFocus.token}
+          seed={findFocus.seed}
+          onClose={() => setFindOpen(false)}
+        />
+      )}
+      <EditorContent editor={editor} />
+      {over && slot && <FileDropSlot slot={slot} label="Drop to add file" />}
+      <VimIndicator editor={editor} />
+      {pasteFiles.popover}
+    </div>
   );
 }

@@ -36,181 +36,1120 @@
       }
     },
     {
-      "version": "0.38.4",
-      "date": "2026-10-21",
-      "title": "Clearer connection errors",
-      "summary": "A server that can't be reached now says so plainly.",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Signing in or syncing without a connection to the server now explains what is wrong instead of showing a technical error."
-        ]
-      }
-    },
-    {
-      "version": "0.38.3",
-      "date": "2026-10-20",
-      "title": "Quieter sync",
-      "summary": "Typing in a page no longer keeps the server busy.",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Nookly only reaches out when it has something to send, and hears about changes from other devices as they happen."
-        ]
-      }
-    },
-    {
-      "version": "0.38.2",
-      "date": "2026-10-20",
-      "title": "A calmer sync status",
-      "summary": "The sync status no longer flashes.",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "After your files were sent, \"Synced\" no longer flashes to \"Syncing\" every second."
-        ]
-      }
-    },
-    {
-      "version": "0.38.1",
-      "date": "2026-10-15",
-      "title": "Sync, quicker and steadier",
-      "summary": "Changes reach your other devices in about a second.",
-      "highlights": [],
-      "more": {
-        "Improved": ["An edit shows on your other devices in about a second."],
-        "Fixed": [
-          "A quiet connection is noticed and opened again, so changes keep arriving.",
-          "Signing in to another account on the same device brings in everything that account holds."
-        ]
-      }
-    },
-    {
-      "version": "0.38.0",
-      "date": "2026-10-14",
-      "title": "One account for every device",
-      "summary": "Sign in once, and your Spaces, files and settings follow you.",
+      "version": "0.75.0",
+      "date": "2026-11-10",
       "highlights": [
         {
-          "title": "Sign in from the titlebar",
-          "description": "The cloud button in the titlebar signs you in, and then says whether everything is synced.",
-          "icon": "user-circle",
-          "tag": "New"
-        },
+          "title": "Pictures travel with your exports",
+          "description": "Exporting a note, jot, task or assignment as a Nookly file now includes its images, videos, sounds and files, so they appear when you import it elsewhere.",
+          "icon": "file-export",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Nookly files can now be up to 100 MB to import.",
+          "Saving a Nookly file tells you if a file could not be included because it is missing."
+        ]
+      }
+    },
+    {
+      "version": "0.74.0",
+      "date": "2026-11-10",
+      "highlights": [
         {
-          "title": "Bring everything along",
-          "description": "Your first sign in backs up this device, then moves everything into your account and checks it with the server. Nothing here is removed.",
-          "icon": "cloud-up",
-          "tag": "New"
-        },
+          "title": "Write a description right away",
+          "description": "The quick New task and New assignment windows have a description below the title, with every block a page has, so you can write it before you create.",
+          "icon": "file-text",
+          "tag": "New",
+          "shortcuts": ["Mod+Shift+T", "Mod+Shift+A"]
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.73.0",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Agents using the Nookly command line can now read your Moodle courses, files, assignments, grades and announcements. They only read, and use the Moodle sign in you saved in Nookly."
+        ]
+      }
+    },
+    {
+      "version": "0.72.8",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The sidebar now slides in and out faster and more smoothly, including when it appears as you move the pointer to the left edge."
+        ]
+      }
+    },
+    {
+      "version": "0.72.7",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": ["Opening and closing Settings no longer makes the app freeze for a moment."]
+      }
+    },
+    {
+      "version": "0.72.6",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Opening the saved views under Tasks or Assignments in the sidebar no longer makes the move handle and arrow of that item jump down."
+        ]
+      }
+    },
+    {
+      "version": "0.72.5",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Dragging on the preview of a math block, equation, diagram, circuit or plot no longer picks up the whole block or drags its text. Mind map blocks still let you drag their ideas."
+        ]
+      }
+    },
+    {
+      "version": "0.72.4",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The import dialog for Moodle files is calmer and easier to use with a keyboard or screen reader, with searchable lists for labels and courses instead of a wall of chips."
+        ]
+      }
+    },
+    {
+      "version": "0.72.3",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Fixed the Quick assignment and Settings shortcuts doing nothing until the dialog had been opened another way first."
+        ]
+      }
+    },
+    {
+      "version": "0.72.2",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Search and Quick open now show the ID of every result, like NOT-94, next to its title."
+        ]
+      }
+    },
+    {
+      "version": "0.72.1",
+      "date": "2026-11-10",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Opening and closing the New task dialog, and other dialogs, is no longer slow on a long list of tasks or assignments."
+        ]
+      }
+    },
+    {
+      "version": "0.72.0",
+      "date": "2026-11-09",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "You can now attach a file by its path from the sidebar of any page, and it shows whether Nookly can find it."
+        ]
+      }
+    },
+    {
+      "version": "0.71.0",
+      "date": "2026-11-08",
+      "highlights": [
         {
-          "title": "Files and settings sync",
-          "description": "Files reach your other devices, checked on the way, and your formats, calendar and editor settings follow you.",
-          "icon": "cloud",
+          "title": "Files that tell you where they stand",
+          "description": "A file you added by path now shows whether Nookly can find it. If it moved, or lives on another device, Locate points Nookly at it again here.",
+          "icon": "link",
           "tag": "New"
         }
       ],
       "more": {
-        "Improved": ["Change your password under Settings, Account."]
+        "Improved": [
+          "The actions on a file's page are grouped into opening it, where it lives, and changing it, and a file that only exists as a link now offers Copy into Nookly."
+        ]
+      }
+    },
+    {
+      "version": "0.70.0",
+      "date": "2026-11-08",
+      "highlights": [
+        {
+          "title": "Add to a group of related items",
+          "description": "Each group in the sidebar has its own plus button that opens the list of that kind of item, with a way to create a new one and link it right away.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The Relate to button is now called Link, and each step of the picker says what it asks."
+        ]
+      }
+    },
+    {
+      "version": "0.69.0",
+      "date": "2026-11-08",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "You can now zoom the relationship graph out and in, or fit it to your view, so the second ring is fully visible."
+        ],
+        "Fixed": [
+          "The relationship graph now scrolls up, down, left and right in one swipe when the second ring is on."
+        ]
+      }
+    },
+    {
+      "version": "0.68.0",
+      "date": "2026-11-07",
+      "highlights": [
+        {
+          "title": "Mind maps",
+          "description": "Write your ideas as an indented list and Nookly draws them as a map. Drag ideas where you want them, and click one to fold or open its branches.",
+          "icon": "hierarchy",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.67.0",
+      "date": "2026-11-07",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The Calendar page in Settings shows a small week that follows your choices, with the settings grouped by what they change."
+        ],
+        "Fixed": [
+          "The colour and intensity choices for the current day now work properly with screen readers."
+        ]
+      }
+    },
+    {
+      "version": "0.66.1",
+      "date": "2026-11-06",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "On Mac, Nookly now tidies the list of apps allowed to read your saved logins, so it no longer collects an entry for every old version."
+        ]
+      }
+    },
+    {
+      "version": "0.66.0",
+      "date": "2026-11-06",
+      "highlights": [
+        {
+          "title": "Pictures on flashcards",
+          "description": "Cards are written in the note editor, so they can hold pictures, formulas, tables and more. Click a picture while studying to see it larger.",
+          "icon": "cards",
+          "tag": "New",
+          "shortcuts": ["Mod+Enter"]
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Shared deck files now include the pictures of their cards, and can be up to 100 MB."
+        ]
+      }
+    },
+    {
+      "version": "0.65.4",
+      "date": "2026-11-06",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Calendar entries no longer show up in search, since they have no page of their own."
+        ]
+      }
+    },
+    {
+      "version": "0.65.3",
+      "date": "2026-11-06",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Nookly for Mac is now code signed, so updating no longer asks for your computer password again to reach your saved logins. This is not Apple notarization, so macOS may still show a warning the first time you open Nookly."
+        ]
+      }
+    },
+    {
+      "version": "0.65.1",
+      "date": "2026-11-06",
+      "highlights": [],
+      "more": {
+        "Fixed": ["Links now always open in your default browser, never inside Nookly."]
+      }
+    },
+    {
+      "version": "0.65.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "Drop files in",
+          "description": "Drop files onto the Files page to import them, onto a page to attach them, or into a note to place them where the drop area shows.",
+          "icon": "file-import",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Fixed": [
+          "Fixed dragging a file onto Nookly covering the whole app with that file until you restarted."
+        ]
+      }
+    },
+    {
+      "version": "0.64.4",
+      "date": "2026-11-05",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Moving an item to Trash no longer asks first. It happens right away, and a message with Undo appears so you can bring it back at once."
+        ]
+      }
+    },
+    {
+      "version": "0.64.3",
+      "date": "2026-11-05",
+      "highlights": [],
+      "more": {
+        "Improved": ["C is now a language you can pick for code blocks."]
+      }
+    },
+    {
+      "version": "0.64.2",
+      "date": "2026-11-05",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "A file now fills its page without a margin or border around it, the same as a file from Moodle."
+        ]
+      }
+    },
+    {
+      "version": "0.64.1",
+      "date": "2026-11-05",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Fixed opening a note sometimes showing \"Something went wrong showing this view\" until you pressed Try Again."
+        ]
+      }
+    },
+    {
+      "version": "0.64.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "See how things connect",
+          "description": "The new graph button next to Pin shows an item with everything it links to around it. Turn on Second ring to look one step further, and click to open.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.63.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "Smarter Moodle imports",
+          "description": "Importing a Moodle file now lets you rename it, pick labels and attach it to a course first, with suggestions ready.",
+          "icon": "file-import",
+          "tag": "Improved"
+        },
+        {
+          "title": "Show in Nookly",
+          "description": "Moodle files you already imported show a button that takes you straight to them.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.62.0",
+      "date": "2026-11-05",
+      "highlights": [
+        {
+          "title": "Choose your page font and size",
+          "description": "Pick a default, serif or mono font and a text size for your pages under Settings, Editor, and see a live sample as you change them.",
+          "icon": "palette",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.61.1",
+      "date": "2026-11-05",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The closed unexpectedly message no longer shows up after an update, and its buttons now fit inside the window."
+        ]
+      }
+    },
+    {
+      "version": "0.61.0",
+      "date": "2026-11-04",
+      "highlights": [
+        {
+          "title": "Moodle inside Nookly",
+          "description": "Read your courses, open and import files, check assignments and grades and read announcements. Add the Moodle module to a Space to connect.",
+          "icon": "notebook",
+          "tag": "New"
+        },
+        {
+          "title": "Moodle deadlines on your calendar",
+          "description": "Connect the link from Moodle's Export calendar under Calendar connections to see deadlines next to your sessions.",
+          "icon": "link",
+          "tag": "New"
+        },
+        {
+          "title": "Copy a file's text",
+          "description": "Text, code and Markdown files have a copy button at the top right of the viewer.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.60.0",
+      "date": "2026-11-04",
+      "title": "A faster, simpler search",
+      "summary": "Search shows one list of results, best match first, and you can narrow it by typing.",
+      "highlights": [
+        {
+          "title": "One list of results",
+          "description": "Every result shows its icon, title, Space and the line that matched. The best match is already selected, so Enter opens it.",
+          "icon": "sparkles",
+          "tag": "New"
+        },
+        {
+          "title": "Filter by typing",
+          "description": "Type in: to pick a Space or # to pick a label, and press Tab to switch between types like Notes, Tasks and Files.",
+          "icon": "filter",
+          "tag": "New",
+          "shortcuts": ["Mod+K"]
+        },
+        {
+          "title": "Open results where you want",
+          "description": "Open the selected result in a new tab, or in the other side of a split.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Enter", "Mod+Alt+Enter"]
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Quick open now looks at titles only, so it answers instantly.",
+          "Search opens right away and starts looking on your first keystroke."
+        ]
+      }
+    },
+    {
+      "version": "0.59.0",
+      "date": "2026-11-04",
+      "title": "A tidier Settings",
+      "summary": "Settings is easier to scan, and the pages look like what they hold.",
+      "highlights": [
+        {
+          "title": "A flat list of pages",
+          "description": "Every page is in one list under short headings, and search sits at the top. Press the slash key to jump to it.",
+          "icon": "filter",
+          "tag": "Improved",
+          "shortcuts": ["/"]
+        },
+        {
+          "title": "Pick a theme by sight",
+          "description": "Light, dark and system are cards with a small preview, and the file viewer theme works the same way.",
+          "icon": "palette",
+          "tag": "New"
+        },
+        {
+          "title": "Shortcuts in a table",
+          "description": "All your shortcuts are on one page. Use the buttons at the top to show only one group, like Tabs or Create.",
+          "icon": "keyboard",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The Backup page shows when the last backup was made, how big it is and where it is saved, and says clearly if one failed.",
+          "Google Calendar and iCloud have their own Connections page in Settings, with a card that shows whether each one is connected.",
+          "LaTeX macros have their own page under Power tools in Settings.",
+          "A shortcut whose key was taken by another one is marked in the list."
+        ],
+        "Fixed": [
+          "On Mac, your Nookly data folder now opens in Finder with a double click. It is called Nookly, and nothing is moved or copied."
+        ]
+      }
+    },
+    {
+      "version": "0.58.0",
+      "date": "2026-11-04",
+      "highlights": [
+        {
+          "title": "Report after an unexpected close",
+          "description": "If Nookly closes unexpectedly, you can read, copy or share a short report next time. It never holds what you wrote, and nothing is sent unless you send it.",
+          "icon": "file-text",
+          "tag": "New"
+        },
+        {
+          "title": "Logs for bug reports",
+          "description": "Nookly keeps a short log of problems, never what you wrote. Open the folder from Settings and attach it when you report a bug.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Nookly starts quicker and takes less space.",
+          "Lists and searches no longer hold up the rest of the window, and Nookly no longer reloads everything each time you switch back to it."
+        ],
+        "Fixed": [
+          "When something goes wrong behind the scenes, Nookly now shows an error instead of closing."
+        ]
+      }
+    },
+    {
+      "version": "0.57.2",
+      "date": "2026-11-04",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Dragging tabs to reorder or split them, and dragging semesters to reorder them, now works on Linux."
+        ]
+      }
+    },
+    {
+      "version": "0.57.1",
+      "date": "2026-11-03",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The icon and name of each module in the sidebar no longer cover the handle you drag to reorder them."
+        ]
+      }
+    },
+    {
+      "version": "0.57.0",
+      "date": "2026-11-01",
+      "title": "A calmer sidebar",
+      "summary": "The sidebar now shows one Space at a time, with all your Spaces in a row at the bottom.",
+      "highlights": [
+        {
+          "title": "One Space at a time",
+          "description": "See only the modules of the Space you are in, and switch from the row of Spaces at the bottom. Right click a Space to rename it or change its icon or color.",
+          "icon": "layout-columns",
+          "tag": "New"
+        },
+        {
+          "title": "Switch Spaces quickly",
+          "description": "Swipe sideways with two fingers and the list moves with your fingers, springing back if you let go early. Or step through your Spaces with the keyboard.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Alt+Up", "Mod+Alt+Down"]
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The plus at the bottom left of the sidebar adds a new Space or a module to your current Space.",
+          "Trash and Collapse sidebar are now small icons next to your Spaces.",
+          "A short hint at the bottom of the sidebar tells you about swiping between Spaces, and goes away once you have tried it."
+        ]
+      }
+    },
+    {
+      "version": "0.56.4",
+      "date": "2026-10-30",
+      "highlights": [],
+      "more": {
+        "Fixed": ["Typing `^` in an empty code or math block no longer breaks the block."]
+      }
+    },
+    {
+      "version": "0.56.3",
+      "date": "2026-10-30",
+      "highlights": [
+        {
+          "title": "Fit Width for PDFs",
+          "description": "A new button in the PDF toolbar makes the page as wide as the viewer.",
+          "icon": "file-text",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Zooming a PDF changes the size by the same share at every level, and pinching zooms around your cursor.",
+          "Zooming and scrolling through long PDFs is faster."
+        ],
+        "Fixed": [
+          "Pages no longer jump around while a PDF with pages of different sizes loads.",
+          "Very large pages at a high zoom no longer turn blank."
+        ]
+      }
+    },
+    {
+      "version": "0.56.2",
+      "date": "2026-10-30",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "A new assignment from the quick assignment shortcut opens in a background tab, so you stay in your jot or note."
+        ]
+      }
+    },
+    {
+      "version": "0.56.1",
+      "date": "2026-10-30",
+      "highlights": [
+        {
+          "title": "Vectors in plots",
+          "description": "Draw an arrow between two points with `(0, 0) -> A` or `A -> B`. Name vectors with `a = 0 -> A`, then draw `a + b` and `a - b`.",
+          "icon": "chart-line",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "The legend of a plot shows each line as a formula, with fractions, roots and subscripts.",
+          "Start a line in a plot with `!#` to use it without showing it, for example a point that only a vector needs.",
+          "A line like `z_1 = 2` is drawn as a horizontal line, without needing `(x)`."
+        ]
+      }
+    },
+    {
+      "version": "0.56.0",
+      "date": "2026-10-29",
+      "title": "Spell checker, links that open Nookly and more",
+      "summary": "Check your spelling, link to files and selected text, and get a lot more done from the keyboard.",
+      "highlights": [
+        {
+          "title": "Share a file",
+          "description": "Send a file to someone from its details sidebar, with the share button at the top or **Share** in the more actions menu.",
+          "icon": "share",
+          "tag": "New"
+        },
+        {
+          "title": "Assembly code blocks",
+          "description": "Pick **Assembly** as the language of a code block to see instructions, registers, labels and numbers in their own colors.",
+          "icon": "terminal",
+          "tag": "New"
+        },
+        {
+          "title": "AI Comment callout",
+          "description": "Mark what an AI changed with the new purple **AI Comment** callout, so it stands out from your own notes and the standard callouts.",
+          "icon": "robot",
+          "tag": "New"
+        },
+        {
+          "title": "Duplicate a line",
+          "description": "Press the shortcut in a page to copy the line you are on right below it, for text, list entries, tasks and code.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+D"]
+        },
+        {
+          "title": "Refine side by side",
+          "description": "Refine a jot into a note and both open next to each other, so you can read the jot while you write the note.",
+          "icon": "layout-columns",
+          "tag": "Improved"
+        },
+        {
+          "title": "Readable mentions",
+          "description": "A mention you copy or export now names the page by its short ID, like **JOT-12**, instead of a long code. Older mentions keep working.",
+          "icon": "link",
+          "tag": "Improved"
+        },
+        {
+          "title": "Find a heading by typing",
+          "description": "On a long page, open the section list at the bottom and type to find a heading. The match is marked, and **Enter** jumps to it.",
+          "icon": "filter",
+          "tag": "New"
+        },
+        {
+          "title": "Quick assignment",
+          "description": "Create an assignment from anywhere. During a session it starts in that session's course and links to the session.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Shift+A"]
+        },
+        {
+          "title": "Table row and column menus",
+          "description": "Right click the grip next to a table row or above a column to add, duplicate, move, clear or delete it, or to copy a mention that points at it.",
+          "icon": "table",
+          "tag": "New"
+        },
+        {
+          "title": "Open in an AI app",
+          "description": "On the Agent tab in Settings, **Open in** shows the AI apps on your computer and opens your agent folder in the one you pick.",
+          "icon": "robot",
+          "tag": "New"
+        },
+        {
+          "title": "Files by path",
+          "description": "The **/file** block now takes the full path of a file on your computer. If the file is not there, the block says why and keeps the path until it is back.",
+          "icon": "file-text",
+          "tag": "New"
+        },
+        {
+          "title": "Links that open Nookly",
+          "description": "Right click an item or a block and choose **Copy Link**. Clicking that link anywhere on your computer opens Nookly on it.",
+          "icon": "link",
+          "tag": "New"
+        },
+        {
+          "title": "Spell checker",
+          "description": "Misspelled words get a wavy underline and a right click offers corrections. Pick several languages, like **English and German**. Off until you turn it on.",
+          "icon": "sparkles",
+          "tag": "New"
+        },
+        {
+          "title": "Link to selected text",
+          "description": "Select text, right click and choose **Copy Mention for Selection** or **Copy Link for Selection**. Opening it selects that text on the page.",
+          "icon": "link",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Copying a mention is now called Copy Mention, and Copy Link now copies a link that opens Nookly.",
+          "Related items in the details sidebar are grouped in a fixed order, starting with bookmarks, assignments, tasks and notes.",
+          "Settings has a page for each group of shortcuts, and lists the keys of the page editor, like bold, headings and lists.",
+          "Pages under a category in Settings, like LaTeX, hang on a guide line under it instead of showing an arrow icon.",
+          "The words you add to the spell checker are kept in a plain file, dictionary.json, which Show dictionary file in Settings shows in Finder."
+        ]
+      }
+    },
+    {
+      "version": "0.42.2",
+      "date": "2026-10-22",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "When an assignment is due before a specific session, you pick it from a week of your calendar, so you can see which session is which.",
+          "The due date menu always opens below the field."
+        ],
+        "Fixed": [
+          "An assignment due before the next session now stays on that session once it starts, instead of moving on to the one after it."
+        ]
+      }
+    },
+    {
+      "version": "0.42.0",
+      "date": "2026-10-21",
+      "highlights": [
+        {
+          "title": "Plots",
+          "description": "Type **/plot** and write `f(x) = x^2 - 2` or `A = (1, 2)`, one per line, to see them in a coordinate system. Set the view with `window: -10..10`.",
+          "icon": "chart-line",
+          "tag": "New"
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.41.0",
+      "date": "2026-10-21",
+      "highlights": [
+        {
+          "title": "New task from anywhere",
+          "description": "Open the New task dialog wherever you are and start typing the title right away. **New Task** in the command menu opens it too.",
+          "icon": "keyboard",
+          "tag": "New",
+          "shortcuts": ["Mod+Shift+T"]
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.40.1",
+      "date": "2026-10-21",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Inline math in PDF, Word and OpenDocument exports shows as real formulas instead of raw LaTeX, and Word files get equations you can edit."
+        ]
+      }
+    },
+    {
+      "version": "0.40.0",
+      "date": "2026-10-20",
+      "highlights": [
+        {
+          "title": "Colored text",
+          "description": "Select text in a Note or Jot and pick a color from the bar below it.",
+          "icon": "palette",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": ["A file in a page can name the last page of its interval, like pages 3 to 9."]
+      }
+    },
+    {
+      "version": "0.39.3",
+      "date": "2026-10-20",
+      "highlights": [],
+      "more": {
+        "Improved": ["Exports to PDF, Word and OpenDocument start on A4 instead of Letter."]
+      }
+    },
+    {
+      "version": "0.39.2",
+      "date": "2026-10-20",
+      "highlights": [],
+      "more": {
+        "Improved": ["Cmd or Ctrl and a click on a file in a page opens it in a new Nookly tab."]
+      }
+    },
+    {
+      "version": "0.39.1",
+      "date": "2026-10-20",
+      "highlights": [],
+      "more": {
+        "Improved": ["The Open settings file button is now called Show settings file."]
+      }
+    },
+    {
+      "version": "0.39.0",
+      "date": "2026-10-19",
+      "highlights": [
+        {
+          "title": "Export as PDF, Word or OpenDocument",
+          "description": "Choose **Export...** on a Note or Jot to save it as a PDF, Word or OpenDocument file, with a preview of every page and the title on top if you like.",
+          "icon": "file-export",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": ["Saving a page as Markdown now happens in the same Export dialog."]
+      }
+    },
+    {
+      "version": "0.38.0",
+      "date": "2026-10-17",
+      "highlights": [
+        {
+          "title": "Filter with OR",
+          "description": "Show items that match either filter. Click **and** between two filters to switch it to **or**.",
+          "icon": "filter",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": ["Clear filters always sits next to the Filter button, above your filters."]
+      }
+    },
+    {
+      "version": "0.37.6",
+      "date": "2026-10-17",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Assignments can be filtered by when they were evaluated.",
+          "The Completed filter for Tasks is now called Completed at.",
+          "Every Filter menu lists its filters alphabetically."
+        ]
+      }
+    },
+    {
+      "version": "0.37.5",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": ["Files scroll smoothly even with hundreds of PDFs, without lag or blank gaps."]
+      }
+    },
+    {
+      "version": "0.37.4",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "The title, search and filters of Notes and Jots stay in view while the list scrolls underneath."
+        ],
+        "Fixed": [
+          "Notes and Jots open quicker and keep up while you type, even with thousands of entries."
+        ]
+      }
+    },
+    {
+      "version": "0.37.3",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Quick filters now star a filter such as Course in the Filter menu, and one click opens its choices."
+        ]
+      }
+    },
+    {
+      "version": "0.37.1",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Titles and buttons at the top of a page, such as the Calendar's, move onto a second line instead of overlapping in split view."
+        ]
       }
     },
     {
       "version": "0.37.0",
-      "date": "2026-10-14",
-      "title": "Accounts with a username",
-      "summary": "Sign in to sync with a username, no email needed.",
-      "highlights": [],
+      "date": "2026-10-16",
+      "highlights": [
+        {
+          "title": "A fuller course page",
+          "description": "See this week's sessions, plus the course's assignments, recent notes and exams, all on one page.",
+          "icon": "notebook",
+          "tag": "Improved"
+        }
+      ],
       "more": {
         "Improved": [
-          "Create a sync account with a username and a password, and sign in with your username or your email.",
-          "Share a page or a task by typing someone's username."
-        ]
-      }
-    },
-    {
-      "version": "0.36.2",
-      "date": "2026-10-14",
-      "title": "A calmer sidebar",
-      "summary": "The sidebar sits right on the page.",
-      "highlights": [],
-      "more": {
-        "Improved": [
-          "The sidebar sits right on the page, without a panel, border or shadow around it."
-        ]
-      }
-    },
-    {
-      "version": "0.36.1",
-      "date": "2026-10-14",
-      "title": "Clearer sharing",
-      "summary": "Shared items stand out in the sidebar, and view only items stay unchanged.",
-      "highlights": [],
-      "more": {
-        "Improved": [
-          "The Space holding what others share with you shows a people icon in the sidebar."
-        ],
-        "Fixed": [
-          "A task or page shared with you to view can no longer be renamed or changed, so nothing you type is undone on the next sync."
+          "The next session tile on a course page names the session as well as its day and time."
         ]
       }
     },
     {
       "version": "0.36.0",
-      "date": "2026-10-14",
-      "title": "Share tasks, keep every change",
-      "summary": "Tasks can be shared like pages, and a change that lost to a newer one can come back.",
+      "date": "2026-10-16",
+      "highlights": [
+        {
+          "title": "Find in page",
+          "description": "Search a page, step through each match and replace one or all. Match case, whole words or patterns, and put a cursor in every match at once.",
+          "icon": "file-text",
+          "tag": "New",
+          "shortcuts": ["Mod+F"]
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.35.0",
+      "date": "2026-10-16",
+      "highlights": [
+        {
+          "title": "Zoom a group",
+          "description": "Hide the other side of a split view until you press the shortcut again, or pick **Zoom Group** in a tab's menu.",
+          "icon": "layout-columns",
+          "tag": "New",
+          "shortcuts": ["Mod+Shift+Enter"]
+        }
+      ],
+      "more": {}
+    },
+    {
+      "version": "0.34.18",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": ["Fixed the spacing around the tabs in split view."]
+      }
+    },
+    {
+      "version": "0.34.17",
+      "date": "2026-10-16",
       "highlights": [],
       "more": {
         "Improved": [
-          "Tasks can be shared with people, to view or to edit.",
-          "Settings, Sync, Conflicts can bring back a change that a newer one replaced, or dismiss it."
+          "Notes and Jots grow wider in a large window, so the empty sides next to the text get smaller."
         ]
       }
     },
     {
-      "version": "0.35.0",
-      "date": "2026-10-14",
-      "title": "Sync and sharing",
-      "summary": "Keep your devices in step, and share pages with people. Both are optional.",
+      "version": "0.34.16",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "A formula no longer comes back as plain text with its dollar signs after a reload when it ended in a space, ran over two lines, held a dollar sign or had a digit right after it."
+        ]
+      }
+    },
+    {
+      "version": "0.34.15",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The LaTeX page in Settings stays indented and shows a corner icon to mark it as part of Editor."
+        ]
+      }
+    },
+    {
+      "version": "0.34.14",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Decks on the dashboard are no longer squeezed: a narrow card stacks its name, counts and Study button."
+        ]
+      }
+    },
+    {
+      "version": "0.34.13",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Tabs show the ID of their page, such as TSK-14, so similar names are easy to tell apart."
+        ]
+      }
+    },
+    {
+      "version": "0.34.12",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "On a file or bookmark, **Relate to** now offers *Attached to*, so you can attach it to a page from its own side."
+        ]
+      }
+    },
+    {
+      "version": "0.34.11",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Quick open, commands, search and every list in a menu find \"Übungsblatt\" whether you type \"Übungs\" or \"ubungs\"."
+        ]
+      }
+    },
+    {
+      "version": "0.34.10",
+      "date": "2026-10-16",
       "highlights": [
         {
-          "title": "Sync your devices",
-          "description": "Sign in under **Settings, Sync** and every device stays the same, offline changes included. Nookly still works without an account.",
-          "icon": "cloud",
-          "tag": "New"
-        },
-        {
-          "title": "Share a page",
-          "description": "Right click a page and pick **Share with People** to let someone view or edit it.",
-          "icon": "share",
+          "title": "Upload File",
+          "description": "The attach menu in the details sidebar has an **Upload File** button at the top that adds a file to Nookly and attaches it to the page at once.",
+          "icon": "file-import",
           "tag": "New"
         }
       ],
       "more": {
+        "Fixed": ["Long label names no longer squash their checkbox in the label picker."]
+      }
+    },
+    {
+      "version": "0.34.7",
+      "date": "2026-10-16",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Markdown files with a `---` divider or front matter no longer open empty.",
+          "Markdown files open dark by default, like code and text files.",
+          "Markdown files no longer have extra space on the left."
+        ]
+      }
+    },
+    {
+      "version": "0.34.6",
+      "date": "2026-10-15",
+      "title": "Ungraded homework, formulas in decks and a smarter slash menu",
+      "summary": "Mark assignments as ungraded, write display formulas on deck cards and find blocks faster with the slash menu.",
+      "highlights": [
+        {
+          "title": "Ungraded assignments",
+          "description": "Set an assignment's **Evaluation** to Ungraded for homework, or Graded to add a grade. Ungraded work stays out of the course grade.",
+          "icon": "notebook",
+          "tag": "New"
+        },
+        {
+          "title": "Formulas in deck cards",
+          "description": "Write `$$…$$` for a formula on its own line and see a preview while you type the card.",
+          "icon": "cards",
+          "tag": "Improved"
+        },
+        {
+          "title": "Smarter slash menu",
+          "description": "Type `/h2`, `/title` or just a few letters in order, like `/bkmk`, to find a block.",
+          "icon": "keyboard",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Fixed": [
+          "Dollar amounts such as $5 and $10 in a deck card stay text instead of turning into a formula.",
+          "Decks on the dashboard look better when space is tight."
+        ]
+      }
+    },
+    {
+      "version": "0.34.3",
+      "date": "2026-10-15",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Hiding or showing the details sidebar in split view only changes the side you are working in."
+        ]
+      }
+    },
+    {
+      "version": "0.34.2",
+      "date": "2026-10-15",
+      "highlights": [],
+      "more": {
+        "Fixed": ["The dashboard summary mentions a session that is about to start only once."]
+      }
+    },
+    {
+      "version": "0.34.1",
+      "date": "2026-10-15",
+      "highlights": [],
+      "more": {
         "Improved": [
-          "Settings, Sync lists your signed in devices, and conflicts keep the change that lost."
+          "Long pages render in full again: parts scrolled out of view are no longer skipped.",
+          "Split Right and Split Left use `Mod+Alt+Shift+Right` and `Mod+Alt+Shift+Left`, so they no longer clash with selecting text."
         ]
       }
     },
     {
       "version": "0.34.0",
-      "date": "2026-10-14",
-      "title": "Split view",
-      "summary": "Two groups of tabs side by side, each with its own tabs and history.",
+      "date": "2026-10-15",
       "highlights": [
         {
           "title": "Split view",
-          "description": "Right click a tab and pick **Split Right**, or drag it to the right edge, to work side by side. `Mod+1` and `Mod+2` switch sides.",
+          "description": "Use the **Split** button, the command palettes or the keyboard to work side by side. `Mod+1` and `Mod+2` switch sides.",
           "icon": "layout-columns",
           "tag": "New",
-          "shortcut": "Mod+\\"
+          "shortcuts": ["Mod+Alt+Shift+ArrowLeft", "Mod+Alt+Shift+ArrowRight"]
         }
       ],
       "more": {
         "Improved": [
-          "Lists, grids and the details sidebar fit the width of their side of a split."
+          "Lists, grids and the details sidebar fit the width of their side of a split.",
+          "Long pages stay smooth: parts scrolled out of view are not laid out until you get there."
         ],
         "Fixed": ["Tabs are announced once by screen readers, without their close button."]
+      }
+    },
+    {
+      "version": "0.33.31",
+      "date": "2026-10-15",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "The section list in the floating progress pill stops growing at a comfortable height and scrolls when a page has many headings."
+        ]
       }
     },
     {
@@ -230,7 +1169,7 @@
           "description": "Type `==text==` or select text and press `Mod+Shift+H` to mark it with a highlighter.",
           "icon": "sparkles",
           "tag": "New",
-          "shortcut": "Mod+Shift+H"
+          "shortcuts": ["Mod+Shift+H"]
         },
         {
           "title": "Your own LaTeX commands",
@@ -300,8 +1239,7 @@
         ],
         "Improved": [
           "Right click any item and choose Copy ID, right below Copy Link, to copy the ID you see on it, like `TSK-12`.",
-          "Click a file embedded in a page to open it in Nookly, or use Open in Nookly on its toolbar.",
-          "A one time reset of the What's new list is gone now that it did its job."
+          "Click a file embedded in a page to open it in Nookly, or use Open in Nookly on its toolbar."
         ]
       }
     },
@@ -316,8 +1254,6 @@
     {
       "version": "0.33.1",
       "date": "2026-10-13",
-      "title": "A roomier Dashboard calendar",
-      "summary": "The calendar shows more of your day.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -355,8 +1291,6 @@
     {
       "version": "0.32.6",
       "date": "2026-10-11",
-      "title": "Agent files in folders",
-      "summary": "The Agent settings now list your files down the side, with folders.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -367,8 +1301,6 @@
     {
       "version": "0.32.5",
       "date": "2026-10-10",
-      "title": "What's new after any update",
-      "summary": "Updating from an older version always shows what changed.",
       "highlights": [],
       "more": {
         "Fixed": [
@@ -379,8 +1311,6 @@
     {
       "version": "0.32.4",
       "date": "2026-10-10",
-      "title": "A cleaner page edge",
-      "summary": "The main area now matches the sidebar.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -391,8 +1321,6 @@
     {
       "version": "0.32.1",
       "date": "2026-10-10",
-      "title": "What's new covers every update",
-      "summary": "Updating after a few versions shows all of them.",
       "highlights": [],
       "more": {
         "Improved": [
@@ -429,7 +1357,7 @@
           "description": "The Import dialog recognises pages, tasks, decks and assignments and shows what is inside before you confirm.",
           "icon": "file-import",
           "tag": "Improved",
-          "shortcut": "Mod+I"
+          "shortcuts": ["Mod+I"]
         },
         {
           "title": "From the command line",
@@ -456,7 +1384,7 @@
           "description": "Drop in a page exported from Nookly, choose the Space, relate it to what you have and check what it contains first.",
           "icon": "file-import",
           "tag": "New",
-          "shortcut": "Mod+I"
+          "shortcuts": ["Mod+I"]
         },
         {
           "title": "Share a page",
@@ -469,7 +1397,7 @@
           "description": "Open the jot of the session that is running **right now**, or get told there is none.",
           "icon": "notebook",
           "tag": "New",
-          "shortcut": "Mod+Shift+J"
+          "shortcuts": ["Mod+Shift+J"]
         },
         {
           "title": "Relate in three steps",

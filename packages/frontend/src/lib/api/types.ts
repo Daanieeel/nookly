@@ -310,11 +310,25 @@ export interface Exam {
 export type CardState = "new" | "learning" | "review" | "relearning";
 export type CardRating = "again" | "hard" | "good" | "easy";
 
+/// One block of a card face, the shape of a note's block without the page it belongs to.
+export interface CardBlock {
+  type: BlockType;
+  content: string;
+  language?: string | null;
+  filename?: string | null;
+  attrs?: BlockAttrs;
+}
+
 export interface IndexCard {
   id: string;
   deckEntityId: string;
+  /// The front as markdown text. A card written with blocks holds their markdown here.
   front: string;
   back: string;
+  /// The faces as blocks. `null` for a card nobody has edited since faces became blocks:
+  /// it shows its text until then.
+  frontBlocks: CardBlock[] | null;
+  backBlocks: CardBlock[] | null;
   state: CardState;
   dueAt: string;
   stability: number;
@@ -344,13 +358,6 @@ export interface DeckStats {
   due: number;
   nextDueAt: string | null;
   reviewedToday: number;
-}
-
-export interface StudyBlock {
-  entity: Entity;
-  date: string;
-  startTime: string;
-  endTime: string;
 }
 
 /// A Course's free text details.
@@ -413,10 +420,50 @@ export interface Assignment {
   dueSessionOffsetDays: number | null;
   /// The one session the due day follows instead of the next one; null otherwise.
   dueSessionId: string | null;
+  /// While it follows the next session: the local moment (`YYYY-MM-DD HH:MM`) that was
+  /// set, so it keeps the session next then once that one starts; null otherwise.
+  dueSessionAfter: string | null;
   /// Its share of the course's grade: a fraction, or a whole percentage in older data.
   weight: number | null;
   status: string;
   grade: number | null;
+  /// Not graded at all, like homework: no grade, and no share of the course's grade.
+  ungraded: boolean;
+  /// Read only. When the status last changed to evaluated; null while it is not.
+  evaluatedAt: string | null;
+}
+
+/// The five answers to "can I get to it?", worked out live on each device and never stored.
+export type ReferenceStateKey =
+  | "available"
+  | "offline"
+  | "missing"
+  | "needsSignIn"
+  | "notOnThisDevice";
+
+export interface ReferenceStatus {
+  state: ReferenceStateKey;
+  /// For `offline`: when the target last answered; null if it never did.
+  asOf: string | null;
+}
+
+export type ReferenceProvider = "file" | "link" | "moodle_course" | "moodle_assignment";
+
+/// What a reference stores, and what this device can tell about it.
+export interface ReferenceFacts {
+  provider: ReferenceProvider;
+  /// The path, link or id on the provider's side. A file's is the path on the device it was
+  /// added on; `pathOnThisDevice` is the one to open.
+  remoteId: string;
+  /// The title the target had when it was last reached.
+  lastKnownTitle: string | null;
+  lastSeenAt: string | null;
+  /// The last live answer: `available`, `offline`, `missing` or `needs_sign_in`.
+  lastResult: string | null;
+  /// For a file: where it is on this device; null when it is not on this device.
+  pathOnThisDevice: string | null;
+  /// Known right away for a file on disk. A link or a Moodle object needs a check.
+  status: ReferenceStatus | null;
 }
 
 export interface FileEntity {
@@ -428,6 +475,9 @@ export interface FileEntity {
   /// Where a referenced file lives on disk; set without `localPath` until it's
   /// copied into storage.
   sourcePath: string | null;
+  /// Read only. Where an imported File came from, as a key the source chose (a file from
+  /// Moodle is `moodle:<address>`); `null` for any other File.
+  origin: string | null;
   /// Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx,
   /// code/plain text files) with no search content yet — never indexed, or
   /// the last attempt found nothing.
@@ -441,6 +491,13 @@ export interface FileEntity {
   /// Only populated by `getFile` (a single File); `listFiles` always returns
   /// `null` here to keep listing many Files cheap.
   indexedContent: string | null;
+  /// Present while the File only points at a file or link elsewhere (nothing stored in
+  /// Nookly). `null` for a File Nookly stores itself.
+  reference: ReferenceFacts | null;
+  /// Whether this device finds the file right now: a stored copy is `available` or `missing`,
+  /// a pointer to a file is its reference's state. `null` for a link never downloaded, which
+  /// needs a check.
+  availability: ReferenceStatus | null;
 }
 
 export interface Bookmark {

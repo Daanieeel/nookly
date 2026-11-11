@@ -126,7 +126,7 @@ export function SyncStatusButton() {
     if (summary.opens === "account") useAccountDialog.getState().show("signIn");
     else if (summary.opens === "firstSync") useAccountDialog.getState().setFirstSyncOpen(true);
     else if (summary.opens === "conflicts") useAccountDialog.getState().setMergeOpen(true);
-    else useNavStore.getState().openSettingsAt("sync");
+    else useNavStore.getState().openSettingsAt("account");
   };
   const when =
     user && status.lastSyncedAt && status.state === "idle"

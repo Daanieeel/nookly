@@ -87,7 +87,7 @@ const ROW_READERS = {
 type RowBlock = keyof typeof ROW_READERS;
 
 const LINK_TYPES = new Set(["image", "video", "audio", "file", "embed", "bookmark"]);
-const SOURCE_TYPES = new Set(["equation", "math", "diagram", "circuit"]);
+const SOURCE_TYPES = new Set(["equation", "math", "diagram", "circuit", "plot", "mindmap"]);
 
 /// The block read as a shape, or `null` when it isn't something to convert
 /// (tables, dividers, linked items).
@@ -101,6 +101,8 @@ function read(node: ProseMirrorNode): Draft | null {
   }
   // A drawing has no place in any other block, so this one is left as it is.
   if (type === "circuit" && str(node.attrs.drawing)) return null;
+  // Nor do the nodes of a mind map the user dragged.
+  if (type === "mindmap" && str(node.attrs.layout)) return null;
   if (type === "codeBlock" || SOURCE_TYPES.has(type)) {
     const view = SOURCE_TYPES.has(type) ? str(node.attrs.view) : undefined;
     return { form: "lines", lines: node.textContent.split("\n"), view };
@@ -367,6 +369,8 @@ export const BLOCK_KINDS: BlockKind[] = [
   sourceKind("Math block", "math"),
   sourceKind("Diagram", "diagram"),
   sourceKind("Circuit", "circuit"),
+  sourceKind("Plot", "plot"),
+  sourceKind("Mind map", "mindmap"),
   linkKind("Image", "image"),
   linkKind("Video", "video"),
   linkKind("Audio", "audio"),

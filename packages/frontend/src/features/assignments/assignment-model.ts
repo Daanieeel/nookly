@@ -48,7 +48,7 @@ export function assignmentStatus(id: string): TaskStatus {
 }
 
 export function statusKindOf(id: string): StatusKind {
-  if (id === "graded") return "completed";
+  if (id === "evaluated") return "completed";
   if (id === "in_progress" || id === "submitted") return "started";
   return "unstarted";
 }
@@ -61,7 +61,7 @@ export function sessionDay(a: Assignment): string | null {
 }
 
 export function isDone(assignment: Assignment): boolean {
-  return assignment.status === "submitted" || assignment.status === "graded";
+  return assignment.status === "submitted" || assignment.status === "evaluated";
 }
 
 // Date buckets
@@ -133,16 +133,23 @@ export function createdBucket(a: Assignment, now = new Date()): string {
   return ageBucket(a.entity.createdAt, now);
 }
 
+/// Evaluated at filter: when the assignment was evaluated, or not at all.
+export const EVALUATED_BUCKETS: { id: string; label: string }[] = [
+  ...AGE_BUCKETS,
+  { id: "none", label: "Not evaluated" },
+];
+
 export const GRADE_FILTER: { id: string; label: string }[] = [
   { id: "graded", label: "Has a grade" },
   { id: "none", label: "No grade" },
+  { id: "ungraded", label: "Ungraded" },
 ];
 
 // Display options
 
 export { validSubGrouping } from "#/lib/display-options.ts";
 
-export type Layout = "list" | "board";
+type Layout = "list" | "board";
 export type Grouping =
   | "deadline"
   | "created"
@@ -280,7 +287,7 @@ export const ASSIGNMENT_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
     display: normalizeDisplay({
       layout: "board",
       grouping: "status",
-      hiddenColumns: ["graded", "submitted"],
+      hiddenColumns: ["evaluated", "submitted"],
     }),
   },
   {
@@ -288,15 +295,15 @@ export const ASSIGNMENT_VIEW_PRESETS: ViewPreset<DisplayOptions>[] = [
     icon: "Rocket",
     color: "#a855f7",
     description: "Handed in and waiting for a grade.",
-    filters: [is("status", "submitted")],
+    filters: [is("status", "submitted"), is("grade", "none")],
     display: normalizeDisplay({ layout: "list", grouping: "none" }),
   },
   {
-    name: "Graded",
+    name: "Evaluated",
     icon: "Star",
     color: "#22c55e",
-    description: "Graded assignments as a board, one column per course.",
-    filters: [is("status", "graded")],
+    description: "Evaluated assignments as a board, one column per course.",
+    filters: [is("status", "evaluated")],
     display: normalizeDisplay({ layout: "board", grouping: "course" }),
   },
 ];

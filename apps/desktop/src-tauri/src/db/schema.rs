@@ -61,6 +61,16 @@ impl FieldKind {
     }
 }
 
+/// Fields that are chosen when something is created and cannot be changed after, though no
+/// create needs them (they are one of several ways in, like a File's `sourcePath`). A field
+/// that is neither required, writable nor listed here is read only.
+const CREATE_ONLY: &[(&str, &str)] =
+    &[("file", "sourcePath"), ("file", "url"), ("file", "linkUrl")];
+
+pub fn is_create_only(entity_type: &str, field: &str) -> bool {
+    CREATE_ONLY.contains(&(entity_type, field))
+}
+
 pub struct FieldDef {
     pub name: &'static str,
     pub kind: FieldKind,

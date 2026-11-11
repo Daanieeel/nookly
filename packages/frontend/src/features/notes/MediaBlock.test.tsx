@@ -4,7 +4,7 @@ import { EditorContent } from "@tiptap/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { makeEntity, makeFile } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { currentTabs, useNavStore } from "#/lib/store/nav.ts";
 import { callsOf, mockCommand } from "#/test/tauri.ts";
 import { editorExtensions } from "./editor-extensions";
 
@@ -49,12 +49,30 @@ describe("opening media with Cmd or Ctrl and a click", () => {
     ]);
   });
 
-  it("opens a file from its card, with Ctrl too", async () => {
+  // #166: a file block is a link to a file in Nookly, so Cmd or Ctrl opens that file's page in
+  // a new tab; the toolbar's Open File still hands it to the system viewer.
+  it("opens a file's page in a new tab from its card, with Ctrl too", async () => {
+    mockCommand("touch_entity_opened", null);
+    useNavStore.setState({ view: { kind: "dashboard" } });
     await open("file", "syllabus.pdf");
     const name = await screen.findByText("syllabus.pdf");
-    fireEvent.click(name);
+    for (const modifier of [{ metaKey: true }, { ctrlKey: true }]) {
+      const before = currentTabs(useNavStore.getState()).length;
+      fireEvent.click(name, modifier);
+      expect(currentTabs(useNavStore.getState())).toHaveLength(before + 1);
+      expect(currentTabs(useNavStore.getState()).at(-1)?.view).toMatchObject({
+        kind: "entity",
+        entityId: "f1",
+      });
+    }
+    // The page the click came from stays in front.
+    expect(useNavStore.getState().view).toMatchObject({ kind: "dashboard" });
     expect(callsOf("plugin:opener|open_path")).toHaveLength(0);
-    fireEvent.click(name, { ctrlKey: true });
+  });
+
+  it("opens a file from the toolbar in the system viewer", async () => {
+    await open("file", "syllabus.pdf");
+    fireEvent.click(await screen.findByRole("button", { name: "Open File" }));
     expect(callsOf("plugin:opener|open_path")).toEqual([
       expect.objectContaining({ path: "/data/files/syllabus.pdf" }),
     ]);
@@ -82,6 +100,7 @@ describe("opening an embedded file in Nookly", () => {
 // different notes can start in different places.
 describe("a file block that opens on a page", () => {
   const pageOf = () => editor?.getJSON().content?.[0]?.attrs?.page;
+  const pageToOf = () => editor?.getJSON().content?.[0]?.attrs?.pageTo;
 
   it("opens the file on that page when its card is clicked", async () => {
     useNavStore.setState({ view: { kind: "dashboard" }, focusBlock: null });
@@ -116,6 +135,59 @@ describe("a file block that opens on a page", () => {
     await waitFor(() => expect(pageOf()).toBeNull());
     await user.type(field, "0");
     await waitFor(() => expect(pageOf()).toBeNull());
+  });
+
+  // #169: an optional last page next to the first one. The file still opens on the first page;
+  // the interval is for the reader of the page.
+  it("sets the last page from a second field that takes digits only, and clears it again", async () => {
+    const { user } = await open("file", "syllabus.pdf", { page: "3" });
+    const field = await screen.findByRole("textbox", { name: "Open to page" });
+    expect(field).toHaveAttribute("placeholder", "...");
+    expect(field).toHaveValue("");
+    await user.type(field, "9x");
+    await waitFor(() => expect(pageToOf()).toBe("9"));
+    expect(field).toHaveValue("9");
+    expect(pageOf()).toBe("3");
+    await user.clear(field);
+    await waitFor(() => expect(pageToOf()).toBeNull());
+    expect(pageOf()).toBe("3");
+  });
+
+  // The "to" sits right after the first number, however many digits it has.
+  it("sizes each page field to its digits, so the to stays next to the first number", async () => {
+    const { user } = await open("file", "syllabus.pdf");
+    const first = await screen.findByRole("textbox", { name: "Open on page" });
+    const width = () => first.style.getPropertyValue("--digits");
+    const empty = width();
+    await user.type(first, "123");
+    await waitFor(() => expect(first).toHaveValue("123"));
+    expect(width()).toBe("3ch");
+    expect(empty).toBe("3ch");
+    await user.type(first, "45");
+    expect(width()).toBe("5ch");
+  });
+
+  it("opens on the first page of an interval", async () => {
+    useNavStore.setState({ view: { kind: "dashboard" }, focusBlock: null });
+    await open("file", "syllabus.pdf", { page: "3", pageTo: "9" });
+    fireEvent.click(await screen.findByText("syllabus.pdf"));
+    expect(useNavStore.getState().focusBlock).toMatchObject({ entityId: "f1", page: 3 });
+  });
+
+  it("shows the last page after the first and does not open the file when it is clicked", async () => {
+    useNavStore.setState({ view: { kind: "dashboard" }, focusBlock: null });
+    const { user } = await open("file", "syllabus.pdf", { page: "3", pageTo: "9" });
+    const field = await screen.findByRole("textbox", { name: "Open to page" });
+    expect(field).toHaveValue("9");
+    await user.click(field);
+    expect(useNavStore.getState().view).toMatchObject({ kind: "dashboard" });
+  });
+
+  it("reads Pages 3 to 9 as text when the block cannot be edited", async () => {
+    await open("file", "syllabus.pdf", { page: "3", pageTo: "9" });
+    editor?.setEditable(false);
+    expect(await screen.findByText("Pages 3 to 9")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Open to page" })).toBeNull();
   });
 
   it("shows the field in the line under the name, in place of Stored in Nookly", async () => {

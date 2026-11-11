@@ -27,6 +27,7 @@ macro_rules! ipc_commands {
 // Every registered command that does not take an `AppHandle` (which is fixed
 // to the Wry runtime and so cannot run on the mock runtime).
 ipc_commands![
+    logging::log_frontend,
     spaces::create_space,
     spaces::list_spaces,
     spaces::update_space,
@@ -40,6 +41,7 @@ ipc_commands![
     entities::get_entity,
     entities::update_entity,
     entities::list_entities,
+    entities::list_entities_by_ids,
     entities::touch_entity_opened,
     entities::soft_delete_entity,
     entities::restore_entity,
@@ -52,7 +54,6 @@ ipc_commands![
     relationships::delete_relationship,
     relationships::list_relationship_types,
     search::search,
-    search::list_embedded_page_ids,
     labels::create_label,
     labels::list_labels,
     labels::update_label,
@@ -93,6 +94,7 @@ ipc_commands![
     notes::reorder_blocks,
     notes::render_page_markdown,
     notes::export_page_markdown,
+    notes::write_page_export,
     portable::render_entity_json,
     portable::export_entity_json,
     portable::preview_entity_json,
@@ -162,8 +164,6 @@ ipc_commands![
     decks::study_queue,
     decks::review_card,
     decks::undo_review,
-    study_blocks::create_study_block,
-    study_blocks::list_study_blocks,
     assignments::create_assignment,
     assignments::list_assignments,
     assignments::list_assignments_all_spaces,
@@ -171,6 +171,7 @@ ipc_commands![
     assignments::update_assignment_due_date,
     assignments::update_assignment_due_before_session,
     assignments::update_assignment_weight,
+    assignments::update_assignment_ungraded,
     assignments::set_assignment_course,
     recipes::create_recipe,
     recipes::list_recipes,
@@ -200,6 +201,7 @@ ipc_commands![
     files::list_open_with_apps,
     office::office_converter_available,
     office_install::libreoffice_install_options,
+    references::check_reference,
     bookmarks::create_bookmark,
     bookmarks::list_bookmarks,
     bookmarks::get_bookmark,
@@ -213,10 +215,24 @@ ipc_commands![
     external_calendars::external_calendar_status,
     external_calendars::cancel_google_calendar_connect,
     external_calendars::connect_icloud_calendar,
+    external_calendars::connect_moodle_calendar,
     external_calendars::set_external_calendar_selected,
     external_calendars::disconnect_external_calendar,
     external_calendars::sync_external_calendars,
     external_calendars::list_external_events,
+    moodle::moodle_status,
+    moodle::moodle_finish_login,
+    moodle::moodle_courses,
+    moodle::moodle_contents,
+    moodle::moodle_assignments,
+    moodle::moodle_assignment_status,
+    moodle::moodle_grades,
+    moodle::moodle_forums,
+    moodle::moodle_discussions,
+    moodle::moodle_posts,
+    moodle::moodle_file_text,
+    moodle::moodle_image,
+    moodle::moodle_file_path,
     backup::list_backups,
     backup::inspect_backup,
 ];
@@ -246,6 +262,10 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     // `AppHandle` (Wry) parameter: the database part each one delegates to.
     ("import_file", "files_import_underlying_db_call"),
     (
+        "import_file_with_details",
+        "files_import_with_details_reads_what_the_webview_sends",
+    ),
+    (
         "import_file_from_url",
         "files_link_imports_reject_bad_urls_offline",
     ),
@@ -269,6 +289,7 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "copy_file_into_storage",
         "files_reference_copy_and_replace_underlying_db_calls",
     ),
+    ("locate_file", "files_locate_underlying_db_call"),
     (
         "open_file",
         "files_open_reveal_and_open_with_resolve_the_path",
@@ -323,11 +344,34 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     ("write_agent_file", "agent_files_underlying_calls"),
     ("delete_agent_file", "agent_files_underlying_calls"),
     ("reveal_agent_dir", "agent_files_underlying_calls"),
+    // They need an `AppHandle` or the spell checker's state: the logic each one delegates to.
+    ("list_ai_apps", "ai_apps_listing_underlying_call"),
+    ("open_agent_dir_in", "ai_apps_listing_underlying_call"),
+    ("check_local_path", "local_files_underlying_calls"),
+    ("open_local_path", "local_files_underlying_calls"),
+    ("reveal_local_path", "local_files_underlying_calls"),
+    ("spell_configure", "spell_underlying_calls"),
+    ("spell_check", "spell_underlying_calls"),
+    ("spell_suggest", "spell_underlying_calls"),
+    ("spell_ignore", "spell_underlying_calls"),
+    ("spell_reload_words", "spell_underlying_calls"),
+    ("spell_add_word", "spell_underlying_calls"),
+    ("reveal_dictionary_file", "spell_underlying_calls"),
     // `AppHandle` parameter, and it opens an app: the part that can run is the file it makes.
     (
         "open_settings_file",
         "settings_file_is_created_without_touching_an_existing_one",
     ),
+    // These reach the OS keychain or open a file with an app: the logic is tested in `moodle::service`.
+    // Opens a window: what it lets through is tested in `moodle::login`.
+    ("moodle_open_login", "moodle_commands_without_a_site_say_so"),
+    ("moodle_disconnect", "moodle_commands_without_a_site_say_so"),
+    ("moodle_open_file", "moodle_commands_without_a_site_say_so"),
+    // `AppHandle` parameter, and it opens a folder: the part that can run is the folder it makes.
+    ("open_logs_folder", "log_commands_write_and_make_the_folder"),
+    // `AppHandle` parameter: both read and write the files `crash_report` tests cover.
+    ("latest_crash_report", "crash_report_files_round_trip"),
+    ("dismiss_crash_report", "crash_report_files_round_trip"),
     // Creates a symlink on the user's PATH: never run from a test.
     ("install_cli", "cli_install_status_reports_this_platform"),
 ];
@@ -382,6 +426,10 @@ impl Harness {
             .manage(crate::external_calendars::ExternalCalendarState::load(
                 dir.path(),
             ))
+            .manage(crate::moodle::service::MoodleState::load(
+                dir.path(),
+                "nookly",
+            ))
             .invoke_handler(handler())
             .build(mock_context(noop_assets()))
             .unwrap();
@@ -409,6 +457,37 @@ impl Harness {
                 .unwrap(),
                 body: InvokeBody::Json(args),
                 headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        )
+        .map(|body| body.deserialize::<Value>().unwrap())
+    }
+
+    /// Invokes `cmd` with `bytes` as its raw body and `headers`, like
+    /// `invoke(cmd, bytes, { headers })` in the frontend.
+    fn call_raw(&self, cmd: &str, bytes: &[u8], headers: &[(&str, &str)]) -> Result<Value, Value> {
+        let mut map = http::HeaderMap::new();
+        for (name, value) in headers {
+            map.insert(
+                http::HeaderName::from_bytes(name.as_bytes()).unwrap(),
+                http::HeaderValue::from_str(value).unwrap(),
+            );
+        }
+        get_ipc_response(
+            &self.webview,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: if cfg!(windows) {
+                    "http://tauri.localhost"
+                } else {
+                    "tauri://localhost"
+                }
+                .parse()
+                .unwrap(),
+                body: InvokeBody::Raw(bytes.to_vec()),
+                headers: map,
                 invoke_key: tauri::test::INVOKE_KEY.to_string(),
             },
         )
@@ -514,7 +593,7 @@ const MISSING: &str = "00000000-0000-0000-0000-000000000000";
 fn every_registered_command_is_covered() {
     let lib = include_str!("../lib.rs");
     let start = lib.find("generate_handler![").unwrap() + "generate_handler![".len();
-    let end = start + lib[start..].find("])").unwrap();
+    let end = start + lib[start..].find("\n    ]").unwrap();
     let registered: std::collections::BTreeSet<&str> = lib[start..end]
         .split(',')
         .filter_map(|item| item.trim().strip_prefix("commands::"))
@@ -552,6 +631,47 @@ fn every_registered_command_is_covered() {
             "missing test {test}"
         );
     }
+}
+
+#[test]
+fn ai_apps_listing_underlying_call() {
+    // Whatever is installed here, every app listed has an id and a name.
+    for app in crate::commands::ai_apps::list_ai_apps() {
+        assert!(!app.id.is_empty() && !app.name.is_empty());
+    }
+}
+
+#[test]
+fn local_files_underlying_calls() {
+    use crate::db::local_path::{inspect, PathState};
+    let dir = std::env::temp_dir().join(format!("nookly-cmd-local-{}", db::new_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("a.pdf");
+    std::fs::write(&file, b"%PDF").unwrap();
+    assert_eq!(inspect(file.to_str().unwrap()).state, PathState::Ok);
+    assert_eq!(
+        inspect(dir.join("gone.pdf").to_str().unwrap()).state,
+        PathState::Missing
+    );
+}
+
+#[test]
+fn spell_underlying_calls() {
+    let mut speller = crate::spelling::Speller::default();
+    assert_eq!(speller.configure(&["en".to_string()], &[]), vec!["en"]);
+    assert!(speller.is_correct("house"));
+    assert!(!speller.is_correct("hause"));
+    assert!(speller.suggest("hause").contains(&"house".to_string()));
+    speller.ignore("hause");
+    assert!(speller.is_correct("hause"));
+    // The user's words come from the dictionary file.
+    let dir = std::env::temp_dir().join(format!("nookly-cmd-dict-{}", db::new_id()));
+    crate::dictionary_file::add_word(&dir, "Nookly").unwrap();
+    let words = crate::dictionary_file::read_words(&dir).unwrap();
+    assert!(speller.set_personal(&words));
+    assert!(speller.is_correct("nookly"));
+    assert!(!speller.set_personal(&words));
+    crate::dictionary_file::ensure_file(&dir).unwrap();
 }
 
 #[test]
@@ -795,6 +915,19 @@ fn entities_create_in_unknown_space_is_not_found() {
 }
 
 #[test]
+fn entities_get_takes_the_readable_key_as_well_as_the_id() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let created = h.ok(
+        "create_entity",
+        json!({ "spaceId": space, "type": "jot", "title": "Lecture", "icon": null }),
+    );
+    let by_key = h.ok("get_entity", json!({ "id": created["key"] }));
+    assert_eq!(by_key, created);
+    h.app_err("get_entity", json!({ "id": "JOT-9999" }), "NotFound");
+}
+
+#[test]
 fn entities_get_unknown_is_not_found() {
     let h = Harness::new();
     let message = h.app_err("get_entity", json!({ "id": MISSING }), "NotFound");
@@ -884,6 +1017,27 @@ fn entities_touch_opened_succeeds() {
         h.ok("touch_entity_opened", json!({ "id": id })),
         Value::Null
     );
+}
+
+#[test]
+fn entities_list_by_ids_keeps_the_order_and_skips_trash_and_unknown_ids() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let first = h.note(&space, "first");
+    let second = h.note(&space, "second");
+    let gone = h.note(&space, "gone");
+    h.ok("soft_delete_entity", json!({ "id": gone }));
+    let listed = h.ok(
+        "list_entities_by_ids",
+        json!({ "ids": [second, gone, MISSING, first] }),
+    );
+    let titles: Vec<&str> = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(titles, ["second", "first"]);
 }
 
 #[test]
@@ -1111,16 +1265,37 @@ fn search_finds_titles_and_null_space_is_global() {
     let b = h.space("B");
     h.note(&a, "Quantum mechanics");
     h.note(&b, "Quantum computing");
-    let global = h.ok("search", json!({ "query": "Quantum", "spaceId": null }));
+    let global = h.ok(
+        "search",
+        json!({ "request": { "query": "Quantum", "spaceId": null } }),
+    );
     assert_eq!(
         global,
         h.db(|c| to_json(db::search::search(c, "Quantum", None).unwrap()))
     );
     assert_eq!(global.as_array().unwrap().len(), 2);
-    let scoped = h.ok("search", json!({ "query": "Quantum", "spaceId": a }));
+    let scoped = h.ok(
+        "search",
+        json!({ "request": { "query": "Quantum", "spaceId": a } }),
+    );
     assert_eq!(scoped.as_array().unwrap().len(), 1);
     // `spaceId` left out entirely behaves like null.
-    assert_eq!(h.ok("search", json!({ "query": "Quantum" })), global);
+    assert_eq!(
+        h.ok("search", json!({ "request": { "query": "Quantum" } })),
+        global
+    );
+    // A newer search than this one was already asked for: nothing is searched.
+    h.ok(
+        "search",
+        json!({ "request": { "query": "Quantum" }, "requestId": 9_000_000_000_000u64 }),
+    );
+    assert_eq!(
+        h.ok(
+            "search",
+            json!({ "request": { "query": "Quantum" }, "requestId": 5 })
+        ),
+        json!([])
+    );
 }
 
 #[test]
@@ -1128,7 +1303,11 @@ fn search_empty_query_returns_nothing() {
     let h = Harness::new();
     let a = h.space("A");
     h.note(&a, "Something");
-    let hits = h.ok("search", json!({ "query": "", "spaceId": null }));
+    let hits = h.ok(
+        "search",
+        json!({ "request": { "query": "", "spaceId": null } }),
+    );
+    assert_eq!(hits, json!([]));
     assert_eq!(
         hits,
         h.db(|c| to_json(db::search::search(c, "", None).unwrap()))
@@ -1136,17 +1315,23 @@ fn search_empty_query_returns_nothing() {
 }
 
 #[test]
-fn search_embedded_page_ids_include_course_notes() {
+fn search_leaves_out_the_notes_embedded_in_a_course() {
     let h = Harness::new();
     let space = h.space("S");
     let course = h.course(&space, "Algebra");
     let notes = h.ok("get_course_notes", json!({ "courseId": course }));
-    let ids = h.ok("list_embedded_page_ids", json!({}));
-    assert!(ids.as_array().unwrap().contains(&notes["id"]), "{ids}");
-    assert_eq!(
-        ids,
-        h.db(|c| to_json(db::search::list_embedded_page_ids(c).unwrap()))
+    let hits = h.ok(
+        "search",
+        json!({ "request": { "query": "Algebra", "titlesOnly": true } }),
     );
+    let ids: Vec<&Value> = hits
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|hit| &hit["entityId"])
+        .collect();
+    assert_eq!(ids, [&json!(course)], "{hits}");
+    assert!(!ids.contains(&&notes["id"]));
 }
 
 // ------------------------------------------------------------------ labels
@@ -1776,6 +1961,64 @@ fn notes_export_to_an_unwritable_path_is_an_io_error() {
     assert!(!out.exists());
 }
 
+/// The path as the webview sends it, percent encoded like `encodeURIComponent`.
+fn encoded_path(path: &std::path::Path) -> String {
+    url::form_urlencoded::byte_serialize(path.to_string_lossy().as_bytes())
+        .collect::<String>()
+        .replace('+', "%20")
+}
+
+#[test]
+fn notes_write_page_export_writes_the_bytes_to_the_chosen_path() {
+    let h = Harness::new();
+    let out = h.dir.path().join("Week 3 + notes.pdf");
+    let path = encoded_path(&out);
+    let result = h.call_raw("write_page_export", b"%PDF-1.7 bytes", &[("x-path", &path)]);
+    assert_eq!(result, Ok(Value::Null));
+    assert_eq!(std::fs::read(&out).unwrap(), b"%PDF-1.7 bytes");
+
+    for name in ["page.docx", "page.odt"] {
+        let out = h.dir.path().join(name);
+        let path = encoded_path(&out);
+        h.call_raw("write_page_export", b"PK", &[("x-path", &path)])
+            .unwrap();
+        assert_eq!(std::fs::read(&out).unwrap(), b"PK");
+    }
+}
+
+#[test]
+fn notes_write_page_export_refuses_other_files() {
+    let h = Harness::new();
+    // Only the export formats: this is never a way to write any file at all.
+    for name in ["page.md", "page.sh", "page", ".pdf"] {
+        let out = h.dir.path().join(name);
+        let path = encoded_path(&out);
+        let err = h
+            .call_raw("write_page_export", b"x", &[("x-path", &path)])
+            .unwrap_err();
+        assert_eq!(err["kind"], "InvalidInput", "{name}: {err}");
+        assert!(!out.exists(), "{name}");
+    }
+    let err = h.call_raw("write_page_export", b"x", &[]).unwrap_err();
+    assert_eq!(err["kind"], "InvalidInput", "{err}");
+    let err = h
+        .call("write_page_export", json!({ "path": "/tmp/x.pdf" }))
+        .unwrap_err();
+    assert_eq!(err["kind"], "InvalidInput", "{err}");
+}
+
+#[test]
+fn notes_write_page_export_to_an_unwritable_path_is_an_io_error() {
+    let h = Harness::new();
+    let out = h.dir.path().join("missing-dir").join("page.pdf");
+    let path = encoded_path(&out);
+    let err = h
+        .call_raw("write_page_export", b"x", &[("x-path", &path)])
+        .unwrap_err();
+    assert_eq!(err["kind"], "Io", "{err}");
+    assert!(!out.exists());
+}
+
 #[test]
 fn notes_code_language_round_trips_and_rejects_jots() {
     let h = Harness::new();
@@ -2174,7 +2417,7 @@ fn assignments_create_list_and_update() {
 
     h.ok(
         "update_assignment_status",
-        json!({ "entityId": id, "status": "graded", "grade": 1.3 }),
+        json!({ "entityId": id, "status": "evaluated", "grade": 1.3 }),
     );
     h.ok(
         "update_assignment_due_date",
@@ -2185,7 +2428,7 @@ fn assignments_create_list_and_update() {
             .unwrap()
             .remove(0)
     });
-    assert_eq!(stored.status, "graded");
+    assert_eq!(stored.status, "evaluated");
     assert_eq!(stored.grade, Some(1.3));
     assert_eq!(stored.due_date.as_deref(), Some("2026-05-05"));
 
@@ -2214,6 +2457,26 @@ fn assignments_create_list_and_update() {
             .remove(0)
     });
     assert_eq!(stored.grade, None);
+
+    h.ok(
+        "update_assignment_ungraded",
+        json!({ "entityId": id, "ungraded": true }),
+    );
+    assert!(h.db(|c| db::assignments::get_assignment(c, &id).unwrap().ungraded));
+}
+
+#[test]
+fn an_assignment_can_be_created_ungraded() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let course = h.course(&space, "C");
+    let created = h.ok(
+        "create_assignment",
+        json!({ "spaceId": space, "title": "Homework", "courseId": course, "ungraded": true }),
+    );
+    assert_eq!(created["ungraded"], true);
+    let id = id_of(&created);
+    assert!(h.db(|c| db::assignments::get_assignment(c, &id).unwrap().ungraded));
 }
 
 #[test]
@@ -2279,47 +2542,9 @@ fn assignments_update_unknown_is_not_found() {
     let h = Harness::new();
     h.app_err(
         "update_assignment_status",
-        json!({ "entityId": MISSING, "status": "graded", "grade": null }),
+        json!({ "entityId": MISSING, "status": "evaluated", "grade": null }),
         "NotFound",
     );
-}
-
-// ------------------------------------------------------------ study blocks
-
-#[test]
-fn study_blocks_create_and_list() {
-    let h = Harness::new();
-    let space = h.space("S");
-    let course = h.course(&space, "C");
-    let exam = h.exam(&space, &course);
-    let block = h.ok(
-        "create_study_block",
-        json!({
-            "spaceId": space,
-            "title": "Review",
-            "examId": exam,
-            "date": "2026-06-01",
-            "startTime": "09:00",
-            "endTime": "10:00",
-        }),
-    );
-    assert_eq!(block["date"], "2026-06-01");
-    let listed = h.ok("list_study_blocks", json!({ "spaceId": space }));
-    assert_eq!(
-        listed,
-        h.db(|c| to_json(db::study_blocks::list_study_blocks(c, &space).unwrap()))
-    );
-    assert_eq!(listed.as_array().unwrap().len(), 1);
-}
-
-#[test]
-fn study_blocks_require_every_field() {
-    let h = Harness::new();
-    let message = h.args_err(
-        "create_study_block",
-        json!({ "spaceId": MISSING, "title": "x", "examId": MISSING, "date": "2026-01-01", "startTime": "09:00" }),
-    );
-    assert!(message.contains("endTime"), "{message}");
 }
 
 // ------------------------------------------------------------------- decks
@@ -3458,6 +3683,33 @@ fn files_import_underlying_db_call() {
 }
 
 #[test]
+fn files_import_with_details_reads_what_the_webview_sends() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let source = h.dir.file("slides.pdf", b"pdf");
+    let dir = h.files_dir();
+    // The shape `importFileWithDetails` sends, and `{}` for nothing chosen.
+    let details: db::files::ImportDetails = serde_json::from_value(serde_json::json!({
+        "origin": "moodle:https://m.edu/a.pdf",
+        "title": "Week 1",
+        "newLabels": [{ "name": "MA1", "color": "#123456" }],
+    }))
+    .unwrap();
+    let file = h.db(|c| {
+        db::files::import_file_with_details(c, &dir, space.clone(), &source, details).unwrap()
+    });
+    assert_eq!(file.entity.title, "Week 1");
+    assert_eq!(file.origin.as_deref(), Some("moodle:https://m.edu/a.pdf"));
+    assert_eq!(file.label_ids.len(), 1);
+    let none: db::files::ImportDetails = serde_json::from_value(serde_json::json!({})).unwrap();
+    let plain = h.db(|c| {
+        db::files::import_file_with_details(c, &dir, space.clone(), &source, none).unwrap()
+    });
+    assert_eq!(plain.entity.title, "slides.pdf");
+    assert_eq!(plain.origin, None);
+}
+
+#[test]
 fn files_pasted_bytes_underlying_db_call() {
     let h = Harness::new();
     let space = h.space("S");
@@ -3886,11 +4138,66 @@ fn external_calendars_argument_errors_never_reach_the_network_or_keychain() {
         json!({ "appleId": "me@icloud.com" }),
     );
     assert!(message.contains("appPassword"), "{message}");
+    let message = h.args_err("connect_moodle_calendar", json!({}));
+    assert!(message.contains("link"), "{message}");
     h.args_err(
         "disconnect_external_calendar",
         json!({ "provider": "Google" }),
     );
     h.args_err("disconnect_external_calendar", json!({}));
+}
+
+#[test]
+fn moodle_commands_without_a_site_say_so() {
+    let h = Harness::new();
+    let status = h.ok("moodle_status", json!({}));
+    assert_eq!(status["connected"], false);
+    assert_eq!(status["needsReconnect"], false);
+    assert_eq!(status["siteUrl"], Value::Null);
+    for (cmd, args) in [
+        ("moodle_courses", json!({})),
+        ("moodle_contents", json!({ "courseId": 4 })),
+        ("moodle_assignments", json!({ "courseId": 4 })),
+        ("moodle_assignment_status", json!({ "assignmentId": 3 })),
+        ("moodle_grades", json!({ "courseId": 4 })),
+        ("moodle_forums", json!({ "courseId": 4 })),
+        ("moodle_discussions", json!({ "forumId": 1 })),
+        ("moodle_posts", json!({ "discussionId": 1 })),
+        ("moodle_file_text", json!({ "url": "https://uni.edu/f" })),
+        (
+            "moodle_file_path",
+            json!({ "url": "https://uni.edu/f.pdf", "fileName": "f.pdf", "timeModified": 1 }),
+        ),
+        (
+            "moodle_image",
+            json!({ "url": "https://uni.edu/f.png", "fileName": "f.png", "timeModified": 1 }),
+        ),
+    ] {
+        let message = h.app_err(cmd, args, "Remote");
+        assert!(message.contains("isn't connected"), "{cmd}: {message}");
+    }
+    // A link from a web page cannot sign in anyone: no sign in was started.
+    let message = h.app_err(
+        "moodle_finish_login",
+        json!({ "callback": "nookly://token=YWJjOjo6ZGVm" }),
+        "Remote",
+    );
+    assert!(message.contains("No Moodle sign in"), "{message}");
+}
+
+#[test]
+fn moodle_rejects_a_link_that_is_not_an_export_before_any_network_call() {
+    let h = Harness::new();
+    let message = h.app_err(
+        "connect_moodle_calendar",
+        json!({ "link": "https://moodle.uni.edu/my/" }),
+        "Remote",
+    );
+    assert!(message.contains("Moodle calendar link"), "{message}");
+    assert_eq!(
+        h.ok("external_calendar_status", json!({}))["connections"],
+        json!([])
+    );
 }
 
 #[test]
@@ -4045,6 +4352,37 @@ fn settings_file_is_created_without_touching_an_existing_one() {
     std::fs::write(&path, "{\"a\": 1}").unwrap();
     ensure_settings_file(&dir).unwrap();
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\"a\": 1}");
+}
+
+#[test]
+fn log_commands_write_and_make_the_folder() {
+    // `log_frontend` takes no state and never fails; `open_logs_folder` hands the folder to
+    // the OS, so what runs here is the folder it makes first.
+    let h = Harness::new();
+    // What reaches the log is checked in `logging::tests`: commands may run on another thread.
+    h.ok(
+        "log_frontend",
+        json!({ "level": "warn", "scope": "query", "message": "list_tasks failed" }),
+    );
+    let dir = crate::commands::logging::ensure_log_dir(&h.dir.path().join("data")).unwrap();
+    assert!(dir.is_dir());
+    assert_eq!(dir, h.dir.path().join("data").join("logs"));
+}
+
+#[test]
+fn crash_report_files_round_trip() {
+    // The two commands take an `AppHandle` for the app data folder; this is what they do there.
+    let h = Harness::new();
+    let dir = h.dir.path().join("crash-data");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("crash.log"),
+        crate::crash_report::record(chrono::Utc::now(), "0.58.0", "panicked at a.rs:1:1: boom"),
+    )
+    .unwrap();
+    let report = crate::crash_report::latest_unseen(&dir, "0.58.0").unwrap();
+    crate::crash_report::dismiss(&dir, &report.occurred_at).unwrap();
+    assert!(crate::crash_report::latest_unseen(&dir, "0.58.0").is_none());
 }
 
 // ---------------------------------------------------------------- portable
@@ -4259,4 +4597,67 @@ fn sync_refresh_token_has_its_own_keychain_entry() {
         "nookly-external-calendars",
         "a sync sign out must never remove calendar credentials"
     );
+}
+
+#[test]
+fn a_kept_link_is_checked_over_ipc() {
+    let h = Harness::new();
+    let space = h.space("S");
+    // Nothing listens on port 1, so the link cannot be reached.
+    let file =
+        h.db(|c| db::files::add_link(c, space.clone(), "http://127.0.0.1:1/a.pdf", None).unwrap());
+    assert_eq!(
+        file.availability, None,
+        "a link needs a look, so no answer yet"
+    );
+    let id = file.entity.id;
+    assert_eq!(
+        h.ok("check_reference", json!({ "entityId": id }))["state"],
+        "offline"
+    );
+    let after = h.db(|c| db::files::get_file(c, &id).unwrap());
+    assert_eq!(
+        after.reference.unwrap().last_result.as_deref(),
+        Some("offline")
+    );
+}
+
+#[test]
+fn a_referenced_file_is_checked_over_ipc_like_any_reference() {
+    let h = Harness::new();
+    let space = h.space("S");
+    let original = h.dir.file("watched.txt", b"v1");
+    let file = h.db(|c| db::files::reference_file(c, space.clone(), &original).unwrap());
+    let id = file.entity.id;
+    assert_eq!(
+        h.ok("check_reference", json!({ "entityId": id }))["state"],
+        "available"
+    );
+    std::fs::remove_file(&original).unwrap();
+    assert_eq!(
+        h.ok("check_reference", json!({ "entityId": id }))["state"],
+        "missing"
+    );
+    h.app_err(
+        "check_reference",
+        json!({ "entityId": MISSING }),
+        "NotFound",
+    );
+}
+
+#[test]
+fn files_locate_underlying_db_call() {
+    // `locate_file` takes an `AppHandle` (it lets the webview read the file by path), so it
+    // cannot run on the mock runtime: this runs the call it delegates to.
+    let h = Harness::new();
+    let space = h.space("S");
+    let original = h.dir.file("a.txt", b"v1");
+    let file = h.db(|c| db::files::reference_file(c, space.clone(), &original).unwrap());
+    std::fs::remove_file(&original).unwrap();
+    let found = h.dir.file("b.txt", b"v1");
+    let located = h.db(|c| db::files::locate_file(c, &file.entity.id, &found).unwrap());
+    assert_eq!(located.source_path.as_deref(), found.to_str());
+    let nothing = h.dir.path().join("nothing.txt");
+    let err = h.db(|c| db::files::locate_file(c, &file.entity.id, &nothing).unwrap_err());
+    assert!(matches!(err, crate::error::AppError::InvalidInput(_)));
 }

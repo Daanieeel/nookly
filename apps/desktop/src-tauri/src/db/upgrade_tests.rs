@@ -401,3 +401,213 @@ fn rows_of_a_space_that_no_longer_exists_upgrade_from_0_17_7() {
     );
     std::fs::remove_dir_all(dir).ok();
 }
+
+// --- references (migration 50) -------------------------------------------------------------
+
+/// Files that only point elsewhere, in the places a user's database really has them: a
+/// typed path, a link never downloaded, a trashed one, each with an attachment, a mention
+/// and a label, beside a stored File and a copied one that must not become references.
+/// Returns `(id, source_path, url)` for the pointers.
+fn add_pointer_files(conn: &Connection) -> Vec<(String, Option<String>, Option<String>)> {
+    let columns: Vec<String> = conn
+        .prepare("PRAGMA table_info(files)")
+        .unwrap()
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    if !columns.iter().any(|c| c == "source_path") {
+        return Vec::new();
+    }
+    let rows = [
+        (
+            "ptr-path",
+            None,
+            Some("/Users/me/Dokumente/\u{dc}bung.pdf"),
+            None,
+            None,
+        ),
+        (
+            "ptr-link",
+            None,
+            None,
+            Some("https://example.com/a.pdf"),
+            None,
+        ),
+        (
+            "ptr-trashed",
+            None,
+            Some("/Users/me/old.pdf"),
+            None,
+            Some("2026-01-09T08:00:00+00:00"),
+        ),
+        (
+            "copied",
+            Some("files/copied.pdf"),
+            Some("/Users/me/c.pdf"),
+            None,
+            None,
+        ),
+    ];
+    let mut pointers = Vec::new();
+    for (n, (id, local, source, url, deleted)) in rows.into_iter().enumerate() {
+        conn.execute_batch(&format!(
+            "CREATE TEMP TABLE one AS SELECT * FROM entities WHERE id = 'e-file-ref';
+             UPDATE one SET id = '{id}', title = '{id}.pdf', key_number = {};
+             INSERT INTO entities SELECT * FROM one; DROP TABLE one;",
+            90000 + n
+        ))
+        .unwrap();
+        conn.execute(
+            "UPDATE entities SET deleted_at = ?1 WHERE id = ?2",
+            rusqlite::params![deleted, id],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO files (entity_id, local_path, url, original_filename, source_path)
+             VALUES (?1, ?2, ?3, ?1, ?4)",
+            rusqlite::params![id, local, url, source],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at)
+             VALUES (?1, 'e-course', ?2, 'attached-file', '2026-01-01')",
+            rusqlite::params![format!("attach-{id}"), id],
+        )
+        .unwrap();
+        if local.is_none() {
+            pointers.push((
+                id.to_string(),
+                source.map(String::from),
+                url.map(String::from),
+            ));
+        }
+    }
+    pointers
+}
+
+#[test]
+fn pointer_files_become_references_from_every_version_and_nothing_else_changes() {
+    // Every version before the migration that adds references (the 50th) runs it.
+    const REFERENCES_VERSION: usize = 50;
+    for version in OLDEST_RELEASED_VERSION..REFERENCES_VERSION {
+        let dir = scratch();
+        let path = dir.join("nookly.db");
+        let (pointers, before) = {
+            let mut conn = Connection::open(&path).unwrap();
+            migrate_to(&mut conn, version);
+            populate(&conn);
+            let pointers = add_pointer_files(&conn);
+            let snapshot = |conn: &Connection| -> Vec<String> {
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT e.id || '|' || e.type || '|' || e.title || '|' || COALESCE(e.deleted_at, '') || '|' ||
+                                COALESCE(f.local_path, '') || '|' || COALESCE(f.source_path, '') || '|' || COALESCE(f.url, '')
+                         FROM files f JOIN entities e ON e.id = f.entity_id ORDER BY e.id",
+                    )
+                    .unwrap();
+                stmt.query_map([], |r| r.get::<_, String>(0))
+                    .unwrap()
+                    .collect::<Result<_, _>>()
+                    .unwrap()
+            };
+            let rels: i64 = conn
+                .query_row("SELECT COUNT(*) FROM relationships", [], |r| r.get(0))
+                .unwrap();
+            (pointers, (snapshot(&conn), rels))
+        };
+
+        run(&path).unwrap_or_else(|e| panic!("upgrading from v{version}: {e}"));
+
+        let conn = Connection::open(&path).unwrap();
+        assert_healthy(&conn, &format!("upgraded from v{version}"));
+        // Every pointer File has exactly one reference holding what it held.
+        let referenced: i64 = conn
+            .query_row("SELECT COUNT(*) FROM entity_references", [], |r| r.get(0))
+            .unwrap();
+        let expected = i64::try_from(pointers.len()).unwrap()
+            + i64::from(version_has_source_path(&conn) && fixture_pointer_exists(&conn));
+        assert_eq!(referenced, expected, "v{version}");
+        for (id, source, url) in &pointers {
+            let (provider, remote): (String, String) = conn
+                .query_row(
+                    "SELECT provider, remote_id FROM entity_references WHERE entity_id = ?1",
+                    [id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .unwrap_or_else(|e| panic!("v{version}: no reference for {id}: {e}"));
+            match source {
+                Some(path) => assert_eq!(
+                    (provider.as_str(), remote.as_str()),
+                    ("file", path.as_str())
+                ),
+                None => assert_eq!(
+                    (provider.as_str(), Some(remote.as_str())),
+                    ("link", url.as_deref())
+                ),
+            }
+        }
+        // The Files, their trash state, the attachments: all as they were.
+        let after: Vec<String> = conn
+            .prepare(
+                "SELECT e.id || '|' || e.type || '|' || e.title || '|' || COALESCE(e.deleted_at, '') || '|' ||
+                        COALESCE(f.local_path, '') || '|' || COALESCE(f.source_path, '') || '|' || COALESCE(f.url, '')
+                 FROM files f JOIN entities e ON e.id = f.entity_id ORDER BY e.id",
+            )
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(after, before.0, "v{version}: files changed");
+        let rels: i64 = conn
+            .query_row("SELECT COUNT(*) FROM relationships", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rels, before.1, "v{version}: relationships changed");
+        std::fs::remove_dir_all(dir).ok();
+    }
+}
+
+/// `populate` makes one File that points at a path, once the column for it exists.
+fn version_has_source_path(conn: &Connection) -> bool {
+    conn.prepare("SELECT source_path FROM files LIMIT 1")
+        .is_ok()
+}
+
+fn fixture_pointer_exists(conn: &Connection) -> bool {
+    conn.query_row(
+        "SELECT COUNT(*) FROM files WHERE entity_id = 'e-file-ref' AND local_path IS NULL AND source_path IS NOT NULL",
+        [],
+        |r| Ok(r.get::<_, i64>(0)? > 0),
+    )
+    .unwrap_or(false)
+}
+
+#[test]
+fn an_upgrade_that_lost_or_misplaced_a_reference_is_reported() {
+    // As if the migration had run and a reference went missing or pointed elsewhere.
+    let mut upgraded = Connection::open_in_memory().unwrap();
+    migrate_to(&mut upgraded, latest());
+    assert!(super::upgrade::reference_problems(&upgraded, 49, 50).is_empty());
+    upgraded
+        .execute_batch(
+            "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s','s','#000','t','t');
+             INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number)
+                 VALUES ('f1','s','file','F','t','t','FIL',1);
+             INSERT INTO files (entity_id, original_filename, source_path) VALUES ('f1','F','/a/b.pdf');",
+        )
+        .unwrap();
+    let missing = super::upgrade::reference_problems(&upgraded, 49, 50);
+    assert_eq!(missing.len(), 1, "{missing:?}");
+    upgraded
+        .execute(
+            "INSERT INTO entity_references (entity_id, provider, remote_id) VALUES ('f1','file','/elsewhere.pdf')",
+            [],
+        )
+        .unwrap();
+    let wrong = super::upgrade::reference_problems(&upgraded, 49, 50);
+    assert_eq!(wrong.len(), 1, "{wrong:?}");
+    // Not asked about migrations it did not run.
+    assert!(super::upgrade::reference_problems(&upgraded, 50, 50).is_empty());
+    assert!(super::upgrade::reference_problems(&upgraded, 0, 49).is_empty());
+}

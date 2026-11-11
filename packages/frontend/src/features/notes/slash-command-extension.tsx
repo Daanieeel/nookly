@@ -13,6 +13,8 @@ import {
   IconLink,
   IconMathFunction,
   IconMathXDivideY2,
+  IconChartLine,
+  IconHierarchy2,
   IconCpu,
   IconSchema,
   IconSum,
@@ -47,7 +49,7 @@ import { displayTitle, labelForType } from "#/lib/entity-title.ts";
 import { insertMention } from "./mention-extension";
 import type { SuggestionListItem } from "./suggestion-list";
 import { allowOutsideCode, createSuggestionRender } from "./suggestion-render";
-import { prefixFirst } from "#/lib/text-search.ts";
+import { rankMatches } from "#/lib/text-search.ts";
 
 interface SlashItem {
   title: string;
@@ -85,6 +87,7 @@ export const SLASH_ITEMS: SlashItem[] = [
   {
     title: "Heading 1",
     group: "Text",
+    keywords: ["h1", "title", "header"],
     description: "Big section heading",
     icon: <IconH1 size={15} />,
     run: (editor, range) =>
@@ -93,6 +96,7 @@ export const SLASH_ITEMS: SlashItem[] = [
   {
     title: "Heading 2",
     group: "Text",
+    keywords: ["h2", "subtitle", "header"],
     description: "Medium section heading",
     icon: <IconH2 size={15} />,
     run: (editor, range) =>
@@ -101,6 +105,7 @@ export const SLASH_ITEMS: SlashItem[] = [
   {
     title: "Heading 3",
     group: "Text",
+    keywords: ["h3", "subheading", "header"],
     description: "Small section heading",
     icon: <IconH3 size={15} />,
     run: (editor, range) =>
@@ -109,6 +114,7 @@ export const SLASH_ITEMS: SlashItem[] = [
   {
     title: "Heading 4",
     group: "Text",
+    keywords: ["h4", "header"],
     description: "Minor section heading",
     icon: <IconH4 size={15} />,
     run: (editor, range) =>
@@ -117,6 +123,7 @@ export const SLASH_ITEMS: SlashItem[] = [
   {
     title: "Heading 5",
     group: "Text",
+    keywords: ["h5", "header"],
     description: "Smaller section heading",
     icon: <IconH5 size={15} />,
     run: (editor, range) =>
@@ -125,6 +132,7 @@ export const SLASH_ITEMS: SlashItem[] = [
   {
     title: "Heading 6",
     group: "Text",
+    keywords: ["h6", "header"],
     description: "Smallest section heading",
     icon: <IconH6 size={15} />,
     run: (editor, range) =>
@@ -314,6 +322,20 @@ export const SLASH_ITEMS: SlashItem[] = [
     run: (editor, range) => setSourceBlock(editor, range, "circuit"),
   },
   {
+    title: "Plot",
+    group: "Math and diagrams",
+    description: "Functions and points in a coordinate system",
+    icon: <IconChartLine size={15} />,
+    run: (editor, range) => setSourceBlock(editor, range, "plot"),
+  },
+  {
+    title: "Mind map",
+    group: "Math and diagrams",
+    description: "Ideas branching from a topic, from an indented list",
+    icon: <IconHierarchy2 size={15} />,
+    run: (editor, range) => setSourceBlock(editor, range, "mindmap"),
+  },
+  {
     title: "Image",
     group: "Links and media",
     description: "Upload or link a picture",
@@ -400,6 +422,7 @@ export function toListItem(item: SlashItem): SuggestionListItem {
     label: item.title,
     description: item.description,
     group: item.group,
+    keywords: item.keywords,
   };
 }
 
@@ -411,9 +434,9 @@ export interface SlashCommandOptions {
 }
 
 /// The items for what was typed after "/": a title or keyword that starts with it
-/// comes before one that only contains it.
+/// comes before one that contains it, before one that has its letters in order.
 export function slashItemsFor(query: string): SlashItem[] {
-  return prefixFirst(SLASH_ITEMS, query, (item) => [item.title, ...(item.keywords ?? [])]);
+  return rankMatches(SLASH_ITEMS, query, (item) => [item.title, ...(item.keywords ?? [])]);
 }
 
 function entityItem(entity: Entity): SlashItem {

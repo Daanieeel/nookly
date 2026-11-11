@@ -22,7 +22,7 @@
           "writableOnUpdate": true
         },
         {
-          "description": "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
+          "description": "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. The next session is the one next when it was set (see dueSessionAfter), so it stays put once that session starts. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
           "kind": "integer",
           "name": "dueSessionOffsetDays",
           "requiredOnCreate": false,
@@ -39,6 +39,13 @@
           "writableOnUpdate": true
         },
         {
+          "description": "Read only. While it follows the Course's next session: the local moment (YYYY-MM-DD HH:MM) that was set. It follows the session that was next then, even once that session has started or ended. Changing only dueSessionOffsetDays keeps it; empty for any other due date.",
+          "kind": "text",
+          "name": "dueSessionAfter",
+          "requiredOnCreate": false,
+          "writableOnUpdate": false
+        },
+        {
           "description": "Its share of the Course's grade, as a fraction (0.25) or a whole percentage (25). Without one it splits what the weighted work leaves evenly. Pass null to clear it.",
           "kind": "float",
           "name": "weight",
@@ -53,7 +60,7 @@
               "not_started",
               "in_progress",
               "submitted",
-              "graded"
+              "evaluated"
             ]
           },
           "name": "status",
@@ -64,6 +71,20 @@
           "description": "Grade received.",
           "kind": "float",
           "name": "grade",
+          "requiredOnCreate": false,
+          "writableOnUpdate": true
+        },
+        {
+          "description": "Read only. When the status last changed to evaluated; empty while it is not evaluated.",
+          "kind": "datetime",
+          "name": "evaluatedAt",
+          "requiredOnCreate": false,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "True for work that is not graded, like homework: it counts for nothing in the Course's grade and its grade is hidden, but kept. Defaults to false.",
+          "kind": "boolean",
+          "name": "ungraded",
           "requiredOnCreate": false,
           "writableOnUpdate": true
         }
@@ -361,7 +382,6 @@
       "relationshipTypes": [
         "exam-course",
         "deck-exam",
-        "study-block-exam",
         "relates-to"
       ],
       "supportsBlocks": true
@@ -385,7 +405,14 @@
           "writableOnUpdate": false
         },
         {
-          "description": "Update only: true copies a referenced file (sourcePath) into Nookly's own storage.",
+          "description": "A web address to keep as a link without downloading it. The File shows whether the link answers (`check`), and `copyIntoStorage=true` downloads it later. Use `url` instead to download it now.",
+          "kind": "text",
+          "name": "linkUrl",
+          "requiredOnCreate": false,
+          "writableOnUpdate": false
+        },
+        {
+          "description": "Update only: true copies a referenced file (sourcePath) or downloads a kept link (linkUrl) into Nookly's own storage.",
           "kind": "boolean",
           "name": "copyIntoStorage",
           "requiredOnCreate": false,
@@ -720,51 +747,6 @@
       "supportsBlocks": false
     },
     {
-      "description": "A scheduled block of study time for an Exam.",
-      "entityType": "study_block",
-      "fields": [
-        {
-          "description": "The Exam this study block belongs to (structural: exactly one).",
-          "kind": {
-            "entityType": "exam",
-            "type": "entity_ref"
-          },
-          "name": "examId",
-          "requiredOnCreate": true,
-          "writableOnUpdate": false
-        },
-        {
-          "description": "ISO date. Set at creation only.",
-          "kind": "date",
-          "name": "date",
-          "requiredOnCreate": true,
-          "writableOnUpdate": false
-        },
-        {
-          "description": "\"HH:MM\", 24-hour. Set at creation only.",
-          "kind": "text",
-          "name": "startTime",
-          "requiredOnCreate": true,
-          "writableOnUpdate": false
-        },
-        {
-          "description": "\"HH:MM\", 24-hour. Set at creation only.",
-          "kind": "text",
-          "name": "endTime",
-          "requiredOnCreate": true,
-          "writableOnUpdate": false
-        }
-      ],
-      "keyPrefix": "STB",
-      "moduleKeys": [
-        "exams"
-      ],
-      "relationshipTypes": [
-        "study-block-exam"
-      ],
-      "supportsBlocks": false
-    },
-    {
       "description": "A one-level-deep child of a Task. Cannot itself have sub-tasks.",
       "entityType": "sub_task",
       "fields": [
@@ -920,7 +902,7 @@
           "writableOnUpdate": false
         },
         {
-          "description": "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|graded), due (overdue|today|week|next|later|none|done), grade (graded|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+          "description": "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C); both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
           "kind": "long_text",
           "name": "config",
           "requiredOnCreate": false,
@@ -1080,14 +1062,6 @@
       "toType": "note"
     },
     {
-      "description": "Ties a study block to the exam it prepares for.",
-      "fromType": "study_block",
-      "inverseLabel": "has study block",
-      "label": "Study block for exam",
-      "name": "study-block-exam",
-      "toType": "exam"
-    },
-    {
       "description": "Makes this task a sub-task of another task.",
       "fromType": "sub_task",
       "inverseLabel": "has sub-task",
@@ -1104,7 +1078,7 @@
       "toType": null
     }
   ],
-  "schemaVersion": 44,
+  "schemaVersion": 54,
   "seeds": [
     {
       "rows": [
@@ -1289,6 +1263,9 @@
     "CREATE TRIGGER sync_entity_labels_delete AFTER DELETE ON entity_labels\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_labels', json_array(OLD.entity_id, OLD.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
     "CREATE TRIGGER sync_entity_labels_insert AFTER INSERT ON entity_labels\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_labels', json_array(NEW.entity_id, NEW.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
     "CREATE TRIGGER sync_entity_labels_update AFTER UPDATE ON entity_labels\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_labels', json_array(NEW.entity_id, NEW.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'entity_labels', json_array(OLD.entity_id, OLD.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE json_array(OLD.entity_id, OLD.label_id) IS NOT json_array(NEW.entity_id, NEW.label_id)\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_entity_references_delete AFTER DELETE ON entity_references\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_references', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_entity_references_insert AFTER INSERT ON entity_references\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_references', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
+    "CREATE TRIGGER sync_entity_references_update AFTER UPDATE ON entity_references\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_references', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'entity_references', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
     "CREATE TRIGGER sync_exams_delete AFTER DELETE ON exams\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('exams', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
     "CREATE TRIGGER sync_exams_insert AFTER INSERT ON exams\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('exams', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
     "CREATE TRIGGER sync_exams_update AFTER UPDATE ON exams\n        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN\n            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('exams', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n            INSERT INTO sync_dirty (tbl, pk, changed_at)\n                SELECT 'exams', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id\n                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;\n        END",
@@ -2504,6 +2481,24 @@
           "name": "weight",
           "notNull": false,
           "type": "REAL"
+        },
+        {
+          "default": "0",
+          "name": "ungraded",
+          "notNull": true,
+          "type": "INTEGER"
+        },
+        {
+          "default": null,
+          "name": "evaluated_at",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "due_session_after",
+          "notNull": false,
+          "type": "TEXT"
         }
       ],
       "indexes": [],
@@ -2517,7 +2512,7 @@
         "column": "entity_id",
         "kind": "column"
       },
-      "sql": "CREATE TABLE assignments (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            due_date TEXT,\n            status TEXT NOT NULL,\n            grade REAL\n        , due_session_offset_days INTEGER, weight REAL)"
+      "sql": "CREATE TABLE assignments (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            due_date TEXT,\n            status TEXT NOT NULL,\n            grade REAL\n        , due_session_offset_days INTEGER, weight REAL, ungraded INTEGER NOT NULL DEFAULT 0, evaluated_at TEXT, due_session_after TEXT)"
     },
     {
       "columns": [
@@ -2638,6 +2633,18 @@
           "name": "deleted_at",
           "notNull": false,
           "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "front_blocks",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "back_blocks",
+          "notNull": false,
+          "type": "TEXT"
         }
       ],
       "indexes": [
@@ -2653,7 +2660,7 @@
         "column": "deck_entity_id",
         "kind": "column"
       },
-      "sql": "CREATE TABLE index_cards (\n            id TEXT PRIMARY KEY,\n            deck_entity_id TEXT NOT NULL REFERENCES entities(id),\n            front TEXT NOT NULL,\n            back TEXT NOT NULL,\n            due_at TEXT NOT NULL,\n            created_at TEXT NOT NULL,\n            updated_at TEXT NOT NULL\n        , state TEXT NOT NULL DEFAULT 'new', stability REAL NOT NULL DEFAULT 0, difficulty REAL NOT NULL DEFAULT 0, elapsed_days INTEGER NOT NULL DEFAULT 0, scheduled_days INTEGER NOT NULL DEFAULT 0, reps INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0, last_review_at TEXT, deleted_at TEXT)"
+      "sql": "CREATE TABLE index_cards (\n            id TEXT PRIMARY KEY,\n            deck_entity_id TEXT NOT NULL REFERENCES entities(id),\n            front TEXT NOT NULL,\n            back TEXT NOT NULL,\n            due_at TEXT NOT NULL,\n            created_at TEXT NOT NULL,\n            updated_at TEXT NOT NULL\n        , state TEXT NOT NULL DEFAULT 'new', stability REAL NOT NULL DEFAULT 0, difficulty REAL NOT NULL DEFAULT 0, elapsed_days INTEGER NOT NULL DEFAULT 0, scheduled_days INTEGER NOT NULL DEFAULT 0, reps INTEGER NOT NULL DEFAULT 0, lapses INTEGER NOT NULL DEFAULT 0, last_review_at TEXT, deleted_at TEXT, front_blocks TEXT, back_blocks TEXT)"
     },
     {
       "columns": [
@@ -2763,6 +2770,12 @@
         },
         {
           "default": null,
+          "name": "origin",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
           "name": "blob",
           "notNull": false,
           "type": "TEXT"
@@ -2782,7 +2795,68 @@
         "column": "entity_id",
         "kind": "column"
       },
-      "sql": "CREATE TABLE files (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            local_path TEXT,\n            provider TEXT,\n            url TEXT,\n            original_filename TEXT\n        , source_path TEXT, blob TEXT)"
+      "sql": "CREATE TABLE files (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            local_path TEXT,\n            provider TEXT,\n            url TEXT,\n            original_filename TEXT\n        , source_path TEXT, origin TEXT, blob TEXT)"
+    },
+    {
+      "columns": [
+        {
+          "default": null,
+          "name": "entity_id",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "provider",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "remote_id",
+          "notNull": true,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "last_known_title",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "last_seen_at",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "last_result",
+          "notNull": false,
+          "type": "TEXT"
+        },
+        {
+          "default": null,
+          "name": "origin_device_id",
+          "notNull": false,
+          "type": "TEXT"
+        }
+      ],
+      "indexes": [],
+      "localColumns": [
+        "last_seen_at",
+        "last_result"
+      ],
+      "merge": "field",
+      "name": "entity_references",
+      "pk": [
+        "entity_id"
+      ],
+      "scope": {
+        "column": "entity_id",
+        "kind": "column"
+      },
+      "sql": "CREATE TABLE entity_references (\n            entity_id TEXT PRIMARY KEY REFERENCES entities(id),\n            provider TEXT NOT NULL,\n            remote_id TEXT NOT NULL,\n            last_known_title TEXT,\n            last_seen_at TEXT,\n            last_result TEXT,\n            origin_device_id TEXT\n        )"
     },
     {
       "columns": [

@@ -66,6 +66,7 @@ export const MODULE_ICONS = {
   bookmarks: IconBookmark,
   recipes: IconToolsKitchen2,
   grades: IconReportAnalytics,
+  moodle: IconSchool,
 } satisfies Record<ModuleKey, Icon>;
 
 /// The icon library's names, drawn with the same Tabler icons as on the desktop.

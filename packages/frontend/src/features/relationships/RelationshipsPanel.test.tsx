@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { RelationshipTypeInfo } from "#/lib/api/types.ts";
 import { makeEntity, makeSession } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
-import { mockCommand, mockCommandWith } from "#/test/tauri.ts";
+import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
 import { RelatePicker } from "./RelatePickerPopover.tsx";
 import { RelationshipsPanel } from "./RelationshipsPanel.tsx";
 
@@ -43,6 +43,68 @@ describe("RelationshipsPanel", () => {
     const tasks = screen.getByRole("group", { name: "Task" });
     expect(await within(tasks).findByRole("button", { name: /Item c.*Blocked by/ })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Blocks" })).toBeNull();
+  });
+});
+
+describe("RelationshipsPanel order", () => {
+  // Created in the opposite order, so only the fixed order can produce the expected one.
+  const created = [
+    "session",
+    "view",
+    "semester",
+    "recipe",
+    "index_card_deck",
+    "course_notes",
+    "calendar_entry",
+    "exam",
+    "course",
+    "file",
+    "jot",
+    "note",
+    "task",
+    "assignment",
+    "bookmark",
+  ];
+
+  it("lists the groups in the fixed order, whatever order they were created in", async () => {
+    const me = makeEntity({ id: "me", type: "course" });
+    mockCommand(
+      "list_relationships",
+      created.map((t) => ({
+        ...base,
+        id: `r-${t}`,
+        fromEntityId: "me",
+        toEntityId: t,
+        relationshipType: "relates-to",
+      })),
+    );
+    mockCommand("list_relationship_types", [type("relates-to", "Related to", "Related from")]);
+    mockCommand("list_spaces", []);
+    mockCommandWith("get_entity", (args) => {
+      const id = args && "id" in args ? String(args.id) : "";
+      return makeEntity({ id, title: `Item ${id}`, type: id });
+    });
+    renderWithProviders(<RelationshipsPanel entity={me} />);
+
+    await screen.findByRole("group", { name: "Session" });
+    await waitFor(() => expect(screen.getAllByRole("group")).toHaveLength(created.length));
+    expect(screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"))).toEqual([
+      "Bookmark",
+      "Assignment",
+      "Task",
+      "Note",
+      "Jot",
+      "File",
+      "Course",
+      "Exam",
+      "Item",
+      "Course Notes",
+      "Deck",
+      "Recipe",
+      "Semester",
+      "View",
+      "Session",
+    ]);
   });
 });
 
@@ -343,5 +405,191 @@ describe("RelatePicker, going back", () => {
     await user.click(await screen.findByPlaceholderText(SEARCH));
     await user.keyboard("{Backspace}");
     expect(await screen.findByRole("option", { name: /^Task/ })).toBeTruthy();
+  });
+});
+
+describe("RelationshipsPanel, relating a file", () => {
+  const ATTACHED: RelationshipTypeInfo = {
+    name: "attached-file",
+    label: "Attached file",
+    inverseLabel: "attached to",
+    description: "",
+    fromType: null,
+    toType: null,
+  };
+
+  async function relateFrom(entityType: string) {
+    const me = makeEntity({ id: "me", type: entityType });
+    mockCommand("list_relationships", []);
+    mockCommand("list_relationship_types", [RELATES, ATTACHED]);
+    mockCommand("list_spaces", []);
+    mockCommand("list_entities", [makeEntity({ id: "n1", type: "note", title: "Wave notes" }), me]);
+    const { user } = renderWithProviders(<RelationshipsPanel entity={me} />);
+    await user.click(screen.getByRole("button", { name: /^Link/ }));
+    await user.click(await screen.findByRole("option", { name: /^Note/ }));
+    return (await screen.findAllByRole("option")).map((o) => o.textContent);
+  }
+
+  it.each(["file", "bookmark"])("offers Attached to when relating a %s", async (entityType) => {
+    expect(await relateFrom(entityType)).toEqual([
+      expect.stringContaining("Related to"),
+      expect.stringContaining("Attached to"),
+    ]);
+  });
+
+  it("keeps attachments out of the menu for anything else, which has the Attachments panel", async () => {
+    // Only "Related to" fits, so the step is skipped and the items show, then the way to
+    // create a new one.
+    expect(await relateFrom("note")).toEqual([expect.stringContaining("Wave notes")]);
+    expect(screen.getByRole("button", { name: /Create a new note/ })).toBeTruthy();
+    expect(screen.queryByText(/Attached/)).toBeNull();
+  });
+});
+
+const ASSIGNMENT_COURSE: RelationshipTypeInfo = {
+  name: "assignment-course",
+  label: "Assignment of course",
+  inverseLabel: "has assignment",
+  description: "",
+  fromType: "assignment",
+  toType: "course",
+};
+const BLOCKS: RelationshipTypeInfo = {
+  ...RELATES,
+  name: "blocks",
+  label: "Blocks",
+  inverseLabel: "Blocked by",
+};
+
+/// A Course with one assignment and two notes linked, so the sidebar has an Assignment and a
+/// Note section, plus another assignment and note that are not linked yet.
+function renderSections({
+  source = makeEntity({ id: "me", type: "course", title: "Physics" }),
+  noteLinks = [link("me", "n1", "blocks"), link("n2", "me", "blocks")],
+}: { source?: ReturnType<typeof makeEntity>; noteLinks?: Link[] } = {}) {
+  const linked = [link("a1", "me", "assignment-course"), ...noteLinks];
+  const items = [
+    makeEntity({ id: "a1", type: "assignment", title: "Essay 1" }),
+    makeEntity({ id: "a2", type: "assignment", title: "Essay 2" }),
+    makeEntity({ id: "n1", type: "note", title: "Wave notes" }),
+    makeEntity({ id: "n2", type: "note", title: "Heat notes" }),
+    makeEntity({ id: "n3", type: "note", title: "Loose notes" }),
+    makeEntity({ id: "t1", type: "task", title: "Read chapter" }),
+    source,
+  ];
+  mockCommandWith("list_relationships", (args) =>
+    args && "entityId" in args && args.entityId === "me" ? linked : [],
+  );
+  mockCommand("list_relationship_types", [RELATES, BLOCKS, ASSIGNMENT_COURSE]);
+  mockCommand("list_spaces", []);
+  mockCommand("list_entities", items);
+  mockCommandWith("get_entity", (args) => {
+    const id = args && "id" in args ? String(args.id) : "";
+    return items.find((e) => e.id === id) ?? makeEntity({ id });
+  });
+  mockCommand("create_relationship", {});
+  return renderWithProviders(<RelationshipsPanel entity={source} />);
+}
+
+describe("RelationshipsPanel, a + on each section", () => {
+  it("opens the picker on which one, for that type and the relation the section shows", async () => {
+    const { user } = renderSections({ noteLinks: [] });
+    await user.click(await screen.findByRole("button", { name: "Add Assignment" }));
+    expect(await screen.findByText("Essay 2")).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Relation" })).toHaveTextContent(
+      /Course.*Has assignment.*Assignment/,
+    );
+    // Neither the type nor the relation is asked again.
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+    expect(screen.queryByRole("option", { name: /^Task/ })).toBeNull();
+  });
+
+  it("links the item picked there with the relation of the section", async () => {
+    const { user } = renderSections({ noteLinks: [] });
+    await user.click(await screen.findByRole("button", { name: "Add Assignment" }));
+    await user.click(await screen.findByText("Essay 2"));
+    await waitFor(() => expect(callsOf("create_relationship")).toHaveLength(1));
+    expect(callsOf("create_relationship")[0]).toMatchObject({
+      fromEntityId: "a2",
+      toEntityId: "me",
+      relationshipType: "assignment-course",
+    });
+  });
+
+  it("still asks how when the section holds more than one kind of link", async () => {
+    const { user } = renderSections();
+    await user.click(await screen.findByRole("button", { name: "Add Note" }));
+    const names = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(names).toEqual([
+      expect.stringContaining("Related to"),
+      expect.stringContaining("Blocks"),
+      expect.stringContaining("Blocked by"),
+    ]);
+    // Only the type was decided, so there is nothing to go back to.
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+    await user.click(screen.getByRole("option", { name: /Blocked by/ }));
+    expect(await screen.findByText("Loose notes")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByRole("option", { name: /Blocks/ })).toBeTruthy();
+  });
+
+  it("keeps the general Link button starting at the types", async () => {
+    const { user } = renderSections();
+    await user.click(await screen.findByRole("button", { name: /^Link/ }));
+    expect(await screen.findByText("What do you want to link?")).toBeTruthy();
+    expect(await screen.findByRole("option", { name: /^Task/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+  });
+
+  it("asks one clear question per step", async () => {
+    const { user } = renderSections();
+    await user.click(await screen.findByRole("button", { name: /^Link/ }));
+    await user.click(await screen.findByRole("option", { name: /^Note/ }));
+    expect(await screen.findByText("How is it linked to this Course?")).toBeTruthy();
+    await user.click(await screen.findByRole("option", { name: /Blocks/ }));
+    expect(await screen.findByText("Which Note?")).toBeTruthy();
+  });
+});
+
+describe("RelationshipsPanel, creating from the picker", () => {
+  it("offers a new item for this one on the last step and creates it already linked", async () => {
+    const { user } = renderSections({ noteLinks: [] });
+    mockCommand("create_note", makeEntity({ id: "new-1", type: "note", title: "Plan" }));
+    await user.click(await screen.findByRole("button", { name: /^Link/ }));
+    await user.click(await screen.findByRole("option", { name: /^Note/ }));
+    await user.click(await screen.findByRole("option", { name: /Blocked by/ }));
+    await user.type(await screen.findByPlaceholderText("Search what to relate to…"), "Plan");
+    await user.click(await screen.findByRole("button", { name: /Create a new note/ }));
+    await waitFor(() => expect(callsOf("create_relationship")).toHaveLength(1));
+    expect(callsOf("create_note")).toEqual([{ spaceId: "space-1", title: "Plan" }]);
+    expect(callsOf("create_relationship")[0]).toMatchObject({
+      fromEntityId: "new-1",
+      toEntityId: "me",
+      relationshipType: "blocks",
+    });
+  });
+
+  it("creates an assignment for a course in one go, since creating it links it", async () => {
+    const { user } = renderSections({ noteLinks: [] });
+    mockCommand("create_assignment", {
+      entity: makeEntity({ id: "a-new", type: "assignment", title: "Essay 3" }),
+    });
+    await user.click(await screen.findByRole("button", { name: "Add Assignment" }));
+    await user.click(await screen.findByRole("button", { name: /Create a new assignment/ }));
+    await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));
+    expect(callsOf("create_assignment")[0]).toMatchObject({ courseId: "me", spaceId: "space-1" });
+    expect(callsOf("create_relationship")).toEqual([]);
+  });
+
+  it("offers nothing to create for a type that needs more than a title", async () => {
+    const { user } = renderSections({
+      source: makeEntity({ id: "me", type: "task", title: "Read" }),
+      noteLinks: [],
+    });
+    await user.click(await screen.findByRole("button", { name: /^Link/ }));
+    await user.click(await screen.findByRole("option", { name: /^Assignment/ }));
+    await user.click(await screen.findByRole("option", { name: /Related to/ }));
+    await screen.findByText("Essay 2");
+    expect(screen.queryByRole("option", { name: /^New/ })).toBeNull();
   });
 });

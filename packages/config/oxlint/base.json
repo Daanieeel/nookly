@@ -62,7 +62,12 @@
         ]
       }
     ],
-    "shadcn/no-raw-colors": "error",
+    "shadcn/no-raw-colors": [
+      "error",
+      {
+        "allow": ["bg-dot-grid"]
+      }
+    ],
     "shadcn/no-arbitrary-values": [
       "error",
       {

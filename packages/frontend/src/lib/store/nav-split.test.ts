@@ -46,6 +46,21 @@ describe("split view, store", () => {
     expect(state.backStack).toEqual([dashboard]);
   });
 
+  it("Split Left opens a copy of the tab in a focused left group", async () => {
+    const { store, tabGroups } = await loadNav();
+    store.getState().setView(pinned);
+    const rightTab = store.getState().activeTabId;
+    store.getState().splitLeft();
+    const state = store.getState();
+    const [left, right] = tabGroups(state);
+    expect(right.tabs.map((t) => t.id)).toEqual([rightTab]);
+    expect(left.tabs).toHaveLength(1);
+    expect(left.tabs[0].id).not.toBe(rightTab);
+    expect(state.focusedGroupId).toBe(left.id);
+    expect(state.view).toEqual(pinned);
+    expect(state.backStack).toEqual([dashboard]);
+  });
+
   it("keeps history per group", async () => {
     const { store, tabGroups } = await loadNav();
     store.getState().splitRight();
@@ -237,5 +252,78 @@ describe("split view, restart", () => {
     expect(tabGroups(store.getState()).map((g) => g.id)).toEqual(["L"]);
     expect(store.getState().focusedGroupId).toBe("L");
     expect(store.getState().view).toEqual(pinned);
+  });
+});
+
+describe("split view, details sidebar", () => {
+  it("collapses the details sidebar of the focused group only", async () => {
+    const { store, tabGroups, rightSidebarCollapsedIn } = await loadNav();
+    store.getState().splitRight();
+    const [left, right] = tabGroups(store.getState());
+    store.getState().setRightSidebarCollapsed(true);
+    expect(rightSidebarCollapsedIn(store.getState(), right.id)).toBe(true);
+    expect(rightSidebarCollapsedIn(store.getState(), left.id)).toBe(false);
+  });
+
+  it("expands one group's details sidebar while the other stays collapsed", async () => {
+    const { store, tabGroups, rightSidebarCollapsedIn } = await loadNav({
+      [STORAGE_KEYS.rightSidebarCollapsed]: "1",
+    });
+    store.getState().splitRight();
+    const [left, right] = tabGroups(store.getState());
+    store.getState().setRightSidebarCollapsed(false, left.id);
+    expect(rightSidebarCollapsedIn(store.getState(), left.id)).toBe(false);
+    expect(rightSidebarCollapsedIn(store.getState(), right.id)).toBe(true);
+  });
+
+  it("remembers the choice for next launch only while not split", async () => {
+    const { store, preferences } = await loadNav();
+    store.getState().splitRight();
+    store.getState().setRightSidebarCollapsed(true);
+    expect(preferences.get(STORAGE_KEYS.rightSidebarCollapsed)).toBeNull();
+  });
+});
+
+describe("split view, zoom", () => {
+  it("does nothing with one group", async () => {
+    const { store } = await loadNav();
+    store.getState().toggleGroupZoom();
+    expect(store.getState().groupZoomed).toBe(false);
+  });
+
+  it("toggles between zoomed and both groups", async () => {
+    const { store } = await loadNav();
+    store.getState().splitRight();
+    store.getState().toggleGroupZoom();
+    expect(store.getState().groupZoomed).toBe(true);
+    store.getState().toggleGroupZoom();
+    expect(store.getState().groupZoomed).toBe(false);
+  });
+
+  it("stays zoomed when focus moves to the other group", async () => {
+    const { store } = await loadNav();
+    store.getState().splitRight();
+    store.getState().toggleGroupZoom();
+    store.getState().focusGroupAt(0);
+    expect(store.getState().groupZoomed).toBe(true);
+  });
+
+  it("ends when the other group closes, so a later split shows both groups", async () => {
+    const { store, tabGroups } = await loadNav();
+    store.getState().splitRight();
+    store.getState().toggleGroupZoom();
+    store.getState().closeTab(tabGroups(store.getState())[1].tabs[0].id);
+    expect(tabGroups(store.getState())).toHaveLength(1);
+    expect(store.getState().groupZoomed).toBe(false);
+    store.getState().splitRight();
+    expect(store.getState().groupZoomed).toBe(false);
+  });
+
+  it("ends when a tab is split or moved, so the result is visible", async () => {
+    const { store } = await loadNav();
+    store.getState().splitRight();
+    store.getState().toggleGroupZoom();
+    store.getState().splitLeft();
+    expect(store.getState().groupZoomed).toBe(false);
   });
 });

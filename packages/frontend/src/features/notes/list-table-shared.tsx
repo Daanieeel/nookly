@@ -1,11 +1,17 @@
-import { IconClock, IconSearch } from "@tabler/icons-react";
+import { IconClock, IconSearch, IconTag } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, SortingState, Table as TanstackTable } from "@tanstack/react-table";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { DataTable, type DataTableGroup } from "#/components/data-table/data-table.tsx";
 import { DataTableColumnHeader } from "#/components/data-table/data-table-column-header.tsx";
-import type { ActiveFilter, FilterField } from "#/components/filter-menu.tsx";
-import { LabelChip } from "#/components/label-chip.tsx";
+import {
+  type ActiveFilter,
+  type FilterField,
+  FilterMenu,
+  matchesFilters,
+} from "#/components/filter-menu.tsx";
+import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
+import { QuickFilterBar } from "#/components/quick-filter-bar.tsx";
 import { Input } from "@nookly/ui/components/input";
 import type { Label, PageSummary } from "#/lib/api/types.ts";
 import { matchesKey } from "#/lib/entity-key.ts";
@@ -55,7 +61,7 @@ export function passesRowFilters<T>(
   filters: ActiveFilter[],
   has: (row: T, fieldId: string, value: string) => boolean,
 ): boolean {
-  return filters.every((f) => {
+  return matchesFilters(filters, (f) => {
     const hit = f.values.some((v) => has(row, f.fieldId, v));
     return f.operator === "is" ? hit : !hit;
   });
@@ -157,7 +163,7 @@ function LabelsCell({ labels }: { labels: Label[] }) {
   );
 }
 
-export function ListSearchInput({
+function ListSearchInput({
   query,
   onQueryChange,
   placeholder,
@@ -192,10 +198,13 @@ export function PageSummaryTable<T extends { summary: PageSummary }>({
   table,
   spaceId,
   groups,
+  scrollX,
 }: {
   table: TanstackTable<DataTableFeatures, T>;
   spaceId: string;
   groups?: DataTableGroup<T>[];
+  /// Scrolls sideways when the columns cannot fit, which is the default (see `DataTable`).
+  scrollX?: boolean;
 }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
@@ -203,9 +212,86 @@ export function PageSummaryTable<T extends { summary: PageSummary }>({
     <DataTable
       table={table}
       groups={groups}
+      scrollX={scrollX}
       onRowClick={(row) => openEntity(row.summary.entity.id, spaceId)}
       onRowFocus={(row) => prefetchBlocks(queryClient, row.summary.entity.id)}
       rowContextTarget={(row) => entityTarget(row.summary.entity)}
     />
+  );
+}
+
+/// The Labels filter, offered only when some row carries a Label of the Space.
+export function labelFilterField(
+  spaceLabels: Label[],
+  rows: { labels: Label[] }[],
+): FilterField | null {
+  const usedLabels = spaceLabels.filter((l) => rows.some((r) => r.labels.includes(l)));
+  if (usedLabels.length === 0) return null;
+  return {
+    id: "labels",
+    label: "Labels",
+    icon: IconTag,
+    options: usedLabels.map((l) => ({
+      value: l.id,
+      label: l.name,
+      icon: <LabelDot label={l} />,
+    })),
+  };
+}
+
+/// The search field, the filter button with its quick filters, and the active filter chips
+/// above a list.
+export function ListFilterToolbar({
+  query,
+  onQueryChange,
+  placeholder,
+  ariaLabel,
+  fields,
+  filters,
+  onFiltersChange,
+  quick,
+}: {
+  query: string;
+  onQueryChange: (query: string) => void;
+  placeholder: string;
+  ariaLabel: string;
+  fields: FilterField[];
+  filters: ActiveFilter[];
+  onFiltersChange: (filters: ActiveFilter[]) => void;
+  quick: { favorites: string[]; toggle: (fieldId: string) => void };
+}) {
+  const filterMenuProps = {
+    fields,
+    filters,
+    onFiltersChange,
+    quickFilters: { favorites: quick.favorites, onToggle: quick.toggle },
+  };
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <ListSearchInput
+          query={query}
+          onQueryChange={onQueryChange}
+          placeholder={placeholder}
+          ariaLabel={ariaLabel}
+        />
+        <div className="ml-auto">
+          <FilterMenu
+            {...filterMenuProps}
+            part="button"
+            beforeButton={
+              <QuickFilterBar
+                fields={fields}
+                filters={filters}
+                onFiltersChange={onFiltersChange}
+                favorites={quick.favorites}
+                onRemove={quick.toggle}
+              />
+            }
+          />
+        </div>
+      </div>
+      <FilterMenu {...filterMenuProps} part="chips" />
+    </>
   );
 }

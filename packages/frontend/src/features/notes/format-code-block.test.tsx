@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { act, screen, waitFor } from "@testing-library/react";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
@@ -167,5 +168,30 @@ describe("where a code block holds its text", () => {
     await screen.findByRole("button", { name: "Format code" });
     const holder = document.querySelector("pre.code-block-body > [data-node-view-content]");
     expect(holder?.tagName).toBe("DIV");
+  });
+});
+
+// #124: in WebKit, typing a dead key such as `^` in an empty code or math block pulled the text
+// out of the block and dissolved its <pre> when the <pre> was positioned (`position: relative`).
+// Pins that workaround: the <pre> stays unpositioned, and the copy button, which wanted it as
+// its anchor, sits outside it.
+const styles = readFileSync(`${process.cwd()}/src/styles.css`, "utf8");
+
+describe("the editable part of a code block", () => {
+  it("is not a positioned element", () => {
+    const rule = styles.match(/pre\.code-block-body\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).not.toBe("");
+    expect(rule).not.toMatch(/position\s*:/);
+  });
+
+  it("does not hold the copy button", async () => {
+    const target = open([code("a", "javascript")]);
+    const { user } = renderWithProviders(<EditorContent editor={target} />);
+    await screen.findByRole("button", { name: "Format code" });
+    const wrapper = document.querySelector(".code-block-wrapper");
+    if (!wrapper) throw new Error("the code block has no wrapper");
+    await user.hover(wrapper);
+    const copy = await screen.findByRole("button", { name: "Copy code" });
+    expect(copy.closest("pre")).toBeNull();
   });
 });

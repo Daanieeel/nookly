@@ -4,7 +4,7 @@
 
 A full, first-class entity that participates in the relationship system like everything else.
 
-**Storage:** files are copied into a local folder the app manages. The copy is fully independent of the original, so it stays predictable and portable and survives the user moving or deleting the source file. The exception is a path typed or pasted into the Files bar: that file is referenced where it lives, and "Copy into Nookly" makes it independent later. A pasted link is downloaded into storage; a link that turns out to be a webpage is offered as a Bookmark instead, and a File that came from a link can be converted into one. A stored file can be replaced by a newer version, keeping the same entity; there is no version history.
+**Storage:** files are copied into a local folder the app manages. The copy is fully independent of the original, so it stays predictable and portable and survives the user moving or deleting the source file. The exception is a path typed or pasted into the Files bar: that file is referenced where it lives, and "Copy into Nookly" makes it independent later. A pasted link is downloaded into storage; a link that turns out to be a webpage is offered as a Bookmark instead, and a File that came from a link can be converted into one. Every file shows whether it is found (see [References](references.md)), and on a device that does not have a referenced file, Locate... points Nookly at the same file there. A stored file can be replaced by a newer version, keeping the same entity; there is no version history.
 
 **Files from links** (cloud documents such as a Google Doc or a Dropbox file) are provider-aware. Google Drive, Docs and Dropbox share links are rewritten to their direct download (Docs, Sheets and Slides as PDF) and the provider is tagged; the source URL is kept.
 
@@ -29,6 +29,6 @@ Bookmarks live inside a Space like any other page. They are not global.
 
 ## Creation UX
 
-**Files:** drag and drop is the main way in, either onto the Files grid or straight onto any entity's Attachments section. The standard file picker is only a fallback.
+**Files:** drag and drop is the main way in, either onto the Files grid or straight onto any entity's Attachments section. The standard file picker is only a fallback. A path typed or pasted into the Attachments picker works as on the Files bar: the file is referenced where it lives and attached, and its row shows the availability badge when it is a pointer or cannot be found.
 
 **Bookmarks:** start from a pasted URL. The moment a URL is pasted, show a live preview of the fetched metadata (or the offline placeholder) as confirmation.

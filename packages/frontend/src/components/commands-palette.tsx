@@ -51,7 +51,9 @@ export function CommandsPalette() {
       <SpotlightFooter
         aside={
           <>
-            <ShortcutKbd name="search" />
+            <ShortcutKbd name="quickSwitcher" />
+            Quick open
+            <ShortcutKbd name="search" className="ml-3" />
             Search everything
           </>
         }

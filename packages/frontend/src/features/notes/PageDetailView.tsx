@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { EntityDetailLayout } from "#/components/entity-detail-layout.tsx";
-import { ScrollProgress } from "@nookly/ui/components/scroll-progress";
+import { ScrollProgressSearch } from "@nookly/ui/components/scroll-progress-search";
 import type { Entity } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { BlockEditor } from "./BlockEditor";
@@ -22,7 +22,7 @@ export function PageDetailView({ entity }: { entity: Entity }) {
       exportable
       bodyOverlay={(scrollContainer) =>
         showSections && (
-          <ScrollProgress
+          <ScrollProgressSearch
             sections={sections}
             containerRef={scrollContainer}
             className="absolute bottom-4"
@@ -30,8 +30,14 @@ export function PageDetailView({ entity }: { entity: Entity }) {
         )
       }
     >
-      {/* Room below the last line, so it can scroll clear of the navigator. */}
-      <div className={cn("mx-auto flex w-full max-w-3xl flex-col", showSections && "pb-16")}>
+      {/* Room below the last line, so it can scroll clear of the navigator. The column grows
+          with a wide window, where a fixed width leaves wide empty sides. */}
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-3xl flex-col @5xl:max-w-4xl @[100rem]:max-w-5xl",
+          showSections && "pb-16",
+        )}
+      >
         <BlockEditor
           entityId={entity.id}
           spaceId={entity.spaceId}

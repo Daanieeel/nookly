@@ -1,3 +1,4 @@
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import { IconCheck, IconRepeat, IconRepeatOff } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
@@ -39,7 +40,7 @@ export function RepeatPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent {...dialogPopover("w-60 p-0")} align={align} aria-label="Repeat">
-        <Command loop>
+        <Command loop filter={accentInsensitiveFilter}>
           <CommandList className="p-1">
             {entries.map((entry) => (
               <CommandItem

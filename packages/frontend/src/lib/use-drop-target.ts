@@ -9,6 +9,8 @@ export function useDropTarget(onDrop: () => void) {
     dropProps: {
       onDragOver: (e: DragEvent) => {
         e.preventDefault();
+        // WebKitGTK refuses the drop of a target that does not announce an effect.
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
         setDragOver(true);
       },
       onDragLeave: () => setDragOver(false),

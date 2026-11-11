@@ -135,6 +135,12 @@ pub const SYNCED_TABLES: &[SyncedTable] = &[
         local_columns: &["local_path", "source_path"],
         ..table("files", ENTITY_PK, ENTITY_ID)
     },
+    // What a pointer File points at follows the File. Whether it could be reached, and
+    // when, is each device's own finding, and its paths stay in `reference_device_paths`.
+    SyncedTable {
+        local_columns: &["last_seen_at", "last_result"],
+        ..table("entity_references", ENTITY_PK, ENTITY_ID)
+    },
     SyncedTable {
         local_columns: &["screenshot_path"],
         ..table("bookmarks", ENTITY_PK, ENTITY_ID)
@@ -182,10 +188,13 @@ pub const EXCLUDED_TABLES: &[&str] = &[
     "sync_dirty",
     "sync_rows",
     "sync_conflicts",
-    // Which local file holds which contents, per device (migration 43).
+    // Which local file holds which contents, per device (migration 52).
     "blob_files",
-    // This device's copy of page documents (migration 44).
+    // This device's copy of page documents (migration 53).
     "page_docs",
+    // Where a referenced file lives on each device: a path only means something on the
+    // computer it was typed on (migration 50).
+    "reference_device_paths",
 ];
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

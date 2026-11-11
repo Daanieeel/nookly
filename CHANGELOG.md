@@ -19,96 +19,771 @@ All notable changes to Nookly are listed here.
 - **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on.
 - **Every change that needs a look is offered.** When two devices changed the same thing at the same moment, the other version was kept but nothing said so. The sync status and Settings now count it.
 
-## 0.38.4 (2026-10-21)
-
-### Fixed
-
-- **A clearer message when the server can't be reached.** Signing in or syncing without a connection to the server now says so in plain words, instead of showing a technical error.
-
-## 0.38.3 (2026-10-20)
-
-### Fixed
-
-- **Typing no longer keeps the server busy.** Editing a page used to ask the server for news after every pause in typing. Nookly now only reaches out when it has something to send, and hears about changes from other devices as they happen.
-
-## 0.38.2 (2026-10-20)
-
-### Fixed
-
-- **Sync status stays calm.** Once your files were sent, Nookly kept syncing again and again, so "Synced just now" flashed to "Syncing" every second. It now syncs once and rests until something changes.
-
-## 0.38.1 (2026-10-15)
-
-### Changed
-
-- **Changes arrive faster.** An edit now shows on your other devices in about a second.
-
-### Fixed
-
-- **Sync reconnects on its own.** A connection that goes quiet is noticed and opened again, so changes keep arriving without waiting.
-- **Switching accounts.** Signing out and into another account on the same device now brings in everything that account holds.
-
-## 0.38.0 (2026-10-14)
+## 0.75.0 (2026-11-10)
 
 ### Added
 
-- **Your account, in one place.** Sign in or create an account from the cloud button in the titlebar or Settings, Account. Change your password there too.
-- **Bring everything along.** The first time you sign in, Nookly backs up this device, then moves your Spaces, pages, tasks and files into your account, shows how far it got and checks the result with the server. Nothing on this device is removed.
-- **Files sync too.** Files, recipe banners and bookmark snapshots reach your other devices, checked on the way so a damaged copy is never used.
-- **Settings follow you.** Your name, date and time formats, calendar and editor settings are the same on every device. Theme, backups and shortcuts stay per device.
-- **Sync at a glance.** A quiet icon in the titlebar says whether everything is synced, syncing, offline, or needs a look.
-
-## 0.37.0 (2026-10-14)
+- Exporting a note, jot, task or assignment as a Nookly file now includes its images, videos, sounds and files, so they show up when you import it on another computer or send it to someone.
 
 ### Changed
 
-- **Accounts with a username.** Create a sync account with just a username and a password, and sign in with your username or your email. An email is only needed to reset a forgotten password or to invite people by email.
-- **Share by username.** Type someone's username to share a page or a task with them.
+- Nookly files can now be up to 100 MB to import.
+- When saving a Nookly file, Nookly tells you if a file could not be included because it is missing.
 
-## 0.36.2 (2026-10-14)
+## 0.74.0 (2026-11-10)
+
+### Added
+
+- The quick New task and New assignment windows now have a description below the title. You can write in it with every block, like on a page, before creating.
+
+## 0.73.0 (2026-11-10)
+
+### Added
+
+- Agents using the Nookly command line can now read your Moodle courses, files, assignments, grades and announcements, and save a Moodle file to a place on your computer. They read only and use the Moodle sign in you saved in Nookly.
+
+## 0.72.8 (2026-11-10)
 
 ### Changed
 
-- **A calmer sidebar.** The sidebar sits right on the page, without a panel, border or shadow around it.
+- The sidebar now slides in and out faster and more smoothly, including when it appears as you move the pointer to the left edge.
 
-## 0.36.1 (2026-10-14)
-
-### Changed
-
-- **Shared items stand out.** The Space holding what others share with you shows a people icon in the sidebar.
+## 0.72.7 (2026-11-10)
 
 ### Fixed
 
-- **View only means view only.** A task or page shared with you to view can no longer be renamed or changed, so nothing you type is undone on the next sync.
+- Opening and closing Settings no longer makes the app freeze for a moment.
 
-## 0.36.0 (2026-10-14)
+## 0.72.6 (2026-11-10)
+
+### Fixed
+
+- Opening the saved views under Tasks or Assignments in the sidebar no longer makes the move handle and arrow of that item jump down. They stay beside its icon and title.
+
+## 0.72.5 (2026-11-10)
+
+### Fixed
+
+- Dragging on the preview of a math block, equation, diagram, circuit or plot no longer picks up the whole block or drags its text. Mind map blocks still let you drag their ideas.
+
+## 0.72.4 (2026-11-10)
+
+### Changed
+
+- The import dialog for Moodle files is calmer and easier to use with a keyboard or screen reader. Labels and the course are picked from searchable lists, with the course icons shown, instead of a long wall of chips and a plain menu. Suggested names and labels sit under their fields.
+
+## 0.72.3 (2026-11-10)
+
+### Fixed
+
+- Fixed the Quick assignment shortcut and the Settings shortcut doing nothing until the dialog had been opened another way first.
+
+## 0.72.2 (2026-11-10)
+
+### Changed
+
+- Search and Quick open now show the ID of every result, like NOT-94, next to its title, including recent items.
+
+## 0.72.1 (2026-11-10)
+
+### Fixed
+
+- Opening and closing the New task dialog, and other dialogs, is no longer slow on a long list of tasks or assignments.
+
+## 0.72.0 (2026-11-09)
 
 ### Added
 
-- **Share tasks too.** Tasks can now be shared with people like pages, to view or to edit, with their status and dates.
-- **Bring back a change that lost.** Under Settings, Sync, Conflicts, put a change back that a newer one replaced, or dismiss it.
+- You can now attach a file by its path from the sidebar of any page, not only upload one. The file stays where it is, shows whether Nookly can find it, and can be copied into Nookly later from its page.
 
-## 0.35.0 (2026-10-14)
-
-### Added
-
-- **Sync between your devices (optional).** Sign in to a Nookly sync server under Settings, Sync, and your Spaces, pages, tasks and everything else stay the same on every device. Nookly still works fully offline and without an account; changes made offline sync once you are back. When two devices change the same thing, the newer change wins and the other one is kept under Conflicts.
-- **Share a page with people.** Right click a page and pick Share with People to invite someone by email, to view or to edit. Pages shared with you appear in a Space of their own after you accept them under Settings, Sync.
-- **See and sign out your devices.** Settings, Sync lists every device signed in to your account.
-
-## 0.34.0 (2026-10-14)
+## 0.71.0 (2026-11-08)
 
 ### Added
 
-- **Split view.** Work in two groups of tabs side by side. Right click a tab and pick Split Right, press `Mod+\`, or drag a tab to the right edge of the page. Each side keeps its own tabs, pins and history, the divider between them can be dragged (double click it to split evenly again), and `Mod+1` and `Mod+2` move between the sides. Your split comes back after a restart, and a narrow window shows one side at a time.
+- Files you added by path now show whether Nookly can find them: Available, Missing, or Not on this device. When a file moved, or was added on another device, Locate points Nookly at the same file on this device without changing anything on your other devices.
+
+### Changed
+
+- The actions on a file's page are grouped into opening it, where it lives, and changing it. Failed file buttons go back to normal after a few seconds, and a file that only exists as a link now offers Copy into Nookly.
+
+## 0.70.0 (2026-11-08)
+
+### Added
+
+- Each group of related items in the sidebar of a note or jot now has its own plus button. It opens the list of that kind of item straight away, so you only pick which one to link.
+- When you link something, you can now create a new item for the one you are on and link it in one go, for example a new note, task or deck, or an assignment or exam from a course.
+
+### Changed
+
+- The Relate to button is now called Link, and each step of the picker says what it asks.
+
+## 0.69.0 (2026-11-08)
+
+### Added
+
+- You can now zoom out, zoom in and fit the relationship graph to your view, and the second ring opens fully visible.
+
+### Fixed
+
+- Fixed the relationship graph not scrolling up, down, left and right in one swipe when the second ring is on.
+
+## 0.68.0 (2026-11-07)
+
+### Added
+
+- A new Mind map block. Write your ideas as an indented list and Nookly draws them as a map around the first line. In the preview, click an idea with branches to fold or open them, and drag any idea to move it together with everything under it. Reset layout brings back the automatic layout. Mind maps also show up in PDF, Word and OpenDocument exports, laid out automatically.
+
+## 0.67.1 (2026-11-07)
+
+### Changed
+
+- Small behind the scenes tidy up. Nothing looks or works differently.
+
+## 0.67.0 (2026-11-07)
+
+### Changed
+
+- The Calendar page in Settings now shows a small week that follows your choices, so you see the first day, the opening hour, the colour of today, the length of new items and the snap step change as you set them.
+
+### Fixed
+
+- The colour and intensity choices for the current day now work properly with screen readers.
+
+## 0.66.1 (2026-11-06)
+
+### Changed
+
+- On Mac, Nookly now tidies the list of apps allowed to read your saved logins, so it no longer collects an entry for every old version.
+
+## 0.66.0 (2026-11-06)
+
+### Added
+
+- Flashcards are now written in the same editor as notes, so a card can hold pictures, formulas, tables and more. Press Tab to flip the card, Enter for a new line and Cmd+Enter to add it to the deck.
+- While studying, click a picture on a card to see it larger.
+- Deck files now carry the pictures of their cards, so a shared deck arrives complete. Deck files can be up to 100 MB.
+
+### Changed
+
+- Cards you wrote before keep their text and turn into blocks the first time you edit them.
+
+## 0.65.4 (2026-11-06)
+
+### Fixed
+
+- Calendar entries no longer show up in search, since they have no page of their own.
+
+## 0.65.3 (2026-11-06)
+
+### Fixed
+
+- Nookly for Mac is now code signed, so updating no longer asks for your computer password again to reach your saved logins. This is not Apple notarization, so macOS may still show a warning the first time you open Nookly.
+
+## 0.65.2 (2026-11-06)
+
+### Changed
+
+- The Mac version was not published for this release. Nothing else changed.
+
+## 0.65.1 (2026-11-06)
+
+### Fixed
+
+- Links now always open in your default browser, never inside Nookly.
+
+## 0.65.0 (2026-11-05)
+
+### Added
+
+- Drop files from your computer onto the Files page to import them, onto any page to attach them, or into a note or jot to place them right where you drop. A drop area shows where they will land.
+
+### Fixed
+
+- Fixed dragging a file onto Nookly covering the whole app with that file until you restarted.
+
+## 0.64.4 (2026-11-05)
+
+### Changed
+
+- Moving an item to Trash no longer asks first. It happens right away, and a message with Undo appears so you can bring it back at once.
+
+## 0.64.3 (2026-11-05)
+
+### Added
+
+- C is now a language you can pick for code blocks.
+
+## 0.64.2 (2026-11-05)
+
+### Changed
+
+- A file now fills its page without a margin or border around it, the same as a file from Moodle.
+
+## 0.64.1 (2026-11-05)
+
+### Fixed
+
+- Fixed opening a note sometimes showing "Something went wrong showing this view" until you pressed Try Again.
+
+## 0.64.0 (2026-11-05)
+
+### Added
+
+- **Relationship graph.** A new button at the top of the details sidebar opens a graph of everything an item is linked to, with the item in the middle and how each link relates on the lines. Turn on Second ring to also see what those items link to. Click an item to open it, or `Cmd+click` to open it in a new tab. Items from other Spaces are marked with their Space.
+
+## 0.63.2 (2026-11-05)
+
+### Changed
+
+- Behind the scenes cleanup of the PDF viewer. Nothing looks or works differently.
+
+## 0.63.1 (2026-11-05)
+
+### Changed
+
+- Behind the scenes cleanup of how tabs are kept. Nothing looks or works differently.
+
+## 0.63.0 (2026-11-05)
+
+### Added
+
+- **Name and label Moodle files as you import them.** Importing a file from Moodle now opens a window where you can rename it, pick labels and attach it to a course before it goes into your Space. Nookly suggests a name, a label for the course and its section, and the matching course.
+- **Show in Nookly.** A Moodle file you already imported shows a Show in Nookly button instead of Import, which takes you to the file.
+
+## 0.62.1 (2026-11-05)
+
+### Changed
+
+- **Steadier behind the scenes.** Small cleanups to keep Nookly stable. Nothing looks different.
+
+## 0.62.0 (2026-11-05)
+
+### Added
+
+- **Page font and size.** Choose the font and size of the text in your pages under Settings, Editor, with a live sample that shows the change before you go back to your page.
+
+## 0.61.2 (2026-11-05)
+
+### Changed
+
+- Small behind the scenes tidy up. Nothing looks or works differently.
+
+## 0.61.1 (2026-11-05)
+
+### Fixed
+
+- **Closed unexpectedly message.** The message no longer shows up after an update for something that happened in an older version, and its buttons now fit inside the window.
+
+## 0.61.0 (2026-11-04)
+
+### Added
+
+- **Moodle.** A new module that lets you read your university's Moodle inside Nookly. Browse your courses with their Moodle banners, open files in the same viewer as your Files, read assignments with your submission status and feedback, check your grades and read announcements and forum posts, without opening the website. Every page has an Open in Moodle button. You sign in inside Nookly, with your passwords from Apple Passwords on Mac, so single sign on works. Nookly only reads from Moodle and never changes anything there. You can sign out from the Moodle page at any time.
+- **Import Moodle files.** A file from a course can be imported into your Space, next to Download.
+- **Moodle deadlines on your calendar.** Connect the link from Moodle's Export calendar under Calendar connections, and its deadlines and classes show on your Calendar next to your sessions.
+- **Copy a file's text.** Text, code and Markdown files have a copy button at the top right of the viewer.
+
+## 0.60.0 (2026-11-04)
+
+### Added
+
+- **A new search.** `Cmd+K` now shows one list of results, best match first, instead of groups per Space. Each result shows its icon, title, Space and the line of text that matched. The top result is already selected, so `Enter` opens it.
+- **Tabs for types.** Press `Tab` to switch between All, Notes, Tasks, Files and more, and `Shift+Tab` to go back.
+- **Filters you type.** Type `in:` and pick a Space, or `#` and pick a label, and it becomes a chip that narrows the search. `Backspace` removes the last chip.
+- **Open results in a new tab or the other side.** `Cmd+Enter` opens the selected result in a new tab, and `Cmd+Option+Enter` opens it in the other split group (`Ctrl+Enter` and `Ctrl+Alt+Enter` on Windows and Linux).
+
+### Changed
+
+- **Quick open matches search.** `Cmd+P` shows the same list as `Cmd+K`, but only looks at titles and keys, so it answers instantly. `Cmd+Shift+P` still runs commands.
+
+### Fixed
+
+- **Search is faster.** Search opens at once and shows results as you type, even with tens of thousands of items. Typing no longer waits before it starts looking.
+
+## 0.59.0 (2026-11-04)
+
+### Added
+
+- **A tidier Settings.** The pages are now one flat list under short headings (Writing and study, Data and accounts, Power tools), and search sits at the top of the list. Press `/` to jump to it.
+- **A Connections page.** Your external calendars have their own page in Settings, with a card for Google Calendar and iCloud that shows whether each one is connected.
+- **Choose your theme by sight.** The theme and the file viewer theme are cards with a small preview.
+- **Backup at a glance.** A card on the Backup page shows when the last backup was made, how big it is and where it is saved, and says clearly when a backup failed.
+- **Shortcuts in a table.** All shortcuts are on one page with buttons to show only Navigation, Tabs, Create and the rest. A shortcut whose key was taken by another one is marked.
+
+### Changed
+
+- **LaTeX macros** have their own page under Power tools in Settings, and About moved to the bottom of the Settings list.
+
+### Fixed
+
+- **Your data folder opens in Finder on Mac.** The folder is now called Nookly, so you can double click it to browse your files. Nothing is moved or copied, and everything keeps working as before.
+
+## 0.58.0 (2026-11-04)
+
+### Added
+
+- **Logs folder.** Settings has a new "Open logs folder" button. Nookly now keeps a short log of what went wrong, without anything you wrote, so you can attach it when you report a problem.
+- **A report after an unexpected close.** If Nookly closes unexpectedly, the next launch tells you and offers a short report you can read, copy, or open as a GitHub issue. It holds the version, your system and what went wrong, never what you wrote, and nothing is sent unless you send it.
+
+### Changed
+
+- **Faster start and a smaller app.** Nookly starts quicker and takes less space, because screens and dialogs now load when you first open them.
+- **Smoother when working with a lot of data.** Lists and searches no longer hold up the rest of the window, and Nookly no longer reloads everything each time you switch back to it.
+
+### Fixed
+
+- **Fewer unexpected closes.** When something goes wrong behind the scenes, Nookly now shows an error instead of closing.
+
+## 0.57.2 (2026-11-04)
+
+### Fixed
+
+- **Reordering tabs on Linux.** Dragging a tab to reorder it, move it to the other side of a split, or open it in a new split now works on Linux. Reordering semesters by drag works there too.
+
+## 0.57.1 (2026-11-03)
+
+### Fixed
+
+- **Module names in the sidebar.** The icon and name of each module no longer sit on top of the handle you drag to reorder them.
+
+## 0.57.0 (2026-11-01)
+
+### Added
+
+- **One Space at a time in the sidebar.** The sidebar now shows only the modules of the Space you are in, as a simple list. Your Spaces sit in a row at the bottom: click one to switch, right click it to rename it, change its icon or color, or delete it, and drag to reorder. With more than four Spaces, the rest are under a three dot button.
+- **Switch Spaces quickly.** Swipe left or right with two fingers on the sidebar, or press `Cmd+Option+Up` and `Cmd+Option+Down` (`Ctrl+Alt+Up` and `Ctrl+Alt+Down` on Windows and Linux). The list moves with your fingers, with the next Space coming in beside it. Let go before halfway, or after stopping, and it springs back. Flick, and it goes on to the next Space. Opening something from another Space switches the sidebar to it, and switching with a click or a key slides in the same way.
+- **A hint for switching Spaces.** A quiet line at the bottom of the sidebar tells you about the swipe. It goes away for good the first time you use it.
+
+### Changed
+
+- **One plus button.** The plus at the bottom left of the sidebar adds a new Space or a module to the Space you are in. Trash and Collapse sidebar are now small icons next to your Spaces.
+
+## 0.56.4 (2026-10-30)
+
+### Fixed
+
+- **Typing `^` in an empty code or math block.** The block no longer breaks when you type `^` followed by another key. The copy button on code blocks now has a name for screen readers.
+
+## 0.56.3 (2026-10-30)
+
+### Added
+
+- **Fit Width for PDFs.** A new button in the PDF toolbar makes the page as wide as the viewer.
+
+### Changed
+
+- **Smoother PDF zoom.** Each zoom step now changes the size by the same share at every zoom level, so zooming in and out feels even. Pinching on the trackpad zooms around your cursor.
+
+### Fixed
+
+- **Faster PDFs.** Zooming and scrolling through long PDFs is quicker, and pages no longer jump around while they load.
+- **Blank pages when zoomed far in.** Very large pages at a high zoom no longer turn blank.
+
+## 0.56.2 (2026-10-30)
+
+### Changed
+
+- **Quick assignment keeps you where you are.** An assignment added with the quick assignment shortcut now opens in a new tab in the background, so you can keep working in your jot or note.
+
+## 0.56.1 (2026-10-30)
+
+### Added
+
+- **Vectors in plots.** Draw an arrow between two points with `(0, 0) -> A` or `A -> B`. Name the points once, like `A = (1, 2)`, or write the coordinates out.
+- **Named vectors in plots.** Name a vector with `a = 0 -> A`, where `0` is the origin, then draw sums and differences with `a + b` and `a - b`. A result can be named too, like `c = a + b`, and used in later lines.
+- **Hidden lines in plots.** Start a line with `!#` and it still works, so other lines can use its points, vectors and values, but the plot does not draw it or list it in the legend. A line that starts with `#` is a comment.
+- **Lines without a variable in plots.** A line like `z_1 = 2` is now drawn as a horizontal line, the same as `z_1(x) = 2`. A value that other lines use, like `a = 3` in `y = a x`, stays a plain value.
+
+### Changed
+
+- **Formulas in the plot legend.** The legend in the corner of a plot now shows each line as a formula, like fractions, roots and subscripts, in the app and in exports.
+
+## 0.56.0 (2026-10-29)
+
+### Added
+
+- **Links to selected text.** Select text in a block, right click, and choose Copy Mention for Selection or Copy Link for Selection. Opening the link shows the page and selects that text. If the text has changed, the block is shown instead.
+
+## 0.55.4 (2026-10-29)
+
+### Changed
+
+- **Links use readable IDs.** Copy Link now names the page by its short ID, like nookly://open/NOT-58, the same way mentions do. Show dictionary file now shows the file in Finder.
+
+## 0.55.3 (2026-10-29)
+
+### Changed
+
+- **Your dictionary is a file.** Words you add to the spell checker are kept in a plain file, dictionary.json, which you can edit. Settings has a Show dictionary file button for it, like the settings file.
+
+## 0.55.2 (2026-10-29)
+
+### Changed
+
+- **Settings navigation.** Pages under a category, like LaTeX under Editor and the shortcut groups, now hang on a guide line under it instead of showing an arrow icon.
+
+## 0.55.1 (2026-10-29)
+
+### Fixed
+
+- **Pasted Nookly links.** A link that opens Nookly, like one from Copy Link, now becomes a clickable link when you paste it into a page, and clicking it opens what it points at.
+
+## 0.55.0 (2026-10-29)
+
+### Added
+
+- **Spell checker.** Nookly can now underline misspelled words while you write and offer corrections on a right click, with Ignore Spelling and Add to Dictionary. It is off until you turn it on, and asks you once after this update. Pick several languages at once, and a page that mixes them, like English and German, is checked without any switching. Code, links and mentions are never checked.
+
+## 0.54.0 (2026-10-29)
+
+### Added
+
+- **Links that open Nookly.** Right click an item or a block and choose Copy Link to get a link that opens Nookly right there when you click it in a browser, a chat or any other app. If Nookly is already open, the link opens in that window. The links only work on the computer they were copied from.
+
+## 0.53.0 (2026-10-29)
+
+### Added
+
+- **Files by path.** Add a file to a page by its full path, such as /Users/you/Downloads/handout.pdf, with the new Path option. Nookly only reads the file, never changes it. If the file is moved, renamed or on a drive that is not connected, the block says so and keeps the path, so it works again once the file is back. You can edit the path or replace the file at any time.
+
+## 0.52.0 (2026-10-29)
+
+### Added
+
+- **Open the agent folder in an AI app.** The Agent tab has an Open in button that lists the AI apps on your computer, such as Claude, ChatGPT, Cursor and VS Code, and opens your agent folder in the one you pick. The app you used last is listed first.
+
+## 0.51.0 (2026-10-29)
+
+### Added
+
+- **Table row and column menus.** Right click the grip of a table row or column to copy a mention to it, add a row or column, duplicate, move, clear or delete it. Opening a mention of a row or column shows the table and marks those cells.
+
+## 0.50.0 (2026-10-29)
+
+### Added
+
+- **Quick assignment.** Press Cmd+Shift+A, or Ctrl+Shift+A on Windows and Linux, to create an assignment from anywhere. While a session is running, it starts in that session's course and is linked to the session. You can change the shortcut in Settings.
+
+### Changed
+
+- **Shortcuts in Settings.** Shortcuts now have a page for each group, such as Navigation, Tabs and Create, and the editor keys like bold, headings and lists are listed too.
+
+## 0.49.0 (2026-10-29)
+
+### Added
+
+- **Search the headings of a page.** On a long page, the section list at the bottom now has a search field. Type a few letters to find a heading, use the arrow keys and Enter to jump to it, and press Escape to clear the search.
+
+## 0.48.0 (2026-10-29)
+
+### Changed
+
+- **Readable mentions.** A copied mention, a Markdown export and the command line now show a page by its short ID, like JOT-12 or NOT-4, instead of a long code. Mentions you made before keep working and open the same page.
+
+## 0.47.0 (2026-10-29)
+
+### Changed
+
+- **Refining a jot opens it beside the note.** Choosing Refine into New Note now shows the jot and the new note side by side, so you can read the jot while you write the note, without switching back and forth.
+
+## 0.46.0 (2026-10-29)
+
+### Added
+
+- **Duplicate a line.** Press Cmd+D, or Ctrl+D on Windows and Linux, in a page to copy the current line right below it. It works for text, list entries, tasks and lines of code, and one undo takes the copy away. The shortcut is listed in Settings under Shortcuts.
+
+## 0.45.0 (2026-10-29)
+
+### Added
+
+- **AI Comment callout.** A new callout type, AI Comment, marks comments written by an AI, for example about what it changed when refining a jot. It has its own purple look, so you can tell it apart from the standard callouts at a glance. Pick it from the callout icon, or let your agent use it.
+
+## 0.44.0 (2026-10-29)
+
+### Added
+
+- **Assembly in code blocks.** Assembly is now a language in code blocks, with colors for instructions, registers, labels, numbers, directives and comments. Typing asm or nasm after the three backticks picks it too.
+
+## 0.43.2 (2026-10-29)
+
+### Changed
+
+- **Relationships in a fixed order.** In the details sidebar, related items are grouped in the same order every time: bookmarks, assignments, tasks, notes, jots, files, courses and so on, no matter when they were linked.
+
+## 0.43.1 (2026-10-29)
+
+### Changed
+
+- **Copy Mention.** Copy Link on an item is now called Copy Mention, and Copy Link to Block is now Copy Mention for Block, because that is what they put on your clipboard.
+
+## 0.43.0 (2026-10-29)
+
+### Added
+
+- **Sharing files.** A file now has a Share button in its details sidebar, and Share in its more actions menu, to send the file itself through the share menu of your computer.
+
+## 0.42.2 (2026-10-22)
+
+### Changed
+
+- **Picking a session for a due date.** When an assignment is due before a specific session, you now pick it from a week of your calendar, so you can see which session is which. The due date menu also always opens below the field.
+
+### Fixed
+
+- **Due before the next session.** An assignment due before the next session now stays on that session once it starts, instead of moving on to the one after it.
+
+## 0.42.0 (2026-10-21)
+
+### Added
+
+- **Plots.** Type /plot in a page to draw functions, points and lines in a coordinate system. Write one per line, like `f(x) = x^2 - 2` or `A = (1, 2)`, and the preview shows the grid, the axes, every curve in its own color and a legend. Set what a plot shows with `window: -10..10`, or `window: -10..10, -2..8` to set the height too. Plots come along into PDF, Word and OpenDocument exports.
+
+## 0.41.0 (2026-10-21)
+
+### Added
+
+- **New task from anywhere.** Press Cmd+Shift+T, or Ctrl+Shift+T on Windows and Linux, to open the New task dialog wherever you are. You can change the shortcut in Settings.
+
+### Changed
+
+- **New Task in the command menu opens the task dialog.** Choosing New Task after Cmd+K now opens the same dialog as the Tasks page, with the title field ready for typing, instead of creating an untitled task.
+
+## 0.40.1 (2026-10-21)
+
+### Fixed
+
+- **Inline math in exports.** Formulas inside text now show as real formulas in PDF, Word and OpenDocument files instead of raw LaTeX, with proper fractions and sums in PDFs and the export preview. Word files get real Word equations you can edit.
+
+## 0.40.0 (2026-10-20)
+
+### Added
+
+- **Colored text in Notes and Jots.** Select text and pick Red, Orange, Yellow, Green, Blue, Purple, Pink or Gray from the color bar that appears below it, or remove the color again. Colors work together with bold, italic, highlights and links, and come along into PDF, Word and OpenDocument exports. Markdown files leave them out.
+- **Page intervals for files.** A file in a page can now name the last page of its interval, such as pages 3 to 9, in a second field next to the first page. The file still opens on the first page.
+
+## 0.39.3 (2026-10-20)
+
+### Changed
+
+- **Exports start on A4.** PDF, Word and OpenDocument exports now default to A4 for everyone. Letter and the other sizes are still in the Export dialog.
+
+## 0.39.2 (2026-10-20)
+
+### Changed
+
+- **Cmd or Ctrl and a click on a file opens it in a new tab.** A file embedded in a page now opens inside Nookly in a new tab instead of in your default app. Open File on its toolbar still uses your default app.
+
+## 0.39.1 (2026-10-20)
+
+### Changed
+
+- **Show settings file.** The button and command that open your settings file are now called Show settings file.
+
+## 0.39.0 (2026-10-19)
+
+### Added
+
+- **Export Notes and Jots as PDF, Word or OpenDocument.** The new **Export...** option opens one dialog for every file format, Markdown included, with a preview of the pages as they will print. Pick the page size, orientation, margins and text size, and choose whether the title goes on top as a heading. Formulas, diagrams and circuits come out as pictures, and every other block keeps its look.
+
+### Changed
+
+- **Save as Markdown file moved into Export.** Markdown is now one of the formats in the Export dialog. Copy Page as Markdown and Export as Nookly Page stay where they were.
+
+## 0.38.0 (2026-10-17)
+
+### Added
+
+- **Filter with OR.** Click **and** between two filters to switch it to **or**, and an item shows when it fits either one. Chips joined with **or** sit together in a box, and click **or** to switch back. A dotted **Add filter** placeholder after your filters is always there, with its own **and** or **or** in front, so the option is easy to spot. Saved Views remember it too.
+
+### Changed
+
+- **Clear filters has a fixed place.** The button, renamed from Clear all, now always sits in the row with the Filter button, above your filters.
+
+## 0.37.6 (2026-10-17)
+
+### Added
+
+- **Filter assignments by when they were evaluated.** The new Evaluated at filter works like Completed at does for Tasks.
+
+### Changed
+
+- **Tasks' Completed filter is now called Completed at.**
+- **Filters are listed alphabetically.** Every Filter menu now lists its filters in alphabetical order.
+
+## 0.37.5 (2026-10-16)
+
+### Fixed
+
+- **Files scroll smoothly with many PDFs.** Large Spaces no longer lag or leave blank gaps while you scroll, and PDF previews appear a few at a time instead of all at once.
+
+## 0.37.4 (2026-10-16)
+
+### Changed
+
+- **Notes and Jots scroll under their header.** The title, search and filters stay in view while the list scrolls, and the list no longer scrolls sideways.
+
+### Fixed
+
+- **Notes and Jots stay fast with thousands of entries.** Long lists open quicker, scroll smoothly and keep up while you type in the search field.
+
+## 0.37.3 (2026-10-16)
+
+### Fixed
+
+- **Quick filters star a filter, not its choices.** Star a filter such as Course in the Filter menu to keep it next to the Filter button, where one click opens its choices.
+- **Checkboxes keep their size.** The checkboxes in the Filter menu no longer get squeezed when a name is long.
+
+## 0.37.1 (2026-10-16)
+
+### Fixed
+
+- **Pages fit better in split view.** Page headers with titles and buttons, such as the Calendar's, no longer get squeezed together when a page is narrow.
+
+## 0.37.0 (2026-10-16)
+
+### Added
+
+- **Quick filters on Notes and Jots.** Star a filter such as Course in the Filter menu to keep it next to the Filter button, where one click opens its choices. Each page and Space keeps its own.
+- **Notes on the Course page.** The five most recently edited Notes of a course, with Show more opening the Notes page on that course.
+
+### Changed
+
+- **A fuller Course page.** The page now runs from the notes editor to the stat tiles, Sessions, Assignments, Notes and Exams. Sessions is this week of your calendar with the course's own sessions standing out, and Assignments, Notes and Exams look as they do on their own pages.
+- **The next session tile names the session.** It shows the session's name along with its day, time and how soon it starts.
+
+## 0.36.0 (2026-10-16)
+
+### Added
+
+- **Find in a page.** Press `Mod+F` to search the page you are writing in. Selected text starts the search, Enter and Shift+Enter step through the matches and select each one, and you can match case, match whole words or use regular expressions. Open the replace field to replace one match or all of them, or pick Select All Occurrences to type over every match at once.
+
+## 0.35.0 (2026-10-16)
+
+### Added
+
+- **Zoom a group.** Press `Mod+Shift+Enter`, or right click a tab and pick Zoom Group, to hide the other side of a split view and give the focused side the whole page. Press it again to bring both sides back.
+
+## 0.34.18 (2026-10-16)
+
+### Fixed
+
+- **Split view tabs are spaced properly.** Fixed the spacing around the tabs in split view.
+
+## 0.34.17 (2026-10-16)
+
+### Changed
+
+- **Wider pages on wide windows.** Notes and Jots use more of a large window instead of leaving wide empty sides.
+
+## 0.34.16 (2026-10-16)
+
+### Fixed
+
+- **Formulas stay formulas.** A formula could come back as plain text with its dollar signs after a reload when its text ended in a space or a line break, when a digit followed it straight away, or when it held a dollar sign. They now stay drawn, and the edit box tidies the spaces around a formula when you finish.
+
+## 0.34.15 (2026-10-16)
+
+### Fixed
+
+- **LaTeX is marked as part of Editor.** In Settings, the LaTeX page under Editor stays indented and now carries a corner icon that shows it belongs to Editor.
+
+## 0.34.14 (2026-10-16)
+
+### Fixed
+
+- **Decks on the dashboard are no longer squeezed.** When a deck card is narrow, its name, counts and Study button stack instead of covering each other.
+
+## 0.34.13 (2026-10-16)
+
+### Changed
+
+- **Tabs show the ID of their page.** A tab for a task, note or file now starts with its ID, such as TSK-14, so similar names are easy to tell apart.
+
+## 0.34.12 (2026-10-16)
+
+### Added
+
+- **Say what a file is attached to.** On a file or bookmark, Relate to now offers Attached to, so you can link it to a page from the file's side.
+
+## 0.34.11 (2026-10-16)
+
+### Fixed
+
+- **Search ignores accents everywhere.** Quick open, commands, search and every list in a menu find "Übungsblatt" whether you type "Übungs" or "ubungs", and whether the file name came from macOS or not.
+
+## 0.34.10 (2026-10-16)
+
+### Added
+
+- **Upload a file straight from a page.** The attach menu in the details sidebar has an Upload File button at the top that adds the file to Nookly and attaches it in one step.
+
+### Fixed
+
+- **Long label names no longer squash their checkbox** in the label picker.
+
+## 0.34.7 (2026-10-16)
+
+### Fixed
+
+- **Markdown files with a divider or front matter open again.** A `---` line no longer leaves the viewer empty.
+- **Markdown files open dark by default,** like code and text files.
+- **Markdown files no longer have extra space on the left.**
+
+## 0.34.6 (2026-10-15)
+
+### Added
+
+- **Ungraded assignments.** A new Evaluation property, Ungraded or Graded, tells homework from graded work, in the create dialog and on the assignment. Only a graded assignment shows the Grade field and takes a share of the course grade, and the Grades report leaves ungraded ones out.
+- **Formulas on their own line in deck cards.** Write `$$…$$` for a centred formula that can run over several lines, or use `\(…\)` and `\[…\]`. The card writer shows a preview as you type.
+
+### Changed
+
+- **The slash menu is easier to search.** `/h2`, `/heading2`, `/title` and `/header` find the headings, and typing letters in order such as `/bkmk` finds Web bookmark. Closer matches stay on top.
+
+### Fixed
+
+- **Dollar amounts in deck cards stay text.** "It costs $5 and $10" no longer turns into a formula, and `\$` shows a plain dollar sign.
+- **Decks on the dashboard look better when space is tight.**
+
+## 0.34.3 (2026-10-15)
+
+### Fixed
+
+- **Hiding the details sidebar in split view only affects your side.** The shortcut and the button now hide or show the sidebar of the side you are working in, and the other side stays as it was.
+
+## 0.34.2 (2026-10-15)
+
+### Fixed
+
+- **The dashboard summary no longer repeats your next session.** When a session is about to start, it is mentioned once instead of twice.
+
+## 0.34.1 (2026-10-15)
+
+### Changed
+
+- **Long pages render in full again.** Parts of a page scrolled out of view are no longer skipped, which brings back the page's normal scrolling and find behaviour.
+- **Split view shortcuts no longer clash with text selection.** Split Right and Split Left are now `Mod+Alt+Shift+Right` and `Mod+Alt+Shift+Left` (Cmd+Option+Shift on Mac, Ctrl+Alt+Shift on Windows and Linux).
+
+## 0.34.0 (2026-10-15)
+
+### Added
+
+- **Split view.** Work in two groups of tabs side by side. Right click a tab and pick Split Right, press `Mod+Alt+Shift+Right` (or `Mod+Alt+Shift+Left` for Split Left), use the new Split button next to Import (Split Left or Split Right), run Split Left or Split Right from the command palettes, or drag a tab to the right edge of the page. Each side keeps its own tabs, pins and history, the divider between them can be dragged (double click it to split evenly again), and `Mod+1` and `Mod+2` move between the sides. Your split comes back after a restart, and a narrow window shows one side at a time.
 
 ### Changed
 
 - **Pages fit the space they get.** Lists, grids and the details sidebar now adapt to the width of their side of a split, or of the page when the sidebar is collapsed, instead of the whole window.
+- **Long pages stay smooth.** Parts of a page that are scrolled out of view are no longer laid out until you get there.
 
 ### Fixed
 
 - **Tabs work better with a screen reader.** Each tab is announced once, without its close button inside it.
+
+## 0.33.31 (2026-10-15)
+
+### Fixed
+
+- **Long section lists scroll.** The section list in the floating progress pill stops growing at a comfortable height and scrolls when a page has many headings.
 
 ## 0.33.30 (2026-10-13)
 
@@ -791,4 +1466,3 @@ All notable changes to Nookly are listed here.
 - Update 05-ui-ux-direction.md
 - README & License
 - Update AGENTS.md
-

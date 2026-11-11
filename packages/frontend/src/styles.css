@@ -3,6 +3,13 @@
 
 @source "./";
 
+/* Loading skeletons (skullet) follow the theme: a soft wash of the text color. */
+:root {
+  --skullet-base: color-mix(in oklab, var(--muted-foreground) 16%, transparent);
+  --skullet-highlight: color-mix(in oklab, var(--background) 55%, transparent);
+  --skullet-radius: 6px;
+}
+
 /* Lettered lists typed as `a)` or `A)` keep the parenthesis, which no built in list style has. */
 @counter-style lower-alpha-paren {
   system: extends lower-alpha;
@@ -40,6 +47,13 @@
     white-space: nowrap;
     user-select: none;
   }
+  /* Where a dropped file or block lands in the editor, in the same color as the line shown
+     while dragging blocks (`DropIndicator`). */
+  .nookly-drop-cursor {
+    background-color: var(--primary);
+    border-radius: 9999px;
+  }
+
   .tiptap-content {
     outline: none;
     /* Reserved for the per-block add/drag handles in `BlockHandles.tsx` — its
@@ -82,6 +96,31 @@
   }
   .tiptap-content h6 {
     font-size: 0.875rem;
+  }
+  /* Page text follows the font and size settings (`page-typography.ts`). The scale is the size
+     over the default 14px, so headings keep their proportions. */
+  .page-editor {
+    font-family: var(--page-font, inherit);
+    font-size: calc(0.875rem * var(--page-scale, 1));
+    line-height: 1.625;
+  }
+  .page-editor h1 {
+    font-size: calc(1.5rem * var(--page-scale, 1));
+  }
+  .page-editor h2 {
+    font-size: calc(1.25rem * var(--page-scale, 1));
+  }
+  .page-editor h3 {
+    font-size: calc(1.125rem * var(--page-scale, 1));
+  }
+  .page-editor h4 {
+    font-size: calc(1rem * var(--page-scale, 1));
+  }
+  .page-editor h5 {
+    font-size: calc(0.9375rem * var(--page-scale, 1));
+  }
+  .page-editor h6 {
+    font-size: calc(0.875rem * var(--page-scale, 1));
   }
   /* ⇒ and ⇔ come from a fallback font and draw small next to Inter's text (`arrow-ligatures.ts`). */
   .tiptap-content .arrow-enlarged {
@@ -134,8 +173,9 @@
   .tiptap-content .code-block-filename::placeholder {
     color: var(--muted-foreground);
   }
+  /* No `position` here: in WebKit a positioned <pre> is dissolved by the first dead key (`^`)
+     typed in it while empty, which takes the text out of the block (#124). */
   .tiptap-content pre.code-block-body {
-    position: relative;
     margin: 0;
     padding: 0.75rem;
     background: var(--block-surface);
@@ -174,6 +214,7 @@
     appearance: none;
     display: grid;
     place-content: center;
+    flex-shrink: 0;
     width: 0.9375rem;
     height: 0.9375rem;
     margin: 0;
@@ -280,6 +321,27 @@
   .tiptap-content .inline-math:hover,
   .tiptap-content .inline-math-selected {
     background: color-mix(in oklab, var(--primary) 12%, transparent);
+  }
+  /* Find in page (`find-in-page.ts`): every match, and the one the bar is on. */
+  .tiptap-content .find-match {
+    border-radius: 0.125rem;
+    background: color-mix(in oklab, #facc15 38%, transparent);
+  }
+  .tiptap-content .find-match-current {
+    background: color-mix(in oklab, #fb923c 60%, transparent);
+    outline: 1px solid #fb923c;
+  }
+  .tiptap-content .find-multi {
+    border-radius: 0.125rem;
+    background: color-mix(in oklab, var(--primary) 28%, transparent);
+  }
+  .tiptap-content .find-multi-caret {
+    display: inline-block;
+    width: 0;
+    height: 1.1em;
+    margin: 0 -1px;
+    vertical-align: text-bottom;
+    border-left: 2px solid var(--primary);
   }
   .tiptap-content .entity-card {
     padding: 0.5rem 0.625rem;
@@ -451,6 +513,14 @@
   }
   .tiptap-content .callout[data-variant="danger"] {
     --callout-tone: var(--destructive);
+  }
+  .tiptap-content .callout[data-variant="ai"] {
+    --callout-tone: var(--accent-purple);
+  }
+  .tiptap-content .spell-error {
+    text-decoration: underline wavy var(--destructive);
+    text-decoration-skip-ink: none;
+    text-underline-offset: 3px;
   }
   .tiptap-content .callout-icon {
     color: var(--callout-tone);
@@ -716,6 +786,56 @@
   :is(.dark) .tiptap-content mark[data-color="purple"] {
     --mark-bg: color-mix(in oklab, #a78bfa 40%, transparent);
   }
+  /* Text color (`{red}text{/}`): a darker shade on the light page, a lighter one in dark mode,
+     so each keeps its contrast. The bar swatches are the light shades (`text-colors.ts`). */
+  .tiptap-content span[data-text-color="red"] {
+    color: #dc2626;
+  }
+  .tiptap-content span[data-text-color="orange"] {
+    color: #ea580c;
+  }
+  .tiptap-content span[data-text-color="yellow"] {
+    color: #ca8a04;
+  }
+  .tiptap-content span[data-text-color="green"] {
+    color: #16a34a;
+  }
+  .tiptap-content span[data-text-color="blue"] {
+    color: #2563eb;
+  }
+  .tiptap-content span[data-text-color="purple"] {
+    color: #9333ea;
+  }
+  .tiptap-content span[data-text-color="pink"] {
+    color: #db2777;
+  }
+  .tiptap-content span[data-text-color="gray"] {
+    color: #6b7280;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="red"] {
+    color: #f87171;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="orange"] {
+    color: #fb923c;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="yellow"] {
+    color: #facc15;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="green"] {
+    color: #4ade80;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="blue"] {
+    color: #60a5fa;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="purple"] {
+    color: #a78bfa;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="pink"] {
+    color: #f472b6;
+  }
+  :is(.dark) .tiptap-content span[data-text-color="gray"] {
+    color: #9ca3af;
+  }
   /* Where the caret is after stepping out of a highlight or inline code
      (`inline-mark-cleanup.ts`): a small gap with a caret of our own on its outer edge, while the
      real caret is hidden. */
@@ -876,6 +996,22 @@
     0 1px 2px rgb(0 0 0 / 0.06),
     0 8px 24px -12px rgb(0 0 0 / 0.25);
 }
+/* A card face is the block editor with no page around it (`CardFaceEditor.tsx`): no gutter for
+   block handles, and a short prompt reads large on the front like a word written across a card. */
+.tiptap-content.card-face {
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  outline: none;
+}
+.tiptap-content.card-face-front :is(p, h1, h2, h3, h4, h5, h6) {
+  text-align: center;
+}
+.tiptap-content.card-face-front > p {
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
 /* Recipe banner (`RecipeDetailView.tsx`): fades the photo itself to true
    transparency via a mask, rather than laying a color-tinted gradient div on
    top of it, so it blends cleanly into the page background instead of
@@ -981,4 +1117,51 @@
   [data-sonner-toast][data-sonner-toast] {
     transition: opacity 150ms linear;
   }
+}
+
+/* The sidebar slides in and out on a quick ease out curve instead of the primitive's linear
+   200ms, and the gap that makes room for it moves in step so the page follows. */
+[data-slot="sidebar"] > :is([data-slot="sidebar-container"], [data-slot="sidebar-gap"]) {
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sidebar"] > :is([data-slot="sidebar-container"], [data-slot="sidebar-gap"]) {
+    transition-duration: 0s;
+  }
+}
+
+/* Thin steps of backdrop blur, finer toward the top. Several stacked, each shorter than the one
+   before, blur more the closer to the bottom they reach, which tapers the blur off without a mask:
+   a mask on a backdrop blur is not applied by every engine, and a blur that ignores it ends in a
+   hard edge. */
+@utility backdrop-blur-step-1 {
+  backdrop-filter: blur(0.4px);
+}
+@utility backdrop-blur-step-2 {
+  backdrop-filter: blur(0.8px);
+}
+@utility backdrop-blur-step-3 {
+  backdrop-filter: blur(1.2px);
+}
+@utility backdrop-blur-step-4 {
+  backdrop-filter: blur(1.6px);
+}
+
+/* For a row of a long, unvirtualized list that is exactly `h-11` tall: the browser leaves it
+   unrendered (no style, layout or paint) while it is scrolled out of view. A modal dialog
+   changes `pointer-events` on the body, which every element inherits, so each open and close
+   restyles the whole page; with thousands of rows that took over a second. `auto` in the
+   intrinsic size keeps the scrollbar steady by remembering a row's real height once seen. */
+@utility skip-offscreen {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.75rem;
+}
+
+/* The body of a quick create dialog (`DraftBlockEditor.tsx`) is the block editor with no page
+   around it: no gutter for block handles, a few lines tall before it scrolls. */
+.tiptap-content.draft-body {
+  min-height: 4.5rem;
+  padding: 0;
+  font-size: 0.875rem;
 }

@@ -629,7 +629,7 @@ function CourseTiles({ courseId, spaceId }: { courseId: string; spaceId: string 
   const stats = courseStats(courseId, sessions, exams, assignments, today);
   const grade = report?.semesters.flatMap((g) => g.courses).find((c) => c.course.id === courseId)
     ?.grades.grade;
-  const open = assignments.filter((a) => a.status !== "submitted" && a.status !== "graded");
+  const open = assignments.filter((a) => a.status !== "submitted" && a.status !== "evaluated");
   const examIds = new Set(exams.map((e) => e.entity.id));
   const mine = decks.filter((d) => d.examId && examIds.has(d.examId));
   const cards = mine.reduce((n, d) => n + d.stats.total, 0);

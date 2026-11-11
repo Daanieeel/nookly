@@ -11,6 +11,7 @@ import {
   definitionOf,
   isSettingId,
 } from "./registry.ts";
+import { logger } from "#/lib/log.ts";
 
 /// Hard settings, persisted with the Tauri store plugin as one flat, human readable
 /// JSON object in `settings.json` in the app data folder, keyed by setting id.
@@ -42,7 +43,7 @@ function withValue<I extends SettingId>(id: I, value: SettingValue<I>) {
 
 function persist(write: (store: Store) => Promise<void>) {
   if (!store) return;
-  write(store).catch((error) => console.error("Couldn't save settings", error));
+  write(store).catch((error) => logger.error("settings", "Couldn't save settings", error));
 }
 
 /// One change in `settings.apply`: a new value, or back to the default. The value is
@@ -136,7 +137,7 @@ export async function initSettings(): Promise<void> {
     loaded = await load(await storePath(FILE), { defaults: {}, autoSave: 100 });
     entries = await loaded.entries<SettingJson>();
   } catch (error) {
-    console.error("Couldn't load settings", error);
+    logger.error("settings", "Couldn't load settings", error);
     return;
   }
   store = loaded;
@@ -183,7 +184,7 @@ async function migrateRenamed(
       await target.delete(old);
       await target.save();
     } catch (error) {
-      console.error(`Couldn't rename ${old} to ${id}`, error);
+      logger.error("settings", `Couldn't rename ${old} to ${id}`, error);
     }
   }
 }
@@ -213,7 +214,7 @@ async function migrateLegacy(target: Store, id: SettingId, inFile: Set<string>) 
     useSettingsStore.setState((s) => ({ values: { ...s.values, ...{ [id]: value } } }));
     inFile.add(id);
   } catch (error) {
-    console.error(`Couldn't move ${def.legacyKey} to settings`, error);
+    logger.error("settings", `Couldn't move ${def.legacyKey} to settings`, error);
     return;
   }
   preferences.remove(def.legacyKey);

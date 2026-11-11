@@ -56,21 +56,13 @@ Each entry follows a lightweight ADR format: the decision, why it was made, and 
 
 ---
 
-### Five pairs are structural relationships
+### Four pairs are structural relationships
 
-Task and Sub-task, Session and Course, Exam and Course, Study Block and Exam, and Assignment and Course. Deck and Exam was one until Decks became their own module (see below).
+Task and Sub-task, Session and Course, Exam and Course, and Assignment and Course. Deck and Exam was one until Decks became their own module (see below).
 
 **Why:** the child is meaningless without its parent. A session without a course makes no sense. Structural relationships are enforced at the data layer, not just by convention, which sets them apart from generic, unenforced ones like a Course `sequel-of`.
 
 **Rejected:** treating every relationship as equally generic. That would allow orphaned Sessions, Exams, and Assignments with no parent, which never makes sense in the real world.
-
----
-
-### Study schedules use a new Study Block entity, not Sessions or Tasks
-
-**Why:** a Session must have a Course, and study prep is not a lecture, so reusing Sessions would break that rule. A Task is a checklist item and not native to a calendar, which makes it a poor fit for time-boxed study and the future calendar view.
-
-**Rejected:** reusing Session (breaks the structural rule) and reusing Task (wrong semantics, breaks the calendar view design).
 
 ---
 
@@ -172,7 +164,7 @@ The full list is now Dashboard, Pinned, Search, and Recents.
 
 ### Code blocks highlight with twinkleplop, Shiki is the fallback
 
-Every language twinkleplop ships goes through it. Shiki only covers the picker languages twinkleplop lacks (C++, C#, Java, PHP, Ruby, INI, JSONC). Both map onto the same accent tokens.
+Every language twinkleplop ships goes through it. Shiki only covers the picker languages twinkleplop lacks (C#, Java, PHP, Ruby, INI, JSONC, Assembly). Both map onto the same accent tokens.
 
 **Why:** the edited block is retokenized synchronously on every keystroke. Shiki's JS engine takes about 16ms for an 80 line block, a full frame, while twinkleplop takes under 0.1ms. First highlight after launch drops from about 300ms to about 20ms.
 
@@ -246,11 +238,33 @@ A `ChildCollectionDef` registered next to a type's schema gives the CLI `<plural
 
 ### External calendars are a read only overlay, not Sessions
 
-Google Calendar and iCloud events show on the Sessions calendar but are never entities: no Space, no relationships, no Course, no CLI exposure. Nookly never writes to either calendar.
+Google Calendar, iCloud and Moodle events show on the Sessions calendar but are never entities: no Space, no relationships, no Course, no CLI exposure. Nookly never writes to any of them.
 
 **Why:** converting them to Sessions would force a Course onto events like "Dentist" and break the Session and Course structural rule.
 
 **Rejected:** importing external events as Sessions or any other entity type, and two way sync.
+
+---
+
+### Moodle is a read only module with no entities
+
+Moodle courses, assignments, grades and forum posts are read from the user's site and shown in a Moodle module that can be added to any Space. They are not entities: no Space of their own, no relationships, no search, no CLI exposure. Nookly never writes to Moodle.
+
+**Why:** the data belongs to the university, changes there without Nookly knowing, and can disappear after a term. Copying it into entities would need conflict rules and would put a second, possibly stale, copy of someone else's records in the user's data. Files the user downloads stay on disk, so nothing they saved is lost when a course closes.
+
+**Rejected:** importing Moodle into Courses and Assignments (conflict handling and stale copies), and a username and password login (fails on single sign on sites).
+
+**Amended:** linking a Moodle course to a Nookly Course needs a relationship to something that is not an entity. That is now a hidden reference behind a File (see [below](#references-are-a-hidden-record-behind-a-file-not-an-entity)): the Moodle data is still not copied.
+
+---
+
+### References are a hidden record behind a File, not an entity
+
+A reference holds identity and a last known title for a file path, a link or a Moodle object, and gives a File an availability: one of five states, worked out live on each device and never stored (see [References](03-modules/references.md)).
+
+**Why:** each feature handled a missing or offline target its own way or not at all, and with cloud sync a file path from one device means nothing on another. Users should see only Files, so a reference is never an entity of its own: a File that only points elsewhere keeps its type, id and key, and the record sits behind it. Relationships, mentions, the Files page and the old columns (for a rollback) do not change.
+
+**Rejected:** a visible `reference` entity (a second kind of thing in every list and picker), storing the state in the synced record (wrong on some device), and copying Moodle content into entities (stale copies). Bookmarks are untouched: they own real content (favicon, preview, snapshot).
 
 ---
 
@@ -482,3 +496,169 @@ Supersedes the earlier rejection of NativeWind. NativeWind 5 runs on Tailwind 4,
 - **On the phone:** `apps/mobile/src/ui` rebuilds the primitives with those classes. Text classes move onto the `Text` inside a box (React Native doesn't inherit them), `data-[state]:` classes resolve from the component's own state, and `flex` gets `flex-row` where the desktop means a row. Inter loads per weight, so `font-medium` and the like pick the face. Inputs are `h-10` for touch. Icons, the system pickers and the navigation bars read the same variables at run time (`useUnstableNativeVariable`), so there is no copy of the colors in TypeScript.
 
 **Why:** one set of classes for both apps, so the phone looks like the desktop and keeps doing so.
+
+---
+
+### Filter chips join with AND, or with OR between neighbours
+
+A filter chip carries an optional `join` (`"and"` or `"or"`) saying how it connects to the chip before it. Chips linked by `or` form a group, and an item must pass every group and one chip of each: `A, B or C, D` reads `A and (B or C) and D`. One `matchesFilters` in `filter-menu.tsx` evaluates every list, so a page uses it instead of `every`. No `join` means `and`, so saved Views and remembered filters from before need no migration.
+
+**Why:** the common case stays a plain row of chips, and the one extra control is the word between two chips, which flips on a click.
+
+**Rejected:** nested groups and an AND/OR builder (heavy for a chip row), and an OR that binds looser than AND (`A and B or C` is easy to misread without brackets).
+
+---
+
+### PDF, Word and OpenDocument exports are made in the webview from one print layout
+
+A page turns into one print layout (`page-document.ts`) of a few shared pieces, and a writer per format draws it: pdfmake for PDF, the `docx` package for Word, hand written ODF XML zipped for OpenDocument. Figures are drawn in the webview, formulas with MathJax since KaTeX's HTML can't become a picture. The backend only writes the bytes (`write_page_export`).
+
+**Why:** formulas, diagrams and circuits are drawn by the frontend already, so the exports show them as pictures instead of source. One layout keeps the three formats alike, and a new block type needs one entry, not three.
+
+**Rejected:** printing the webview to PDF (no control over pages from the app, and no Word or OpenDocument), writing the files in Rust (every figure would come out as source), and embedding fonts in Word and OpenDocument files (a much bigger file for fonts readers mostly have stand ins for).
+
+---
+
+### A mention is stored with the id and written out with the key
+
+A mention is saved as `[Title](mention:<id>)`. Wherever it is written out as text (Copy Mention, Copy as Markdown, the Markdown export, the CLI) it reads `[Title](mention:JOT-12)` with the readable key. Content that comes in with a key (CLI blocks, a pasted link) is turned into the id before it is saved, in `db/mention_keys.rs`. Both forms open the same page and count as the same backlink. Code and other source blocks are left exactly as typed.
+
+**Why:** ids survive renames and every stored mention already uses them, so nothing in an existing database changes. The key is what people see in the app, so it is what they should read and write.
+
+**Rejected:** storing the key (needs a rewrite of every stored mention, and a key lookup on every read) and rewriting old mentions to keys (touches user data for no gain).
+
+---
+
+### The section search is a new component next to `ScrollProgress`
+
+The section navigator of a page (`ScrollProgressSearch`) is a copy of `ScrollProgress` with a search field in its open list, and Notes and Jots use it. The field only shows from six headings on. The box is always sized by the full list, so it keeps its size while a query narrows the rows.
+
+**Why:** primitives in `packages/ui` are frozen, so the search is added beside the old one instead of changing it.
+
+**Rejected:** a `search` prop on `ScrollProgress` (edits a primitive) and locking the height when the first letter is typed (the full list already gives the same height without the extra state).
+
+---
+
+### A mention of a table row or column adds `_r2` or `_c3` to the block
+
+`[Notes](mention:<id>#<block>_r2)` points at the second row of a table block, `_c3` at the third column, counted from 1 with the header as row 1. The block stays the target of backlinks and rename sync, so no stored pattern changes: the fragment alphabet already allows `_`. Opening it shows the table and marks those cells; a row or column that is gone still opens the table.
+
+**Why:** a table is one block, and the position is the only stable way to name a row or column that has no id of its own.
+
+**Rejected:** ids on rows and columns (a new field in every stored table) and a separate link syntax (a fourth way to link, see [the relationship system](01-philosophy.md#the-relationship-system-links-everything)).
+
+---
+
+### A media block can name a file on this computer by its path
+
+`/file`, `/image`, `/video` and `/audio` accept the full path of a file next to a mention and a link (`db/local_path.rs`). Nookly only reads it. The path is stored exactly as written and never rewritten: when the file is moved, renamed, unreadable or on a drive that is not connected, the block shows why and the path keeps working once the file is back. The CLI reports the same reasons (`fileStatus` when reading, a `warning` when writing) and refuses only an empty or malformed value. Programs (`.app`, `.exe`, `.sh`, ...) are not opened from a path.
+
+**Why:** a path is the lightest way to point at a file that lives elsewhere, and a reference that is never edited cannot lose anyone's data.
+
+**Rejected:** importing the file on save (a path is for files people want to leave where they are), checking the file before saving it (a drive that is off would make the path impossible to write), and a hard failure on a missing file (it would break reading a whole page).
+
+---
+
+### `nookly://open/<id>` links open Nookly on an entity or a block
+
+A "Copy Link" action next to "Copy Mention" copies `nookly://open/<entityId>` or `nookly://open/<entityId>#<blockId>`, which opens Nookly on it from a browser, a chat or any other app. A running Nookly takes the link in its window (`tauri-plugin-single-instance`, release builds only, so `tauri dev` never hands over to the installed app); a closed one starts, and the link waits in a queue (`lib/deep-link.ts`) until the app has mounted. The link is untrusted input: it is parsed strictly (`lib/deep-link-url.ts`), it only navigates, and it reuses the mention navigation. An entity that is not on this computer shows a "nothing to open here" notice and changes nothing, a trashed entity opens faded, a missing block falls back to its page.
+
+**Why:** a mention only works inside Nookly. The links carry local ids, so they work on the computer and database they were copied from, and the app does not suggest otherwise.
+
+**Rejected:** a second routing path next to `parseMentionHref` (one place decides what a target means), registering the scheme from `tauri dev` (macOS only registers it from an installed app, so it is tested with a built app), and links that create or change anything.
+
+---
+
+### The spell checker is Hunspell in Rust, off until the user turns it on
+
+Misspelled words come from Hunspell dictionaries read by the `spellbook` crate in the backend, with the dictionaries compiled into the app. A page's words are asked about in batches, and the editor underlines what comes back (`features/spellcheck`). Nothing runs until the user says yes: one question after the update, then a switch in Settings.
+
+**Why:** German is written in compounds (Straßenbahn, Prüfungsvorbereitung), which `nspell`, the JavaScript Hunspell, flagged as wrong in a trial, and every language has to work at once on one page. `spellbook` knows compounds, loads a dictionary in about 15 ms and keeps typing off the UI thread. The webview's own spell checker is not an option: it follows the system's settings, differs per platform and cannot take several languages chosen in the app.
+
+**Rejected:** `nspell` in a worker (wrong on compounds), the platform's spell checker (no control over languages), and downloading dictionaries on demand (the app works offline and needs nothing fetched).
+
+---
+
+### The spell checker's own words are a file, not a setting
+
+Words added with Add to Dictionary go to `dictionary.json` in the app data folder, written by the backend (`dictionary_file.rs`). Settings show only a Show dictionary file button, like the settings file. A file that cannot be read is reported and left exactly as it is, and the checker reads it again when the window comes back, so an edit shows up without a restart.
+
+**Why:** a list that grows without bound does not belong in `settings.json`, and a plain file can be edited, shared and backed up by hand, which a row of chips in Settings could not.
+
+**Rejected:** keeping the words in a setting with a management row (it grows without limit and every word saved rewrites all settings).
+
+---
+
+### A mention of selected text carries the text, not its place
+
+`[cat](mention:NOT-58#<block>_q<text>)` points at a piece of text in a block. The fragment is the block, `_q`, and the text as base64url (at most 120 characters, the start of a longer selection), which fits the characters a fragment already allows, so the backlink index, rename sync and the Rust patterns did not change. Opening it finds the text in the block again, across formatting and list items, and selects it; if the text is gone, the block is shown as for any block link. Copy Mention for Selection and Copy Link for Selection sit in their own group above the block copies.
+
+**Why:** a character offset would point somewhere else after the first edit above it, while the text itself still finds its way.
+
+**Rejected:** offsets into the block (they break on every edit) and a fragment per selection stored in the database (a new table for a link).
+
+---
+
+### The sidebar shows one Space at a time
+
+The sidebar lists the active Space's modules only. All Spaces sit in a row of icons at the bottom, four slots wide, with the rest behind a three dot button. The active Space follows the focused tab, so opening anything in another Space moves the sidebar there. Switching is a click, a two finger swipe or `Cmd+Option+Up` and `Cmd+Option+Down`. The old multi expand state (`nookly:expanded-spaces`) is gone; a leftover value is ignored. System is no longer mentioned in the docs as a pinned item, since the sidebar never had one.
+
+**Why:** stacking every Space with its modules made the sidebar long and noisy, and it only gets worse as modules are added. Spaces are a hard wall, so showing one at a time matches how they behave. Arc and Zen do the same.
+
+**Rejected:** keeping Spaces as collapsible folders (the growth problem stays), a Space switcher at the top (the bottom row keeps the global block where it is and puts the switch near the thumb and the trackpad), and wrapping the swipe around (an overshoot would jump from the last Space to the first).
+
+---
+
+### Settings navigation is flat and grouped, and pages follow what someone is doing
+
+The Settings dialog lists ten pages under muted group headers (General and Appearance; Writing and study: Editor, Calendar; Data and accounts: Backup, Connections; Power tools: Shortcuts, LaTeX macros, Agent), with About and the settings file at the bottom. Nothing nests. Shortcuts is one page with a filter strip (All and each section). Search sits at the top of the sidebar, `/` focuses it. A page is not a registry category: `settings-pages.ts` maps each row to a page, so setting ids, search keywords and the CLI are untouched. A setting whose content has a better shape (theme, backup status, connections) draws its own component inside its row.
+
+**Why:** about 16 indented rows did not scan, more categories are coming, and the full width search row took height from every page. A uniform row for every setting made a theme, a backup and a key binding look alike.
+
+**Rejected:** collapsible groups (they hide pages for no gain at ten items), keeping a nav row per shortcut section (eight rows for one topic), and separate dialogs per page.
+
+---
+
+### The macOS data folder is renamed once and left behind a symlink
+
+On macOS the real data folder is `Application Support/Nookly`. `com.nookly.app` stays as a symlink to it. At startup (`data_folder.rs`), before the database opens, a real `com.nookly.app` with no `Nookly` is renamed and linked. A missing link is put back, a dead link to `Nookly` is removed, and two real folders are never merged. A failed link undoes the rename.
+
+**Why:** Finder treats a name ending in `.app` as an application, so users could not open their own data. `nookly.db` stores absolute paths under the old name, which keep resolving through the link, as do older releases, the CLI and scripts. A rename within a volume copies nothing and keeps open files valid.
+
+**Rejected:** changing the bundle identifier (keychain, WebView storage, updater and deep links all hang on it), copying the folder (a second copy of everything and a rewrite of every stored path), and only a "Show data folder" action (it leaves the Finder problem).
+
+---
+
+### The database stays on the default rollback journal
+
+Nookly does not use write ahead logging (WAL). The app and the CLI share `nookly.db`, and with the rollback journal a writer briefly blocks readers.
+
+Measured with `cargo test --release --lib perf_wal_contention -- --ignored --nocapture`: one connection saves 500 Tasks back to back while another keeps listing 5,000 entities. The slowest read waited 180 ms with the rollback journal and 6 ms with WAL. Nothing failed in either mode, and 500 writes took 860 ms against 300 ms. The collision only happens while something writes in a tight loop, such as an agent importing many items. One edit at a time never shows it.
+
+**Why:** WAL puts `nookly.db-wal` and `nookly.db-shm` beside the database, and several flows assume `nookly.db` is the whole database: `backup_before_migration` and `db/upgrade.rs` copy it with `fs::copy`, restore replaces it, and people copy the data folder by hand. A copy that misses the `-wal` file can lose the newest writes. The gain is a stall of a fraction of a second during bulk agent writes, which does not justify that risk for data that must never be lost.
+
+**Revisit when:** contention is reported in real use, and only together with checkpointing before every file copy (or the SQLite backup API instead of `fs::copy`), and tests for upgrade, backup, restore and a crash during a write.
+
+**Rejected:** switching now and checkpointing in the copy paths (every path that copies the file would have to be found and kept correct for good).
+
+---
+
+### One ranked search list, one engine for Cmd+K and Cmd+P
+
+Search is one SQL statement that returns a single ranked list: key matches, then titles (exact, prefix, substring, then full text rank), then blocks, then Bookmark and File text, one row per entity. Type, label and Space filters run inside it. `Cmd+P` is the same call with `titlesOnly`, which skips the body sources. Nothing loads when a palette opens except Recents (`list_entities_by_ids`), labels load only once `#` is typed, and there is no typing pause: every keystroke searches, and the backend stops a search that a newer one replaced. The grouped results, "View all", the filter menu in the palette and the separate Cmd+P matcher are gone. `Cmd+P` no longer finds scattered letters inside a title, only words that start with what was typed, like Cmd+K. Recents is the empty state, followed by the filter hints and suggestions; Pinned is left to the sidebar, so an empty palette runs no extra queries.
+
+**Why:** scanning headings was slower than reading a list. Two result lists meant two sets of code. Loading every entity and label before the first letter was the main cost of opening.
+
+**Rejected:** an in memory index in the frontend (a second copy of the data that can drift, the full text index already is the index) and a fixed typing pause (it only delays the first answer).
+
+---
+
+### Mind maps are a custom block drawn from an outline
+
+A mind map is the `mindmap` block, an indented list with one idea per line, not a module. It has no life outside the page it sits on, and `diagram`, `circuit` and `plot` already have the same shape. The outline text is the only source of truth: markdown export, the CLI and the PDF, Word and OpenDocument exports all read it, and the layout is worked out from it the same way every time. Folding branches in the preview is only a view and never changes the outline.
+
+**Why:** one text that every reader understands keeps the block fully covered by the CLI and the exports without a second format to keep in sync. Dragging only moves nodes inside the block; it does not turn into a free canvas.
+
+**Dragging:** dragged positions are editor owned layout data in a versioned `layout` block attr, the way the circuit block keeps its drawing. The attr holds an id per outline line (a parallel list) and, for each moved node, its offset from the automatic place; a node's offset adds to its parent's, so a dragged branch takes its subtree along. Dragging never changes the outline, and "Reset layout" clears the attr. Ids are never written into the outline text. Every outline edit, from the editor or the CLI, goes through a line diff (longest common subsequence) between the old and new text: unchanged lines, lines moved elsewhere and lines edited in place keep their id, new lines get a fresh one, deleted lines drop theirs, and positions that match no line are cleaned up. A layout made for other text (a pasted or externally written outline) is cleared, so its nodes use the automatic layout and the outline is never touched. The editor follows its own edits in a plugin; a write without a layout of its own, such as the CLI's, is followed in `update_block`. The two implementations share their test cases. Exports and markdown ignore positions and lay out from the outline alone.
+
+**Rejected:** inline markers like `{#a1b2}` (they would leak into markdown, the CLI and every export), and keying positions by path or text (renaming or reordering would lose them).

@@ -1,4 +1,5 @@
 use crate::db::entities::Entity;
+use crate::db::references::{self, Probe, ReferenceFacts, ReferenceStatus};
 use crate::db::schema::{CreateInput, EntitySchemaDef, FieldDef, FieldKind, JsonMap};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -16,6 +17,9 @@ pub struct FileEntity {
     /// Where a referenced file lives on disk, outside Nookly's storage. Set with
     /// no `local_path` until the file is copied in.
     pub source_path: Option<String>,
+    /// Where an imported File came from, as an opaque key the importer chose (a Moodle
+    /// file is `moodle:<its address>`). Lets that source tell what it already imported.
+    pub origin: Option<String>,
     /// Read only. True for a File of an indexable type (pdf, png/jpg, docx,
     /// pptx, xlsx, code/plain text files — see `extractor_for`) that has no
     /// search content yet: never indexed (imported before this File type
@@ -36,6 +40,17 @@ pub struct FileEntity {
     /// `get_file` does, so listing many Files never pulls their full text
     /// along for the ride. Use `nookly cli file get <id>` to read it.
     pub indexed_content: Option<String>,
+    /// Present while the File only points at a file or link elsewhere (no stored copy):
+    /// what is known about the target, and whether this device can reach it. Worked out
+    /// live for a file on disk; a link is looked at with `check_reference`. `None` for a
+    /// File stored in Nookly. `source_path` is this device's path for a pointer File.
+    pub reference: Option<ReferenceFacts>,
+    /// Whether this device finds the file right now, for every File that has bytes to look
+    /// for: a stored copy is found or missing, a pointer to a file is its reference's state.
+    /// `None` for a link that was never downloaded (it needs the network: `check_reference`).
+    pub availability: Option<ReferenceStatus>,
+    #[serde(skip)]
+    has_indexed_content: bool,
 }
 
 fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
@@ -54,11 +69,43 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
         url: row.get("url")?,
         original_filename: row.get("original_filename")?,
         source_path,
+        origin: row.get("origin")?,
         needs_reindex,
         blob: row.get("blob")?,
         label_ids: Vec::new(),
         indexed_content: None,
+        reference: None,
+        availability: None,
+        has_indexed_content,
     })
+}
+
+/// For a File that only points elsewhere, replaces the path the row remembers with what is
+/// true on this device (that path, or none when the File is from another device), and
+/// attaches what is known about the target. Rows written before references existed are
+/// followed by their reference from the upgrade, so `files.source_path` is kept but no
+/// longer the source of truth.
+fn resolve_reference(conn: &Connection, file: &mut FileEntity) -> AppResult<()> {
+    if let Some(stored) = file.local_path.as_deref() {
+        let probe = if Path::new(stored).is_file() {
+            Probe::Reached
+        } else {
+            Probe::Gone
+        };
+        file.availability = Some(references::status_from(probe, None));
+        return Ok(());
+    }
+    let Some(facts) = references::facts_for(conn, &file.entity.id)? else {
+        return Ok(());
+    };
+    if facts.provider == references::PROVIDER_FILE {
+        file.source_path = facts.path_on_this_device.clone();
+        file.needs_reindex =
+            !file.has_indexed_content && file.source_path.as_deref().is_some_and(is_indexable);
+    }
+    file.availability = facts.status.clone();
+    file.reference = Some(facts);
+    Ok(())
 }
 
 /// The exact text `search_index` holds for this File — empty until something's
@@ -91,6 +138,110 @@ pub fn import_file(
     // Copied on disk rather than read into memory, so a huge file costs no RAM.
     let local_path = copy_stored(files_dir, &original_filename, source_path)?;
     register_stored(conn, space_id, &original_filename, local_path, None)
+}
+
+/// What the importer chose for a File while importing it, all applied or none.
+#[derive(Debug, Default, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ImportDetails {
+    /// Where the File came from; see `FileEntity::origin`.
+    pub origin: Option<String>,
+    /// The File's name in Nookly. The file's own name when empty.
+    pub title: Option<String>,
+    /// Existing Labels of the Space to put on the File.
+    pub label_ids: Vec<String>,
+    /// Labels to create first (one the Space has already by that name is reused).
+    pub new_labels: Vec<NewLabel>,
+    /// Entities (a Course, say) to attach the File to.
+    pub attach_to: Vec<String>,
+}
+
+#[derive(Debug, Default, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewLabel {
+    pub name: String,
+    pub color: String,
+}
+
+/// `import_file`, plus a name, Labels, attachments and an origin chosen before the File
+/// exists. Either everything lands or nothing does: a failure leaves no File, no new Label
+/// and no copy in storage behind.
+pub fn import_file_with_details(
+    conn: &Connection,
+    files_dir: &Path,
+    space_id: String,
+    source_path: &Path,
+    details: ImportDetails,
+) -> AppResult<FileEntity> {
+    let original_filename = source_path
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_else(|| "untitled".to_string());
+    let local_path = copy_stored(files_dir, &original_filename, source_path)?;
+    let result = crate::db::atomically(conn, || {
+        let file = register_stored(
+            conn,
+            space_id.clone(),
+            &original_filename,
+            local_path.clone(),
+            None,
+        )?;
+        let id = file.entity.id;
+        if let Some(title) = details
+            .title
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+        {
+            let patch = crate::db::entities::EntityPatch {
+                title: Some(title.to_string()),
+                ..Default::default()
+            };
+            crate::db::entities::update_entity(conn, &id, patch)?;
+        }
+        conn.execute(
+            "UPDATE files SET origin = ?1 WHERE entity_id = ?2",
+            params![details.origin, id],
+        )?;
+        let mut label_ids = details.label_ids.clone();
+        for new in &details.new_labels {
+            let name = new.name.trim();
+            let existing = crate::db::labels::list_labels(conn, &space_id)?
+                .into_iter()
+                .find(|l| l.name.eq_ignore_ascii_case(name));
+            let label_id = match existing {
+                Some(label) => label.id,
+                None => {
+                    crate::db::labels::create_label(
+                        conn,
+                        space_id.clone(),
+                        name.to_string(),
+                        new.color.clone(),
+                    )?
+                    .id
+                }
+            };
+            label_ids.push(label_id);
+        }
+        for label_id in &label_ids {
+            crate::db::labels::attach_label(conn, &id, label_id)?;
+        }
+        for owner in &details.attach_to {
+            crate::db::relationships::create_relationship(
+                conn,
+                owner.clone(),
+                id.clone(),
+                "attached-file".into(),
+                None,
+                None,
+            )?;
+        }
+        get_file(conn, &id)
+    });
+    if result.is_err() {
+        let _ = std::fs::remove_file(&local_path);
+    }
+    result
 }
 
 /// Writes `bytes` into storage as a new File. `source_url` is where a downloaded
@@ -341,8 +492,72 @@ pub fn reference_file(conn: &Connection, space_id: String, path: &Path) -> AppRe
          VALUES (?1, NULL, NULL, NULL, ?2, ?3)",
         params![entity.id, filename, path.to_string_lossy()],
     )?;
+    references::add_file_reference(
+        conn,
+        &entity.id,
+        &filename,
+        &path.to_string_lossy(),
+        &crate::db::device::current(),
+    )?;
     index_file_content(conn, &entity.id, &path.to_string_lossy());
     get_file(conn, &entity.id)
+}
+
+/// Keeps a link as a File without downloading it: the File shows whether the link answers,
+/// and Copy into Nookly downloads it whenever the person wants the bytes. `title` is its name
+/// (the link's file name when blank).
+pub fn add_link(
+    conn: &Connection,
+    space_id: String,
+    link: &str,
+    title: Option<&str>,
+) -> AppResult<FileEntity> {
+    let link = link.trim();
+    let parsed = url::Url::parse(link)
+        .ok()
+        .filter(|u| matches!(u.scheme(), "http" | "https"))
+        .ok_or_else(|| {
+            AppError::InvalidInput(format!(
+                "'{link}' is not a web address (it must start with http:// or https://)"
+            ))
+        })?;
+    let name = parsed
+        .path_segments()
+        .and_then(|mut segments| segments.next_back().map(str::to_string))
+        .filter(|segment| !segment.is_empty())
+        .or_else(|| parsed.host_str().map(str::to_string))
+        .unwrap_or_else(|| link.to_string());
+    let title = title
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .unwrap_or(&name)
+        .to_string();
+    crate::db::atomically(conn, || {
+        let entity =
+            crate::db::entities::create_entity(conn, space_id, "file".into(), title.clone(), None)?;
+        conn.execute(
+            "INSERT INTO files (entity_id, local_path, provider, url, original_filename)
+             VALUES (?1, NULL, ?2, ?3, ?4)",
+            params![entity.id, detect_provider(link), link, name],
+        )?;
+        references::add_link_reference(conn, &entity.id, &title, link)?;
+        get_file(conn, &entity.id)
+    })
+}
+
+/// Tells Nookly where a referenced file is on this device: the same document picked
+/// again after it moved, or on a device it was not added on. Only this device's path
+/// changes; the File, its labels and relationships stay.
+pub fn locate_file(conn: &Connection, entity_id: &str, path: &Path) -> AppResult<FileEntity> {
+    let file = get_file(conn, entity_id)?;
+    if file.local_path.is_some() {
+        return Err(AppError::InvalidInput(
+            "this file is stored in Nookly, there is nothing to locate".into(),
+        ));
+    }
+    references::locate_on_device(conn, entity_id, &crate::db::device::current(), path)?;
+    index_file_content(conn, entity_id, &path.to_string_lossy());
+    get_file(conn, entity_id)
 }
 
 /// Copies a referenced file into storage; the entity stays the same and remembers
@@ -357,7 +572,15 @@ pub fn copy_into_storage(
         return Ok(file);
     }
     let source = file.source_path.ok_or_else(|| {
-        AppError::InvalidInput("this file isn't a reference to a file on disk".into())
+        let elsewhere = file
+            .reference
+            .as_ref()
+            .is_some_and(|r| r.provider == references::PROVIDER_FILE);
+        AppError::InvalidInput(if elsewhere {
+            "this file isn't on this device yet, locate it first".into()
+        } else {
+            "this file isn't a reference to a file on disk".to_string()
+        })
     })?;
     let filename = file.original_filename.unwrap_or_else(|| "untitled".into());
     let local_path = copy_stored(files_dir, &filename, Path::new(&source))?;
@@ -474,11 +697,12 @@ pub fn download(url: &str) -> AppResult<Download> {
 /// Share links point at a viewer page; these are the file behind it.
 fn direct_download_url(url: &str) -> String {
     static DRIVE_FILE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)").unwrap()
+        crate::error::literal_regex(r"drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)")
     });
     static DOCS: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"docs\.google\.com/(document|spreadsheets|presentation)/d/([\w-]+)")
-            .unwrap()
+        crate::error::literal_regex(
+            r"docs\.google\.com/(document|spreadsheets|presentation)/d/([\w-]+)",
+        )
     });
     if let Some(c) = DRIVE_FILE.captures(url) {
         return format!("https://drive.google.com/uc?export=download&id={}", &c[1]);
@@ -511,10 +735,10 @@ fn direct_download_url(url: &str) -> String {
 
 fn filename_from_disposition(header: &str) -> Option<String> {
     static EXTENDED: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r#"(?i)filename\*\s*=\s*[^']*'[^']*'([^;]+)"#).unwrap()
+        crate::error::literal_regex(r#"(?i)filename\*\s*=\s*[^']*'[^']*'([^;]+)"#)
     });
     static PLAIN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r#"(?i)filename\s*=\s*"?([^";]+)"?"#).unwrap()
+        crate::error::literal_regex(r#"(?i)filename\s*=\s*"?([^";]+)"?"#)
     });
     let name = if let Some(c) = EXTENDED.captures(header) {
         percent_decode(c[1].trim())
@@ -530,7 +754,7 @@ fn filename_from_url(url: &str) -> Option<String> {
     sanitize(&percent_decode(last))
 }
 
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     url::form_urlencoded::parse(format!("x={s}").as_bytes())
         .next()
         .map(|(_, v)| v.into_owned())
@@ -538,7 +762,7 @@ fn percent_decode(s: &str) -> String {
 }
 
 /// Just a file name: no folders, nothing hidden, nothing empty.
-fn sanitize(name: &str) -> Option<String> {
+pub(crate) fn sanitize(name: &str) -> Option<String> {
     let name = name
         .rsplit(['/', '\\'])
         .next()?
@@ -622,7 +846,7 @@ pub fn detect_provider(url: &str) -> Option<&'static str> {
 /// guarantee of a matching row's content being set — `search_index` itself is
 /// always populated at creation via `index_entity_title`, just with `content = ''`).
 const FILE_SELECT: &str =
-    "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename, f.source_path, f.blob, \
+    "SELECT e.*, f.local_path, f.provider, f.url, f.original_filename, f.source_path, f.origin, f.blob, \
      COALESCE(si.content, '') != '' AS has_indexed_content \
      FROM entities e \
      JOIN files f ON f.entity_id = e.id \
@@ -634,6 +858,9 @@ pub fn list_files(conn: &Connection, space_id: &str) -> AppResult<Vec<FileEntity
     ))?;
     let rows = stmt.query_map(params![space_id], row_to_file)?;
     let mut files = rows.collect::<Result<Vec<_>, _>>()?;
+    for file in &mut files {
+        resolve_reference(conn, file)?;
+    }
 
     let index: std::collections::HashMap<String, usize> = files
         .iter()
@@ -665,6 +892,7 @@ pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
             row_to_file,
         )
         .map_err(|_| AppError::NotFound(format!("file {entity_id}")))?;
+    resolve_reference(conn, &mut file)?;
     file.label_ids = crate::db::labels::label_ids_for(conn, entity_id)?;
     file.indexed_content = Some(indexed_content_for(conn, entity_id)?);
     Ok(file)
@@ -682,7 +910,10 @@ pub fn files_needing_reindex(
          ORDER BY e.created_at ASC"
     ))?;
     let rows = stmt.query_map(params![space_id], row_to_file)?;
-    let files: Vec<FileEntity> = rows.collect::<Result<Vec<_>, _>>()?;
+    let mut files: Vec<FileEntity> = rows.collect::<Result<Vec<_>, _>>()?;
+    for file in &mut files {
+        resolve_reference(conn, file)?;
+    }
     Ok(files.into_iter().filter(|f| f.needs_reindex).collect())
 }
 
@@ -738,8 +969,7 @@ fn reindex_missing_bulk_action(
     conn: &Connection,
     space_id: Option<&str>,
 ) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(reindex_missing(conn, space_id)?)
-        .expect("ReindexSummary always serializes"))
+    crate::error::to_json(reindex_missing(conn, space_id)?)
 }
 
 inventory::submit! {
@@ -794,11 +1024,20 @@ const FILE_FIELDS: &[FieldDef] = &[
                       edits to the original but breaks if that is moved; set copyIntoStorage=true to copy it in.",
     },
     FieldDef {
+        name: "linkUrl",
+        kind: FieldKind::Text,
+        required_on_create: false,
+        writable_on_update: false,
+        description: "A web address to keep as a link without downloading it. The File shows \
+                      whether the link answers (`check`), and `copyIntoStorage=true` downloads it \
+                      later. Use `url` instead to download it now.",
+    },
+    FieldDef {
         name: "copyIntoStorage",
         kind: FieldKind::Boolean,
         required_on_create: false,
         writable_on_update: true,
-        description: "Update only: true copies a referenced file (sourcePath) into Nookly's own storage.",
+        description: "Update only: true copies a referenced file (sourcePath) or downloads a kept link (linkUrl) into Nookly's own storage.",
     },
     FieldDef {
         name: "url",
@@ -834,6 +1073,16 @@ const FILE_FIELDS: &[FieldDef] = &[
 fn cli_create_file(conn: &Connection, input: CreateInput) -> AppResult<serde_json::Value> {
     let local_path = crate::db::schema::field_str(&input.fields, "localPath");
     let url = crate::db::schema::field_str(&input.fields, "url");
+    if let Some(link) = crate::db::schema::field_str(&input.fields, "linkUrl") {
+        if local_path.is_some() || url.is_some() || input.fields.contains_key("sourcePath") {
+            return Err(AppError::InvalidInput(
+                "pass exactly one of --field localPath=..., sourcePath=..., url=... or linkUrl=..."
+                    .into(),
+            ));
+        }
+        let title = Some(input.title.as_str());
+        return crate::error::to_json(add_link(conn, input.space_id, &link, title)?);
+    }
     if let Some(path) = crate::db::schema::field_str(&input.fields, "sourcePath") {
         if local_path.is_some() || url.is_some() {
             return Err(AppError::InvalidInput(
@@ -841,7 +1090,7 @@ fn cli_create_file(conn: &Connection, input: CreateInput) -> AppResult<serde_jso
             ));
         }
         let file = reference_file(conn, input.space_id, Path::new(&path))?;
-        return Ok(serde_json::to_value(file).expect("FileEntity always serializes"));
+        return crate::error::to_json(file);
     }
     let file = match (local_path, url) {
         (Some(path), None) => {
@@ -882,7 +1131,7 @@ fn cli_create_file(conn: &Connection, input: CreateInput) -> AppResult<serde_jso
             ))
         }
     };
-    Ok(serde_json::to_value(file).expect("FileEntity always serializes"))
+    crate::error::to_json(file)
 }
 
 fn cli_update_file(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<serde_json::Value> {
@@ -897,7 +1146,26 @@ fn cli_update_file(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
         let files_dir = crate::db::standalone_app_data_dir()
             .map_err(|e| AppError::Db(e.to_string()))?
             .join("files");
-        copy_into_storage(conn, &files_dir, id)?;
+        let file = get_file(conn, id)?;
+        match (
+            &file.url,
+            file.local_path.is_none() && file.source_path.is_none(),
+        ) {
+            // A kept link has no bytes yet: fetching them is its copy.
+            (Some(link), true) => match download(link)? {
+                Download::File { filename, bytes } => {
+                    attach_download(conn, &files_dir, id, &filename, &bytes)?;
+                }
+                Download::Webpage => {
+                    return Err(AppError::InvalidInput(format!(
+                        "{link} is a webpage, not a file; convert it to a bookmark instead"
+                    )))
+                }
+            },
+            _ => {
+                copy_into_storage(conn, &files_dir, id)?;
+            }
+        }
     }
     if let Some(added) = crate::db::schema::field_str(fields, "added") {
         set_added_at(conn, id, &added)?;
@@ -909,7 +1177,7 @@ fn cli_update_file(conn: &Connection, id: &str, fields: &JsonMap) -> AppResult<s
 }
 
 fn cli_get_file(conn: &Connection, id: &str) -> AppResult<serde_json::Value> {
-    Ok(serde_json::to_value(get_file(conn, id)?).expect("FileEntity always serializes"))
+    crate::error::to_json(get_file(conn, id)?)
 }
 
 fn cli_list_files(
@@ -919,10 +1187,20 @@ fn cli_list_files(
 ) -> AppResult<Vec<serde_json::Value>> {
     let space_id = space_id
         .ok_or_else(|| AppError::InvalidInput("file list requires --space <space-id>".into()))?;
-    Ok(list_files(conn, space_id)?
+    list_files(conn, space_id)?
         .into_iter()
-        .map(|f| serde_json::to_value(f).expect("FileEntity always serializes"))
-        .collect())
+        .map(crate::error::to_json)
+        .collect::<crate::error::AppResult<Vec<_>>>()
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "file",
+        name: "origin",
+        kind: FieldKind::Text,
+        description: "Read only. Where an imported File came from, as a key the importing module \
+                      chose (a file from Moodle is `moodle:<its address>`); `null` for any other File.",
+    }
 }
 
 inventory::submit! {
@@ -1015,6 +1293,110 @@ mod tests {
         let unnamed = store_pasted_file(&conn, &dir, space.id, "", b"x").unwrap();
         assert_eq!(unnamed.original_filename.as_deref(), Some("pasted-file"));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn import_with_details_names_labels_and_attaches_in_one_go() {
+        let conn = crate::db::test_conn();
+        let space = crate::db::test_space(&conn, "Uni");
+        let course =
+            crate::db::courses::create_course(&conn, space.id.clone(), "Maths".into()).unwrap();
+        let lectures = crate::db::labels::create_label(
+            &conn,
+            space.id.clone(),
+            "Lectures".into(),
+            "#111".into(),
+        )
+        .unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-details-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("slides.pdf");
+        std::fs::write(&source, b"pdf").unwrap();
+
+        let file = import_file_with_details(
+            &conn,
+            &dir.join("store"),
+            space.id.clone(),
+            &source,
+            ImportDetails {
+                origin: Some("moodle:https://m.edu/f/slides.pdf".into()),
+                title: Some("  Week 1 slides  ".into()),
+                label_ids: vec![lectures.id.clone()],
+                // The existing one is matched by name, ignoring case, and not duplicated.
+                new_labels: vec![
+                    NewLabel {
+                        name: "MA1".into(),
+                        color: "#222".into(),
+                    },
+                    NewLabel {
+                        name: "lectures".into(),
+                        color: "#333".into(),
+                    },
+                ],
+                attach_to: vec![course.id.clone()],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(file.entity.title, "Week 1 slides");
+        assert_eq!(file.original_filename.as_deref(), Some("slides.pdf"));
+        assert_eq!(
+            file.origin.as_deref(),
+            Some("moodle:https://m.edu/f/slides.pdf")
+        );
+        let names: Vec<String> = crate::db::labels::list_labels_for_entity(&conn, &file.entity.id)
+            .unwrap()
+            .into_iter()
+            .map(|l| l.name)
+            .collect();
+        assert_eq!(names, vec!["Lectures", "MA1"]);
+        let attached = crate::db::relationships::list_relationships(
+            &conn,
+            &course.id,
+            crate::db::relationships::Direction::From,
+        )
+        .unwrap();
+        assert_eq!(attached.len(), 1);
+        assert_eq!(attached[0].to_entity_id, file.entity.id);
+        assert_eq!(attached[0].relationship_type, "attached-file");
+        // The listing carries the origin too.
+        let listed = list_files(&conn, &space.id).unwrap();
+        assert_eq!(listed[0].origin, file.origin);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_failed_import_with_details_leaves_nothing_behind() {
+        let conn = crate::db::test_conn();
+        let space = crate::db::test_space(&conn, "Uni");
+        let dir = std::env::temp_dir().join(format!("nookly-details-{}", crate::db::new_id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("slides.pdf");
+        std::fs::write(&source, b"pdf").unwrap();
+        let store = dir.join("store");
+
+        let result = import_file_with_details(
+            &conn,
+            &store,
+            space.id.clone(),
+            &source,
+            ImportDetails {
+                new_labels: vec![NewLabel {
+                    name: "MA1".into(),
+                    color: "#222".into(),
+                }],
+                attach_to: vec!["no-such-entity".into()],
+                ..Default::default()
+            },
+        );
+
+        assert!(result.is_err());
+        assert!(list_files(&conn, &space.id).unwrap().is_empty());
+        assert!(crate::db::labels::list_labels(&conn, &space.id)
+            .unwrap()
+            .is_empty());
+        assert_eq!(std::fs::read_dir(&store).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

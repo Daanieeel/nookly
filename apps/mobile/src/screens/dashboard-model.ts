@@ -28,7 +28,7 @@ export function sessionDay(a: AssignmentRecord): string | null {
     : addDays(due, a.dueSessionOffsetDays);
 }
 
-const handedIn = (a: AssignmentRecord) => a.status === "submitted" || a.status === "graded";
+const handedIn = (a: AssignmentRecord) => a.status === "submitted" || a.status === "evaluated";
 
 /// Most important first. "For today" is the assignments tied to a session that is today,
 /// handed in or not (they get presented in the lecture, and they stay even when overdue);

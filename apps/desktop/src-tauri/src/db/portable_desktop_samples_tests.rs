@@ -120,7 +120,7 @@ fn the_files_the_desktop_writes_are_the_samples_the_phone_reads() {
     )
     .unwrap();
     let aid = &assignment.entity.id;
-    assignments::update_assignment_status(&conn, aid, "graded".into(), Some(8.5)).unwrap();
+    assignments::update_assignment_status(&conn, aid, "evaluated".into(), Some(8.5)).unwrap();
     assignments::update_assignment_weight(&conn, aid, Some(0.25)).unwrap();
     notes::create_block(
         &conn,

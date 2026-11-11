@@ -8,14 +8,16 @@ import {
   type Updater,
   useTable,
 } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import type { DataTableGroup } from "#/components/data-table/data-table.tsx";
 import {} from "#/components/data-table/data-table-column-header.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
-import { type ActiveFilter, FilterMenu } from "#/components/filter-menu.tsx";
+import { type ActiveFilter } from "#/components/filter-menu.tsx";
+import { ScrollingListPage } from "#/components/scrolling-list-page.tsx";
+import { useQuickFilters } from "#/lib/quick-filters.ts";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
 import { listLabels } from "#/lib/api/labels.ts";
@@ -30,7 +32,7 @@ import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.
 import {
   editedColumn,
   labelsColumn,
-  ListSearchInput,
+  ListFilterToolbar,
   PageSummaryTable,
   matchesQuery,
   readStoredSorting,
@@ -44,11 +46,26 @@ import {} from "#/lib/datetime.ts";
 import {} from "#/lib/preferences.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
+function courseFilter(courseId: string | undefined): ActiveFilter[] {
+  return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
+}
+
 export interface NoteRow {
   summary: PageSummary;
   title: string;
   preview: string;
   labels: Label[];
+}
+
+/// The table rows of Notes, each with its title, preview and the labels it carries.
+export function toNoteRows(summaries: PageSummary[], spaceLabels: Label[]): NoteRow[] {
+  const labelsById = new Map(spaceLabels.map((l) => [l.id, l]));
+  return summaries.map((summary) => ({
+    summary,
+    title: displayTitle(summary.entity),
+    preview: notePreviewText(summary.preview, summary.entity.title),
+    labels: summary.labelIds.flatMap((id) => labelsById.get(id) ?? []),
+  }));
 }
 
 const readSorting = () => readStoredSorting(STORAGE_KEYS.notesSort);
@@ -77,11 +94,20 @@ export const noteColumns: ColumnDef<DataTableFeatures, NoteRow>[] = [
 /// Notes as a data table (docs/skills/data-tables.md, client mode): every Note of this
 /// Space is already in memory, so search, sorting and filtering all run locally.
 /// Global cross Space search stays in Cmd+K.
-export function NotesListView({ spaceId }: { spaceId: string }) {
+export function NotesListView({
+  spaceId,
+  filterCourseId,
+}: {
+  spaceId: string;
+  /// A Course page's "Show more" lands here with this, applied as a regular Course filter.
+  filterCourseId?: string;
+}) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const [filters, setFilters] = useState<ActiveFilter[]>(() => courseFilter(filterCourseId));
+  useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
+  const quick = useQuickFilters(`${STORAGE_KEYS.notesQuickFilters}:${spaceId}`);
   const [sorting, setSorting] = useState<SortingState>(readSorting);
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
@@ -106,15 +132,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
   const startNote = () => !create.isPending && create.mutate();
   useCreateShortcut(startNote);
 
-  const rows = useMemo<NoteRow[]>(() => {
-    const labelsById = new Map(spaceLabels.map((l) => [l.id, l]));
-    return summaries.map((summary) => ({
-      summary,
-      title: displayTitle(summary.entity),
-      preview: notePreviewText(summary.preview, summary.entity.title),
-      labels: summary.labelIds.flatMap((id) => labelsById.get(id) ?? []),
-    }));
-  }, [summaries, spaceLabels]);
+  const rows = useMemo(() => toNoteRows(summaries, spaceLabels), [summaries, spaceLabels]);
 
   const filterFields = useMemo(() => noteFilterFields(rows, spaceLabels), [rows, spaceLabels]);
 
@@ -180,46 +198,48 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
   }
 
   return (
-    <div
-      className="flex w-full flex-col gap-3"
+    <ScrollingListPage
+      ready={!isPending}
       {...contextTarget("module-view", { spaceId, createLabel: "New Note", create: startNote })}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
-          Notes
-          <span className="text-sm font-normal text-muted-foreground tabular-nums">
-            {rows.length}
-          </span>
-        </h1>
-        <Button
-          variant={createStatus === "error" ? "destructive" : "secondary"}
-          size="sm"
-          className="gap-1.5"
-          onClick={startNote}
-        >
-          <StatusButtonContent
-            status={createStatus}
-            icon={<IconPlus size={14} />}
-            label="New Note"
-            errorLabel="Couldn't create note, try again"
+      top={
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="mr-auto flex items-baseline gap-2 text-lg font-semibold">
+              Notes
+              <span className="text-sm font-normal text-muted-foreground tabular-nums">
+                {rows.length}
+              </span>
+            </h1>
+            <Button
+              variant={createStatus === "error" ? "destructive" : "secondary"}
+              size="sm"
+              className="gap-1.5"
+              onClick={startNote}
+            >
+              <StatusButtonContent
+                status={createStatus}
+                icon={<IconPlus size={14} />}
+                label="New Note"
+                errorLabel="Couldn't create note, try again"
+              />
+            </Button>
+          </div>
+
+          <ListFilterToolbar
+            query={query}
+            onQueryChange={setQuery}
+            placeholder="Filter notes"
+            ariaLabel="Filter notes in this Space"
+            fields={filterFields}
+            filters={filters}
+            onFiltersChange={setFilters}
+            quick={quick}
           />
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <ListSearchInput
-          query={query}
-          onQueryChange={setQuery}
-          placeholder="Filter notes"
-          ariaLabel="Filter notes in this Space"
-        />
-        <div className="flex-1">
-          <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {data.length > 0 ? (
-        <PageSummaryTable table={table} spaceId={spaceId} groups={groups} />
+        <PageSummaryTable table={table} spaceId={spaceId} scrollX={false} groups={groups} />
       ) : (
         !isPending && (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
@@ -237,7 +257,7 @@ export function NotesListView({ spaceId }: { spaceId: string }) {
           </div>
         )
       )}
-    </div>
+    </ScrollingListPage>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { Input } from "@nookly/ui/components/input";
 import { Textarea } from "@nookly/ui/components/textarea";
 import { parseLatexMacros } from "#/lib/latex-macros.ts";
@@ -8,12 +8,14 @@ import { Switch } from "@nookly/ui/components/switch";
 import { Tabs, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import type { SettingId, SettingValue } from "#/lib/settings/registry.ts";
 import { useSetting } from "#/lib/settings/settings.ts";
+import { DEFAULT_PAGE_FONT_SIZE, PAGE_FONTS } from "#/features/notes/page-typography.ts";
 
 /// Number settings edited as a typed whole number.
 type NumberId =
   | "calendar.sessionLengthMinutes"
   | "calendar.calendarEntryLengthMinutes"
-  | "calendar.dayStartHour";
+  | "calendar.dayStartHour"
+  | "notes.editorFontSize";
 
 /// A whole number in `[min, max]`, saved in multiples of `step`; the buttons move it by
 /// `increments`. A number typed on its way to a valid one is only rounded into range
@@ -181,7 +183,8 @@ function TabsControl<T extends string>({
     >
       <TabsList aria-label={label} className="w-full">
         {options.map((o) => (
-          <TabsTrigger key={o.value} value={o.value}>
+          // These tabs choose a value and have no panel, so there is nothing to control.
+          <TabsTrigger key={o.value} value={o.value} aria-controls={undefined}>
             {o.label}
           </TabsTrigger>
         ))}
@@ -234,10 +237,55 @@ export function SwitchControl({
 }: {
   settingId: Extract<
     SettingId,
-    "notes.arrowLigatures" | "notes.formatCodeOnPaste" | "notes.vimMode"
+    "notes.arrowLigatures" | "notes.formatCodeOnPaste" | "notes.spellcheck" | "notes.vimMode"
   >;
   label: string;
 }) {
   const [value, setValue] = useSetting(settingId);
   return <Switch aria-label={label} checked={value} onCheckedChange={setValue} />;
+}
+
+const PAGE_FONT_OPTIONS = [
+  { value: "default", label: "Default" },
+  { value: "serif", label: "Serif" },
+  { value: "mono", label: "Mono" },
+] satisfies { value: SettingValue<"notes.editorFont">; label: string }[];
+
+/// The typeface of page text.
+export function PageFontControl() {
+  const [value, setValue] = useSetting("notes.editorFont");
+  return (
+    <SelectField
+      aria-label="Page font"
+      options={PAGE_FONT_OPTIONS}
+      value={value}
+      onChange={(next) =>
+        setValue(PAGE_FONT_OPTIONS.find((o) => o.value === next)?.value ?? "default")
+      }
+    />
+  );
+}
+
+/// A few lines in the chosen font and size, so a change shows before leaving Settings. Draws with
+/// the same `.page-editor` rules as a page, from the same settings.
+export function PageTextSample() {
+  const [font] = useSetting("notes.editorFont");
+  const [size] = useSetting("notes.editorFontSize");
+  const style: CSSProperties & Record<`--${string}`, string> = {
+    "--page-font": PAGE_FONTS[font] || "inherit",
+    "--page-scale": String(size / DEFAULT_PAGE_FONT_SIZE),
+  };
+  return (
+    <div
+      data-testid="page-text-sample"
+      style={style}
+      className="page-editor rounded-lg border border-border bg-card p-4"
+    >
+      <h2 className="font-semibold">Meeting notes</h2>
+      <p className="text-foreground/90">
+        The quick brown fox jumps over the lazy dog. Plan the week, write it down, and find it again
+        later.
+      </p>
+    </div>
+  );
 }

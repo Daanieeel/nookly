@@ -18,7 +18,7 @@ import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { TaskBoard } from "./TaskBoard";
-import { TasksDataContext, type TasksData, useTasksDataValue } from "./task-controls";
+import { ScopedTasksData, TasksDataContext, type TasksData } from "./task-controls";
 import { QuickCreateTask, type TaskDraft } from "./QuickCreateTask";
 import { TaskDisplayMenu } from "./TaskDisplayMenu";
 import { taskGroupDefs } from "./task-groups";
@@ -46,14 +46,6 @@ const NO_DRAFT: TaskDraft = {};
 /// tasks in one list or board, below Calendar in the sidebar. Each row and card carries
 /// its Space's color. It filters, groups, orders and edits in place like a Space's own
 /// Tasks page; creating a task still happens inside its Space.
-/// Gives the create dialog the statuses and labels of the Space it will create in.
-function ScopedTasksData({ spaceId, children }: { spaceId: string; children: React.ReactNode }) {
-  return (
-    <TasksDataContext.Provider value={useTasksDataValue(spaceId)}>
-      {children}
-    </TasksDataContext.Provider>
-  );
-}
 
 export function TasksOverviewView({ viewId }: { viewId?: string }) {
   const queryClient = useQueryClient();

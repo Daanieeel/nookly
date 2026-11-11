@@ -82,6 +82,7 @@ export function TasksListView({ spaceId, viewId }: { spaceId: string; viewId?: s
 
   /// With the list filtered to exactly one Course, a new task starts related to it.
   const filteredCourse = useMemo(() => {
+    if (filters.some((f) => f.join === "or")) return undefined;
     const only = filters.find((f) => f.fieldId === "course" && f.operator === "is");
     return only?.values.length === 1 ? courses.find((c) => c.id === only.values[0]) : undefined;
   }, [filters, courses]);

@@ -1,4 +1,9 @@
-import { IconCalendarStats, IconChalkboard, IconClipboardList } from "@tabler/icons-react";
+import {
+  IconCalendarStats,
+  IconChalkboard,
+  IconClipboardList,
+  IconNotes,
+} from "@tabler/icons-react";
 import {
   type EntityRecord,
   type MenuAction,
@@ -32,5 +37,6 @@ registerEntityType<EntityRecord>({
     courseView("sessions", "View Sessions", IconChalkboard),
     courseView("exams", "View Exams", IconCalendarStats),
     courseView("assignments", "View Assignments", IconClipboardList),
+    courseView("notes", "View Notes", IconNotes),
   ],
 });

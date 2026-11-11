@@ -1,18 +1,26 @@
 import { qk } from "#/lib/query-keys.ts";
 import { IconLink, IconPlus } from "@tabler/icons-react";
 import { type Query, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
+import { StatusButtonContent, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { Button } from "@nookly/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   createRelationship,
   deleteRelationship,
   listRelationships,
   listRelationshipTypes,
 } from "#/lib/api/relationships.ts";
-import type { Entity } from "#/lib/api/types.ts";
+import type { Entity, RelationshipTypeInfo } from "#/lib/api/types.ts";
 import { TypeGroups } from "./EntityGroups";
 import { EntityRow } from "./EntityRow";
-import { RelatePickerPopover } from "./RelatePickerPopover";
+import { createLinked, invalidateCreated } from "./picker-create";
+import {
+  type CreateRequest,
+  type PickerStart,
+  RelatePickerPopover,
+  optionKey,
+  relateOptions,
+} from "./RelatePickerPopover";
 import { RemoveLinkButton } from "./RemoveLinkButton";
 import { SidebarSection } from "./SidebarSection";
 
@@ -39,6 +47,117 @@ export function hiddenRelationshipTypes(entity: Pick<Entity, "type">): Set<strin
   ]);
 }
 
+/// The relationship types a "Relate to" picker offers for `entity`: all but the hidden
+/// ones. A File or Bookmark also gets `attached-file`, since attaching it to a page is
+/// done from that page's own Attachments section, and from here it is the way to say
+/// what this one is attached to.
+export function pickableRelationshipTypes<T extends { name: string }>(
+  types: T[],
+  entity: Pick<Entity, "type">,
+): T[] {
+  const hidden = hiddenRelationshipTypes(entity);
+  const attachable = entity.type === "file" || entity.type === "bookmark";
+  return types.filter((t) => !hidden.has(t.name) || (attachable && t.name === "attached-file"));
+}
+
+/// Links to `entity` and creates items already linked to it, then refreshes what shows
+/// them. `status` is the state of the latest of either, for the control that started it.
+function useRelate(entity: Entity) {
+  const queryClient = useQueryClient();
+  const refresh = (created: boolean) =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) }),
+      // A Jot counts as refined once linked to a Note through this same generic
+      // relationship system (§ sidebar badges), so recount on every link change.
+      queryClient.invalidateQueries({ queryKey: qk.jots.unrefined }),
+      queryClient.invalidateQueries({ predicate: isJotSummaries }),
+      created ? invalidateCreated(queryClient) : undefined,
+    ]);
+  const mutation = useMutation({
+    mutationFn: async (
+      vars:
+        | { kind: "link"; otherId: string; relationshipType: string; reverse: boolean }
+        | { kind: "create"; request: CreateRequest },
+    ) => {
+      if (vars.kind === "create") {
+        const { creator, title, option } = vars.request;
+        await createLinked(creator, entity, title, option);
+      } else if (vars.reverse) {
+        await createRelationship(vars.otherId, entity.id, vars.relationshipType);
+      } else {
+        await createRelationship(entity.id, vars.otherId, vars.relationshipType);
+      }
+    },
+    onSuccess: (_data, vars) => refresh(vars.kind === "create"),
+  });
+  return {
+    // The new row appearing is the confirmation, so the trigger shows no success state.
+    status: mutation.isSuccess ? ("idle" as const) : statusOf(mutation),
+    link: (target: Entity, relationshipType: string, reverse: boolean) =>
+      mutation.mutate({ kind: "link", otherId: target.id, relationshipType, reverse }),
+    create: (request: CreateRequest) => mutation.mutate({ kind: "create", request }),
+  };
+}
+
+/// Where a group's "+" opens the picker: at the group's type, and at its relation too when
+/// every row in it is linked the same way. `null` when nothing can be linked to that type.
+function startFor(
+  types: RelationshipTypeInfo[],
+  entity: Entity,
+  entityTypes: string[],
+  rows: { optionKey: string }[],
+): PickerStart | null {
+  const options = relateOptions(types, entity.type);
+  const fits = (type: string) =>
+    options.some((o) => o.targetType === null || o.targetType === type);
+  const targetType = entityTypes.find(fits);
+  if (!targetType) return null;
+  const keys = new Set(rows.map((r) => r.optionKey));
+  return { targetType, optionKey: keys.size === 1 ? [...keys][0] : undefined };
+}
+
+/// The "+" on a group of related items: opens the picker already set to the group's type
+/// and relation, so only which one is left, with a way to create a new one there.
+function SectionAdd({
+  entity,
+  types,
+  label,
+  start,
+}: {
+  entity: Entity;
+  types: RelationshipTypeInfo[];
+  label: string;
+  start: PickerStart;
+}) {
+  const relate = useRelate(entity);
+  const name = relate.status === "error" ? "Couldn't link, try again" : `Add ${label}`;
+  return (
+    <Tooltip>
+      <RelatePickerPopover
+        spaceId={entity.spaceId}
+        exclude={entity.id}
+        entityType={entity.type}
+        types={types}
+        start={start}
+        trigger={
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={name}
+              className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"
+            >
+              <StatusIcon status={relate.status} idle={<IconPlus size={14} />} />
+            </button>
+          </TooltipTrigger>
+        }
+        onSelect={relate.link}
+        onCreate={relate.create}
+      />
+      <TooltipContent>{name}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /// Right sidebar, section 1 of 4 (§1.5) — every relationship except attachments,
 /// which the Attachments panel below covers on its own.
 export function RelationshipsPanel({ entity }: { entity: Entity }) {
@@ -53,21 +172,7 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
     queryFn: listRelationshipTypes,
   });
 
-  const create = useMutation({
-    mutationFn: (vars: { otherId: string; relationshipType: string; reverse: boolean }) =>
-      vars.reverse
-        ? createRelationship(vars.otherId, entity.id, vars.relationshipType)
-        : createRelationship(entity.id, vars.otherId, vars.relationshipType),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.relationships.of(entity.id) });
-      // A Jot counts as refined once linked to a Note through this same generic
-      // relationship system (§ sidebar badges), so recount on every link change.
-      queryClient.invalidateQueries({ queryKey: qk.jots.unrefined });
-      queryClient.invalidateQueries({ predicate: isJotSummaries });
-    },
-  });
-  // The new row appearing is the confirmation, so the trigger shows no success state.
-  const createStatus = create.isSuccess ? "idle" : statusOf(create);
+  const relate = useRelate(entity);
 
   const hidden = hiddenRelationshipTypes(entity);
   const visible = relationships.filter((r) => !hidden.has(r.relationshipType));
@@ -77,9 +182,14 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
     const label = isFrom
       ? (def?.label ?? r.relationshipType)
       : (def?.inverseLabel ?? r.relationshipType);
-    return { key: r.id, entityId: isFrom ? r.toEntityId : r.fromEntityId, label };
+    return {
+      key: r.id,
+      entityId: isFrom ? r.toEntityId : r.fromEntityId,
+      label,
+      optionKey: optionKey(r.relationshipType, !isFrom),
+    };
   });
-  const pickableTypes = types.filter((t) => !hidden.has(t.name));
+  const pickableTypes = pickableRelationshipTypes(types, entity);
 
   return (
     <SidebarSection icon={<IconLink size={14} />} title="Relationships" count={visible.length}>
@@ -95,20 +205,28 @@ export function RelationshipsPanel({ entity }: { entity: Entity }) {
             className="h-7 w-full justify-start gap-1.5 px-2 font-normal [&_svg]:size-3.5"
           >
             <StatusButtonContent
-              status={createStatus}
+              status={relate.status}
               icon={<IconPlus size={14} />}
-              label="Relate to…"
+              label="Link…"
               errorLabel="Couldn't link, try again"
             />
           </Button>
         }
-        onSelect={(target, relationshipType, reverse) =>
-          create.mutate({ otherId: target.id, relationshipType, reverse })
-        }
+        onSelect={relate.link}
+        onCreate={relate.create}
       />
 
       <TypeGroups
+        ranked
         items={rows}
+        renderAction={(label, entityTypes, group) => {
+          const start = startFor(pickableTypes, entity, entityTypes, group);
+          return (
+            start && (
+              <SectionAdd entity={entity} types={pickableTypes} label={label} start={start} />
+            )
+          );
+        }}
         renderRow={(r) => (
           <div className="group flex items-center gap-1">
             <div className="min-w-0 flex-1">

@@ -2,7 +2,7 @@
 //! snapshot of `nookly.db` plus every other file in the app data folder
 //! (stored files, recipe banners, bookmark previews, device preferences,
 //! external calendar settings), so a restore brings back the whole app, not
-//! only its notes. Caches that rebuild themselves (`office-previews`) are left out.
+//! only its notes. Caches that rebuild themselves (`office-previews`, `moodle-cache`) and this device's id (`device-id`) are left out.
 //!
 //! Backups are written to a temporary name, verified end to end, and only then
 //! renamed into place, so a folder never holds a half written backup under a
@@ -26,7 +26,21 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 const MANIFEST: &str = "manifest.json";
 const DB_FILE: &str = "nookly.db";
 const FORMAT_VERSION: u32 = 1;
-const NAME_PREFIX: &str = "nookly-backup-";
+/// A dev build and the installed app write to the same backup folder when they share the
+/// setting, so each names its backups differently and only ever lists, prunes or counts
+/// its own.
+const NAME_PREFIX: &str = if cfg!(debug_assertions) {
+    "nookly-dev-backup-"
+} else {
+    "nookly-backup-"
+};
+/// What the other kind of build calls its backups.
+#[cfg(test)]
+const OTHER_BUILD_PREFIX: &str = if cfg!(debug_assertions) {
+    "nookly-backup-"
+} else {
+    "nookly-dev-backup-"
+};
 const NAME_SUFFIX: &str = ".zip";
 const PENDING_DIR: &str = "pending-restore";
 const SAFETY_DIR: &str = "restore-safety";
@@ -76,12 +90,16 @@ fn io_err(e: impl std::fmt::Display) -> AppError {
 }
 
 /// Top level entries that are never backed up nor swapped by a restore: caches
-/// that rebuild themselves, logs, and the restore machinery's own folders.
+/// that rebuild themselves, logs, this device's id and the restore machinery's own folders.
 fn is_excluded(name: &str) -> bool {
     matches!(
         name,
         "office-previews"
+            | "moodle-cache"
+            | crate::db::device::DEVICE_ID_FILE
             | "crash.log"
+            | "crash-reported"
+            | "logs"
             | RESTORE_ERROR_LOG
             | PENDING_DIR
             | SAFETY_DIR
@@ -543,6 +561,11 @@ pub fn apply_pending_restore(data_dir: &Path) -> AppResult<Option<PathBuf>> {
     match outcome {
         Ok(()) => {
             fs::remove_dir_all(&pending).ok();
+            tracing::info!(
+                replaced = live.len(),
+                installed = incoming.len(),
+                "restored a backup"
+            );
             Ok(Some(safety))
         }
         Err(e) => {
@@ -562,6 +585,7 @@ pub fn apply_pending_restore(data_dir: &Path) -> AppResult<Option<PathBuf>> {
 
 /// Records a failed launch time restore where the user can find it.
 pub fn log_restore_error(data_dir: &Path, error: &AppError) {
+    tracing::error!(%error, "restoring a backup failed, the data was left as it was");
     if let Ok(mut f) = fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -666,7 +690,7 @@ mod tests {
         let info = backup_of(&source, &dest, 10);
         let mut zip = ZipArchive::new(File::open(&info.path).unwrap()).unwrap();
         let names: Vec<String> = (0..zip.len())
-            .map(|i| zip.by_index(i).unwrap().name().to_string())
+            .map(|i| zip.by_index(i).unwrap().name().unwrap().to_string())
             .collect();
         assert!(names.iter().all(|n| !n.starts_with("office-previews")));
         assert!(!names.iter().any(|n| n == "crash.log"));
@@ -688,6 +712,35 @@ mod tests {
             second.manifest.unwrap().file_count
         );
         fs::remove_dir_all(source).ok();
+    }
+
+    #[test]
+    fn leaves_the_other_builds_backups_alone() {
+        let source = populated("Own");
+        let dest = scratch("dest");
+        let others: Vec<PathBuf> = ["20190101-000000", "20190102-000000"]
+            .iter()
+            .map(|stamp| dest.join(format!("{OTHER_BUILD_PREFIX}{stamp}{NAME_SUFFIX}")))
+            .collect();
+        for other in &others {
+            fs::write(other, b"theirs").unwrap();
+        }
+        let first = backup_of(&source, &dest, 1);
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        let second = backup_of(&source, &dest, 1);
+        let listed: Vec<String> = list_backups(&dest)
+            .unwrap()
+            .into_iter()
+            .map(|b| b.name)
+            .collect();
+        assert_eq!(listed, vec![second.name.clone()]);
+        assert!(!Path::new(&first.path).exists());
+        for other in &others {
+            assert_eq!(fs::read(other).unwrap(), b"theirs");
+        }
+        for dir in [source, dest] {
+            fs::remove_dir_all(dir).ok();
+        }
     }
 
     #[test]

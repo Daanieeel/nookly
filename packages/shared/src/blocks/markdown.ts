@@ -1,5 +1,6 @@
 import type { BlockAttrs, Block, BlockType } from "./types.ts";
 import { HIGHLIGHT_COLOR_PATTERN, parseHighlightColor } from "./highlight-colors.ts";
+import { parseTextColor, TEXT_COLOR_PATTERN } from "./text-colors.ts";
 import { ATOM_BLOCK_ATTRS, isAtomBlockType } from "./custom-rows.ts";
 
 /// The only attribute value shapes this module ever reads or writes (`blockId`
@@ -63,16 +64,23 @@ export function asNumber(value: JSONAttrValue | undefined): number | undefined {
 /// `**bold**` would otherwise be swallowed by a naive `*italic*` match. Before all of
 /// them, an escaped `\$` and inline math `$…$`: no space just inside either dollar and no
 /// digit right after the closing one, so "$5 and $10" stays text (the pandoc rule). A
+/// formula that is clearly TeX (a `\`, `^`, `_` or brace in it) may have a digit right after,
+/// since "$5-$10" has none of those. `\$` inside a formula is a dollar sign. A
 /// highlight is `==text==` with no space just inside either pair, so "a == b" stays text.
+/// Coloured text is `{red}text{/}`, only for the colours in `text-colors.ts`.
+const MATH_BODY = String.raw`(?:\\\$|[^\s$])(?:(?:\\\$|[^$\n])*?(?:\\\$|[^\s$\\]))?`;
+
 const INLINE_PATTERN = new RegExp(
   [
     String.raw`\\\$`,
-    String.raw`\$([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?!\d)`,
+    String.raw`\$(?=[^$\n]*[\\^_{}])(${MATH_BODY})\$`,
+    String.raw`\$(${MATH_BODY})\$(?!\d)`,
     String.raw`\[([^\]]+)\]\(([^)]+)\)`,
     String.raw`\*\*\*(.+?)\*\*\*`,
     String.raw`\*\*(.+?)\*\*`,
     // A highlight, with an optional colour: `=={green}text==`.
     String.raw`==(?:\{(${HIGHLIGHT_COLOR_PATTERN})\})?(?!\s)(.+?)(?<!\s)==`,
+    String.raw`\{(${TEXT_COLOR_PATTERN})\}(.+?)\{\/\}`,
     "`([^`]+)`",
     String.raw`\*([^*]+)\*`,
   ].join("|"),
@@ -110,16 +118,20 @@ export function decodeInline(text: string): JSONNode[] {
     if (index > lastIndex) nodes.push({ type: "text", text: text.slice(lastIndex, index) });
     const [
       ,
-      latex,
+      texLatex,
+      plainLatex,
       linkText,
       linkHref,
       boldItalic,
       boldText,
       highlightColor,
       highlightText,
+      textColor,
+      coloredText,
       codeText,
       italicText,
     ] = match;
+    const latex = texLatex ?? plainLatex;
     if (match[0] === "\\$") {
       nodes.push({ type: "text", text: "$" });
     } else if (latex !== undefined) {
@@ -137,6 +149,13 @@ export function decodeInline(text: string): JSONNode[] {
           decodeInline(highlightText),
           color ? { type: "highlight", attrs: { color } } : { type: "highlight" },
         ),
+      );
+    } else if (coloredText !== undefined) {
+      nodes.push(
+        ...withMarks(decodeInline(coloredText), {
+          type: "textColor",
+          attrs: { color: parseTextColor(textColor) },
+        }),
       );
     } else if (codeText !== undefined) {
       nodes.push({ type: "text", text: codeText, marks: [{ type: "code" }] });
@@ -170,11 +189,46 @@ function encodeHighlight(run: JSONNode[]): string {
   return body ? `${before}==${color ? `{${color}}` : ""}${body}==${after}` : inner;
 }
 
+/// The colour a node's text has, null for none.
+function textColorOf(node: JSONNode | undefined): string | null {
+  const mark = node?.marks?.find((m) => m.type === "textColor");
+  return parseTextColor(asString(mark?.attrs?.color));
+}
+
+/// A run of nodes that all have one text colour, written once as `{red}…{/}`.
+function encodeTextColor(run: JSONNode[]): string {
+  const inner = encodeInline(
+    run.map((node) => ({ ...node, marks: node.marks?.filter((m) => m.type !== "textColor") })),
+  );
+  const color = textColorOf(run[0]);
+  return inner && color ? `{${color}}${inner}{/}` : inner;
+}
+
+/// A formula as `$…$`, written so reading it back gives the same formula: line breaks and
+/// the spaces around it go (a space just inside a dollar is not math), an empty one is
+/// dropped, and one that a digit follows and that would then read as text ends in `{}`,
+/// which TeX ignores.
+function encodeMath(latex: string, next: JSONNode | undefined): string {
+  const clean = latex.replace(/\s*\n\s*/g, " ").trim();
+  if (!clean) return "";
+  const digitNext = next?.type === "text" && /^\d/.test(next.text ?? "");
+  const [first] = decodeInline(`$${clean}$${digitNext ? "0" : ""}`);
+  const readsBack = first?.type === "inlineMath" && first.attrs?.latex === clean;
+  return readsBack || clean.endsWith("\\") ? `$${clean}$` : `$${clean}{}$`;
+}
+
 export function encodeInline(nodes: JSONNode[] = []): string {
   const parts: string[] = [];
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
     if (!node) continue;
+    if (textColorOf(node)) {
+      let end = i;
+      while (textColorOf(nodes[end + 1]) === textColorOf(node)) end++;
+      parts.push(encodeTextColor(nodes.slice(i, end + 1)));
+      i = end;
+      continue;
+    }
     if (hasMark(node, "highlight")) {
       let end = i;
       while (
@@ -187,7 +241,7 @@ export function encodeInline(nodes: JSONNode[] = []): string {
       continue;
     }
     if (node.type === "inlineMath") {
-      parts.push(`$${asString(node.attrs?.latex) ?? ""}$`);
+      parts.push(encodeMath(asString(node.attrs?.latex) ?? "", nodes[i + 1]));
       continue;
     }
     if (node.type !== "text") continue;
@@ -235,6 +289,8 @@ export function blockToNode(block: Block): JSONNode {
     case "math":
     case "diagram":
     case "circuit":
+    case "plot":
+    case "mindmap":
       return {
         type: block.blockType,
         attrs: {
@@ -242,6 +298,8 @@ export function blockToNode(block: Block): JSONNode {
           view: block.attrs.view ?? "source",
           // Only a circuit has a hand drawing to keep.
           ...(block.blockType === "circuit" && { drawing: block.attrs.drawing ?? "" }),
+          // Only a mind map keeps where its nodes were dragged.
+          ...(block.blockType === "mindmap" && { layout: block.attrs.layout ?? "" }),
         },
         content: block.content ? [{ type: "text", text: block.content }] : undefined,
       };
@@ -452,6 +510,8 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
     case "math":
     case "diagram":
     case "circuit":
+    case "plot":
+    case "mindmap":
       return {
         blockId,
         blockType: node.type,
@@ -459,6 +519,7 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
         attrs: {
           view: asString(node.attrs?.view) ?? "source",
           ...(node.type === "circuit" && { drawing: asString(node.attrs?.drawing) ?? "" }),
+          ...(node.type === "mindmap" && { layout: asString(node.attrs?.layout) ?? "" }),
         },
       };
     case "toggle":

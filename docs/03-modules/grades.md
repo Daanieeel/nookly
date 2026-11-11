@@ -12,7 +12,7 @@ Per Space. Courses are grouped by Semester in the Semesters page's order, with c
 - **Cumulative average:** the mean of every graded course across all semesters, not of the semester averages.
 - **Current semester:** the one the Semesters page treats as current.
 
-Grades are on whatever scale the user enters. Weights and grades of both Exams and Assignments are edited in the rows; work without a weight splits what the weighted work leaves evenly.
+Grades are on whatever scale the user enters. Weights and grades of both Exams and Assignments are edited in the rows; work without a weight splits what the weighted work leaves evenly. An ungraded Assignment is not listed and takes no share.
 
 `semester` has a read only `grades` field in the CLI: `{ gpa, gradedCourseCount, courseCount }`.
 

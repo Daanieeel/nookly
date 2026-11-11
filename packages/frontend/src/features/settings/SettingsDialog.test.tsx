@@ -40,28 +40,84 @@ describe("the settings dialog", () => {
     await expectNoA11yViolations();
   });
 
-  it("lists every category with General first", async () => {
+  it("lists a flat navigation under muted group headers, with About at the bottom", async () => {
     renderOpen();
     const nav = await screen.findByRole("navigation", { name: "Settings categories" });
-    expect(
-      within(nav)
+    const groups = within(nav).getAllByRole("group");
+    expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual([
+      "Writing and study",
+      "Data and accounts",
+      "Power tools",
+    ]);
+    const names = (el: HTMLElement) =>
+      within(el)
         .getAllByRole("button")
-        .map((b) => b.textContent),
-    ).toEqual([
+        .map((b) => b.textContent);
+    expect(names(nav)).toEqual([
       "General",
       "Appearance",
-      "Calendar",
       "Editor",
-      "LaTeX",
-      "Backup",
-      "Agent",
+      "Calendar",
       "Account",
+      "Backup",
+      "Connections",
       "Shortcuts",
+      "LaTeX macros",
+      "Agent",
     ]);
+    expect(names(groups[0])).toEqual(["Editor", "Calendar"]);
+    expect(names(groups[1])).toEqual(["Account", "Backup", "Connections"]);
+    expect(names(groups[2])).toEqual(["Shortcuts", "LaTeX macros", "Agent"]);
+    // No page nests under another one, so there is nothing to collapse.
+    expect(nav.querySelector("[data-nested]")).toBeNull();
     expect(within(nav).getByRole("button", { name: "General" })).toHaveAttribute(
       "aria-current",
       "page",
     );
+    // About and the settings file are not in the scrolling list.
+    expect(within(nav).queryByRole("button", { name: "About" })).toBeNull();
+    expect(screen.getByRole("button", { name: "About" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show settings file" })).toBeInTheDocument();
+  });
+
+  it("puts the search at the top of the sidebar with a / hint", async () => {
+    renderOpen();
+    const search = await screen.findByRole("searchbox", { name: "Search settings" });
+    const nav = screen.getByRole("navigation", { name: "Settings categories" });
+    expect(search.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(search.closest("nav")).toBeNull();
+    expect(screen.getByText("/")).toBeInTheDocument();
+  });
+
+  it("focuses the search on / unless a field is being typed in", async () => {
+    const { user } = renderOpen();
+    const search = await screen.findByRole("searchbox");
+    await user.click(screen.getByRole("button", { name: "Appearance" }));
+    expect(search).not.toHaveFocus();
+    await user.keyboard("/");
+    expect(search).toHaveFocus();
+    // In the search itself the slash is a character.
+    expect(search).toHaveValue("");
+    await user.keyboard("a/b");
+    expect(search).toHaveValue("a/b");
+  });
+
+  it("shows About as a page of its own, holding the version", async () => {
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "About" }));
+    expect(screen.getByRole("heading", { level: 2, name: "About" })).toBeInTheDocument();
+    expect(screen.getByText("Version")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "General" }));
+    expect(screen.queryByText("Version")).toBeNull();
+  });
+
+  it("shows external calendars on the Connections page, not on Calendar", async () => {
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "Calendar" }));
+    expect(screen.queryByText("External calendars")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Connections" }));
+    expect(screen.getByRole("heading", { level: 2, name: "Connections" })).toBeInTheDocument();
+    expect(screen.getByText("External calendars")).toBeInTheDocument();
   });
 
   it("switches category from the navigation", async () => {
@@ -78,18 +134,17 @@ describe("the settings dialog", () => {
     const { user } = renderOpen();
     await screen.findByRole("dialog");
     const found = new Set<string>();
-    // Every page of the navigation: the categories, and LaTeX under Editor.
+    // Every page of the navigation, shortcuts shown whole under All.
     const pages = [
       "General",
       "Appearance",
-      "Calendar",
       "Editor",
-      "LaTeX",
-      "Backup",
-      "Agent",
+      "Calendar",
       "Account",
+      "Backup",
+      "Connections",
     ];
-    for (const label of [...pages, "Shortcuts"]) {
+    for (const label of [...pages, "Shortcuts", "LaTeX macros", "Agent", "About"]) {
       await user.click(screen.getByRole("button", { name: label }));
       for (const row of document.querySelectorAll("[data-setting-id]")) {
         const id = row.getAttribute("data-setting-id") ?? "";
@@ -109,7 +164,8 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Search results" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 matches")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("0 matches")).toHaveLength(8);
+    // The other ten of the eleven pages.
+    expect(screen.getAllByLabelText("0 matches")).toHaveLength(10);
   });
 
   it("finds a setting by a synonym, its id and a typo", async () => {
@@ -303,41 +359,32 @@ describe("the settings dialog", () => {
     });
   });
 
-  describe("the LaTeX page under Editor", () => {
-    it("is a child of Editor in the navigation, indented under it", async () => {
+  describe("the LaTeX macros page under Power tools", () => {
+    it("sits between Shortcuts and Agent in Power tools, not under Editor", async () => {
       renderOpen();
       const nav = await screen.findByRole("navigation", { name: "Settings categories" });
-      const editor = within(nav).getByRole("button", { name: "Editor" });
-      const latex = within(nav).getByRole("button", { name: "LaTeX" });
-      expect(editor.compareDocumentPosition(latex) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(latex.className).toMatch(/pl-/);
+      const group = within(nav).getByRole("group", { name: "Power tools" });
+      expect(within(group).getByRole("button", { name: "LaTeX macros" })).toBeInTheDocument();
+      expect(within(nav).queryByRole("button", { name: "LaTeX" })).toBeNull();
     });
 
-    it("holds the LaTeX macros, and the Editor page does not", async () => {
+    it("holds the macros, and the Editor page does not", async () => {
       const { user } = renderOpen();
       await user.click(await screen.findByRole("button", { name: "Editor" }));
-      expect(screen.getByRole("heading", { level: 2, name: "Editor" })).toBeInTheDocument();
       expect(screen.getByRole("switch", { name: "Turn arrows into symbols" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Add macro" })).toBeNull();
-      await user.click(screen.getByRole("button", { name: "LaTeX" }));
-      expect(screen.getByRole("heading", { level: 2, name: "LaTeX" })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "LaTeX macros" }));
+      expect(screen.getByRole("heading", { level: 2, name: "LaTeX macros" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add macro" })).toBeInTheDocument();
       expect(screen.queryByRole("switch", { name: "Turn arrows into symbols" })).toBeNull();
     });
 
-    it("is found by searching for it, under Editor", async () => {
+    it("is found by searching for it, under LaTeX macros", async () => {
       const { user } = renderOpen();
       await user.type(await screen.findByRole("searchbox"), "newcommand");
       expect(rowFor("notes.latexMacros")).not.toBeNull();
+      expect(screen.getByRole("heading", { level: 3, name: "LaTeX macros" })).toBeInTheDocument();
     });
-  });
-
-  it("opens and closes with Ctrl and a comma", async () => {
-    const { user } = renderWithProviders(<SettingsDialog />);
-    await user.keyboard("{Control>},{/Control}");
-    await screen.findByRole("dialog");
-    await user.keyboard("{Control>},{/Control}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("closes when another overlay opens", async () => {
@@ -366,11 +413,31 @@ describe("Open Settings in the commands palette", () => {
   });
 });
 
+describe("opening the logs folder", () => {
+  it("opens it from the button in the dialog", async () => {
+    mockCommand("open_logs_folder", null);
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "Open logs folder" }));
+    await waitFor(() => expect(callsOf("open_logs_folder")).toHaveLength(1));
+  });
+
+  it("says so on the button when the folder cannot be opened", async () => {
+    mockCommandWith("open_logs_folder", () => {
+      throw new Error("no file manager");
+    });
+    mockCommand("log_frontend", null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "Open logs folder" }));
+    expect(await screen.findByRole("button", { name: /Couldn't open/ })).toBeInTheDocument();
+  });
+});
+
 describe("opening the settings file", () => {
   it("opens it from the button in the dialog", async () => {
     mockCommand("open_settings_file", null);
     const { user } = renderOpen();
-    await user.click(await screen.findByRole("button", { name: "Open settings file" }));
+    await user.click(await screen.findByRole("button", { name: "Show settings file" }));
     await waitFor(() => expect(callsOf("open_settings_file")).toHaveLength(1));
   });
 
@@ -379,7 +446,7 @@ describe("opening the settings file", () => {
       throw new Error("no app to open it");
     });
     const { user } = renderOpen();
-    await user.click(await screen.findByRole("button", { name: "Open settings file" }));
+    await user.click(await screen.findByRole("button", { name: "Show settings file" }));
     expect(await screen.findByRole("button", { name: /Couldn't open/ })).toBeInTheDocument();
   });
 
@@ -389,7 +456,7 @@ describe("opening the settings file", () => {
     const { user } = renderWithProviders(<CommandsPalette />);
     act(() => useNavStore.getState().setCommandsOpen(true));
     await user.type(await screen.findByPlaceholderText("Run a command…"), "settings json");
-    await user.click(await screen.findByText("Open Settings File"));
+    await user.click(await screen.findByText("Show Settings File"));
     await waitFor(() => expect(callsOf("open_settings_file")).toHaveLength(1));
   });
 });

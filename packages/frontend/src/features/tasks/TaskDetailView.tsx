@@ -39,6 +39,7 @@ import { effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useViewOnly } from "#/features/sync/view-only.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import {
   TaskDueControl,
@@ -82,7 +83,7 @@ export function TaskDetailView({ entity }: { entity: Entity }) {
 
 function TaskPage({ entity }: { entity: Entity }) {
   const openEntity = useNavStore((s) => s.openEntity);
-  const sidebarCollapsed = useNavStore((s) => s.rightSidebarCollapsed);
+  const [sidebarCollapsed] = useRightSidebarCollapsed();
   const isSubtask = entity.type === "sub_task";
 
   const { data: task } = useQuery({

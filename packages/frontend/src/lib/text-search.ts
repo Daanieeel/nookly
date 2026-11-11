@@ -25,22 +25,67 @@ const SPELLED_OUT_AS = new Map([
 ]);
 const SPELLED_OUT = new RegExp(`[${[...SPELLED_OUT_AS.keys()].join("")}]`, "gu");
 
+/// `text` folded the way `foldText` does, plus, for every character of the result, the
+/// index it came from in `text`. Lets a match found in the folded text be highlighted in
+/// the original, where an accent can be one character or two.
+export function foldWithOrigins(text: string) {
+  let folded = "";
+  const origins: number[] = [];
+  let at = 0;
+  for (const char of text) {
+    const part = foldText(char);
+    folded += part;
+    for (let i = 0; i < part.length; i++) origins.push(at);
+    at += char.length;
+  }
+  return { folded, origins };
+}
+
 /// Whether `text` contains `needle`, ignoring case and accents.
 export function includesFolded(text: string, needle: string): boolean {
   return foldText(text).includes(foldText(needle));
 }
 
-/// The items that match `needle` in any of their `terms`, those with a term that
-/// starts with it before those that only contain it. The given order is kept inside
-/// each group, so `in` lists "Inline math" ahead of "Heading".
-export function prefixFirst<T>(items: T[], needle: string, terms: (item: T) => string[]): T[] {
-  const folded = foldText(needle);
-  const starts: T[] = [];
-  const contains: T[] = [];
-  for (const item of items) {
-    const all = terms(item).map(foldText);
-    if (all.some((term) => term.startsWith(folded))) starts.push(item);
-    else if (all.some((term) => term.includes(folded))) contains.push(item);
+/// True when every typed word is the start of some word in `text`, ignoring case and
+/// accents, so "new" finds every "New …" action and "go tr" finds "Go to Trash".
+export function startsWithWords(text: string, query: string): boolean {
+  const words = foldText(text).split(/\s+/u);
+  return foldText(query)
+    .split(/\s+/u)
+    .filter(Boolean)
+    .every((q) => words.some((w) => w.startsWith(q)));
+}
+
+/// Folded text without its spaces, so `heading2`, `heading 2` and `Heading 2` compare equal.
+function compact(text: string): string {
+  return foldText(text).replaceAll(/\s+/gu, "");
+}
+
+/// Whether the letters of `needle` appear in `text` in order, not necessarily next to
+/// each other: `hxd` is in `hexa decimal`.
+function isSubsequence(needle: string, text: string): boolean {
+  let next = 0;
+  for (const char of text) {
+    if (char === needle[next]) next++;
+    if (next === needle.length) return true;
   }
-  return [...starts, ...contains];
+  return needle.length === 0;
+}
+
+/// The items that match `needle` in any of their `terms`, best matches first: a term
+/// that starts with it, then one that contains it, then one that only has its letters in
+/// order (`bkmk` finds "Web bookmark"). Spaces and case are ignored, so `/heading2`
+/// finds "Heading 2". The given order is kept inside each group, so `in` lists "Inline
+/// math" ahead of "Heading".
+export function rankMatches<T>(items: T[], needle: string, terms: (item: T) => string[]): T[] {
+  const wanted = compact(needle);
+  if (wanted === "") return items;
+  const tiers: T[][] = [[], [], []];
+  for (const item of items) {
+    const all = terms(item).map(compact);
+    if (all.some((term) => term.startsWith(wanted))) tiers[0].push(item);
+    else if (all.some((term) => term.includes(wanted))) tiers[1].push(item);
+    else if (all.some((term) => isSubsequence(wanted, term))) tiers[2].push(item);
+  }
+  return tiers.flat();
 }

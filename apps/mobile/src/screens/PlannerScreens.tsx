@@ -673,7 +673,8 @@ function SemesterStats({ spaceId, courseIds }: { spaceId: string; courseIds: str
       e.examDate <= horizon,
   ).length;
   const open = assignments.filter(
-    (a) => a.courseId && mine.has(a.courseId) && a.status !== "submitted" && a.status !== "graded",
+    (a) =>
+      a.courseId && mine.has(a.courseId) && a.status !== "submitted" && a.status !== "evaluated",
   ).length;
   const stat = (value: number, label: string) => (
     <View className="flex-1 items-center gap-0.5 rounded-lg border border-border p-3">

@@ -189,15 +189,46 @@ export async function exportNooklyFile(
 
 const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
 
+const cardBlock = z.object({
+  type: z.string(),
+  content: z.string(),
+  language: z.string().nullish(),
+  filename: z.string().nullish(),
+  attrs: z.record(z.string(), z.string()).default({}),
+});
+
+/// A card side is text, or (version 2) blocks; a side written with blocks also keeps their
+/// text, which is what the phone shows and edits.
 const deckFile = z
   .object({
     format: z.literal("nookly-deck"),
-    version: z.literal(1),
+    version: z.union([z.literal(1), z.literal(2)]),
     kind: z.literal("deck"),
     title: z.string(),
-    cards: z.array(z.object({ front: z.string(), back: z.string() }).strict()),
+    cards: z.array(
+      z
+        .object({
+          front: z.string().optional(),
+          back: z.string().optional(),
+          frontBlocks: z.array(cardBlock).optional(),
+          backBlocks: z.array(cardBlock).optional(),
+        })
+        .strict()
+        .transform((card) => ({
+          front: card.front ?? sideText(card.frontBlocks),
+          back: card.back ?? sideText(card.backBlocks),
+        })),
+    ),
+    files: z
+      .array(z.object({ id: z.string(), name: z.string(), data: z.string() }).strict())
+      .default([]),
   })
   .strict();
+
+/// The text of a side written as blocks, one block per paragraph, mentions as their names.
+function sideText(blocks: { content: string }[] | undefined): string {
+  return (blocks ?? []).map((b) => stripMentions(b.content)).join("\n\n");
+}
 
 export interface DeckPreview {
   title: string;
@@ -223,9 +254,9 @@ export function readDeckFile(text: string): z.infer<typeof deckFile> {
       `This is not a Nookly deck file (format "${found.success ? (found.data.format ?? "none") : "none"}").`,
     );
   }
-  if (found.data.version !== 1) {
+  if (found.data.version !== 1 && found.data.version !== 2) {
     throw new Error(
-      `This deck file is version ${String(found.data.version ?? "unknown")}, and this version of Nookly reads version 1.`,
+      `This deck file is version ${String(found.data.version ?? "unknown")}, and this version of Nookly reads version 1 and 2.`,
     );
   }
   const parsed = deckFile.safeParse(json);

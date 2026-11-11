@@ -8,19 +8,19 @@ use tauri::State;
 
 #[tauri::command]
 pub fn sync_query(state: State<DbState>, sql: String, params: Vec<Value>) -> AppResult<Vec<Value>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     batch::run_query(&conn, &sql, &params)
 }
 
 #[tauri::command]
 pub fn sync_batch(state: State<DbState>, statements: Vec<Statement>) -> AppResult<BatchOutcome> {
-    let mut conn = state.0.lock().unwrap();
+    let mut conn = state.conn()?;
     batch::run_batch(&mut conn, &statements)
 }
 
 #[tauri::command]
 pub fn sync_reindex(state: State<DbState>, entity_ids: Vec<String>) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     crate::sync::reindex(&conn, &entity_ids)
 }
 

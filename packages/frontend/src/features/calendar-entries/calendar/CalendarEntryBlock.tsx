@@ -35,6 +35,7 @@ export function CalendarEntryBlock({
   highlighted,
   accentColor,
   secondary,
+  dimmed,
   days,
   dayIndex,
 }: {
@@ -49,6 +50,8 @@ export function CalendarEntryBlock({
   /// next to that Space's own Sessions: rendered with less visual weight, but
   /// still fully editable via the same popover.
   secondary?: boolean;
+  /// Faded further than `secondary`, for what the page the grid sits on is not about.
+  dimmed?: boolean;
   /// The visible days on the time grid, and this entry's own column among
   /// them, so dragging it to a new place can resolve which day it landed on
   /// (see `useItemDrag`).
@@ -92,6 +95,7 @@ export function CalendarEntryBlock({
           ? "border-border bg-muted text-muted-foreground"
           : "border-(--entry-color)/60 bg-(--entry-color)/30 text-foreground shadow-xs",
         secondary && !entry.cancelled && "opacity-70 shadow-none",
+        dimmed && "opacity-40 shadow-none hover:opacity-100",
         highlighted && "ring-2 ring-(--entry-color)",
         previewRange && "z-30 shadow-lg transition-none",
         draggable && "cursor-grab active:cursor-grabbing",
@@ -169,6 +173,7 @@ export function CalendarEntryChip({
   showTime = false,
   accentColor,
   secondary,
+  dimmed,
   daySpan,
 }: {
   spaceId: string;
@@ -178,6 +183,8 @@ export function CalendarEntryChip({
   accentColor?: string;
   /// See `CalendarEntryBlock`'s `secondary`.
   secondary?: boolean;
+  /// See `CalendarEntryBlock`'s `dimmed`.
+  dimmed?: boolean;
   /// Where this day falls in a multi-day entry's span (see
   /// `calendar-model`'s `daySpanFor`), so only its first day shows the start
   /// time and only its last day shows the end time.
@@ -195,6 +202,7 @@ export function CalendarEntryChip({
             ? "border-l-muted-foreground text-muted-foreground line-through hover:bg-accent"
             : "border-l-(--entry-color) bg-(--entry-color)/25 font-medium hover:bg-(--entry-color)/35",
           secondary && !entry.cancelled && "opacity-70",
+          dimmed && "opacity-40 hover:opacity-100",
           highlighted && "ring-2 ring-(--entry-color)",
         )}
         // SAFETY: see `CalendarEntryBlock` above — a hex color or the `--accent-purple` token.

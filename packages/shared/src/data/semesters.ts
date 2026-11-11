@@ -323,8 +323,10 @@ export async function gradeReport(db: LocalDb, spaceId: string): Promise<GradeRe
     if (courseId) items.set(courseId, [...(items.get(courseId) ?? []), item]);
   };
   for (const exam of await listExams(db, { spaceId })) add(exam.courseId, toItem(exam, "exam"));
-  for (const work of await listAssignments(db, { spaceId }))
-    add(work.courseId, toItem(work, "assignment"));
+  for (const work of await listAssignments(db, { spaceId })) {
+    // Ungraded work like homework is not part of the grade.
+    if (!work.ungraded) add(work.courseId, toItem(work, "assignment"));
+  }
   const reports = courses.map<CourseReport>(({ entity }) => {
     const mine = items.get(entity.id) ?? [];
     const weights = itemWeights(mine);

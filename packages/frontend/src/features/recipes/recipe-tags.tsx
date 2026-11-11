@@ -1,3 +1,4 @@
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import {
   IconBolt,
   IconBread,
@@ -123,7 +124,7 @@ export function RecipeTagsPicker({
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent className="w-56" align="start" onKeyDown={(e) => e.stopPropagation()}>
-        <Command loop>
+        <Command loop filter={accentInsensitiveFilter}>
           <CommandInput placeholder="Find tags…" value={search} onValueChange={setSearch} />
           <CommandList className="p-1">
             <CommandEmpty>No tag found.</CommandEmpty>
@@ -134,7 +135,7 @@ export function RecipeTagsPicker({
                 <CommandItem key={tag.id} value={tag.name} onSelect={() => onToggle(tag.id)}>
                   <span
                     className={cn(
-                      "flex size-4 items-center justify-center rounded-sm border border-input",
+                      "flex size-4 shrink-0 items-center justify-center rounded-sm border border-input",
                       checked && "border-primary bg-primary",
                     )}
                   >

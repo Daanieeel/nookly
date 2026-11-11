@@ -15,10 +15,11 @@ import {
   updateAssignmentWeight,
 } from "#/lib/api/assignments.ts";
 import type { Assignment, Entity } from "#/lib/api/types.ts";
-import { useNavStore } from "#/lib/store/nav.ts";
+import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 import { weightPercent } from "#/features/exams/exam-model.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { AssignmentDuePicker } from "./AssignmentDuePicker";
+import { AssignmentGradingRows } from "./AssignmentGradingRows";
 import {
   ASSIGNMENT_STATUSES,
   assignmentStatus,
@@ -49,7 +50,7 @@ export function AssignmentDetailView({ entity }: { entity: Entity }) {
 }
 
 function AssignmentPage({ entity }: { entity: Entity }) {
-  const sidebarCollapsed = useNavStore((s) => s.rightSidebarCollapsed);
+  const [sidebarCollapsed] = useRightSidebarCollapsed();
   const { data: assignments = [] } = useQuery({
     queryKey: qk.assignments.bySpace(entity.spaceId),
     queryFn: () => listAssignments(entity.spaceId),
@@ -162,9 +163,7 @@ function PropertiesPanel({ assignment }: { assignment: Assignment }) {
         <WeightField assignment={assignment} />
       </PropertyRow>
 
-      <PropertyRow label="Grade">
-        <GradeField assignment={assignment} />
-      </PropertyRow>
+      <AssignmentGradingRows assignment={assignment} />
 
       <PropertyRow label="Course">
         <CourseField assignment={assignment} course={course} />
@@ -205,29 +204,6 @@ function WeightField({ assignment }: { assignment: Assignment }) {
       min={0}
       max={100}
       unit="%"
-      pending={save.isPending}
-      failed={save.isError}
-    />
-  );
-}
-
-function GradeField({ assignment }: { assignment: Assignment }) {
-  const queryClient = useQueryClient();
-  const save = useMutation({
-    mutationFn: (grade: number | null) =>
-      updateAssignmentStatus(assignment.entity.id, assignment.status, grade),
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: qk.assignments.bySpace(assignment.entity.spaceId),
-      }),
-  });
-  return (
-    <NumberProperty
-      value={assignment.grade}
-      onSave={(grade) => save.mutate(grade)}
-      addLabel="Add grade"
-      clearLabel="Remove Grade"
-      min={0}
       pending={save.isPending}
       failed={save.isError}
     />

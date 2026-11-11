@@ -1,11 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { findZoomAnchor, scrollDeltaForAnchor } from "./pdf-zoom-anchor";
+import { findZoomAnchor as findAnchor, scrollDeltaForAnchor } from "./pdf-zoom-anchor";
 
 const rects = [
   { page: 1, top: -900, height: 800 },
   { page: 2, top: -84, height: 800 },
   { page: 3, top: 732, height: 800 },
 ];
+
+/// Finds the anchor over pages laid out as `rects` and records which pages were measured.
+function findZoomAnchor(y: number, list: typeof rects, measured: number[] = []) {
+  return findAnchor(
+    y,
+    list.map((r) => r.page),
+    (page) => {
+      measured.push(page);
+      return list.find((r) => r.page === page);
+    },
+  );
+}
 
 describe("findZoomAnchor", () => {
   it("anchors to the page under the top of the scroll area", () => {
@@ -23,6 +35,26 @@ describe("findZoomAnchor", () => {
 
   it("returns null without pages", () => {
     expect(findZoomAnchor(0, [])).toBeNull();
+  });
+
+  it("returns null when the point lies below every page", () => {
+    expect(findZoomAnchor(5000, rects)).toBeNull();
+  });
+
+  it("anchors at a point below the top, such as the cursor", () => {
+    // 400px down the scroll area: page 2 spans -84..716, so 484 / 800 into it.
+    expect(findZoomAnchor(400, rects)).toEqual({ page: 2, fraction: 0.605 });
+  });
+
+  it("measures only a few pages of a long document", () => {
+    const long = Array.from({ length: 1000 }, (_, i) => ({
+      page: i + 1,
+      top: i * 816 - 400_000,
+      height: 800,
+    }));
+    const measured: number[] = [];
+    expect(findZoomAnchor(0, long, measured)?.page).toBe(491);
+    expect(measured.length).toBeLessThanOrEqual(12);
   });
 });
 

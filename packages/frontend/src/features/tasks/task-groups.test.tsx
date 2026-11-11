@@ -152,7 +152,7 @@ describe("taskFilterFields", () => {
       "start",
       "created",
       "updated",
-      "completed",
+      "completedAt",
       "effort",
     ]);
   });
@@ -168,6 +168,7 @@ describe("taskFilterFields", () => {
       "No due date",
       "Done",
     ]);
+    expect(fields[5].label).toBe("Completed at");
     expect(fields[5].options.at(-1)).toMatchObject({ value: "none", label: "Not completed" });
   });
 

@@ -136,7 +136,7 @@ interface BoardDisplay {
 }
 
 /// The "Show empty groups" switch, remembered per layout.
-export function ShowEmptyRow({
+function ShowEmptyRow({
   display,
   set,
 }: {
@@ -157,7 +157,7 @@ export function ShowEmptyRow({
 }
 
 /// One switch per board column, so any of them can be hidden or brought back.
-export function ColumnToggles({
+function ColumnToggles({
   display,
   columns,
   set,

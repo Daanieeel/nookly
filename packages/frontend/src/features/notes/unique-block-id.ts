@@ -4,7 +4,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 /// One backend `Block` row per top-level document node (§ notes rewrite) — the
 /// reconciliation in `BlockEditor` needs a stable id per node to diff against the
 /// last-persisted block list, which ProseMirror doesn't provide on its own.
-export const TOP_LEVEL_BLOCK_TYPES = [
+const TOP_LEVEL_BLOCK_TYPES = [
   "paragraph",
   "heading",
   "blockquote",
@@ -26,6 +26,8 @@ export const TOP_LEVEL_BLOCK_TYPES = [
   "math",
   "diagram",
   "circuit",
+  "plot",
+  "mindmap",
   "entity_card",
   "image",
   "video",

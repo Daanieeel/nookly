@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { inline } from "./InlineText.tsx";
 
 interface Group {
   title: string | null;
@@ -22,27 +22,6 @@ function groupsOf(body: string): Group[] {
     groups.at(-1)?.items.push({ text: bullet?.[1] ?? line, bullet: bullet !== null });
   }
   return groups;
-}
-
-/// `**bold**` and `` `code` `` inside a line, the only inline formatting the notes use.
-function inline(text: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      return (
-        <strong key={index} className="font-semibold text-foreground">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
-      return (
-        <code key={index} className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    return <Fragment key={index}>{part}</Fragment>;
-  });
 }
 
 /// One version's notes as groups under quiet headings, drawn by hand instead of through

@@ -9,13 +9,10 @@
   "type": "module",
   "scripts": {
     "dev": "bun tools/dev.ts all",
-    "dev:desktop": "bun tools/dev.ts desktop",
-    "dev:mobile": "bun tools/dev.ts mobile",
-    "dev:server": "bun tools/dev.ts server",
-    "stack": "bun tools/dev.ts server",
-    "dev:expo": "bun run --cwd apps/mobile dev",
     "build": "turbo run build",
     "tauri": "bun run --cwd apps/desktop tauri",
+    "build:side-by-side": "bun run --cwd apps/desktop tauri build --bundles app --config src-tauri/tauri.side-by-side.conf.json",
+    "start:side-by-side": "bun run build:side-by-side && open \"apps/desktop/src-tauri/target/release/bundle/macos/Nookly Dev.app\"",
     "typecheck": "turbo run typecheck",
     "check": "turbo run typecheck check:rust",
     "test": "turbo run test",
@@ -51,18 +48,24 @@
     "seed:reset": "bash scripts/seed/reset.sh",
     "seed:mia": "bash scripts/seed/reset.sh mia",
     "seed:luca": "bash scripts/seed/reset.sh luca",
-    "seed:sara": "bash scripts/seed/reset.sh sara"
+    "seed:sara": "bash scripts/seed/reset.sh sara",
+    "dev:desktop": "bun tools/dev.ts desktop",
+    "dev:mobile": "bun tools/dev.ts mobile",
+    "dev:server": "bun tools/dev.ts server",
+    "stack": "bun tools/dev.ts server",
+    "dev:expo": "bun run --cwd apps/mobile dev"
   },
   "devDependencies": {
     "@nookly/config": "workspace:*",
-    "jscpd": "^5.4.0",
-    "knip": "^6.39.0",
-    "oxfmt": "0.65.0",
-    "oxlint": "1.83.0",
-    "turbo": "^2.11.4",
+    "jscpd": "^5.4.2",
+    "knip": "^6.44.1",
+    "oxfmt": "0.75.0",
+    "oxlint": "1.90.0",
+    "turbo": "^2.11.10",
     "typescript": "^7.0.2"
   },
   "overrides": {
+    "@xmldom/xmldom": "0.9.12",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },

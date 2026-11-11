@@ -44,6 +44,11 @@
   --accent-pink: #d6336c;
   --accent-purple: #9147d6;
   --accent-yellow: #ab7a00;
+  /* Brand marks and the buttons that carry them look the same in both themes. */
+  --brand-moodle: #f98012;
+  --brand-button: #ffffff;
+  --brand-button-foreground: #1c1c1c;
+  --brand-button-border: #e2e2e2;
   --sidebar: var(--card);
   --sidebar-foreground: var(--card-foreground);
   --sidebar-primary: var(--primary);
@@ -129,10 +134,16 @@
   --color-accent-yellow: var(--accent-yellow);
   --color-positive: var(--accent-green);
   --color-caution: var(--accent-yellow);
+  --color-brand-moodle: var(--brand-moodle);
+  --color-brand-button: var(--brand-button);
+  --color-brand-button-foreground: var(--brand-button-foreground);
+  --color-brand-button-border: var(--brand-button-border);
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
   --radius-xl: 14px;
+  /* A control sitting inside a field, like the toggles of the find bar. */
+  --radius-inset: 0.3125rem;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

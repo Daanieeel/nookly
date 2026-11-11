@@ -1,5 +1,5 @@
 //! Export and import of one Assignment as a Nookly JSON file (`nookly-assignment`,
-//! version 1).
+//! version 2).
 //!
 //! The file holds the Assignment's title, status, due day, grade, weight and description
 //! blocks. An Assignment has no sub-items of its own: its matching Tasks are separate
@@ -9,19 +9,28 @@
 //! as plain text for whoever reads it, and is never looked up: an import has to be filed
 //! under a Course the user picks, because every Assignment belongs to exactly one.
 //!
-//! Import creates a new Assignment and never changes an existing one, and lands whole or
-//! not at all.
+//! The Files that its blocks show (images, videos, sounds, files) travel inside the file,
+//! once per File (see `portable_files`). Version 1 files, without Files, still import.
+//!
+//! Import creates a new Assignment, and the Files as new Files in the same Space, and never
+//! changes an existing one, and lands whole or not at all.
 
 use crate::db::assignments::{self, ASSIGNMENT_STATUSES};
 use crate::db::entities::Entity;
-use crate::db::page_json::{export_blocks, import_blocks, preview_blocks, BlockJson};
-use crate::db::portable::{check_date, parse_document, Importer, PortableDef, PortablePreview};
+use crate::db::page_json::{import_blocks, preview_blocks, BlockJson};
+use crate::db::portable::{
+    check_date, parse_document_versions, Exported, Importer, PortableDef, PortablePreview,
+};
+use crate::db::portable_files::{self, Embedded, FileFile};
 use crate::error::{AppError, AppResult};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 pub const FORMAT: &str = "nookly-assignment";
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
+/// Versions this reads, newest last.
+const READS: &[u32] = &[1, 2];
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -34,7 +43,8 @@ struct AssignmentFile {
     /// The Course's name, as text. Not used on import.
     #[serde(default)]
     course: Option<String>,
-    /// One of `not_started`, `in_progress`, `submitted` or `graded`.
+    /// One of `not_started`, `in_progress`, `submitted` or `evaluated`. Files written before
+    /// the rename say `graded`, which reads as `evaluated`.
     status: String,
     #[serde(default)]
     due_date: Option<String>,
@@ -42,8 +52,15 @@ struct AssignmentFile {
     grade: Option<f64>,
     #[serde(default)]
     weight: Option<f64>,
+    /// Not graded at all, like homework. Left out of the file when false, so files from
+    /// before it existed read the same.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    ungraded: bool,
     #[serde(default)]
     blocks: Vec<BlockJson>,
+    /// The Files the blocks show. Version 2 on.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    files: Vec<FileFile>,
 }
 
 fn course_title(conn: &Connection, assignment_id: &str) -> AppResult<Option<String>> {
@@ -62,7 +79,14 @@ fn course_title(conn: &Connection, assignment_id: &str) -> AppResult<Option<Stri
 }
 
 /// The Assignment as a `nookly-assignment` JSON document.
+#[cfg(test)]
 pub fn export_assignment_json(conn: &Connection, entity_id: &str) -> AppResult<String> {
+    Ok(export_assignment(conn, entity_id)?.json)
+}
+
+/// The Assignment as a `nookly-assignment` JSON document, and the Files that could not go
+/// in it.
+pub fn export_assignment(conn: &Connection, entity_id: &str) -> AppResult<Exported> {
     let entity = crate::db::entities::get_entity(conn, entity_id)?;
     if entity.entity_type != "assignment" {
         return Err(AppError::InvalidInput(format!(
@@ -71,6 +95,8 @@ pub fn export_assignment_json(conn: &Connection, entity_id: &str) -> AppResult<S
         )));
     }
     let assignment = assignments::get_assignment(conn, entity_id)?;
+    let mut embedded = Embedded::default();
+    let blocks = embedded.blocks(conn, entity_id)?;
     let file = AssignmentFile {
         format: FORMAT.into(),
         version: VERSION,
@@ -81,14 +107,20 @@ pub fn export_assignment_json(conn: &Connection, entity_id: &str) -> AppResult<S
         due_date: assignment.due_date,
         grade: assignment.grade,
         weight: assignment.weight,
-        blocks: export_blocks(conn, entity_id)?,
+        ungraded: assignment.ungraded,
+        blocks,
+        files: embedded.take_files(),
     };
-    serde_json::to_string_pretty(&file).map_err(|e| AppError::Io(e.to_string()))
+    embedded.finish("assignment", &file)
 }
 
 /// Reads and checks a document without touching the database.
 fn parse(text: &str) -> AppResult<AssignmentFile> {
-    let file: AssignmentFile = parse_document(text, FORMAT, VERSION, "assignment")?;
+    let mut file: AssignmentFile = parse_document_versions(text, FORMAT, READS, "assignment")?;
+    // The status was called `graded` until it was renamed.
+    if file.status == "graded" {
+        file.status = "evaluated".into();
+    }
     if file.kind != "assignment" {
         return Err(AppError::InvalidInput(format!(
             "this assignment file holds a \"{}\", not an assignment",
@@ -109,6 +141,7 @@ fn parse(text: &str) -> AppResult<AssignmentFile> {
             "weight must be a number of 0 or more".into(),
         ));
     }
+    portable_files::check_version("assignment", file.version, &file.files)?;
     Ok(file)
 }
 
@@ -120,24 +153,57 @@ pub fn import_assignment_json(
     course_id: &str,
     text: &str,
 ) -> AppResult<Entity> {
+    import_assignment_json_into(
+        conn,
+        &portable_files::files_dir()?,
+        space_id,
+        course_id,
+        text,
+    )
+}
+
+/// `import_assignment_json` with the folder the Files are stored in. If anything fails, the
+/// files already written are removed again.
+pub fn import_assignment_json_into(
+    conn: &Connection,
+    files_dir: &Path,
+    space_id: &str,
+    course_id: &str,
+    text: &str,
+) -> AppResult<Entity> {
     let file = parse(text)?;
-    crate::db::atomically(conn, || {
-        let created = assignments::create_assignment(
-            conn,
-            space_id.to_string(),
-            file.title.clone(),
-            course_id.to_string(),
-            file.due_date.clone(),
-        )?;
-        let id = &created.entity.id;
-        conn.execute(
-            "UPDATE assignments SET status = ?1, grade = ?2 WHERE entity_id = ?3",
-            params![file.status, file.grade, id],
-        )?;
-        assignments::update_assignment_weight(conn, id, file.weight)?;
-        import_blocks(conn, id, &file.blocks)?;
-        crate::db::entities::get_entity(conn, id)
-    })
+    let used = portable_files::used_keys(&file.blocks);
+    portable_files::import_with_files(
+        conn,
+        files_dir,
+        space_id,
+        "assignment",
+        &file.files,
+        &used,
+        |stored| {
+            let blocks = stored.point(&file.blocks, "assignment", "a block")?;
+            let created = assignments::create_assignment(
+                conn,
+                space_id.to_string(),
+                file.title.clone(),
+                course_id.to_string(),
+                file.due_date.clone(),
+            )?;
+            let id = &created.entity.id;
+            conn.execute(
+                "UPDATE assignments SET status = ?1, grade = ?2,
+                    evaluated_at = CASE WHEN ?1 = 'evaluated' THEN ?4 END
+                 WHERE entity_id = ?3",
+                params![file.status, file.grade, id, crate::db::now()],
+            )?;
+            assignments::update_assignment_weight(conn, id, file.weight)?;
+            if file.ungraded {
+                assignments::update_assignment_ungraded(conn, id, true)?;
+            }
+            import_blocks(conn, id, &blocks)?;
+            crate::db::entities::get_entity(conn, id)
+        },
+    )
 }
 
 fn status_words(status: &str) -> String {
@@ -158,12 +224,19 @@ fn preview(text: &str) -> AppResult<PortablePreview> {
     if let Some(grade) = file.grade {
         facts.push(format!("Grade {grade}"));
     }
+    if file.ungraded {
+        facts.push("Not graded".into());
+    }
     if let Some(weight) = file.weight {
         facts.push(format!("Weight {weight}"));
     }
     if let Some(course) = &file.course {
         facts.push(format!("From the course {course}"));
     }
+    facts.extend(portable_files::files_fact(
+        portable_files::used_keys(&file.blocks).len(),
+        "file",
+    ));
     let (items, converted) = preview_blocks(&file.blocks);
     Ok(PortablePreview {
         format: FORMAT.into(),
@@ -179,7 +252,7 @@ fn preview(text: &str) -> AppResult<PortablePreview> {
 }
 
 inventory::submit! {
-    PortableDef { entity_type: "assignment", format: FORMAT, version: VERSION, parent_type: Some("course"), noun: "assignment", export: export_assignment_json, preview, import: Importer::Filed(import_assignment_json) }
+    PortableDef { entity_type: "assignment", format: FORMAT, version: VERSION, parent_type: Some("course"), noun: "assignment", max_bytes: crate::db::portable::MAX_IMPORT_BYTES, export: export_assignment, preview, import: Importer::Filed(import_assignment_json) }
 }
 
 #[cfg(test)]
@@ -230,7 +303,7 @@ mod tests {
         )
         .unwrap();
         let id = &a.entity.id;
-        assignments::update_assignment_status(&fx.conn, id, "graded".into(), Some(8.5)).unwrap();
+        assignments::update_assignment_status(&fx.conn, id, "evaluated".into(), Some(8.5)).unwrap();
         assignments::update_assignment_weight(&fx.conn, id, Some(0.25)).unwrap();
         crate::db::notes::create_block(
             &fx.conn,
@@ -276,7 +349,7 @@ mod tests {
                 got.grade,
                 got.weight
             ),
-            ("graded", Some("2026-03-10"), Some(8.5), Some(0.25))
+            ("evaluated", Some("2026-03-10"), Some(8.5), Some(0.25))
         );
         assert_eq!(
             list_blocks(&fx.conn, &imported.id).unwrap()[0].content,
@@ -285,6 +358,50 @@ mod tests {
         // Filed under the course it was given, and no other.
         let course = course_title(&fx.conn, &imported.id).unwrap();
         assert_eq!(course.as_deref(), Some("Chemistry"));
+    }
+
+    #[test]
+    fn an_ungraded_assignment_stays_ungraded_and_old_files_read_as_graded() {
+        let fx = fixture();
+        let a = graded(&fx);
+        assignments::update_assignment_ungraded(&fx.conn, &a.id, true).unwrap();
+        let json = export_assignment_json(&fx.conn, &a.id).unwrap();
+        assert!(json.contains("\"ungraded\": true"));
+        let imported =
+            crate::db::portable::import(&fx.conn, &fx.other_space, Some(&fx.other_course), &json)
+                .unwrap();
+        assert!(
+            assignments::get_assignment(&fx.conn, &imported.id)
+                .unwrap()
+                .ungraded
+        );
+
+        // A graded one leaves the field out, and a file without it is graded.
+        let other = graded(&fx);
+        let json = export_assignment_json(&fx.conn, &other.id).unwrap();
+        assert!(!json.contains("ungraded"));
+        let imported =
+            crate::db::portable::import(&fx.conn, &fx.other_space, Some(&fx.other_course), &json)
+                .unwrap();
+        assert!(
+            !assignments::get_assignment(&fx.conn, &imported.id)
+                .unwrap()
+                .ungraded
+        );
+    }
+
+    #[test]
+    fn an_old_file_with_the_graded_status_reads_as_evaluated() {
+        let fx = fixture();
+        let a = graded(&fx);
+        let json = export_assignment_json(&fx.conn, &a.id).unwrap();
+        assert!(json.contains("\"status\": \"evaluated\""));
+        let old = json.replace("\"status\": \"evaluated\"", "\"status\": \"graded\"");
+        let imported =
+            crate::db::portable::import(&fx.conn, &fx.other_space, Some(&fx.other_course), &old)
+                .unwrap();
+        let got = assignments::get_assignment(&fx.conn, &imported.id).unwrap();
+        assert_eq!(got.status, "evaluated");
     }
 
     #[test]
@@ -427,7 +544,7 @@ mod tests {
             ("assignment", "Lab report 3", Some("course"))
         );
         for fact in [
-            "Status: Graded",
+            "Status: Evaluated",
             "Due 2026-03-10",
             "Grade 8.5",
             "Weight 0.25",
@@ -443,5 +560,76 @@ mod tests {
     fn it_is_registered_and_needs_a_course() {
         let def = crate::db::portable::for_type("assignment").unwrap();
         assert_eq!((def.format, def.parent_type), (FORMAT, Some("course")));
+    }
+
+    #[test]
+    fn files_travel_inside_the_assignment_and_come_back_as_new_files() {
+        let fx = fixture();
+        let dir = std::env::temp_dir().join(format!("nookly-assignment-{}", crate::db::new_id()));
+        let diagram_bytes = crate::db::portable_files::test_images::png();
+        let sheet = crate::db::files::store_file(
+            &fx.conn,
+            &dir,
+            fx.space.clone(),
+            "diagram.png",
+            &diagram_bytes,
+            None,
+        )
+        .unwrap();
+        let gone =
+            crate::db::files::store_file(&fx.conn, &dir, fx.space.clone(), "gone.png", b"x", None)
+                .unwrap();
+        std::fs::remove_file(gone.local_path.as_ref().unwrap()).unwrap();
+        let a = graded(&fx);
+        for (kind, file) in [("image", &sheet), ("image", &gone)] {
+            crate::db::notes::create_block(
+                &fx.conn,
+                &a.id,
+                kind.into(),
+                format!("[{}](mention:{})", file.entity.title, file.entity.id),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+        }
+
+        let exported = export_assignment(&fx.conn, &a.id).unwrap();
+        assert_eq!(exported.left_as_text, vec!["gone.png".to_string()]);
+        let value: serde_json::Value = serde_json::from_str(&exported.json).unwrap();
+        assert_eq!(value["version"], 2);
+        assert_eq!(value["files"].as_array().unwrap().len(), 1);
+
+        let target =
+            std::env::temp_dir().join(format!("nookly-assignment-{}", crate::db::new_id()));
+        let imported =
+            import_assignment_json_into(&fx.conn, &target, &fx.space, &fx.course, &exported.json)
+                .unwrap();
+        let blocks = list_blocks(&fx.conn, &imported.id).unwrap();
+        assert_eq!(blocks[1].block_type, "image");
+        let id = blocks[1]
+            .content
+            .split("mention:")
+            .nth(1)
+            .unwrap()
+            .trim_end_matches(')');
+        assert_ne!(id, sheet.entity.id);
+        let new_file = crate::db::files::get_file(&fx.conn, id).unwrap();
+        crate::db::portable_files::test_images::assert_same_image(
+            &diagram_bytes,
+            &std::fs::read(new_file.local_path.unwrap()).unwrap(),
+        );
+        // The one that could not travel is a paragraph with its name.
+        assert_eq!(
+            (blocks[2].block_type.as_str(), blocks[2].content.as_str()),
+            ("paragraph", "gone.png")
+        );
+    }
+
+    #[test]
+    fn a_version_1_assignment_still_imports() {
+        let fx = fixture();
+        let v1 = with(serde_json::json!({ "version": 1 }));
+        assert!(import_assignment_json(&fx.conn, &fx.space, &fx.course, &v1).is_ok());
     }
 }

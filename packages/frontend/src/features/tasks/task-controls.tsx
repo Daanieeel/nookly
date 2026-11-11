@@ -1,7 +1,7 @@
 import { useCreateLabel } from "#/components/label-manager.tsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBolt } from "@tabler/icons-react";
-import { createContext, useContext, useMemo } from "react";
+import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { SpaceChip } from "#/components/space-chip.tsx";
 import { DueColumns } from "#/components/due-columns.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
@@ -75,6 +75,15 @@ export function useTasksDataValue(spaceId: string): TasksData {
       },
     };
   }, [rawStatuses, labels, spaceId]);
+}
+
+/// Gives the create dialog the statuses and labels of the Space it will create in.
+export function ScopedTasksData({ spaceId, children }: { spaceId: string; children: ReactNode }) {
+  return (
+    <TasksDataContext.Provider value={useTasksDataValue(spaceId)}>
+      {children}
+    </TasksDataContext.Provider>
+  );
 }
 
 /// Every view a task shows up in: the Space's list, a detail page, and the

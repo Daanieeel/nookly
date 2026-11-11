@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment, type ReactNode, useEffect, useMemo } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
 import { EntityIcon } from "#/components/entity-icon.tsx";
+import { EntityKey } from "#/components/entity-key.tsx";
 import { SpaceDot } from "#/components/space-chip.tsx";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
 import { getEntity } from "#/lib/api/entities.ts";
@@ -34,6 +35,8 @@ import { cn } from "@nookly/ui/lib/utils";
 interface TabLabel {
   icon: ReactNode;
   label: string;
+  /// The entity's `TSK-14` key, shown before the name.
+  entityKey?: string;
   spaceId?: string;
 }
 
@@ -82,6 +85,7 @@ function useTabLabel(view: View): TabLabel {
       return {
         icon: entity ? <EntityIcon entity={entity} /> : null,
         label: entity ? displayTitle(entity) : "Loading",
+        entityKey: entity?.key,
         spaceId: view.spaceId,
       };
   }
@@ -107,7 +111,7 @@ function TabItem({
   onDragStart: () => void;
   onDragEnd: () => void;
 }) {
-  const { icon, label, spaceId } = useTabLabel(tab.view);
+  const { icon, label, entityKey, spaceId } = useTabLabel(tab.view);
   const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
   const space = spaceId ? spaces.find((s) => s.id === spaceId) : undefined;
   const { dragOver, dropProps } = useDropTarget(() => {
@@ -125,7 +129,12 @@ function TabItem({
     <div
       data-tab
       draggable
-      onDragStart={onDragStart}
+      onDragStart={(e) => {
+        // WebKitGTK (Linux) cancels a native drag that carries no data.
+        e.dataTransfer.setData("text/plain", tab.id);
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart();
+      }}
       onDragEnd={onDragEnd}
       {...dropProps}
       onAuxClick={(e) => {
@@ -161,6 +170,7 @@ function TabItem({
       >
         {space && <SpaceDot space={space} />}
         {icon}
+        {!tab.pinned && entityKey && <EntityKey entityKey={entityKey} />}
         {!tab.pinned && <span className="truncate">{label}</span>}
       </div>
       {!tab.pinned && (
@@ -192,7 +202,7 @@ function TabItem({
   return tab.pinned ? (
     <Tooltip>
       <TooltipTrigger asChild>{content}</TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
+      <TooltipContent side="bottom">{entityKey ? `${entityKey} ${label}` : label}</TooltipContent>
     </Tooltip>
   ) : (
     content
@@ -202,10 +212,12 @@ function TabItem({
 /// Shortcuts for tabs, and Cmd or middle click on anything that navigates to open it
 /// in a new tab instead.
 export function useTabInteractions() {
-  const { newTab, closeTab, closeOthers, cycle, split, focusAt } = useMemo(
+  const { newTab, closeTab, closeOthers, cycle, split, splitLeft, focusAt, zoom } = useMemo(
     () => ({
       split: () => useNavStore.getState().splitRight(),
+      splitLeft: () => useNavStore.getState().splitLeft(),
       focusAt: (index: number) => useNavStore.getState().focusGroupAt(index),
+      zoom: () => useNavStore.getState().toggleGroupZoom(),
       newTab: () => useNavStore.getState().openInNewTab(),
       closeTab: () => {
         const state = useNavStore.getState();
@@ -224,8 +236,10 @@ export function useTabInteractions() {
   useAppHotkey("nextTabAlt", () => cycle(1));
   useAppHotkey("previousTabAlt", () => cycle(-1));
   useAppHotkey("splitRight", split);
+  useAppHotkey("splitLeft", splitLeft);
   useAppHotkey("focusLeftGroup", () => focusAt(0));
   useAppHotkey("focusRightGroup", () => focusAt(1));
+  useAppHotkey("toggleGroupZoom", zoom);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {

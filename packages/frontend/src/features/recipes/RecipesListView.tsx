@@ -43,7 +43,7 @@ export function RecipesListView({ spaceId }: { spaceId: string }) {
         create: () => setCreateOpen(true),
       })}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="text-lg font-semibold">Recipes</h1>
         <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
           <IconPlus size={14} /> New recipe

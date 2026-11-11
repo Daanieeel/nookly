@@ -4,6 +4,8 @@ import {
   IconCheck,
   IconChecklist,
   IconClipboardCheck,
+  IconColumnInsertLeft,
+  IconColumnInsertRight,
   IconDeviceDesktop,
   IconLayoutDashboard,
   IconLayoutSidebarRight,
@@ -50,12 +52,21 @@ import { createTask } from "#/lib/api/tasks.ts";
 import type { Entity, Space } from "#/lib/api/types.ts";
 import { activeEditor } from "#/lib/active-editor.ts";
 import { MODULE_ICONS, MODULE_KEYS, MODULE_LABELS } from "#/lib/modules.ts";
-import { type ModuleKey, useNavStore, type View } from "#/lib/store/nav.ts";
+import {
+  type ModuleKey,
+  rightSidebarCollapsedIn,
+  tabGroups,
+  useNavStore,
+  type View,
+} from "#/lib/store/nav.ts";
+import { canSplitLeft, canSplitRight } from "#/lib/store/tab-groups.ts";
 import { type Theme, useThemeStore } from "#/lib/theme.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
 import { useAccountDialog } from "#/features/sync/account-dialog-store.ts";
 import { syncRuntime, useSyncState } from "#/features/sync/sync-instance.ts";
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
+import { startsWithWords } from "#/lib/text-search.ts";
 
 /// Entity types simple enough to be created directly from a palette with just a
 /// title (§3.2/§9 — "typing task: jumps straight into task creation"). Anything
@@ -109,17 +120,6 @@ function matchQuickCreate(trimmed: string): QuickCreateMatch[] {
     }
   }
   return matches;
-}
-
-/// True when every typed word is the start of some word in `text`, so "new"
-/// finds every "New …" action and "go tr" finds "Go to Trash".
-function matchesWords(text: string, query: string): boolean {
-  const words = text.toLowerCase().split(/\s+/);
-  return query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((q) => words.some((w) => w.startsWith(q)));
 }
 
 /// Leading glyph for every quick action row, so "create a Task" never reads
@@ -185,7 +185,7 @@ function SpacePickerItem({
           onRefocus();
         }}
       >
-        <PickerCommand loop>
+        <PickerCommand loop filter={accentInsensitiveFilter}>
           <CommandInput placeholder="Pick a Space…" />
           <CommandList className="p-1">
             <CommandEmpty>No Space matches.</CommandEmpty>
@@ -248,7 +248,7 @@ const THEME_OPTIONS: { theme: Theme; label: string; icon: TablerIcon }[] = [
 /// Quick actions shared by Cmd+K (search) and Cmd+Shift+P (commands only):
 /// creation, navigation, Space jumps and settings, matched by typed words.
 ///
-/// - `search`: Cmd+K with a query, one "Quick actions" group.
+/// - `search`: Cmd+K with a query, one "Quick Commands" group.
 /// - `suggestions`: Cmd+K before typing, a short suggested subset.
 /// - `commands`: Cmd+Shift+P, every match grouped by category.
 export function QuickActions({
@@ -264,21 +264,24 @@ export function QuickActions({
   /// Hands focus back to the hosting palette's input (after a Space picker).
   onRefocus: () => void;
 }) {
-  const {
-    openEntity,
-    setView,
-    activeSpaceId,
-    view,
-    rightSidebarCollapsed,
-    setRightSidebarCollapsed,
-  } = useNavStore();
+  const nav = useNavStore();
+  const { openEntity, setView, activeSpaceId, view, setRightSidebarCollapsed } = nav;
+  // The palette acts on the focused group of a split.
+  const rightSidebarCollapsed = rightSidebarCollapsedIn(nav, nav.focusedGroupId);
+  const tabLayout = {
+    groups: tabGroups(nav),
+    focusedGroupId: nav.focusedGroupId,
+  };
   const theme = useThemeStore((s) => s.theme);
   const syncSignedIn = useSyncState((s) => s.user !== null);
   const applyTheme = useThemeStore((s) => s.setTheme);
   const queryClient = useQueryClient();
   const trimmed = query.trim();
 
-  const { data: spaces = [] } = useQuery({ queryKey: qk.spaces, queryFn: listSpaces });
+  const { data: spaces = [] } = useQuery({
+    queryKey: qk.spaces,
+    queryFn: listSpaces,
+  });
   // Same keys the sidebar uses, so these are usually already cached.
   const spaceModules = useQueries({
     queries: spaces.map((space) => ({
@@ -359,6 +362,21 @@ export function QuickActions({
 
   function createItem(m: QuickCreateMatch) {
     const id = `create-${m.type}`;
+    const label = `New ${m.label}${m.title ? `: ${m.title}` : "…"}`;
+    // A task opens the New task dialog the Tasks page uses, title focused, with its Space
+    // chip in place of the Space picker. Opening it closes the palette.
+    if (m.type === "task") {
+      const spaceId = spaces.find((s) => s.id === activeSpaceId)?.id ?? spaces[0]?.id;
+      return simpleItem(
+        id,
+        null,
+        label,
+        () => {
+          if (spaceId) useNavStore.getState().setNewTask({ spaceId, title: m.title });
+        },
+        <ShortcutKbd name="newTask" />,
+      );
+    }
     return (
       <SpacePickerItem
         key={id}
@@ -381,10 +399,7 @@ export function QuickActions({
         onRefocus={onRefocus}
       >
         <ActionGlyph />
-        <span className="min-w-0 flex-1 truncate">
-          New {m.label}
-          {m.title ? `: ${m.title}` : "…"}
-        </span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
       </SpacePickerItem>
     );
   }
@@ -470,6 +485,44 @@ export function QuickActions({
         <ShortcutKbd name="newTab" />,
       ),
     },
+    ...(canSplitLeft(tabLayout, nav.activeTabId)
+      ? [
+          {
+            id: "split-left",
+            category: "create" as const,
+            words: "Split Left side by side split view two panes editor group",
+            node: simpleItem(
+              "split-left",
+              IconColumnInsertLeft,
+              "Split Left",
+              () => {
+                useNavStore.getState().splitLeft();
+                onDone();
+              },
+              <ShortcutKbd name="splitLeft" />,
+            ),
+          },
+        ]
+      : []),
+    ...(canSplitRight(tabLayout, nav.activeTabId)
+      ? [
+          {
+            id: "split-right",
+            category: "create" as const,
+            words: "Split Right side by side split view two panes editor group",
+            node: simpleItem(
+              "split-right",
+              IconColumnInsertRight,
+              "Split Right",
+              () => {
+                useNavStore.getState().splitRight();
+                onDone();
+              },
+              <ShortcutKbd name="splitRight" />,
+            ),
+          },
+        ]
+      : []),
     ...(spaces.length > 0
       ? [
           {
@@ -502,9 +555,24 @@ export function QuickActions({
         ]
       : []),
     ...[
-      { id: "dashboard", icon: IconLayoutDashboard, label: "Dashboard", keywords: "home overview" },
-      { id: "calendar", icon: IconCalendarWeek, label: "Calendar", keywords: "unified schedule" },
-      { id: "tasks", icon: IconChecklist, label: "Tasks", keywords: "todo overview all spaces" },
+      {
+        id: "dashboard",
+        icon: IconLayoutDashboard,
+        label: "Dashboard",
+        keywords: "home overview",
+      },
+      {
+        id: "calendar",
+        icon: IconCalendarWeek,
+        label: "Calendar",
+        keywords: "unified schedule",
+      },
+      {
+        id: "tasks",
+        icon: IconChecklist,
+        label: "Tasks",
+        keywords: "todo overview all spaces",
+      },
       {
         id: "assignments",
         icon: IconClipboardCheck,
@@ -512,7 +580,12 @@ export function QuickActions({
         keywords: "homework overview all spaces",
       },
       { id: "pinned", icon: IconPin, label: "Pinned", keywords: "favorites" },
-      { id: "trash", icon: IconTrash, label: "Trash", keywords: "deleted restore bin" },
+      {
+        id: "trash",
+        icon: IconTrash,
+        label: "Trash",
+        keywords: "deleted restore bin",
+      },
     ].map((n): ActionEntry => ({
       id: n.id,
       category: "navigate",
@@ -588,12 +661,14 @@ export function QuickActions({
     {
       id: "open-settings-file",
       category: "settings",
-      words: "Open Settings File settings json config edit",
-      node: simpleItem("open-settings-file", IconFileCode, "Open Settings File", () => {
+      words: "Show Settings File open settings json config edit",
+      node: simpleItem("open-settings-file", IconFileCode, "Show Settings File", () => {
         onDone();
         // The palette is gone by the time this can fail, so a toast is all that is left.
         openSettingsFile().catch(() =>
-          notify.error("Couldn't open the settings file", { description: "Try again." }),
+          notify.error("Couldn't open the settings file", {
+            description: "Try again.",
+          }),
         );
       }),
     },
@@ -620,13 +695,13 @@ export function QuickActions({
   const visible = entries.filter((e) => {
     if (mode === "suggestions") return e.suggested;
     if (mode === "commands" && !trimmed) return true;
-    return matchesWords(e.words, trimmed);
+    return startsWithWords(e.words, trimmed);
   });
   if (visible.length === 0) return null;
 
   if (mode !== "commands") {
     return (
-      <Command.Group heading="Quick actions" className={mode === "search" ? "pt-2" : undefined}>
+      <Command.Group heading="Quick Commands" className={mode === "search" ? "pt-2" : undefined}>
         {visible.map((e) => e.node)}
       </Command.Group>
     );

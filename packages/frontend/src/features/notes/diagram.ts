@@ -1,3 +1,5 @@
+import type { MermaidConfig } from "mermaid";
+
 /// Mermaid rendering for the diagram block. Mermaid is large, so it loads the
 /// first time a diagram is shown rather than with the editor.
 let mermaidModule: Promise<typeof import("mermaid")> | null = null;
@@ -10,6 +12,8 @@ export function renderDiagram(
   source: string,
   element: HTMLElement,
   dark: boolean,
+  /// Settings for this render only, on top of the app's (an export draws without HTML labels).
+  overrides: MermaidConfig = {},
 ): Promise<string | null> {
   const run = async () => {
     mermaidModule ??= import("mermaid");
@@ -19,6 +23,7 @@ export function renderDiagram(
       securityLevel: "strict",
       theme: dark ? "dark" : "neutral",
       fontFamily: getComputedStyle(document.body).fontFamily,
+      ...overrides,
     });
     try {
       const { svg, bindFunctions } = await mermaid.render(

@@ -2,7 +2,7 @@ import type { AssignmentRecord, ExamRecord, SessionRecord } from "@nookly/shared
 import { addDays } from "./dates.ts";
 
 /// Assignments that no longer wait on the student: handed in or graded.
-const HANDED_IN = new Set(["submitted", "graded"]);
+const HANDED_IN = new Set(["submitted", "evaluated"]);
 
 export interface CourseStats {
   /// The next session that has not started, if any.

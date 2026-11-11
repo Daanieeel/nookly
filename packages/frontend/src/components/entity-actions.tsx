@@ -1,4 +1,11 @@
-import { IconDots, IconNotes, IconPin, IconPinFilled, IconTrash } from "@tabler/icons-react";
+import {
+  IconDots,
+  IconNotes,
+  IconPin,
+  IconPinFilled,
+  IconTopologyStar3,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { type ActionStatus, StatusAnnouncer, StatusIcon } from "#/components/action-feedback.tsx";
@@ -14,9 +21,12 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   CopyPageMarkdownItem,
+  ExportPageItem,
   PageExportMenu,
-  SaveMarkdownFileItem,
 } from "#/features/notes/PageExportMenu.tsx";
+import { RelationshipGraphPanel } from "#/features/relationships/RelationshipGraphPanel.tsx";
+import { ExportPageDialog } from "#/features/page-export/ExportPageDialog.tsx";
+import { ShareFileButton, ShareFileMenuItem } from "#/features/files/ShareFile.tsx";
 import { ShareButton, ShareMenuSub } from "#/features/notes/SharePage.tsx";
 import { SaveNooklyFileItem } from "#/features/portable/save-nookly-file.tsx";
 import { refineJotIntoNote } from "#/features/notes/refine-jot.ts";
@@ -24,6 +34,7 @@ import { isPortableType } from "#/lib/api/portable.ts";
 import type { Entity } from "#/lib/api/types.ts";
 import { labelForType } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { ignoreError } from "#/lib/log.ts";
 
 /// Export (pages only), Pin, and an overflow menu repeating both plus Move to Trash
 /// (and, for Jots, Refine into New Note).
@@ -44,6 +55,8 @@ export function EntityActions({
 }) {
   const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [graphOpen, setGraphOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const noun = exportable ? "Page" : labelForType(entity.type);
   const pinLabel = entity.pinned ? `Unpin ${noun}` : `Pin ${noun}`;
@@ -58,7 +71,21 @@ export function EntityActions({
   return (
     <div className={cn("flex items-center gap-0.5", className)}>
       {exportable && <ShareButton entity={entity} />}
+      {entity.type === "file" && <ShareFileButton entity={entity} />}
       {exportable && <PageExportMenu entity={entity} />}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Show Relationship Graph"
+            onClick={() => setGraphOpen(true)}
+          >
+            <IconTopologyStar3 size={15} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Show Relationship Graph</TooltipContent>
+      </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -66,7 +93,7 @@ export function EntityActions({
             size="icon"
             aria-label={pin.status === "error" ? pinError : pinLabel}
             onClick={() => {
-              if (pin.status !== "pending") void pin.toggle().catch(() => {});
+              if (pin.status !== "pending") void pin.toggle().catch(ignoreError("toggling a pin"));
             }}
           >
             {pin.status === "success" ? (
@@ -122,11 +149,12 @@ export function EntityActions({
             <>
               <DropdownMenuSeparator />
               <CopyPageMarkdownItem entity={entity} />
-              <SaveMarkdownFileItem entity={entity} onDone={closeMenu} />
+              <ExportPageItem onSelect={() => setExporting(true)} />
               <SaveNooklyFileItem entity={entity} onDone={closeMenu} />
               <ShareMenuSub entity={entity} onDone={closeMenu} />
             </>
           )}
+          {entity.type === "file" && <ShareFileMenuItem entity={entity} onDone={closeMenu} />}
           {!exportable && isPortableType(entity.type) && (
             <>
               <DropdownMenuSeparator />
@@ -140,6 +168,8 @@ export function EntityActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {graphOpen && <RelationshipGraphPanel entity={entity} open onOpenChange={setGraphOpen} />}
+      {exporting && <ExportPageDialog entity={entity} open onOpenChange={setExporting} />}
     </div>
   );
 }

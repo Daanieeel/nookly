@@ -1,3 +1,4 @@
+import { PageHeader, PageHeaderActions, PageHeaderTitle } from "#/components/page-header.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUp,
@@ -13,7 +14,6 @@ import {
 } from "@tabler/icons-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { homeDir, join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -63,9 +63,12 @@ import {
 } from "#/lib/api/files.ts";
 import type { FileEntity } from "#/lib/api/types.ts";
 import { formatShortDate } from "#/lib/datetime.ts";
+import { localPath } from "#/lib/local-path.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { cn } from "@nookly/ui/lib/utils";
+import { useFileDragOver } from "#/hooks/use-file-drag-over.ts";
 import { FileDisplayMenu } from "./FileDisplayMenu";
+import { FileDropOverlay } from "./FileDropOverlay";
 import {
   FILE_KINDS,
   fileExtension,
@@ -84,6 +87,8 @@ import {
   writeDisplay,
 } from "./file-model";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { WindowedFiles } from "./windowed-files";
+import { ignoreError } from "#/lib/log.ts";
 
 /// Marks items that just arrived for a moment, so a new file never appears silently.
 function useFreshIds() {
@@ -93,18 +98,6 @@ function useFreshIds() {
     setTimeout(() => setFresh(new Set()), 2000);
   }, []);
   return [fresh, mark] as const;
-}
-
-/// A local path as typed, pasted or copied from Finder: absolute, `~/`, or a
-/// `file://` URL, with shell escapes and wrapping quotes removed. Null for
-/// anything else.
-async function localPath(text: string): Promise<string | null> {
-  const raw = text.trim().replace(/^(["'])(.*)\1$/, "$2");
-  if (raw.startsWith("file://")) return decodeURIComponent(new URL(raw).pathname);
-  const unescaped = raw.replace(/\\(.)/g, "$1");
-  if (unescaped.startsWith("~/")) return join(await homeDir(), unescaped.slice(2));
-  if (unescaped.startsWith("/")) return unescaped;
-  return null;
 }
 
 /// "example.com/x" gets its scheme; anything that isn't a web address is null.
@@ -152,6 +145,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     queryFn: () => listFiles(spaceId),
   });
   const labels = useSpaceLabels(spaceId);
+  const { over, dragProps } = useFileDragOver();
 
   const setDisplay = (next: DisplayOptions) => {
     setDisplayState(next);
@@ -208,7 +202,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           : (await convertEntity(target.file.entity.id, "bookmark")).id;
       const url = target.kind === "webpage" ? target.url : (target.file.url ?? "");
       fetchBookmarkMetadata(id, url)
-        .catch(() => {})
+        .catch(ignoreError("a files list step"))
         .finally(() => capture.mutate(id));
     },
     onSuccess: () => {
@@ -294,33 +288,29 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   const defs = fileGroupDefs(display.grouping);
   const openFile = (f: FileEntity) => openEntity(f.entity.id, spaceId);
 
-  const renderItems = (items: FileEntity[]) =>
-    display.layout === "grid" ? (
-      <ul
-        aria-label="Files"
-        className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 p-4"
-      >
-        {items.map((f) => (
+  const renderItems = (items: FileEntity[]) => (
+    <WindowedFiles
+      items={items}
+      layout={display.layout}
+      renderItem={(f) =>
+        display.layout === "grid" ? (
           <FileTile
             key={f.entity.id}
             file={f}
             fresh={fresh.has(f.entity.id)}
             onOpen={() => openFile(f)}
           />
-        ))}
-      </ul>
-    ) : (
-      <div>
-        {items.map((f) => (
+        ) : (
           <FileRow
             key={f.entity.id}
             file={f}
             fresh={fresh.has(f.entity.id)}
             onOpen={() => openFile(f)}
           />
-        ))}
-      </div>
-    );
+        )
+      }
+    />
+  );
 
   const addError = addFromText.isError
     ? `Couldn't add it: ${addFromText.error.message}`
@@ -331,17 +321,16 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   return (
     <div
       className="relative flex h-full min-h-0 flex-col"
+      {...dragProps}
       {...contextTarget("module-view", {
         spaceId,
         createLabel: "Import a File…",
         create: startImport,
       })}
     >
-      <header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-border py-2 pr-2 pl-4">
-        <h1 className="flex items-center gap-2 text-sm font-medium">
-          <IconFile size={16} className="text-muted-foreground" />
-          Files
-        </h1>
+      {over && <FileDropOverlay label="Drop to import files" />}
+      <PageHeader>
+        <PageHeaderTitle icon={IconFile}>Files</PageHeaderTitle>
         {files.some((f) => f.needsReindex) && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -367,13 +356,13 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
             <TooltipContent>Index older files for search</TooltipContent>
           </Tooltip>
         )}
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+        <PageHeaderActions>
           <div className="min-w-0 flex-1">
             <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
           </div>
           <FileDisplayMenu display={display} onChange={setDisplay} />
-        </div>
-      </header>
+        </PageHeaderActions>
+      </PageHeader>
 
       {!isPending && files.length === 0 ? (
         <div className="p-6">
@@ -570,7 +559,7 @@ function Thumbnail({
     return (
       <div className="size-full overflow-hidden bg-white">
         <Suspense fallback={null}>
-          <PdfThumb src={src} width={240} onError={() => onError()} />
+          <PdfThumb src={src} onError={onError} />
         </Suspense>
       </div>
     );

@@ -49,7 +49,7 @@ export const Callout = Node.create({
 
 /// A block whose whole content is its `rows` string plus the string attrs
 /// `ATOM_BLOCK_ATTRS` lists, edited through its own UI rather than as document text.
-export function atomBlock(name: AtomBlockType, component: ComponentType<ReactNodeViewProps>) {
+function atomBlock(name: AtomBlockType, component: ComponentType<ReactNodeViewProps>) {
   return Node.create({
     name,
     group: "block",
@@ -128,4 +128,9 @@ export const WebBookmark = atomBlock("bookmark", BookmarkBlock).extend<WebBlockO
 
 /// StarterKit's horizontal rule (with its `---` input rule), named after the
 /// backend block type it saves as.
-export const Divider = HorizontalRule.extend({ name: "divider" });
+/// Markdown parsing builds the node by name, so it must say `divider`: the stock
+/// `horizontalRule` is not in the schema and the whole document would come out blank.
+export const Divider = HorizontalRule.extend({
+  name: "divider",
+  parseMarkdown: (_token, helpers) => helpers.createNode("divider"),
+});

@@ -66,10 +66,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -138,6 +139,12 @@
               "kind": "integer",
               "min": 1,
               "name": "page"
+            },
+            {
+              "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+              "kind": "integer",
+              "min": 1,
+              "name": "pageTo"
             }
           ],
           "heading1 to heading6": [
@@ -159,6 +166,22 @@
             }
           ],
           "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "mindmap": [
+            {
+              "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+              "kind": "text",
+              "name": "layout"
+            },
             {
               "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
@@ -191,6 +214,17 @@
               "kind": "integer",
               "min": 1,
               "name": "start"
+            }
+          ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
             }
           ],
           "progress": [
@@ -271,7 +305,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -284,11 +318,13 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -297,7 +333,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli assignment delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -323,8 +359,10 @@
         "heading6",
         "image",
         "math",
+        "mindmap",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -366,6 +404,13 @@
         "writableOnUpdate": true
       },
       {
+        "description": "Read only. While it follows the Course's next session: the local moment (YYYY-MM-DD HH:MM) that was set. It follows the session that was next then, even once that session has started or ended. Changing only dueSessionOffsetDays keeps it; empty for any other due date.",
+        "kind": "text",
+        "name": "dueSessionAfter",
+        "requiredOnCreate": false,
+        "writableOnUpdate": false
+      },
+      {
         "description": "A session of the Course the due day follows, instead of its next session, shifted by dueSessionOffsetDays (0 when not given). dueDate reads the resolved day, which follows that session when it moves. Pass null to follow the next session again; setting dueDate drops it too.",
         "kind": {
           "entityType": "session",
@@ -376,11 +421,18 @@
         "writableOnUpdate": true
       },
       {
-        "description": "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
+        "description": "Due this many days before the Course's next session (0 to 365; 0 is the day of it), instead of a fixed dueDate. The next session is the one next when it was set (see dueSessionAfter), so it stays put once that session starts. dueDate then reads the resolved day, which follows moved, cancelled and trashed sessions. Pass null to go back to the fixed date; setting dueDate does too.",
         "kind": "integer",
         "name": "dueSessionOffsetDays",
         "requiredOnCreate": false,
         "writableOnUpdate": true
+      },
+      {
+        "description": "Read only. When the status last changed to evaluated; empty while it is not evaluated.",
+        "kind": "datetime",
+        "name": "evaluatedAt",
+        "requiredOnCreate": false,
+        "writableOnUpdate": false
       },
       {
         "description": "Grade received.",
@@ -394,13 +446,20 @@
         "kind": {
           "type": "enum",
           "values": [
-            "graded",
+            "evaluated",
             "in_progress",
             "not_started",
             "submitted"
           ]
         },
         "name": "status",
+        "requiredOnCreate": false,
+        "writableOnUpdate": true
+      },
+      {
+        "description": "True for work that is not graded, like homework: it counts for nothing in the Course's grade and its grade is hidden, but kept. Defaults to false.",
+        "kind": "boolean",
+        "name": "ungraded",
         "requiredOnCreate": false,
         "writableOnUpdate": true
       },
@@ -417,7 +476,7 @@
       "format": "nookly-assignment",
       "import": "nookly cli assignment import --file <path> --space <id> --parent <id>",
       "parentType": "course",
-      "version": 1
+      "version": 2
     },
     "relationshipTypes": [
       "assignment-course",
@@ -839,10 +898,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -911,6 +971,12 @@
               "kind": "integer",
               "min": 1,
               "name": "page"
+            },
+            {
+              "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+              "kind": "integer",
+              "min": 1,
+              "name": "pageTo"
             }
           ],
           "heading1 to heading6": [
@@ -932,6 +998,22 @@
             }
           ],
           "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "mindmap": [
+            {
+              "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+              "kind": "text",
+              "name": "layout"
+            },
             {
               "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
@@ -964,6 +1046,17 @@
               "kind": "integer",
               "min": 1,
               "name": "start"
+            }
+          ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
             }
           ],
           "progress": [
@@ -1044,7 +1137,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -1057,11 +1150,13 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -1070,7 +1165,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli course delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -1096,8 +1191,10 @@
         "heading6",
         "image",
         "math",
+        "mindmap",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -1218,10 +1315,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -1290,6 +1388,12 @@
               "kind": "integer",
               "min": 1,
               "name": "page"
+            },
+            {
+              "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+              "kind": "integer",
+              "min": 1,
+              "name": "pageTo"
             }
           ],
           "heading1 to heading6": [
@@ -1311,6 +1415,22 @@
             }
           ],
           "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "mindmap": [
+            {
+              "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+              "kind": "text",
+              "name": "layout"
+            },
             {
               "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
@@ -1343,6 +1463,17 @@
               "kind": "integer",
               "min": 1,
               "name": "start"
+            }
+          ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
             }
           ],
           "progress": [
@@ -1423,7 +1554,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -1436,11 +1567,13 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -1449,7 +1582,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli exam delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -1475,8 +1608,10 @@
         "heading6",
         "image",
         "math",
+        "mindmap",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -1563,8 +1698,7 @@
     "relationshipTypes": [
       "deck-exam",
       "exam-course",
-      "relates-to",
-      "study-block-exam"
+      "relates-to"
     ],
     "supportsBlocks": true
   },
@@ -1633,6 +1767,11 @@
     "childCollections": [],
     "computedFields": [
       {
+        "description": "Read only. `{ state, asOf }`: whether this device finds the file right now, for every File with bytes to look for (a stored copy is `available` or `missing`). `null` for a link never downloaded: run the `check` action.",
+        "kind": "object",
+        "name": "availability"
+      },
+      {
         "description": "Read only. The SHA-256 of the File's contents in the signed in account's storage, set once they are uploaded; null until then and when sync is off. Another device downloads the contents by it.",
         "kind": "text",
         "name": "blob"
@@ -1646,6 +1785,16 @@
         "description": "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx, code/plain text files) with no search content yet — never indexed, or the last attempt found nothing. See the `reindex` bulk action.",
         "kind": "boolean",
         "name": "needsReindex"
+      },
+      {
+        "description": "Read only. Where an imported File came from, as a key the importing module chose (a file from Moodle is `moodle:<its address>`); `null` for any other File.",
+        "kind": "text",
+        "name": "origin"
+      },
+      {
+        "description": "Read only. Present when the File only points at a file or link elsewhere: `{ provider, remoteId, lastKnownTitle, lastSeenAt, lastResult, pathOnThisDevice, status }`. `null` for a File Nookly stores itself. See the `locate` and `check` actions.",
+        "kind": "object",
+        "name": "reference"
       }
     ],
     "convertsTo": [
@@ -1656,7 +1805,28 @@
       }
     ],
     "description": "A file stored in Nookly: imported from disk or downloaded from a link.",
-    "entityActions": [],
+    "entityActions": [
+      {
+        "command": "nookly cli file check <id> [--title <title>]",
+        "description": "Looks at the target now and returns its state: available, offline, missing, needsSignIn or notOnThisDevice. A Moodle reference can only be checked inside the app.",
+        "fields": [],
+        "name": "check"
+      },
+      {
+        "command": "nookly cli file locate <id> [--title <title>]",
+        "description": "Tells Nookly where the same file is on this device (only this device's path changes). Use it when the file moved, or came from another device.",
+        "fields": [
+          {
+            "description": "Path of the same file on this device.",
+            "kind": "text",
+            "name": "path",
+            "requiredOnCreate": true,
+            "writableOnUpdate": false
+          }
+        ],
+        "name": "locate"
+      }
+    ],
     "entityType": "file",
     "fields": [
       {
@@ -1667,11 +1837,18 @@
         "writableOnUpdate": true
       },
       {
-        "description": "Update only: true copies a referenced file (sourcePath) into Nookly's own storage.",
+        "description": "Update only: true copies a referenced file (sourcePath) or downloads a kept link (linkUrl) into Nookly's own storage.",
         "kind": "boolean",
         "name": "copyIntoStorage",
         "requiredOnCreate": false,
         "writableOnUpdate": true
+      },
+      {
+        "description": "A web address to keep as a link without downloading it. The File shows whether the link answers (`check`), and `copyIntoStorage=true` downloads it later. Use `url` instead to download it now.",
+        "kind": "text",
+        "name": "linkUrl",
+        "requiredOnCreate": false,
+        "writableOnUpdate": false
       },
       {
         "description": "Path to a local file to copy in and attach. Exactly one of localPath/url is required on create. On update it replaces the stored copy with a newer version (same entity, labels and relationships; the previous copy stays on disk).",
@@ -1866,17 +2043,31 @@
         "description": "The deck's index cards, each a front and a back scheduled with FSRS.",
         "fields": [
           {
-            "description": "The answer side, same inline markdown as front.",
+            "description": "The answer side, same as front. Required to create unless backBlocks is given.",
             "kind": "long_text",
             "name": "back",
-            "requiredOnCreate": true,
+            "requiredOnCreate": false,
             "writableOnUpdate": true
           },
           {
-            "description": "The prompt side. Inline markdown: **bold**, *italic*, `code`, $math$.",
+            "description": "The answer side as blocks, same as frontBlocks. Wins over back.",
+            "kind": "object",
+            "name": "backBlocks",
+            "requiredOnCreate": false,
+            "writableOnUpdate": true
+          },
+          {
+            "description": "The prompt side as inline markdown: **bold**, *italic*, `code`, $math$. Required to create unless frontBlocks is given. For a card written with blocks it reads as their markdown. Setting it replaces the front's blocks with this text.",
             "kind": "long_text",
             "name": "front",
-            "requiredOnCreate": true,
+            "requiredOnCreate": false,
+            "writableOnUpdate": true
+          },
+          {
+            "description": "The prompt side as blocks, a JSON array of { type, content, language?, filename?, attrs? } like the blocks of a note (`describe` lists the block types and their content formats). An `image` block mentions a File, [photo.png](mention:<file-id>). Wins over front. Read back as null on a card that has only text.",
+            "kind": "object",
+            "name": "frontBlocks",
+            "requiredOnCreate": false,
             "writableOnUpdate": true
           }
         ],
@@ -1911,7 +2102,7 @@
       "format": "nookly-deck",
       "import": "nookly cli index_card_deck import --file <path> --space <id>",
       "parentType": null,
-      "version": 1
+      "version": 2
     },
     "relationshipTypes": [
       "deck-exam"
@@ -1985,10 +2176,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -2057,6 +2249,12 @@
               "kind": "integer",
               "min": 1,
               "name": "page"
+            },
+            {
+              "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+              "kind": "integer",
+              "min": 1,
+              "name": "pageTo"
             }
           ],
           "heading1 to heading6": [
@@ -2078,6 +2276,22 @@
             }
           ],
           "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "mindmap": [
+            {
+              "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+              "kind": "text",
+              "name": "layout"
+            },
             {
               "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
@@ -2110,6 +2324,17 @@
               "kind": "integer",
               "min": 1,
               "name": "start"
+            }
+          ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
             }
           ],
           "progress": [
@@ -2190,7 +2415,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -2203,11 +2428,13 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -2216,7 +2443,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli jot delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -2242,8 +2469,10 @@
         "heading6",
         "image",
         "math",
+        "mindmap",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -2279,7 +2508,7 @@
       "format": "nookly-page",
       "import": "nookly cli jot import --file <path> --space <id>",
       "parentType": null,
-      "version": 1
+      "version": 2
     },
     "relationshipTypes": [
       "course-jots",
@@ -2355,10 +2584,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -2427,6 +2657,12 @@
               "kind": "integer",
               "min": 1,
               "name": "page"
+            },
+            {
+              "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+              "kind": "integer",
+              "min": 1,
+              "name": "pageTo"
             }
           ],
           "heading1 to heading6": [
@@ -2448,6 +2684,22 @@
             }
           ],
           "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "mindmap": [
+            {
+              "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+              "kind": "text",
+              "name": "layout"
+            },
             {
               "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
@@ -2480,6 +2732,17 @@
               "kind": "integer",
               "min": 1,
               "name": "start"
+            }
+          ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
             }
           ],
           "progress": [
@@ -2560,7 +2823,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -2573,11 +2836,13 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -2586,7 +2851,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli note delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -2612,8 +2877,10 @@
         "heading6",
         "image",
         "math",
+        "mindmap",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -2650,7 +2917,7 @@
       "format": "nookly-page",
       "import": "nookly cli note import --file <path> --space <id>",
       "parentType": null,
-      "version": 1
+      "version": 2
     },
     "relationshipTypes": [
       "attached-file",
@@ -3251,106 +3518,6 @@
         "name": "updatedAt"
       }
     ],
-    "blockCommands": null,
-    "blockPage": null,
-    "bulkActions": [],
-    "childCollections": [],
-    "computedFields": [],
-    "convertsTo": [],
-    "description": "A scheduled block of study time for an Exam.",
-    "entityActions": [],
-    "entityType": "study_block",
-    "fields": [
-      {
-        "description": "ISO date. Set at creation only.",
-        "kind": "date",
-        "name": "date",
-        "requiredOnCreate": true,
-        "writableOnUpdate": false
-      },
-      {
-        "description": "\"HH:MM\", 24-hour. Set at creation only.",
-        "kind": "text",
-        "name": "endTime",
-        "requiredOnCreate": true,
-        "writableOnUpdate": false
-      },
-      {
-        "description": "The Exam this study block belongs to (structural: exactly one).",
-        "kind": {
-          "entityType": "exam",
-          "type": "entity_ref"
-        },
-        "name": "examId",
-        "requiredOnCreate": true,
-        "writableOnUpdate": false
-      },
-      {
-        "description": "\"HH:MM\", 24-hour. Set at creation only.",
-        "kind": "text",
-        "name": "startTime",
-        "requiredOnCreate": true,
-        "writableOnUpdate": false
-      }
-    ],
-    "relationshipTypes": [
-      "study-block-exam"
-    ],
-    "supportsBlocks": false
-  },
-  {
-    "baseFields": [
-      {
-        "description": "Read-only",
-        "kind": "datetime",
-        "name": "createdAt"
-      },
-      {
-        "description": "Read-only; set by delete, cleared by restore",
-        "kind": "datetime",
-        "name": "deletedAt"
-      },
-      {
-        "description": "Optional emoji/icon, set via --icon",
-        "kind": "text",
-        "name": "icon"
-      },
-      {
-        "description": "Stable unique id (UUID), generated",
-        "kind": "text",
-        "name": "id"
-      },
-      {
-        "description": "Readable id like TSK-14, generated; accepted anywhere an entity id is",
-        "kind": "text",
-        "name": "key"
-      },
-      {
-        "description": "Read-only; set whenever the entity is opened in the app, null if never",
-        "kind": "datetime",
-        "name": "lastOpenedAt"
-      },
-      {
-        "description": "Set via --pinned true|false",
-        "kind": "boolean",
-        "name": "pinned"
-      },
-      {
-        "description": "Space this entity belongs to",
-        "kind": "entity_ref(space)",
-        "name": "spaceId"
-      },
-      {
-        "description": "User-editable title, set via --title",
-        "kind": "text",
-        "name": "title"
-      },
-      {
-        "description": "Read-only",
-        "kind": "datetime",
-        "name": "updatedAt"
-      }
-    ],
     "blockCommands": {
       "add": "nookly cli sub_task add-block <id> --type <blockType> --content <text> [--position <n>] [--language <lang>] [--filename <name>] [--attr <name>=<value> ...]",
       "blockAttrs": {
@@ -3365,10 +3532,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -3437,6 +3605,12 @@
               "kind": "integer",
               "min": 1,
               "name": "page"
+            },
+            {
+              "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+              "kind": "integer",
+              "min": 1,
+              "name": "pageTo"
             }
           ],
           "heading1 to heading6": [
@@ -3458,6 +3632,22 @@
             }
           ],
           "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "mindmap": [
+            {
+              "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+              "kind": "text",
+              "name": "layout"
+            },
             {
               "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
@@ -3490,6 +3680,17 @@
               "kind": "integer",
               "min": 1,
               "name": "start"
+            }
+          ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
             }
           ],
           "progress": [
@@ -3570,7 +3771,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -3583,11 +3784,13 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -3596,7 +3799,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli sub_task delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -3622,8 +3825,10 @@
         "heading6",
         "image",
         "math",
+        "mindmap",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -3774,10 +3979,11 @@
           "bookmark": [],
           "callout": [
             {
-              "description": "Tone and icon of the callout. Defaults to note.",
+              "description": "Tone and icon of the callout. Defaults to note. Use ai for a comment written by an AI, for example about what it changed.",
               "kind": "enum",
               "name": "variant",
               "values": [
+                "ai",
                 "danger",
                 "note",
                 "tip",
@@ -3846,6 +4052,12 @@
               "kind": "integer",
               "min": 1,
               "name": "page"
+            },
+            {
+              "description": "Last page of the interval the block is about, after `page`. Only shown to the reader; the file still opens on `page`.",
+              "kind": "integer",
+              "min": 1,
+              "name": "pageTo"
             }
           ],
           "heading1 to heading6": [
@@ -3867,6 +4079,22 @@
             }
           ],
           "math": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
+            }
+          ],
+          "mindmap": [
+            {
+              "description": "Where the user dragged nodes on the preview, as JSON owned by the editor: an id per outline line and the offsets of the nodes that were moved. Independent of the outline, which it never changes. It follows outline edits made here. Leave it alone unless copying a block; clear it to bring back the automatic layout.",
+              "kind": "text",
+              "name": "layout"
+            },
             {
               "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
               "kind": "enum",
@@ -3899,6 +4127,17 @@
               "kind": "integer",
               "min": 1,
               "name": "start"
+            }
+          ],
+          "plot": [
+            {
+              "description": "What the editor shows: the source code, or what it renders to. Defaults to source, but the CLI's add-block defaults to rendered.",
+              "kind": "enum",
+              "name": "view",
+              "values": [
+                "rendered",
+                "source"
+              ]
             }
           ],
           "progress": [
@@ -3979,7 +4218,7 @@
         "language": "highlight.js grammar name shown in the editor's language picker, e.g. javascript, typescript, python, rust, jsonc. Omit (or pass \"\" on update) for plain, unhighlighted text."
       },
       "contentFormats": {
-        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "audio": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "bookmark": "One mention link to a Bookmark entity, [Title](mention:<bookmark-id>) (`bookmark` create takes the URL). Shown as a preview card with title, description and image.",
         "bulleted_list/numbered_list": "The WHOLE list in one block: one item per line, no '- ' or '1. ' markers. A leading tab nests an item one level under the item above it. Items are numbered within the block, so one block per item renders as separate lists that each restart at 1. `blocks` output adds `display` (rendered marker per line, restartsAfterList) to every list block.",
         "callout": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url)), like a paragraph block.",
@@ -3992,11 +4231,13 @@
         "embed": "One http(s) URL shown inline: YouTube, Vimeo, Loom, Figma, Google Maps, Spotify and CodePen links play or display in place, anything else shows as a link.",
         "entity_card": "One mention link to the entity the card shows: [Title](mention:<entity-id>). Any entity type, in any Space. It counts as a mention, so the entity lists this page under Mentioned in.",
         "equation": "One LaTeX formula, without surrounding $ or $$ (\"E = mc^2\"). Shown centered on its own line. KaTeX syntax, including \\ce{} for chemistry.",
-        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "file": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "heading1 to heading6": "The heading text, no leading '#'.",
-        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in.",
+        "image": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in.",
         "math": "Several lines of LaTeX, one row each, aligned at & (\"a &= b + c\\n  &= d\"), for derivations and proofs. A source that opens its own \\begin{...} environment is used as is. KaTeX syntax.",
+        "mindmap": "A mind map as an indented list, one idea per line (\"Plan\\n  Read\\n    Chapter 1\\n  Write\"). The first line is the middle of the map and the lines indented under it are its branches; indent with two spaces or a tab, as deep as needed. A leading \"-\", \"*\" or \"+\" is ignored. Several lines that are not indented make separate maps, one below the other. The map is laid out from this text alone.",
         "paragraph": "One paragraph of inline text (**bold**, *italic*, `code`, [text](url), inline math $x^2$). Write a literal dollar sign as \\$ so it isn't read as math.",
+        "plot": "Functions, points and lines in a coordinate system, one per line (\"f(x) = x^2 - 2\\nA = (1, -1)\"). \"f(x) = ...\" or \"y = ...\" or a bare expression in x is a function, \"a = 3\" a constant the other lines can use, \"A = (2, f(2))\" a point, \"x = 4\" a vertical line. \"window: -5..5\" sets the window across, \"window: -5..5, -2..8\" up and down too; without it the plot shows -10 to 10 across at one scale for both axes. + - * / ^, brackets, 2x for 2 times x, pi, e, sqrt, abs, sin, cos, tan, asin, acos, atan, ln, log (base 10), exp, floor, ceil, round, min, max. # starts a comment.",
         "progress": "One tracked goal per line: <label>\\t<value>\\t<goal>, cells separated by a literal tab. Value and goal are numbers >= 0, goal greater than 0 (\"Chapters read\\t7\\t12\").",
         "quote": "The quote text, no leading '>'.",
         "stats": "Two to four headline numbers, one per line: <value>\\t<label>[\\t<hint>], cells separated by a literal tab (\"3.7\\tGPA\\n90\\tCredits\\tof 180\"). The value is free text.",
@@ -4005,7 +4246,7 @@
         "timeline": "One event per line: <date>\\t<label>[\\t<state>], cells separated by a literal tab. The date is free text (\"Mar 18\", \"Week 3\"). State is done, now or next and defaults to done.",
         "toggle": "First line is the always visible summary, every further line one paragraph of the folded body (\"What is a monad?\\nA monoid in the category of endofunctors.\"). Inline markdown.",
         "tree": "One node per line, nested by two leading spaces per level (\"src\\n  main.rs\\n  db\\n    notes.rs\"). For folders, outlines and org charts.",
-        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), or a plain http(s) URL. Mentioning the file lists this page under its Mentioned in."
+        "video": "A mention of a File entity, [photo.png](mention:<file-id>), for a file imported into Nookly (`file` create), a plain http(s) URL, or the full path of a file on this computer, like /Users/you/Downloads/handout.pdf (Nookly only reads it; the path is kept as written when the file is not there). Mentioning the file lists this page under its Mentioned in."
       },
       "delete": "nookly cli task delete-block <block-id> --yes",
       "knownBlockTypes": [
@@ -4031,8 +4272,10 @@
         "heading6",
         "image",
         "math",
+        "mindmap",
         "numbered_list",
         "paragraph",
+        "plot",
         "progress",
         "quote",
         "stats",
@@ -4114,7 +4357,7 @@
       "format": "nookly-task",
       "import": "nookly cli task import --file <path> --space <id>",
       "parentType": null,
-      "version": 1
+      "version": 2
     },
     "relationshipTypes": [
       "blocks",
@@ -4187,7 +4430,7 @@
     "entityType": "view",
     "fields": [
       {
-        "description": "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..]}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|graded), due (overdue|today|week|next|later|none|done), grade (graded|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+        "description": "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C); both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
         "kind": "long_text",
         "name": "config",
         "requiredOnCreate": false,

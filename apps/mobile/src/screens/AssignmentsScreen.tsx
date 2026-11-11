@@ -33,7 +33,7 @@ import { StatusIcon } from "./TaskRow.tsx";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
 
 /// Assignments that no longer wait on the student: handed in, or graded.
-export const ASSIGNMENT_DONE = new Set(["submitted", "graded"]);
+export const ASSIGNMENT_DONE = new Set(["submitted", "evaluated"]);
 
 const displaySchema = z.object({
   layout: z.enum(["list", "board"]),

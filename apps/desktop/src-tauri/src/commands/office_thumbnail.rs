@@ -26,7 +26,7 @@ pub async fn office_thumbnail(
         return Ok(None);
     }
     let source = {
-        let conn = state.0.lock().unwrap();
+        let conn = state.conn()?;
         let file = files::get_file(&conn, &entity_id)?;
         match file.local_path.or(file.source_path) {
             Some(path) => PathBuf::from(path),

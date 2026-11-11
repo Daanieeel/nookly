@@ -18,7 +18,7 @@ export const ATOM_BLOCK_ATTRS = {
   image: ["caption"],
   video: ["caption"],
   audio: ["caption"],
-  file: ["caption", "page"],
+  file: ["caption", "page", "pageTo"],
   embed: [],
   bookmark: [],
 } as const satisfies Record<string, readonly string[]>;
@@ -29,7 +29,7 @@ export function isAtomBlockType(type: string): type is AtomBlockType {
 }
 
 /// Tabs and line breaks separate cells and rows, so they can't live inside one.
-export function sanitizeCell(text: string): string {
+function sanitizeCell(text: string): string {
   return text.replace(/[\t\r\n]+/g, " ");
 }
 

@@ -11,7 +11,7 @@ import { EntityKeyCopy } from "#/components/entity-key.tsx";
 import { LabelChip } from "#/components/label-chip.tsx";
 import { TextProperty } from "#/components/property-fields.tsx";
 import { PROPERTY_VALUE, PropertyRow } from "#/components/property-row.tsx";
-import { TrashEntityDialog } from "#/components/trash-entity-dialog.tsx";
+import { useTrashEntity } from "#/components/trash-entity.ts";
 import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
 import {
@@ -46,6 +46,7 @@ import {
   useSpaceLabels,
 } from "./bookmark-model";
 import { Favicon, Preview } from "./bookmark-preview";
+import { ignoreError } from "#/lib/log.ts";
 
 /// A Bookmark's details, sliding in from the right over whatever is open.
 /// Bookmarks have no page of their own; this sheet is where they're opened.
@@ -76,7 +77,7 @@ export function BookmarkSheet() {
 
 function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const [trashOpen, setTrashOpen] = useState(false);
+  const trash = useTrashEntity();
   const [compareOpen, setCompareOpen] = useState(false);
   const { entity } = bookmark;
 
@@ -99,7 +100,7 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
   const changeUrl = useMutation({
     mutationFn: async (url: string) => {
       await updateBookmarkUrl(entity.id, url);
-      await fetchBookmarkMetadata(entity.id, url).catch(() => {});
+      await fetchBookmarkMetadata(entity.id, url).catch(ignoreError("fetching bookmark details"));
     },
     onSuccess: async () => {
       await refreshAll();
@@ -204,7 +205,7 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
                 await togglePin.mutateAsync();
               },
             }}
-            onTrash={() => setTrashOpen(true)}
+            onTrash={() => void trash(entity, { onTrashed: onClose })}
             className="ml-auto"
           />
         </div>
@@ -262,15 +263,6 @@ function BookmarkDetails({ bookmark, onClose }: { bookmark: Bookmark; onClose: (
         </div>
       </div>
 
-      <TrashEntityDialog
-        entity={entity}
-        open={trashOpen}
-        onOpenChange={setTrashOpen}
-        onTrashed={() => {
-          onClose();
-          void queryClient.invalidateQueries({ queryKey: qk.bookmarks.bySpace(entity.spaceId) });
-        }}
-      />
       <ComparePreviewsDialog
         bookmark={bookmark}
         open={compareOpen}

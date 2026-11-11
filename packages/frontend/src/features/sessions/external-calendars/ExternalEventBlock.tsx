@@ -1,14 +1,29 @@
-import { IconBrandApple, IconBrandGoogle, IconClock, IconMapPin } from "@tabler/icons-react";
+import {
+  IconBrandApple,
+  IconBrandGoogle,
+  IconClock,
+  IconMapPin,
+  IconSchool,
+  type TablerIcon,
+} from "@tabler/icons-react";
 import type { CSSProperties, ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import type { CalendarProvider, ExternalEvent } from "#/lib/api/externalCalendars.ts";
 import { formatDate, formatShortDate, formatTime } from "#/lib/datetime.ts";
+import { cn } from "@nookly/ui/lib/utils";
 import { type BlockPosition, safeColor } from "./overlay-layout";
 
 export const PROVIDER_LABELS = {
   google: "Google Calendar",
   icloud: "iCloud",
+  moodle: "Moodle",
 } satisfies Record<CalendarProvider, string>;
+
+const PROVIDER_ICONS = {
+  google: IconBrandGoogle,
+  icloud: IconBrandApple,
+  moodle: IconSchool,
+} satisfies Record<CalendarProvider, TablerIcon>;
 
 export function ProviderIcon({
   provider,
@@ -17,11 +32,8 @@ export function ProviderIcon({
   provider: CalendarProvider;
   size?: number;
 }) {
-  return provider === "google" ? (
-    <IconBrandGoogle size={size} className="shrink-0" />
-  ) : (
-    <IconBrandApple size={size} className="shrink-0" />
-  );
+  const Icon = PROVIDER_ICONS[provider];
+  return <Icon size={size} className="shrink-0" />;
 }
 
 /// A timed external event on the week grid. Dashed and muted next to the solid
@@ -30,9 +42,12 @@ export function ProviderIcon({
 export function ExternalEventBlock({
   event,
   position,
+  dimmed,
 }: {
   event: ExternalEvent;
   position: BlockPosition;
+  /// Faded, for what the page the grid sits on is not about.
+  dimmed?: boolean;
 }) {
   const color = safeColor(event.color);
   return (
@@ -41,7 +56,10 @@ export function ExternalEventBlock({
         type="button"
         data-calendar-item
         aria-label={`${event.title || "Busy"}, from ${PROVIDER_LABELS[event.provider]}`}
-        className="absolute top-(--occ-top) z-10 left-(--occ-left) flex h-(--occ-height) w-(--occ-width) flex-col items-stretch justify-start overflow-hidden rounded-md border border-dashed border-(--ext-color) bg-(--ext-color)/10 px-1.5 py-1 text-left text-xs text-muted-foreground opacity-80 transition-opacity hover:opacity-100 data-[state=open]:opacity-100"
+        className={cn(
+          "absolute top-(--occ-top) z-10 left-(--occ-left) flex h-(--occ-height) w-(--occ-width) flex-col items-stretch justify-start overflow-hidden rounded-md border border-dashed border-(--ext-color) bg-(--ext-color)/10 px-1.5 py-1 text-left text-xs text-muted-foreground opacity-80 transition-opacity hover:opacity-100 data-[state=open]:opacity-100",
+          dimmed && "opacity-40",
+        )}
         // SAFETY: the `--occ-*` vars are plain pixel or `calc()` lengths computed
         // from the event's own times and column, and `--ext-color` is a hex color
         // checked by `safeColor` (or a token var); per event values can't be
@@ -72,9 +90,12 @@ export function ExternalEventBlock({
 export function ExternalEventChip({
   event,
   showTime = false,
+  dimmed,
 }: {
   event: ExternalEvent;
   showTime?: boolean;
+  /// Faded, for what the page the grid sits on is not about.
+  dimmed?: boolean;
 }) {
   const color = safeColor(event.color);
   return (
@@ -83,7 +104,10 @@ export function ExternalEventChip({
         type="button"
         data-calendar-item
         aria-label={`${event.title || "Busy"}, ${event.allDay ? "all day" : formatTime(event.start)}, from ${PROVIDER_LABELS[event.provider]}`}
-        className="flex h-5 w-full shrink-0 min-w-0 items-center gap-1 rounded-sm border border-dashed border-(--ext-color) bg-(--ext-color)/10 px-1 text-left text-xs text-muted-foreground opacity-80 transition-opacity hover:opacity-100 data-[state=open]:opacity-100"
+        className={cn(
+          "flex h-5 w-full shrink-0 min-w-0 items-center gap-1 rounded-sm border border-dashed border-(--ext-color) bg-(--ext-color)/10 px-1 text-left text-xs text-muted-foreground opacity-80 transition-opacity hover:opacity-100 data-[state=open]:opacity-100",
+          dimmed && "opacity-40",
+        )}
         // SAFETY: `--ext-color` is a hex color checked by `safeColor`, or a token var.
         style={{ "--ext-color": color } as CSSProperties}
       >

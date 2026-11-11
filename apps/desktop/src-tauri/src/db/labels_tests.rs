@@ -109,16 +109,6 @@ fn labels_attach_to_every_entity_type() {
         None,
     )
     .unwrap();
-    let block = crate::db::study_blocks::create_study_block(
-        &conn,
-        sid.clone(),
-        "B".into(),
-        exam.entity.id.clone(),
-        "2026-01-01".into(),
-        "09:00".into(),
-        "10:00".into(),
-    )
-    .unwrap();
     let assignment = crate::db::assignments::create_assignment(
         &conn,
         sid.clone(),
@@ -141,7 +131,6 @@ fn labels_attach_to_every_entity_type() {
         sub.entity.id,
         course.id,
         exam.entity.id,
-        block.entity.id,
         assignment.entity.id,
         deck.id,
         bookmark.entity.id,

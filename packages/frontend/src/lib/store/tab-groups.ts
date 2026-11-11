@@ -206,6 +206,32 @@ export function canSplitRight(layout: TabLayout, tabId: string): boolean {
   return layout.groups.length < MAX_GROUPS || layout.groups.at(-1)?.id !== source.id;
 }
 
+/// Opens `copy` (a copy of a tab, with a new id) in the group on the left of
+/// `tabId`'s group, creating it when there is none, and focuses it. A tab already in
+/// the leftmost of two groups has nowhere to go.
+export function splitLeft(layout: TabLayout, tabId: string, copy: Tab): TabLayout {
+  const source = groupOfTab(layout, tabId);
+  if (!source) return layout;
+  const index = layout.groups.findIndex((g) => g.id === source.id);
+  const left = layout.groups[index - 1];
+  if (left) {
+    return {
+      ...replaceGroup(layout, { ...left, tabs: [...left.tabs, copy], activeTabId: copy.id }),
+      focusedGroupId: left.id,
+    };
+  }
+  if (layout.groups.length >= MAX_GROUPS) return layout;
+  const created = makeGroup([copy]);
+  return { groups: [created, ...layout.groups], focusedGroupId: created.id };
+}
+
+/// Whether Split Left has somewhere to put `tabId`.
+export function canSplitLeft(layout: TabLayout, tabId: string): boolean {
+  const source = groupOfTab(layout, tabId);
+  if (!source) return false;
+  return layout.groups.length < MAX_GROUPS || layout.groups[0].id !== source.id;
+}
+
 /// Replaces a tab, wherever it is, with `update(tab)`.
 export function updateTab(layout: TabLayout, tabId: string, update: (tab: Tab) => Tab): TabLayout {
   const group = groupOfTab(layout, tabId);

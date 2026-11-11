@@ -18,7 +18,7 @@ import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { FILE_KINDS, fileKind } from "./file-kind";
 
-export type Layout = "grid" | "list";
+type Layout = "grid" | "list";
 export type Grouping = "none" | "kind" | "added";
 export type Ordering = "newest" | "oldest" | "name";
 

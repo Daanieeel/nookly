@@ -7,7 +7,10 @@ import { assignmentGroupDefs } from "./assignment-groups.tsx";
 
 const algebra = makeEntity({ id: "c1", type: "course", title: "Algebra" });
 const untitled = makeEntity({ id: "c2", type: "course", title: "" });
-const graded = makeAssignment({ grade: 1.3, status: "graded", dueDate: "2026-03-01" }, { id: "g" });
+const graded = makeAssignment(
+  { grade: 1.3, status: "evaluated", dueDate: "2026-03-01" },
+  { id: "g" },
+);
 const open = makeAssignment(
   { grade: null, status: "in_progress", dueDate: "2026-03-01" },
   { id: "o" },
@@ -47,12 +50,13 @@ describe("assignmentGroupDefs", () => {
     expect(groups.map((g) => [g.id, ids(g.items)])).toEqual([
       ["graded", ["g"]],
       ["no-grade", ["o"]],
+      ["ungraded", []],
     ]);
   });
 
   it("groups by status in workflow order", () => {
     const defs = assignmentGroupDefs("status", [], courseOf) ?? [];
-    expect(defs.map((d) => d.id)).toEqual(["not_started", "in_progress", "submitted", "graded"]);
+    expect(defs.map((d) => d.id)).toEqual(["not_started", "in_progress", "submitted", "evaluated"]);
   });
 
   it("groups by course, untitled courses by their placeholder, unlinked ones last", () => {
@@ -100,8 +104,33 @@ describe("assignment filters", () => {
       "due",
       "session",
       "grade",
+      "evaluatedAt",
       "created",
       "updated",
+    ]);
+  });
+
+  it("filters on when an assignment was evaluated", () => {
+    freezeTime("2026-03-11T10:00:00");
+    const today = makeAssignment(
+      { status: "evaluated", evaluatedAt: "2026-03-11T08:00:00" },
+      { id: "e" },
+    );
+    const old = makeAssignment(
+      { status: "evaluated", evaluatedAt: "2026-01-02T08:00:00" },
+      { id: "e2" },
+    );
+    expect(assignmentFilterValue(today, "evaluatedAt", courseOf)).toBe("today");
+    expect(assignmentFilterValue(old, "evaluatedAt", courseOf)).toBe("earlier");
+    expect(assignmentFilterValue(open, "evaluatedAt", courseOf)).toBe("none");
+    const field = assignmentFilterFields([]).find((f) => f.id === "evaluatedAt");
+    expect(field?.label).toBe("Evaluated at");
+    expect(field?.options.map((o) => o.label)).toEqual([
+      "Today",
+      "This week",
+      "Last week",
+      "Earlier",
+      "Not evaluated",
     ]);
   });
 
@@ -135,5 +164,24 @@ describe("assignment filters", () => {
 
   it("reads the status for any unknown field", () => {
     expect(assignmentFilterValue(open, "mystery", courseOf)).toBe("in_progress");
+  });
+});
+
+describe("ungraded assignments", () => {
+  const homework = makeAssignment({ ungraded: true, status: "submitted" }, { id: "h" });
+
+  it("have their own value under the grade filter", () => {
+    expect(assignmentFilterValue(homework, "grade", new Map())).toBe("ungraded");
+    expect(assignmentFilterValue(open, "grade", new Map())).toBe("none");
+    expect(assignmentFilterValue(graded, "grade", new Map())).toBe("graded");
+    const grade = assignmentFilterFields([]).find((f) => f.id === "grade");
+    expect(grade?.options.map((o) => o.value)).toEqual(["graded", "none", "ungraded"]);
+  });
+
+  it("are grouped apart from the ones still waiting for a grade", () => {
+    const defs = assignmentGroupDefs("grade", [], courseOf) ?? [];
+    const groups = buildGroups([graded, open, homework], defs, null);
+    expect(ids(groups.find((g) => g.id === "no-grade")?.items ?? [])).toEqual(["o"]);
+    expect(ids(groups.find((g) => g.id === "ungraded")?.items ?? [])).toEqual(["h"]);
   });
 });

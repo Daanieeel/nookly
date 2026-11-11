@@ -1,0 +1,141 @@
+{
+  "features": [
+    "refractivity"
+  ],
+  "fill": {
+    "linear-gradient": [
+      "display-p3:0.05000,0.10000,0.15000,1.00000",
+      "display-p3:0.08000,0.24000,0.37000,1.00000"
+    ]
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "glass": true,
+          "hidden-specializations": [
+            {
+              "value": false
+            },
+            {
+              "appearance": "tinted",
+              "value": true
+            }
+          ],
+          "image-name": "embers.png",
+          "name": "embers",
+          "position": {
+            "scale": 1,
+            "translation-in-points": [
+              -31.000000000000057,
+              81.99999999999994
+            ]
+          }
+        }
+      ],
+      "name": "embers",
+      "position": {
+        "scale": 1.26,
+        "translation-in-points": [
+          0,
+          0
+        ]
+      },
+      "refractivity": {
+        "depth": 0,
+        "enabled": true,
+        "strength": 0.5
+      },
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    },
+    {
+      "layers": [
+        {
+          "glass": true,
+          "image-name": "flames.png",
+          "name": "flames",
+          "position": {
+            "scale": 1.41,
+            "translation-in-points": [
+              0.7049999999999272,
+              118.99999999999994
+            ]
+          }
+        },
+        {
+          "glass": false,
+          "image-name": "glow.png",
+          "name": "glow",
+          "position": {
+            "scale": 1.41,
+            "translation-in-points": [
+              -0.2917768595041821,
+              80.99999999999994
+            ]
+          }
+        }
+      ],
+      "name": "flames",
+      "position": {
+        "scale": 1.21,
+        "translation-in-points": [
+          0,
+          0
+        ]
+      },
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.3
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    },
+    {
+      "layers": [
+        {
+          "glass": false,
+          "image-name": "dev.png",
+          "name": "dev",
+          "position": {
+            "scale": 1,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "name": "dev",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      },
+      "position": {
+        "scale": 1,
+        "translation-in-points": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
+  }
+}

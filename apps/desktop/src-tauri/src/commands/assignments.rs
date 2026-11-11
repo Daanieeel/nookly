@@ -4,6 +4,7 @@ use crate::error::AppResult;
 use tauri::State;
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn create_assignment(
     state: State<DbState>,
     space_id: String,
@@ -12,30 +13,61 @@ pub fn create_assignment(
     due_date: Option<String>,
     due_session_offset_days: Option<i64>,
     due_session_id: Option<String>,
+    ungraded: Option<bool>,
 ) -> AppResult<Assignment> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
+    crate::db::atomically(&conn, || {
+        let created = create_due(
+            &conn,
+            space_id,
+            title,
+            course_id,
+            due_date,
+            due_session_offset_days,
+            due_session_id,
+        )?;
+        if ungraded == Some(true) {
+            assignments::update_assignment_ungraded(&conn, &created.entity.id, true)?;
+            return assignments::get_assignment(&conn, &created.entity.id);
+        }
+        Ok(created)
+    })
+}
+
+fn create_due(
+    conn: &rusqlite::Connection,
+    space_id: String,
+    title: String,
+    course_id: String,
+    due_date: Option<String>,
+    due_session_offset_days: Option<i64>,
+    due_session_id: Option<String>,
+) -> AppResult<Assignment> {
     match due_session_offset_days {
         Some(days) => assignments::create_assignment_due_before_session(
-            &conn,
+            conn,
             space_id,
             title,
             course_id,
             days,
             due_session_id,
         ),
-        None => assignments::create_assignment(&conn, space_id, title, course_id, due_date),
+        None => assignments::create_assignment(conn, space_id, title, course_id, due_date),
     }
 }
 
 #[tauri::command]
-pub fn list_assignments(state: State<DbState>, space_id: String) -> AppResult<Vec<Assignment>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_assignments(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<Assignment>> {
+    let conn = state.conn()?;
     assignments::list_assignments(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_assignments_all_spaces(state: State<DbState>) -> AppResult<Vec<Assignment>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_assignments_all_spaces(state: State<'_, DbState>) -> AppResult<Vec<Assignment>> {
+    let conn = state.conn()?;
     assignments::list_assignments_all_spaces(&conn)
 }
 
@@ -46,7 +78,7 @@ pub fn update_assignment_status(
     status: String,
     grade: Option<f64>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::update_assignment_status(&conn, &entity_id, status, grade)
 }
 
@@ -56,7 +88,7 @@ pub fn update_assignment_due_date(
     entity_id: String,
     due_date: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::update_assignment_due_date(&conn, &entity_id, due_date)
 }
 
@@ -66,7 +98,7 @@ pub fn set_assignment_course(
     entity_id: String,
     course_id: String,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::set_assignment_course(&conn, &entity_id, course_id)
 }
 
@@ -77,8 +109,18 @@ pub fn update_assignment_due_before_session(
     offset_days: Option<i64>,
     session_id: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::update_assignment_due_before_session(&conn, &entity_id, offset_days, session_id)
+}
+
+#[tauri::command]
+pub fn update_assignment_ungraded(
+    state: State<DbState>,
+    entity_id: String,
+    ungraded: bool,
+) -> AppResult<()> {
+    let conn = state.conn()?;
+    assignments::update_assignment_ungraded(&conn, &entity_id, ungraded)
 }
 
 #[tauri::command]
@@ -87,6 +129,6 @@ pub fn update_assignment_weight(
     entity_id: String,
     weight: Option<f64>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     assignments::update_assignment_weight(&conn, &entity_id, weight)
 }

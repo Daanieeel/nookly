@@ -12,6 +12,7 @@ import {
   IconFile,
   IconNotes,
   IconReportAnalytics,
+  IconSchool,
   IconToolsKitchen2,
 } from "@tabler/icons-react";
 import type { Icon as TablerIcon } from "@tabler/icons-react";
@@ -31,13 +32,14 @@ export const MODULE_DESCRIPTIONS = {
   semesters: "Group courses by term and see what's in each one.",
   sessions: "Plan study or work sessions with reusable templates.",
   calendar: "Add one-off or recurring personal calendar entries.",
-  exams: "Count down to exams and plan study blocks for them.",
+  exams: "Count down to exams and study for them with flash cards.",
   decks: "Write flash cards and study them with spaced repetition.",
   assignments: "Track assignments with due dates and progress.",
   files: "Keep reference files and documents in one place.",
   bookmarks: "Save links you want to come back to.",
   recipes: "Track recipes with ingredients and steps.",
   grades: "See your grades and averages by course and semester.",
+  moodle: "Read your Moodle courses, assignments, grades and announcements.",
 } satisfies Record<ModuleKey, string>;
 
 export const MODULE_ICONS = {
@@ -55,6 +57,7 @@ export const MODULE_ICONS = {
   bookmarks: IconBookmark,
   recipes: IconToolsKitchen2,
   grades: IconReportAnalytics,
+  moodle: IconSchool,
 } satisfies Record<ModuleKey, TablerIcon>;
 
 import { MODULE_ENTITY_TYPES } from "@nookly/shared/modules";

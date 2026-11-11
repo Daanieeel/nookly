@@ -26,6 +26,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { jotTextToBlocks } from "./jot-blocks";
 import { useAppHotkey } from "#/hooks/use-app-hotkey.ts";
+import { ignoreError } from "#/lib/log.ts";
 
 /// Tallest the capture box grows before it scrolls, in pixels.
 const MAX_COMPOSER_HEIGHT = 320;
@@ -63,7 +64,7 @@ function useJotCapture({
         }
       } catch (err) {
         // A half written Jot would duplicate on retry; the text stays in the box instead.
-        await softDeleteEntity(entity.id).catch(() => undefined);
+        await softDeleteEntity(entity.id).catch(ignoreError("discarding an empty jot"));
         throw err;
       }
       return entity;

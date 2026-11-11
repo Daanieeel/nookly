@@ -1,3 +1,4 @@
+import { parseWhatsNew } from "@nookly/shared/whats-new";
 import { renderScreens } from "../test/render.tsx";
 import { WhatsNewScreen, plain } from "./WhatsNewScreen.tsx";
 
@@ -6,8 +7,10 @@ describe("what's new", () => {
     const screen = await renderScreens({ index: () => <WhatsNewScreen /> });
     const headings = await screen.findAllByRole("header");
     expect(headings.length).toBeGreaterThan(1);
-    expect(screen.getByText("One account for every device")).toBeTruthy();
-    expect(screen.getByText("Sign in from the titlebar")).toBeTruthy();
+    // The newest release in `whats-new.json`, whatever it says.
+    const [newest] = parseWhatsNew();
+    expect(screen.getByText(newest.title ?? newest.version)).toBeTruthy();
+    expect(screen.getByText(newest.highlights[0].title)).toBeTruthy();
   });
 
   it("reads markdown as plain text", () => {

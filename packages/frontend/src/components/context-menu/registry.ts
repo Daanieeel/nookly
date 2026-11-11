@@ -28,7 +28,7 @@ export interface ContextTargets {
 
 export type ContextKind = keyof ContextTargets;
 
-export interface AppTarget {
+interface AppTarget {
   spaceId: string | null;
 }
 
@@ -48,16 +48,18 @@ export interface EntityRecord {
 /// Groups render in this order, divided by separators. `app` holds the app wide
 /// fallbacks (Search, Quick Jot) that trail any contextual actions.
 export const ACTION_GROUPS = [
+  "spelling",
   "open",
   "create",
   "type",
   "edit",
   "organize",
+  "selection",
   "share",
   "danger",
   "app",
 ] as const;
-export type ActionGroup = (typeof ACTION_GROUPS)[number];
+type ActionGroup = (typeof ACTION_GROUPS)[number];
 
 /// Resolve `false` when the user backed out (a cancelled save dialog): the item
 /// returns to rest instead of closing the menu.
@@ -147,18 +149,19 @@ export interface EntityTypeRegistration<TRecord> {
   useRecord?: (entity: Entity) => TRecord | undefined;
 }
 
-export const BASELINE_IDS = [
+const BASELINE_IDS = [
   "open",
   "duplicate",
   "pin",
   "relate",
   "move",
   "copy-link",
+  "copy-deep-link",
   "copy-id",
   "restore",
   "delete",
 ] as const;
-export type BaselineActionId = (typeof BASELINE_IDS)[number];
+type BaselineActionId = (typeof BASELINE_IDS)[number];
 
 /// Stored with the record type erased: `resolveEntityRegistration` only ever
 /// hands a registration its own entity's record.

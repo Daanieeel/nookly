@@ -23,7 +23,7 @@ describe("the deadline of an assignment", () => {
     ["2026-11-02", "not_started", "later"],
     [null, "not_started", "none"],
     ["2026-10-01", "submitted", "done"],
-    [null, "graded", "done"],
+    [null, "evaluated", "done"],
   ])("%s as %s is %s", (due, status, bucket) => {
     expect(deadlineBucket(a("x", { dueDate: due, status }), TODAY)).toBe(bucket);
   });
@@ -38,7 +38,7 @@ describe("the groups of the list", () => {
   const list = [
     a("late", { dueDate: "2026-10-10" }),
     a("soon", { dueDate: "2026-10-23", courseId: "c2" }),
-    a("done", { dueDate: "2026-10-01", status: "graded" }),
+    a("done", { dueDate: "2026-10-01", status: "evaluated" }),
   ];
 
   it("runs from overdue to done and leaves empty groups out", () => {
@@ -58,7 +58,7 @@ describe("the groups of the list", () => {
     ]);
     expect(groupAssignments(list, "status", ctx).map((g) => g.id)).toEqual([
       "not_started",
-      "graded",
+      "evaluated",
     ]);
   });
 });

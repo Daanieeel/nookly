@@ -108,9 +108,12 @@ export function makeAssignment(
     dueDate: null,
     dueSessionOffsetDays: null,
     dueSessionId: null,
+    dueSessionAfter: null,
     weight: null,
     status: "not_started",
     grade: null,
+    ungraded: false,
+    evaluatedAt: null,
     ...patch,
   };
 }
@@ -145,6 +148,9 @@ export function makeFile(
     url: null,
     originalFilename: null,
     sourcePath: null,
+    reference: null,
+    availability: null,
+    origin: null,
     needsReindex: false,
     blob: null,
     labelIds: [],

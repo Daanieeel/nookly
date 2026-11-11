@@ -38,6 +38,16 @@ describe("detail page width", () => {
     expect((await bodyColumn(container))?.className).toContain("max-w-3xl");
   });
 
+  it.each(["note", "jot"])(
+    "grows the column with a wide window, so a %s has less empty side",
+    async (type) => {
+      const { container } = renderWithProviders(<PageDetailView entity={makeEntity({ type })} />);
+      const classes = (await bodyColumn(container))?.className ?? "";
+      expect(classes).toContain("@5xl:max-w-4xl");
+      expect(classes).toContain("@[100rem]:max-w-5xl");
+    },
+  );
+
   it.each(PAGES)("uses the full width on %s", async (_name, page) => {
     const { container } = renderWithProviders(page);
     const column = await bodyColumn(container);

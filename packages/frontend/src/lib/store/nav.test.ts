@@ -109,24 +109,18 @@ describe("nav store, launching", () => {
     expect(store.getState().recents).toEqual(recents);
   });
 
-  it("expands the last active Space when the expanded list can't be read", async () => {
+  it("starts without an active Space on a fresh install", async () => {
+    const { store } = await loadNav();
+    expect(store.getState().activeSpaceId).toBeNull();
+  });
+
+  it("restores the last active Space, ignoring the old expanded list", async () => {
     const { store } = await loadNav({
-      [STORAGE_KEYS.expandedSpaces]: "not json",
+      "nookly:expanded-spaces": JSON.stringify(["s2", "s3"]),
       [STORAGE_KEYS.activeSpace]: "s1",
     });
-    expect(store.getState().expandedSpaceIds).toEqual(["s1"]);
     expect(store.getState().activeSpaceId).toBe("s1");
-  });
-
-  it("expands the last active Space for a user from before multi expand", async () => {
-    const { store } = await loadNav({ [STORAGE_KEYS.activeSpace]: "s1" });
-    expect(store.getState().expandedSpaceIds).toEqual(["s1"]);
-  });
-
-  it("expands nothing on a fresh install", async () => {
-    const { store } = await loadNav();
-    expect(store.getState().expandedSpaceIds).toEqual([]);
-    expect(store.getState().activeSpaceId).toBeNull();
+    expect("expandedSpaceIds" in store.getState()).toBe(false);
   });
 
   it("reads the sidebar states", async () => {
@@ -207,13 +201,11 @@ describe("nav store, history", () => {
     expect(backStack.at(-1)).toEqual(tasksIn("s58"));
   });
 
-  it("makes a Space's page active and expanded, and remembers both", async () => {
+  it("makes a Space's page active, and remembers it", async () => {
     const { store, preferences } = await loadNav();
     store.getState().setView(tasksIn("s1"));
     expect(store.getState().activeSpaceId).toBe("s1");
-    expect(store.getState().expandedSpaceIds).toEqual(["s1"]);
     expect(preferences.get(STORAGE_KEYS.activeSpace)).toBe("s1");
-    expect(preferences.get(STORAGE_KEYS.expandedSpaces)).toBe(JSON.stringify(["s1"]));
   });
 
   it("keeps the active Space on a page outside any Space", async () => {
@@ -221,13 +213,6 @@ describe("nav store, history", () => {
     store.getState().setView(tasksIn("s1"));
     store.getState().setView({ kind: "calendar" });
     expect(store.getState().activeSpaceId).toBe("s1");
-  });
-
-  it("doesn't expand a Space twice", async () => {
-    const { store } = await loadNav();
-    store.getState().setView(tasksIn("s1"));
-    store.getState().setView({ kind: "entity", entityId: "e1", spaceId: "s1" });
-    expect(store.getState().expandedSpaceIds).toEqual(["s1"]);
   });
 
   it("restores the active Space when going back", async () => {
@@ -529,15 +514,6 @@ describe("nav store, overlays and sidebars", () => {
     store.getState().setSwitcherOpen(true);
     store.getState().setPaletteOpen(false);
     expect(store.getState().switcherOpen).toBe(true);
-  });
-
-  it("toggles and remembers expanded Spaces", async () => {
-    const { store, preferences } = await loadNav();
-    store.getState().toggleExpandedSpace("s1");
-    store.getState().toggleExpandedSpace("s2");
-    store.getState().toggleExpandedSpace("s1");
-    expect(store.getState().expandedSpaceIds).toEqual(["s2"]);
-    expect(preferences.get(STORAGE_KEYS.expandedSpaces)).toBe(JSON.stringify(["s2"]));
   });
 
   it("forgets the active Space when cleared", async () => {

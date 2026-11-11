@@ -41,8 +41,10 @@ export function entityTypeOfKind(kind: string): string {
 }
 
 /// Writes the entity as a Nookly file at a path the user chose. Nothing that belongs to this
-/// instance (ids, labels, links, the Space) goes in it.
-export function exportEntityJson(entityId: string, path: string): Promise<void> {
+/// instance (ids, labels, links, the Space) goes in it, but the files its blocks show do.
+/// Resolves the names of the files that could not go in (missing or unreadable), whose blocks
+/// became a paragraph with the name.
+export function exportEntityJson(entityId: string, path: string): Promise<string[]> {
   return invoke("export_entity_json", { entityId, path });
 }
 

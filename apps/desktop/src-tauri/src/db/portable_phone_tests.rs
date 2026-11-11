@@ -60,7 +60,8 @@ fn an_assignment_from_the_phone_imports_under_a_course() {
     let assignment = portable::import(&conn, &space.id, Some(&course.id), ASSIGNMENT).unwrap();
     assert_eq!(assignment.title, "Sheet 3");
     let loaded = crate::db::assignments::get_assignment(&conn, &assignment.id).unwrap();
-    assert_eq!(loaded.status, "graded");
+    // A file from a phone before the rename says `graded`; it arrives as `evaluated`.
+    assert_eq!(loaded.status, "evaluated");
     assert_eq!(loaded.grade, Some(1.3));
     assert_eq!(loaded.due_date.as_deref(), Some("2026-11-02"));
 }

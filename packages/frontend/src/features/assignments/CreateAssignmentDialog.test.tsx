@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { makeAssignment, makeEntity, makeSession, makeSpace } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
@@ -67,7 +67,7 @@ describe("CreateAssignmentDialog due date", () => {
     ]);
     await user.click(screen.getByRole("button", { name: "Change Due Date" }));
     await user.click(await screen.findByRole("button", { name: /^Specific session/ }));
-    await user.click(await screen.findByRole("button", { name: /Mar 19/ }));
+    await user.click(await screen.findByRole("button", { name: /Lecture/ }));
     await user.click(screen.getByRole("button", { name: "2 days" }));
     await user.click(screen.getByRole("button", { name: /Create assignment/ }));
     await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));
@@ -76,5 +76,66 @@ describe("CreateAssignmentDialog due date", () => {
       dueSessionOffsetDays: 2,
       dueSessionId: "s-1",
     });
+  });
+});
+
+describe("CreateAssignmentDialog grading", () => {
+  async function create(user: Awaited<ReturnType<typeof openDialog>>["user"]) {
+    await user.click(screen.getByRole("button", { name: /Create assignment/ }));
+    await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));
+    return callsOf("create_assignment")[0];
+  }
+
+  it("starts as a gray Ungraded badge and is created ungraded", async () => {
+    const { user } = await openDialog();
+    const badge = screen.getByRole("button", { name: "Ungraded" });
+    expect(badge).not.toHaveClass("text-caution");
+    expect(await create(user)).toMatchObject({ ungraded: true });
+  });
+
+  it("flips to a caution colored Graded badge, and back, when clicked", async () => {
+    const { user } = await openDialog();
+    await user.click(screen.getByRole("button", { name: "Ungraded" }));
+    const graded = screen.getByRole("button", { name: "Graded" });
+    expect(graded).toHaveClass("text-caution");
+    expect(screen.queryByRole("button", { name: "Ungraded" })).not.toBeInTheDocument();
+    await user.click(graded);
+    expect(screen.getByRole("button", { name: "Ungraded" })).not.toHaveClass("text-caution");
+  });
+
+  it("is created graded after flipping to Graded", async () => {
+    const { user } = await openDialog();
+    await user.click(screen.getByRole("button", { name: "Ungraded" }));
+    expect(await create(user)).toMatchObject({ ungraded: false });
+  });
+});
+
+describe("CreateAssignmentDialog description", () => {
+  // ProseMirror asks the document what is under the pointer on a click; jsdom has no such lookup.
+  beforeEach(() => {
+    Object.assign(document, { elementFromPoint: () => null });
+    mockCommand("create_block", {});
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  it("writes what was typed in the description as the blocks of the new assignment", async () => {
+    const { user } = await openDialog();
+    await user.click(screen.getByRole("textbox", { name: "Assignment description" }));
+    await user.keyboard("# Hand in as PDF{Enter}Pages 1 to 4");
+    await user.click(screen.getByRole("button", { name: /Create assignment/ }));
+    await waitFor(() => expect(callsOf("create_block")).toHaveLength(2));
+    expect(callsOf("create_block")).toEqual([
+      expect.objectContaining({ blockType: "heading1", content: "Hand in as PDF" }),
+      expect.objectContaining({ blockType: "paragraph", content: "Pages 1 to 4" }),
+    ]);
+  });
+
+  it("writes no blocks when the description was left empty", async () => {
+    const { user } = await openDialog();
+    await user.click(screen.getByRole("button", { name: /Create assignment/ }));
+    await waitFor(() => expect(callsOf("create_assignment")).toHaveLength(1));
+    expect(callsOf("create_block")).toEqual([]);
   });
 });

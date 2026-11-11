@@ -100,6 +100,10 @@ pub fn get_grade_report(conn: &Connection, space_id: &str) -> AppResult<GradeRep
             });
     }
     for assignment in crate::db::assignments::list_assignments(conn, space_id)? {
+        // Ungraded work like homework is not part of the grade.
+        if assignment.ungraded {
+            continue;
+        }
         let Some(course_id) = assignment_course.get(&assignment.entity.id) else {
             continue;
         };
@@ -162,11 +166,10 @@ pub fn get_grade_report(conn: &Connection, space_id: &str) -> AppResult<GradeRep
         match slot {
             Some((_, courses)) => courses.push(report),
             // In no semester, or in one that is trashed.
-            None => groups
-                .last_mut()
-                .expect("the loose group is always there")
-                .1
-                .push(report),
+            None => match groups.last_mut() {
+                Some(loose) => loose.1.push(report),
+                None => groups.push((None, vec![report])),
+            },
         }
     }
 

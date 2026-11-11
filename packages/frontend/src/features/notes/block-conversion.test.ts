@@ -127,12 +127,31 @@ describe("turn into kinds", () => {
     expect(titles(drawn)).toEqual([]);
   });
 
+  it("keeps a mind map with dragged nodes as it is, since text has no place for them", () => {
+    const plain = node({ type: "mindmap", content: [text("Plan\n  Read")] });
+    expect(titles(plain)).toContain("Text");
+    const moved = node({
+      type: "mindmap",
+      attrs: { layout: '{"v":1,"ids":["a","b"],"positions":{"b":{"x":1,"y":2}}}' },
+      content: [text("Plan\n  Read")],
+    });
+    expect(titles(moved)).toEqual([]);
+  });
+
   it("turns source blocks into text and each other", () => {
     const equation = node({ type: "equation", content: [text("x^2")] });
     const offered = titles(equation);
     expect(offered).toContain("Math block");
     expect(offered).toContain("Text");
     expect(offered).not.toContain("Equation");
+    expect(offered).toContain("Plot");
+    expect(offered).toContain("Mind map");
+    expect(convert(node(paragraph("Plan")), "Mind map")).toEqual(
+      blocks({ type: "mindmap", attrs: { view: "source" }, content: [text("Plan")] }),
+    );
+    expect(convert(node(paragraph("y = 2x")), "Plot")).toEqual(
+      blocks({ type: "plot", attrs: { view: "source" }, content: [text("y = 2x")] }),
+    );
   });
 });
 

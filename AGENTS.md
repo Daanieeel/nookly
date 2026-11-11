@@ -14,9 +14,32 @@ Do not touch the major version. Report back to the user if a major version bump 
 
 `CHANGELOG.md` is written by hand for the people who use Nookly, and the What's new dialog shows the section of the running version. When you fix or implement something a user would notice, add one short, plain line to the section of the version you bumped to (add `## x.y.z (YYYY-MM-DD)` if it is missing), under `### Added`, `### Changed` or `### Fixed`. Say what changed for them, not how: no issue numbers, no jargon, no commit wording.
 
-A new feature users will notice also gets a card in `whats-new.json` (repo root), which is what the What's new dialog shows for the running version: a `title` and `summary` for the version, `highlights` (each a short `title`, a one sentence `description`, an `icon` from `features/whats-new/icons.ts`, an optional `tag` of `New` or `Improved`, and an optional `shortcut` like `Mod+Shift+J`) and `more` for the smaller lines under `Improved` and `Fixed`. Text is markdown, and a shortcut in code (`` `Mod+K` ``) shows as the system writes it. Newest version first. A version with no entry shows its `CHANGELOG.md` section instead. The dialog shows every version since the one the user last saw, so a jump over several versions lists them all: keep one entry per version you bump to, never merge them.
+A new feature users will notice also gets a card in `whats-new.json` (repo root), which is what the What's new dialog shows for the running version. An entry has `highlights` (each a short `title`, a one sentence `description`, an `icon` from `features/whats-new/icons.ts`, an optional `tag` of `New` or `Improved`, and an optional list of `shortcuts` like `["Mod+Shift+J"]`) and `more` for the smaller lines under `Improved` and `Fixed`. The version `title` and `summary` are strictly for big updates (see below); leave them out of everything else. Text is markdown, and a shortcut in code (`` `Mod+K` ``) shows as the system writes it. Newest version first. A version with no entry shows its `CHANGELOG.md` section instead. The dialog shows every version since the one the user last saw, so a jump over several versions lists them all: keep one entry per version you bump to, never merge them.
 
-**After every version bump, `CHANGELOG.md` and `whats-new.json` must be brought up to date in the same commit.** The bumped version needs its `## x.y.z` section in the changelog, and an entry in `whats-new.json` as well: a card under `highlights` for a feature, or just a line under `more` (with a `title` and `summary`, and empty `highlights`) for a smaller improvement or fix. Never leave either file behind the version in `package.json`.
+Write every `CHANGELOG.md` line and every `whats-new.json` text (titles, summaries, descriptions, `more` lines) for the user, not for developers. Say what changed for them, in plain and generic words. Leave out implementation details: no caches, indexes, refactors, libraries, data structures, or internal names. If the only honest description is technical, describe the effect the user notices, or leave the line out.
+
+- Bad: "Added a persistent index for notes and jots that is rebuilt in the background on launch"
+- Good: "Notes and jots now load faster on startup"
+- Bad: "Fixed race condition in the sync queue when two devices write the same record"
+- Good: "Fixed changes sometimes disappearing when editing on two devices"
+
+**The version `title` and `summary` in `whats-new.json` are the exception, not the default.** They are a headline for a big update: a release with three or more highlights, or about five or more items in total (highlights plus `more` lines), where a reader needs the main feature names at a glance, such as "Spell checker, links that open Nookly and more". A patch, a single feature, a single fix or any release with fewer items gets neither. Never write one only to fill the slot.
+
+- Bad: a patch with `"title": "A fix", "summary": "Opening a note no longer fails at first."` (the summary repeats the one line under it)
+- Bad: `"title": "Behind the scenes", "summary": "A small cleanup. Nothing looks or works differently."` (a change nobody can notice is not release news, leave it out)
+- Good: a patch with only `"more": { "Fixed": ["Fixed opening a note sometimes showing an error until you pressed Try Again."] }`
+- Good: a big release with `"title": "A faster, simpler search"` and a `summary` naming the two or three things that changed
+
+A good `title` is the feature names, short and in plain words. A good `summary` is one sentence of the buzz words, not a restatement of the highlights below it. Highlight cards are for features a user will notice and want to try. Fixes and small improvements go under `more`, one plain sentence each.
+
+**After every version bump, `CHANGELOG.md` and `whats-new.json` must be brought up to date in the same commit.** The bumped version needs its `## x.y.z` section in the changelog, and an entry in `whats-new.json` as well: a card under `highlights` for a feature, or just a line under `more` (empty `highlights`, and no `title` or `summary`) for a smaller improvement or fix. A bump nobody can notice (a cleanup, a refactor) gets its `CHANGELOG.md` section but no `whats-new.json` entry and no "Nothing looks different" filler. Never leave either file behind the version in `package.json` otherwise.
+
+**One branch is one version bump, not one bump per request.** A version is a release unit. Nobody can have seen a version that is not merged yet, so a follow-up change on the same branch or in the same session is never a new version and never a new entry for something users could not have seen. Before bumping, compare the version on your branch with the version on `main`. If your branch is already ahead, that version is yours and still unreleased: keep it, and fold the new work into its existing `CHANGELOG.md` section and `whats-new.json` entry instead of bumping again. Only bump when the branch is still on the same version as `main`. This refines the bump rule above.
+
+When a follow-up changes or fixes something you added earlier on the same branch, edit or reword that existing line or card so it describes the final result. Do not add a second line for the tweak and never a `Fixed` line for a bug users never had. Add a new line only when the follow-up is a separate change a user would notice on its own. Before you finish, check that the unreleased version describes what ships, once.
+
+- Bad: a mooing cow on scroll, then "moves left to right" as 0.65.1, then "now black" as 0.65.2, each with its own entry
+- Good: one bump to 0.65.0 with one card, "A cow that moos as you scroll", reworded to say it is a black cow that walks across the screen
 
 Quick map:
 
@@ -53,6 +76,8 @@ Mobile UI (`apps/mobile`):
 
 - Every desktop input gets a proper mobile translation, styled like the desktop app: popovers, dropdowns and selects, comboboxes, date and time pickers, color and icon pickers, context menus and overflow menus. The default is the shared bottom sheet, with content that mirrors the desktop input's own UI (the desktop calendar, not the system date wheel). Never translate to native OS dialogs, alerts, action sheets or pickers, to inline accordions or expanding sections, or to plain unstyled dropdown lists. Confirmations, destructive ones included, are bottom sheets too, never dialogs. The system keyboard for text entry and the system `Switch` are fine. There is exactly one sheet implementation (`apps/mobile/src/ui/sheet/`); never add another.
 - Copy the desktop styling exactly (colors, typography, radii, icons, visual hierarchy) but size for touch: every tappable element has a touch target of at least 44pt on iOS and 48dp on Android, even when its visible size stays smaller, and adjacent controls are spaced so they can't be mis-tapped. Do this through shared size and spacing tokens and components, never per screen tweaks.
+
+Branches are cleaned up after merge, always. Once a branch is merged (a PR, or an agent branch folded into another), delete it locally and on the remote (`git branch -d <branch>`, `git push origin --delete <branch>`) and remove any worktree it used (`git worktree remove <path>`, then `git worktree prune`). This covers branches and worktrees created for delegated agents too. Use `-d`, never `-D`: if git refuses because the branch is not merged, stop and check before deleting anything.
 
 Report only checks, read them and do not silence them: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
 

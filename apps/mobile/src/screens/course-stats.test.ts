@@ -43,7 +43,7 @@ describe("a course's card", () => {
       [],
       [],
       [
-        assignment({ status: "graded", dueDate: "2026-10-01" }),
+        assignment({ status: "evaluated", dueDate: "2026-10-01" }),
         assignment({ dueDate: "2026-11-02" }),
         assignment({ dueDate: "2026-10-26" }),
         assignment({ courseId: "c2" }),

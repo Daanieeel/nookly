@@ -1015,7 +1015,6 @@ fn update_space_moves_the_entity_or_names_its_owner() {
             "exam",
             "session",
             "session_template",
-            "study_block",
             "sub_task"
         ])
     );
@@ -2252,7 +2251,7 @@ fn schema_lists_every_registered_type_once_in_order() {
     sorted.sort_unstable();
     sorted.dedup();
     assert_eq!(sorted, names);
-    assert!(names.len() >= 18);
+    assert!(names.len() >= 17);
 }
 
 #[test]
@@ -3304,7 +3303,7 @@ fn stored_view(fx: &Fx, note: &str) -> Option<String> {
 
 #[test]
 fn source_blocks_made_through_the_cli_start_on_the_preview() {
-    for block_type in ["equation", "math", "diagram", "circuit"] {
+    for block_type in ["equation", "math", "diagram", "circuit", "plot", "mindmap"] {
         let fx = fx();
         let (note, _) = new_note(&fx, "Preview");
         cli(
@@ -3326,6 +3325,52 @@ fn source_blocks_made_through_the_cli_start_on_the_preview() {
             "{block_type}"
         );
     }
+}
+
+#[test]
+fn editing_a_mind_map_outline_through_the_cli_keeps_where_nodes_were_dragged() {
+    let fx = fx();
+    let (note, _) = new_note(&fx, "Map");
+    let layout = r#"{"v":1,"ids":["p","r","w"],"positions":{"w":{"x":12.0,"y":8.0}}}"#;
+    let added = cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &note,
+            "--type",
+            "mindmap",
+            "--content",
+            "Plan\n  Read\n  Write",
+            "--attr",
+            &format!("layout={layout}"),
+        ],
+    )
+    .unwrap();
+    let block_id = added["block"]["id"].as_str().unwrap().to_string();
+    let updated = cli(
+        &fx.conn,
+        &[
+            "note",
+            "update-block",
+            &block_id,
+            "--content",
+            "Plan\n  Read\n  Draft\n  Write",
+        ],
+    )
+    .unwrap();
+    let stored: serde_json::Value =
+        serde_json::from_str(updated["block"]["attrs"]["layout"].as_str().unwrap()).unwrap();
+    assert_eq!(stored["ids"].as_array().unwrap().len(), 4);
+    assert_eq!(stored["ids"][3], "w");
+    assert_eq!(stored["positions"]["w"]["x"], 12.0);
+    // Clearing it brings back the automatic layout.
+    let cleared = cli(
+        &fx.conn,
+        &["note", "update-block", &block_id, "--attr", "layout="],
+    )
+    .unwrap();
+    assert!(cleared["block"]["attrs"].get("layout").is_none());
 }
 
 #[test]
@@ -3619,4 +3664,350 @@ fn a_dry_run_import_shows_the_result_and_writes_nothing() {
     assert_eq!(result["result"]["data"]["entity"]["type"], "task");
     assert_eq!(fingerprint(&fx.conn), before);
     let _ = std::fs::remove_file(&path);
+}
+
+// --- mentions with readable keys ---------------------------------------------------
+
+/// A note to write into, and a jot to point at; both through the generic `create`.
+fn mention_fixture(fx: &Fx) -> (String, String, String) {
+    let page = cli(
+        &fx.conn,
+        &["note", "create", "--space", &fx.space, "--title", "Summary"],
+    )
+    .unwrap();
+    let target = cli(
+        &fx.conn,
+        &["jot", "create", "--space", &fx.space, "--title", "Lecture"],
+    )
+    .unwrap();
+    let id_of = |v: &Value| v["data"]["entity"]["id"].as_str().unwrap().to_string();
+    let key_of = |v: &Value| v["data"]["entity"]["key"].as_str().unwrap().to_string();
+    (id_of(&page), id_of(&target), key_of(&target))
+}
+
+#[test]
+fn a_block_added_with_a_key_mention_points_at_the_entity_and_reads_back_with_the_key() {
+    let fx = fx();
+    let (page, target_id, key) = mention_fixture(&fx);
+    let content = format!("See [Lecture](mention:{key}) now");
+    let added = cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "paragraph",
+            "--content",
+            &content,
+        ],
+    )
+    .unwrap();
+    // Written out with the key, the same way it was typed.
+    assert_eq!(added["block"]["content"], content);
+    // Stored with the id, which survives renames.
+    let stored: String = fx
+        .conn
+        .query_row(
+            "SELECT content FROM blocks WHERE entity_id = ?1",
+            [&page],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored, format!("See [Lecture](mention:{target_id}) now"));
+
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(blocks["items"][0]["content"], content);
+}
+
+#[test]
+fn a_mention_made_with_an_id_reads_back_with_the_key() {
+    let fx = fx();
+    let (page, target_id, key) = mention_fixture(&fx);
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "paragraph",
+            "--content",
+            &format!("[Lecture](mention:{target_id}#blk_1)"),
+        ],
+    )
+    .unwrap();
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(
+        blocks["items"][0]["content"],
+        format!("[Lecture](mention:{key}#blk_1)")
+    );
+}
+
+#[test]
+fn a_code_block_is_shown_exactly_as_stored() {
+    let fx = fx();
+    let (page, target_id, _) = mention_fixture(&fx);
+    let content = format!("[Lecture](mention:{target_id})");
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "code",
+            "--content",
+            &content,
+        ],
+    )
+    .unwrap();
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(blocks["items"][0]["content"], content);
+}
+
+// --- file blocks that point at a path on this computer ------------------------------
+
+fn path_fixture() -> (Fx, String) {
+    let fx = fx();
+    let page = cli(
+        &fx.conn,
+        &["note", "create", "--space", &fx.space, "--title", "Uni"],
+    )
+    .unwrap();
+    let id = page["data"]["entity"]["id"].as_str().unwrap().to_string();
+    (fx, id)
+}
+
+fn temp_file(name: &str) -> String {
+    let dir = std::env::temp_dir().join(format!("nookly-cli-path-{}", crate::db::new_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join(name);
+    std::fs::write(&file, b"%PDF").unwrap();
+    file.to_string_lossy().to_string()
+}
+
+#[test]
+fn a_file_block_takes_the_path_of_a_file_that_is_there() {
+    let (fx, page) = path_fixture();
+    let path = temp_file("Handout_Woche3.pdf");
+    let added = cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "file",
+            "--content",
+            &path,
+        ],
+    )
+    .unwrap();
+    assert_eq!(added["block"]["content"], path);
+    assert!(added.get("warning").is_none(), "{added}");
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(blocks["items"][0]["fileStatus"]["state"], "ok");
+}
+
+#[test]
+fn a_path_that_cannot_be_reached_is_kept_and_the_reason_is_said_plainly() {
+    let (fx, page) = path_fixture();
+    for (path, state, words) in [
+        (
+            "/tmp/__nookly_gone__/Handout.pdf",
+            "missing",
+            "moved, renamed or deleted",
+        ),
+        (
+            "/Volumes/__nookly_no_drive__/Uni/Handout.pdf",
+            "unavailable",
+            "drive or network volume",
+        ),
+    ] {
+        let added = cli(
+            &fx.conn,
+            &[
+                "note",
+                "add-block",
+                &page,
+                "--type",
+                "file",
+                "--content",
+                path,
+            ],
+        )
+        .unwrap();
+        // Saved exactly as given, so it works again once the file or the drive is back.
+        assert_eq!(added["block"]["content"], path);
+        let warning = added["warning"].as_str().unwrap_or_default();
+        assert!(warning.contains(path), "{warning}");
+        assert!(warning.contains(words), "{warning}");
+        let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+        let item = blocks["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|i| i["content"] == path)
+            .unwrap();
+        assert_eq!(item["fileStatus"]["state"], state);
+        assert!(item["fileStatus"]["message"]
+            .as_str()
+            .unwrap()
+            .contains(path));
+    }
+}
+
+#[test]
+fn reading_a_page_with_a_missing_file_does_not_fail() {
+    let (fx, page) = path_fixture();
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "file",
+            "--content",
+            "/tmp/__nookly_gone__/a.pdf",
+        ],
+    )
+    .unwrap();
+    cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "paragraph",
+            "--content",
+            "Still here",
+        ],
+    )
+    .unwrap();
+    let blocks = cli(&fx.conn, &["note", "blocks", &page]).unwrap();
+    assert_eq!(blocks["count"], 2);
+    assert!(cli(&fx.conn, &["note", "get", &page]).is_ok());
+}
+
+#[test]
+fn an_empty_or_malformed_target_is_refused_with_a_reason() {
+    let (fx, page) = path_fixture();
+    let before = scalar(&fx.conn, "SELECT COUNT(*) FROM blocks");
+    for (content, words) in [
+        ("", "empty"),
+        ("   ", "empty"),
+        ("Handout.pdf", "full path"),
+        ("~/Handout.pdf", "full path"),
+        ("file:///a.pdf", "full path"),
+    ] {
+        let err = err_of(cli(
+            &fx.conn,
+            &[
+                "note",
+                "add-block",
+                &page,
+                "--type",
+                "file",
+                "--content",
+                content,
+            ],
+        ));
+        assert_eq!(kind_of(&err), "InvalidInput", "{content:?}");
+        assert!(err.to_string().contains(words), "{content:?}: {err}");
+    }
+    assert_eq!(scalar(&fx.conn, "SELECT COUNT(*) FROM blocks"), before);
+}
+
+#[test]
+fn changing_a_block_to_a_missing_path_warns_and_keeps_the_path() {
+    let (fx, page) = path_fixture();
+    let path = temp_file("a.pdf");
+    let added = cli(
+        &fx.conn,
+        &[
+            "note",
+            "add-block",
+            &page,
+            "--type",
+            "file",
+            "--content",
+            &path,
+        ],
+    )
+    .unwrap();
+    let block_id = added["block"]["id"].as_str().unwrap().to_string();
+    let updated = cli(
+        &fx.conn,
+        &[
+            "note",
+            "update-block",
+            &block_id,
+            "--content",
+            "/tmp/__nookly_gone__/b.pdf",
+        ],
+    )
+    .unwrap();
+    assert_eq!(updated["block"]["content"], "/tmp/__nookly_gone__/b.pdf");
+    assert!(updated["warning"]
+        .as_str()
+        .unwrap()
+        .contains("/tmp/__nookly_gone__/b.pdf"));
+    let err = err_of(cli(
+        &fx.conn,
+        &["note", "update-block", &block_id, "--content", ""],
+    ));
+    assert_eq!(kind_of(&err), "InvalidInput");
+}
+
+#[test]
+fn a_file_can_keep_a_link_without_downloading_it() {
+    let f = fx();
+    let made = cli(
+        &f.conn,
+        &[
+            "file",
+            "create",
+            "--space",
+            &f.space,
+            "--title",
+            "Sample",
+            "--field",
+            "linkUrl=https://example.com/sample.pdf",
+        ],
+    )
+    .unwrap();
+    assert_eq!(made["data"]["entity"]["type"], "file");
+    assert_eq!(made["data"]["url"], "https://example.com/sample.pdf");
+    assert_eq!(made["data"]["localPath"], Value::Null);
+    assert_eq!(made["data"]["reference"]["provider"], "link");
+    // One source at a time, and only a web address.
+    let clash = err_of(cli(
+        &f.conn,
+        &[
+            "file",
+            "create",
+            "--space",
+            &f.space,
+            "--field",
+            "linkUrl=https://a.dev/x",
+            "--field",
+            "url=https://a.dev/y",
+        ],
+    ));
+    assert_eq!(kind_of(&clash), "InvalidInput");
+    let bad = err_of(cli(
+        &f.conn,
+        &[
+            "file",
+            "create",
+            "--space",
+            &f.space,
+            "--field",
+            "linkUrl=not a link",
+        ],
+    ));
+    assert_eq!(kind_of(&bad), "InvalidInput");
 }

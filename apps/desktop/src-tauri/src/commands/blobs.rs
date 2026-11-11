@@ -229,7 +229,7 @@ pub async fn blob_download(
     let path = blocking(move || download_to(&server_url, &sha256, &dir, &filename)).await?;
     let path = path.to_string_lossy().into_owned();
     let state = app.state::<DbState>();
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     match table.as_str() {
         "files" => crate::db::files::attach_synced(&conn, &pk, &path)?,
         "recipes" => {
@@ -257,7 +257,7 @@ pub async fn create_pre_sync_backup(app: AppHandle) -> AppResult<BackupInfo> {
     blocking(move || {
         let snapshot = {
             let state = app.state::<DbState>();
-            let conn = state.0.lock().unwrap();
+            let conn = state.conn()?;
             backup::snapshot(&conn)?
         };
         let dest = data_dir.join(backup::PRE_SYNC_DIR);

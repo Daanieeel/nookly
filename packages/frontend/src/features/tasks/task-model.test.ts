@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { ActiveFilter } from "#/components/filter-menu.tsx";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { STATUSES, makeLabel, makeTask } from "#/test/fixtures.ts";
@@ -374,7 +375,7 @@ describe("filters", () => {
     expect(filterValues(task, "start")).toEqual(["none"]);
     expect(filterValues(task, "created")).toEqual(["earlier"]);
     expect(filterValues(task, "updated")).toEqual(["today"]);
-    expect(filterValues(task, "completed")).toEqual(["today"]);
+    expect(filterValues(task, "completedAt")).toEqual(["today"]);
     expect(filterValues(task, "course")).toEqual(["c1"]);
     expect(filterValues(task, "semester")).toEqual(["sem1"]);
     expect(filterValues(task, "effort")).toEqual(["3"]);
@@ -382,7 +383,7 @@ describe("filters", () => {
   });
 
   it("reads open and unestimated tasks as none", () => {
-    expect(filterValues(makeTask(), "completed")).toEqual(["none"]);
+    expect(filterValues(makeTask(), "completedAt")).toEqual(["none"]);
     expect(filterValues(makeTask(), "effort")).toEqual(["none"]);
   });
 
@@ -414,6 +415,16 @@ describe("filters", () => {
         { fieldId: "effort", operator: "is", values: ["8"] },
       ]),
     ).toBe(false);
+  });
+
+  it("lets a filter joined with or pass when either of the two does", () => {
+    const task = makeTask({ statusId: "todo", effort: 5 });
+    const filters: ActiveFilter[] = [
+      { fieldId: "status", operator: "is", values: ["done"] },
+      { fieldId: "effort", operator: "is", values: ["5"], join: "or" },
+    ];
+    expect(passesFilters(task, filters)).toBe(true);
+    expect(passesFilters(makeTask({ statusId: "todo", effort: 8 }), filters)).toBe(false);
   });
 
   it("keeps every task without filters", () => {

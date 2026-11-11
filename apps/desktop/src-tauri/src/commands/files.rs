@@ -15,8 +15,11 @@ async fn blocking_db<T: Send + 'static>(
     let handle = app.clone();
     let (result, jobs) = tauri::async_runtime::spawn_blocking(move || {
         let state = handle.state::<DbState>();
-        let conn = state.0.lock().unwrap();
-        files::with_deferred_indexing(|| work(&conn))
+        let outcome = match state.conn() {
+            Ok(conn) => files::with_deferred_indexing(|| work(&conn)),
+            Err(e) => (Err(e), Vec::new()),
+        };
+        outcome
     })
     .await
     .map_err(|e| AppError::Io(e.to_string()))?;
@@ -39,7 +42,7 @@ fn index_in_background(app: AppHandle, jobs: Vec<files::IndexJob>) {
                 continue;
             };
             let state = app.state::<DbState>();
-            let Ok(conn) = state.0.lock() else { return };
+            let Ok(conn) = state.conn() else { return };
             if files::store_extracted_text(&conn, &entity_id, &text) {
                 drop(conn);
                 let _ = app.emit(crate::db::EXTERNAL_CHANGE_EVENT, ());
@@ -57,6 +60,28 @@ pub async fn import_file(
     let dir = files_dir(&app)?;
     blocking_db(&app, move |conn| {
         files::import_file(conn, &dir, space_id, std::path::Path::new(&source_path))
+    })
+    .await
+}
+
+/// `import_file` with a name, Labels, attachments and an origin chosen first; all of it
+/// lands or none of it does.
+#[tauri::command]
+pub async fn import_file_with_details(
+    app: AppHandle,
+    space_id: String,
+    source_path: String,
+    details: files::ImportDetails,
+) -> AppResult<FileEntity> {
+    let dir = files_dir(&app)?;
+    blocking_db(&app, move |conn| {
+        files::import_file_with_details(
+            conn,
+            &dir,
+            space_id,
+            std::path::Path::new(&source_path),
+            details,
+        )
     })
     .await
 }
@@ -145,7 +170,7 @@ pub async fn download_linked_file(
     entity_id: String,
 ) -> AppResult<LinkImport> {
     let url = {
-        let conn = state.0.lock().unwrap();
+        let conn = state.conn()?;
         files::get_file(&conn, &entity_id)?
             .url
             .ok_or_else(|| AppError::InvalidInput("this file has no link to download".into()))?
@@ -176,12 +201,12 @@ fn allow_reference(app: &AppHandle, file: &FileEntity) {
 }
 
 #[tauri::command]
-pub fn list_files(
+pub async fn list_files(
     app: AppHandle,
-    state: State<DbState>,
+    state: State<'_, DbState>,
     space_id: String,
 ) -> AppResult<Vec<FileEntity>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     let files = files::list_files(&conn, &space_id)?;
     files.iter().for_each(|f| allow_reference(&app, f));
     Ok(files)
@@ -210,7 +235,7 @@ pub async fn reindex_missing_files(
 ) -> AppResult<files::ReindexSummary> {
     let summary = tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<DbState>();
-        let jobs = files::reindex_jobs(&state.0.lock().unwrap(), Some(&space_id))?;
+        let jobs = files::reindex_jobs(&*state.conn()?, Some(&space_id))?;
         let checked = jobs.len() as u32;
         let mut reindexed = 0;
         let _ = app.emit(
@@ -222,7 +247,7 @@ pub async fn reindex_missing_files(
         );
         for (index, (entity_id, path)) in jobs.into_iter().enumerate() {
             if let Some(text) = files::extract_file_text(&path) {
-                if files::store_extracted_text(&state.0.lock().unwrap(), &entity_id, &text) {
+                if files::store_extracted_text(&*state.conn()?, &entity_id, &text) {
                     reindexed += 1;
                 }
             }
@@ -243,8 +268,12 @@ pub async fn reindex_missing_files(
 }
 
 #[tauri::command]
-pub fn get_file(app: AppHandle, state: State<DbState>, entity_id: String) -> AppResult<FileEntity> {
-    let conn = state.0.lock().unwrap();
+pub async fn get_file(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    entity_id: String,
+) -> AppResult<FileEntity> {
+    let conn = state.conn()?;
     let file = files::get_file(&conn, &entity_id)?;
     allow_reference(&app, &file);
     Ok(file)
@@ -275,9 +304,21 @@ pub async fn copy_file_into_storage(app: AppHandle, entity_id: String) -> AppRes
     .await
 }
 
+/// Tells Nookly where a referenced file is on this device: the same file picked again
+/// after it moved, or on a device it was not added on. Only this device's path changes.
+#[tauri::command]
+pub async fn locate_file(app: AppHandle, entity_id: String, path: String) -> AppResult<FileEntity> {
+    let file = blocking_db(&app, move |conn| {
+        files::locate_file(conn, &entity_id, std::path::Path::new(&path))
+    })
+    .await?;
+    allow_reference(&app, &file);
+    Ok(file)
+}
+
 /// Where a File's bytes are: the stored copy, else the referenced original.
 fn file_on_disk(state: &State<DbState>, entity_id: &str) -> AppResult<String> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     let file = files::get_file(&conn, entity_id)?;
     file.local_path
         .or(file.source_path)
@@ -310,7 +351,7 @@ pub fn reveal_file(app: AppHandle, state: State<DbState>, entity_id: String) -> 
 #[tauri::command]
 pub fn export_file(state: State<DbState>, entity_id: String, destination: String) -> AppResult<()> {
     let file = {
-        let conn = state.0.lock().unwrap();
+        let conn = state.conn()?;
         files::get_file(&conn, &entity_id)?
     };
     let source = file.local_path.or(file.source_path).ok_or_else(|| {
@@ -329,7 +370,7 @@ pub fn set_file_added_at(
     entity_id: String,
     added_at: String,
 ) -> AppResult<FileEntity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     files::set_added_at(&conn, &entity_id, &added_at)
 }
 
@@ -426,8 +467,12 @@ fn app_icon(workspace: &objc2_app_kit::NSWorkspace, app_path: &str) -> Option<St
     use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep};
     use objc2_foundation::{NSDictionary, NSPoint, NSRect, NSSize, NSString};
 
-    if let Some(cached) = ICONS.lock().unwrap().get(app_path) {
-        return cached.clone();
+    if let Some(cached) = ICONS
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(app_path).cloned())
+    {
+        return cached;
     }
     let icon = workspace.iconForFile(&NSString::from_str(app_path));
     let mut rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(32.0, 32.0));
@@ -449,10 +494,9 @@ fn app_icon(workspace: &objc2_app_kit::NSWorkspace, app_path: &str) -> Option<St
                 base64::engine::general_purpose::STANDARD.encode(data.to_vec())
             )
         });
-    ICONS
-        .lock()
-        .unwrap()
-        .insert(app_path.to_string(), png.clone());
+    if let Ok(mut cache) = ICONS.lock() {
+        cache.insert(app_path.to_string(), png.clone());
+    }
     png
 }
 

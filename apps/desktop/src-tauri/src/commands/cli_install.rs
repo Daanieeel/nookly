@@ -106,7 +106,7 @@ mod unix_impl {
         if let Some(link) = find_existing_link(&target) {
             let dir = link
                 .parent()
-                .expect("link always has a parent")
+                .ok_or_else(|| AppError::Io("the command line tool link has no folder".into()))?
                 .to_path_buf();
             return Ok(CliInstallStatus {
                 supported: true,

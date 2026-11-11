@@ -1,3 +1,6 @@
+// A build script has no one to report a failure to but the build log, so it stops there.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 fn main() {
     let on_windows_msvc = std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
         && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc");

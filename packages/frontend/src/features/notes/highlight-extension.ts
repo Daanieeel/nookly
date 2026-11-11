@@ -144,7 +144,8 @@ export const Highlight = Mark.create({
           const { tr } = state;
           const active = state.storedMarks ?? state.selection.$from.marks();
           const inside = active.some((m) => m.type === this.type);
-          tr.delete(range.to - 1, range.to);
+          // The second `=` is already in the text when the rule runs, so both go.
+          tr.delete(range.to - 2, range.to);
           if (inside) tr.setStoredMarks(active.filter((m) => m.type !== this.type));
           else tr.setStoredMarks([...active, this.type.create()]);
         },

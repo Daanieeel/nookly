@@ -20,7 +20,7 @@
       }
     },
     {
-      "files": ["src/components/scroll-progress.tsx"],
+      "files": ["src/components/scroll-progress.tsx", "src/components/scroll-progress-search.tsx"],
       "rules": {
         "anti-slop/no-runtime-typeof": "off",
         "anti-slop/require-safety-comment-for-type-assertion": "off",

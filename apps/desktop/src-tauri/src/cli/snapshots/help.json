@@ -4,6 +4,7 @@
     "describe": "nookly cli describe <entity-type>  (one entity type: fields, block commands, relationship types)",
     "label": "nookly cli label <list|get|create|update|delete|attach|detach> ...  (attach/detach take several label ids; get <id> is the reverse lookup, every entity carrying that label)",
     "relate": "nookly cli relate <from-id> <relationship-type> <to-id> [<to-id> ...] --yes  (several targets are created all or nothing)",
+    "remote": "nookly cli <moodle_course|moodle_section|moodle_file|moodle_assignment|moodle_grade|moodle_forum|moodle_discussion|moodle_post> <list|get> [--course <id> | --forum <id> | --discussion <id>] ...  (READ ONLY. The user's university Moodle, fetched live with the user's saved Moodle sign in; not stored in Nookly, so not entities and not in `search`. `schema` lists them under `remoteTypes`, `describe <type>` shows the parent flag. `moodle_file download --url <fileUrl> --out <path>` saves a file. Not signed in: ask the user to sign in from the Nookly app, the CLI cannot)",
     "schema": "nookly cli schema  (the whole data model: every entity type + relationship type)",
     "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
     "space": "nookly cli space <list|create|update|delete|reorder> ...",
@@ -33,7 +34,6 @@
       "semester",
       "session",
       "session_template",
-      "study_block",
       "sub_task",
       "task",
       "view"

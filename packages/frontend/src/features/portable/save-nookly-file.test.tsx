@@ -1,5 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { notify } from "#/components/notify.tsx";
 import { EntityActions } from "#/components/entity-actions.tsx";
 import { makeEntity } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
@@ -32,6 +33,16 @@ describe("saveNooklyFile", () => {
     expect(callsOf("export_entity_json")[0]).toEqual({
       entityId: "t1",
       path: "/tmp/Plan.nookly.json",
+    });
+  });
+
+  it("warns with the names of the files that could not go in the file", async () => {
+    mockCommand("plugin:dialog|save", "/tmp/Plan.nookly.json");
+    mockCommand("export_entity_json", ["cell.png", "clip.mp4"]);
+    const warning = vi.spyOn(notify, "warning");
+    expect(await saveNooklyFile(makeEntity({ id: "t1", type: "note", title: "Plan" }))).toBe(true);
+    expect(warning).toHaveBeenCalledWith("2 files could not be included", {
+      description: "cell.png, clip.mp4 became text because the file is missing or unreadable.",
     });
   });
 

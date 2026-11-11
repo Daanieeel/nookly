@@ -1,3 +1,4 @@
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import {
   IconCalendarEvent,
   IconCheck,
@@ -149,7 +150,7 @@ export function StatusPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent {...dialogPopover("w-56")} align={align} onKeyDown={stopKeys}>
-        <Command loop>
+        <Command loop filter={accentInsensitiveFilter}>
           <CommandInput
             value={search}
             onValueChange={setSearch}
@@ -229,8 +230,13 @@ export function LabelsPicker({
       }}
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent {...dialogPopover("w-56")} align={align} onKeyDown={stopKeys}>
-        <Command loop>
+      <PopoverContent
+        {...dialogPopover("w-56")}
+        align={align}
+        aria-label="Labels"
+        onKeyDown={stopKeys}
+      >
+        <Command loop filter={accentInsensitiveFilter}>
           <CommandInput
             placeholder={onCreate ? "Find or create labels…" : "Add labels…"}
             value={search}
@@ -263,7 +269,7 @@ export function LabelsPicker({
                   setSearch("");
                 }}
               >
-                <span className="flex size-4 items-center justify-center">
+                <span className="flex size-4 shrink-0 items-center justify-center">
                   <PendingIcon pending={creating} failed={false} idle={<IconPlus size={14} />} />
                 </span>
                 <span className="truncate">Create “{name}”</span>
@@ -275,7 +281,7 @@ export function LabelsPicker({
                 <CommandItem key={label.id} value={label.name} onSelect={() => onToggle(label.id)}>
                   <span
                     className={cn(
-                      "flex size-4 items-center justify-center rounded-sm border border-input",
+                      "flex size-4 shrink-0 items-center justify-center rounded-sm border border-input",
                       checked && "border-primary bg-primary",
                     )}
                   >
@@ -321,7 +327,7 @@ export function EffortPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent {...dialogPopover("w-48")} align={align} onKeyDown={stopKeys}>
-        <Command loop>
+        <Command loop filter={accentInsensitiveFilter}>
           <CommandInput placeholder="Set effort…" />
           <DialogCommandList>
             <CommandEmpty>No size found.</CommandEmpty>
@@ -435,7 +441,7 @@ export function DueDateChooser({
   ];
   return (
     <div className="flex items-stretch" onKeyDown={stopKeys}>
-      <Command loop className="h-auto w-1/2">
+      <Command loop filter={accentInsensitiveFilter} className="h-auto w-1/2">
         {/* No cap of its own: the calendar beside the presets sets the height. The rows
             stretch evenly to fill it (list, its sizer, the group and its items are a flex
             chain), so nothing scrolls and no gap is left below them. */}

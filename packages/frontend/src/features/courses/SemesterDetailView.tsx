@@ -46,7 +46,7 @@ import { resolveActiveSemesterId } from "./current-semester";
 import { CourseCard } from "./CoursesListView";
 import { qk } from "#/lib/query-keys.ts";
 
-const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "graded"]);
+const DONE_ASSIGNMENT_STATUSES = new Set(["submitted", "evaluated"]);
 /// Same 7-day window `dateLabel` elsewhere in Courses UI (`CoursesListView`/
 /// `CourseDetailView`) treats as "soon" — reused here as the Aggregate Stats
 /// Strip's upcoming-exams lookahead so the two pages agree on what "upcoming"

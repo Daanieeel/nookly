@@ -6,10 +6,12 @@ import type { TokenSpan } from "./highlighter";
 type TwinkleplopTokenizer = (input: string) => { tokens: Uint32Array; token_types: string[] };
 
 /// One entry per grammar twinkleplop ships that `CodeBlockLanguagePicker` can select. Everything
-/// else (C++, C#, Java, PHP, Ruby, INI, JSONC) stays on Shiki until twinkleplop covers it; moving
+/// else (C#, Java, PHP, Ruby, INI, JSONC, Assembly) stays on Shiki until twinkleplop covers it; moving
 /// one over is adding its line here and removing it from `shiki-highlighter.ts`.
 const LANGUAGE_LOADERS = {
   bash: () => import("@twinkleplop/bash"),
+  c: () => import("@twinkleplop/c"),
+  cpp: () => import("@twinkleplop/cpp"),
   css: () => import("@twinkleplop/css"),
   go: () => import("@twinkleplop/go"),
   html: () => import("@twinkleplop/html"),
@@ -34,6 +36,11 @@ const ALIASES = {
   sh: "bash",
   shell: "bash",
   zsh: "bash",
+  h: "c",
+  "c++": "cpp",
+  cc: "cpp",
+  cxx: "cpp",
+  hpp: "cpp",
   js: "javascript",
   jsx: "tsx",
   md: "markdown",

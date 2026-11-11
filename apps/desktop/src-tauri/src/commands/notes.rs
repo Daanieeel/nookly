@@ -6,7 +6,7 @@ use tauri::State;
 
 #[tauri::command]
 pub fn create_note(state: State<DbState>, space_id: String, title: String) -> AppResult<Entity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::create_page(&conn, space_id, "note", title)
 }
 
@@ -14,65 +14,71 @@ pub fn create_note(state: State<DbState>, space_id: String, title: String) -> Ap
 /// regular Note linked afterwards via the generic relationship system (§5.3).
 #[tauri::command]
 pub fn create_jot(state: State<DbState>, space_id: String, title: String) -> AppResult<Entity> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::create_page(&conn, space_id, "jot", title)
 }
 
 #[tauri::command]
-pub fn count_unrefined_jots(state: State<DbState>, space_id: String) -> AppResult<i64> {
-    let conn = state.0.lock().unwrap();
+pub async fn count_unrefined_jots(state: State<'_, DbState>, space_id: String) -> AppResult<i64> {
+    let conn = state.conn()?;
     notes::count_unrefined_jots(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn count_unrefined_jots_all_spaces(state: State<DbState>) -> AppResult<i64> {
-    let conn = state.0.lock().unwrap();
+pub async fn count_unrefined_jots_all_spaces(state: State<'_, DbState>) -> AppResult<i64> {
+    let conn = state.conn()?;
     notes::count_unrefined_jots_all_spaces(&conn)
 }
 
 #[tauri::command]
-pub fn list_unrefined_jots_all_spaces(
-    state: State<DbState>,
+pub async fn list_unrefined_jots_all_spaces(
+    state: State<'_, DbState>,
     limit: i64,
 ) -> AppResult<Vec<PageSummary>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::list_unrefined_jots_all_spaces(&conn, limit)
 }
 
 #[tauri::command]
-pub fn list_recent_notes(
-    state: State<DbState>,
+pub async fn list_recent_notes(
+    state: State<'_, DbState>,
     space_id: String,
     limit: i64,
 ) -> AppResult<Vec<Entity>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::list_recent_notes(&conn, &space_id, limit)
 }
 
 #[tauri::command]
-pub fn list_note_summaries(state: State<DbState>, space_id: String) -> AppResult<Vec<PageSummary>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_note_summaries(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<PageSummary>> {
+    let conn = state.conn()?;
     notes::list_note_summaries(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_jot_summaries(state: State<DbState>, space_id: String) -> AppResult<Vec<PageSummary>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_jot_summaries(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<PageSummary>> {
+    let conn = state.conn()?;
     notes::list_jot_summaries(&conn, &space_id)
 }
 
 #[tauri::command]
-pub fn list_blocks(state: State<DbState>, entity_id: String) -> AppResult<Vec<Block>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_blocks(state: State<'_, DbState>, entity_id: String) -> AppResult<Vec<Block>> {
+    let conn = state.conn()?;
     notes::list_blocks(&conn, &entity_id)
 }
 
 #[tauri::command]
-pub fn list_mentioning_entities(
-    state: State<DbState>,
+pub async fn list_mentioning_entities(
+    state: State<'_, DbState>,
     entity_id: String,
 ) -> AppResult<Vec<Entity>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::list_mentioning_entities(&conn, &entity_id)
 }
 
@@ -88,7 +94,7 @@ pub fn create_block(
     filename: Option<String>,
     attrs: Option<crate::db::block_types::BlockAttrs>,
 ) -> AppResult<Block> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::create_block_with_attrs(
         &conn,
         &entity_id,
@@ -107,13 +113,13 @@ pub fn update_block(
     block_id: String,
     patch: BlockPatch,
 ) -> AppResult<Block> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::update_block(&conn, &block_id, patch)
 }
 
 #[tauri::command]
 pub fn delete_block(state: State<DbState>, block_id: String) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::delete_block(&conn, &block_id)
 }
 
@@ -123,13 +129,13 @@ pub fn reorder_blocks(
     entity_id: String,
     ordered_block_ids: Vec<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::reorder_blocks(&conn, &entity_id, ordered_block_ids)
 }
 
 #[tauri::command]
 pub fn render_page_markdown(state: State<DbState>, entity_id: String) -> AppResult<String> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::render_page_markdown(&conn, &entity_id)
 }
 
@@ -143,7 +149,7 @@ pub fn export_page_markdown(
     preamble: Option<String>,
 ) -> AppResult<()> {
     let markdown = {
-        let conn = state.0.lock().unwrap();
+        let conn = state.conn()?;
         notes::with_preamble(
             preamble.as_deref(),
             notes::render_page_markdown(&conn, &entity_id)?,
@@ -152,12 +158,45 @@ pub fn export_page_markdown(
     std::fs::write(&path, markdown).map_err(|err| AppError::Io(err.to_string()))
 }
 
+/// The formats the app renders a page to itself (`write_page_export`).
+const PAGE_EXPORT_EXTENSIONS: &[&str] = &["pdf", "docx", "odt"];
+
+/// Writes a page the app rendered to PDF, Word or OpenDocument to the path picked in
+/// the save dialog. The file comes as the raw request body, so a large one is not blown
+/// up into a JSON number array, and the path, percent encoded, in the `x-path` header.
+/// Only those formats are written, so this never stands in for writing any file.
 #[tauri::command]
-pub fn get_note_code_language(
-    state: State<DbState>,
+pub fn write_page_export(request: tauri::ipc::Request<'_>) -> AppResult<()> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(AppError::InvalidInput(
+            "Expected the file as raw bytes".into(),
+        ));
+    };
+    let path = request
+        .headers()
+        .get("x-path")
+        .and_then(|v| v.to_str().ok())
+        .map(crate::db::files::percent_decode)
+        .ok_or_else(|| AppError::InvalidInput("Missing x-path header".into()))?;
+    let path = std::path::Path::new(&path);
+    let has_name = path
+        .file_stem()
+        .is_some_and(|stem| !stem.to_string_lossy().starts_with('.'));
+    let extension = path.extension().map(|e| e.to_string_lossy().to_lowercase());
+    if !has_name || !extension.is_some_and(|e| PAGE_EXPORT_EXTENSIONS.contains(&e.as_str())) {
+        return Err(AppError::InvalidInput(
+            "A page exports only as a .pdf, .docx or .odt file".into(),
+        ));
+    }
+    std::fs::write(path, bytes).map_err(|err| AppError::Io(err.to_string()))
+}
+
+#[tauri::command]
+pub async fn get_note_code_language(
+    state: State<'_, DbState>,
     entity_id: String,
 ) -> AppResult<Option<String>> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::get_note_code_language(&conn, &entity_id)
 }
 
@@ -167,6 +206,6 @@ pub fn set_note_code_language(
     entity_id: String,
     language: Option<String>,
 ) -> AppResult<()> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     notes::set_note_code_language(&conn, &entity_id, language)
 }

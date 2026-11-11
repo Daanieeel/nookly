@@ -4,6 +4,7 @@ import {
   IconBulb,
   IconCheck,
   IconInfoCircle,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { NodeViewContent, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
 import {
@@ -21,6 +22,7 @@ export const CALLOUT_VARIANTS = [
   { value: "tip", label: "Tip", icon: IconBulb },
   { value: "warning", label: "Warning", icon: IconAlertTriangle },
   { value: "danger", label: "Danger", icon: IconAlertOctagon },
+  { value: "ai", label: "AI Comment", icon: IconSparkles },
 ] as const;
 
 export type CalloutVariant = (typeof CALLOUT_VARIANTS)[number]["value"];

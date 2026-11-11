@@ -1,3 +1,4 @@
+import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import { IconFileCode, IconSelector } from "@tabler/icons-react";
 import { Command } from "cmdk";
 import { useState } from "react";
@@ -29,7 +30,7 @@ export function CodeBlockLanguagePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-0" align="end">
-        <Command className="flex flex-col">
+        <Command filter={accentInsensitiveFilter} className="flex flex-col">
           <Command.Input
             placeholder="Search languages…"
             className="h-9 border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground"

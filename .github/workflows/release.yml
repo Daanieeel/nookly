@@ -58,10 +58,10 @@ jobs:
       matrix:
         include:
           - name: macOS Apple Silicon
-            os: macos-latest
+            os: xcode-27
             target: aarch64-apple-darwin
           - name: macOS Intel
-            os: macos-latest
+            os: xcode-27
             target: x86_64-apple-darwin
           # Oldest supported Ubuntu, so the AppImage and .deb run on older glibc too.
           - name: Linux
@@ -86,22 +86,52 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      # A cache saved on a tag run can never be read by the next tag, so tags only
+      # restore. The release-cache workflow builds the same thing on main and
+      # saves it, which tags are allowed to read.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
-          key: ${{ matrix.target }}
+          shared-key: release-${{ matrix.target }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: oven-sh/setup-bun@v2
 
       - run: bun install --frozen-lockfile
 
-      # Builds are unsigned until signing secrets are configured. When they are,
-      # tauri-action picks up APPLE_CERTIFICATE / APPLE_ID / etc. from env.
+      # tauri only lists certificates named like Apple's ("Developer ID
+      # Application: ...") and cannot find our self-signed one. So import it
+      # into a temporary keychain here and give tauri only the identity name,
+      # which it passes straight to codesign.
+      - name: Import signing certificate (macOS)
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          kc="$RUNNER_TEMP/signing.keychain-db"
+          pw="$(uuidgen)"
+          echo "$APPLE_CERTIFICATE" | base64 -d > "$RUNNER_TEMP/signing.p12"
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          security import "$RUNNER_TEMP/signing.p12" -k "$kc" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pw" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/signing.p12"
+
+      # macOS builds are signed with a self-signed certificate (no notarization,
+      # no Apple Developer account). The signature pins the app to the
+      # certificate instead of a per build hash, so the keychain keeps trusting
+      # the app across updates. Keep the same certificate forever: a new one
+      # makes every user see the keychain password prompts again.
       # The updater key signs the update bundles; tauri-action then uploads
       # latest.json, which the in-app updater reads from the latest release.
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -112,6 +142,15 @@ jobs:
           releaseDraft: false
           prerelease: ${{ contains(env.TAG, '-') }}
           args: --target ${{ matrix.target }}
+
+      - name: Check macOS SDK version
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          bin="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/Nookly.app/Contents/MacOS/Nookly"
+          sdk=$(otool -l "$bin" | awk '/LC_BUILD_VERSION|LC_VERSION_MIN_MACOSX/ { found = 1 } found && $1 == "sdk" { print $2; exit }')
+          echo "Linked against macOS SDK $sdk"
+          [ "${sdk%%.*}" -ge 27 ] || { echo "::error::linked against macOS SDK $sdk, need 27 or newer"; exit 1; }
 
       # v0.1.2 shipped a crash that only happened on the *second* launch of the
       # packaged .app (macOS aborts in AppKit's window-state restore without

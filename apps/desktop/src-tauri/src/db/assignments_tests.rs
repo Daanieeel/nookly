@@ -109,11 +109,11 @@ fn every_documented_status_round_trips_with_a_grade() {
         assert_eq!(stored.status, status);
         assert!(stored.grade.is_none());
     }
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(1.7)).unwrap();
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(1.7)).unwrap();
     let stored = get_assignment(&conn, &a.entity.id).unwrap();
     assert_eq!(
         (stored.status.as_str(), stored.grade),
-        ("graded", Some(1.7))
+        ("evaluated", Some(1.7))
     );
 }
 
@@ -135,7 +135,7 @@ fn cli_status_update_keeps_the_existing_grade() {
     let conn = test_conn();
     let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
     let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(2.0)).unwrap();
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(2.0)).unwrap();
     let def = crate::db::schema::lookup("assignment").unwrap();
     let mut fields = crate::db::schema::JsonMap::new();
     fields.insert("status".into(), serde_json::json!("submitted"));
@@ -206,13 +206,13 @@ fn trashed_assignments_leave_lists_and_restore() {
     let conn = test_conn();
     let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
     let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(1.0)).unwrap();
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(1.0)).unwrap();
     soft_delete_entity(&conn, &a.entity.id).unwrap();
     assert!(list_assignments(&conn, &space.id).unwrap().is_empty());
     assert!(list_assignments_all_spaces(&conn).unwrap().is_empty());
     restore_entity(&conn, &a.entity.id).unwrap();
     let back = get_assignment(&conn, &a.entity.id).unwrap();
-    assert_eq!((back.status.as_str(), back.grade), ("graded", Some(1.0)));
+    assert_eq!((back.status.as_str(), back.grade), ("evaluated", Some(1.0)));
     assert_eq!(courses_of(&conn, &a.entity.id), vec![c.id]);
 }
 
@@ -270,7 +270,7 @@ fn matching_todos_are_generic_task_links() {
 fn updates_on_an_unknown_assignment_report_not_found() {
     let conn = test_conn();
     // Setters must report NotFound naming the missing id.
-    match update_assignment_status(&conn, "ghost", "graded".into(), Some(1.0)) {
+    match update_assignment_status(&conn, "ghost", "evaluated".into(), Some(1.0)) {
         Err(AppError::NotFound(m)) => assert!(m.contains("ghost"), "{m}"),
         other => panic!("expected NotFound, got {other:?}"),
     }
@@ -497,6 +497,77 @@ fn cancelling_a_session_moves_the_due_day_to_the_next_one_that_is_on() {
     );
 }
 
+fn after(conn: &Connection, id: &str) -> Option<String> {
+    conn.query_row(
+        "SELECT due_session_after FROM assignments WHERE entity_id = ?1",
+        params![id],
+        |r| r.get(0),
+    )
+    .unwrap()
+}
+
+fn set_after(conn: &Connection, id: &str, moment: &str) {
+    conn.execute(
+        "UPDATE assignments SET due_session_after = ?1 WHERE entity_id = ?2",
+        params![moment, id],
+    )
+    .unwrap();
+}
+
+fn due_day(conn: &Connection, id: &str) -> Option<String> {
+    get_assignment(conn, id).unwrap().due_date
+}
+
+// A bug found by hand: "before the next session" meant the next one at any moment, so
+// once that session started the due day jumped on to the session after it. It now
+// follows the session that was next when the due date was set.
+#[test]
+fn due_before_the_next_session_stays_on_it_once_it_has_started_or_ended() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let first = session(&conn, &space.id, &course.id, "2026-04-02");
+    session(&conn, &space.id, &course.id, "2026-04-09");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    update_assignment_due_before_session(&conn, &a.entity.id, Some(1), None).unwrap();
+    // Set the week before, both sessions long over by now.
+    set_after(&conn, &a.entity.id, "2026-03-30 18:00");
+    assert_eq!(due_day(&conn, &a.entity.id).as_deref(), Some("2026-04-01"));
+    // Set while the first one was running: the next one was the second.
+    set_after(&conn, &a.entity.id, "2026-04-02 10:30");
+    assert_eq!(due_day(&conn, &a.entity.id).as_deref(), Some("2026-04-08"));
+    // Cancelled, the next one after it takes over.
+    set_after(&conn, &a.entity.id, "2026-03-30 18:00");
+    cancel(&conn, &first);
+    assert_eq!(due_day(&conn, &a.entity.id).as_deref(), Some("2026-04-08"));
+}
+
+#[test]
+fn following_the_next_session_remembers_when_it_was_set() {
+    let conn = test_conn();
+    let (space, course) = test_space_with_course(&conn, "Uni", "Algo");
+    let picked = session(&conn, &space.id, &course.id, "2099-01-05");
+    let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
+    let id = a.entity.id.as_str();
+    let before = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+    update_assignment_due_before_session(&conn, id, Some(1), None).unwrap();
+    let set = after(&conn, id).expect("the moment it was set");
+    assert!(set >= before && set.len() == 16, "{set}");
+    // Changing only the days keeps the session it follows.
+    set_after(&conn, id, "2026-03-30 18:00");
+    update_assignment_due_before_session(&conn, id, Some(3), None).unwrap();
+    assert_eq!(after(&conn, id).as_deref(), Some("2026-03-30 18:00"));
+    // Following a picked session, a fixed date or nothing forgets it.
+    update_assignment_due_before_session(&conn, id, Some(0), Some(picked)).unwrap();
+    assert_eq!(after(&conn, id), None);
+    update_assignment_due_before_session(&conn, id, Some(0), None).unwrap();
+    assert!(after(&conn, id).is_some());
+    update_assignment_due_date(&conn, id, Some("2026-05-01".into())).unwrap();
+    assert_eq!(after(&conn, id), None);
+    update_assignment_due_before_session(&conn, id, Some(0), None).unwrap();
+    update_assignment_due_before_session(&conn, id, None, None).unwrap();
+    assert_eq!(after(&conn, id), None);
+}
+
 #[test]
 fn picking_a_date_again_stops_following_sessions() {
     let conn = test_conn();
@@ -582,7 +653,7 @@ fn a_weighted_assignment_counts_for_its_share_of_the_course_grade() {
     .unwrap();
     crate::db::exams::update_exam_grade(&conn, &exam.entity.id, Some(1.0)).unwrap();
     let a = assignment(&conn, &space.id, &course.id, "Sheet", None);
-    update_assignment_status(&conn, &a.entity.id, "graded".into(), Some(3.0)).unwrap();
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(3.0)).unwrap();
     // Without a weight both split the grade evenly.
     let even = crate::db::courses::get_course_grades(&conn, &course.id).unwrap();
     assert_eq!(even.grade, Some(2.0));
@@ -782,4 +853,125 @@ fn a_bad_session_on_create_leaves_no_assignment_behind() {
     );
     assert!(result.is_err());
     assert!(list_assignments(&conn, &space.id).unwrap().is_empty());
+}
+
+#[test]
+fn a_new_assignment_counts_towards_the_grade() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
+    assert!(!a.ungraded);
+    assert!(!get_assignment(&conn, &a.entity.id).unwrap().ungraded);
+}
+
+#[test]
+fn ungraded_and_the_grade_are_independent_so_a_grade_is_never_lost() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &c.id, "Homework", None);
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), Some(2.0)).unwrap();
+
+    update_assignment_ungraded(&conn, &a.entity.id, true).unwrap();
+    let stored = get_assignment(&conn, &a.entity.id).unwrap();
+    assert!(stored.ungraded);
+    assert_eq!(
+        stored.grade,
+        Some(2.0),
+        "the grade stays while it is ungraded"
+    );
+
+    // Saving the status again does not change either.
+    update_assignment_status(&conn, &a.entity.id, "submitted".into(), Some(2.0)).unwrap();
+    assert!(get_assignment(&conn, &a.entity.id).unwrap().ungraded);
+
+    update_assignment_ungraded(&conn, &a.entity.id, false).unwrap();
+    let stored = get_assignment(&conn, &a.entity.id).unwrap();
+    assert!(!stored.ungraded);
+    assert_eq!(
+        stored.grade,
+        Some(2.0),
+        "counting it again brings the grade back"
+    );
+}
+
+#[test]
+fn ungraded_for_a_missing_assignment_is_not_found() {
+    let conn = test_conn();
+    assert!(matches!(
+        update_assignment_ungraded(&conn, "ghost", true),
+        Err(AppError::NotFound(_))
+    ));
+}
+
+#[test]
+fn the_cli_sets_and_reads_ungraded() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let def = crate::db::schema::lookup("assignment").unwrap();
+    let mut fields = crate::db::schema::JsonMap::new();
+    fields.insert("courseId".into(), serde_json::json!(c.id));
+    fields.insert("ungraded".into(), serde_json::json!(true));
+    let created = (def.create)(
+        &conn,
+        crate::db::schema::CreateInput {
+            space_id: space.id.clone(),
+            title: "Homework".into(),
+            fields,
+        },
+    )
+    .unwrap();
+    assert_eq!(created["ungraded"], true);
+
+    let id = created["entity"]["id"].as_str().unwrap();
+    let mut fields = crate::db::schema::JsonMap::new();
+    fields.insert("ungraded".into(), serde_json::json!(false));
+    let updated = (def.update)(&conn, id, &fields).unwrap();
+    assert_eq!(updated["ungraded"], false);
+}
+
+#[test]
+fn evaluated_at_follows_the_status_only() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
+    let id = &a.entity.id;
+    assert!(a.evaluated_at.is_none());
+
+    update_assignment_status(&conn, id, "evaluated".into(), Some(1.0)).unwrap();
+    let first = get_assignment(&conn, id).unwrap().evaluated_at.unwrap();
+
+    // Saving the same status again and unrelated edits keep the stamp.
+    update_assignment_status(&conn, id, "evaluated".into(), Some(2.0)).unwrap();
+    update_assignment_weight(&conn, id, Some(0.5)).unwrap();
+    update_assignment_ungraded(&conn, id, true).unwrap();
+    assert_eq!(
+        get_assignment(&conn, id).unwrap().evaluated_at.unwrap(),
+        first
+    );
+
+    update_assignment_status(&conn, id, "submitted".into(), Some(2.0)).unwrap();
+    assert!(get_assignment(&conn, id).unwrap().evaluated_at.is_none());
+}
+
+#[test]
+fn evaluated_at_is_read_only_through_the_cli() {
+    let conn = test_conn();
+    let (space, c) = test_space_with_course(&conn, "Uni", "Algo");
+    let a = assignment(&conn, &space.id, &c.id, "Sheet", None);
+    update_assignment_status(&conn, &a.entity.id, "evaluated".into(), None).unwrap();
+    let stamp = get_assignment(&conn, &a.entity.id)
+        .unwrap()
+        .evaluated_at
+        .unwrap();
+
+    let schema = crate::db::schema::lookup("assignment").unwrap();
+    let field = schema
+        .fields
+        .iter()
+        .find(|f| f.name == "evaluatedAt")
+        .unwrap();
+    assert!(!field.writable_on_update);
+
+    let json = serde_json::to_value(get_assignment(&conn, &a.entity.id).unwrap()).unwrap();
+    assert_eq!(json["evaluatedAt"], stamp);
 }

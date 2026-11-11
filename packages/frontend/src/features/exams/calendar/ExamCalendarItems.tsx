@@ -21,11 +21,14 @@ export function ExamBlock({
   position,
   highlighted,
   accentColor,
+  dimmed,
 }: {
   exam: Exam;
   position: BlockPosition;
   highlighted: boolean;
   accentColor?: string;
+  /// Faded, for what the page the grid sits on is not about.
+  dimmed?: boolean;
 }) {
   const openEntity = useNavStore((s) => s.openEntity);
   return (
@@ -36,6 +39,7 @@ export function ExamBlock({
       onClick={() => openEntity(exam.entity.id, exam.entity.spaceId)}
       className={cn(
         "absolute top-(--occ-top) left-(--occ-left) z-10 flex h-(--occ-height) w-(--occ-width) cursor-pointer flex-col items-stretch justify-start overflow-hidden rounded-lg border border-(--exam-color)/60 border-l-4 border-l-(--exam-color) bg-(--exam-color)/20 px-1.5 py-0.5 text-left text-xs shadow-xs hover:bg-(--exam-color)/30",
+        dimmed && "opacity-40 hover:opacity-100",
         highlighted && "ring-2 ring-(--exam-color)",
       )}
       // SAFETY: the `--occ-*` vars only ever receive plain pixel or `calc()` lengths
@@ -68,11 +72,14 @@ export function ExamChip({
   highlighted,
   showTime = false,
   accentColor,
+  dimmed,
 }: {
   exam: Exam;
   highlighted: boolean;
   showTime?: boolean;
   accentColor?: string;
+  /// Faded, for what the page the grid sits on is not about.
+  dimmed?: boolean;
 }) {
   const openEntity = useNavStore((s) => s.openEntity);
   return (
@@ -83,6 +90,7 @@ export function ExamChip({
       onClick={() => openEntity(exam.entity.id, exam.entity.spaceId)}
       className={cn(
         "flex h-5 w-full min-w-0 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm border-l-4 border-l-(--exam-color) bg-(--exam-color)/25 px-1 text-left text-xs font-medium hover:bg-(--exam-color)/35",
+        dimmed && "opacity-40 hover:opacity-100",
         highlighted && "ring-2 ring-(--exam-color)",
       )}
       // SAFETY: see `ExamBlock` above, a hex color or a token.

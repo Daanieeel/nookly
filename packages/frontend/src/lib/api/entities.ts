@@ -22,6 +22,11 @@ export async function updateEntity(id: string, patch: EntityPatch): Promise<Enti
   return entity;
 }
 
+/// The live entities with these ids, in the order given. Ids that are gone are left out.
+export function listEntitiesByIds(ids: string[]): Promise<Entity[]> {
+  return invoke("list_entities_by_ids", { ids });
+}
+
 export function listEntities(spaceId: string | null, includeDeleted: boolean): Promise<Entity[]> {
   return invoke("list_entities", { spaceId, includeDeleted });
 }

@@ -9,7 +9,7 @@ import {
 } from "#/components/grouped-view/grouping.ts";
 
 /// A collapsible group with a sticky header, shared by the grouped card/row lists.
-export function GroupSection({
+function GroupSection({
   name,
   count,
   collapsed,
@@ -72,7 +72,11 @@ export function GroupedList<T>({
   ).filter((g) => g.items.length > 0);
   return (
     // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
-    <div className="min-h-0 flex-1 overflow-y-auto pb-24" onKeyDown={moveRowFocus}>
+    <div
+      data-scroll-root=""
+      className="min-h-0 flex-1 overflow-y-auto pb-24"
+      onKeyDown={moveRowFocus}
+    >
       {defs === null
         ? renderItems(items, true)
         : groups.map((group, i) => (

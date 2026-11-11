@@ -65,7 +65,8 @@ export const SHARED_SETTINGS = {
     id: "appearance.fileViewerTheme",
     category: "appearance",
     title: "File viewer theme",
-    description: "How files are drawn in the viewer. Defaults draws code dark and documents light.",
+    description:
+      "How files are drawn in the viewer. Defaults draws code, text and markdown dark and documents light.",
     synonyms: [
       "file preview",
       "code theme",
@@ -160,15 +161,7 @@ export const SHARED_SETTINGS = {
     title: "Session length",
     description:
       "How long a new session is when you click an empty slot or press New. Dragging on the calendar still sets its own length. In minutes, 5 to 720.",
-    synonyms: [
-      "duration",
-      "study block",
-      "lesson length",
-      "minutes",
-      "time",
-      "default length",
-      "calendar",
-    ],
+    synonyms: ["duration", "lesson length", "minutes", "time", "default length", "calendar"],
     default: 90,
     schema: minutes,
   },
@@ -345,6 +338,26 @@ export const SHARED_SETTINGS = {
     ],
     default: false,
     schema: z.boolean(),
+  },
+  "notes.editorFont": {
+    id: "notes.editorFont",
+    category: "notes",
+    title: "Page font",
+    description:
+      "The typeface pages are written in. Default is the app's own, Serif is easier on long reading, Mono suits notes full of code.",
+    synonyms: ["typeface", "font family", "serif", "monospace", "text", "writing", "notes"],
+    default: "default",
+    schema: z.enum(["default", "serif", "mono"]),
+  },
+  "notes.editorFontSize": {
+    id: "notes.editorFontSize",
+    category: "notes",
+    title: "Page text size",
+    description:
+      "How large the text of a page is, in pixels. Headings grow and shrink with it. The default is 14.",
+    synonyms: ["font size", "bigger text", "smaller text", "zoom", "text size", "writing", "notes"],
+    default: 14,
+    schema: z.number().int().min(12).max(24),
   },
 } as const satisfies Record<string, SharedSetting<SettingJson>>;
 

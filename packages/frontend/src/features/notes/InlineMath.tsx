@@ -130,8 +130,10 @@ function InlineMathView({
     setEditing(false);
     // Also when nothing changed: committing is how a wrong width gets fixed.
     recalc();
-    if (draft.trim() === "") deleteNode();
-    else if (draft !== latex) updateAttributes({ latex: draft });
+    // Spaces and line breaks at the ends would stop the saved `$…$` from reading as a formula.
+    const next = draft.replace(/\s*\n\s*/g, " ").trim();
+    if (next === "") deleteNode();
+    else if (next !== latex) updateAttributes({ latex: next });
     editor.commands.focus();
   };
 

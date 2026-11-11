@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext } from "react";
-import { type View, useNavStore } from "#/lib/store/nav.ts";
+import { type View, rightSidebarCollapsedIn, useNavStore } from "#/lib/store/nav.ts";
 
 /// What one tab group is showing. Everything rendered inside a group reads its own
 /// group's view and tab through this, never the store's live (focused) one, so two
@@ -33,4 +33,16 @@ export function useHasGroupFocus(): () => boolean {
     () => groupId === undefined || useNavStore.getState().focusedGroupId === groupId,
     [groupId],
   );
+}
+
+/// Whether the details sidebar is collapsed in this component's group, and a setter for
+/// it there, so collapsing it on one side of a split leaves the other side alone.
+export function useRightSidebarCollapsed(): [boolean, (collapsed: boolean) => void] {
+  const { groupId } = useTabGroupScope();
+  const collapsed = useNavStore((s) => rightSidebarCollapsedIn(s, groupId));
+  const setCollapsed = useCallback(
+    (next: boolean) => useNavStore.getState().setRightSidebarCollapsed(next, groupId),
+    [groupId],
+  );
+  return [collapsed, setCollapsed];
 }

@@ -10,19 +10,22 @@ pub fn create_bookmark(
     space_id: String,
     url: String,
 ) -> AppResult<Bookmark> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     bookmarks::create_bookmark(&conn, space_id, url)
 }
 
 #[tauri::command]
-pub fn get_bookmark(state: State<DbState>, entity_id: String) -> AppResult<Bookmark> {
-    let conn = state.0.lock().unwrap();
+pub async fn get_bookmark(state: State<'_, DbState>, entity_id: String) -> AppResult<Bookmark> {
+    let conn = state.conn()?;
     bookmarks::get_bookmark(&conn, &entity_id)
 }
 
 #[tauri::command]
-pub fn list_bookmarks(state: State<DbState>, space_id: String) -> AppResult<Vec<Bookmark>> {
-    let conn = state.0.lock().unwrap();
+pub async fn list_bookmarks(
+    state: State<'_, DbState>,
+    space_id: String,
+) -> AppResult<Vec<Bookmark>> {
+    let conn = state.conn()?;
     bookmarks::list_bookmarks(&conn, &space_id)
 }
 
@@ -32,7 +35,7 @@ pub fn update_bookmark_url(
     entity_id: String,
     url: String,
 ) -> AppResult<Bookmark> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     bookmarks::update_bookmark_url(&conn, &entity_id, url)
 }
 
@@ -44,7 +47,7 @@ pub fn set_bookmark_preferred_image(
     entity_id: String,
     preferred_image: Option<String>,
 ) -> AppResult<Bookmark> {
-    let conn = state.0.lock().unwrap();
+    let conn = state.conn()?;
     bookmarks::set_preferred_image(&conn, &entity_id, preferred_image)
 }
 
@@ -74,7 +77,7 @@ pub async fn fetch_bookmark_metadata(
     } = page_metadata(&html, &base);
 
     {
-        let conn = state.0.lock().unwrap();
+        let conn = state.conn()?;
         bookmarks::update_metadata(
             &conn,
             &entity_id,
@@ -97,14 +100,15 @@ pub async fn fetch_bookmark_metadata(
 fn extract_page_text(html: &str) -> String {
     // The `regex` crate has no backreferences, so script and style each get their
     // own pattern instead of one `<(script|style)>...</\1>`.
-    static SCRIPT: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?is)<script\b[^>]*>.*?</script>").unwrap());
+    static SCRIPT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        crate::error::literal_regex(r"(?is)<script\b[^>]*>.*?</script>")
+    });
     static STYLE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?is)<style\b[^>]*>.*?</style>").unwrap());
+        std::sync::LazyLock::new(|| crate::error::literal_regex(r"(?is)<style\b[^>]*>.*?</style>"));
     static TAG: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?s)<[^>]+>").unwrap());
+        std::sync::LazyLock::new(|| crate::error::literal_regex(r"(?s)<[^>]+>"));
     static WHITESPACE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\s+").unwrap());
+        std::sync::LazyLock::new(|| crate::error::literal_regex(r"\s+"));
 
     const MAX_CHARS: usize = 20_000;
     let without_scripts = SCRIPT.replace_all(html, " ");
@@ -141,7 +145,7 @@ fn page_metadata(html: &str, base_url: &str) -> PageMetadata {
         })
     };
     static TITLE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?is)<title[^>]*>(.*?)</title>").unwrap());
+        std::sync::LazyLock::new(|| crate::error::literal_regex(r"(?is)<title[^>]*>(.*?)</title>"));
     let title = meta(&["og:title", "twitter:title"]).or_else(|| {
         TITLE
             .captures(html)
@@ -185,12 +189,11 @@ type Attrs = std::collections::HashMap<String, String>;
 /// and unquoted values (minified pages drop the quotes) in any order.
 fn tags<'a>(html: &'a str, name: &str) -> impl Iterator<Item = Attrs> + 'a {
     static ATTR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
+        crate::error::literal_regex(
             r#"([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?"#,
         )
-        .unwrap()
     });
-    let tag = Regex::new(&format!(r"(?is)<{name}\b([^>]*)>")).expect("valid tag pattern");
+    let tag = crate::error::literal_regex(&format!(r"(?is)<{}\b([^>]*)>", regex::escape(name)));
     tag.captures_iter(html)
         .map(|c| {
             ATTR.captures_iter(&c[1])
@@ -254,7 +257,7 @@ fn resolve_url(base: &str, maybe_relative: &str) -> String {
 /// numeric one (`&#8217;`, `&#x2019;`).
 fn html_unescape(s: &str) -> String {
     static ENTITY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);").unwrap()
+        crate::error::literal_regex(r"&(#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);")
     });
     ENTITY
         .replace_all(s, |c: &regex::Captures| {
