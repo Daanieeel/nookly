@@ -29,7 +29,7 @@ Written 2026-11-10 after a review session in which the user ran desktop and the 
 
 ## Order of work
 
-0. Step 0 below: remove the duplicate branch `mobile-app-and-backend` after proving nothing is lost.
+0. [x] Step 0 below: remove the duplicate branch `mobile-app-and-backend` after proving nothing is lost.
 1. Section 1, the merge (everything builds on it). Push.
 2. Section 2, sync (reproduce, test first, fix, real two device check). Push.
 3. Section 3, desktop items.
@@ -161,6 +161,8 @@ Append newest last: date, what was done, what is next.
 - 2026-11-10: added step 0 (remove `mobile-app-and-backend`, which pointed at `0b5bd915`; verified it is an ancestor of this branch, stashes still to be checked) and widened the git rules: the agent manages this branch itself, nothing goes into `main`. Next: step 0, then section 1.
 
 - 2026-11-11: a session started from an older copy of this file (the `feat/connected-platform` one) and worked on that brief before finding this one. What it did, all now merged into this branch: Vim keys on the phone through one shared ProseMirror plugin in `@nookly/shared/vim` (D36; restored the desktop's lost Vim cursor styles); a sync fix found with two debug desktops on one account: a conflict the server logged (two devices online, same field, same moment) was never counted, so no badge offered the merge editor; the status now counts the server's open conflicts too (D37, test in `runtime.test.ts`); the merge editor's differences look like a code review tool (split on desktop and wide iPad, stacked on a phone, line numbers, red and green, words marked inside lines; D38, `diffLines` in `conflict-view.ts`). Re-checked the first sync of a fixture copy (588 items, 5 files, checked). Found, not fixed: a desktop started while the server is unreachable shows "Sign in to sync" although it is signed in (`SyncRuntime.restore` only sets the user from `api.me()`). Versions stay 1.0.0; those changes are listed under 1.0.0 in `CHANGELOG.md` and `whats-new.json`. Also learned: the user wants one desktop and one simulator running at a time, not more. Next: step 0, then section 1.
+
+- 2026-11-11: step 0 done. `mobile-app-and-backend` (`0b5bd915`, recreate with `git branch mobile-app-and-backend 0b5bd915`) was an ancestor of this branch locally and on origin, with nothing in `HEAD..` either. Stashes (read only, kept): every file version in `stash@{0}` (327 files, tracked and untracked) and `stash@{1}` exists in this branch's history; `stash@{2}` holds two untracked drafts (`apps/mobile/src/data/settings.ts`, `apps/mobile/src/screens/settings/spec.ts`) not in history, both older versions of today's files (today's are supersets), so nothing was ported. Deleted the branch locally and on origin. `feat/connected-platform` is also fully contained here and could go too. Next: section 1, merge main.
 
 ## Final report (fill in when everything above is done)
 
