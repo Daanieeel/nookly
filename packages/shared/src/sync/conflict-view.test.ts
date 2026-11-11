@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   combinedText,
   describeConflict,
+  diffLines,
   diffWords,
   isTextValue,
   mergeConflictLists,
@@ -34,6 +35,85 @@ describe("diffWords", () => {
     expect(diffWords("same", "same").left.every((s) => !s.changed)).toBe(true);
     expect(diffWords("", "new").right).toEqual([{ text: "new", changed: true }]);
     expect(diffWords("", "")).toEqual({ left: [], right: [] });
+  });
+});
+
+describe("diffLines", () => {
+  const text = (line: { segments: { text: string }[] } | null) =>
+    line ? line.segments.map((s) => s.text).join("") : null;
+
+  it("pairs a changed line with its counterpart and marks the words inside", () => {
+    const rows = diffLines("Buy oat milk", "Buy milk and eggs");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kind).toBe("changed");
+    expect(rows[0].left?.number).toBe(1);
+    expect(rows[0].right?.number).toBe(1);
+    expect(rows[0].left?.segments.filter((s) => s.changed).map((s) => s.text)).toEqual(["oat"]);
+  });
+
+  it("keeps lines both sides share, and numbers each side on its own", () => {
+    const rows = diffLines("one\ntwo\nthree", "zero\none\nthree\nfour");
+    expect(rows.map((r) => [r.kind, text(r.left), text(r.right)])).toEqual([
+      ["changed", null, "zero"],
+      ["same", "one", "one"],
+      ["changed", "two", null],
+      ["same", "three", "three"],
+      ["changed", null, "four"],
+    ]);
+    expect(rows.map((r) => [r.left?.number ?? null, r.right?.number ?? null])).toEqual([
+      [null, 1],
+      [1, 2],
+      [2, null],
+      [3, 3],
+      [null, 4],
+    ]);
+  });
+
+  it("marks words only inside lines that partly match, never their indentation", () => {
+    const rows = diffLines(
+      "fn main() {\n    let x = 1;\n}",
+      "fn main() {\n    let y = 1;\n    run();\n}",
+    );
+    const marked = (line: { segments: { text: string; changed: boolean }[] } | null) =>
+      line?.segments.filter((s) => s.changed).map((s) => s.text) ?? [];
+    expect(marked(rows[1].left)).toEqual(["x"]);
+    expect(marked(rows[1].right)).toEqual(["y"]);
+    // A line with no counterpart is shown as a whole; its words are not marked one by one.
+    expect(rows[2].left).toBeNull();
+    expect(marked(rows[2].right)).toEqual([]);
+  });
+
+  it("does not mark words in a pair of lines that share none", () => {
+    const [row] = diffLines("    alpha beta", "    gamma");
+    expect(row.left?.segments.every((s) => !s.changed)).toBe(true);
+    expect(row.right?.segments.every((s) => !s.changed)).toBe(true);
+  });
+
+  it("pairs each line with the most alike line across from it, keeping the order", () => {
+    const rows = diffLines(
+      'fn main() {\n    let name = "Ada";\n    println!("hi {name}");\n}',
+      'fn main() {\n    println!("hi");\n}',
+    );
+    expect(rows.map((r) => [r.kind, text(r.left), text(r.right)])).toEqual([
+      ["same", "fn main() {", "fn main() {"],
+      ["changed", '    let name = "Ada";', null],
+      ["changed", '    println!("hi {name}");', '    println!("hi");'],
+      ["same", "}", "}"],
+    ]);
+  });
+
+  it("gives each side its whole text back", () => {
+    const a = "first line\nsecond one\n\nlast";
+    const b = "first line\nthe second\nlast\nextra";
+    const rows = diffLines(a, b);
+    const side = (pick: "left" | "right") =>
+      rows
+        .map((r) => r[pick])
+        .filter((l) => l !== null)
+        .map((l) => text(l))
+        .join("\n");
+    expect(side("left")).toBe(a);
+    expect(side("right")).toBe(b);
   });
 });
 

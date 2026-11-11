@@ -1,4 +1,4 @@
-import { type ConflictView, combinedText, diffWords } from "@nookly/shared/sync";
+import { type ConflictView, type DiffRow, combinedText, diffLines } from "@nookly/shared/sync";
 import { IconAlertTriangle, IconCheck } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
@@ -32,45 +32,129 @@ function when(at: Date | null): string {
 const show = (value: ConflictView["current"]) =>
   value === null || value === "" ? "Empty" : String(value);
 
-/// One version: who made it, when, and the text with what differs marked.
-function Version({
-  view,
-  which,
-  segments,
-}: {
-  view: ConflictView;
-  which: "current" | "other";
-  segments: { text: string; changed: boolean }[] | null;
-}) {
+/// Who made a version and when, over its column.
+function SideHeader({ view, which }: { view: ConflictView; which: "current" | "other" }) {
   const side = which === "current" ? view.currentSide : view.otherSide;
-  const value = which === "current" ? view.current : view.other;
   return (
-    <section
-      aria-label={`${side.device}'s version`}
-      className="flex min-w-0 flex-col gap-2 rounded-lg border border-border p-3"
+    <header
+      className={cn(
+        "sticky top-0 z-10 col-span-2 flex min-w-0 flex-col gap-0.5 border-b border-border bg-muted px-3 py-2 font-sans",
+        which === "other" && "border-r",
+      )}
     >
-      <header className="flex flex-wrap items-center gap-1.5 text-sm">
+      <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm">
+        <span
+          aria-hidden
+          className={cn(
+            "size-2 shrink-0 rounded-full",
+            which === "current" ? "bg-positive" : "bg-destructive",
+          )}
+        />
         <span className="font-medium">{side.device}</span>
         {side.isThisDevice && <Badge variant="primary">This device</Badge>}
         {which === "current" && <Badge>Showing now</Badge>}
-        {side.at && <span className="ml-auto text-xs text-muted-foreground">{when(side.at)}</span>}
-      </header>
-      <p className="text-sm wrap-break-word whitespace-pre-wrap">
-        {segments
-          ? segments.map((segment, index) => (
-              <span
-                // The text is the same on every render, so its place is its identity.
-                // oxlint-disable-next-line react/no-array-index-key
-                key={index}
-                data-changed={segment.changed}
-                className={cn(segment.changed && "rounded-sm bg-caution/20")}
-              >
-                {segment.text}
+      </span>
+      <span className="pl-3.5 text-xs text-muted-foreground">
+        {side.at ? when(side.at) : "\u00a0"}
+      </span>
+    </header>
+  );
+}
+
+const TINT = {
+  other: { line: "bg-destructive/10", gutter: "bg-destructive/15", word: "bg-destructive/35" },
+  current: { line: "bg-positive/10", gutter: "bg-positive/15", word: "bg-positive/35" },
+} as const;
+
+/// One side's column: a header, then a line number and the text for every row, empty
+/// where this side has no line. Both columns share the rows of one grid (subgrid), so a
+/// line that wraps keeps its counterpart level with it.
+function SideColumn({
+  view,
+  which,
+  rows,
+}: {
+  view: ConflictView;
+  which: "current" | "other";
+  rows: DiffRow[];
+}) {
+  const side = which === "current" ? view.currentSide : view.otherSide;
+  const tint = TINT[which];
+  return (
+    <section
+      aria-label={`${side.device}'s version`}
+      className={cn(
+        "row-span-(--rows) row-start-1 grid grid-cols-subgrid grid-rows-subgrid",
+        which === "other" ? "col-start-1 col-end-3" : "col-start-3 col-end-5",
+      )}
+      // SAFETY: a custom property is a valid style key; React's type only lists the known ones.
+      style={{ "--rows": rows.length + 1 } as React.CSSProperties}
+    >
+      <SideHeader view={view} which={which} />
+      {rows.map((row, index) => {
+        const line = which === "current" ? row.right : row.left;
+        const changed = row.kind === "changed";
+        const edge = which === "other" && "border-r border-border";
+        if (!line) {
+          return (
+            // Rows are the diff's own order and never move.
+            // oxlint-disable-next-line react/no-array-index-key
+            <div key={index} className={cn("col-span-2 min-h-5 bg-muted-foreground/10", edge)} />
+          );
+        }
+        return (
+          // oxlint-disable-next-line react/no-array-index-key
+          <div key={index} className="contents">
+            <span
+              aria-hidden
+              className={cn(
+                "border-r border-border px-2 text-right text-muted-foreground tabular-nums select-none",
+                changed && tint.gutter,
+              )}
+            >
+              {line.number}
+            </span>
+            <p
+              className={cn(
+                "min-w-0 py-px pr-3 pl-1 wrap-break-word whitespace-pre-wrap",
+                changed && tint.line,
+                edge,
+              )}
+            >
+              <span aria-hidden className="inline-block w-4 text-muted-foreground select-none">
+                {changed ? (which === "current" ? "+" : "\u2212") : ""}
               </span>
-            ))
-          : show(value)}
-      </p>
+              {line.segments.map((segment, at) => (
+                <span
+                  // The text is the same on every render, so its place is its identity.
+                  // oxlint-disable-next-line react/no-array-index-key
+                  key={at}
+                  data-changed={segment.changed}
+                  className={cn(segment.changed && changed && ["rounded-xs", tint.word])}
+                >
+                  {segment.text}
+                </span>
+              ))}
+            </p>
+          </div>
+        );
+      })}
     </section>
+  );
+}
+
+/// Both versions side by side, the way a code review tool shows a change: the other
+/// version on the left in red, the one showing now on the right in green, line numbers
+/// in the gutters, the words that differ marked inside each line.
+function SplitView({ view }: { view: ConflictView }) {
+  const rows = diffLines(show(view.other), show(view.current));
+  return (
+    <div className="max-h-80 overflow-auto rounded-lg border border-border bg-card font-mono text-xs/5">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+        <SideColumn view={view} which="other" rows={rows} />
+        <SideColumn view={view} which="current" rows={rows} />
+      </div>
+    </div>
   );
 }
 
@@ -84,7 +168,6 @@ function Detail({ view, onDone }: { view: ConflictView; onDone: () => void }) {
     onSuccess: onDone,
   });
   const text = view.isText && view.kind === "field";
-  const diff = text ? diffWords(show(view.current), show(view.other)) : null;
   const both = () =>
     combinedText(
       view.current === null ? "" : String(view.current),
@@ -120,10 +203,7 @@ function Detail({ view, onDone }: { view: ConflictView; onDone: () => void }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <div className="grid gap-3 @2xl:grid-cols-2">
-        <Version view={view} which="current" segments={diff?.left ?? null} />
-        <Version view={view} which="other" segments={diff?.right ?? null} />
-      </div>
+      <SplitView view={view} />
       {combined === null ? (
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={() => decide.mutate("current")}>

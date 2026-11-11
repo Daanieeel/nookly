@@ -30,3 +30,7 @@
 .font-heading {
   font-family: InterTight_600SemiBold;
 }
+/* Code and line numbers: the system's monospaced face on iOS. */
+.font-mono {
+  font-family: Menlo;
+}

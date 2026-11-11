@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.38.7",
+      "date": "2026-11-11",
+      "title": "Clearer differences",
+      "summary": "Review Changes shows both versions line by line.",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Review Changes puts both versions side by side with line numbers, the other version in red and the one showing now in green, and marks the words that differ inside each line."
+        ]
+      }
+    },
+    {
       "version": "0.38.6",
       "date": "2026-11-11",
       "title": "No change goes unnoticed",

@@ -54,7 +54,7 @@ Later instructions from the user:
 ## 3. Project rules from `AGENTS.md` that bite here
 
 - Nookly is released: user data must be preserved at all costs. Persisted state changes need a new migration in `apps/desktop/src-tauri/src/db/migrations.rs` (append only, never edit an old one), its hash in `EXPECTED_HASHES`, a declaration in `db/upgrade.rs` (`DECLARED`) for any changed existing column, and `cargo test db::upgrade_tests`. Snapshots: `NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib sync::` and `cli::snapshot_tests`. Migrations 43 and 44 are this work's.
-- Version bumps via `bun tools/bump-version.ts patch|minor` (never major; report if a major would be needed). Every bump needs a `## x.y.z (date)` section in `CHANGELOG.md` and an entry in `whats-new.json` (card under `highlights` for a feature, a line under `more` for a smaller change) in the same commit. Desktop is 0.38.6, mobile 0.9.1 (`apps/mobile/package.json` and `app.json`), server 0.2.2 (the bump tool only touches the desktop).
+- Version bumps via `bun tools/bump-version.ts patch|minor` (never major; report if a major would be needed). Every bump needs a `## x.y.z (date)` section in `CHANGELOG.md` and an entry in `whats-new.json` (card under `highlights` for a feature, a line under `more` for a smaller change) in the same commit. Desktop is 0.38.7, mobile 0.9.2 (`apps/mobile/package.json` and `app.json`), server 0.2.2 (the bump tool only touches the desktop).
 - User facing copy: no em or en dashes and no hyphenated sentence structure.
 - Never modify existing primitives or tokens in `packages/ui` (add only). `outline` variants of Button and Badge are rare. Icon only buttons need a tooltip or label. Dialogs and menus get an axe test (`vitest-axe`). Permanent actions use `ConfirmPermanentDialog` (phone: a confirmation in the app's sheet, D35; D18's system alert is gone).
 - Every new entity, field or relationship must be exposed through the schema layer the CLI generates from; no one off CLI commands.
@@ -149,6 +149,8 @@ Session of 2026-11-11: I7 Vim keys on the phone (D36). The desktop's Vim plugin 
 
 Also found with two debug desktops on one account editing one title at the same moment: the server logged the conflict (nothing lost) but no device counted it, so no badge offered the merge editor. Fixed: the status counts the server's open conflicts too (desktop 0.38.6, mobile 0.9.1). Also re-verified on a fixture copy: first sync of 588 items and 5 files, checked.
 
+Then, on the user's request, the merge editor's differences look like a git client (D38): split view on desktop and wide iPad, stacked on a phone, line numbers, red and green, words marked inside lines. Checked on the desktop, iPad and iPhone with staged conflict rows (removed afterwards).
+
 The brief of 2026-10-21 was: use `PAGES.md` to go over the pages already built and make them match the desktop, then finish everything, no questions. Done in this session (section 8b has the list): F1, F2, F3 (item pages split into page and details, own top bar, root sidebar drawer), the open problem of pages made on the phone (D34), L3's likely cause (taps that drift), and every page of `PAGES.md`. `GAP_ANALYSIS.md` ends with a page by page table, `DECISIONS.md` has D26 to D34 (and D7 corrected).
 
 Open problems and loose ends:
@@ -156,8 +158,9 @@ Open problems and loose ends:
 - **Not verified by touch** (my tooling cannot send touches or hardware keys): swiping the sidebar or the details drawer and the back swipe edge (D29), the Swift key commands (`modules/nookly-keys`), the native action sheet of More, the sidebar row tap target (L3: the likely cause was a pan activating at 5 points of drift; now 16, D29). Everything else was checked with jest, screenshots and script driven simulators.
 - The red "finalizeAsync / database is locked" LogBox error in the dev client after Metro hot reloads `_layout.tsx` is a development artifact (the database is opened again while the old connection has statements).
 - Not on the phone, listed in `GAP_ANALYSIS.md` and D33: restoring a backup, external calendars, saved views for Assignments, the PDF paged viewer, series (D19), editor blocks beyond text, tables and formulas (P8), the mascot art.
-- `REPORT.md` (untracked) still needs a refresh for the later work; its screenshots in `report/screenshots/` are older.
-- `apps/mobile` is 0.9.1 (`package.json`, `app.json`); desktop 0.38.6, server 0.2.2.
+- **Open bug:** a desktop that starts while the server is unreachable shows "Not syncing. Sign in to sync." although it is signed in (`SyncRuntime.restore` sets the user only from `api.me()`; sync does start). It should remember the account and show offline. Not fixed yet.
+- Driving the apps for checks is allowed, but run one desktop and one simulator at a time (user request).
+- `apps/mobile` is 0.9.2 (`package.json`, `app.json`); desktop 0.38.7, server 0.2.2.
 
 History of earlier sessions (compact): phases 1 to 6 done and verified as described in section 5; a migration regression check with the rebuilt desktop passed; two sync loops fixed; the server reports its real version; a fresh clone brings the stack up.
 

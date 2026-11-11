@@ -15,8 +15,9 @@ export interface Segment {
   changed: boolean;
 }
 
-/// Splits into words and the whitespace between them, so joining gives the text back.
-const TOKEN = /\s+|[^\s]+/g;
+/// Splits into words, runs of punctuation and the whitespace between them, so joining
+/// gives the text back: `println!("hi");` is `println`, `!("`, `hi` and `");`.
+const TOKEN = /\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]+/gu;
 const tokens = (text: string) => text.match(TOKEN) ?? [];
 
 /// Longest common subsequence of two token lists, by dynamic programming. Pages
@@ -71,7 +72,8 @@ export interface WordDiff {
 const isSpace = (token: string) => /^\s/.test(token);
 
 /// Which tokens changed, comparing words only: a space counts as changed when the
-/// words around it did, so "milk and" reads as one changed stretch.
+/// words on both sides of it did, so "milk and" reads as one changed stretch, and the
+/// spaces at either end of the text (indentation) never do.
 function marksFor(list: string[], common: Set<number> | null): boolean[] {
   const words = list.map((token, index) => (isSpace(token) ? -1 : index)).filter((i) => i >= 0);
   const wordChanged = new Map(words.map((index, nth) => [index, common ? !common.has(nth) : true]));
@@ -79,9 +81,8 @@ function marksFor(list: string[], common: Set<number> | null): boolean[] {
     if (!isSpace(token)) return wordChanged.get(index) ?? true;
     const before = words.filter((i) => i < index).at(-1);
     const after = words.find((i) => i > index);
-    const prev = before === undefined ? undefined : wordChanged.get(before);
-    const next = after === undefined ? undefined : wordChanged.get(after);
-    return (prev ?? next ?? true) && (next ?? prev ?? true);
+    if (before === undefined || after === undefined) return false;
+    return (wordChanged.get(before) ?? true) && (wordChanged.get(after) ?? true);
   });
 }
 
@@ -99,6 +100,130 @@ export function diffWords(left: string, right: string): WordDiff {
     left: segments(a, marksFor(a, commonA)),
     right: segments(b, marksFor(b, commonB)),
   };
+}
+
+/// One line of one side: its number on that side and its text, words that differ marked.
+export interface DiffLine {
+  number: number;
+  segments: Segment[];
+}
+
+/// A row of a side by side view: the same line on both sides, or a line that differs,
+/// with the other side's counterpart when it has one (`null` when that side has no line
+/// there).
+export interface DiffRow {
+  kind: "same" | "changed";
+  left: DiffLine | null;
+  right: DiffLine | null;
+}
+
+/// The words that differ inside a pair of lines, or none marked when the two share no
+/// word: then the whole line is the change, as a code review tool shows it.
+function wordsWithin(left: string, right: string): WordDiff {
+  const words = diffWords(left, right);
+  const shared = words.left.some((s) => !s.changed && /\S/.test(s.text));
+  if (shared) return words;
+  return {
+    left: [{ text: left, changed: false }],
+    right: [{ text: right, changed: false }],
+  };
+}
+
+/// How alike two lines are: the words and punctuation they share, in order.
+function likeness(left: string, right: string): number {
+  const a = tokens(left).filter((t) => !isSpace(t));
+  const b = tokens(right).filter((t) => !isSpace(t));
+  return commonTokens(a, b)?.size ?? 0;
+}
+
+/// Which lines of a block that differs belong together, in order: each pair as
+/// `[removed index, added index]`. Lines are paired with the most alike line across from
+/// them; when no two lines share anything, they pair up in order, as a code review tool
+/// does for a block that was rewritten.
+function pairLines(removed: string[], added: string[]): [number, number][] {
+  const n = removed.length;
+  const m = added.length;
+  if (n === 0 || m === 0) return [];
+  const score = removed.map((l) => added.map((r) => likeness(l, r)));
+  const best = new Float64Array((n + 1) * (m + 1));
+  const at = (x: number, y: number) => x * (m + 1) + y;
+  for (let x = n - 1; x >= 0; x--) {
+    for (let y = m - 1; y >= 0; y--) {
+      const pair = score[x][y] > 0 ? score[x][y] + best[at(x + 1, y + 1)] : 0;
+      best[at(x, y)] = Math.max(pair, best[at(x + 1, y)], best[at(x, y + 1)]);
+    }
+  }
+  if (best[at(0, 0)] === 0) {
+    return Array.from({ length: Math.min(n, m) }, (_, k): [number, number] => [k, k]);
+  }
+  const pairs: [number, number][] = [];
+  let x = 0;
+  let y = 0;
+  while (x < n && y < m) {
+    if (score[x][y] > 0 && best[at(x, y)] === score[x][y] + best[at(x + 1, y + 1)]) {
+      pairs.push([x, y]);
+      x++;
+      y++;
+    } else if (best[at(x + 1, y)] >= best[at(x, y + 1)]) x++;
+    else y++;
+  }
+  return pairs;
+}
+
+/// Lines both sides share stay as they are; between them, lines that differ are paired
+/// up in order, with the words inside marked, and the lines one side has more of stand
+/// alone. Each side's lines join back into exactly its own text.
+export function diffLines(left: string, right: string): DiffRow[] {
+  const a = left.split("\n");
+  const b = right.split("\n");
+  const pairs = commonTokens(a, b);
+  const anchors = pairs ? [...pairs].map((p) => p.split(":").map(Number)) : [];
+  const rows: DiffRow[] = [];
+  let i = 0;
+  let j = 0;
+  const line = (number: number, text: string): DiffLine => ({
+    number,
+    segments: [{ text, changed: false }],
+  });
+  const hunk = (untilA: number, untilB: number) => {
+    const removed = a.slice(i, untilA);
+    const added = b.slice(j, untilB);
+    let r = 0;
+    let s = 0;
+    for (const [pr, ps] of pairLines(removed, added)) {
+      for (; r < pr; r++)
+        rows.push({ kind: "changed", left: line(i + r + 1, removed[r]), right: null });
+      for (; s < ps; s++)
+        rows.push({ kind: "changed", left: null, right: line(j + s + 1, added[s]) });
+      const words = wordsWithin(removed[pr], added[ps]);
+      rows.push({
+        kind: "changed",
+        left: { number: i + pr + 1, segments: words.left },
+        right: { number: j + ps + 1, segments: words.right },
+      });
+      r = pr + 1;
+      s = ps + 1;
+    }
+    for (; r < removed.length; r++)
+      rows.push({ kind: "changed", left: line(i + r + 1, removed[r]), right: null });
+    for (; s < added.length; s++)
+      rows.push({ kind: "changed", left: null, right: line(j + s + 1, added[s]) });
+    i = untilA;
+    j = untilB;
+  };
+  for (const [ai, bj] of anchors) {
+    hunk(ai, bj);
+    const shared = [{ text: a[ai], changed: false }];
+    rows.push({
+      kind: "same",
+      left: { number: ai + 1, segments: shared },
+      right: { number: bj + 1, segments: shared },
+    });
+    i = ai + 1;
+    j = bj + 1;
+  }
+  hunk(a.length, b.length);
+  return rows;
 }
 
 export function isTextValue(value: SqlValue): value is string {

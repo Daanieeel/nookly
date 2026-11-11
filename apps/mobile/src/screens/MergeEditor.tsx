@@ -1,4 +1,4 @@
-import { type ConflictView, combinedText, diffWords } from "@nookly/shared/sync";
+import { type ConflictView, type DiffLine, combinedText, diffLines } from "@nookly/shared/sync";
 import { IconAlertTriangle, IconCheck } from "@tabler/icons-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -32,55 +32,212 @@ function when(at: Date | null): string {
 const show = (value: ConflictView["current"]) =>
   value === null || value === "" ? "Empty" : String(value);
 
-/// A color as a light wash behind text, when it is a hex color the phone can add
-/// transparency to.
-const wash = (color: string) => (/^#[0-9a-f]{6}$/i.test(color) ? `${color}40` : color);
+/// A color with transparency added, when it is a hex color the phone can add it to.
+const alpha = (color: string, hex: string) =>
+  /^#[0-9a-f]{6}$/i.test(color) ? `${color}${hex}` : color;
 
-/// One version: who made it, when, and the text with the words that differ marked.
-function Version({
-  view,
-  which,
-  segments,
-}: {
-  view: ConflictView;
-  which: "current" | "other";
-  segments: { text: string; changed: boolean }[] | null;
-}) {
+/// Who made a version and when, as the key above the lines: red for the other version,
+/// green for the one showing now, as a code review tool marks them. Each key reads the
+/// whole version to a screen reader.
+function Legend({ view, which }: { view: ConflictView; which: "current" | "other" }) {
   const theme = useTheme();
   const side = which === "current" ? view.currentSide : view.otherSide;
   const value = which === "current" ? view.current : view.other;
+  const color = which === "current" ? theme.colors.positive : theme.colors.destructive;
   return (
     <View
       accessible
       accessibilityLabel={`${side.device}'s version: ${show(value)}`}
-      className="flex-1 gap-2 rounded-lg border border-border p-3"
+      className="flex-row flex-wrap items-center gap-1.5 px-3 py-2"
     >
-      <View className="flex-row flex-wrap items-center gap-1.5">
-        <Text className="font-medium">{side.device}</Text>
-        {side.isThisDevice ? <Badge label="This device" variant="primary" size="sm" /> : null}
-        {which === "current" ? <Badge label="Showing now" size="sm" /> : null}
-        {side.at ? (
-          <Text variant="small" tone="muted" className="ml-auto">
-            {when(side.at)}
-          </Text>
-        ) : null}
-      </View>
-      <Text>
-        {segments
-          ? segments.map((segment, index) => (
-              <Text
-                // The text is the same on every render, so its place is its identity.
-                key={`${index}-${segment.text}`}
-                className="rounded-sm"
-                style={
-                  segment.changed ? { backgroundColor: wash(theme.colors.caution) } : undefined
-                }
-              >
-                {segment.text}
-              </Text>
-            ))
-          : show(value)}
+      <View className="size-2 rounded-full" style={{ backgroundColor: color }} />
+      <Text className="font-medium">{side.device}</Text>
+      {side.isThisDevice ? <Badge label="This device" variant="primary" size="sm" /> : null}
+      {which === "current" ? <Badge label="Showing now" size="sm" /> : null}
+      {side.at ? (
+        <Text variant="small" tone="muted" className="ml-auto">
+          {when(side.at)}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/// One line of the unified view: both sides' line numbers, the marker, and the text
+/// with the words that differ marked.
+function Line({
+  line,
+  which,
+  numbers,
+}: {
+  line: DiffLine;
+  which: "current" | "other" | "same";
+  numbers: [number | null, number | null];
+}) {
+  const theme = useTheme();
+  const color =
+    which === "current"
+      ? theme.colors.positive
+      : which === "other"
+        ? theme.colors.destructive
+        : null;
+  return (
+    <View className="flex-row" style={color ? { backgroundColor: alpha(color, "1a") } : undefined}>
+      {numbers.map((number, index) => (
+        <Text
+          // Two fixed columns: the other version's number, then this one's.
+          key={index === 0 ? "other" : "current"}
+          variant="small"
+          tone="muted"
+          className="w-8 pr-1.5 text-right font-mono"
+          style={color ? { backgroundColor: alpha(color, "14") } : undefined}
+        >
+          {number ?? ""}
+        </Text>
+      ))}
+      <Text variant="small" tone="muted" className="w-5 text-center font-mono">
+        {which === "current" ? "+" : which === "other" ? "\u2212" : ""}
       </Text>
+      <Text variant="small" className="flex-1 py-0.5 pr-3 font-mono">
+        {line.segments.map((segment, index) => (
+          <Text
+            // The text is the same on every render, so its place is its identity.
+            key={`${index}-${segment.text}`}
+            variant="small"
+            className="font-mono"
+            style={segment.changed && color ? { backgroundColor: alpha(color, "59") } : undefined}
+          >
+            {segment.text}
+          </Text>
+        ))}
+      </Text>
+    </View>
+  );
+}
+
+/// Both versions as one list of lines, the way a code review tool shows a change on a
+/// narrow screen: lines both share once, and where they differ the other version's line
+/// in red above the line showing now in green.
+function UnifiedView({ view }: { view: ConflictView }) {
+  const rows = diffLines(show(view.other), show(view.current));
+  return (
+    <View className="overflow-hidden rounded-lg border border-border bg-card">
+      <View className="border-b border-border bg-muted">
+        <Legend view={view} which="other" />
+        <Legend view={view} which="current" />
+      </View>
+      <View className="py-1">
+        {rows.flatMap((row, index) => {
+          if (row.kind === "same" && row.left && row.right) {
+            return [
+              <Line
+                key={`${index}-same`}
+                line={row.left}
+                which="same"
+                numbers={[row.left.number, row.right.number]}
+              />,
+            ];
+          }
+          return [
+            row.left ? (
+              <Line
+                key={`${index}-other`}
+                line={row.left}
+                which="other"
+                numbers={[row.left.number, null]}
+              />
+            ) : null,
+            row.right ? (
+              <Line
+                key={`${index}-current`}
+                line={row.right}
+                which="current"
+                numbers={[null, row.right.number]}
+              />
+            ) : null,
+          ];
+        })}
+      </View>
+    </View>
+  );
+}
+
+/// One side of a split row: the line number and the text, or an empty, shaded cell where
+/// this side has no line.
+function SplitCell({
+  line,
+  which,
+  changed,
+}: {
+  line: DiffLine | null;
+  which: "current" | "other";
+  changed: boolean;
+}) {
+  const theme = useTheme();
+  const color = which === "current" ? theme.colors.positive : theme.colors.destructive;
+  const edge = which === "other" ? "border-r border-border" : "";
+  if (!line) {
+    return (
+      <View
+        className={cn("flex-1", edge)}
+        style={{ backgroundColor: alpha(theme.colors.mutedForeground, "1f") }}
+      />
+    );
+  }
+  return (
+    <View
+      className={cn("flex-1 flex-row", edge)}
+      style={changed ? { backgroundColor: alpha(color, "1a") } : undefined}
+    >
+      <Text
+        variant="small"
+        tone="muted"
+        className="w-8 pr-1.5 text-right font-mono"
+        style={changed ? { backgroundColor: alpha(color, "14") } : undefined}
+      >
+        {line.number}
+      </Text>
+      <Text variant="small" tone="muted" className="w-5 text-center font-mono">
+        {changed ? (which === "current" ? "+" : "\u2212") : ""}
+      </Text>
+      <Text variant="small" className="flex-1 py-0.5 pr-3 font-mono">
+        {line.segments.map((segment, index) => (
+          <Text
+            // The text is the same on every render, so its place is its identity.
+            key={`${index}-${segment.text}`}
+            variant="small"
+            className="font-mono"
+            style={segment.changed && changed ? { backgroundColor: alpha(color, "59") } : undefined}
+          >
+            {segment.text}
+          </Text>
+        ))}
+      </Text>
+    </View>
+  );
+}
+
+/// Both versions side by side on a wide iPad, as on the desktop: the other version on the
+/// left in red, the one showing now on the right in green, each row level on both sides.
+function SplitView({ view }: { view: ConflictView }) {
+  const rows = diffLines(show(view.other), show(view.current));
+  return (
+    <View className="overflow-hidden rounded-lg border border-border bg-card">
+      <View className="flex-row border-b border-border bg-muted">
+        <View className="flex-1 border-r border-border">
+          <Legend view={view} which="other" />
+        </View>
+        <View className="flex-1">
+          <Legend view={view} which="current" />
+        </View>
+      </View>
+      {rows.map((row, index) => (
+        // Rows are the diff's own order and never move.
+        <View key={`${index}-${row.kind}`} className="flex-row">
+          <SplitCell line={row.left} which="other" changed={row.kind === "changed"} />
+          <SplitCell line={row.right} which="current" changed={row.kind === "changed"} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -97,7 +254,6 @@ function Detail({ view, onDone }: { view: ConflictView; onDone: () => void }) {
     onSuccess: onDone,
   });
   const text = view.isText && view.kind === "field";
-  const diff = text ? diffWords(show(view.current), show(view.other)) : null;
   const both = () =>
     combinedText(
       view.current === null ? "" : String(view.current),
@@ -134,10 +290,7 @@ function Detail({ view, onDone }: { view: ConflictView; onDone: () => void }) {
 
   return (
     <View className="gap-3">
-      <View className={cn("gap-3", width >= SIDE_BY_SIDE && "flex-row")}>
-        <Version view={view} which="current" segments={diff?.left ?? null} />
-        <Version view={view} which="other" segments={diff?.right ?? null} />
-      </View>
+      {width >= SIDE_BY_SIDE ? <SplitView view={view} /> : <UnifiedView view={view} />}
       {combined === null ? (
         <View className="flex-row flex-wrap gap-2">
           <Button

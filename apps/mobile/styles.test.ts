@@ -41,6 +41,10 @@ describe("the phone's styles", () => {
     expect(rules("font-heading")).toContain("InterTight_600SemiBold");
   });
 
+  it("set code in the system's monospaced face, as the desktop does", () => {
+    expect(rules("font-mono")).toContain("Menlo");
+  });
+
   it("compile every class a primary button uses that a phone can draw", () => {
     const native = buttonVariants()
       .split(" ")

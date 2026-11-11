@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.38.7 (2026-11-11)
+
+### Changed
+
+- **Clearer differences in Review Changes.** The two versions now sit side by side with line numbers, the other version in red and the one showing now in green, and the words that differ marked inside each line. On a phone they stack, line by line.
+
 ## 0.38.6 (2026-11-11)
 
 ### Fixed

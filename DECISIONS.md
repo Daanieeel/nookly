@@ -215,3 +215,9 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Decision:** the sync status's conflict count is the merge editor's list: this device's log plus the server's, without repeats (`SyncRuntime.openConflicts`, passed to `SyncClient` as `countConflicts`). Settings reads the same count. One extra request per sync round, and rounds only run when something changed (D32).
 - **Why:** two devices online that change the same field at the same moment each push before seeing the other; the server keeps the losing value in its log, and no device records one. Nothing was lost, but nothing offered it either.
 - **Alternatives:** the server pushing the conflict to both devices' logs (a protocol change for the same result).
+
+## D38. The merge editor draws differences as a code review tool does
+
+- **Decision:** `diffLines` (shared) pairs the lines of both versions: lines both share stay plain, lines that differ are paired with the most alike line across from them (shared words and punctuation, in order), and words are marked only inside a pair that partly matches, never indentation. The desktop and a wide iPad show it split: the other version left in red with a minus, the one showing now right in green with a plus, line numbers in gutters, a shaded cell where a side has no line, both sides in one grid so wrapped lines stay level. A phone shows the same rows stacked, with both line numbers, red above green. Code is in a monospaced face (Menlo on the phone).
+- **Why:** the user found the old view (two cards with yellow word marks) flat; asked for the look of a git client. The words stay plain ("Showing now", device names), no version control vocabulary.
+- **Alternatives:** character level marks (noisier for prose); a diff library (the existing word diff extended in a few lines).
