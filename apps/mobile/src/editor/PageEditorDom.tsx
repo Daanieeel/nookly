@@ -2,6 +2,7 @@
 /// <reference lib="dom" />
 
 import { highlightCss } from "@nookly/shared/highlight";
+import { VIM_MODE_LABELS, closeVimHelp, vimPlugin, vimState } from "@nookly/shared/vim";
 import type { ParsedMacros } from "@nookly/shared/latex";
 import { inlineMathView, mathBlockView } from "./math-views.ts";
 import {
@@ -65,6 +66,8 @@ export interface EditorHandle {
   applyUpdate(update: string): void;
   applyAwareness(update: string): void;
   run(command: string): void;
+  /// The Vim key list was closed on the phone's side.
+  closeVimHelp(): void;
 }
 
 export interface EditorColors {
@@ -81,6 +84,8 @@ interface Props {
   ref: Ref<EditorHandle>;
   dom?: DOMProps;
   editable: boolean;
+  /// Vim keys (`notes.vimMode`), for a hardware keyboard.
+  vim: boolean;
   person: { name: string; color: string };
   colors: EditorColors;
   /// The person's own LaTeX commands from Settings.
@@ -164,6 +169,10 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 .menu p { margin: 0; padding: 9px 10px; color: var(--muted); font: 14px/1.3 -apple-system, system-ui, sans-serif; }
 .pm .ProseMirror-selectednode { outline: 2px solid var(--primary); }
 .pm[contenteditable="false"] { caret-color: transparent; }
+.pm.vim-normal, .pm.vim-visual, .pm.vim-visual-line { caret-color: transparent; }
+.pm .vim-cursor { background: color-mix(in oklab, var(--fg) 55%, transparent); color: var(--bg); }
+.pm .vim-cursor-empty::before { content: "\\200b"; display: inline-block; width: .6em; background: color-mix(in oklab, var(--fg) 55%, transparent); }
+.vim-status { position: sticky; bottom: 8px; width: fit-content; margin: 8px 0 0 auto; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font: 12px/1.4 ui-monospace, Menlo, monospace; pointer-events: none; }
 .collaboration-cursor__caret, .ProseMirror-yjs-cursor { position: relative; margin-left: -1px; margin-right: -1px; border-left: 2px solid; border-right: 2px solid; word-break: normal; pointer-events: none; }
 .ProseMirror-yjs-cursor > div { position: absolute; top: -1.35em; left: -2px; padding: 1px 5px; border-radius: 4px 4px 4px 0; color: #fff; font: 600 11px/1.3 -apple-system, system-ui, sans-serif; white-space: nowrap; user-select: none; }
 `;
@@ -171,6 +180,7 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 export default function PageEditorDom({
   ref,
   editable,
+  vim,
   person,
   colors,
   macros,
@@ -196,6 +206,8 @@ export default function PageEditorDom({
     top: number;
   } | null>(null);
   const [found, setFound] = useState<{ id: string; title: string; key: string }[]>([]);
+  /// What the Vim indicator shows: the mode and what is half typed; empty with Vim off.
+  const [vimLabel, setVimLabel] = useState("");
 
   const methods = {
     applyUpdate: (update: string) =>
@@ -207,6 +219,13 @@ export default function PageEditorDom({
       const id = String(command);
       if (editor && isToolbarId(id)) COMMANDS[id](editor.state, editor.dispatch, editor);
       editor?.focus();
+    },
+    closeVimHelp: () => {
+      const editor = view.current;
+      if (editor) {
+        closeVimHelp(editor);
+        editor.focus();
+      }
     },
   } satisfies EditorHandle;
   // SAFETY: Expo types a handle as functions of JSON and sees a second copy of React's
@@ -244,8 +263,15 @@ export default function PageEditorDom({
     const fragment = doc.current.getXmlFragment("default");
     const report = (e: EditorView) => {
       const a = active(e.state);
+      const keys = vimState(e.state);
+      setVimLabel(
+        vimRef.current
+          ? `${VIM_MODE_LABELS[keys.mode]}${keys.operator || keys.count ? ` ${keys.count}${keys.operator}` : ""}`
+          : "",
+      );
       const state: PhoneEditorState = {
         focused: focused.current,
+        vimHelp: vimRef.current && keys.help,
         on: {
           bold: a.bold,
           italic: a.italic,
@@ -283,6 +309,8 @@ export default function PageEditorDom({
       state: EditorState.create({
         schema: pageSchema,
         plugins: [
+          // First, so its keys win over the editor's own, as on the desktop.
+          vimPlugin({ enabled: () => vimRef.current, undo, redo }),
           ySyncPlugin(fragment),
           yCursorPlugin(awareness.current, {
             cursorBuilder: (user: { name?: string; color?: string }) => {
@@ -435,6 +463,13 @@ export default function PageEditorDom({
   useEffect(() => {
     view.current?.setProps({ editable: () => editable });
   }, [editable]);
+  const vimRef = useRef(vim);
+  vimRef.current = vim;
+  // The setting changed: an empty step redraws the cursor and the indicator.
+  useEffect(() => {
+    const editor = view.current;
+    if (editor) editor.dispatch(editor.state.tr);
+  }, [vim]);
 
   // SAFETY: custom properties are valid style keys; React's type only lists the known ones.
   const vars = {
@@ -450,6 +485,11 @@ export default function PageEditorDom({
       <style>{CSS}</style>
       <style>{highlightCss(".pm", colors.dark)}</style>
       <div ref={host} />
+      {vimLabel ? (
+        <p role="status" aria-label="Vim mode" className="vim-status">
+          {vimLabel}
+        </p>
+      ) : null}
       {mathEdit ? (
         <form
           className="menu"

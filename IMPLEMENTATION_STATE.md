@@ -4,7 +4,8 @@ This file is the handover. A coding agent that reads it, plus `AGENTS.md`, `GAP_
 
 ## 1. Where things are
 
-- Branch: `feat/connected-platform`. It branched from `mobile-app-and-backend` at `0b5bd915`. 71 commits of this work (`git rev-list --count 0b5bd915..HEAD`), all pushed. Commit and push to `origin feat/connected-platform`. **No PRs, no merges.**
+- Branch: `feat/connected-platform`. It branched from `mobile-app-and-backend` at `0b5bd915`. Commit and push to `origin feat/connected-platform` (from a T3 worktree on another branch name: `git push origin HEAD:feat/connected-platform`). **No PRs, no merges.**
+- A fresh worktree has no `node_modules`, `.env` or `REPORT.md`: `bun install`, `cp .env.example .env` and set `PORT=3100`. `REPORT.md` and `report/` live untracked in the main checkout (`~/Development/03_Personal/Open Source/nookly`).
 - Not in git on purpose: `REPORT.md` (the user said never to commit it) and `report/screenshots/` (both in `.git/info/exclude`), `.env`.
 - Two old stashes in the repository ("WIP on feat/connected-platform before switching to mobile-app-and-backend") come from an incident where another session switched branches inside a checkout of this branch. Leave them alone. Never `git stash`, never switch branches in a checkout of this branch.
 
@@ -53,7 +54,7 @@ Later instructions from the user:
 ## 3. Project rules from `AGENTS.md` that bite here
 
 - Nookly is released: user data must be preserved at all costs. Persisted state changes need a new migration in `apps/desktop/src-tauri/src/db/migrations.rs` (append only, never edit an old one), its hash in `EXPECTED_HASHES`, a declaration in `db/upgrade.rs` (`DECLARED`) for any changed existing column, and `cargo test db::upgrade_tests`. Snapshots: `NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib sync::` and `cli::snapshot_tests`. Migrations 43 and 44 are this work's.
-- Version bumps via `bun tools/bump-version.ts patch|minor` (never major; report if a major would be needed). Every bump needs a `## x.y.z (date)` section in `CHANGELOG.md` and an entry in `whats-new.json` (card under `highlights` for a feature, a line under `more` for a smaller change) in the same commit. Desktop is 0.38.4, mobile 0.8.0 (`apps/mobile/package.json` and `app.json`), server 0.2.2 (the bump tool only touches the desktop).
+- Version bumps via `bun tools/bump-version.ts patch|minor` (never major; report if a major would be needed). Every bump needs a `## x.y.z (date)` section in `CHANGELOG.md` and an entry in `whats-new.json` (card under `highlights` for a feature, a line under `more` for a smaller change) in the same commit. Desktop is 0.38.5, mobile 0.9.0 (`apps/mobile/package.json` and `app.json`), server 0.2.2 (the bump tool only touches the desktop).
 - User facing copy: no em or en dashes and no hyphenated sentence structure.
 - Never modify existing primitives or tokens in `packages/ui` (add only). `outline` variants of Button and Badge are rare. Icon only buttons need a tooltip or label. Dialogs and menus get an axe test (`vitest-axe`). Permanent actions use `ConfirmPermanentDialog` (phone: a confirmation in the app's sheet, D35; D18's system alert is gone).
 - Every new entity, field or relationship must be exposed through the schema layer the CLI generates from; no one off CLI commands.
@@ -131,18 +132,20 @@ Use a copy of a fixture, never the user's data. Pick unused automation ports (45
 - My simulators (the user's own "iPhone 17" simulator `45B8BECE-...`, their Expo on 8081, vite on 1420 and dev server on 3000 are theirs, do not touch): iPhone 17 Pro `EF9F00F7-BA0F-491C-A3C7-97240AFBAF2B`, iPad Pro 13-inch (M5) `ABFEE424-8EE0-4228-BCC2-1C9FDB94BE6D`. Both in dark mode.
 - Native app id `app.nookly.mobile`. The dev client on both simulators was built from a clone at a path without spaces (the native build scripts break on the space in "Open Source"): `<scratchpad>/native/nookly` (scratchpad is temporary and will be gone; to rebuild: `git clone` this branch into a folder with no spaces, `bun install`, `cd apps/mobile && bunx expo run:ios -d <simulator id> --port 8092`, then `xcrun simctl install` the same `Nookly.app` on the other simulator, found with `xcrun simctl get_app_container <id> app.nookly.mobile`). Rebuild only when native code changes (this branch added `expo-clipboard` and the local Swift module `modules/nookly-keys`, and iPad orientation in `app.json`). Expo Go is avoided because its "Open in Expo Go?" system dialog cannot be tapped.
 - Metro: the dev client remembers **port 8092**. `cd apps/mobile && EXPO_PUBLIC_AUTOMATION_URL=http://127.0.0.1:4600 EXPO_NO_TELEMETRY=1 bunx expo start --port 8092 --lan --dev-client --clear`, hub `bun tools/e2e/mobile.ts hub 4600` left running, then `xcrun simctl terminate` and `launch <id> app.nookly.mobile`. On any other port the app falls back to the user's own Metro on 8081 (which serves this checkout without the automation hook) and scripts hang with no answer. After a hub restart, relaunch the app.
-- Scripts: `bun tools/e2e/mobile.ts run phone|tablet|phone-editor|tablet-editor "<script>"`. Helpers: `press(label, nth)`, `type(label, value)`, `sleep`, `labels()`, `screenText()`, `measure(label)` (window rectangle of a pressable), plus `db`, `sync`, `queryClient`, `router`, `data` (the shared data functions, to set a scene: `await data.createCalendarEntry(db, space, {...})`), `tabs` (iPad tab actions); the `-editor` devices run inside the editor web view with `editor`, `doc`, `awareness`. `bun tools/e2e/page-client.ts <server> <user> <pass> <entityId> append|read [text]` acts as another device on a page. A device counts as `tablet` when the simulator is an iPad.
+- Scripts: `bun tools/e2e/mobile.ts run phone|tablet|phone-editor|tablet-editor "<script>"`. Helpers: `press(label, nth)`, `type(label, value)`, `sleep`, `labels()`, `screenText()`, `measure(label)` (window rectangle of a pressable), plus `db`, `sync`, `queryClient`, `router`, `data` (the shared data functions, to set a scene: `await data.createCalendarEntry(db, space, {...})`), `tabs` (iPad tab actions), `settings` (this device's settings); the `-editor` devices run inside the editor web view with `editor`, `doc`, `awareness`. `bun tools/e2e/page-client.ts <server> <user> <pass> <entityId> append|read [text]` acts as another device on a page. A device counts as `tablet` when the simulator is an iPad.
 - Gotchas: after Metro hot reloads shared code, the automation context may hold the old runtime objects, so relaunch the app (`simctl terminate` then `launch`) before measuring sync. On the iPad the Welcome route stays mounted under sign in, so `press("Sign In", n)` indexes shift (press the last). Do not call `router.dismissAll()` with no stack (dev toast "POP_TO_TOP not handled"). Screenshots: `xcrun simctl io <id> screenshot file.png`.
 
 ### 6.4 Local test data (disposable)
 
 Dev Postgres holds accounts `ada` (`correct horse battery`, the desktop fixture's 588 items and files) and `grace` (`grace hopper compiler`, created on the iPad from the same data). These are local throwaway fixtures. Fixture task TSK-3 (id `b5c5b4af-0b43-4245-9e1a-385048ef8f0d`) had its title changed by latency probes in both accounts. The iPad simulator is signed in as `ada` now (it had been `grace`; check with `sync.store.getState().user`), the phone as `ada`. `credentials.txt` in the repository root (excluded from git) lists both. The phone's data holds seeded calendar entries for this week and a test page "Math test" (throwaway). The scratchpad folder with fixtures and screenshots is temporary; regenerate fixtures with `tools/fixtures/desktop.ts`.
 
-## 7. Where work stopped (2026-10-21)
+## 7. Where work stopped (2026-11-11)
 
-Everything is committed (push before stopping: `git push origin feat/connected-platform`). Last full run, all green: `bun run lint` (warnings only), `format:check`, `typecheck`, shared 269, mobile 230, `duplication` 0.27%. Not rerun this session: the frontend suite (2274), the server suite and `cargo test`, because no desktop or server code changed; rerun them before a release (`bun run test` with `TEST_DATABASE_URL`, `cargo test`).
+Everything is committed and pushed. Full run on 2026-11-11, all green: `bun run lint`, `format:check`, `typecheck`, `bun run test` (server 85, frontend 2265 plus one expected fail (Vim core tests moved to shared), shared 288, mobile 264), `cargo test` (1251), `duplication` 0.26%.
 
-What is running on this machine right now (all mine; stop them or reuse them): OrbStack with the compose containers, `bun run stack` on 3100 (log `/tmp/nookly-stack.log`), the automation hub on 4600 (`/tmp/hub.log`), Metro on 8092 (`/tmp/metro.log`), the iPhone 17 Pro and iPad Pro 13 simulators booted in dark mode. Stop with: `kill $(lsof -tiTCP:8092 -sTCP:LISTEN)`, same for 4600 and 3100 (also `pkill -f "bun --watch src/index.ts"`), `docker compose stop`, `xcrun simctl shutdown <id>`.
+What may still be running (all mine): OrbStack compose containers, `bun run stack` on 3100 (log `/tmp/claude-501/nookly-stack.log`), hub on 4600, Metro on 8092 from this worktree, the iPad Pro 13 simulator booted in dark mode (signed in as `grace`). Stop with: `kill $(lsof -tiTCP:8092 -sTCP:LISTEN)`, same for 4600 and 3100 (also `pkill -f "bun --watch src/index.ts"`), `docker compose stop`, `xcrun simctl shutdown <id>`.
+
+Session of 2026-11-11: I7 Vim keys on the phone (D36). The desktop's Vim plugin now lives in `packages/shared/src/editor/` and both editors run it; the setting `notes.vimMode` moved to the shared settings. The desktop's lost Vim cursor styles are back (desktop 0.38.5). Checked on the iPad simulator with key events dispatched in the editor (dw, u, v e, `?` sheet, close).
 
 The brief of 2026-10-21 was: use `PAGES.md` to go over the pages already built and make them match the desktop, then finish everything, no questions. Done in this session (section 8b has the list): F1, F2, F3 (item pages split into page and details, own top bar, root sidebar drawer), the open problem of pages made on the phone (D34), L3's likely cause (taps that drift), and every page of `PAGES.md`. `GAP_ANALYSIS.md` ends with a page by page table, `DECISIONS.md` has D26 to D34 (and D7 corrected).
 
@@ -150,17 +153,17 @@ Open problems and loose ends:
 
 - **Not verified by touch** (my tooling cannot send touches or hardware keys): swiping the sidebar or the details drawer and the back swipe edge (D29), the Swift key commands (`modules/nookly-keys`), the native action sheet of More, the sidebar row tap target (L3: the likely cause was a pan activating at 5 points of drift; now 16, D29). Everything else was checked with jest, screenshots and script driven simulators.
 - The red "finalizeAsync / database is locked" LogBox error in the dev client after Metro hot reloads `_layout.tsx` is a development artifact (the database is opened again while the old connection has statements).
-- Not on the phone, listed in `GAP_ANALYSIS.md` and D33: restoring a backup, external calendars, Vim keys (I7), saved views for Assignments, the semester wizard, the PDF paged viewer, series (D19), editor blocks beyond text, tables and formulas (P8), the mascot art.
+- Not on the phone, listed in `GAP_ANALYSIS.md` and D33: restoring a backup, external calendars, saved views for Assignments, the PDF paged viewer, series (D19), editor blocks beyond text, tables and formulas (P8), the mascot art.
 - `REPORT.md` (untracked) still needs a refresh for the later work; its screenshots in `report/screenshots/` are older.
-- `apps/mobile` is 0.8.0 (`package.json`, `app.json`); desktop 0.38.4, server 0.2.2.
+- `apps/mobile` is 0.9.0 (`package.json`, `app.json`); desktop 0.38.5, server 0.2.2.
 
 History of earlier sessions (compact): phases 1 to 6 done and verified as described in section 5; a migration regression check with the rebuilt desktop passed; two sync loops fixed; the server reports its real version; a fresh clone brings the stack up.
 
 ## 8. What is left
 
-In order: stop what is running; rerun the full suites (see 7); refresh `REPORT.md`; the not on the phone list in 7 if the user wants any of it; touch checks on a real device.
+In order: refresh `REPORT.md`; stop what is running; the not on the phone list in 7 if the user wants any of it; touch checks on a real device.
 
-Stub, skip and fragile list for the report (current): phone files are hashed in memory; "keep both" in the merge editor is text only on desktop and phone alike (D7); series (repeating sessions and calendar entries) are created and edited on the desktop only, the phone edits one occurrence (D19); Vim keys, saved views for Assignments, editor blocks beyond text, tables and formulas, the semester setup wizard, the PDF viewer and restoring a backup are not on the phone; external calendars, CLI, agent files, folder backups, Office conversion, OCR, bookmark screenshots are desktop only by decision (D14, D15); a block type the phone has no editor for becomes a paragraph on import; password reset uses the console mailer stub; OAuth providers are wired but untested without real keys; everything was verified in simulators and debug desktop builds, never on a real phone, and simulator runs are not in CI.
+Stub, skip and fragile list for the report (current): Vim keys on the phone need a hardware keyboard and were checked with dispatched key events only; phone files are hashed in memory; "keep both" in the merge editor is text only on desktop and phone alike (D7); series (repeating sessions and calendar entries) are created and edited on the desktop only, the phone edits one occurrence (D19); saved views for Assignments, editor blocks beyond text, tables and formulas, the PDF viewer and restoring a backup are not on the phone; external calendars, CLI, agent files, folder backups, Office conversion, OCR, bookmark screenshots are desktop only by decision (D14, D15); a block type the phone has no editor for becomes a paragraph on import; password reset uses the console mailer stub; OAuth providers are wired but untested without real keys; everything was verified in simulators and debug desktop builds, never on a real phone, and simulator runs are not in CI.
 
 ## 8b. Work list (all ticked unless said)
 
@@ -173,10 +176,10 @@ Brief 7b (full parity, desktop like iPad): N1, I1 to I6, C1, L1, L2, D1, K1, P1,
 - [x] P3 saved Task views listed under Tasks in the sidebar and opened with `/tasks?view=`; Assignments views stay off the phone.
 - [x] P4 formulas: the page that failed to open live now does (D34), so check the formula drawing on an old page by adding `$x^2$` through `bun tools/e2e/page-client.ts` and opening it.
 - [x] P5 series: stays desktop only (D19).
-- [x] P7 dashboard briefing with links (done), decks piles screen (not built), semester wizard (not built).
+- [x] P7 dashboard briefing with links (done), decks piles screen (not built), semester wizard (built later, f4158a91).
 - [~] P8 editor blocks beyond text: not built.
 - [x] P10 documented in D14, D15, D33.
-- [ ] I7 Vim keys in the editor: not started.
+- [x] I7 Vim keys in the editor: shared plugin, D36.
 
 Pages, each with tests: Notes and Jots (`PageLists.tsx`), Courses gallery, Exams timeline, Decks grid (`StudyGalleries.tsx`), Semesters (`SemesterList.tsx`), Sessions and Calendar module (`CalendarScreen` with `spaceId`), Files, Bookmarks (`BookmarkList.tsx`), Recipes, Grades (`GradesScreen.tsx`), Pinned (`PinnedScreen.tsx`), Trash, Dashboard (`DashboardScreen.tsx`, `DashboardPanels.tsx`, `DashboardBriefing.tsx`, `briefing-runs.ts`, `dashboard-model.ts`), Tasks overview, Assignments overview (`AssignmentsScreen.tsx`, `assignment-view.ts`), Deck page (`DeckPage.tsx`), course tiles, exam decks, semester stats (`StudyDetail.tsx`, `PlannerScreens.tsx`), session Jot and Note, task stepper (`TaskDetail.tsx`), Settings sections, search, LaTeX and Backup (`screens/settings/`). New shared data functions with tests: `listPageSummaries`, `courseSemesters`, `addFileLink`, `createSessionPage`.
 
@@ -199,7 +202,7 @@ Open: the swipe down, the keyboard lift and the long press were not done with a 
 
 ## 8c. Decisions written
 
-D26 to D34 are in `DECISIONS.md`, and D7 is corrected.
+D26 to D36 are in `DECISIONS.md`, and D7 is corrected.
 
 ## 9. Working agreements and cautions
 

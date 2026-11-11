@@ -37,7 +37,7 @@
     },
     "apps/mobile": {
       "name": "@nookly/mobile",
-      "version": "0.7.9",
+      "version": "0.8.0",
       "dependencies": {
         "@expo-google-fonts/inter": "0.4.2",
         "@expo-google-fonts/inter-tight": "0.4.2",
@@ -248,6 +248,9 @@
       "version": "0.0.0",
       "dependencies": {
         "@hocuspocus/provider": "4.7.1",
+        "prosemirror-model": "1.25.11",
+        "prosemirror-state": "1.4.4",
+        "prosemirror-view": "1.42.4",
         "yjs": "13.6.33",
         "zod": "^4",
         "zustand": "^5",

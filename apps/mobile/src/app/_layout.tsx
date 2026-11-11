@@ -64,6 +64,8 @@ async function start(): Promise<AppData> {
       // The data functions, to set a scene from a script.
       data: await import("@nookly/shared/data"),
       tabs: (await import("../shell/tabs-store.ts")).tabActions,
+      // This device's settings, to turn one on for a check (`settings.setJson(id, value)`).
+      settings: (await import("../data/settings.ts")).phoneSettings,
     });
   }
   return {

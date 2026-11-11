@@ -1,5 +1,5 @@
 import { type PageSession, caretColor, presenceName } from "@nookly/shared/sync";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { applyAwarenessUpdate, encodeAwarenessUpdate } from "y-protocols/awareness";
 import * as Y from "yjs";
@@ -12,6 +12,8 @@ import { deviceName } from "../data/sync.ts";
 import { parseLatexMacros } from "@nookly/shared/latex";
 import { useSetting } from "../data/settings.ts";
 import { useReveal } from "../ui/Screen.tsx";
+import { Sheet } from "../ui/sheet/Sheet.tsx";
+import { VimKeys } from "./VimKeys.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { type AwarenessChanges, type Origin, fromBase64, toBase64 } from "./bridge.ts";
 import PageEditorDom, { type EditorHandle } from "./PageEditorDom.tsx";
@@ -32,6 +34,9 @@ export function LivePage({ session, editable }: { session: PageSession; editable
   const user = useSyncState((s) => s.user);
   const [displayName] = useSetting("general.displayName");
   const [macroText] = useSetting("notes.latexMacros");
+  const [vim] = useSetting("notes.vimMode");
+  /// `?` in Vim's normal mode asked for the key list.
+  const [vimHelp, setVimHelp] = useState(false);
   const macros = useMemo(() => parseLatexMacros(macroText).macros, [macroText]);
   const name = presenceName(displayName.trim() || user?.username || "Someone", deviceName());
   const person = { name, color: caretColor(user?.id ?? name) };
@@ -96,6 +101,7 @@ export function LivePage({ session, editable }: { session: PageSession; editable
     async (json: string) => {
       const state = editorStateSchema.parse(JSON.parse(json));
       toolbar.set(state, (id: ToolbarId) => handle.current?.run(id));
+      setVimHelp(state.vimHelp ?? false);
     },
     // `toolbar.set` is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,6 +146,7 @@ export function LivePage({ session, editable }: { session: PageSession; editable
         ref={handle}
         dom={{ matchContents: true, useExpoDOMWebView: true, scrollEnabled: false }}
         editable={editable}
+        vim={vim}
         person={person}
         macros={macros}
         placeholder="Write something"
@@ -160,6 +167,15 @@ export function LivePage({ session, editable }: { session: PageSession; editable
         onSearch={onSearch}
         onOpen={onOpen}
       />
+      <Sheet
+        open={vimHelp}
+        onOpenChange={(open) => {
+          if (!open) handle.current?.closeVimHelp();
+        }}
+        title="Vim keys"
+      >
+        <VimKeys />
+      </Sheet>
     </View>
   );
 }

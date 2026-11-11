@@ -1,5 +1,8 @@
 import { fireEvent, waitFor } from "expo-router/testing-library";
+import { isSyncedSetting } from "@nookly/shared/sync";
+import { render } from "@testing-library/react-native";
 import { phoneSettings } from "../data/settings.ts";
+import { VimKeys } from "../editor/VimKeys.tsx";
 import { renderScreens, testData } from "../test/render.tsx";
 import { SettingsCategoryScreen, SettingsScreen } from "./SettingsScreen.tsx";
 
@@ -54,5 +57,26 @@ describe("Settings", () => {
     await fireEvent.changeText(screen.getByLabelText("Definition"), "x");
     await fireEvent.press(screen.getByRole("button", { name: "Add Macro" }));
     expect(await screen.findByText(/backslash and letters/)).toBeTruthy();
+  });
+
+  it("turns Vim keys on for this phone only, under Editing as on the desktop", async () => {
+    phoneSettings.reset("notes.vimMode");
+    const screen = await renderScreens(
+      { index: () => <SettingsCategoryScreen page="editor" /> },
+      testData(),
+    );
+    expect(await screen.findByRole("header", { name: "Editing" })).toBeTruthy();
+    await fireEvent(screen.getByLabelText("Vim keys in pages"), "valueChange", true);
+    expect(phoneSettings.get("notes.vimMode")).toBe(true);
+    expect(isSyncedSetting("notes.vimMode")).toBe(false);
+    phoneSettings.reset("notes.vimMode");
+  });
+
+  it("lists the desktop's Vim keys for the sheet ? opens", () => {
+    const screen = render(<VimKeys />);
+    for (const group of ["Modes", "Move", "Edit"]) {
+      expect(screen.getByLabelText(group)).toBeTruthy();
+    }
+    expect(screen.getByText("Delete a word (d with any motion)")).toBeTruthy();
   });
 });

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.38.5 (2026-11-11)
+
+### Fixed
+
+- **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on, as it was before highlights came in.
+
 ## 0.38.4 (2026-10-21)
 
 ### Fixed

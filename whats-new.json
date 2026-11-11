@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.38.5",
+      "date": "2026-11-11",
+      "title": "Vim cursor is back",
+      "summary": "Vim keys show their block cursor again.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "In Vim's normal and visual mode the cursor is a block over the character it is on again."
+        ]
+      }
+    },
+    {
       "version": "0.38.4",
       "date": "2026-10-21",
       "title": "Clearer connection errors",

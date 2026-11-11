@@ -133,7 +133,7 @@ Every table below syncs per field today (`sync/registry.rs`). The gaps are the d
 | Appearance: file viewer theme                                                                     | ✅      | ❌            | per device   | ✅                                                                                          |
 | Calendar: session length, entry length, week start, day start, today color, today intensity, snap | ✅      | ❌            | ✅           | ✅                                                                                          |
 | Editor: default code language, format on paste, arrow ligatures, LaTeX macros                     | ✅      | ❌            | ✅           | ✅                                                                                          |
-| Editor: Vim keys                                                                                  | ✅      | ❌            | per device   | — needs a hardware keyboard; iPad only                                                      |
+| Editor: Vim keys                                                                                  | ✅      | ❌            | per device   | ✅ shared plugin in @nookly/shared/vim; needs a hardware keyboard (D36)                     |
 | Backup: folder, daily, back up now, restore                                                       | ✅      | ❌            | per device   | — the server is the phone's backup; see D15                                                 |
 | Agent files                                                                                       | ✅      | ❌            | per device   | — they feed a desktop coding agent                                                          |
 | Shortcuts                                                                                         | ✅      | ❌            | per device   | — hardware keyboard only                                                                    |
@@ -148,15 +148,15 @@ Every table below syncs per field today (`sync/registry.rs`). The gaps are the d
 
 These exist on the desktop and are deliberately not built on mobile. Each needs something a phone doesn't have.
 
-| Feature                          | Why not on mobile                                                                                 |
-| -------------------------------- | ------------------------------------------------------------------------------------------------- |
-| CLI and its install card         | No shell on a phone.                                                                              |
-| Agent files                      | They are read by a coding agent on the computer.                                                  |
-| Tabs, split view, shortcuts, Vim | Keyboard and window concepts. iPad gets the persistent sidebar layout instead of tabs.            |
-| Backups to a folder, restore     | The server holds the account; the desktop keeps its backups.                                      |
-| External calendar overlay        | OAuth client and keychain credentials are per desktop; overlay is read only and not account data. |
-| Office to PDF conversion, OCR    | Need LibreOffice and macOS Vision; the phone hands those files to the system viewer.              |
-| Updater                          | The App Store updates the phone.                                                                  |
+| Feature                       | Why not on mobile                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| CLI and its install card      | No shell on a phone.                                                                              |
+| Agent files                   | They are read by a coding agent on the computer.                                                  |
+| Tabs, split view, shortcuts   | Keyboard and window concepts. iPad gets the persistent sidebar layout instead of tabs.            |
+| Backups to a folder, restore  | The server holds the account; the desktop keeps its backups.                                      |
+| External calendar overlay     | OAuth client and keychain credentials are per desktop; overlay is read only and not account data. |
+| Office to PDF conversion, OCR | Need LibreOffice and macOS Vision; the phone hands those files to the system viewer.              |
+| Updater                       | The App Store updates the phone.                                                                  |
 
 ## Sync and data safety (new)
 

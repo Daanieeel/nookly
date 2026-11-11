@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstNonBlank, nextWordStart, prevWordStart, wordEnd, wordObject } from "./vim-core";
+import { firstNonBlank, nextWordStart, prevWordStart, wordEnd, wordObject } from "./vim-core.ts";
 
 const TEXT = "foo bar.baz  qux";
 //            0123456789012345

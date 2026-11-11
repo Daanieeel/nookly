@@ -146,6 +146,7 @@ export const SETTING_UI = {
     control: { kind: "text", placeholder: "plaintext" },
   },
   "notes.formatCodeOnPaste": { section: "Code", page: "editor", control: { kind: "switch" } },
+  "notes.vimMode": { section: "Editing", page: "editor", control: { kind: "switch" } },
   "notes.arrowLigatures": { section: "Editing", page: "editor", control: { kind: "switch" } },
   "notes.latexMacros": {
     page: "latex",

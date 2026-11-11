@@ -196,25 +196,7 @@ export const SETTINGS = {
   "calendar.snapMinutes": define(SHARED_SETTINGS["calendar.snapMinutes"]),
   "notes.formatCodeOnPaste": define(SHARED_SETTINGS["notes.formatCodeOnPaste"]),
   "notes.latexMacros": define(SHARED_SETTINGS["notes.latexMacros"]),
-  "notes.vimMode": define({
-    id: "notes.vimMode",
-    category: "notes",
-    title: "Vim keys in pages",
-    description:
-      "Edit pages with Vim's modes and keys: normal, insert and visual mode, motions like w and $, operators like d, c and y with text objects, counts, u to undo. Press ? in normal mode for the list. Off, the editor behaves as usual.",
-    synonyms: [
-      "vim",
-      "neovim",
-      "modal",
-      "keybindings",
-      "normal mode",
-      "insert mode",
-      "hjkl",
-      "notes",
-    ],
-    default: false,
-    schema: z.boolean(),
-  }),
+  "notes.vimMode": define(SHARED_SETTINGS["notes.vimMode"]),
   "notes.arrowLigatures": define(SHARED_SETTINGS["notes.arrowLigatures"]),
 };
 

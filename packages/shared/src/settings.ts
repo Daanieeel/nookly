@@ -327,6 +327,25 @@ export const SHARED_SETTINGS = {
     default: true,
     schema: z.boolean(),
   },
+  "notes.vimMode": {
+    id: "notes.vimMode",
+    category: "notes",
+    title: "Vim keys in pages",
+    description:
+      "Edit pages with Vim's modes and keys: normal, insert and visual mode, motions like w and $, operators like d, c and y with text objects, counts, u to undo. Press ? in normal mode for the list. Off, the editor behaves as usual.",
+    synonyms: [
+      "vim",
+      "neovim",
+      "modal",
+      "keybindings",
+      "normal mode",
+      "insert mode",
+      "hjkl",
+      "notes",
+    ],
+    default: false,
+    schema: z.boolean(),
+  },
 } as const satisfies Record<string, SharedSetting<SettingJson>>;
 
 export type SharedSettingId = keyof typeof SHARED_SETTINGS;

@@ -91,7 +91,7 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 
 ## D15. Desktop only features stay desktop only
 
-- **Decision:** CLI, agent files, tabs and split view, keyboard shortcuts, Vim keys, folder backups, Office conversion and OCR are not built on mobile. GAP_ANALYSIS.md lists why for each.
+- **Decision:** CLI, agent files, tabs and split view, keyboard shortcuts, folder backups, Office conversion and OCR are not built on mobile. GAP_ANALYSIS.md lists why for each.
 
 ## D16. One dev stack command
 
@@ -188,7 +188,7 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Decision:** pages follow `PAGES.md` (written from desktop 0.38.3). New pure helpers keep the rules testable: `dashboard-model.ts`, `briefing-runs.ts` (the desktop's sentence), `assignment-view.ts`, `course-stats.ts`, `pinned-groups.ts`. Shared data got `listPageSummaries`, `courseSemesters`, `addFileLink`, `createSessionPage`.
 - **Decided on the way:** a Space's Tasks open as a board on an iPad and a list by status on a phone, the overview as a list by due date; Assignments group by deadline with a round checkbox; the Dashboard's "Show N more" expands in place (no filtered overview to jump to); a link pasted in Files is kept only if it is a Drive, Dropbox or iCloud link or a direct file link, a web page is refused (as on the desktop); a bookmark's page is read after it is saved; a jot's "Refine into New Note" is on its details.
 - **Also built:** the five step semester setup (`SetupSemestersScreen.tsx`, `semester-setup.ts`) and the line of semester averages on Grades.
-- **Not built, on purpose:** restoring a backup on the phone (it would replace the open database; signing in on a new phone brings everything back and never replaces what is there), external calendars, Vim keys, Office conversion and OCR, the PDF paged viewer, series (D19).
+- **Not built, on purpose:** restoring a backup on the phone (it would replace the open database; signing in on a new phone brings everything back and never replaces what is there), external calendars, Office conversion and OCR, the PDF paged viewer, series (D19).
 
 ## D34. A page made on the phone asks for its document again a few times
 
@@ -202,3 +202,10 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Alternatives:** keep the system's form sheet as the one sheet and drive pickers through a route (callbacks through a store, no content sizing, a different look on Android); a sheet library such as `@gorhom/bottom-sheet` (another dependency for what Reanimated already does).
 - **Kept as they are, on purpose:** segmented controls and tabs (layout, calendar view, presets, settings with two or three values, Can view or Can edit), which the desktop also shows in place; the editor's slash and @ menus, which follow the cursor while typing (now with rows a finger tall); the system `Switch`; the block menu of the old rows editor (`PageEditor.tsx`), left out by the user. The native bar buttons now draw Tabler icons from `assets/toolbar/`.
 - **Not verified by touch:** the swipe down to dismiss and the keyboard lift were checked in code and tests, not with a finger (the simulator tooling cannot swipe or type on the soft keyboard).
+
+## D36. Vim keys on the phone: one plugin for both editors
+
+- **Decision:** the desktop's Vim keys moved out of its TipTap extension into a plain ProseMirror plugin in `packages/shared/src/editor/vim.ts` (`vimPlugin({ enabled, undo, redo })`, with `vim-core.ts` and the key list in `vim-keys.ts`). The desktop's `VimMode` extension wraps it; the phone's editor runs it first among its plugins. The setting `notes.vimMode` moved to the shared settings, stays per device (not synced, D9) and is under Settings, Editor, Editing on both. On the phone the mode shows in the editor's corner as on the desktop, and `?` opens the key list in the app's sheet. It needs a hardware keyboard (iPad keyboards, a Bluetooth keyboard); the soft keyboard sends no usable key events.
+- **Alternatives:** a second Vim implementation for the phone (two copies to keep in step); leaving Vim keys desktop only (an iPad with a keyboard is a real writing setup).
+- **Found on the way:** the desktop's Vim cursor styles were lost in an earlier change, so normal mode had no visible block cursor; restored with a test (desktop 0.38.5).
+- **Not verified with a real keyboard:** checked with key events dispatched in the iPad simulator's editor and with tests.

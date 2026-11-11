@@ -24,11 +24,12 @@ export const TOOLBAR = [
 
 export type ToolbarId = (typeof TOOLBAR)[number]["id"];
 
-/// What the editor tells the phone about itself: whether it has the keyboard, and
-/// which of the toolbar's formats are on at the cursor.
+/// What the editor tells the phone about itself: whether it has the keyboard, which of
+/// the toolbar's formats are on at the cursor, and whether Vim's key list was asked for.
 export const editorStateSchema = z.object({
   focused: z.boolean(),
   on: z.partialRecord(z.string(), z.boolean()),
+  vimHelp: z.boolean().optional(),
 });
 
 export type EditorState = z.infer<typeof editorStateSchema>;
