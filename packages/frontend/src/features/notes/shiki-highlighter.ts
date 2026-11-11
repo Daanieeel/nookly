@@ -12,11 +12,9 @@ import { nooklyShikiTheme, NOOKLY_THEME_NAME } from "./shiki-theme";
 /// every other language is tokenized by `twinkleplop-highlighter.ts` instead (see
 /// `highlighter.ts`). `jsonc` stays here because twinkleplop's JSON grammar skips comments
 /// rather than coloring them. Each module embeds its own aliases, so a raw `--language` value
-/// like `c++` or `rb` resolves with no extra mapping.
+/// like `rb` resolves with no extra mapping.
 const LANGUAGE_LOADERS = {
   asm: () => import("@shikijs/langs/asm"),
-  c: () => import("@shikijs/langs/c"),
-  cpp: () => import("@shikijs/langs/cpp"),
   csharp: () => import("@shikijs/langs/csharp"),
   ini: () => import("@shikijs/langs/ini"),
   java: () => import("@shikijs/langs/java"),

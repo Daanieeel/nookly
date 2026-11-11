@@ -59,6 +59,8 @@
     "@tiptap/starter-kit": "^3.32.2",
     "@tiptap/suggestion": "^3.32.2",
     "@twinkleplop/bash": "0.1.7",
+    "@twinkleplop/c": "0.2.1",
+    "@twinkleplop/cpp": "0.2.1",
     "@twinkleplop/css": "0.1.7",
     "@twinkleplop/go": "0.1.7",
     "@twinkleplop/html": "0.1.7",

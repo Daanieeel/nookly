@@ -16,7 +16,7 @@
     },
     "apps/desktop": {
       "name": "@nookly/desktop",
-      "version": "0.61.0",
+      "version": "0.74.1",
       "dependencies": {
         "@nookly/frontend": "workspace:*",
         "@nookly/ui": "workspace:*",
@@ -88,6 +88,8 @@
         "@tiptap/starter-kit": "^3.32.2",
         "@tiptap/suggestion": "^3.32.2",
         "@twinkleplop/bash": "0.1.7",
+        "@twinkleplop/c": "0.2.1",
+        "@twinkleplop/cpp": "0.2.1",
         "@twinkleplop/css": "0.1.7",
         "@twinkleplop/go": "0.1.7",
         "@twinkleplop/html": "0.1.7",
@@ -839,7 +841,11 @@
 
     "@twinkleplop/bash": ["@twinkleplop/bash@0.1.7", "", { "dependencies": { "@twinkleplop/core": "0.3.1" } }, "sha512-/cBFzqKcfffT6aaWlSeUhjoXJS3VhG4Tz1sg1oJILooVlbD3WX2Ke+zRWFLS+GmoXrl8hlQF/ZsMNmila41/Jw=="],
 
+    "@twinkleplop/c": ["@twinkleplop/c@0.2.1", "", { "dependencies": { "@twinkleplop/core": "0.3.1" } }, "sha512-6ci5JLOw6TppOaFemiC5GtojUpB1/4Iw6JF3DVQbXBFna2DeoewJ26QtyHm0Uh+iHmtpY0pfWY0fz5fpjeRTjA=="],
+
     "@twinkleplop/core": ["@twinkleplop/core@0.3.1", "", {}, "sha512-fMbce7NcJlVROsyI34tz3DCWkAWRWLRlBNCbgwz36mm6yoEO09eyafi8JRN5HJGQIzMr0qjXQ3t3asc7MFSh8Q=="],
+
+    "@twinkleplop/cpp": ["@twinkleplop/cpp@0.2.1", "", { "dependencies": { "@twinkleplop/c": "0.2.1", "@twinkleplop/core": "0.3.1" } }, "sha512-npIX8+BmvTzUI5XGbYFgfz3M9Q4TxdNu7wlzS+0rsxqnUXkusQ6iYEvtQh4vjXOQRQywgYrzbgp5A0euKZYLnA=="],
 
     "@twinkleplop/css": ["@twinkleplop/css@0.1.7", "", { "dependencies": { "@twinkleplop/core": "0.3.1" } }, "sha512-eznre7EgC0IBE3/jqAUKXG2S4iWLczOSAxwLnknS+9BQQGuD82u2A2rCok94E+nMpjkeshhbSvnQxDSEo8YpUA=="],
 
