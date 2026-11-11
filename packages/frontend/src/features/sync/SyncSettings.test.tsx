@@ -139,32 +139,30 @@ describe("the Sync settings", () => {
 });
 
 describe("the conflicts summary", () => {
+  /// The count is the sync status's: the device's own conflicts and the ones only the
+  /// server logged, the same list the merge editor shows. It used to read only the
+  /// device's own log, so a conflict the server logged never showed here.
+  const withConflicts = (conflicts: number) =>
+    act(() =>
+      syncRuntime.store.setState({
+        status: { ...syncRuntime.store.getState().status, conflicts },
+      }),
+    );
+
   it("counts the changes that need a look and opens the merge editor", async () => {
-    const conflict = {
-      id: "c1",
-      table: "tasks",
-      pk: "t1",
-      field: "effort",
-      losingValue: 3,
-      losingClock: null,
-      winningClock: null,
-      createdAt: new Date().toISOString(),
-    };
-    vi.spyOn(syncRuntime.engine, "conflicts").mockResolvedValue([
-      conflict,
-      { ...conflict, id: "c2", field: "due_date", losingValue: "2026-10-20" },
-    ]);
     const { user } = await openSync();
+    withConflicts(2);
     expect(await screen.findByText("2 changes need a look.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Review Changes" }));
     expect(useAccountDialog.getState().mergeOpen).toBe(true);
     act(() => useAccountDialog.getState().setMergeOpen(false));
+    withConflicts(0);
     await expectNoA11yViolations();
   });
 
   it("says when there are none", async () => {
-    vi.spyOn(syncRuntime.engine, "conflicts").mockResolvedValue([]);
     await openSync();
+    withConflicts(0);
     expect(await screen.findByText("No conflicts.")).toBeInTheDocument();
   });
 });

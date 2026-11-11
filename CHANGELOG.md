@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.38.6 (2026-11-11)
+
+### Fixed
+
+- **Every change that needs a look is offered.** When two devices changed the same thing at the same moment, the other version was kept but nothing said so. The sync status and Settings now count it, and Review Changes shows it.
+
 ## 0.38.5 (2026-11-11)
 
 ### Fixed

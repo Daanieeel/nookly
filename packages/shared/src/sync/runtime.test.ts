@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { DeviceInfo, SignUp, User } from "../api/index.ts";
+import type { ServerConflict } from "./protocol.ts";
 import type { BlobPlatform } from "./blobs.ts";
 import { NetworkError, type SyncTransport } from "./client.ts";
 import { MemoryServer } from "./testing/memory-server.ts";
@@ -46,8 +47,10 @@ class FakeAccount implements AccountApi {
   async isSignedIn() {
     return this.signedIn;
   }
+  /// What the server's conflict log holds for the account.
+  serverConflicts: ServerConflict[] = [];
   async conflicts() {
-    return [];
+    return this.serverConflicts;
   }
   async resolveConflict() {}
   async devices() {
@@ -397,6 +400,53 @@ describe("conflicts the person decides on", () => {
     expect(mac.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
       { title: "Buy oat milk and eggs" },
     ]);
+    mac.sync.stop();
+    phone.sync.stop();
+  });
+
+  it("counts a conflict only the server logged, so every device offers the merge editor", async () => {
+    // Two devices online changed the same field at the same moment: the server kept the
+    // other version in its log, and no device recorded one of its own. The status said
+    // there was nothing to look at, so the merge editor was never offered.
+    const { sync: mac, account } = runtime();
+    await mac.signIn("https://sync.example.com", "ada", "a long password");
+    await mac.settled();
+    account.serverConflicts = [
+      {
+        id: "00000000-0000-4000-8000-0000000000c1",
+        table: "entities",
+        pk: "t1",
+        field: "title",
+        losingValue: "Buy oat milk",
+        losingClock: "1794422839220-000001-aaaa",
+        winningClock: "1794422839220-000001-bbbb",
+        createdAt: now(),
+      },
+    ];
+    await mac.syncNow();
+    expect(mac.store.getState().status.conflicts).toBe(1);
+    mac.stop();
+  });
+
+  it("counts a conflict both the device and the server logged once", async () => {
+    const { phone, mac } = await disagree();
+    const [own] = phone.driver.rows(
+      "SELECT losing_clock, winning_clock, created_at FROM sync_conflicts",
+    );
+    phone.account.serverConflicts = [
+      {
+        id: "00000000-0000-4000-8000-0000000000c2",
+        table: "entities",
+        pk: "t1",
+        field: "title",
+        losingValue: "Buy oat milk",
+        losingClock: String(own.losing_clock),
+        winningClock: String(own.winning_clock),
+        createdAt: String(own.created_at),
+      },
+    ];
+    await phone.sync.syncNow();
+    expect(phone.sync.store.getState().status.conflicts).toBe(1);
     mac.sync.stop();
     phone.sync.stop();
   });

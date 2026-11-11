@@ -56,6 +56,9 @@ export interface SyncClientOptions {
   /// Runs after every sync that reached the server, with whether remote changes
   /// landed: files, settings and the first sync's progress follow along here.
   afterCycle?: (applied: boolean) => Promise<void>;
+  /// How many conflicts wait for a decision. Without it, the device's own log counts;
+  /// the runtime adds the ones only the server logged.
+  countConflicts?: () => Promise<number>;
   /// How long after a local change the push goes out, so a burst of typing is one push.
   debounceMs?: number;
   /// A full sync every so often, in case a live notice was missed.
@@ -82,6 +85,7 @@ export class SyncClient {
   private readonly onStatus?: (status: SyncStatus) => void;
   private readonly onApplied?: () => void;
   private readonly afterCycle?: (applied: boolean) => Promise<void>;
+  private readonly countConflicts: () => Promise<number>;
   private readonly debounceMs: number;
   private readonly periodMs: number;
   private running: Promise<void> | null = null;
@@ -109,6 +113,8 @@ export class SyncClient {
     this.onStatus = options.onStatus;
     this.onApplied = options.onApplied;
     this.afterCycle = options.afterCycle;
+    this.countConflicts =
+      options.countConflicts ?? (async () => (await this.engine.conflicts()).length);
     this.debounceMs = options.debounceMs ?? 400;
     this.periodMs = options.periodMs ?? 60_000;
   }
@@ -190,7 +196,7 @@ export class SyncClient {
       await this.pushAll();
       applied = (await this.pullAll()) || applied;
       this.failures = 0;
-      const conflicts = (await this.engine.conflicts()).length;
+      const conflicts = await this.countConflicts();
       this.report({
         state: "idle",
         pending: await this.engine.pendingCount(),

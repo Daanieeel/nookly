@@ -513,17 +513,13 @@ function SharedWithMePanel() {
 /// How many changes wait for a decision, and the way into the merge editor.
 function ConflictsPanel() {
   const setMergeOpen = useAccountDialog((state) => state.setMergeOpen);
-  const { data: conflicts = [] } = useQuery({
-    queryKey: qk.sync.conflicts,
-    queryFn: () => syncRuntime.engine.conflicts(),
-  });
-  if (conflicts.length === 0) return <p className="text-xs text-muted-foreground">No conflicts.</p>;
+  // The sync status counts this device's conflicts and the ones only the server logged.
+  const count = useSyncState((s) => s.status.conflicts);
+  if (count === 0) return <p className="text-xs text-muted-foreground">No conflicts.</p>;
   return (
     <div className="flex w-full items-center gap-2">
       <p className="text-xs">
-        {conflicts.length === 1
-          ? "1 change needs a look."
-          : `${conflicts.length} changes need a look.`}
+        {count === 1 ? "1 change needs a look." : `${count} changes need a look.`}
       </p>
       <Button size="sm" className="ml-auto" onClick={() => setMergeOpen(true)}>
         Review Changes

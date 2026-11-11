@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "0.38.6",
+      "date": "2026-11-11",
+      "title": "No change goes unnoticed",
+      "summary": "Changes made on two devices at the same moment are offered for review.",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "When two devices changed the same thing at the same moment, the sync status and Settings now say a change needs a look, and Review Changes shows both versions."
+        ]
+      }
+    },
+    {
       "version": "0.38.5",
       "date": "2026-11-11",
       "title": "Vim cursor is back",

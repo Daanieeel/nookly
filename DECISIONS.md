@@ -209,3 +209,9 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Alternatives:** a second Vim implementation for the phone (two copies to keep in step); leaving Vim keys desktop only (an iPad with a keyboard is a real writing setup).
 - **Found on the way:** the desktop's Vim cursor styles were lost in an earlier change, so normal mode had no visible block cursor; restored with a test (desktop 0.38.5).
 - **Not verified with a real keyboard:** checked with key events dispatched in the iPad simulator's editor and with tests.
+
+## D37. A conflict only the server logged counts like any other
+
+- **Decision:** the sync status's conflict count is the merge editor's list: this device's log plus the server's, without repeats (`SyncRuntime.openConflicts`, passed to `SyncClient` as `countConflicts`). Settings reads the same count. One extra request per sync round, and rounds only run when something changed (D32).
+- **Why:** two devices online that change the same field at the same moment each push before seeing the other; the server keeps the losing value in its log, and no device records one. Nothing was lost, but nothing offered it either.
+- **Alternatives:** the server pushing the conflict to both devices' logs (a protocol change for the same result).

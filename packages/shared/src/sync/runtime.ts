@@ -289,26 +289,39 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       onStatus: (status) => this.store.setState({ status }),
       onApplied: this.deps.onApplied,
       afterCycle: (applied) => this.afterCycle(applied),
+      countConflicts: () => this.openConflicts().then((all) => all.length),
     });
     await this.client.start();
   }
 
-  /// Every conflict nobody decided on yet, from this device's log and the server's,
-  /// described for the merge editor.
-  async conflictViews(): Promise<ConflictView[]> {
+  /// Every conflict nobody decided on yet, from this device's log and the server's: two
+  /// devices online that changed the same field at the same moment leave one only in the
+  /// server's log, and it must still be offered.
+  private async openConflicts(): Promise<AnyConflict[]> {
     const device = await this.engine.conflicts();
     let server: AnyConflict[] = [];
-    let names = new Map<string, string>();
     if (this.api) {
       try {
         server = (await this.api.conflicts()).map((c) => ({ ...c, source: "server" as const }));
+      } catch {
+        // Offline: this device's own conflicts still count.
+      }
+    }
+    return mergeConflictLists(device, server);
+  }
+
+  /// Every open conflict, described for the merge editor.
+  async conflictViews(): Promise<ConflictView[]> {
+    const all = await this.openConflicts();
+    let names = new Map<string, string>();
+    if (this.api) {
+      try {
         names = new Map((await this.api.devices()).map((d) => [d.deviceId, d.name]));
       } catch {
-        // Offline: this device's own conflicts still show.
+        // Offline: devices without a name show as another device.
       }
     }
     const thisDeviceId = await this.engine.deviceId();
-    const all = mergeConflictLists(device, server);
     return Promise.all(
       all.map((c) =>
         describeConflict(this.deps.driver, c, {
