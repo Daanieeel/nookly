@@ -137,13 +137,13 @@ Use a copy of a fixture, never the user's data. Pick unused automation ports (45
 
 ### 6.4 Local test data (disposable)
 
-Dev Postgres holds accounts `ada` (`correct horse battery`, the desktop fixture's 588 items and files) and `grace` (`grace hopper compiler`, created on the iPad from the same data). These are local throwaway fixtures. Fixture task TSK-3 (id `b5c5b4af-0b43-4245-9e1a-385048ef8f0d`) had its title changed by latency probes in both accounts. The iPad simulator is signed in as `ada` now (it had been `grace`; check with `sync.store.getState().user`), the phone as `ada`. `credentials.txt` in the repository root (excluded from git) lists both. The phone's data holds seeded calendar entries for this week and a test page "Math test" (throwaway). The scratchpad folder with fixtures and screenshots is temporary; regenerate fixtures with `tools/fixtures/desktop.ts`.
+Dev Postgres holds accounts `ada` (`correct horse battery`, the desktop fixture's 588 items and files) and `grace` (`grace hopper compiler`, created on the iPad from the same data). These are local throwaway fixtures. Fixture task TSK-3 (id `b5c5b4af-0b43-4245-9e1a-385048ef8f0d`) had its title changed by latency probes in both accounts. The iPad simulator is signed in as `ada` now (it had been `grace`; check with `sync.store.getState().user`), the phone as `ada`. Account `reportdesk` (`report desk password`) was made on 2026-11-11 from a fixture desktop copy (`<scratchpad>/desk`, temporary) for the first sync and merge editor screenshots. `credentials.txt` in the repository root (excluded from git) lists both. The phone's data holds seeded calendar entries for this week and a test page "Math test" (throwaway). The scratchpad folder with fixtures and screenshots is temporary; regenerate fixtures with `tools/fixtures/desktop.ts`.
 
 ## 7. Where work stopped (2026-11-11)
 
-Everything is committed and pushed. Full run on 2026-11-11, all green: `bun run lint`, `format:check`, `typecheck`, `bun run test` (server 85, frontend 2265 plus one expected fail (Vim core tests moved to shared), shared 288, mobile 264), `cargo test` (1251), `duplication` 0.26%.
+Everything is committed and pushed. Full run on 2026-11-11, all green: `bun run lint`, `format:check`, `typecheck`, `bun run test` (server 85, frontend 2265 plus one expected fail (Vim core tests moved to shared), shared 290, mobile 264), `cargo test` (1251), `duplication` 0.26%.
 
-What may still be running (all mine): OrbStack compose containers, `bun run stack` on 3100 (log `/tmp/claude-501/nookly-stack.log`), hub on 4600, Metro on 8092 from this worktree, the iPad Pro 13 simulator booted in dark mode (signed in as `grace`). Stop with: `kill $(lsof -tiTCP:8092 -sTCP:LISTEN)`, same for 4600 and 3100 (also `pkill -f "bun --watch src/index.ts"`), `docker compose stop`, `xcrun simctl shutdown <id>`.
+Nothing of mine is running: containers, server, Metro, hub, simulators and desktop builds were stopped at the end of the session. Start them as in section 6. The user asked to keep running instances few (one desktop, one simulator at a time).
 
 Session of 2026-11-11: I7 Vim keys on the phone (D36). The desktop's Vim plugin now lives in `packages/shared/src/editor/` and both editors run it; the setting `notes.vimMode` moved to the shared settings. The desktop's lost Vim cursor styles are back (desktop 0.38.5). Checked on the iPad simulator with key events dispatched in the editor (dw, u, v e, `?` sheet, close).
 
@@ -163,7 +163,7 @@ History of earlier sessions (compact): phases 1 to 6 done and verified as descri
 
 ## 8. What is left
 
-In order: refresh `REPORT.md`; stop what is running; the not on the phone list in 7 if the user wants any of it; touch checks on a real device.
+In order: `REPORT.md` is refreshed (2026-11-11, in the main checkout); the not on the phone list in 7 if the user wants any of it; touch checks on a real device.
 
 Stub, skip and fragile list for the report (current): Vim keys on the phone need a hardware keyboard and were checked with dispatched key events only; phone files are hashed in memory; "keep both" in the merge editor is text only on desktop and phone alike (D7); series (repeating sessions and calendar entries) are created and edited on the desktop only, the phone edits one occurrence (D19); saved views for Assignments, editor blocks beyond text, tables and formulas, the PDF viewer and restoring a backup are not on the phone; external calendars, CLI, agent files, folder backups, Office conversion, OCR, bookmark screenshots are desktop only by decision (D14, D15); a block type the phone has no editor for becomes a paragraph on import; password reset uses the console mailer stub; OAuth providers are wired but untested without real keys; everything was verified in simulators and debug desktop builds, never on a real phone, and simulator runs are not in CI.
 
