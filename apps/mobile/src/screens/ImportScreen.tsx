@@ -13,6 +13,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTargetSpace } from "./NewScreens.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { CoursePicker } from "./StudyPickers.tsx";
+import { storeBase64 } from "../data/files.ts";
 
 /// What an import would make, as the desktop's import dialog lists it.
 function PreviewCard({ preview }: { preview: ImportPreview }) {
@@ -78,7 +79,8 @@ export function ImportScreen({ spaceId }: { spaceId?: string }) {
   });
   const make = useLocalWrite((db, _: undefined) => {
     if (!space || text === null) throw new Error("Choose a file first.");
-    return importNooklyFile(db, space, text, course);
+    // The Files a version 2 file carries are kept here, like picked ones.
+    return importNooklyFile(db, space, text, course, { storeFile: storeBase64 });
   });
   const preview = read.data?.preview ?? null;
   const needsCourse = preview?.parentType === "course";

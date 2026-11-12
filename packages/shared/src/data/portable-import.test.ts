@@ -299,3 +299,50 @@ describe("files written by the desktop", () => {
     });
   });
 });
+
+describe("a version 2 file with a picture in it", () => {
+  const file = JSON.stringify({
+    format: "nookly-page",
+    version: 2,
+    kind: "note",
+    title: "Lab",
+    blocks: [
+      { type: "image", content: "[cell.png](mention:file1)", attrs: { caption: "A cell" } },
+      { type: "paragraph", content: "Under the microscope", attrs: {} },
+    ],
+    files: [{ id: "file1", name: "cell.png", data: "iVBORw0KGgo=" }],
+  });
+
+  it("keeps the picture as a File of the Space and points the block at it", async () => {
+    const stored: string[] = [];
+    const id = await importNooklyFile(db, space, file, null, {
+      storeFile: async (name, base64) => {
+        stored.push(`${name}:${base64}`);
+        return `file:///files/${name}`;
+      },
+    });
+    expect(stored).toEqual(["cell.png:iVBORw0KGgo="]);
+    const [image, text] = await listBlocks(db, id);
+    expect(image.blockType).toBe("image");
+    const fileId = /mention:([a-z0-9-]+)/.exec(image.content)?.[1];
+    const kept = await first(
+      db,
+      "SELECT local_path, original_filename FROM files WHERE entity_id = ?",
+      fileId ?? "",
+    );
+    expect(kept).toEqual({ local_path: "file:///files/cell.png", original_filename: "cell.png" });
+    expect(text.content).toBe("Under the microscope");
+  });
+
+  it("without a place to keep it, the picture arrives as its name", async () => {
+    const id = await importNooklyFile(db, space, file);
+    const [image] = await listBlocks(db, id);
+    expect(image.blockType).toBe("paragraph");
+    expect(image.content).toBe("cell.png");
+  });
+
+  it("refuses a block that shows a file the document does not hold", async () => {
+    const broken = file.replace("mention:file1", "mention:file9");
+    await expect(importNooklyFile(db, space, broken)).rejects.toThrow("file9");
+  });
+});

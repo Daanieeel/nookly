@@ -89,3 +89,26 @@ export async function storePicked(picked: File): Promise<{ name: string; uri: st
   if (!stored.exists) picked.copy(stored);
   return { name, uri: stored.uri };
 }
+
+/// The bytes of a base64 text, as a Nookly file carries the Files its blocks show.
+export function base64Bytes(base64: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(base64.replace(/\s+/g, ""));
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length));
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/// Stores a File that arrived inside a Nookly file, like a picked one: in this phone's own
+/// folder, named by its contents. Returns where it is, for `importNooklyFile`'s `storeFile`.
+export async function storeBase64(name: string, base64: string): Promise<string> {
+  const folder = new Directory(Paths.document, FILES_FOLDER);
+  folder.create({ intermediates: true, idempotent: true });
+  const bytes = base64Bytes(base64);
+  const sha = hex(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes));
+  const stored = new File(folder, `${sha.slice(0, 12)}-${safeName(name)}`);
+  if (!stored.exists) {
+    stored.create();
+    stored.write(bytes);
+  }
+  return stored.uri;
+}
