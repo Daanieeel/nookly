@@ -1,3 +1,4 @@
+import { useIsFocused } from "expo-router";
 import { View } from "react-native";
 import { useSyncState } from "../data/context.tsx";
 import {
@@ -14,6 +15,7 @@ import {
 } from "../data/queries.ts";
 import { useSetting } from "../data/settings.ts";
 import { Section, Empty } from "../ui/Row.tsx";
+import { Mascot } from "../ui/Mascot.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
@@ -127,14 +129,19 @@ export function DashboardScreen() {
   });
 
   const wide = usePaneWidth() >= WIDE_DASHBOARD;
+  const focused = useIsFocused();
   const page = (
     <>
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide={wide}>
         <View className="gap-2">
-          <Text variant="small" tone="muted">
-            {date}
-            {syncState === "offline" ? ". Offline, changes sync later." : ""}
-          </Text>
+          {/* The desktop's corner mascot, beside the day it greets. */}
+          <View className="flex-row items-end gap-3">
+            <Text variant="small" tone="muted" className="flex-1 pb-1">
+              {date}
+              {syncState === "offline" ? ". Offline, changes sync later." : ""}
+            </Text>
+            <Mascot size={64} animate={focused} />
+          </View>
           <DashboardBriefing briefing={briefing} open={open} />
         </View>
         <AssignmentsPanel

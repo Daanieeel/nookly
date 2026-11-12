@@ -65,6 +65,12 @@ describe("the dashboard", () => {
     expect(await screen.findByRole("button", { name: "Sheet 3" })).toBeTruthy();
   });
 
+  // The desktop's Dashboard has the mascot in its top right corner.
+  it("greets with the mascot", async () => {
+    const screen = await renderScreens({ index: () => <DashboardScreen /> }, testData());
+    expect(await screen.findByTestId("mascot", { includeHiddenElements: true })).toBeTruthy();
+  });
+
   // A general page: a + there would only ever make a task, which reads as misleading.
   it("has no New Task button in its bar", async () => {
     const data = testData();

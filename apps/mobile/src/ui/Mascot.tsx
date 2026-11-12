@@ -6,6 +6,7 @@ import {
   subscribeToMascotEmotion,
 } from "@nookly/frontend/lib/mascot";
 import { useSyncExternalStore } from "react";
+import { View } from "react-native";
 import { useReduceMotion } from "./reduce-motion.ts";
 
 /// The mascot, the desktop's (`MascotFigure`): today's blob, the same on every screen and
@@ -15,13 +16,19 @@ export function Mascot({ size, animate = true }: { size: number; animate?: boole
   const index = useSyncExternalStore(subscribeToMascotEmotion, mascotEmotionIndex);
   const still = useReduceMotion();
   return (
-    <AnimatedBlobatar
-      name={mascotName()}
-      size={size}
-      animate={animate && !still}
-      expression={MASCOT_EMOTIONS[index]}
+    <View
+      testID="mascot"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-    />
+    >
+      <AnimatedBlobatar
+        name={mascotName()}
+        size={size}
+        animate={animate && !still}
+        expression={MASCOT_EMOTIONS[index]}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
+    </View>
   );
 }
