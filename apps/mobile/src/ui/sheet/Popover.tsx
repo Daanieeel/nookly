@@ -15,7 +15,14 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { FADE, SPRING } from "../motion.ts";
+import { useReduceMotion } from "../reduce-motion.ts";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { SheetCloser } from "./Sheet.tsx";
 
@@ -88,8 +95,27 @@ export function Popover({
     );
   }, [open, anchor, screen.height]);
 
+  // It grows out of its trigger on a spring, as iOS's menus do; a fade under Reduce Motion.
+  const ready = open && box !== null && height > 0;
+  const still = useReduceMotion();
+  const grow = useSharedValue(0);
+  useEffect(() => {
+    if (!ready) {
+      grow.value = 0;
+      return;
+    }
+    grow.value = still ? withTiming(1, { duration: FADE.in }) : withSpring(1, SPRING.menu);
+  }, [ready, still, grow]);
+  const floorNow = screen.height - Math.max(insets.bottom, keyboard) - EDGE;
+  const opensDown =
+    (box?.y ?? 0) + (box?.height ?? 0) + GAP + Math.min(height, screen.height * 0.6) <= floorNow;
+  const motion = useAnimatedStyle(() => ({
+    opacity: Math.min(1, grow.value * 1.6),
+    transform: [{ scale: still ? 1 : 0.86 + 0.14 * grow.value }],
+    transformOrigin: opensDown ? "top left" : "bottom left",
+  }));
+
   if (!open) return null;
-  const ready = box !== null && height > 0;
   const width = Math.min(Math.max(box?.width ?? 0, MIN_WIDTH), screen.width - EDGE * 2);
   const left = Math.min(Math.max(box?.x ?? EDGE, EDGE), screen.width - EDGE - width);
   // Under its trigger, else above it, and always clear of the keyboard.
@@ -115,7 +141,7 @@ export function Popover({
         style={StyleSheet.absoluteFill}
       />
       {/* Placed once it and its trigger are measured, so it never shows in the wrong place;
-          then it fades in. */}
+          then it grows out of the trigger. */}
       <View
         accessibilityViewIsModal
         accessibilityLabel={label}
@@ -129,9 +155,7 @@ export function Popover({
         }}
       >
         <Animated.View
-          key={ready ? "shown" : "measuring"}
-          entering={ready ? FadeIn.duration(120) : undefined}
-          style={{ maxHeight }}
+          style={[{ maxHeight }, motion]}
           className="rounded-lg border border-border bg-popover p-1 shadow-lg"
         >
           <SheetCloser close={close}>
