@@ -374,17 +374,7 @@ export default function PageEditorDom({
       },
       handleClick(e: EditorView, pos: number, event: MouseEvent) {
         const target = event.target instanceof HTMLElement ? event.target : null;
-        // A tap in the blank space under the text: the cursor goes to a free line at the end.
-        const last = e.dom.lastElementChild;
-        if (
-          editableRef.current &&
-          target === e.dom &&
-          (!last || event.clientY > last.getBoundingClientRect().bottom)
-        ) {
-          toNextFreeLine(e.state, e.dispatch);
-          e.focus();
-          return true;
-        }
+
         const link = target?.closest("a");
         if (link?.getAttribute("href")) {
           event.preventDefault();
@@ -420,9 +410,22 @@ export default function PageEditorDom({
       focused.current = false;
       report(editor);
     };
+    // A tap in the blank space under the text: the cursor goes to a free line at the end.
+    const tapBelow = (event: MouseEvent) => {
+      const last = editor.dom.lastElementChild;
+      const below = !last || event.clientY > last.getBoundingClientRect().bottom;
+      if (!editableRef.current || !below) return;
+      if (event.target !== editor.dom && event.target !== host.current) return;
+      event.preventDefault();
+      toNextFreeLine(editor.state, editor.dispatch);
+      editor.focus();
+    };
+    const box = host.current;
+    box.addEventListener("click", tapBelow);
     editor.dom.addEventListener("focus", focusIn);
     editor.dom.addEventListener("blur", focusOut);
     return () => {
+      box.removeEventListener("click", tapBelow);
       editor.destroy();
       view.current = null;
     };
