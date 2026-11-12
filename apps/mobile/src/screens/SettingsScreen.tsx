@@ -175,7 +175,10 @@ export function SettingsScreen() {
                           <IconChevronRight size={16} color={theme.colors.mutedForeground} />
                         ) : undefined
                       }
-                      onPress={link.href ? () => router.push(link.href as never) : undefined}
+                      onPress={
+                        // SAFETY: every `href` in NAV_GROUPS is a route under `src/app/settings`.
+                        link.href ? () => router.push(link.href as never) : undefined
+                      }
                     />
                   </View>
                 );
