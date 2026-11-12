@@ -1,6 +1,7 @@
 import { buttonVariants } from "@nookly/ui/classes";
 import { createContext, useContext } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { AnimatedPressable, usePressScale } from "./press.ts";
 import { cn, row, splitText } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { CONTROL_SIZE, MIN_TOUCH, TOUCH_GAP, touchSlop } from "./touch.ts";
@@ -30,20 +31,23 @@ export function Chip({
   const { box, text } = splitText(
     row(buttonVariants({ variant: selected ? "default" : "secondary", size: "sm" })),
   );
+  const press = usePressScale();
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole={multiple ? "checkbox" : "radio"}
       accessibilityState={{ checked: selected, disabled }}
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
       hitSlop={touchSlop(CONTROL_SIZE.chip, MIN_TOUCH)}
-      style={{ height: CONTROL_SIZE.chip }}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={[{ height: CONTROL_SIZE.chip }, press.style]}
       className={cn(box, stretch && "flex-1", "active:opacity-80")}
     >
       {icon}
       <Text className={cn(text, "text-sm")}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 

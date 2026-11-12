@@ -2,11 +2,12 @@ import { buttonVariants } from "@nookly/ui/classes";
 import { IconAlertTriangle, IconCheck } from "@tabler/icons-react-native";
 import type { VariantProps } from "class-variance-authority";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, type PressableProps, View } from "react-native";
+import { ActivityIndicator, type PressableProps, View } from "react-native";
 import { cn, row, splitText } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
+import { AnimatedPressable, usePressScale } from "./press.ts";
 
 export type ButtonStatus = "idle" | "pending" | "success" | "error";
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
@@ -74,6 +75,7 @@ export function Button({
 }: ButtonProps) {
   const theme = useTheme();
   const foreground = useForeground(variant);
+  const press = usePressScale();
   const [showSuccess, setShowSuccess] = useState(false);
   useEffect(() => {
     if (status !== "success") return;
@@ -85,14 +87,22 @@ export function Button({
   const shown =
     status === "error" ? (errorLabel ?? label) : showSuccess ? (successLabel ?? label) : label;
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={shown}
       accessibilityState={{ disabled: !!disabled, busy: status === "pending" }}
       disabled={disabled || status === "pending"}
       hitSlop={slopFor(size)}
       {...props}
-      style={drawnAt(size)}
+      onPressIn={(event) => {
+        press.onPressIn();
+        props.onPressIn?.(event);
+      }}
+      onPressOut={(event) => {
+        press.onPressOut();
+        props.onPressOut?.(event);
+      }}
+      style={[drawnAt(size), press.style]}
       className={cn(box, "active:opacity-80")}
     >
       {status === "pending" ? (
@@ -118,7 +128,7 @@ export function Button({
           {shown}
         </Text>
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -135,16 +145,19 @@ export function IconButton({
   onPress: () => void;
   size?: "icon" | "iconSm";
 }) {
+  const press = usePressScale();
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={slopFor(size)}
       onPress={onPress}
-      style={drawnAt(size)}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={[drawnAt(size), press.style]}
       className={cn(row(buttonVariants({ variant: "ghost", size })), "active:bg-accent")}
     >
       <View pointerEvents="none">{icon}</View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
