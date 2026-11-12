@@ -59,8 +59,8 @@ export function DashboardBriefing({
   );
 }
 
-/// The words between the counts, faded like the desktop's.
-const GLUE = "text-muted-foreground";
+/// The words between the counts, faded as on the desktop (`text-foreground/45`).
+const GLUE = "text-foreground/45";
 /// A count, time or day.
 const TOKEN = "font-semibold text-foreground";
 /// An item's name: bold on the accent surface, the desktop's pill as far as text allows.

@@ -8,6 +8,8 @@ import tailwind from "@tailwindcss/postcss";
 import { buttonVariants } from "@nookly/ui/classes";
 import postcss from "postcss";
 import { compile } from "react-native-css/compiler";
+// The phone's own resolver of `color-mix()`, the function behind every faded colour.
+import { colorMix } from "../../node_modules/react-native-css/src/native/styles/functions/color-mix.ts";
 
 const from = join(import.meta.dir, "src/global.css");
 const css = (await postcss([tailwind()]).process(readFileSync(from, "utf8"), { from })).css;
@@ -21,6 +23,17 @@ function rules(name: string): string {
 }
 
 describe("the phone's styles", () => {
+  it("fade a colour as the desktop does (`border-border/60`), never to black", () => {
+    // The compiler ends a `color-mix()` with an empty argument; react-native-css 3.1.0-rc.0
+    // gave up on it, so every faded colour (hairlines, muted text) came out black.
+    // The arguments as compiled, with the theme's colour in place of `var(--border)`.
+    const mix = rules("border-border/60").match(/\["oklab",\[\{\},"var","border",1\],([^\]]*)\]/);
+    expect(mix).not.toBeNull();
+    const args = JSON.parse(`["oklab","#2a2a2a",${mix?.[1]}]`) as unknown[];
+    const resolved = colorMix((v: unknown) => v, [{}, "colorMix", args] as never);
+    expect(resolved).toBe("rgba(42, 42, 42, 0.6)");
+  });
+
   it("size things as the desktop does", () => {
     expect(rules("h-9")).toContain('"height":36');
     expect(rules("text-sm")).toContain('"fontSize":14');

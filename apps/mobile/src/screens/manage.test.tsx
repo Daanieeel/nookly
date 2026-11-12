@@ -1,3 +1,4 @@
+import { openRow } from "../test/sheet.ts";
 import {
   createPage,
   createSpace,
@@ -52,11 +53,11 @@ describe("a task's effort and sub-tasks", () => {
       data,
       `/entity/${task}`,
     );
-    await fireEvent.press(await screen.findByRole("button", { name: /^Effort, / }));
+    await openRow(screen, "Effort");
     await fireEvent.press(await screen.findByRole("radio", { name: "M" }));
     await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBe(3));
     // The row shows the estimate once the page has it.
-    await fireEvent.press(await screen.findByRole("button", { name: "Effort, M" }));
+    await fireEvent.press((await screen.findAllByRole("button", { name: "Effort, M" }))[0]);
     await fireEvent.press(await screen.findByRole("radio", { name: "None" }));
     await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBeNull());
   });

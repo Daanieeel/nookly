@@ -1,0 +1,39 @@
+diff --git a/dist/commonjs/native/styles/functions/color-mix.js b/dist/commonjs/native/styles/functions/color-mix.js
+index 7c099e6560d5805c7c159fa54c07d6e48b1ab549..22b38e297212364fbe76b10fb640198025e5cb65 100644
+--- a/dist/commonjs/native/styles/functions/color-mix.js
++++ b/dist/commonjs/native/styles/functions/color-mix.js
+@@ -14,6 +14,8 @@ const colorMix = (resolveValue, value) => {
+ 
+   // Resolved descriptors may be cached and shared by another styled component.
+   const args = [...resolved];
++    // The compiler ends the arguments with an empty one; it is not a colour.
++    while (args.length > 0 && args[args.length - 1] == null) args.pop();
+   try {
+     const space = args.shift();
+     const leftValue = args.shift();
+diff --git a/dist/module/native/styles/functions/color-mix.js b/dist/module/native/styles/functions/color-mix.js
+index 4cdd49dc3d602ea98b70e6079d111b9cc5d5ed37..eb42c46e51fc33b12d8b306064b29fa911a659f9 100644
+--- a/dist/module/native/styles/functions/color-mix.js
++++ b/dist/module/native/styles/functions/color-mix.js
+@@ -10,6 +10,8 @@ export const colorMix = (resolveValue, value) => {
+ 
+   // Resolved descriptors may be cached and shared by another styled component.
+   const args = [...resolved];
++    // The compiler ends the arguments with an empty one; it is not a colour.
++    while (args.length > 0 && args[args.length - 1] == null) args.pop();
+   try {
+     const space = args.shift();
+     const leftValue = args.shift();
+diff --git a/src/native/styles/functions/color-mix.ts b/src/native/styles/functions/color-mix.ts
+index c134e49757de6723a04c3f6b4084a1bb65da1004..be1096228934bc482b3a368a9eda19a9ec1ec74b 100644
+--- a/src/native/styles/functions/color-mix.ts
++++ b/src/native/styles/functions/color-mix.ts
+@@ -20,6 +20,8 @@ export const colorMix: StyleFunctionResolver = (resolveValue, value) => {
+ 
+   // Resolved descriptors may be cached and shared by another styled component.
+   const args: unknown[] = [...(resolved as unknown[])];
++  // The compiler ends the arguments with an empty one; it is not a colour.
++  while (args.length > 0 && args[args.length - 1] == null) args.pop();
+   try {
+     const space = args.shift();
+     const leftValue = args.shift();

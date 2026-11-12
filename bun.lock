@@ -326,6 +326,9 @@
       },
     },
   },
+  "patchedDependencies": {
+    "react-native-css@3.1.0-rc.0": "patches/react-native-css@3.1.0-rc.0.patch",
+  },
   "overrides": {
     "@xmldom/xmldom": "0.9.12",
     "lightningcss": "1.30.1",
