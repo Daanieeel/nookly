@@ -26,7 +26,7 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
-import { choose, pickDay, pickDayInSheet, pickTime } from "../test/sheet.ts";
+import { choose, openRow, pickDay, pickDayInSheet, pickTime } from "../test/sheet.ts";
 import { ConflictBadge } from "./ConflictBadge.tsx";
 import { MergeEditor } from "./MergeEditor.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
@@ -271,7 +271,7 @@ describe("an assignment's due date", () => {
       data,
       `/entity/${assignment}`,
     );
-    await fireEvent.press(await screen.findByRole("button", { name: /^Due date, / }));
+    await openRow(screen, "Due date");
     await fireEvent.press(await screen.findByRole("button", { name: "Before session" }));
     // A step of the same sheet, with a way back.
     expect(await screen.findByRole("button", { name: "Back" })).toBeTruthy();
@@ -282,13 +282,13 @@ describe("an assignment's due date", () => {
         dueDate: "2999-03-09",
       }),
     );
-    await fireEvent.press(await screen.findByRole("button", { name: /^Due date, / }));
+    await openRow(screen, "Due date");
     await fireEvent.press(await screen.findByRole("button", { name: "Before session" }));
     await fireEvent.press(await screen.findByRole("radio", { name: "1 week" }));
     await waitFor(async () =>
       expect((await getAssignment(data.db, assignment))?.dueDate).toBe("2999-03-03"),
     );
-    await fireEvent.press(await screen.findByRole("button", { name: /^Due date, / }));
+    await openRow(screen, "Due date");
     await fireEvent.press(await screen.findByRole("button", { name: "Specific date" }));
     const day = `${new Date().toISOString().slice(0, 7)}-15`;
     await pickDayInSheet(screen, day);

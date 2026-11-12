@@ -30,7 +30,7 @@ import {
   useTasks,
 } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { AtAGlance, DetailsPart, MainPart, usePropertyLook } from "../ui/parts.tsx";
+import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty } from "../ui/property-rows.tsx";
 import { Section } from "../ui/Row.tsx";
@@ -121,11 +121,8 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
   const effort = useLocalWrite((db, value: number | null) => setTaskEffort(db, id, value));
   const [scale] = useSetting("general.effortScale");
   const repeat = useLocalWrite((db, rule: RepeatRule | null) => setTaskRepeat(db, id, rule));
-  const look = usePropertyLook();
   if (!task) return null;
   const muted = theme.colors.mutedForeground;
-  // At a glance the icons sit in chips beside their text, as small as the desktop's.
-  const size = look === "chip" ? 16 : 20;
   const finished = (statuses.find((s) => s.id === task.statusId)?.doneness ?? 0) >= 100;
   const late = !finished && task.dueDate !== null && task.dueDate.slice(0, 10) < localDay();
   const repeatId =
@@ -133,7 +130,7 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
   return (
     <PropertyList>
       <ChoiceProperty
-        icon={<IconCircleDot size={size} color={muted} />}
+        icon={<IconCircleDot size={20} color={muted} />}
         label="Status"
         value={task.statusId}
         readOnly={readOnly}
@@ -145,7 +142,7 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(statusId) => status.mutate(statusId)}
       />
       <ChoiceProperty
-        icon={<IconGauge size={size} color={muted} />}
+        icon={<IconGauge size={20} color={muted} />}
         label="Effort"
         value={task.effort === null ? "none" : String(task.effort)}
         readOnly={readOnly}
@@ -160,14 +157,14 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}
       />
       <DayProperty
-        icon={<IconCalendarPlus size={size} color={muted} />}
+        icon={<IconCalendarPlus size={20} color={muted} />}
         label="Start date"
         value={task.startDate}
         readOnly={readOnly}
         onChange={(day) => start.mutate(day)}
       />
       <DayProperty
-        icon={<IconCalendarDue size={size} color={late ? theme.colors.destructive : muted} />}
+        icon={<IconCalendarDue size={20} color={late ? theme.colors.destructive : muted} />}
         label="Due date"
         value={task.dueDate}
         valueTone={late ? "destructive" : undefined}
@@ -179,7 +176,7 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(day) => dates.mutate(day)}
       />
       <ChoiceProperty
-        icon={<IconRepeat size={size} color={muted} />}
+        icon={<IconRepeat size={20} color={muted} />}
         label="Repeat"
         value={repeatId}
         readOnly={readOnly}

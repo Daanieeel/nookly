@@ -47,7 +47,7 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { DetailsPart, MainPart } from "../ui/parts.tsx";
+import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty, TextRow } from "../ui/property-rows.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
@@ -84,8 +84,47 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
   );
   const cancel = useLocalWrite((db, cancelled: boolean) => overrideSession(db, id, { cancelled }));
   if (!session) return null;
+  const properties = (
+    <PropertyList>
+      <DayProperty
+        icon={<IconCalendarEvent size={20} color={muted} />}
+        label="Day"
+        clearable={false}
+        value={session.date}
+        readOnly={readOnly}
+        onChange={(date) => date && patch.mutate({ date })}
+      />
+      <DayProperty
+        icon={<IconClock size={20} color={muted} />}
+        label="Starts"
+        mode="time"
+        clearable={false}
+        value={session.startTime}
+        readOnly={readOnly}
+        onChange={(startTime) => startTime && patch.mutate({ startTime })}
+      />
+      <DayProperty
+        icon={<IconClock size={20} color={muted} />}
+        label="Ends"
+        mode="time"
+        clearable={false}
+        value={session.endTime}
+        readOnly={readOnly}
+        onChange={(endTime) => endTime && patch.mutate({ endTime })}
+      />
+      <TextRow
+        icon={<IconMapPin size={20} color={muted} />}
+        label="Where"
+        value={session.location}
+        readOnly={readOnly}
+        placeholder="Room 5"
+        onSave={(location) => patch.mutate({ location })}
+      />
+    </PropertyList>
+  );
   return (
     <>
+      <AtAGlance>{properties}</AtAGlance>
       <MainPart>
         <SessionNotes
           value={session.notes}
@@ -113,42 +152,7 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
             </Text>
           ) : null}
           {session.cancelled ? <Text tone="caution">Cancelled</Text> : null}
-          <PropertyList>
-            <DayProperty
-              icon={<IconCalendarEvent size={20} color={muted} />}
-              label="Day"
-              clearable={false}
-              value={session.date}
-              readOnly={readOnly}
-              onChange={(date) => date && patch.mutate({ date })}
-            />
-            <DayProperty
-              icon={<IconClock size={20} color={muted} />}
-              label="Starts"
-              mode="time"
-              clearable={false}
-              value={session.startTime}
-              readOnly={readOnly}
-              onChange={(startTime) => startTime && patch.mutate({ startTime })}
-            />
-            <DayProperty
-              icon={<IconClock size={20} color={muted} />}
-              label="Ends"
-              mode="time"
-              clearable={false}
-              value={session.endTime}
-              readOnly={readOnly}
-              onChange={(endTime) => endTime && patch.mutate({ endTime })}
-            />
-            <TextRow
-              icon={<IconMapPin size={20} color={muted} />}
-              label="Where"
-              value={session.location}
-              readOnly={readOnly}
-              placeholder="Room 5"
-              onSave={(location) => patch.mutate({ location })}
-            />
-          </PropertyList>
+          {properties}
           {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
           {!readOnly ? (
             <View className="items-start">

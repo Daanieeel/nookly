@@ -12,7 +12,7 @@ import { useDb, useLocalWrite } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
-import { DetailsPart, MainPart } from "../ui/parts.tsx";
+import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty, InfoRow, TextRow } from "../ui/property-rows.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -49,8 +49,75 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
       description: item.description ?? null,
       ...patch,
     });
+  const properties = (
+    <PropertyList>
+      <DayProperty
+        icon={<IconCalendarEvent size={20} color={muted} />}
+        label="Date"
+        clearable={false}
+        value={item.date}
+        readOnly={readOnly}
+        onChange={(date) => date && change({ date })}
+      />
+      <DayProperty
+        icon={<IconCalendarEvent size={20} color={muted} />}
+        label="Last day"
+        placeholder="Only this day"
+        value={item.endDate ?? null}
+        readOnly={readOnly}
+        onChange={(endDate) => change({ endDate })}
+      />
+      <ChoiceProperty
+        icon={<IconSun size={20} color={muted} />}
+        label="All day"
+        value={item.allDay ? "yes" : "no"}
+        readOnly={readOnly}
+        options={[
+          { id: "yes", label: "Yes" },
+          { id: "no", label: "No" },
+        ]}
+        onChange={(value) => change({ allDay: value === "yes" })}
+      />
+      {item.allDay ? (
+        <InfoRow icon={<IconClock size={20} color={muted} />} label="Time" value="All day" />
+      ) : (
+        <DayProperty
+          icon={<IconClock size={20} color={muted} />}
+          label="Starts"
+          mode="time"
+          value={item.startTime}
+          readOnly={readOnly}
+          onChange={(startTime) => change({ startTime })}
+        />
+      )}
+      {item.allDay ? null : (
+        <DayProperty
+          icon={<IconClock size={20} color={muted} />}
+          label="Ends"
+          mode="time"
+          value={item.endTime}
+          readOnly={readOnly}
+          onChange={(endTime) => change({ endTime })}
+        />
+      )}
+      <TextRow
+        icon={<IconMapPin size={20} color={muted} />}
+        label="Where"
+        value={item.location}
+        readOnly={readOnly}
+        placeholder="Room 2"
+        onSave={(location) => change({ location })}
+      />
+      <InfoRow
+        icon={<IconCalendarEvent size={20} color={muted} />}
+        label="Repeats"
+        value={item.templateId ? "A series" : "Never"}
+      />
+    </PropertyList>
+  );
   return (
     <>
+      <AtAGlance>{properties}</AtAGlance>
       <MainPart>
         <View className="gap-3">
           {item.templateId ? (
@@ -73,70 +140,7 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
       </MainPart>
       <DetailsPart>
         <View className="gap-3">
-          <PropertyList>
-            <DayProperty
-              icon={<IconCalendarEvent size={20} color={muted} />}
-              label="Date"
-              clearable={false}
-              value={item.date}
-              readOnly={readOnly}
-              onChange={(date) => date && change({ date })}
-            />
-            <DayProperty
-              icon={<IconCalendarEvent size={20} color={muted} />}
-              label="Last day"
-              placeholder="Only this day"
-              value={item.endDate ?? null}
-              readOnly={readOnly}
-              onChange={(endDate) => change({ endDate })}
-            />
-            <ChoiceProperty
-              icon={<IconSun size={20} color={muted} />}
-              label="All day"
-              value={item.allDay ? "yes" : "no"}
-              readOnly={readOnly}
-              options={[
-                { id: "yes", label: "Yes" },
-                { id: "no", label: "No" },
-              ]}
-              onChange={(value) => change({ allDay: value === "yes" })}
-            />
-            {item.allDay ? (
-              <InfoRow icon={<IconClock size={20} color={muted} />} label="Time" value="All day" />
-            ) : (
-              <DayProperty
-                icon={<IconClock size={20} color={muted} />}
-                label="Starts"
-                mode="time"
-                value={item.startTime}
-                readOnly={readOnly}
-                onChange={(startTime) => change({ startTime })}
-              />
-            )}
-            {item.allDay ? null : (
-              <DayProperty
-                icon={<IconClock size={20} color={muted} />}
-                label="Ends"
-                mode="time"
-                value={item.endTime}
-                readOnly={readOnly}
-                onChange={(endTime) => change({ endTime })}
-              />
-            )}
-            <TextRow
-              icon={<IconMapPin size={20} color={muted} />}
-              label="Where"
-              value={item.location}
-              readOnly={readOnly}
-              placeholder="Room 2"
-              onSave={(location) => change({ location })}
-            />
-            <InfoRow
-              icon={<IconCalendarEvent size={20} color={muted} />}
-              label="Repeats"
-              value={item.templateId ? "A series" : "Never"}
-            />
-          </PropertyList>
+          {properties}
           {save.error ? <Text tone="destructive">{save.error.message}</Text> : null}
           {!readOnly ? (
             <View className="items-start">

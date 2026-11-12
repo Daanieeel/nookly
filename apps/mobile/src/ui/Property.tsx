@@ -1,6 +1,6 @@
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconSelector } from "@tabler/icons-react-native";
-import { Children, type ReactNode } from "react";
+import { Children, cloneElement, isValidElement, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { cn } from "./classes.ts";
 import { Text } from "./Text.tsx";
@@ -35,6 +35,11 @@ export function PropertyList({ children }: { children: ReactNode }) {
 /// A property at a glance: as tall as the desktop's property value (`h-7`) plus a little,
 /// its hit area grown to a finger's.
 const CHIP_HEIGHT = 32;
+
+/// A row's icon at a chip's size, the desktop's 16 points beside text.
+function chipIcon(icon: ReactNode): ReactNode {
+  return isValidElement<{ size?: number }>(icon) ? cloneElement(icon, { size: 16 }) : icon;
+}
 
 /// One property: an icon, its name, its value on the right. With `onPress` it opens its
 /// picker (a sheet).
@@ -74,7 +79,7 @@ export function Property({
         style={{ height: CHIP_HEIGHT }}
         className="flex-row items-center gap-1.5 rounded-md border border-border px-2.5 active:bg-accent/60"
       >
-        {valueIcon ?? icon}
+        {valueIcon ?? chipIcon(icon)}
         <Text tone={empty ? "muted" : (valueTone ?? "default")} numberOfLines={1}>
           {empty ? label : value}
         </Text>

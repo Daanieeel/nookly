@@ -55,7 +55,7 @@ import { DayPicker } from "../ui/sheet/DayPicker.tsx";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { useSheet } from "../ui/sheet/Sheet.tsx";
 import { TOUCH_ROW } from "../ui/touch.ts";
-import { DetailsPart, MainPart } from "../ui/parts.tsx";
+import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import {
   ChoiceProperty,
   DayProperty,
@@ -203,72 +203,74 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
   const course = useLocalWrite((db, courseId: string) => setExamCourse(db, id, courseId));
   if (!exam) return null;
   const muted = theme.colors.mutedForeground;
+  const properties = (
+    <PropertyList>
+      <ChoiceProperty
+        icon={<IconCircleDot size={20} color={muted} />}
+        label="Status"
+        value={exam.status}
+        readOnly={readOnly}
+        options={statusOptions(EXAM_STATUSES)}
+        onChange={(status) => update.mutate({ status })}
+      />
+      <CourseProperty
+        icon={<IconSchool size={20} color={muted} />}
+        spaceId={exam.entity.spaceId}
+        value={exam.courseId}
+        readOnly={readOnly}
+        onChange={(courseId) => course.mutate(courseId)}
+      />
+      <DayProperty
+        icon={<IconCalendarEvent size={20} color={muted} />}
+        label="Day"
+        value={exam.examDate}
+        readOnly={readOnly}
+        onChange={(examDate) => update.mutate({ examDate })}
+      />
+      <DayProperty
+        icon={<IconClock size={20} color={muted} />}
+        label="Time"
+        mode="time"
+        placeholder="All day"
+        value={exam.examTime}
+        readOnly={readOnly}
+        onChange={(examTime) => update.mutate({ examTime })}
+      />
+      <TextRow
+        icon={<IconDoor size={20} color={muted} />}
+        label="Room"
+        value={exam.room}
+        readOnly={readOnly}
+        placeholder="H 0104"
+        onSave={(room) => update.mutate({ room })}
+      />
+      <NumberRow
+        icon={<IconPercentage size={20} color={muted} />}
+        label="Weight (%)"
+        value={weightPercent(exam.weight)}
+        readOnly={readOnly}
+        placeholder="20"
+        onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
+      />
+      <NumberRow
+        icon={<IconAward size={20} color={muted} />}
+        label="Grade"
+        value={exam.grade}
+        readOnly={readOnly}
+        placeholder="1.7"
+        onSave={(grade) => update.mutate({ grade })}
+      />
+    </PropertyList>
+  );
   return (
     <>
+      <AtAGlance>{properties}</AtAGlance>
       <MainPart>
         <PageEditor entityId={id} readOnly={readOnly} live={false} />
         <ExamDecks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
         <ExamStudyBlocks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
       </MainPart>
-      <DetailsPart>
-        <PropertyList>
-          <ChoiceProperty
-            icon={<IconCircleDot size={20} color={muted} />}
-            label="Status"
-            value={exam.status}
-            readOnly={readOnly}
-            options={statusOptions(EXAM_STATUSES)}
-            onChange={(status) => update.mutate({ status })}
-          />
-          <CourseProperty
-            icon={<IconSchool size={20} color={muted} />}
-            spaceId={exam.entity.spaceId}
-            value={exam.courseId}
-            readOnly={readOnly}
-            onChange={(courseId) => course.mutate(courseId)}
-          />
-          <DayProperty
-            icon={<IconCalendarEvent size={20} color={muted} />}
-            label="Day"
-            value={exam.examDate}
-            readOnly={readOnly}
-            onChange={(examDate) => update.mutate({ examDate })}
-          />
-          <DayProperty
-            icon={<IconClock size={20} color={muted} />}
-            label="Time"
-            mode="time"
-            placeholder="All day"
-            value={exam.examTime}
-            readOnly={readOnly}
-            onChange={(examTime) => update.mutate({ examTime })}
-          />
-          <TextRow
-            icon={<IconDoor size={20} color={muted} />}
-            label="Room"
-            value={exam.room}
-            readOnly={readOnly}
-            placeholder="H 0104"
-            onSave={(room) => update.mutate({ room })}
-          />
-          <NumberRow
-            icon={<IconPercentage size={20} color={muted} />}
-            label="Weight (%)"
-            value={weightPercent(exam.weight)}
-            readOnly={readOnly}
-            placeholder="20"
-            onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
-          />
-          <NumberRow
-            icon={<IconAward size={20} color={muted} />}
-            label="Grade"
-            value={exam.grade}
-            readOnly={readOnly}
-            placeholder="1.7"
-            onSave={(grade) => update.mutate({ grade })}
-          />
-        </PropertyList>
-      </DetailsPart>
+      <DetailsPart>{properties}</DetailsPart>
     </>
   );
 }
@@ -457,46 +459,50 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
   if (!assignment) return null;
   const followsSession = assignment.dueSessionOffsetDays !== null;
   const muted = theme.colors.mutedForeground;
+  const properties = (
+    <PropertyList>
+      <ChoiceProperty
+        icon={<IconCircleDot size={20} color={muted} />}
+        label="Status"
+        value={assignment.status}
+        readOnly={readOnly}
+        options={statusOptions(ASSIGNMENT_STATUSES)}
+        onChange={(status) => update.mutate({ status })}
+      />
+      <CourseProperty
+        icon={<IconSchool size={20} color={muted} />}
+        spaceId={assignment.entity.spaceId}
+        value={assignment.courseId}
+        readOnly={readOnly}
+        onChange={(courseId) => course.mutate(courseId)}
+      />
+      <AssignmentDueProperty assignment={assignment} readOnly={readOnly} />
+      <NumberRow
+        icon={<IconPercentage size={20} color={muted} />}
+        label="Weight (%)"
+        value={weightPercent(assignment.weight)}
+        readOnly={readOnly}
+        placeholder="10"
+        onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
+      />
+      <NumberRow
+        icon={<IconAward size={20} color={muted} />}
+        label="Grade"
+        value={assignment.grade}
+        readOnly={readOnly}
+        placeholder="1.3"
+        onSave={(grade) => update.mutate({ grade })}
+      />
+    </PropertyList>
+  );
   return (
     <>
+      <AtAGlance>{properties}</AtAGlance>
       <MainPart>
         <PageEditor entityId={id} readOnly={readOnly} live={false} />
       </MainPart>
       <DetailsPart>
-        <PropertyList>
-          <ChoiceProperty
-            icon={<IconCircleDot size={20} color={muted} />}
-            label="Status"
-            value={assignment.status}
-            readOnly={readOnly}
-            options={statusOptions(ASSIGNMENT_STATUSES)}
-            onChange={(status) => update.mutate({ status })}
-          />
-          <CourseProperty
-            icon={<IconSchool size={20} color={muted} />}
-            spaceId={assignment.entity.spaceId}
-            value={assignment.courseId}
-            readOnly={readOnly}
-            onChange={(courseId) => course.mutate(courseId)}
-          />
-          <AssignmentDueProperty assignment={assignment} readOnly={readOnly} />
-          <NumberRow
-            icon={<IconPercentage size={20} color={muted} />}
-            label="Weight (%)"
-            value={weightPercent(assignment.weight)}
-            readOnly={readOnly}
-            placeholder="10"
-            onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
-          />
-          <NumberRow
-            icon={<IconAward size={20} color={muted} />}
-            label="Grade"
-            value={assignment.grade}
-            readOnly={readOnly}
-            placeholder="1.3"
-            onSave={(grade) => update.mutate({ grade })}
-          />
-        </PropertyList>
+        {properties}
         {followsSession ? (
           <Text variant="small" tone="muted">
             Due {assignment.dueSessionOffsetDays} days before a session of{" "}

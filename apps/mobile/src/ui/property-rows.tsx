@@ -4,6 +4,7 @@ import { TextInput, View } from "react-native";
 import { z } from "zod";
 import { Button } from "./Button.tsx";
 import { shownValue } from "./DateField.tsx";
+import { usePropertyLook } from "./parts.tsx";
 import { Property } from "./Property.tsx";
 import { DayPicker } from "./sheet/DayPicker.tsx";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
@@ -196,8 +197,11 @@ export function TextRow({
   readOnly?: boolean;
 }) {
   const theme = useTheme();
+  const look = usePropertyLook();
   const [text, setText] = useState(value ?? "");
   useEffect(() => setText(value ?? ""), [value]);
+  // Typed in place, so it stays in the details rather than among the chips at a glance.
+  if (look === "chip") return null;
   return (
     <View className="min-h-12 flex-row items-center gap-3 px-4">
       {icon}
@@ -246,9 +250,11 @@ export function NumberRow({
   readOnly?: boolean;
 }) {
   const theme = useTheme();
+  const look = usePropertyLook();
   const [text, setText] = useState(value === null ? "" : String(value));
   useEffect(() => setText(value === null ? "" : String(value)), [value]);
   const parsed = numberText.safeParse(text.trim());
+  if (look === "chip") return null;
   return (
     <View>
       <View className="min-h-12 flex-row items-center gap-3 px-4">
@@ -288,5 +294,7 @@ export function InfoRow({
   label: string;
   value: string;
 }) {
+  // Nothing to change, so nothing to tap at a glance: it stays in the details.
+  if (usePropertyLook() === "chip") return null;
   return <Property icon={icon} label={label} value={value} />;
 }

@@ -59,6 +59,20 @@ describe("an item's page and its details", () => {
     expect(screen.getByText("Sub-tasks")).toBeTruthy();
   });
 
+  it("shows an assignment's and an exam's properties at a glance, not the fields typed in place", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    const sheet = await createAssignment(data.db, space, "Sheet 1", course);
+    const exam = await createExam(data.db, space, "Midterm", course);
+    const page = await renderScreens({ index: () => <Item id={sheet} part="main" glance /> }, data);
+    expect(await page.findByRole("button", { name: /^Status, / })).toBeTruthy();
+    expect(page.queryByLabelText("Grade")).toBeNull();
+    page.unmount();
+    const other = await renderScreens({ index: () => <Item id={exam} part="main" glance /> }, data);
+    expect(await other.findByRole("button", { name: /^Status, / })).toBeTruthy();
+  });
+
   it("keeps a course's exams and assignments in the page and its professor in the details", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
