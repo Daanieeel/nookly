@@ -29,6 +29,7 @@ import { useTheme } from "../theme.ts";
 import { FADE, SPRING, dragFrom, settleSheet } from "../motion.ts";
 import { useReduceMotion } from "../reduce-motion.ts";
 import { MIN_TOUCH } from "../touch.ts";
+import { haptic } from "../haptics.ts";
 
 /// The app's one bottom sheet: every picker, menu, confirmation and create form on the
 /// phone opens in it, in place of the desktop's popovers, menus and dialogs. It comes up
@@ -182,6 +183,8 @@ function SheetFrame({
         release.value = settled.velocity;
         runOnJS(onRequestClose)();
       } else {
+        // It falls back onto its stop, felt as a soft thud.
+        runOnJS(haptic)("detent");
         offset.value = withSpring(0, { ...SPRING.sheet, velocity: settled.velocity });
       }
     })

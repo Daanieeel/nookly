@@ -99,6 +99,7 @@ export function TaskRow({
         left={{
           label: finished ? "Reopen" : "Done",
           tone: "positive",
+          haptic: finished ? "tap" : "complete",
           onPress: () => setStatus.mutate(finished ? "todo" : "done"),
         }}
         right={{

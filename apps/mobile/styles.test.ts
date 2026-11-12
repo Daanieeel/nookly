@@ -29,8 +29,12 @@ describe("the phone's styles", () => {
     // The arguments as compiled, with the theme's colour in place of `var(--border)`.
     const mix = rules("border-border/60").match(/\["oklab",\[\{\},"var","border",1\],([^\]]*)\]/);
     expect(mix).not.toBeNull();
-    const args = JSON.parse(`["oklab","#2a2a2a",${mix?.[1]}]`) as unknown[];
-    const resolved = colorMix((v: unknown) => v, [{}, "colorMix", args] as never);
+    const args: string = `["oklab","#2a2a2a",${mix?.[1]}]`;
+    // The resolver hands each value back as it is: the arguments are already resolved.
+    const same: Parameters<typeof colorMix>[0] = (value) => value;
+    // SAFETY: a style function is `[{}, name, args]`, which is what the compiler writes.
+    const call = [{}, "colorMix", JSON.parse(args)] as Parameters<typeof colorMix>[1];
+    const resolved = colorMix(same, call, () => undefined, {});
     expect(resolved).toBe("rgba(42, 42, 42, 0.6)");
   });
 

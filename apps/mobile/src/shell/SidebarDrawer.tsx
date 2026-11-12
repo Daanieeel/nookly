@@ -7,6 +7,7 @@ import { PageEdge, insetPageStyle } from "../ui/inset-page.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { DetailsDrawer } from "./DetailsDrawer.tsx";
 import { NEVER, PanesProvider, TAP_SLOP, usePanes, useSwipeOpens } from "./panes.tsx";
+import { haptic } from "../ui/haptics.ts";
 
 /// Lets a screen's menu button open the sidebar.
 const SidebarHandle = createContext<{ open(): void; close(): void } | null>(null);
@@ -82,7 +83,10 @@ function SidebarDrawerBody({ enabled, edgeBack, children }: SidebarDrawerProps) 
   return (
     <Drawer
       open={open}
-      onOpen={() => setOpen?.(true)}
+      onOpen={() => {
+        haptic("open");
+        setOpen?.(true);
+      }}
       onClose={() => setOpen?.(false)}
       drawerType="back"
       swipeEnabled={enabled && swipeOpens.sidebar}

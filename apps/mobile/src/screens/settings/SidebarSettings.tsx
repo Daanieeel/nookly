@@ -8,6 +8,7 @@ import { Text } from "../../ui/Text.tsx";
 import { cn } from "../../ui/classes.ts";
 import { useTheme } from "../../ui/theme.ts";
 import { DEFAULT_TOP, orderedTop, topSchema } from "../sidebar-top.ts";
+import { haptic } from "../../ui/haptics.ts";
 
 /// Which overviews the sidebar lists at the top, and in what order. Kept on this phone,
 /// like the desktop's.
@@ -47,7 +48,10 @@ export function SidebarSettingsScreen() {
             <Switch
               accessibilityLabel={`Show ${item.label}`}
               value={!pref.hidden.includes(item.id)}
-              onValueChange={(on) => show(item.id, on)}
+              onValueChange={(on) => {
+                haptic("toggle");
+                show(item.id, on);
+              }}
             />
           </View>
         ))}

@@ -22,6 +22,7 @@ import { DetailsBody } from "./inspector.tsx";
 import { NEVER, TAP_SLOP, useReportDetailsOpen, useSwipeOpens } from "./panes.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { DetailsHandleProvider } from "./details-context.ts";
+import { haptic } from "../ui/haptics.ts";
 
 /// The item whose details wait behind the page, and what its "more" button opens.
 export interface DetailsItem {
@@ -94,7 +95,10 @@ export function DetailsDrawer({ children }: { children: ReactNode }) {
   return (
     <Drawer
       open={open}
-      onOpen={() => setOpen(true)}
+      onOpen={() => {
+        haptic("open");
+        setOpen(true);
+      }}
       onClose={() => setOpen(false)}
       drawerPosition="right"
       swipeEnabled={item !== null && swipeOpens.details}

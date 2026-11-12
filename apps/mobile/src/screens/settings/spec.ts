@@ -14,7 +14,7 @@ export type Control =
 
 export const PAGES: { id: SettingsPage; title: string; subtitle: string }[] = [
   { id: "general", title: "General", subtitle: "Your name, time zone and formats" },
-  { id: "appearance", title: "Appearance", subtitle: "Theme and file viewer" },
+  { id: "appearance", title: "Appearance", subtitle: "Theme, file viewer and haptics" },
   { id: "calendar", title: "Calendar", subtitle: "Week, day and new entries" },
   { id: "editor", title: "Editor", subtitle: "Pages and code" },
   { id: "latex", title: "LaTeX", subtitle: "Your own math commands" },

@@ -286,3 +286,11 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Context:** the dev account showed Study three times and Personal twice. Cause: the scratch fixture was added to the same account several times, each copy with fresh ids. No device makes Spaces on its own, so a real person only gets two Spaces of one name when two devices each hold their own data and "Add to the account" is chosen on the second.
 - **Decision:** keep both; nothing merges by name. A silent merge would mix two sets of items, labels, statuses and key counters (two `TSK-1`), which could not be undone cleanly. Alternative for later: a "Merge into…" action on a Space that moves its items with the existing move logic.
 - **Flag:** the user should double check that keeping both is wanted.
+
+## D49. Phone haptics: Core Haptics patterns behind one named API
+
+- **Decision:** a local Expo module `apps/mobile/modules/nookly-haptics` plays beats on `CHHapticEngine` and falls back to the system feedback generators when the engine cannot start. The patterns live in JavaScript (`apps/mobile/src/ui/haptics.ts`) as one set: `tap`, `select`, `toggle`, `open`, `detent`, `edge`, `complete`, `success`, `warning`, `error`, each at most a quarter second. Screens call `haptic(name)` and never touch the engine.
+- **Rate limit:** within 80 ms of a pattern only a stronger one plays (a weaker one folds into it), and each pattern has its own least gap, so scrolling a picker never buzzes. Unit tested.
+- **Where:** a pick in a list or menu, a segment or tab change (select), switches (toggle), the sidebar and details drawers opening (open), a sheet falling back onto its stop (detent), a swipe row revealing its actions (edge), a task done by swipe (complete), a button's result (success, error).
+- **Off:** iPads and the simulator have no Taptic Engine, so nothing plays. Android plays nothing for now (the brief allows short vibrations at most; none is better than a buzz that does not match). A switch under Settings, Appearance, This phone turns haptics off on this phone; the system's own System Haptics switch also silences the fallback presets.
+- **Build note:** `@expo/plist` 0.8 calls the XML parser without a mime type, which the pinned `@xmldom/xmldom` 0.9 rejects, so `expo prebuild` failed. A one line patch (`patches/@expo%2Fplist@0.8.2.patch`) passes `text/xml`.

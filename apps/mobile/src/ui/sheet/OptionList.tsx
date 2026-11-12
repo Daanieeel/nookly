@@ -7,6 +7,7 @@ import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
 import { FIELD_HEIGHT, TOUCH_ROW } from "../touch.ts";
 import { useSheet } from "./Sheet.tsx";
+import { haptic } from "../haptics.ts";
 
 /// One choice in a list: what it is called, and an icon or color dot beside it.
 export interface Option<Id extends string = string> {
@@ -104,6 +105,7 @@ export function OptionList<Id extends string>(
                 accessibilityState={{ checked: on }}
                 style={TOUCH_ROW}
                 onPress={() => {
+                  haptic("select");
                   if (props.multiple) {
                     props.onToggle(option.id, !on);
                     return;

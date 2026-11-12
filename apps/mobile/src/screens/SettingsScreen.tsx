@@ -29,6 +29,7 @@ import { useTheme } from "../ui/theme.ts";
 import { AccountPage } from "./settings/AccountPage.tsx";
 import { BackupPage } from "./settings/BackupPage.tsx";
 import { LatexPage } from "./settings/LatexPage.tsx";
+import { HapticsRow } from "./settings/HapticsRow.tsx";
 import { SettingRow } from "./settings/SettingRow.tsx";
 import { PAGES, SETTING_IDS, SETTING_UI, type SettingsPage, sectionOf } from "./settings/spec.ts";
 import { statusText } from "./sync-status.ts";
@@ -229,6 +230,11 @@ export function SettingsCategoryScreen({ page }: { page: string }) {
         <Text tone="muted" className={cn("p-4")}>
           There is no such page in Settings.
         </Text>
+      )}
+      {known?.id === "appearance" && (
+        <Section title="This phone">
+          <HapticsRow />
+        </Section>
       )}
     </Screen>
   );

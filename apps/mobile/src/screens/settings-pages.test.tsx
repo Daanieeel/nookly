@@ -1,7 +1,9 @@
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { isSyncedSetting } from "@nookly/shared/sync";
 import { render } from "@testing-library/react-native";
+import { readPreference, writePreference } from "../data/preferences.ts";
 import { phoneSettings } from "../data/settings.ts";
+import { HAPTICS_PREFERENCE, hapticsPreference } from "../ui/haptics.ts";
 import { VimKeys } from "../editor/VimKeys.tsx";
 import { renderScreens, testData } from "../test/render.tsx";
 import { SettingsCategoryScreen, SettingsScreen } from "./SettingsScreen.tsx";
@@ -70,6 +72,20 @@ describe("Settings", () => {
     expect(phoneSettings.get("notes.vimMode")).toBe(true);
     expect(isSyncedSetting("notes.vimMode")).toBe(false);
     phoneSettings.reset("notes.vimMode");
+  });
+
+  it("turns haptics off for this phone under Appearance, on by default", async () => {
+    writePreference(HAPTICS_PREFERENCE, true);
+    const screen = await renderScreens(
+      { index: () => <SettingsCategoryScreen page="appearance" /> },
+      testData(),
+    );
+    expect(await screen.findByRole("header", { name: "This phone" })).toBeTruthy();
+    const toggle = screen.getByLabelText("Haptics");
+    expect(toggle.props.value).toBe(true);
+    await fireEvent(toggle, "valueChange", false);
+    expect(readPreference(HAPTICS_PREFERENCE, hapticsPreference, true)).toBe(false);
+    writePreference(HAPTICS_PREFERENCE, true);
   });
 
   it("lists the desktop's Vim keys for the sheet ? opens", () => {

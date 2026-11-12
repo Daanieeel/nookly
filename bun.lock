@@ -330,6 +330,7 @@
   },
   "patchedDependencies": {
     "react-native-css@3.1.0-rc.0": "patches/react-native-css@3.1.0-rc.0.patch",
+    "@expo/plist@0.8.2": "patches/@expo%2Fplist@0.8.2.patch",
     "@blobatar/react-native@2.7.0": "patches/@blobatar%2Freact-native@2.7.0.patch",
   },
   "overrides": {

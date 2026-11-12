@@ -8,6 +8,7 @@ import { Pressable, View } from "react-native";
 import { cn, row, splitText } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { MIN_TOUCH } from "./touch.ts";
+import { haptic } from "./haptics.ts";
 
 export interface SegmentOption<T extends string> {
   value: T;
@@ -48,7 +49,10 @@ export function Segmented<T extends string>({
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
             accessibilityLabel={option.label}
-            onPress={() => onChange(option.value)}
+            onPress={() => {
+              if (!selected) haptic("select");
+              onChange(option.value);
+            }}
             className={cn(box, "flex-1 flex-row items-center justify-center gap-1.5 px-2")}
           >
             {option.icon}

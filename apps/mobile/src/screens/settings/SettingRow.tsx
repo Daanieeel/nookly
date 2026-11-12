@@ -11,6 +11,7 @@ import { Text } from "../../ui/Text.tsx";
 import { useTheme } from "../../ui/theme.ts";
 import { cn } from "../../ui/classes.ts";
 import { type Control, SETTING_UI } from "./spec.ts";
+import { haptic } from "../../ui/haptics.ts";
 
 /// A number with plus and minus, for a length or an hour.
 function Stepper({
@@ -103,7 +104,10 @@ export function SettingRow({ id }: { id: SharedSettingId }) {
             <Switch
               accessibilityLabel={def.title}
               value={value === true}
-              onValueChange={(next) => void phoneSettings.setJson(id, next)}
+              onValueChange={(next) => {
+                haptic("toggle");
+                void phoneSettings.setJson(id, next);
+              }}
               trackColor={{ true: theme.colors.primary }}
             />
           )}

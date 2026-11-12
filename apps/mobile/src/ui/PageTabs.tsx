@@ -6,6 +6,7 @@ import { useReduceMotion } from "./reduce-motion.ts";
 import { cn } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { MIN_TOUCH } from "./touch.ts";
+import { haptic } from "./haptics.ts";
 
 export interface PageTab<Id extends string> {
   id: Id;
@@ -63,7 +64,10 @@ export function PageTabs<Id extends string>({
               accessibilityRole="tab"
               accessibilityLabel={name}
               accessibilityState={{ selected }}
-              onPress={() => onChange(tab.id)}
+              onPress={() => {
+                if (!selected) haptic("select");
+                onChange(tab.id);
+              }}
               onLayout={(event) => {
                 const { x: left, width: w } = event.nativeEvent.layout;
                 setSpans((now) =>

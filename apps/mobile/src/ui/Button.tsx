@@ -8,6 +8,7 @@ import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
 import { AnimatedPressable, usePressScale } from "./press.ts";
+import { haptic } from "./haptics.ts";
 
 export type ButtonStatus = "idle" | "pending" | "success" | "error";
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
@@ -78,7 +79,9 @@ export function Button({
   const press = usePressScale();
   const [showSuccess, setShowSuccess] = useState(false);
   useEffect(() => {
+    if (status === "error") haptic("error");
     if (status !== "success") return;
+    haptic("success");
     setShowSuccess(true);
     const timer = setTimeout(() => setShowSuccess(false), 2000);
     return () => clearTimeout(timer);

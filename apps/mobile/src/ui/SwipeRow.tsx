@@ -3,11 +3,14 @@ import Swipeable from "react-native-gesture-handler/Swipeable";
 import { useRef } from "react";
 import { Text } from "./Text.tsx";
 import { cn } from "./classes.ts";
+import { type HapticName, haptic } from "./haptics.ts";
 
 interface SwipeAction {
   label: string;
   /// Finishing or bringing back is positive, removing destructive.
   tone: "positive" | "destructive";
+  /// What the finger feels as it acts: a tap unless the action names its own.
+  haptic?: HapticName;
   onPress: () => void;
 }
 
@@ -33,7 +36,7 @@ export function SwipeRow({
         accessibilityLabel={a.label}
         onPress={() => {
           close();
-          a.onPress();
+          run(a);
         }}
         className={cn("w-24 items-center justify-center", TONES[a.tone])}
       >
@@ -42,6 +45,10 @@ export function SwipeRow({
         </Text>
       </Pressable>
     ) : null;
+  const run = (a: SwipeAction) => {
+    haptic(a.haptic ?? "tap");
+    a.onPress();
+  };
   const actions = [left, right].filter((a): a is SwipeAction => a !== undefined);
   return (
     <Swipeable
@@ -49,15 +56,18 @@ export function SwipeRow({
       friction={2}
       overshootLeft={false}
       overshootRight={false}
+      // The actions show: the row has gone as far as it will.
+      onSwipeableWillOpen={() => haptic("edge")}
       renderLeftActions={left ? () => action(left, close) : undefined}
       renderRightActions={right ? () => action(right, close) : undefined}
     >
       <View
         accessible={false}
         accessibilityActions={actions.map((a) => ({ name: a.label, label: a.label }))}
-        onAccessibilityAction={(event) =>
-          actions.find((a) => a.label === event.nativeEvent.actionName)?.onPress()
-        }
+        onAccessibilityAction={(event) => {
+          const found = actions.find((a) => a.label === event.nativeEvent.actionName);
+          if (found) run(found);
+        }}
       >
         {children}
       </View>
