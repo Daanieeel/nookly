@@ -47,10 +47,12 @@ export function dragFrom(offset: number, size = 600) {
 
 /// Where a released sheet goes: away when flung down or pulled far enough, unless the
 /// finger was heading back up; otherwise back open. The finger's speed carries on.
-export function settleSheet({ offset, velocity }: { offset: number; velocity: number }): {
+export interface Settled {
   to: "open" | "closed";
   velocity: number;
-} {
+}
+
+export function settleSheet({ offset, velocity }: { offset: number; velocity: number }): Settled {
   "worklet";
   const flung = velocity > DISMISS_VELOCITY;
   const far = offset > DISMISS_DISTANCE && velocity >= 0;
