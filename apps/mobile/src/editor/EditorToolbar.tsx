@@ -9,6 +9,7 @@ import {
   IconIndentDecrease,
   IconIndentIncrease,
   IconItalic,
+  IconKeyboardHide,
   IconList,
   IconListCheck,
   IconListNumbers,
@@ -51,8 +52,9 @@ export function EditorToolbar() {
   const { focused, on, run } = useToolbar();
   if (!focused || !run) return null;
   return (
-    <View className="border-t border-border bg-background" accessibilityRole="toolbar">
+    <View className="flex-row border-t border-border bg-background" accessibilityRole="toolbar">
       <ScrollView
+        className="flex-1"
         horizontal
         keyboardShouldPersistTaps="always"
         showsHorizontalScrollIndicator={false}
@@ -77,6 +79,13 @@ export function EditorToolbar() {
           })}
         </View>
       </ScrollView>
+      <View className="justify-center border-l border-border px-1">
+        <IconButton
+          label="Hide Keyboard"
+          icon={<IconKeyboardHide size={20} color={theme.colors.foreground} />}
+          onPress={() => run("done")}
+        />
+      </View>
     </View>
   );
 }

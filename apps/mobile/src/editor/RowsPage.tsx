@@ -15,7 +15,16 @@ const SAVE_DELAY_MS = 500;
 /// the same editor and `/` menu as a live page, on a document kept only on this phone and
 /// written back as block rows. Only what was edited is written, so another device's edit of
 /// another block is never put back to its old text (`@nookly/shared/data` `page-rows`).
-export function RowsPage({ entityId, editable }: { entityId: string; editable: boolean }) {
+export function RowsPage({
+  entityId,
+  editable,
+  fill,
+}: {
+  entityId: string;
+  editable: boolean;
+  /// Whether the editor reaches down to the bottom of the screen (a page of its own).
+  fill: boolean;
+}) {
   const { db, sync } = useAppData();
   const queryClient = useQueryClient();
   const [doc, setDoc] = useState<Y.Doc | null>(null);
@@ -82,6 +91,7 @@ export function RowsPage({ entityId, editable }: { entityId: string; editable: b
       awareness={null}
       entityId={entityId}
       editable={editable}
+      fill={fill}
     />
   );
 }

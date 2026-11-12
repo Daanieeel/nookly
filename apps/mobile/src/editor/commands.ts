@@ -13,6 +13,7 @@ import {
   type EditorState,
   Plugin,
   PluginKey,
+  TextSelection,
   type Transaction,
 } from "prosemirror-state";
 import { z } from "zod";
@@ -333,3 +334,15 @@ export function applyMention(
   const text = schema.text(label, [link]);
   return state.tr.replaceWith(trigger.from, trigger.to, [text, schema.text(" ")]).scrollIntoView();
 }
+
+/// A tap in the blank space under the text: the cursor goes to the empty line at the end,
+/// added when the last block holds something, so nobody has to find the end of the page.
+export const toNextFreeLine: Command = (state, dispatch) => {
+  const last = state.doc.lastChild;
+  const free = last?.type === nodes.paragraph && last.content.size === 0;
+  let tr = state.tr;
+  if (!free) tr = tr.insert(state.doc.content.size, nodes.paragraph.create());
+  const end = tr.doc.content.size - 1;
+  dispatch?.(tr.setSelection(TextSelection.create(tr.doc, end)).scrollIntoView());
+  return true;
+};

@@ -45,6 +45,7 @@ import {
   toggleQuote,
   toggleStrike,
   toggleTaskAt,
+  toNextFreeLine,
   triggerAt,
   slashMatches,
   toggleTasks,
@@ -92,6 +93,8 @@ interface Props {
   /// The person's own LaTeX commands from Settings.
   macros: ParsedMacros["macros"];
   placeholder: string;
+  /// How tall the editor is at least, in points: the area a tap starts typing in.
+  minHeight: number;
   /// The web view has started: the phone answers with the document so far.
   onReady: () => Promise<void>;
   onUpdate: (update: string) => Promise<void>;
@@ -132,7 +135,8 @@ const isToolbarId = (id: string): id is ToolbarId => Object.hasOwn(COMMANDS, id)
 const CSS = `
 html, body { margin: 0; height: auto; min-height: 0; background: transparent; -webkit-text-size-adjust: 100%; }
 .root { font: 17px/1.55 -apple-system, system-ui, "Inter", sans-serif; color: var(--fg); }
-.pm { outline: none; padding: 0 0 24px; min-height: 120px; word-break: break-word; position: relative; }
+.host { display: flex; flex-direction: column; }
+.pm { flex: 1; outline: none; padding: 0 0 24px; min-height: 120px; word-break: break-word; position: relative; }
 .pm > p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before { content: attr(data-placeholder); color: var(--muted); position: absolute; pointer-events: none; }
 .pm p { margin: 0 0 .6em; }
 .pm h1 { font-size: 1.7em; line-height: 1.25; margin: 1em 0 .4em; }
@@ -186,6 +190,7 @@ export default function PageEditorDom({
   colors,
   macros,
   placeholder,
+  minHeight,
   onReady,
   onUpdate,
   onAwareness,
@@ -220,6 +225,10 @@ export default function PageEditorDom({
     run: (command: string) => {
       const editor = view.current;
       const id = String(command);
+      if (id === "done") {
+        editor?.dom.blur();
+        return;
+      }
       if (editor && isToolbarId(id)) COMMANDS[id](editor.state, editor.dispatch, editor);
       editor?.focus();
     },
@@ -365,6 +374,17 @@ export default function PageEditorDom({
       },
       handleClick(e: EditorView, pos: number, event: MouseEvent) {
         const target = event.target instanceof HTMLElement ? event.target : null;
+        // A tap in the blank space under the text: the cursor goes to a free line at the end.
+        const last = e.dom.lastElementChild;
+        if (
+          editableRef.current &&
+          target === e.dom &&
+          (!last || event.clientY > last.getBoundingClientRect().bottom)
+        ) {
+          toNextFreeLine(e.state, e.dispatch);
+          e.focus();
+          return true;
+        }
         const link = target?.closest("a");
         if (link?.getAttribute("href")) {
           event.preventDefault();
@@ -487,7 +507,7 @@ export default function PageEditorDom({
     <div className="root" style={vars}>
       <style>{CSS}</style>
       <style>{highlightCss(".pm", colors.dark)}</style>
-      <div ref={host} />
+      <div ref={host} className="host" style={{ minHeight }} />
       {vimLabel ? (
         <p role="status" aria-label="Vim mode" className="vim-status">
           {vimLabel}

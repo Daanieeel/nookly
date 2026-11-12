@@ -1,6 +1,6 @@
 import { type PageSession, caretColor, presenceName } from "@nookly/shared/sync";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { type Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { recents, search } from "@nookly/shared/data";
@@ -18,15 +18,26 @@ import { useTheme } from "../ui/theme.ts";
 import { type AwarenessChanges, type Origin, fromBase64, toBase64 } from "./bridge.ts";
 import type { EditorHandle } from "./PageEditorDom.tsx";
 import { usePageEditorView } from "./editor-view.tsx";
-import { type ToolbarId, editorStateSchema } from "./toolbar.ts";
+import { type EditorAction, editorStateSchema } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
+
+/// How tall an item's description is at least: the region a tap starts typing in.
+const DESCRIPTION_HEIGHT = 160;
 
 /// The marker for updates that came from the web view, so they are not sent back.
 const FROM_EDITOR = "editor";
 
 /// A page as a live document: the editor in a web view, kept in step with the phone's
 /// copy of the document (offline copy, socket to the server) by swapping Yjs updates.
-export function LivePage({ session, editable }: { session: PageSession; editable: boolean }) {
+export function LivePage({
+  session,
+  editable,
+  fill,
+}: {
+  session: PageSession;
+  editable: boolean;
+  fill: boolean;
+}) {
   return (
     <PageDocEditor
       // A page opened again is another document object: the editor starts over on it.
@@ -35,6 +46,7 @@ export function LivePage({ session, editable }: { session: PageSession; editable
       awareness={session.provider.awareness ?? null}
       entityId={session.entityId}
       editable={editable}
+      fill={fill}
     />
   );
 }
@@ -46,11 +58,15 @@ export function PageDocEditor({
   awareness: pageAwareness,
   entityId,
   editable,
+  fill,
 }: {
   doc: Y.Doc;
   awareness: Awareness | null;
   entityId: string;
   editable: boolean;
+  /// Whether the editor reaches down to the bottom of the screen, so a tap anywhere below
+  /// the text starts typing; else it is a region of the page.
+  fill: boolean;
 }) {
   const EditorView = usePageEditorView();
   const theme = useTheme();
@@ -69,6 +85,13 @@ export function PageDocEditor({
   const person = { name, color: caretColor(user?.id ?? name) };
   const toolbar = useToolbar();
   const { db } = useAppData();
+  const window = useWindowDimensions();
+  /// Where the editor starts on the screen, for the room left under it.
+  const [top, setTop] = useState<number | null>(null);
+  const minHeight =
+    fill && top !== null
+      ? Math.max(DESCRIPTION_HEIGHT, window.height - top - 120)
+      : DESCRIPTION_HEIGHT;
   const router = useRouter();
 
   // Edits made elsewhere reach the editor as they arrive.
@@ -127,7 +150,7 @@ export function PageDocEditor({
   const onState = useCallback(
     async (json: string) => {
       const state = editorStateSchema.parse(JSON.parse(json));
-      toolbar.set(state, (id: ToolbarId) => handle.current?.run(id));
+      toolbar.set(state, (id: EditorAction) => handle.current?.run(id));
       setVimHelp(state.vimHelp ?? false);
     },
     // `toolbar.set` is stable.
@@ -168,15 +191,27 @@ export function PageDocEditor({
   );
 
   return (
-    <View ref={anchor} collapsable={false} className="min-h-40">
+    <View
+      ref={anchor}
+      collapsable={false}
+      style={{ minHeight }}
+      onLayout={() => anchor.current?.measureInWindow((_x, y) => setTop(y))}
+    >
       <EditorView
         ref={handle}
-        dom={{ matchContents: true, useExpoDOMWebView: true, scrollEnabled: false }}
+        // The system's bar over the keyboard (up, down, done) gives way to the app's toolbar.
+        dom={{
+          matchContents: true,
+          useExpoDOMWebView: true,
+          scrollEnabled: false,
+          hideKeyboardAccessoryView: true,
+        }}
         editable={editable}
         vim={vim}
         person={person}
         macros={macros}
         placeholder="Write something"
+        minHeight={minHeight}
         colors={{
           foreground: theme.colors.foreground,
           background: theme.colors.page,

@@ -24,6 +24,9 @@ export const TOOLBAR = [
 
 export type ToolbarId = (typeof TOOLBAR)[number]["id"];
 
+/// What the toolbar asks of the editor: a format, or `done`, which lets go of the keyboard.
+export type EditorAction = ToolbarId | "done";
+
 /// What the editor tells the phone about itself: whether it has the keyboard, which of
 /// the toolbar's formats are on at the cursor, and whether Vim's key list was asked for.
 export const editorStateSchema = z.object({

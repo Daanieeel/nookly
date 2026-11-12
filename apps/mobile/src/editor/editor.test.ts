@@ -26,6 +26,7 @@ import {
   toggleHeading,
   toggleQuote,
   toggleTasks,
+  toNextFreeLine,
 } from "./commands.ts";
 import { pageSchema } from "./schema.ts";
 
@@ -316,5 +317,38 @@ describe("checking a task and highlighting", () => {
     const next = run(selected, toggleHighlight).state;
     expect(next.doc.rangeHasMark(1, 5, pageSchema.marks.highlight)).toBe(true);
     expect(active(next).highlight).toBe(true);
+  });
+});
+
+describe("a tap below the text", () => {
+  const p = (text?: string) =>
+    pageSchema.node("paragraph", null, text ? [pageSchema.text(text)] : []);
+  const at = (...nodes: ReturnType<typeof p>[]) =>
+    EditorState.create({ doc: pageSchema.node("doc", null, nodes) });
+  const run = (state: EditorState) => {
+    let next = state;
+    toNextFreeLine(state, (tr) => {
+      next = state.apply(tr);
+    });
+    return next;
+  };
+
+  it("adds a line after the last text and puts the cursor on it", () => {
+    const next = run(at(p("Buy milk")));
+    expect(next.doc.childCount).toBe(2);
+    expect(next.doc.lastChild?.textContent).toBe("");
+    expect(next.selection.$head.parent).toBe(next.doc.lastChild);
+  });
+
+  it("uses the empty line already at the end rather than adding one", () => {
+    const next = run(at(p("Buy milk"), p()));
+    expect(next.doc.childCount).toBe(2);
+    expect(next.selection.$head.parent).toBe(next.doc.lastChild);
+  });
+
+  it("starts an empty page on its first line", () => {
+    const next = run(at(p()));
+    expect(next.doc.childCount).toBe(1);
+    expect(next.selection.from).toBe(1);
   });
 });
