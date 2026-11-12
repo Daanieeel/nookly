@@ -176,6 +176,8 @@ Append newest last: date, what was done, what is next.
 
 - 2026-11-12: slow editor after creating a page, cause found and fixed: signed in, a page with no local document waited up to 4 s for the server's, which a page made here can not have before it reaches the server, so every new page's editor stayed blank that long. A page the server has not confirmed now opens on its rows at once (test in `page-docs.test.ts`, 4003 ms before, under 300 ms after). Not yet measured in the running app: the Mac's display was locked, so the webview ran no frames. Next: cloud icon, then the account settings rework.
 
+- 2026-11-12 (about 06:00): the Mac's screen is locked (black screen capture, the desktop webview runs no frames), so desktop visual work waits: the Account settings rework (section 3) and timing the new page fix in the running app. The simulators still render. Going on with section 4 meanwhile; come back to the Account rework when the screen is awake.
+
 ## Final report (fill in when everything above is done)
 
 Write this at the very end, plainly and honestly, in this section (not in `REPORT.md`, which is untracked and stale):
