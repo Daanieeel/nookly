@@ -1,3 +1,4 @@
+import { SpaceIcon } from "./SpaceIcon.tsx";
 import {
   type EntityRecord,
   attachLabel,
@@ -8,7 +9,6 @@ import {
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { useEntityLabels, useLabels, useSpaces } from "../data/queries.ts";
-import { SpaceDot } from "../ui/Badge.tsx";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { useSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -63,7 +63,7 @@ export function MovePicker({ entity }: { entity: EntityRecord }) {
           options={others.map((s) => ({
             id: s.id,
             label: s.name,
-            icon: <SpaceDot color={s.color} />,
+            icon: <SpaceIcon space={s} size={16} />,
           }))}
           value={null}
           onChange={(spaceId) => move.mutate(spaceId, { onSuccess: () => sheet?.close() })}

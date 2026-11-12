@@ -11,7 +11,6 @@ import {
   IconChevronRight,
   IconDots,
   IconFeather,
-  IconFolder,
   IconFolderPlus,
   IconLayoutGridAdd,
   IconLayoutDashboard,
@@ -19,7 +18,6 @@ import {
   IconSearch,
   IconSettings,
   IconTrash,
-  IconUsers,
 } from "@tabler/icons-react-native";
 import { z } from "zod";
 import { type Href, usePathname, useRouter } from "expo-router";
@@ -27,6 +25,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Space } from "@nookly/shared/data";
+import { SpaceIcon } from "./SpaceIcon.tsx";
 import {
   useDecks,
   useExams,
@@ -40,7 +39,7 @@ import {
 import { tasksFor } from "./dashboard-model.ts";
 import { isoWeek, localDay } from "./dates.ts";
 import { IconButton } from "../ui/Button.tsx";
-import { IconValue, MODULE_ICONS } from "../ui/icons.tsx";
+import { MODULE_ICONS } from "../ui/icons.tsx";
 import { Mascot } from "../ui/Mascot.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { usePanes } from "../shell/panes.tsx";
@@ -261,14 +260,6 @@ function DayCard({ go }: { go: (href: Href) => void }) {
       </View>
     </Pressable>
   );
-}
-
-/// A Space's own icon (an emoji or a library icon) in its color, a folder without one, as
-/// the desktop's `SpaceIcon`. A Space shared with you shows people.
-function SpaceIcon({ space, size = 18 }: { space: Space; size?: number }) {
-  if (isSharedSpace(space.id)) return <IconUsers size={size} color={space.color} />;
-  if (space.icon) return <IconValue value={space.icon} size={size} fallback={space.color} />;
-  return <IconFolder size={size} color={space.color} />;
 }
 
 const spaceLabel = (space: Space) =>

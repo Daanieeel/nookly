@@ -1,5 +1,5 @@
+import { SpaceIcon } from "./SpaceIcon.tsx";
 import { useSpaces } from "../data/queries.ts";
-import { SpaceDot } from "../ui/Badge.tsx";
 import { SelectField } from "../ui/SelectField.tsx";
 
 /// Which Space something new goes into: every entity belongs to exactly one. The desktop's
@@ -21,7 +21,7 @@ export function SpacePicker({
       options={spaces.map((space) => ({
         id: space.id,
         label: space.name,
-        icon: <SpaceDot color={space.color} />,
+        icon: <SpaceIcon space={space} size={16} />,
       }))}
     />
   );
