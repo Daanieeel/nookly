@@ -1,5 +1,4 @@
 import { createView } from "@nookly/shared/data";
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
   IconAdjustmentsHorizontal,
   IconFilter,
@@ -21,7 +20,6 @@ import {
 } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
-import { cn } from "../ui/classes.ts";
 import { ListTitle, Presets } from "../ui/ListBar.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
@@ -270,19 +268,10 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
         />
       </Stack.Toolbar>
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide={board}>
-        <ListTitle title="Tasks" count={tasks.length} />
-        {views.length > 0 ? (
-          <Presets
-            label="Views"
-            value={view}
-            onChange={openView}
-            options={[
-              { id: "all", label: "All" },
-              ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
-            ]}
-          />
-        ) : null}
         <View className="flex-row items-center gap-2">
+          <View className="flex-1">
+            <ListTitle title="Tasks" count={tasks.length} />
+          </View>
           <Button
             label="Filter"
             variant={panel === "filter" ? "secondary" : "ghost"}
@@ -298,6 +287,17 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
             onPress={() => setPanel((open) => (open === "display" ? null : "display"))}
           />
         </View>
+        {views.length > 0 ? (
+          <Presets
+            label="Views"
+            value={view}
+            onChange={openView}
+            options={[
+              { id: "all", label: "All" },
+              ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
+            ]}
+          />
+        ) : null}
         {active.length > 0 ? (
           <ChipGroup label="Active filters" multiple>
             {active.map((f) => (
@@ -374,12 +374,10 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
                   !(display.grouping === "status" && finishedGroup(group.id)) && group.id !== "done"
                 }
               >
-                <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden")}>
-                  <View className="-mb-px">
-                    {shown.map((task) => (
-                      <View key={task.entity.id}>{row(task)}</View>
-                    ))}
-                  </View>
+                <View>
+                  {shown.map((task) => (
+                    <View key={task.entity.id}>{row(task)}</View>
+                  ))}
                 </View>
               </Band>
             );

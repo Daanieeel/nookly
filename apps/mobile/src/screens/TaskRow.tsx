@@ -44,6 +44,20 @@ export function StatusIcon({
   return <IconCircle size={size} color={color} accessibilityLabel={label} />;
 }
 
+/// When a task is due, said once: how late it is or "Today" and "Tomorrow" while it is
+/// close, the day itself once it is further out.
+function DueLine({ day, due }: { day: string; due: { text: string; overdue: boolean } | null }) {
+  const near = due && (due.overdue || due.text === "Today" || due.text === "Tomorrow");
+  return (
+    <Text
+      variant="small"
+      tone={due?.overdue ? "destructive" : due?.text === "Today" ? "caution" : "muted"}
+    >
+      {near ? due.text : dayLabel(day)}
+    </Text>
+  );
+}
+
 /// A task in a list. Swipe right to finish it (or open it again), left to move it to Trash.
 /// Two lines, like the desktop's row: the status and title, then the key, when it is due and
 /// how long that is, its labels, its Space and its effort.
@@ -91,7 +105,7 @@ export function TaskRow({
         onPress={() => router.push(`/entity/${task.entity.id}`)}
         onLongPress={() => entityMenu(task.entity)}
         className={cn(
-          "min-h-14 justify-center gap-1 px-4 py-2 active:bg-accent/40",
+          "min-h-14 justify-center gap-1 px-1 py-2 active:bg-accent/40",
           ROW_DIVIDER,
           finished && "opacity-50",
         )}
@@ -106,19 +120,7 @@ export function TaskRow({
           <Text variant="small" tone="muted">
             {task.entity.key}
           </Text>
-          {task.dueDate ? (
-            <Text variant="small" tone="muted">
-              {dayLabel(task.dueDate)}
-            </Text>
-          ) : null}
-          {due ? (
-            <Text
-              variant="small"
-              tone={due.overdue ? "destructive" : due.text === "Today" ? "caution" : "muted"}
-            >
-              {due.text}
-            </Text>
-          ) : null}
+          {task.dueDate ? <DueLine day={task.dueDate} due={due} /> : null}
           {labels.map((label) => (
             <Badge key={label.id} label={label.name} size="sm" />
           ))}
