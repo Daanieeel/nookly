@@ -1,5 +1,5 @@
 import { LIST_ROW_CLASSES, SECTION_HEADING_CLASSES } from "@nookly/frontend/classes";
-import { CARD_CLASSES, SEPARATOR_CLASSES } from "@nookly/ui/classes";
+import { SEPARATOR_CLASSES } from "@nookly/ui/classes";
 import { Pressable, View } from "react-native";
 import { cn, row, withState } from "./classes.ts";
 import { Text } from "./Text.tsx";
@@ -38,7 +38,7 @@ export function Row({
       style={TOUCH_ROW}
       className={cn(
         row(LIST_ROW_CLASSES),
-        "gap-3 px-4 active:bg-accent/40",
+        "gap-3 rounded-md px-2 active:bg-accent/40",
         subtitle && "h-auto min-h-12 py-2",
         muted && "opacity-50",
       )}
@@ -63,8 +63,9 @@ export const ROW_DIVIDER = LIST_ROW_CLASSES.split(" ")
   .filter((name) => name.startsWith("border-"))
   .join(" ");
 
-/// Rows on the desktop's `Card` under a small heading (`SECTION_HEADING_CLASSES`). The
-/// last row's bottom line tucks under the card's edge.
+/// Rows under a small heading (`SECTION_HEADING_CLASSES`), flat on the page with a thin
+/// line between them, the way the desktop lists settings and items. No card: on the desktop
+/// a box is for things that are boxes by nature, not for every list.
 export function Section({
   title,
   children,
@@ -86,9 +87,7 @@ export function Section({
           {action}
         </View>
       ) : null}
-      <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden")}>
-        <View className="-mb-px">{children}</View>
-      </View>
+      <View>{children}</View>
     </View>
   );
 }

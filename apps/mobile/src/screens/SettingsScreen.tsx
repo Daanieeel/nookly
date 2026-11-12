@@ -14,7 +14,7 @@ import {
   IconUserCircle,
   type Icon,
 } from "@tabler/icons-react-native";
-import Constants from "expo-constants";
+import { version } from "../../package.json";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
@@ -41,6 +41,62 @@ const PAGE_ICONS = {
   latex: IconMathFunction,
   backup: IconDeviceFloppy,
 } satisfies Record<SettingsPage, Icon>;
+
+interface NavLink {
+  title: string;
+  subtitle: string;
+  icon: Icon;
+  /// Where it goes; About has nowhere to go and only says the version.
+  href?: string;
+}
+
+const pageLink = (id: SettingsPage): NavLink => {
+  const page = PAGES.find((p) => p.id === id);
+  return {
+    title: page?.title ?? id,
+    subtitle: page?.subtitle ?? "",
+    icon: PAGE_ICONS[id],
+    href: `/settings/${id}`,
+  };
+};
+
+/// The pages under the desktop's headings (`settings-pages.ts` `NAV_GROUPS`), with the
+/// phone's own pages where the desktop has its counterparts. The account sits on top.
+const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
+  { label: null, links: [pageLink("general"), pageLink("appearance")] },
+  { label: "Writing and study", links: [pageLink("editor"), pageLink("calendar")] },
+  { label: "Data and accounts", links: [pageLink("backup")] },
+  {
+    label: "Power tools",
+    links: [
+      {
+        title: "Sidebar",
+        subtitle: "What it lists first, and in what order",
+        icon: IconLayoutSidebar,
+        href: "/settings/sidebar",
+      },
+      {
+        title: "Keyboard Shortcuts",
+        subtitle: "For an iPad with a keyboard",
+        icon: IconKeyboard,
+        href: "/settings/shortcuts",
+      },
+      pageLink("latex"),
+    ],
+  },
+  {
+    label: null,
+    links: [
+      {
+        title: "What's New",
+        subtitle: "What changed in Nookly",
+        icon: IconSparkles,
+        href: "/settings/whats-new",
+      },
+      { title: "About", subtitle: `Nookly ${version}`, icon: IconInfoCircle },
+    ],
+  },
+];
 
 /// Who is signed in (or the way in), at the top of Settings like the apps beside it.
 function AccountCard() {
@@ -103,52 +159,30 @@ export function SettingsScreen() {
       ) : null}
       {query.trim() ? null : <AccountCard />}
       {query.trim() ? null : (
-        <Section>
-          {PAGES.map((page) => {
-            const Glyph = PAGE_ICONS[page.id];
-            return (
-              <View key={page.id}>
-                <Row
-                  title={page.title}
-                  subtitle={page.subtitle}
-                  icon={<Glyph size={20} color={theme.colors.mutedForeground} />}
-                  trailing={<IconChevronRight size={16} color={theme.colors.mutedForeground} />}
-                  onPress={() => router.push(`/settings/${page.id}`)}
-                />
-              </View>
-            );
-          })}
-        </Section>
-      )}
-      {query.trim() ? null : (
-        <Section>
-          <Row
-            title="Sidebar"
-            subtitle="What it lists first, and in what order"
-            icon={<IconLayoutSidebar size={20} color={theme.colors.mutedForeground} />}
-            trailing={<IconChevronRight size={16} color={theme.colors.mutedForeground} />}
-            onPress={() => router.push("/settings/sidebar")}
-          />
-          <Row
-            title="Keyboard Shortcuts"
-            subtitle="For an iPad with a keyboard"
-            icon={<IconKeyboard size={20} color={theme.colors.mutedForeground} />}
-            trailing={<IconChevronRight size={16} color={theme.colors.mutedForeground} />}
-            onPress={() => router.push("/settings/shortcuts")}
-          />
-          <Row
-            title="What's New"
-            subtitle="What changed in Nookly"
-            icon={<IconSparkles size={20} color={theme.colors.mutedForeground} />}
-            trailing={<IconChevronRight size={16} color={theme.colors.mutedForeground} />}
-            onPress={() => router.push("/settings/whats-new")}
-          />
-          <Row
-            title="About"
-            subtitle={`Nookly ${Constants.expoConfig?.version ?? ""}`}
-            icon={<IconInfoCircle size={20} color={theme.colors.mutedForeground} />}
-          />
-        </Section>
+        <>
+          {NAV_GROUPS.map((group, index) => (
+            <Section key={group.label ?? `group-${index}`} title={group.label ?? undefined}>
+              {group.links.map((link) => {
+                const Glyph = link.icon;
+                return (
+                  <View key={link.title}>
+                    <Row
+                      title={link.title}
+                      subtitle={link.subtitle}
+                      icon={<Glyph size={20} color={theme.colors.mutedForeground} />}
+                      trailing={
+                        link.href ? (
+                          <IconChevronRight size={16} color={theme.colors.mutedForeground} />
+                        ) : undefined
+                      }
+                      onPress={link.href ? () => router.push(link.href as never) : undefined}
+                    />
+                  </View>
+                );
+              })}
+            </Section>
+          ))}
+        </>
       )}
     </Screen>
   );

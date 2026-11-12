@@ -24,7 +24,8 @@ export const PAGES: { id: SettingsPage; title: string; subtitle: string }[] = [
 const FORMAT = [
   { value: "american", label: "American" },
   { value: "european", label: "European" },
-  { value: "timezone", label: "Time zone's own" },
+  // Short enough for a third of a phone's width; the description says it in full.
+  { value: "timezone", label: "Time zone" },
 ];
 
 export const SETTING_UI = {

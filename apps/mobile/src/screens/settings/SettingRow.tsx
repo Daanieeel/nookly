@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Switch, View } from "react-native";
 import { phoneSettings, useSettingJson } from "../../data/settings.ts";
 import { Button } from "../../ui/Button.tsx";
-import { Chip, ChipGroup } from "../../ui/Chips.tsx";
+import { Segmented } from "../../ui/Segmented.tsx";
 import { Field } from "../../ui/Field.tsx";
 import { ROW_DIVIDER } from "../../ui/Row.tsx";
 import { SelectField } from "../../ui/SelectField.tsx";
@@ -93,7 +93,7 @@ export function SettingRow({ id }: { id: SharedSettingId }) {
   const value = useSettingJson(id);
   const changed = !phoneSettings.isDefault(id);
   return (
-    <View className={cn("gap-2 p-4", ROW_DIVIDER)}>
+    <View className={cn("gap-2 px-1 py-4", ROW_DIVIDER)}>
       {control.kind !== "text" && (
         <View className="flex-row items-center gap-2">
           <Text className="flex-1 font-medium" accessibilityRole="header">
@@ -114,16 +114,17 @@ export function SettingRow({ id }: { id: SharedSettingId }) {
       </Text>
       {/* As on the desktop: two or three choices side by side, more in a select. */}
       {control.kind === "choice" && control.options.length <= 3 && (
-        <ChipGroup label={def.title} stretch>
-          {control.options.map((option) => (
-            <Chip
-              key={String(option.value)}
-              label={option.label}
-              selected={value === option.value}
-              onPress={() => phoneSettings.setJson(id, option.value)}
-            />
-          ))}
-        </ChipGroup>
+        <Segmented
+          label={def.title}
+          value={String(value)}
+          options={control.options.map((o) => ({ value: String(o.value), label: o.label }))}
+          onChange={(next) =>
+            phoneSettings.setJson(
+              id,
+              control.options.find((o) => String(o.value) === next)?.value ?? next,
+            )
+          }
+        />
       )}
       {control.kind === "choice" && control.options.length > 3 && (
         <SelectField
