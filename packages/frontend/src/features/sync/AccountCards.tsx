@@ -51,7 +51,7 @@ const BADGE_TONES = {
   busy: "bg-muted text-muted-foreground",
   caution: "bg-caution/10 text-caution",
   error: "bg-destructive/10 text-destructive",
- satisfies Record<Tone, string>;
+} satisfies Record<Tone, string>;
 
 const TEXT_TONES = {
   ok: "text-positive",
@@ -59,7 +59,7 @@ const TEXT_TONES = {
   busy: "text-muted-foreground",
   caution: "text-caution",
   error: "text-destructive",
- satisfies Record<Tone, string>;
+} satisfies Record<Tone, string>;
 
 /// A round badge with the card's icon, coloured by how things are.
 function CardIcon({ icon: Icon, tone }: { icon: TablerIcon; tone: Tone }) {
