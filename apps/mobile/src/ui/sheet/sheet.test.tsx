@@ -132,9 +132,8 @@ describe("a field inside a sheet", () => {
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
   });
 
-  // A few choices (priority, size, status) open as a compact menu at the field, the
-  // desktop's dropdown, not as a step of the sheet.
-  it("opens a few choices as a menu at the field, over the form", async () => {
+  // D50: a few choices (priority, size, status) open the same way, never a dropdown.
+  it("opens a few choices as a step of the same sheet too", async () => {
     function Form() {
       const [value, setValue] = useState<string | null>(null);
       return (
@@ -145,12 +144,9 @@ describe("a field inside a sheet", () => {
     }
     const screen = render(<Form />);
     fireEvent.press(screen.getByRole("button", { name: "Letter, Choose…" }));
-    expect(await screen.findByLabelText("Letter choices")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
-    expect(screen.getByText("New Task")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Back" })).toBeTruthy();
     fireEvent.press(screen.getByRole("radio", { name: "Beta" }));
     expect(await screen.findByRole("button", { name: "Letter, Beta" })).toBeTruthy();
-    await waitFor(() => expect(screen.queryByLabelText("Letter choices")).toBeNull());
   });
 });
 
@@ -230,32 +226,52 @@ describe("touch sizes", () => {
   });
 });
 
-describe("a compact menu", () => {
-  // The desktop's property popovers have a search field and show each choice's icon and
-  // details; the phone's keep them, however few the choices.
-  it("can be searched, and shows each choice's details", async () => {
-    function Field() {
-      const [value, setValue] = useState<string>("a");
-      return (
-        <ChoiceProperty
-          label="Status"
-          value={value}
-          onChange={setValue}
-          searchPlaceholder="Change status…"
-          options={[
-            { id: "a", label: "Alpha", detail: "Mon, Nov 9" },
-            { id: "b", label: "Beta" },
-          ]}
-        />
-      );
-    }
+describe("a select", () => {
+  // D50: the sheet, with a search pinned above the list, rows of icon, title and subtitle
+  // with the desktop's details, and a check on the chosen one.
+  function Field() {
+    const [value, setValue] = useState<string>("a");
+    return (
+      <ChoiceProperty
+        label="Status"
+        value={value}
+        onChange={setValue}
+        searchPlaceholder="Change status…"
+        options={[
+          { id: "a", label: "Alpha", detail: "Mon, Nov 9", subtitle: "The first", section: "Open" },
+          { id: "b", label: "Beta", section: "Open" },
+          { id: "c", label: "Gamma", section: "Closed" },
+        ]}
+      />
+    );
+  }
+
+  it("opens in the sheet with a search, the details and a check on the chosen one", async () => {
     const screen = render(<Field />);
     fireEvent.press(screen.getByRole("button", { name: "Status, Alpha" }));
-    expect(await screen.findByLabelText("Status choices")).toBeTruthy();
+    expect(await screen.findByLabelText("Search Status")).toBeTruthy();
     expect(screen.getByText("Mon, Nov 9")).toBeTruthy();
+    expect(screen.getByText("The first")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Alpha" }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
     fireEvent.changeText(screen.getByPlaceholderText("Change status…"), "bet");
     expect(screen.queryByRole("radio", { name: "Alpha" })).toBeNull();
     fireEvent.press(screen.getByRole("radio", { name: "Beta" }));
     expect(await screen.findByRole("button", { name: "Status, Beta" })).toBeTruthy();
+  });
+
+  it("groups choices under their section's header", async () => {
+    const screen = render(<Field />);
+    fireEvent.press(screen.getByRole("button", { name: "Status, Alpha" }));
+    expect(await screen.findByRole("header", { name: "OPEN" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "CLOSED" })).toBeTruthy();
+  });
+
+  it("says when nothing matches the search", async () => {
+    const screen = render(<Field />);
+    fireEvent.press(screen.getByRole("button", { name: "Status, Alpha" }));
+    fireEvent.changeText(await screen.findByLabelText("Search Status"), "zzz");
+    expect(await screen.findByText("No Results")).toBeTruthy();
   });
 });

@@ -17,6 +17,7 @@ describe("the Space select", () => {
     await updateSpace(data.db, space, { icon: "🎓" });
     const screen = await renderScreens({ index: () => <Picker /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: /^Space, / }));
-    expect(await screen.findByText("🎓")).toBeTruthy();
+    // Drawn on the row's badge, which screen readers skip: the row says the name.
+    expect(await screen.findByText("🎓", { includeHiddenElements: true })).toBeTruthy();
   });
 });

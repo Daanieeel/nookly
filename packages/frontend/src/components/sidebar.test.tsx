@@ -547,8 +547,12 @@ describe("showing a hidden sidebar from the edge", () => {
   // it needs its own surface, or the page's text shows through it.
   it("gives the sidebar a surface of its own while it is over the page", () => {
     setupHidden();
-    expect(container().className).not.toContain("bg-popover");
+    expect(container()).not.toHaveAttribute("data-peek");
     fireEvent.mouseEnter(document.querySelector("[aria-hidden=true].fixed")!);
-    expect(container().className).toContain("[&>[data-slot=sidebar-inner]]:bg-popover");
+    expect(container()).toHaveAttribute("data-peek");
+    const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
+    expect(css).toMatch(
+      /\[data-slot="sidebar-container"\]\[data-peek\] > \[data-slot="sidebar-inner"\] \{[^}]*background-color: var\(--popover\)/,
+    );
   });
 });

@@ -5,13 +5,13 @@ import {
   IconFilter,
   IconSearch,
 } from "@tabler/icons-react-native";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "./Button.tsx";
 import { TextInput, View } from "react-native";
 import { cn, row, splitText } from "./classes.ts";
 import { PageTabs } from "./PageTabs.tsx";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
-import { Popover } from "./sheet/Popover.tsx";
+import { Sheet } from "./sheet/Sheet.tsx";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 
@@ -127,10 +127,9 @@ export function SortButton<Id extends string>({
 }) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
-  const anchor = useRef<View>(null);
   const current = options.find((o) => o.id === value)?.label ?? "";
   return (
-    <View ref={anchor} collapsable={false}>
+    <View>
       <Button
         label={current}
         accessibilityLabel={`Sort, ${current}`}
@@ -139,9 +138,9 @@ export function SortButton<Id extends string>({
         icon={<IconArrowsSort size={16} color={theme.colors.foreground} />}
         onPress={() => setOpen(true)}
       />
-      <Popover open={open} onOpenChange={setOpen} anchor={anchor} label="Sort choices">
+      <Sheet open={open} onOpenChange={setOpen} title="Sort">
         <OptionList label="Sort" options={options} value={value} onChange={onChange} />
-      </Popover>
+      </Sheet>
     </View>
   );
 }

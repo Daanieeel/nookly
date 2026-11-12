@@ -1,5 +1,5 @@
 import { IconX } from "@tabler/icons-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { TextInput, View } from "react-native";
 import { z } from "zod";
 import { Button } from "./Button.tsx";
@@ -8,7 +8,6 @@ import { usePropertyLook } from "./parts.tsx";
 import { Property } from "./Property.tsx";
 import { DayPicker } from "./sheet/DayPicker.tsx";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
-import { COMPACT_CHOICES, Popover } from "./sheet/Popover.tsx";
 import { Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
 import { TimeInput } from "./TimeInput.tsx";
 import { LIST_ROW } from "./touch.ts";
@@ -84,8 +83,6 @@ export function ChoiceProperty<Id extends string>({
   emptyId?: Id;
 }) {
   const current = options.find((option) => option.id === value);
-  const anchor = useRef<View>(null);
-  const [open, setOpen] = useState(false);
   const shown = {
     icon,
     label,
@@ -103,21 +100,11 @@ export function ChoiceProperty<Id extends string>({
       searchPlaceholder={searchPlaceholder ?? `Change ${label.toLowerCase()}…`}
     />
   );
-  // A few choices open as the desktop's dropdown at the row; a long list in the sheet.
-  if (options.length > COMPACT_CHOICES) {
-    return (
-      <SheetProperty {...shown} readOnly={readOnly}>
-        {list}
-      </SheetProperty>
-    );
-  }
+  // Every select opens the sheet, however few its choices (D50).
   return (
-    <>
-      <Property ref={anchor} {...shown} disabled={readOnly} onPress={() => setOpen(true)} />
-      <Popover open={open} onOpenChange={setOpen} anchor={anchor} label={`${label} choices`}>
-        {list}
-      </Popover>
-    </>
+    <SheetProperty {...shown} readOnly={readOnly}>
+      {list}
+    </SheetProperty>
   );
 }
 

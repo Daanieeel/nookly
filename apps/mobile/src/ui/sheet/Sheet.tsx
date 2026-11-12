@@ -10,7 +10,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { Modal, Pressable, View, useWindowDimensions } from "react-native";
+import { BlurView } from "expo-blur";
+import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
@@ -18,6 +19,7 @@ import Animated, {
   useAnimatedKeyboard,
   useAnimatedScrollHandler,
   useAnimatedStyle,
+  type SharedValue,
   useSharedValue,
   withSpring,
   withTiming,
@@ -30,6 +32,8 @@ import { FADE, SPRING, dragFrom, settleSheet } from "../motion.ts";
 import { useReduceMotion } from "../reduce-motion.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
+import { useSemantic } from "../kit/scheme.ts";
+import { CORNER, DEPTH, RADIUS } from "../tokens.ts";
 
 /// The app's one bottom sheet: every picker, menu, confirmation and create form on the
 /// phone opens in it, in place of the desktop's popovers, menus and dialogs. It comes up
@@ -72,6 +76,53 @@ const SheetContext = createContext<SheetHandle | null>(null);
 /// What a sheet's content uses to close it or push a step. Outside a sheet, null.
 export const useSheet = () => useContext(SheetContext);
 
+/// What a step pins above its list (a search field, the section scrolled to), so it stays
+/// put while the list scrolls under it.
+interface PinStore {
+  get(): ReactNode;
+  set(node: ReactNode): void;
+  subscribe(listener: () => void): () => void;
+}
+
+function makePinStore(): PinStore {
+  let current: ReactNode = null;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    set: (next) => {
+      current = next;
+      for (const listener of listeners) listener();
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+  };
+}
+
+const PinContext = createContext<PinStore | null>(null);
+const ScrollContext = createContext<SharedValue<number> | null>(null);
+
+/// How far the sheet's list has scrolled, for a header that follows it. Outside a sheet,
+/// null.
+export const useSheetScroll = () => useContext(ScrollContext);
+
+/// Pins `children` above the sheet's list, under its title; outside a sheet it is drawn
+/// where it stands.
+export function SheetPinned({ children }: { children: ReactNode }) {
+  const pin = useContext(PinContext);
+  useEffect(() => {
+    pin?.set(children);
+  });
+  useEffect(() => () => pin?.set(null), [pin]);
+  return pin ? null : <>{children}</>;
+}
+
+function PinnedSlot({ store }: { store: PinStore }) {
+  const node = useSyncExternalStore(store.subscribe, store.get);
+  return node ? <View className="px-4 pb-2">{node}</View> : null;
+}
+
 /// Lets a page laid out for a screen (`Screen`) know it sits in a sheet, which scrolls
 /// for it.
 const InSheet = createContext(false);
@@ -108,6 +159,8 @@ function SheetFrame({
   const start = useSharedValue(0);
   const still = useReduceMotion();
   const scrollY = useSharedValue(0);
+  const pin = useMemo(makePinStore, []);
+  const grabber = useSemantic("tertiaryLabel");
   const [pages, setPages] = useState<SheetPage[]>([]);
   const pagesNow = useRef(pages);
   useEffect(() => {
@@ -213,65 +266,85 @@ function SheetFrame({
   const shownTitle = top ? top.title : title;
   return (
     <SheetContext.Provider value={handle}>
-      <InSheet.Provider value>
-        <View className="flex-1 justify-end">
-          <Animated.View style={backdrop} className="absolute inset-0 bg-black/50">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              onPress={onRequestClose}
-              className="flex-1"
-            />
-          </Animated.View>
-          <GestureDetector gesture={pan}>
-            <Animated.View
-              accessibilityViewIsModal
-              style={panel}
-              className="rounded-t-xl border border-b-0 border-border bg-popover"
-            >
-              <View className="items-center pt-2" accessibilityElementsHidden>
-                <View
-                  className="h-1 w-9 rounded-full"
-                  style={{ backgroundColor: theme.colors.mutedForeground, opacity: 0.4 }}
+      <PinContext.Provider value={pin}>
+        <ScrollContext.Provider value={scrollY}>
+          <InSheet.Provider value>
+            <View className="flex-1 justify-end">
+              <Animated.View style={backdrop} className="absolute inset-0 bg-black/50">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
+                  onPress={onRequestClose}
+                  className="flex-1"
                 />
-              </View>
-              {shownTitle !== undefined || pages.length > 0 ? (
-                <View className="flex-row items-center px-2" style={{ minHeight: MIN_TOUCH }}>
-                  <View style={{ width: MIN_TOUCH }}>
-                    {pages.length > 0 ? (
-                      <IconButton
-                        label="Back"
-                        icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
-                        onPress={handle.back}
-                      />
-                    ) : null}
-                  </View>
-                  <Text
-                    variant="heading"
-                    accessibilityRole="header"
-                    numberOfLines={1}
-                    className="flex-1 text-center"
-                  >
-                    {shownTitle ?? ""}
-                  </Text>
-                  <View style={{ width: MIN_TOUCH }} />
-                </View>
-              ) : null}
-              <GestureDetector gesture={scroll}>
-                <Animated.ScrollView
-                  bounces={false}
-                  keyboardShouldPersistTaps="handled"
-                  scrollEventThrottle={16}
-                  onScroll={onScroll}
-                  contentContainerClassName="gap-4 px-4 pb-4 pt-1"
+              </Animated.View>
+              <GestureDetector gesture={pan}>
+                <Animated.View
+                  accessibilityViewIsModal
+                  style={[
+                    panel,
+                    CORNER,
+                    DEPTH.floating,
+                    { borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet },
+                  ]}
                 >
-                  {top ? top.content : children}
-                </Animated.ScrollView>
+                  {/* iOS's sheet material: the page shows through, blurred. */}
+                  <BlurView
+                    tint="systemThickMaterial"
+                    intensity={100}
+                    style={[
+                      StyleSheet.absoluteFill,
+                      CORNER,
+                      {
+                        borderTopLeftRadius: RADIUS.sheet,
+                        borderTopRightRadius: RADIUS.sheet,
+                        overflow: "hidden",
+                      },
+                    ]}
+                  />
+                  <View className="items-center pt-2" accessibilityElementsHidden>
+                    <View className="h-1 w-9 rounded-full" style={{ backgroundColor: grabber }} />
+                  </View>
+                  {shownTitle !== undefined || pages.length > 0 ? (
+                    <View className="flex-row items-center px-2" style={{ minHeight: MIN_TOUCH }}>
+                      <View style={{ width: MIN_TOUCH }}>
+                        {pages.length > 0 ? (
+                          <IconButton
+                            label="Back"
+                            icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
+                            onPress={handle.back}
+                          />
+                        ) : null}
+                      </View>
+                      <Text
+                        variant="heading"
+                        accessibilityRole="header"
+                        numberOfLines={1}
+                        className="flex-1 text-center"
+                      >
+                        {shownTitle ?? ""}
+                      </Text>
+                      <View style={{ width: MIN_TOUCH }} />
+                    </View>
+                  ) : null}
+                  <PinnedSlot store={pin} />
+                  <GestureDetector gesture={scroll}>
+                    <Animated.ScrollView
+                      bounces={false}
+                      keyboardShouldPersistTaps="handled"
+                      scrollEventThrottle={16}
+                      onScroll={onScroll}
+                      contentContainerClassName="gap-4 px-4 pb-4 pt-1"
+                    >
+                      {top ? top.content : children}
+                    </Animated.ScrollView>
+                  </GestureDetector>
+                </Animated.View>
               </GestureDetector>
-            </Animated.View>
-          </GestureDetector>
-        </View>
-      </InSheet.Provider>
+            </View>
+          </InSheet.Provider>
+        </ScrollContext.Provider>
+      </PinContext.Provider>
     </SheetContext.Provider>
   );
 }

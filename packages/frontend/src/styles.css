@@ -1131,6 +1131,14 @@
   }
 }
 
+/* Slid over the page from the left edge, the hidden sidebar is a panel of its own: in place the
+   window's colour shows through it, over the page the page's text would. */
+[data-slot="sidebar-container"][data-peek] > [data-slot="sidebar-inner"] {
+  background-color: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.35);
+}
+
 /* Thin steps of backdrop blur, finer toward the top. Several stacked, each shorter than the one
    before, blur more the closer to the bottom they reach, which tapers the blur off without a mask:
    a mask on a backdrop blur is not applied by every engine, and a blur that ignores it ends in a
