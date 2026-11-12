@@ -234,7 +234,8 @@ export class SyncService {
         }
         const before = current ? stateOf(current) : EMPTY_RECORD;
         const merged = mergeRecords(before, incoming);
-        if (current && sameState(before, merged)) continue;
+        // Losses first: a change that lost on every field leaves the record as it was,
+        // and must still be kept, or the device that sent it drops it as taken.
         const losses = findPushLosses(current ? before : null, incoming);
         if (losses.length > 0) {
           await tx.insert(conflicts).values(
@@ -250,6 +251,7 @@ export class SyncService {
             })),
           );
         }
+        if (current && sameState(before, merged)) continue;
         const scope = scopeOf(change, current);
         seq += 1;
         const row = {

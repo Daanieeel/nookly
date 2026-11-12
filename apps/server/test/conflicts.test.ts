@@ -97,6 +97,28 @@ describe("conflicts", () => {
     }
   });
 
+  it("are logged when the older edit reaches the server second, so it is never lost", async () => {
+    // Bug: a push that lost on every field changed nothing on the server, which skipped it
+    // before looking for losses. The device was told its change was taken, cleared it, and
+    // the next pull overwrote it: the edit was gone without a trace.
+    const { desktop, phone } = await twoDevices();
+    phone.driver.exec("UPDATE entities SET title = 'Buy milk and eggs' WHERE id = 't1'");
+    await later(5);
+    desktop.driver.exec("UPDATE entities SET title = 'Buy oat milk' WHERE id = 't1'");
+    await pushOnly(desktop);
+    await pushOnly(phone);
+    const [conflict, ...rest] = await phone.api.conflicts();
+    expect(rest).toEqual([]);
+    expect(conflict).toMatchObject({
+      table: "entities",
+      pk: "t1",
+      field: "title",
+      losingValue: "Buy milk and eggs",
+    });
+    await syncOnce(phone);
+    expect(titleOf(phone, "t1")).toBe("Buy oat milk");
+  });
+
   it("are not made when two devices change different fields", async () => {
     const { desktop, phone } = await twoDevices();
     desktop.driver.exec("UPDATE entities SET title = 'Buy oat milk' WHERE id = 't1'");

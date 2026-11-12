@@ -319,7 +319,9 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         .delete(
           "/sessions/:id",
           async ({ headers, params, set }) => {
-            await accounts.revokeSession(await claimsOf(headers), params.id);
+            const claims = await claimsOf(headers);
+            await accounts.revokeSession(claims, params.id);
+            hub.endSession(claims.userId, params.id);
             set.status = 204;
           },
           {
@@ -616,7 +618,11 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
               return;
             }
             const timer = setTimeout(() => ws.close(1008, "no hello"), HELLO_TIMEOUT_MS);
-            sockets.set(ws.id, { userId: null, socket: { send: (m) => ws.send(m) }, timer });
+            sockets.set(ws.id, {
+              userId: null,
+              socket: { send: (m) => ws.send(m), close: () => ws.close(1008, "signed out") },
+              timer,
+            });
           },
           async message(ws, raw) {
             const state = sockets.get(ws.id);
@@ -636,6 +642,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
                 clearTimeout(state.timer);
                 if (state.userId) hub.remove(state.userId, state.socket);
                 state.userId = claims.userId;
+                state.socket.sessionId = claims.sessionId;
                 hub.add(claims.userId, state.socket);
                 ws.send(JSON.stringify({ type: "ready" }));
               } catch {
