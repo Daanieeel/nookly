@@ -342,6 +342,56 @@ describe("a page open on two devices", () => {
   });
 });
 
+describe("a device that changes account", () => {
+  it("never merges a page copy kept from another account into the new one", async () => {
+    // Bug: a copy of a page left on the device from an earlier sign in was merged into the
+    // next account's page, which then held its whole body twice.
+    const phone = makeDevice(PHONE);
+    addNote(phone, "p1", ["Pack the tent", "Book the train"]);
+    await phone.sync.signUp(server.baseUrl, { username: "old", password: PASSWORD });
+    await phone.sync.settled();
+    await openPage(phone, "p1");
+    await until(() => phone.driver.rows("SELECT 1 FROM page_docs").length === 1, "the copy");
+    const [kept] = phone.driver.rows("SELECT entity_id, state, updated_at FROM page_docs");
+    phone.sync.pages()?.release("p1");
+    await phone.sync.signOut();
+    // The copy is still there, as after a write that landed late.
+    phone.driver.exec(
+      "INSERT INTO page_docs (entity_id, state, pending, updated_at) VALUES (?, ?, 0, ?)",
+      String(kept.entity_id),
+      String(kept.state),
+      String(kept.updated_at),
+    );
+    await phone.sync.signUp(server.baseUrl, { username: "ada", password: PASSWORD });
+    await phone.sync.settled();
+    const session = await openPage(phone, "p1");
+    await Bun.sleep(300);
+    expect(body(session)).toEqual(["Pack the tent", "Book the train"]);
+    expect(await serverBody("p1")).toEqual(["Pack the tent", "Book the train"]);
+  });
+
+  it("writes nothing about a page after signing out", async () => {
+    // Bug: a page closed with typing still on its way was saved again seconds after the
+    // sign out had cleared the device's page copies.
+    const phone = makeDevice(PHONE);
+    addNote(phone, "p1", ["Pack the tent"]);
+    await phone.sync.signUp(server.baseUrl, { username: "ada", password: PASSWORD });
+    await phone.sync.settled();
+    const session = await openPage(phone, "p1");
+    phone.network.unplug();
+    typeInto(session, 0, "Offline ");
+    phone.sync.pages()?.release("p1");
+    await Bun.sleep(100);
+    await phone.sync.signOut();
+    await Bun.sleep(2600);
+    expect(phone.driver.rows("SELECT entity_id FROM page_docs")).toEqual([]);
+    // What was typed is in the rows, which stay.
+    expect(phone.driver.rows("SELECT content FROM blocks WHERE entity_id = 'p1'")).toEqual([
+      { content: "Offline Pack the tent" },
+    ]);
+  });
+});
+
 describe("a device whose session ended while it was closed", () => {
   it("syncs live again after signing in", async () => {
     // Bug: launched with a session the server no longer knew, the device was signed out

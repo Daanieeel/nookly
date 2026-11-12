@@ -29,6 +29,8 @@ const FROM_EDITOR = "editor";
 export function LivePage({ session, editable }: { session: PageSession; editable: boolean }) {
   return (
     <PageDocEditor
+      // A page opened again is another document object: the editor starts over on it.
+      key={session.doc.guid}
       doc={session.doc}
       awareness={session.provider.awareness ?? null}
       entityId={session.entityId}

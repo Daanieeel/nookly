@@ -97,6 +97,8 @@ const OFF: SyncStatus = {
 };
 
 const MIGRATION_KEY = "migration";
+/// Which account's page documents the device's copies are (`claimPageCopies`).
+const PAGES_ACCOUNT_KEY = "pages_account";
 /// How often files are tried again while some wait after a failure.
 const FILE_RETRY_MS = 5_000;
 
@@ -127,6 +129,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   private docs: PageDocs | null = null;
   private flushing = false;
   private starting: Promise<void> | null = null;
+  private closingDocs: Promise<void> = Promise.resolve();
   private filesTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(deps: SyncRuntimeDeps<A>) {
@@ -344,6 +347,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       await this.settings.seed();
       this.stopSettings = this.settings.start();
     }
+    await this.claimPageCopies(serverUrl);
     // Signed out or signed in elsewhere while this was getting ready.
     if (this.api !== api || this.client) return;
     this.client = new SyncClient({
@@ -355,6 +359,30 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       countConflicts: () => this.openConflicts().then((all) => all.length),
     });
     await this.client.start();
+  }
+
+  /// The device's copies of page documents belong to one account on one server. Copies left
+  /// from another one (a write that landed after a sign out, an older Nookly) must never
+  /// meet this account's documents: two documents of the same page would merge into a page
+  /// with its body twice. They are dropped before any page opens; the rows hold their text,
+  /// and text that never reached a server goes as row edits.
+  private async claimPageCopies(serverUrl: string) {
+    const user = this.store.getState().user;
+    if (!user) return;
+    const account = `${serverUrl} ${user.id}`;
+    if ((await this.meta(PAGES_ACCOUNT_KEY)) === account) return;
+    await this.deps.driver.batch([
+      run(
+        "INSERT INTO sync_dirty (tbl, pk, changed_at) SELECT 'blocks', id, ? FROM blocks WHERE entity_id IN (SELECT entity_id FROM page_docs WHERE pending = 1) ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1",
+        this.now(),
+      ),
+      run("DELETE FROM page_docs"),
+      run(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+        PAGES_ACCOUNT_KEY,
+        account,
+      ),
+    ]);
   }
 
   /// Every conflict nobody decided on yet, from this device's log and the server's: two
@@ -602,8 +630,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     this.filesTimer = null;
     this.blobs = null;
     this.filesCounted = { uploaded: 0, downloaded: 0 };
-    void this.docs?.close(false);
+    const docs = this.docs;
     this.docs = null;
+    if (docs) this.closingDocs = docs.close(false).catch(() => {});
   }
 
   syncNow(): Promise<void> {
@@ -621,6 +650,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     this.stop();
     // A sync still on its way must not write after the wipe below.
     await client?.finished();
+    // Open pages write their last words into the rows before their copies go.
+    await this.closingDocs;
     try {
       await this.api?.signOut();
     } catch {
@@ -636,6 +667,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const client = this.client;
     this.stop();
     await client?.finished();
+    await this.closingDocs;
     await this.engine.disable();
     await this.deps.driver.batch([run("DELETE FROM page_docs")]);
     this.store.setState({

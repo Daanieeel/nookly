@@ -75,5 +75,13 @@ export function RowsPage({ entityId, editable }: { entityId: string; editable: b
       </View>
     );
   }
-  return <PageDocEditor doc={doc} awareness={null} entityId={entityId} editable={editable} />;
+  return (
+    <PageDocEditor
+      key={doc.guid}
+      doc={doc}
+      awareness={null}
+      entityId={entityId}
+      editable={editable}
+    />
+  );
 }

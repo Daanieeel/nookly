@@ -61,6 +61,8 @@ export class PageDocs {
   private readonly socket: HocuspocusProviderWebsocket;
   private readonly entries = new Map<string, Entry>();
   private closed = false;
+  /// Writes to the device, one after the other, so closing can wait for the last one.
+  private writes: Promise<void> = Promise.resolve();
 
   constructor(options: PageDocsOptions) {
     this.options = options;
@@ -80,8 +82,18 @@ export class PageDocs {
     return row ? fromBase64(String(row.state)) : null;
   }
 
-  /// Saves the device's copy, marked pending while the server hasn't confirmed it.
-  private async saveLocal(entry: Entry) {
+  /// Saves the device's copy, marked pending while the server hasn't confirmed it. After
+  /// closing (a sign out) nothing is written any more: the copies belong to the account.
+  private saveLocal(entry: Entry): Promise<void> {
+    const next = this.writes.then(async () => {
+      if (this.closed || this.entries.get(entry.session.entityId) !== entry) return;
+      await this.writeLocal(entry);
+    });
+    this.writes = next.catch(() => {});
+    return next;
+  }
+
+  private async writeLocal(entry: Entry) {
     const { doc, provider, entityId } = entry.session;
     const pending = provider.unsyncedChanges > 0 || !provider.isSynced ? 1 : 0;
     await this.options.driver.batch([
@@ -197,7 +209,7 @@ export class PageDocs {
     entry.users -= 1;
     if (entry.users > 0) return;
     const close = async () => {
-      if (entry.users > 0) return;
+      if (entry.users > 0 || this.closed || this.entries.get(entityId) !== entry) return;
       if (entry.timer) {
         clearTimeout(entry.timer);
         entry.timer = null;
@@ -327,7 +339,19 @@ export class PageDocs {
   /// Signing out: every document closes and the device's copies go, as they belong
   /// to the account. The rows stay, and are sent again on the next sign in.
   async close(clear: boolean) {
+    if (this.closed) {
+      await this.writes;
+      return;
+    }
+    // What is open is written one last time, so the rows hold every word typed.
+    const last = [...this.entries.values()].map((entry) => {
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.timer = null;
+      return this.saveLocal(entry).catch(() => {});
+    });
+    await Promise.all(last);
     this.closed = true;
+    await this.writes;
     for (const entityId of [...this.entries.keys()]) this.drop(entityId);
     this.socket.destroy();
     if (clear) await this.options.driver.batch([run("DELETE FROM page_docs")]);
