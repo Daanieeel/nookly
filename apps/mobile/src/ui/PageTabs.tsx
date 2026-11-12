@@ -1,4 +1,8 @@
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { SPRING } from "./motion.ts";
+import { useReduceMotion } from "./reduce-motion.ts";
 import { cn } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { MIN_TOUCH } from "./touch.ts";
@@ -12,7 +16,8 @@ export interface PageTab<Id extends string> {
 
 /// Tabs inside a page, the desktop's `PageTabs`: a quiet row of labels over a hairline, the
 /// open one in the text colour and underlined in the primary colour. Never a row of filled
-/// buttons. As tall as a finger needs; scrolls sideways when the labels do not fit.
+/// buttons. As tall as a finger needs; scrolls sideways when the labels do not fit. The
+/// underline slides to the tab picked on a spring.
 export function PageTabs<Id extends string>({
   label,
   tabs,
@@ -24,6 +29,22 @@ export function PageTabs<Id extends string>({
   value: Id;
   onChange: (id: Id) => void;
 }) {
+  const [spans, setSpans] = useState<Record<string, { x: number; width: number }>>({});
+  const still = useReduceMotion();
+  const x = useSharedValue(0);
+  const width = useSharedValue(0);
+  const span = spans[value];
+  useEffect(() => {
+    if (!span) return;
+    // The first place is taken at once; from then on it slides.
+    const first = width.value === 0;
+    x.value = still || first ? span.x : withSpring(span.x, SPRING.press);
+    width.value = still || first ? span.width : withSpring(span.width, SPRING.press);
+  }, [span, still, x, width]);
+  const underline = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }],
+    width: width.value,
+  }));
   return (
     <View className="border-b border-border">
       <ScrollView
@@ -43,12 +64,16 @@ export function PageTabs<Id extends string>({
               accessibilityLabel={name}
               accessibilityState={{ selected }}
               onPress={() => onChange(tab.id)}
+              onLayout={(event) => {
+                const { x: left, width: w } = event.nativeEvent.layout;
+                setSpans((now) =>
+                  now[tab.id]?.x === left && now[tab.id]?.width === w
+                    ? now
+                    : { ...now, [tab.id]: { x: left, width: w } },
+                );
+              }}
               style={{ height: MIN_TOUCH }}
-              className={cn(
-                // The underline sits on the bar's hairline rather than above it.
-                "-mb-px flex-row items-center gap-1.5 border-b-2 px-2.5",
-                selected ? "border-primary" : "border-transparent",
-              )}
+              className="flex-row items-center gap-1.5 px-2.5"
             >
               <Text
                 className={cn(
@@ -64,6 +89,14 @@ export function PageTabs<Id extends string>({
             </Pressable>
           );
         })}
+        {/* The underline, on the bottom edge over the bar's hairline. */}
+        <Animated.View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          className="absolute bottom-0 left-0 h-0.5 bg-primary"
+          style={underline}
+        />
       </ScrollView>
     </View>
   );
