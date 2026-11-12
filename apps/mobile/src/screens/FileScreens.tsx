@@ -39,7 +39,7 @@ import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { ListTitle } from "../ui/ListBar.tsx";
-import { DetailsPart, MainPart } from "../ui/parts.tsx";
+import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
 import { dayLabel } from "./dates.ts";
@@ -281,6 +281,20 @@ export function FileDetail({ id }: { id: string }) {
   };
   return (
     <>
+      <AtAGlance>
+        <PropertyList>
+          <InfoRow
+            icon={<IconFile size={20} color={muted} />}
+            label="Kind"
+            value={KIND_LABELS[fileKindOf(name)]}
+          />
+          <InfoRow
+            icon={<IconCalendarEvent size={20} color={muted} />}
+            label="Added"
+            value={dayLabel(file.entity.createdAt.slice(0, 10))}
+          />
+        </PropertyList>
+      </AtAGlance>
       <MainPart>
         <View className="gap-4">
           <Preview file={file} />

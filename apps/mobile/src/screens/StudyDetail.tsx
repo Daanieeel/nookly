@@ -118,8 +118,30 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
         onPress={() => router.push(`/new/${what}?spaceId=${spaceId}&courseId=${id}`)}
       />
     );
+  const properties = (
+    <PropertyList>
+      <TextRow
+        icon={<IconUser size={20} color={muted} />}
+        label="Professor"
+        value={course.professor}
+        readOnly={readOnly}
+        placeholder="Who teaches it"
+        onSave={(value) => professor.mutate(value)}
+      />
+      <TextRow
+        icon={<IconDoor size={20} color={muted} />}
+        label="Room"
+        value={course.room}
+        readOnly={readOnly}
+        placeholder="Where it meets"
+        onSave={(value) => room.mutate(value)}
+      />
+      <CourseSemesterPicker courseId={id} spaceId={spaceId} readOnly={readOnly} />
+    </PropertyList>
+  );
   return (
     <>
+      <AtAGlance>{properties}</AtAGlance>
       <MainPart>
         <PageEditor entityId={id} readOnly={readOnly} live={false} />
         <CourseTiles courseId={id} spaceId={spaceId} />
@@ -169,27 +191,7 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
           <AssignmentRows assignments={assignments} />
         </Section>
       </MainPart>
-      <DetailsPart>
-        <PropertyList>
-          <TextRow
-            icon={<IconUser size={20} color={muted} />}
-            label="Professor"
-            value={course.professor}
-            readOnly={readOnly}
-            placeholder="Who teaches it"
-            onSave={(value) => professor.mutate(value)}
-          />
-          <TextRow
-            icon={<IconDoor size={20} color={muted} />}
-            label="Room"
-            value={course.room}
-            readOnly={readOnly}
-            placeholder="Where it meets"
-            onSave={(value) => room.mutate(value)}
-          />
-          <CourseSemesterPicker courseId={id} spaceId={spaceId} readOnly={readOnly} />
-        </PropertyList>
-      </DetailsPart>
+      <DetailsPart>{properties}</DetailsPart>
     </>
   );
 }

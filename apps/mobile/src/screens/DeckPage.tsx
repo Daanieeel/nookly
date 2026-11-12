@@ -18,7 +18,7 @@ import { useCards, useDeck } from "../data/queries.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
-import { DetailsPart, MainPart } from "../ui/parts.tsx";
+import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
 import { Section } from "../ui/Row.tsx";
@@ -167,34 +167,36 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
     .sort()[0];
   const edited = cards.find((c) => c.id === editing);
   const muted = theme.colors.mutedForeground;
+  const properties = (
+    <PropertyList>
+      <ExamProperty
+        icon={<IconCalendarEvent size={20} color={muted} />}
+        spaceId={deck.entity.spaceId}
+        value={deck.examId}
+        readOnly={readOnly}
+        onChange={(examId) => exam.mutate(examId)}
+      />
+      <InfoRow
+        icon={<IconCards size={20} color={muted} />}
+        label="Cards"
+        value={String(deck.stats.total)}
+      />
+      <InfoRow
+        icon={<IconClock size={20} color={muted} />}
+        label="Next due"
+        value={next ? dayLabel(next.slice(0, 10)) : "Nothing waiting"}
+      />
+      <InfoRow
+        icon={<IconStack2 size={20} color={muted} />}
+        label="Created"
+        value={dayLabel(deck.entity.createdAt.slice(0, 10))}
+      />
+    </PropertyList>
+  );
   return (
     <>
-      <DetailsPart>
-        <PropertyList>
-          <ExamProperty
-            icon={<IconCalendarEvent size={20} color={muted} />}
-            spaceId={deck.entity.spaceId}
-            value={deck.examId}
-            readOnly={readOnly}
-            onChange={(examId) => exam.mutate(examId)}
-          />
-          <InfoRow
-            icon={<IconCards size={20} color={muted} />}
-            label="Cards"
-            value={String(deck.stats.total)}
-          />
-          <InfoRow
-            icon={<IconClock size={20} color={muted} />}
-            label="Next due"
-            value={next ? dayLabel(next.slice(0, 10)) : "Nothing waiting"}
-          />
-          <InfoRow
-            icon={<IconStack2 size={20} color={muted} />}
-            label="Created"
-            value={dayLabel(deck.entity.createdAt.slice(0, 10))}
-          />
-        </PropertyList>
-      </DetailsPart>
+      <AtAGlance>{properties}</AtAGlance>
+      <DetailsPart>{properties}</DetailsPart>
       <MainPart>
         {mode === "write" && !readOnly ? (
           <WriteDesk deckId={id} onDone={() => setMode("overview")} />

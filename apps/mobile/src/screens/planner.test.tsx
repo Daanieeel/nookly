@@ -16,7 +16,7 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
-import { choose } from "../test/sheet.ts";
+import { choose, openRow } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewSemesterScreen, NewSessionScreen } from "./PlannerScreens.tsx";
 import { dayLabel } from "./dates.ts";
@@ -156,7 +156,7 @@ describe("semesters", () => {
       data,
       `/entity/${course}`,
     );
-    await fireEvent.press(await screen.findByRole("button", { name: /^Semester, / }));
+    await openRow(screen, "Semester");
     await fireEvent.press(await screen.findByRole("radio", { name: "WS 25/26" }));
     await waitFor(async () => expect(await courseSemester(data.db, course)).toBe(ws));
   });

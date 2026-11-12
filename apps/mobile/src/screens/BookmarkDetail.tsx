@@ -10,7 +10,7 @@ import { keys } from "../data/keys.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { useClipboard } from "../ui/clipboard.tsx";
 import { Field } from "../ui/Field.tsx";
-import { DetailsPart, MainPart, usePart } from "../ui/parts.tsx";
+import { AtAGlance, DetailsPart, MainPart, usePart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -60,6 +60,15 @@ export function BookmarkDetail({ id, readOnly }: { id: string; readOnly: boolean
   };
   return (
     <>
+      <AtAGlance>
+        <PropertyList>
+          <InfoRow
+            icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
+            label="Added"
+            value={dayLabel(bookmark.entity.createdAt.slice(0, 10))}
+          />
+        </PropertyList>
+      </AtAGlance>
       <MainPart>
         <View className="gap-3">
           {bookmark.previewImageUrl ? (

@@ -228,8 +228,8 @@ export function TextRow({
   const look = usePropertyLook();
   const [text, setText] = useState(value ?? "");
   useEffect(() => setText(value ?? ""), [value]);
-  // Typed in place, so it stays in the details rather than among the chips at a glance.
-  if (look === "chip") return null;
+  // Typed in place in the details; at a glance it shows what it holds, read only.
+  if (look === "chip") return value ? <Property icon={icon} label={label} value={value} /> : null;
   return (
     <View style={LIST_ROW} className="flex-row items-center gap-3 px-4">
       {icon}
@@ -282,7 +282,9 @@ export function NumberRow({
   const [text, setText] = useState(value === null ? "" : String(value));
   useEffect(() => setText(value === null ? "" : String(value)), [value]);
   const parsed = numberText.safeParse(text.trim());
-  if (look === "chip") return null;
+  if (look === "chip") {
+    return value === null ? null : <Property icon={icon} label={label} value={String(value)} />;
+  }
   return (
     <View>
       <View style={LIST_ROW} className="flex-row items-center gap-3 px-4">
@@ -322,7 +324,6 @@ export function InfoRow({
   label: string;
   value: string;
 }) {
-  // Nothing to change, so nothing to tap at a glance: it stays in the details.
-  if (usePropertyLook() === "chip") return null;
+  // Nothing to change: at a glance it is a quiet chip that says what it holds.
   return <Property icon={icon} label={label} value={value} />;
 }

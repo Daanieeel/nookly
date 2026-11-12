@@ -1,5 +1,7 @@
 import {
   createAssignment,
+  createDeck,
+  setCourseProfessor,
   createCourse,
   createExam,
   createSemester,
@@ -71,6 +73,24 @@ describe("an item's page and its details", () => {
     page.unmount();
     const other = await renderScreens({ index: () => <Item id={exam} part="main" glance /> }, data);
     expect(await other.findByRole("button", { name: /^Status, / })).toBeTruthy();
+  });
+
+  // A course, a deck, a bookmark and a file looked empty on the phone: all they are sat in
+  // the details. Their properties show at a glance too, the read only ones as quiet chips.
+  it("shows a course's and a deck's properties at a glance", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    await setCourseProfessor(data.db, course, "Prof. Knuth");
+    const deck = await createDeck(data.db, space, "Graph terms");
+    const page = await renderScreens(
+      { index: () => <Item id={course} part="main" glance /> },
+      data,
+    );
+    expect(await page.findByRole("button", { name: "Professor, Prof. Knuth" })).toBeTruthy();
+    page.unmount();
+    const other = await renderScreens({ index: () => <Item id={deck} part="main" glance /> }, data);
+    expect(await other.findByRole("button", { name: "Cards, 0" })).toBeTruthy();
   });
 
   it("keeps a course's exams and assignments in the page and its professor in the details", async () => {
