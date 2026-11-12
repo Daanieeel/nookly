@@ -13,17 +13,21 @@ import {
 import { Modal, Pressable, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
+  cancelAnimation,
   runOnJS,
   useAnimatedKeyboard,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { IconButton } from "../Button.tsx";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
+import { FADE, SPRING, dragFrom, settleSheet } from "../motion.ts";
+import { useReduceMotion } from "../reduce-motion.ts";
 import { MIN_TOUCH } from "../touch.ts";
 
 /// The app's one bottom sheet: every picker, menu, confirmation and create form on the
@@ -34,11 +38,9 @@ import { MIN_TOUCH } from "../touch.ts";
 /// A step inside it (a day, then a time) is pushed onto the same sheet with a back button,
 /// never a second sheet on top.
 
-/// How long it takes to come up or go away.
-const DURATION = 220;
-/// How far a swipe down must carry it, or how fast, before it goes away.
-const DISMISS_DISTANCE = 120;
-const DISMISS_VELOCITY = 900;
+/// How long it takes to come up or go away: the spring's settling time, or a fade's
+/// under Reduce Motion. The sheet is gone for good after it.
+const settleTime = (still: boolean) => (still ? FADE.out : SPRING.sheet.duration);
 
 export type SheetSize = "content" | "large";
 
@@ -98,6 +100,12 @@ function SheetFrame({
   const window = useWindowDimensions();
   const keyboard = useAnimatedKeyboard();
   const offset = useSharedValue(window.height);
+  /// Where it is headed (0 open, the window's height away), and how fast the finger let go.
+  const target = useSharedValue(0);
+  const release = useSharedValue(0);
+  /// Where a drag picked it up, wherever an animation had it.
+  const start = useSharedValue(0);
+  const still = useReduceMotion();
   const scrollY = useSharedValue(0);
   const [pages, setPages] = useState<SheetPage[]>([]);
   const pagesNow = useRef(pages);
@@ -117,20 +125,24 @@ function SheetFrame({
   }, [open]);
 
   useEffect(() => {
-    if (open) {
-      offset.value = withTiming(0, { duration: DURATION });
-      return;
-    }
-    offset.value = withTiming(window.height, { duration: DURATION });
+    const to = open ? 0 : window.height;
+    target.value = to;
+    // A spring from wherever it is, carrying the finger's speed; under Reduce Motion a
+    // short slide that reads as a fade with the backdrop.
+    offset.value = still
+      ? withTiming(to, { duration: FADE.in })
+      : withSpring(to, { ...SPRING.sheet, velocity: release.value });
+    release.value = 0;
+    if (open) return;
     // A timer, not the animation's callback, so it finishes the same way in tests.
     const timer = setTimeout(() => {
       closed.current();
       const then = after.current;
       after.current = null;
       then?.();
-    }, DURATION);
+    }, settleTime(still));
     return () => clearTimeout(timer);
-  }, [open, offset, window.height]);
+  }, [open, offset, target, release, still, window.height]);
 
   const handle = useMemo<SheetHandle>(
     () => ({
@@ -149,23 +161,33 @@ function SheetFrame({
   );
 
   const scroll = Gesture.Native();
+  const height = window.height;
   const pan = Gesture.Pan()
     .activeOffsetY(8)
     .failOffsetX([-16, 16])
     .simultaneousWithExternalGesture(scroll)
+    .onBegin(() => {
+      // A finger on a moving sheet stops it where it is.
+      cancelAnimation(offset);
+      start.value = offset.value;
+    })
     .onUpdate((event) => {
       // Only a list scrolled to its top lets the sheet follow the finger down.
-      if (scrollY.value <= 0) offset.value = Math.max(0, event.translationY);
+      if (scrollY.value <= 0) offset.value = dragFrom(start.value, height)(event.translationY);
     })
     .onEnd((event) => {
-      if (
-        offset.value > DISMISS_DISTANCE ||
-        (scrollY.value <= 0 && event.velocityY > DISMISS_VELOCITY)
-      ) {
+      const velocity = scrollY.value <= 0 ? event.velocityY : 0;
+      const settled = settleSheet({ offset: offset.value, velocity });
+      if (settled.to === "closed") {
+        release.value = settled.velocity;
         runOnJS(onRequestClose)();
       } else {
-        offset.value = withTiming(0, { duration: DURATION });
+        offset.value = withSpring(0, { ...SPRING.sheet, velocity: settled.velocity });
       }
+    })
+    .onFinalize((_event, success) => {
+      // A touch that never became a drag (a tap on a row) lets it carry on where it was going.
+      if (!success) offset.value = withSpring(target.value, SPRING.sheet);
     });
   const onScroll = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
