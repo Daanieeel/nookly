@@ -152,8 +152,12 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   private connect(serverUrl: string): A {
     const url = normalizeServerUrl(serverUrl);
     this.store.setState({ serverUrl: url });
-    this.api = this.deps.connect(url, () => void this.signedOutByServer());
-    return this.api;
+    const api = this.deps.connect(url, () => {
+      // Only the current account's client speaks for this device.
+      if (this.api === api) void this.signedOutByServer();
+    });
+    this.api = api;
+    return api;
   }
 
   /// On launch: carries on with the saved sign in, if there is one.

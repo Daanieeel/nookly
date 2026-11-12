@@ -168,10 +168,7 @@ export class ApiClient {
     } catch (error) {
       throw NetworkError.unreachable(error);
     }
-    if (authed && response.status === 401) {
-      await this.forget();
-      this.onSignedOut?.();
-    }
+    if (authed && response.status === 401 && token) await this.ended(token);
     if (!response.ok) {
       const parsed = errorBodySchema.safeParse(await response.json().catch(() => null));
       const data = parsed.success ? parsed.data : {};
@@ -216,6 +213,20 @@ export class ApiClient {
   private async forget() {
     this.token = null;
     await this.store.save(null);
+  }
+
+  /// The server no longer takes `token`. When it is still this device's session, the
+  /// device is signed out. When the store already holds another one (signed out and into
+  /// an account again since), only this client lets go: a request of the old session that
+  /// comes back late must never sign out the account signed in after it.
+  private async ended(token: string) {
+    const current = await this.store.load();
+    if (current !== null && current !== token) {
+      this.token = null;
+      return;
+    }
+    await this.forget();
+    this.onSignedOut?.();
   }
 
   async isSignedIn(): Promise<boolean> {
@@ -270,10 +281,14 @@ export class ApiClient {
   }
 
   async signOut(): Promise<void> {
+    const token = await this.sessionToken();
     try {
-      if (await this.sessionToken()) await this.callVoid("POST", "/v1/auth/sign-out", {});
+      if (token) await this.callVoid("POST", "/v1/auth/sign-out", {});
     } finally {
-      await this.forget();
+      // Only this session's token: a sign in that finished meanwhile keeps its own.
+      const current = await this.store.load();
+      if (current === null || current === token) await this.forget();
+      else this.token = null;
     }
   }
 
@@ -385,10 +400,7 @@ export class ApiClient {
     } catch (error) {
       throw NetworkError.unreachable(error);
     }
-    if (response.status === 401) {
-      await this.forget();
-      this.onSignedOut?.();
-    }
+    if (response.status === 401) await this.ended(token);
     return response;
   }
 
@@ -513,7 +525,7 @@ export class ApiClient {
         else if (message.type === "changes" || message.type === "datasets") handlers.onChanges();
         else if (message.type === "error" && message.code === "unauthorized") {
           // The session ended on the server: this device is signed out.
-          void this.forget().then(() => this.onSignedOut?.());
+          void this.ended(token);
         }
       });
       socket.addEventListener("close", ended);

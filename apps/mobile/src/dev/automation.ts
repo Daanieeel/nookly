@@ -138,6 +138,32 @@ async function type(label: string, value: string): Promise<boolean> {
   return true;
 }
 
+/// Leaves the field labelled `label` as a person does when done typing (its end editing,
+/// submit or blur handler), which is where most fields save.
+async function finish(label: string): Promise<boolean> {
+  const target = await waitFor(() =>
+    find(
+      (_f, props) =>
+        (typeof props.onEndEditing === "function" ||
+          typeof props.onSubmitEditing === "function" ||
+          typeof props.onBlur === "function") &&
+        (props.accessibilityLabel === label ||
+          props.placeholder === label ||
+          props.label === label),
+    ),
+  );
+  const props = target.memoizedProps ?? {};
+  for (const name of ["onEndEditing", "onSubmitEditing", "onBlur"]) {
+    const handler = props[name];
+    if (typeof handler === "function") {
+      (handler as (event: object) => void)({ nativeEvent: {} });
+      break;
+    }
+  }
+  await sleep(100);
+  return true;
+}
+
 /// Every piece of visible text, for reading the screen.
 function screenText(): string {
   const parts: string[] = [];
@@ -172,7 +198,7 @@ export interface AutomationContext {
 /// Starts asking `url` for scripts. `context` is what scripts can reach by name
 /// (the router, the sync runtime, the database).
 export function startAutomation(url: string, device: string, context: AutomationContext) {
-  const helpers = { press, type, sleep, waitFor, screenText, labels, measure, ...context };
+  const helpers = { press, type, finish, sleep, waitFor, screenText, labels, measure, ...context };
   let stopped = false;
   void (async () => {
     while (!stopped) {
