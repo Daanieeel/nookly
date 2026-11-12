@@ -38,10 +38,11 @@ export function Chip({
       disabled={disabled}
       onPress={onPress}
       hitSlop={touchSlop(CONTROL_SIZE.chip, MIN_TOUCH)}
+      style={{ height: CONTROL_SIZE.chip }}
       className={cn(box, stretch && "flex-1", "active:opacity-80")}
     >
       {icon}
-      <Text className={text}>{label}</Text>
+      <Text className={cn(text, "text-sm")}>{label}</Text>
     </Pressable>
   );
 }

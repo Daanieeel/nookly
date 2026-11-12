@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { useState } from "react";
-import { Text, View } from "react-native";
+import { type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { Button, IconButton } from "../Button.tsx";
 import { ChoiceProperty } from "../property-rows.tsx";
 import { SelectField } from "../SelectField.tsx";
 import { MIN_TOUCH, gapBetween, touchSlop } from "../touch.ts";
@@ -194,6 +195,23 @@ describe("touch sizes", () => {
     });
     expect(touchSlop(32, 120)).toMatchObject({ left: 0, right: 0 });
     expect(touchSlop(60)).toEqual({ top: 0, bottom: 0, left: 0, right: 0 });
+  });
+
+  // The phone drew the desktop's 36 and 32 point buttons and only grew their hit areas, so
+  // everything looked small. Buttons are drawn at a finger's size now.
+  it("draw buttons at a finger's size, not only their hit areas", () => {
+    const height = (node: { props: { style?: StyleProp<ViewStyle> } }) =>
+      StyleSheet.flatten(node.props.style)?.height;
+    const screen = render(
+      <View>
+        <Button label="Save" onPress={() => {}} />
+        <Button label="Filter" size="sm" variant="secondary" onPress={() => {}} />
+        <IconButton label="More" icon={<View />} onPress={() => {}} />
+      </View>,
+    );
+    expect(height(screen.getByRole("button", { name: "Save" }))).toBeGreaterThanOrEqual(MIN_TOUCH);
+    expect(height(screen.getByRole("button", { name: "Filter" }))).toBeGreaterThanOrEqual(36);
+    expect(height(screen.getByRole("button", { name: "More" }))).toBeGreaterThanOrEqual(MIN_TOUCH);
   });
 
   it("keep neighbours far enough apart that their hit areas never overlap", () => {

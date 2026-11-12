@@ -15,18 +15,20 @@ export const gapBetween = (size: number) => Math.max(0, MIN_TOUCH - size);
 /// `gapBetween` for chips and small buttons, the most common neighbours.
 export const TOUCH_GAP = gapBetween(32);
 
-/// The visible size, in points, of each of the desktop's controls the phone draws.
+/// The size each of the desktop's controls is drawn at on the phone, in points: the
+/// desktop's look, at a finger's size. iOS draws its own buttons this big, so ours are too,
+/// not only their hit areas (the desktop's 36 point button looked tiny on a phone).
 export const CONTROL_SIZE = {
-  /// `buttonVariants` sizes.
-  default: 36,
-  sm: 32,
-  lg: 40,
-  icon: 36,
-  iconSm: 28,
+  /// `buttonVariants` sizes, drawn this tall.
+  default: 44,
+  sm: 36,
+  lg: 50,
+  icon: 44,
+  iconSm: 36,
   /// A chip is a small button.
-  chip: 32,
+  chip: 36,
   /// `COLOR_SWATCH_CLASSES`.
-  swatch: 24,
+  swatch: 28,
   /// A round checkbox in a row.
   check: 24,
 } as const;

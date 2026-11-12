@@ -18,6 +18,12 @@ const slopFor = (size: ButtonSize) =>
     ? touchSlop(CONTROL_SIZE[size])
     : touchSlop(CONTROL_SIZE[size], MIN_TOUCH);
 
+/// How big a button of `size` is drawn: an icon button square, the others this tall.
+const drawnAt = (size: ButtonSize) =>
+  size === "icon" || size === "iconSm"
+    ? { width: CONTROL_SIZE[size], height: CONTROL_SIZE[size] }
+    : { height: CONTROL_SIZE[size] };
+
 /// A mutation's state as a button shows it, like the desktop's `statusOf`.
 export function statusOf(mutation: {
   isPending: boolean;
@@ -40,7 +46,7 @@ function useForeground(variant: ButtonVariant): string {
   return colors.foreground;
 }
 
-interface ButtonProps extends Omit<PressableProps, "children"> {
+interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
   label: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -86,6 +92,7 @@ export function Button({
       disabled={disabled || status === "pending"}
       hitSlop={slopFor(size)}
       {...props}
+      style={drawnAt(size)}
       className={cn(box, "active:opacity-80")}
     >
       {status === "pending" ? (
@@ -100,7 +107,13 @@ export function Button({
       {/* The words never take the touch, so a press on them reaches the button. */}
       <View pointerEvents="none">
         <Text
-          className={cn(text, status === "error" && variant !== "default" && "text-destructive")}
+          className={cn(
+            text,
+            // The desktop's small buttons have extra small words; at a finger's size they
+            // read as small text.
+            size === "sm" && "text-sm",
+            status === "error" && variant !== "default" && "text-destructive",
+          )}
         >
           {shown}
         </Text>
@@ -128,6 +141,7 @@ export function IconButton({
       accessibilityLabel={label}
       hitSlop={slopFor(size)}
       onPress={onPress}
+      style={drawnAt(size)}
       className={cn(row(buttonVariants({ variant: "ghost", size })), "active:bg-accent")}
     >
       <View pointerEvents="none">{icon}</View>
