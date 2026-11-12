@@ -1,4 +1,5 @@
-import { type ReactNode, createContext, useCallback, useContext, useMemo } from "react";
+import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo } from "react";
+import { devHooks } from "../dev/hooks.ts";
 import { View, useWindowDimensions } from "react-native";
 import { Drawer } from "react-native-drawer-layout";
 import { Sidebar } from "../screens/Sidebar.tsx";
@@ -52,6 +53,10 @@ function SidebarDrawerBody({ enabled, edgeBack, children }: SidebarDrawerProps) 
     () => ({ open: () => setOpen?.(true), close: () => setOpen?.(false) }),
     [setOpen],
   );
+  useEffect(() => {
+    devHooks.openSidebar = handle.open;
+    devHooks.closeSidebar = handle.close;
+  }, [handle]);
   const drawerWidth = Math.min(width * 0.82, 340);
   const inset = edgeBack ? BACK_EDGE : 0;
   // Closed, only a drag to the right is the drawer's; the page's own drawer on the right

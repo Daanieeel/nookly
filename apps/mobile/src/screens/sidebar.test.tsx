@@ -9,14 +9,12 @@ import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 
 describe("the sidebar", () => {
-  it("lists Pinned and the Spaces, and opens a Space's module", async () => {
+  it("shows one Space at a time, and the Space switcher at the bottom picks another", async () => {
     const data = testData();
     const work = await createSpace(data.db, "Work", "#3b82f6");
-    const task = await createTask(data.db, work, "Quarterly report");
-    await setPinned(data.db, task, true);
-    data.driver.rows(
-      "INSERT INTO spaces (id, name, color, created_at, updated_at, position) VALUES ('shared-ada', 'Ada', '#ef4444', '', '', 9)",
-    );
+    const home = await createSpace(data.db, "Home", "#22c55e");
+    await createTask(data.db, work, "Quarterly report");
+    await createTask(data.db, home, "Fix the tap");
     const close = jest.fn();
     const screen = await renderScreens(
       {
@@ -25,12 +23,28 @@ describe("the sidebar", () => {
       },
       data,
     );
-    expect(await screen.findByRole("button", { name: "Quarterly report" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Ada, Shared with you" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Work" }));
-    await fireEvent.press(await screen.findByRole("button", { name: "Tasks in Work" }));
+    expect(await screen.findByRole("button", { name: "Tasks in Work" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Tasks in Home" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Home" }));
+    expect(await screen.findByRole("button", { name: "Tasks in Home" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Tasks in Work" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Tasks in Home" }));
     expect(close).toHaveBeenCalled();
-    expect(screen.getPathname()).toBe(`/module/${work}/tasks`);
+    expect(screen.getPathname()).toBe(`/module/${home}/tasks`);
+  });
+
+  it("says a shared Space is shared, and leaves pinned items to Pinned, as the desktop does", async () => {
+    const data = testData();
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    const task = await createTask(data.db, work, "Quarterly report");
+    await setPinned(data.db, task, true);
+    data.driver.rows(
+      "INSERT INTO spaces (id, name, color, created_at, updated_at, position) VALUES ('shared-ada', 'Ada', '#ef4444', '', '', 9)",
+    );
+    const screen = await renderScreens({ index: () => <Sidebar close={jest.fn()} /> }, data);
+    expect(await screen.findByRole("button", { name: "Ada, Shared with you" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Pinned" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Quarterly report" })).toBeNull();
   });
 });
 
@@ -61,9 +75,10 @@ describe("the text of the sidebar's buttons", () => {
   // already do), so the words never take the touch.
   it("lets a press through to the row", async () => {
     const data = testData();
-    await createSpace(data.db, "Work", "#3b82f6");
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    await createTask(data.db, work, "Report");
     const screen = await renderScreens({ index: () => <Sidebar close={() => {}} /> }, data);
-    for (const words of [await screen.findByText("Work"), screen.getByText("Search")]) {
+    for (const words of [...(await screen.findAllByText("Tasks")), screen.getByText("Search")]) {
       expect(touchesOf(words)).toBe("none");
     }
     expect(touchesOf(screen.getByText(/Week \d+/))).toBe("none");

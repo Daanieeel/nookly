@@ -64,6 +64,8 @@ async function start(): Promise<AppData> {
       // The data functions, to set a scene from a script.
       data: await import("@nookly/shared/data"),
       tabs: (await import("../shell/tabs-store.ts")).tabActions,
+      // Actions outside the React tree, like the native bar's buttons (`hooks.openSidebar()`).
+      hooks: (await import("../dev/hooks.ts")).devHooks,
       // This device's settings, to turn one on for a check (`settings.setJson(id, value)`).
       settings: (await import("../data/settings.ts")).phoneSettings,
     });

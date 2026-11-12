@@ -72,6 +72,7 @@
   },
   "packageManager": "bun@1.4.0",
   "patchedDependencies": {
-    "react-native-css@3.1.0-rc.0": "patches/react-native-css@3.1.0-rc.0.patch"
+    "react-native-css@3.1.0-rc.0": "patches/react-native-css@3.1.0-rc.0.patch",
+    "@blobatar/react-native@2.7.0": "patches/@blobatar%2Freact-native@2.7.0.patch"
   }
 }

@@ -1,11 +1,6 @@
 import { isSharedSpace } from "@nookly/shared/api";
-import { useEntityMenu } from "./entity-actions.tsx";
-import {
-  INPUT_CLASSES,
-  SIDEBAR_GROUP_LABEL_CLASSES,
-  SIDEBAR_PANEL_CLASSES,
-  sidebarMenuButtonVariants,
-} from "@nookly/ui/classes";
+import { CARD_CLASSES, SIDEBAR_PANEL_CLASSES, sidebarMenuButtonVariants } from "@nookly/ui/classes";
+import { spaceRow } from "@nookly/frontend/lib/space-row";
 import { MODULE_LABELS, isModuleKey } from "@nookly/shared/modules";
 import {
   IconCalendarEvent,
@@ -14,7 +9,11 @@ import {
   IconPin,
   IconChevronDown,
   IconChevronRight,
+  IconDots,
   IconFeather,
+  IconFolder,
+  IconFolderPlus,
+  IconLayoutGridAdd,
   IconLayoutDashboard,
   IconPlus,
   IconSearch,
@@ -22,16 +21,15 @@ import {
   IconTrash,
   IconUsers,
 } from "@tabler/icons-react-native";
+import { z } from "zod";
 import { type Href, usePathname, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Space } from "@nookly/shared/data";
-import { useSyncState } from "../data/context.tsx";
 import {
   useDecks,
   useExams,
-  usePinned,
   useSpaceModules,
   useSpaces,
   useStatuses,
@@ -41,16 +39,17 @@ import {
 } from "../data/queries.ts";
 import { tasksFor } from "./dashboard-model.ts";
 import { isoWeek, localDay } from "./dates.ts";
-import { SpaceDot } from "../ui/Badge.tsx";
 import { IconButton } from "../ui/Button.tsx";
-import { EntityIcon, MODULE_ICONS } from "../ui/icons.tsx";
-import { FIELD_HEIGHT, TOUCH_ROW } from "../ui/touch.ts";
+import { IconValue, MODULE_ICONS } from "../ui/icons.tsx";
+import { Mascot } from "../ui/Mascot.tsx";
+import { useMenu } from "../ui/menu.tsx";
+import { usePanes } from "../shell/panes.tsx";
+import { MIN_TOUCH, TOUCH_ROW } from "../ui/touch.ts";
 import { Text } from "../ui/Text.tsx";
 import { cn, row, splitText, withState } from "../ui/classes.ts";
 import { useTheme } from "../ui/theme.ts";
 import { DEFAULT_TOP, type TopId, topSchema, visibleTop } from "./sidebar-top.ts";
 import { usePreference } from "../data/preferences.ts";
-import { syncLine } from "./sync-status.ts";
 
 const TOP_ICONS = {
   dashboard: IconLayoutDashboard,
@@ -72,8 +71,11 @@ function NavRow({
   indent = 0,
   subtitle,
   accessibilityLabel,
+  role = "button",
 }: {
   label: string;
+  /// `search` for the row that opens Search.
+  role?: "button" | "search";
   /// When the visible name alone is ambiguous, like a module's in a Space.
   accessibilityLabel?: string;
   icon: React.ReactNode;
@@ -91,7 +93,7 @@ function NavRow({
   );
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={role}
       accessibilityLabel={accessibilityLabel ?? (subtitle ? `${label}, ${subtitle}` : label)}
       accessibilityState={{ selected: active }}
       onPress={onPress}
@@ -116,23 +118,6 @@ function NavRow({
       </View>
       {trailing}
     </Pressable>
-  );
-}
-
-function Heading({ title, action }: { title: string; action?: React.ReactNode }) {
-  const theme = useTheme();
-  const { box, text } = splitText(row(cn(SIDEBAR_GROUP_LABEL_CLASSES)));
-  return (
-    <View className={cn(box, "mt-4")}>
-      <Text
-        accessibilityRole="header"
-        className={cn(text, "flex-1")}
-        style={{ color: theme.colors.mutedForeground }}
-      >
-        {title}
-      </Text>
-      {action}
-    </View>
   );
 }
 
@@ -211,9 +196,11 @@ function ModuleMeta({ spaceId, module }: { spaceId: string; module: string }) {
   ) : null;
 }
 
-/// The card at the top of the sidebar, like the desktop's: today's date and week, and one
-/// line about what waits, changing every few seconds; tapping it opens the matching list.
+/// The card at the top of the sidebar, like the desktop's: the mascot, today's date and
+/// week, and one line about what waits, changing every few seconds; tapping it opens the
+/// matching list.
 function DayCard({ go }: { go: (href: Href) => void }) {
+  const inView = usePanes()?.sidebarOpen ?? true;
   const theme = useTheme();
   const { data: tasks = [] } = useTasks(null);
   const { data: statuses = [] } = useStatuses();
@@ -258,13 +245,17 @@ function DayCard({ go }: { go: (href: Href) => void }) {
       accessibilityLabel={`Today, ${line?.text ?? "nothing waiting"}`}
       disabled={!line}
       onPress={() => line && go(line.href)}
-      className="mx-1 mb-2 gap-0.5 rounded-lg border border-sidebar-border p-3 active:opacity-80"
+      className={cn(CARD_CLASSES, "mx-1 mb-3 flex-row items-center gap-3 p-3 active:opacity-80")}
     >
-      <View className="gap-0.5" pointerEvents="none">
-        <Text variant="small" tone="muted">
-          {`${now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })} · Week ${isoWeek(now)}`}
+      {/* A fixed box keeps the card's height to the text; the blob is a little larger. */}
+      <View className="size-8 items-center justify-center" pointerEvents="none">
+        <Mascot size={44} animate={inView} />
+      </View>
+      <View className="flex-1 gap-0.5" pointerEvents="none">
+        <Text variant="small" tone="muted" numberOfLines={1}>
+          {`${now.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })} · Week ${isoWeek(now)}`}
         </Text>
-        <Text style={{ color: theme.colors.foreground }}>
+        <Text style={{ color: theme.colors.foreground }} numberOfLines={1}>
           {line?.text ?? "Nothing waiting. Enjoy the calm."}
         </Text>
       </View>
@@ -272,83 +263,165 @@ function DayCard({ go }: { go: (href: Href) => void }) {
   );
 }
 
-/// A Space and, once opened, its modules, as in the desktop's sidebar.
-function SpaceRows({
+/// A Space's own icon (an emoji or a library icon) in its color, a folder without one, as
+/// the desktop's `SpaceIcon`. A Space shared with you shows people.
+function SpaceIcon({ space, size = 18 }: { space: Space; size?: number }) {
+  if (isSharedSpace(space.id)) return <IconUsers size={size} color={space.color} />;
+  if (space.icon) return <IconValue value={space.icon} size={size} fallback={space.color} />;
+  return <IconFolder size={size} color={space.color} />;
+}
+
+const spaceLabel = (space: Space) =>
+  isSharedSpace(space.id) ? `${space.name}, Shared with you` : space.name;
+
+/// The Space shown: its icon and name over its modules, as the desktop shows one Space at
+/// a time. The dots open its menu.
+function SpaceModules({
   space,
   pathname,
   go,
+  push,
 }: {
   space: Space;
   pathname: string;
   go: (href: Href) => void;
+  push: (href: Href) => void;
 }) {
   const theme = useTheme();
-  const inside = pathname.startsWith(`/module/${space.id}/`);
-  const [open, setOpen] = useState(inside);
+  const menu = useMenu();
   const { data: modules = [] } = useSpaceModules(space.id);
-  const shared = isSharedSpace(space.id);
-  const Chevron = open ? IconChevronDown : IconChevronRight;
+  const muted = theme.colors.mutedForeground;
   return (
     <View>
-      <NavRow
-        label={space.name}
-        subtitle={shared ? "Shared with you" : undefined}
-        icon={
-          <View className="w-5 items-center">
-            {shared ? (
-              <IconUsers size={18} color={space.color} />
-            ) : (
-              <SpaceDot color={space.color} />
-            )}
-          </View>
-        }
-        trailing={<Chevron size={16} color={theme.colors.mutedForeground} />}
-        onPress={() => setOpen((o) => !o)}
-      />
-      {open && modules.length === 0 ? (
+      <View className="mt-4 mb-1 flex-row items-center gap-2 pl-3">
+        <SpaceIcon space={space} size={16} />
+        <Text
+          accessibilityRole="header"
+          variant="label"
+          numberOfLines={1}
+          className="flex-1"
+          style={{ color: muted }}
+        >
+          {space.name}
+        </Text>
+        <IconButton
+          label={`${space.name} Menu`}
+          size="iconSm"
+          icon={<IconDots size={16} color={muted} />}
+          onPress={() =>
+            menu.show(space.name, [
+              {
+                label: "Add Module",
+                icon: IconLayoutGridAdd,
+                onPress: () => push(`/space/${space.id}`),
+              },
+              {
+                label: "Space Settings",
+                icon: IconSettings,
+                onPress: () => push(`/space-settings/${space.id}`),
+              },
+            ])
+          }
+        />
+      </View>
+      {modules.length === 0 ? (
         <NavRow
-          indent={1}
           label="Start something"
           accessibilityLabel={`Start something in ${space.name}`}
-          icon={<IconPlus size={18} color={theme.colors.mutedForeground} />}
+          icon={<IconPlus size={20} color={muted} />}
           onPress={() => go(`/space/${space.id}`)}
         />
       ) : null}
-      {open
-        ? modules.filter(isModuleKey).map((module) => {
-            const Icon = MODULE_ICONS[module];
-            const href = `/module/${space.id}/${module}`;
-            return (
-              <NavRow
-                key={module}
-                indent={1}
-                label={MODULE_LABELS[module]}
-                accessibilityLabel={`${MODULE_LABELS[module]} in ${space.name}`}
-                active={pathname === href}
-                icon={<Icon size={18} color={theme.colors.mutedForeground} />}
-                trailing={<ModuleMeta spaceId={space.id} module={module} />}
-                onPress={() => go(href)}
-              />
-            );
-          })
-        : null}
+      {modules.filter(isModuleKey).map((module) => {
+        const Icon = MODULE_ICONS[module];
+        const href = `/module/${space.id}/${module}`;
+        return (
+          <NavRow
+            key={module}
+            label={MODULE_LABELS[module]}
+            accessibilityLabel={`${MODULE_LABELS[module]} in ${space.name}`}
+            active={pathname === href}
+            icon={<Icon size={20} color={muted} />}
+            trailing={<ModuleMeta spaceId={space.id} module={module} />}
+            onPress={() => go(href)}
+          />
+        );
+      })}
     </View>
   );
 }
 
-/// The app's navigation, as a sidebar that slides the page aside: Search, the
-/// overviews across every Space, Pinned, each Space with its modules, and
-/// Trash and Settings at the bottom. Mirrors the desktop's sidebar.
+/// The row of Space icons at the bottom, as the desktop's `SpaceSwitcher`: up to four, the
+/// last one a button for the rest when there are more. The Space shown is lit up.
+function SpaceSwitcher({
+  spaces,
+  active,
+  onPick,
+}: {
+  spaces: Space[];
+  active: Space | null;
+  onPick: (space: Space) => void;
+}) {
+  const theme = useTheme();
+  const menu = useMenu();
+  const { visible, overflow } = spaceRow(spaces, active?.id ?? null);
+  return (
+    <View className="flex-row items-center">
+      {visible.map((space) => {
+        const selected = space.id === active?.id;
+        return (
+          <Pressable
+            key={space.id}
+            accessibilityRole="button"
+            accessibilityLabel={spaceLabel(space)}
+            accessibilityState={{ selected }}
+            onPress={() => onPick(space)}
+            style={{ width: MIN_TOUCH, height: MIN_TOUCH }}
+            className="items-center justify-center"
+          >
+            <View
+              className={cn(
+                "size-9 items-center justify-center rounded-md",
+                selected && "bg-sidebar-accent",
+              )}
+            >
+              <SpaceIcon space={space} size={20} />
+            </View>
+          </Pressable>
+        );
+      })}
+      {overflow.length > 0 ? (
+        <IconButton
+          label="More Spaces"
+          icon={<IconDots size={20} color={theme.colors.mutedForeground} />}
+          onPress={() =>
+            menu.show(
+              "Spaces",
+              overflow.map((space) => ({
+                label: space.name,
+                checked: space.id === active?.id,
+                onPress: () => onPick(space),
+              })),
+            )
+          }
+        />
+      ) : null}
+    </View>
+  );
+}
+
+const SPACE_SHOWN = z.string().nullable();
+
+/// The app's navigation, as a sidebar that slides the page aside, mirroring the desktop's:
+/// the mascot's card, Search and the overviews across every Space, then one Space at a time
+/// with its modules, and at the bottom the Space switcher, Trash and Settings.
 export function Sidebar({ close }: { close: () => void }) {
-  const entityMenu = useEntityMenu();
   const theme = useTheme();
   const router = useRouter();
+  const menu = useMenu();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { data: spaces = [] } = useSpaces();
-  const { data: pinnedItems = [] } = usePinned();
-  const syncState = useSyncState((s) => s.status);
-  const signedIn = useSyncState((s) => s.user !== null);
   const go = (href: Href) => {
     router.navigate(href);
     close();
@@ -360,31 +433,29 @@ export function Sidebar({ close }: { close: () => void }) {
   const muted = theme.colors.mutedForeground;
   const [topPref] = usePreference("sidebar.top", topSchema, DEFAULT_TOP);
   const top = visibleTop(topPref).map((item) => ({ ...item, Icon: TOP_ICONS[item.id] }));
-  const { box: searchBox, text: searchText } = splitText(row(INPUT_CLASSES));
+  const [shownId, setShownId] = usePreference("sidebar.space", SPACE_SHOWN, null);
+  // Opening a module of another Space (from a link, a search) shows that Space here.
+  const pathSpace = /^\/module\/([^/]+)\//.exec(pathname)?.[1] ?? null;
+  useEffect(() => {
+    if (pathSpace && pathSpace !== shownId) setShownId(pathSpace);
+  }, [pathSpace, shownId, setShownId]);
+  const shown = spaces.find((s) => s.id === shownId) ?? spaces[0] ?? null;
   return (
     // Inset like the desktop's (`SIDEBAR_PANEL_CLASSES`): the page's background shows
     // through. To bring the panel back: bg-sidebar here, the sidebar color in the drawer.
     <View
       className={SIDEBAR_PANEL_CLASSES}
-      style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }}
+      style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 4 }}
     >
-      <View className="px-3">
-        <Pressable
-          accessibilityRole="search"
-          accessibilityLabel="Search"
-          accessibilityHint="Titles, keys and page text across every Space"
-          onPress={() => go("/search")}
-          style={FIELD_HEIGHT}
-          className={cn(searchBox, "items-center gap-2", pathname === "/search" && "border-ring")}
-        >
-          <IconSearch size={18} color={muted} />
-          <View pointerEvents="none">
-            <Text className={cn(searchText, "text-muted-foreground")}>Search</Text>
-          </View>
-        </Pressable>
-      </View>
-      <ScrollView className="flex-1" contentContainerClassName="p-2 pt-3">
+      <ScrollView className="flex-1" contentContainerClassName="p-2 pt-1">
         <DayCard go={go} />
+        <NavRow
+          label="Search"
+          role="search"
+          active={pathname === "/search"}
+          icon={<IconSearch size={20} color={muted} />}
+          onPress={() => go("/search")}
+        />
         {top.map(({ id, label, href, Icon }) =>
           id === "tasks" ? (
             <TasksRow
@@ -404,49 +475,44 @@ export function Sidebar({ close }: { close: () => void }) {
             />
           ),
         )}
-        {pinnedItems.length > 0 ? (
-          <>
-            <Heading title="Pinned" />
-            {pinnedItems.map((entity) => (
-              <NavRow
-                key={entity.id}
-                label={entity.title || "Untitled"}
-                icon={<EntityIcon type={entity.type} icon={entity.icon} />}
-                onPress={() => push(`/entity/${entity.id}`)}
-                onLongPress={() => entityMenu(entity)}
-              />
-            ))}
-          </>
-        ) : null}
-        <Heading
-          title="Spaces"
-          action={
-            <IconButton
-              label="New Space"
-              icon={<IconPlus size={18} color={muted} />}
-              onPress={() => push("/new/space")}
-            />
+        {shown ? (
+          <SpaceModules space={shown} pathname={pathname} go={go} push={push} />
+        ) : (
+          <Text tone="muted" className="px-3 pt-6 text-center">
+            Use + to make your first Space, or sign in to sync yours.
+          </Text>
+        )}
+      </ScrollView>
+      <View className="flex-row items-center border-t border-sidebar-border px-1 pt-1">
+        <IconButton
+          label="New"
+          icon={<IconPlus size={20} color={muted} />}
+          onPress={() =>
+            menu.show(undefined, [
+              { label: "New Space", icon: IconFolderPlus, onPress: () => push("/new/space") },
+              ...(shown
+                ? [
+                    {
+                      label: `Add Module to ${shown.name}`,
+                      icon: IconLayoutGridAdd,
+                      onPress: () => push(`/space/${shown.id}`),
+                    },
+                  ]
+                : []),
+            ])
           }
         />
-        {spaces.length === 0 ? (
-          <Text tone="muted" className="px-2">
-            No Spaces yet. Make one, or sign in to sync yours.
-          </Text>
-        ) : null}
-        {spaces.map((space) => (
-          <SpaceRows key={space.id} space={space} pathname={pathname} go={go} />
-        ))}
-      </ScrollView>
-      <View className="border-t border-sidebar-border px-2 pt-2">
-        <NavRow
+        <View className="flex-1">
+          <SpaceSwitcher spaces={spaces} active={shown} onPick={(s) => setShownId(s.id)} />
+        </View>
+        <View className="mx-1 h-4 w-px bg-sidebar-border" />
+        <IconButton
           label="Trash"
-          active={pathname === "/trash"}
           icon={<IconTrash size={20} color={muted} />}
           onPress={() => go("/trash")}
         />
-        <NavRow
+        <IconButton
           label="Settings"
-          subtitle={syncLine(signedIn, syncState)}
           icon={<IconSettings size={20} color={muted} />}
           onPress={() => push("/settings")}
         />
