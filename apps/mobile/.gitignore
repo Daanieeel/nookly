@@ -1,3 +1,4 @@
 .expo/
-ios/
-android/
+# The generated native projects; native code of our own modules (modules/*/ios) is kept.
+/ios/
+/android/

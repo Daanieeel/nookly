@@ -47,6 +47,8 @@ PROMPT.md
 .expo/
 
 **/ios/
+# Our own Expo modules' native code is source, not generated.
+!apps/mobile/modules/*/ios/
 
 
 # Local settings for docker compose and the server (see .env.example). Never commit.
