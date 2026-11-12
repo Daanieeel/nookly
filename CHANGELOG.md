@@ -17,6 +17,7 @@ All notable changes to Nookly are listed here.
 
 ### Fixed
 
+- **The hidden sidebar is readable when it slides in.** Resting the pointer on the left edge shows it on a solid background, no longer see through over the page.
 - **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on.
 - **Every change that needs a look is offered.** When two devices changed the same thing at the same moment, the other version was kept but nothing said so. The sync status and Settings now count it.
 

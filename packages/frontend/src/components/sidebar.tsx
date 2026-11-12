@@ -109,7 +109,12 @@ export function AppSidebar() {
     <Sidebar
       collapsible="offcanvas"
       variant="floating"
-      className={cn(peekOpen && "left-0! z-30")}
+      className={cn(
+        peekOpen && "left-0! z-30",
+        // Over the page it needs a surface of its own; in place the window shows through.
+        peekOpen &&
+          "[&>[data-slot=sidebar-inner]]:border [&>[data-slot=sidebar-inner]]:border-border [&>[data-slot=sidebar-inner]]:bg-popover [&>[data-slot=sidebar-inner]]:shadow-lg",
+      )}
       onWheel={pager.onWheel}
       onMouseLeave={() => {
         // A menu or dialog opened from the sidebar keeps it open while the pointer is in it.

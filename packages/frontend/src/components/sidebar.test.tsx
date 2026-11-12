@@ -543,4 +543,12 @@ describe("showing a hidden sidebar from the edge", () => {
     fireEvent.mouseLeave(container());
     expect(container()).not.toHaveClass("left-0!");
   });
+  // Shown in place, the sidebar lets the window's black show through; slid over the page
+  // it needs its own surface, or the page's text shows through it.
+  it("gives the sidebar a surface of its own while it is over the page", () => {
+    setupHidden();
+    expect(container().className).not.toContain("bg-popover");
+    fireEvent.mouseEnter(document.querySelector("[aria-hidden=true].fixed")!);
+    expect(container().className).toContain("[&>[data-slot=sidebar-inner]]:bg-popover");
+  });
 });

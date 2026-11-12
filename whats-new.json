@@ -30,6 +30,7 @@
           "Review Changes puts both versions side by side with line numbers, the other version in red and the one showing now in green, and marks the words that differ inside each line."
         ],
         "Fixed": [
+          "The hidden sidebar slides in on a solid background when you rest the pointer on the left edge.",
           "In Vim's normal and visual mode the cursor is a block over the character it is on again.",
           "When two devices changed the same thing at the same moment, the sync status and Settings now say a change needs a look."
         ]
