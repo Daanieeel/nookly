@@ -100,7 +100,7 @@ Open:
 
 Open:
 
-- [ ] Measure the new page editor timing in the running app (signed in and out); the Mac's display was locked last session.
+- [x] Page editor timing measured in the running desktop, signed in (2026-11-12, 3 runs each): a note made a moment ago is editable about 120 ms after opening, an existing live note about 135 ms. Signed out was not measured again: it opens on its rows, the path that was never slow.
 
 - [x] **Account settings reworked** (2026-11-12, `features/sync/AccountCards.tsx`): cards in the style of Backup and Connections. An account card (who, live status in plain words, Sync Now, unconfirmed email with Send Again, the first sync summary, files waiting, the server, Sign Out with its confirmation), a card per device with its kind of icon and "This device", a "Changes to review" card with Review Changes, shared items as cards with Accept, Decline or Leave, then password and delete account, the server address last. Signed out: a "Not signed in" card that says what an account is for, with Create Account and Sign In. Screenshots `docs/todo-screenshots/account-settings-2026-11-12-*.png`. Open: the phone's Account page should follow the same structure (section 4).
 - [ ] Desktop is otherwise in good shape (two months of development); do not redesign it. Only account and sync UI and the items above change.
