@@ -139,7 +139,7 @@ describe("the Sync settings", () => {
     ]);
     await openSync();
     expect(screen.getByText("ada@example.com")).toBeInTheDocument();
-    expect(screen.getByText("Email not confirmed")).toBeInTheDocument();
+    expect(screen.getByText(/Confirm ada@example.com with the link/)).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/Synced/);
     expect(await screen.findByText("iPhone")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign Out Device" })).toBeInTheDocument();
@@ -150,7 +150,7 @@ describe("the Sync settings", () => {
   it("asks to type a phrase before deleting the account", async () => {
     signedIn();
     const { user } = await openSync();
-    await user.type(screen.getByLabelText(/Delete account/), "a long password");
+    await user.type(screen.getByLabelText(/Your password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Delete Account" }));
     const confirm = await screen.findByRole("alertdialog");
     expect(confirm).toHaveTextContent("Delete your sync account forever?");
@@ -175,7 +175,7 @@ describe("the conflicts summary", () => {
   it("counts the changes that need a look and opens the merge editor", async () => {
     const { user } = await openSync();
     withConflicts(2);
-    expect(await screen.findByText("2 changes need a look.")).toBeInTheDocument();
+    expect(await screen.findByText("2 changes need a look")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Review Changes" }));
     expect(useAccountDialog.getState().mergeOpen).toBe(true);
     act(() => useAccountDialog.getState().setMergeOpen(false));
@@ -186,6 +186,7 @@ describe("the conflicts summary", () => {
   it("says when there are none", async () => {
     await openSync();
     withConflicts(0);
-    expect(await screen.findByText("No conflicts.")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing to review")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review Changes" })).toBeNull();
   });
 });

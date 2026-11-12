@@ -1,41 +1,25 @@
-import { type Session, type Share, passwordSchema } from "@nookly/shared/api";
-import type { SyncStatus } from "@nookly/shared/sync";
-import {
-  IconAlertTriangle,
-  IconCircleCheck,
-  IconCloudOff,
-  IconLoader2,
-  IconLogout,
-  IconRefresh,
-} from "@tabler/icons-react";
+import { passwordSchema } from "@nookly/shared/api";
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { z } from "zod";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@nookly/ui/components/alert-dialog";
 import { FormField, fieldMessage } from "#/components/form-field.tsx";
 import type { RowSpec } from "#/features/settings/setting-rows.tsx";
 import { qk } from "#/lib/query-keys.ts";
-import { formatEditedAt } from "#/lib/relative-time.ts";
 import { useSetting } from "#/lib/settings/settings.ts";
-import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { cn } from "@nookly/ui/lib/utils";
-import { syncRuntime, useSyncState } from "./sync-instance.ts";
-import { useAccountDialog } from "./account-dialog-store.ts";
-import { migrationSummary } from "./FirstSyncDialog.tsx";
 import { normalizeServerUrl } from "@nookly/shared/sync";
+import { syncRuntime, useSyncState } from "./sync-instance.ts";
+import {
+  AccountCard,
+  ChangesCard,
+  DeviceCards,
+  SharedCards,
+  SignedInOnly,
+} from "./AccountCards.tsx";
 
 const errorText = (error: Error | null) => (error ? error.message : null);
 
@@ -69,72 +53,6 @@ export function SyncServerControl() {
   );
 }
 
-/// Signed out: what sync is, and the way in.
-function SignedOutPanel() {
-  const show = useAccountDialog((state) => state.show);
-  return (
-    <div className="flex w-full flex-col gap-3">
-      <p className="text-xs text-muted-foreground">
-        One account keeps your Spaces, pages, tasks, files and settings the same on every device,
-        including your phone, live. It is optional: without it, everything stays on this device.
-        Signing in never removes anything here, and a backup is made before anything is sent.
-      </p>
-      <div className="flex items-center gap-2">
-        <Button size="sm" onClick={() => show("signIn")}>
-          Sign In
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => show("signUp")}>
-          Create Account
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/// How the first sync of this device went, or how far it is.
-function FirstSyncLine() {
-  const migration = useSyncState((state) => state.migration);
-  const setFirstSyncOpen = useAccountDialog((state) => state.setFirstSyncOpen);
-  if (!migration) return null;
-  const text =
-    migration.phase === "done"
-      ? migrationSummary(migration)
-      : migration.phase === "failed"
-        ? (migration.error ?? "The first sync stopped.")
-        : `Bringing this device into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <span
-        className={cn(
-          "min-w-0 flex-1",
-          migration.phase === "failed" ? "text-destructive" : "text-muted-foreground",
-        )}
-      >
-        {text}
-      </span>
-      <Button size="sm" variant="ghost" onClick={() => setFirstSyncOpen(true)}>
-        Details
-      </Button>
-    </div>
-  );
-}
-
-/// Files on their way up or down, and the last failure while some wait.
-function FilesLine() {
-  const files = useSyncState((state) => state.files);
-  if (!files || (files.toUpload === 0 && files.toDownload === 0 && !files.lastError)) return null;
-  const parts = [
-    files.toUpload > 0 && `${files.toUpload} to send`,
-    files.toDownload > 0 && `${files.toDownload} to download`,
-  ].filter(Boolean);
-  return (
-    <p className="text-xs text-muted-foreground">
-      Files: {parts.join(", ") || "waiting"}.
-      {files.lastError && <span className="text-caution"> Trying again: {files.lastError}</span>}
-    </p>
-  );
-}
-
 const changePasswordSchema = z.object({
   current: z.string().min(1, "Enter your current password"),
   next: passwordSchema,
@@ -158,7 +76,7 @@ function ChangePassword() {
   return (
     <form
       noValidate
-      className="flex items-end gap-2 border-t border-border pt-3"
+      className="flex items-end gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
@@ -215,171 +133,6 @@ function ChangePassword() {
   );
 }
 
-interface StatusLine {
-  icon: typeof IconCircleCheck;
-  text: string;
-  tone: string;
-}
-
-function statusLine(status: SyncStatus): StatusLine {
-  switch (status.state) {
-    case "syncing":
-      return { icon: IconLoader2, text: "Syncing", tone: "text-muted-foreground" };
-    case "offline":
-      return {
-        icon: IconCloudOff,
-        text:
-          status.pending > 0
-            ? `Offline. ${status.pending} ${status.pending === 1 ? "change waits" : "changes wait"} to sync.`
-            : "Offline. Changes sync once the server is back.",
-        tone: "text-caution",
-      };
-    case "error":
-      return {
-        icon: IconAlertTriangle,
-        text: status.error ?? "Sync failed.",
-        tone: "text-destructive",
-      };
-    case "off":
-      return { icon: IconCloudOff, text: "Sync is off.", tone: "text-muted-foreground" };
-    case "idle":
-      if (!status.live) {
-        return {
-          icon: IconAlertTriangle,
-          text: "Synced, but not live. Changes from your other devices may take a minute.",
-          tone: "text-caution",
-        };
-      }
-      return {
-        icon: IconCircleCheck,
-        text: status.lastSyncedAt
-          ? `Synced ${formatEditedAt(new Date(status.lastSyncedAt).toISOString()).toLowerCase()}`
-          : "Synced",
-        tone: "text-positive",
-      };
-  }
-}
-
-function AccountSummary() {
-  const user = useSyncState((s) => s.user);
-  const serverUrl = useSyncState((s) => s.serverUrl);
-  const status = useSyncState((s) => s.status);
-  const syncNow = useMutation({ mutationFn: () => syncRuntime.syncNow() });
-  const [signingOut, setSigningOut] = useState(false);
-  const resend = useMutation({
-    mutationFn: async () =>
-      user?.email ? syncRuntime.account()?.resendVerification(user.email) : undefined,
-  });
-  if (!user) return null;
-  const line = statusLine(status);
-  return (
-    <div className="flex w-full flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium">{user.username}</span>
-        {user.email && <span className="text-xs text-muted-foreground">{user.email}</span>}
-        <span className="text-xs text-muted-foreground">on {serverUrl}</span>
-        {user.email !== null && !user.emailVerified && (
-          <>
-            <Badge variant="warning">Email not confirmed</Badge>
-            <Button size="sm" variant="ghost" onClick={() => resend.mutate()}>
-              <StatusButtonContent
-                status={statusOf(resend)}
-                label="Send Again"
-                successLabel="Sent"
-                errorLabel="Couldn't send"
-              />
-            </Button>
-          </>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <span role="status" className={cn("flex items-center gap-1.5 text-xs", line.tone)}>
-          <line.icon
-            size={14}
-            className={status.state === "syncing" ? "animate-spin" : undefined}
-          />
-          {line.text}
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={() => syncNow.mutate()}>
-            <IconRefresh size={14} />
-            <StatusButtonContent
-              status={statusOf(syncNow)}
-              label="Sync Now"
-              successLabel="Synced"
-              errorLabel="Couldn't sync"
-            />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSigningOut(true)}>
-            Sign Out
-          </Button>
-          <SignOutDialog open={signingOut} onOpenChange={setSigningOut} />
-        </div>
-      </div>
-      <FirstSyncLine />
-      <FilesLine />
-      <ChangePassword />
-      <DeleteAccount />
-    </div>
-  );
-}
-
-/// Signing out clears this device: said before it happens, with what has not reached the
-/// account yet, which is backed up first.
-function SignOutDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const queryClient = useQueryClient();
-  const { data: unsent = 0 } = useQuery({
-    queryKey: qk.sync.unsent(),
-    queryFn: () => syncRuntime.unsentCount(),
-    enabled: open,
-    gcTime: 0,
-  });
-  const signOut = useMutation({
-    mutationFn: () => syncRuntime.signOut(),
-    onSuccess: () => {
-      onOpenChange(false);
-      // Every view showed the account's data, which is no longer here.
-      queryClient.removeQueries({ queryKey: qk.sync.root });
-      void queryClient.invalidateQueries();
-    },
-  });
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Sign out of this computer?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Everything stays in your account and on your other devices. It is removed from this
-            computer, and comes back when you sign in again.
-            {unsent > 0 &&
-              ` ${unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`} not reached the account yet. Nookly tries once more and saves a backup of this computer first.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <FieldError message={errorText(signOut.error)} />
-        <AlertDialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            Stay Signed In
-          </Button>
-          <Button onClick={() => signOut.mutate()} disabled={signOut.isPending}>
-            <StatusButtonContent
-              status={statusOf(signOut)}
-              label="Sign Out"
-              successLabel="Signed out"
-              errorLabel="Couldn't sign out"
-            />
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
 /// Deleting the account removes it and everything on the server. This device keeps its data.
 function DeleteAccount() {
   const [password, setPassword] = useState("");
@@ -400,17 +153,11 @@ function DeleteAccount() {
     },
   });
   return (
-    <div className="flex items-end gap-2 border-t border-border pt-3">
-      <FormField
-        label="Delete account"
-        htmlFor={inputId}
-        hint="Removes the account and all its data on the server. This device keeps everything."
-        className="flex-1"
-      >
+    <div className="flex items-end gap-2">
+      <FormField label="Your password" htmlFor={inputId} className="flex-1">
         <Input
           id={inputId}
           type="password"
-          placeholder="Your password"
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -440,159 +187,7 @@ function DeleteAccount() {
   );
 }
 
-function AccountPanel() {
-  const signedIn = useSyncState((s) => s.user !== null);
-  const reason = useSyncState((s) => s.signedOutReason);
-  return (
-    <div className="flex w-full flex-col gap-2">
-      {reason && !signedIn && <p className="text-xs text-caution">{reason}</p>}
-      {signedIn ? <AccountSummary /> : <SignedOutPanel />}
-    </div>
-  );
-}
-
-function SignedInOnly({ children, what }: { children: React.ReactNode; what: string }) {
-  const signedIn = useSyncState((s) => s.user !== null);
-  if (!signedIn) return <p className="text-xs text-muted-foreground">Sign in to see {what}.</p>;
-  return children;
-}
-
-function DeviceRow({ session }: { session: Session }) {
-  const queryClient = useQueryClient();
-  const revoke = useMutation({
-    mutationFn: () => syncRuntime.account()?.revokeSession(session.id) ?? Promise.resolve(),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: qk.sync.sessions }),
-  });
-  return (
-    <li className="flex items-center gap-2 py-1.5 text-sm">
-      <span className="truncate">{session.deviceName}</span>
-      {session.current && <Badge variant="primary">This device</Badge>}
-      <span className="ml-auto text-xs text-muted-foreground">
-        Active {formatEditedAt(session.lastUsedAt).toLowerCase()}
-      </span>
-      {!session.current && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="iconSm"
-              variant="ghost"
-              aria-label="Sign Out Device"
-              onClick={() => revoke.mutate()}
-            >
-              {revoke.isPending ? <IconLoader2 className="animate-spin" /> : <IconLogout />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Sign Out Device</TooltipContent>
-        </Tooltip>
-      )}
-    </li>
-  );
-}
-
-function DevicesPanel() {
-  const { data: sessions = [], error } = useQuery({
-    queryKey: qk.sync.sessions,
-    queryFn: async () => (await syncRuntime.account()?.sessions()) ?? [],
-  });
-  return (
-    <div className="w-full">
-      <FieldError message={errorText(error)} />
-      <ul className="divide-y divide-border">
-        {sessions.map((session) => (
-          <DeviceRow key={session.id} session={session} />
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function SharedRow({ share }: { share: Share }) {
-  const queryClient = useQueryClient();
-  const respond = useMutation({
-    mutationFn: async (action: "accept" | "decline" | "leave") => {
-      const api = syncRuntime.account();
-      if (!api) return;
-      if (action === "accept") await api.acceptShare(share.id);
-      else if (action === "decline") await api.declineShare(share.id);
-      else await api.removeShare(share.id);
-      await syncRuntime.syncNow();
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: qk.sync.sharesWithMe }),
-  });
-  return (
-    <li className="flex items-center gap-2 py-1.5 text-sm">
-      <span className="truncate font-medium">{share.title || "Untitled"}</span>
-      <span className="truncate text-xs text-muted-foreground">from {share.owner}</span>
-      <Badge>{share.role === "editor" ? "Can edit" : "Can view"}</Badge>
-      <div className="ml-auto flex items-center gap-1">
-        {share.status === "pending" ? (
-          <>
-            <Button size="sm" variant="secondary" onClick={() => respond.mutate("accept")}>
-              <StatusButtonContent
-                status={respond.variables === "accept" ? statusOf(respond) : "idle"}
-                label="Accept"
-                successLabel="Accepted"
-                errorLabel="Couldn't accept"
-              />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => respond.mutate("decline")}>
-              Decline
-            </Button>
-          </>
-        ) : (
-          <Button size="sm" variant="ghost" onClick={() => respond.mutate("leave")}>
-            <StatusButtonContent
-              status={respond.variables === "leave" ? statusOf(respond) : "idle"}
-              label="Leave"
-              successLabel="Left"
-              errorLabel="Couldn't leave"
-            />
-          </Button>
-        )}
-      </div>
-    </li>
-  );
-}
-
-function SharedWithMePanel() {
-  const { data: shares = [], error } = useQuery({
-    queryKey: qk.sync.sharesWithMe,
-    queryFn: async () => (await syncRuntime.account()?.sharesWithMe()) ?? [],
-  });
-  if (shares.length === 0 && !error) {
-    return <p className="text-xs text-muted-foreground">Nothing is shared with you yet.</p>;
-  }
-  return (
-    <div className="w-full">
-      <FieldError message={errorText(error)} />
-      <ul className="divide-y divide-border">
-        {shares.map((share) => (
-          <SharedRow key={share.id} share={share} />
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/// How many changes wait for a decision, and the way into the merge editor.
-function ConflictsPanel() {
-  const setMergeOpen = useAccountDialog((state) => state.setMergeOpen);
-  // The sync status counts this device's conflicts and the ones only the server logged.
-  const count = useSyncState((s) => s.status.conflicts);
-  if (count === 0) return <p className="text-xs text-muted-foreground">No conflicts.</p>;
-  return (
-    <div className="flex w-full items-center gap-2">
-      <p className="text-xs">
-        {count === 1 ? "1 change needs a look." : `${count} changes need a look.`}
-      </p>
-      <Button size="sm" className="ml-auto" onClick={() => setMergeOpen(true)}>
-        Review Changes
-      </Button>
-    </div>
-  );
-}
-
-/// The Sync page's rows below the server address.
+/// The Account page's rows, after the registry's server address (which sits last).
 export const SYNC_ROWS: RowSpec[] = [
   {
     id: "sync.account",
@@ -600,20 +195,23 @@ export const SYNC_ROWS: RowSpec[] = [
     section: "Account",
     title: "Sync account",
     hideTitle: true,
-    description: "Sign in to sync this device with your others, and to share pages.",
+    description:
+      "One account keeps this computer, your phone and your other devices the same, live.",
     synonyms: [
       "sign in",
       "log in",
       "login",
+      "sign out",
+      "log out",
       "account",
       "register",
       "sign up",
-      "password",
       "sync now",
       "cloud",
+      "email",
     ],
     control: null,
-    footer: <AccountPanel />,
+    footer: <AccountCard />,
   },
   {
     id: "sync.devices",
@@ -621,14 +219,27 @@ export const SYNC_ROWS: RowSpec[] = [
     section: "Devices",
     title: "Signed in devices",
     hideTitle: true,
-    description: "Every device signed in to your account. Sign one out to stop it syncing.",
+    description:
+      "Every device signed in to your account. Signing one out stops it syncing at once; what it holds stays on it.",
     synonyms: ["sessions", "devices", "phone", "laptop", "sign out", "revoke"],
     control: null,
     footer: (
       <SignedInOnly what="your devices">
-        <DevicesPanel />
+        <DeviceCards />
       </SignedInOnly>
     ),
+  },
+  {
+    id: "sync.conflicts",
+    category: "sync",
+    section: "Changes to review",
+    title: "Changes to review",
+    hideTitle: true,
+    description:
+      "When two devices change the same thing before they sync, the newer change shows and the other is kept, so you can keep either, both, or a mix.",
+    synonyms: ["conflicts", "lost changes", "overwritten", "merge", "review"],
+    control: null,
+    footer: <ChangesCard />,
   },
   {
     id: "sync.shared",
@@ -637,25 +248,43 @@ export const SYNC_ROWS: RowSpec[] = [
     title: "Shared with me",
     hideTitle: true,
     description:
-      "Pages people shared with you. Accepted ones sync to this device in a Space of their own.",
+      "Pages and tasks people shared with you. Accepted ones sync to this computer in a Space of their own.",
     synonyms: ["invites", "invitations", "shared", "collaborate", "accept"],
     control: null,
     footer: (
       <SignedInOnly what="what is shared with you">
-        <SharedWithMePanel />
+        <SharedCards />
       </SignedInOnly>
     ),
   },
   {
-    id: "sync.conflicts",
+    id: "sync.password",
     category: "sync",
-    section: "Conflicts",
-    title: "Conflicts",
-    hideTitle: true,
+    section: "Password and account",
+    title: "Change password",
     description:
-      "When two devices change the same thing before syncing, the newer change shows and the other is kept. Review them to keep either, both, or a mix.",
-    synonyms: ["conflicts", "lost changes", "overwritten", "merge"],
+      "The password you sign in with on every device. Devices already signed in stay signed in.",
+    synonyms: ["password", "security", "change password"],
     control: null,
-    footer: <ConflictsPanel />,
+    footer: (
+      <SignedInOnly what="your password">
+        <ChangePassword />
+      </SignedInOnly>
+    ),
+  },
+  {
+    id: "sync.delete",
+    category: "sync",
+    section: "Password and account",
+    title: "Delete account",
+    description:
+      "Removes the account and everything in it from the server, for good. What is on this computer stays here.",
+    synonyms: ["delete account", "remove account", "close account"],
+    control: null,
+    footer: (
+      <SignedInOnly what="how to delete your account">
+        <DeleteAccount />
+      </SignedInOnly>
+    ),
   },
 ];
