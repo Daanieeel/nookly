@@ -1,6 +1,8 @@
 import { ApiClient, type FetchLike } from "@nookly/shared/api";
-import { NetworkError, SyncRuntime } from "@nookly/shared/sync";
+import { PAGE_FRAGMENT, pageBlocks } from "@nookly/shared/blocks";
+import { NetworkError, type PageSession, SyncRuntime } from "@nookly/shared/sync";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import * as Y from "yjs";
 import { BunSqliteDriver } from "./bun-driver.ts";
 import {
   DESKTOP,
@@ -22,7 +24,7 @@ import {
 let server: TestServer;
 const devices: AppDevice[] = [];
 beforeEach(async () => {
-  server = await startServer();
+  server = await startServer({ COLLAB_DEBOUNCE_MS: "50" });
 }, HOOK_TIMEOUT);
 afterEach(async () => {
   for (const d of devices.splice(0)) d.sync.stop();
@@ -227,5 +229,154 @@ describe("two devices on one account", () => {
     await soon(() => phone.sync.store.getState().user === null, "the phone signed out");
     // Signing out never removes what is on the device.
     expect(title(phone, "t1")).toBe("Buy milk");
+  });
+});
+
+function addNote(d: AppDevice, id: string, blocks: string[]) {
+  d.driver.exec(
+    "INSERT OR IGNORE INTO spaces (id, name, color, created_at, updated_at) VALUES ('space-1', 'Personal', 'blue', ?, ?)",
+    now(),
+    now(),
+  );
+  d.driver.exec(
+    "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES (?, 'space-1', 'note', 'Trip', ?, ?, 'NOT', 1)",
+    id,
+    now(),
+    now(),
+  );
+  blocks.forEach((content, i) => {
+    d.driver.exec(
+      "INSERT INTO blocks (id, entity_id, position, block_type, content, created_at, updated_at) VALUES (?, ?, ?, 'paragraph', ?, ?, ?)",
+      `${id}-b${i}`,
+      id,
+      i,
+      content,
+      now(),
+      now(),
+    );
+  });
+}
+
+/// The page open in a device's editor, as the apps open one.
+async function openPage(d: AppDevice, id: string): Promise<PageSession> {
+  const session = await d.sync.pages()?.open(id);
+  if (!session) throw new Error("the page did not open live");
+  return session;
+}
+
+const body = (session: PageSession) => pageBlocks(session.doc).map((b) => b.content);
+
+function typeInto(session: PageSession, index: number, text: string) {
+  const block = session.doc.getXmlFragment(PAGE_FRAGMENT).get(index);
+  const run = block instanceof Y.XmlElement ? block.get(0) : null;
+  if (!(run instanceof Y.XmlText)) throw new Error("no text");
+  run.insert(0, text);
+}
+
+/// What a device that opens the page fresh from the server reads.
+async function serverBody(id: string): Promise<string[]> {
+  const reader = makeDevice(PHONE);
+  await reader.sync.signIn(server.baseUrl, "ada", PASSWORD);
+  await reader.sync.settled();
+  return body(await openPage(reader, id));
+}
+
+describe("a page open on two devices", () => {
+  it("shows what one types on the other within about a second, both ways, once", async () => {
+    const { desktop, phone } = await pair();
+    addNote(desktop, "p1", ["Pack the tent", "Book the train"]);
+    desktop.sync.notifyLocalChange();
+    await soon(() => title(phone, "p1") === "Trip", "the note on the phone");
+    const onDesktop = await openPage(desktop, "p1");
+    const onPhone = await openPage(phone, "p1");
+    expect(body(onPhone)).toEqual(["Pack the tent", "Book the train"]);
+    typeInto(onDesktop, 0, "Now: ");
+    await soon(() => body(onPhone)[0] === "Now: Pack the tent", "the desktop's typing on the phone");
+    typeInto(onPhone, 1, "Then: ");
+    await soon(
+      () => body(onDesktop)[1] === "Then: Book the train",
+      "the phone's typing on the desktop",
+    );
+    expect(await serverBody("p1")).toEqual(["Now: Pack the tent", "Then: Book the train"]);
+  });
+
+  it("holds the body once when both devices had the page before they signed in", async () => {
+    // Bug: a page that every device already held (signed out and in again, or the same
+    // data on two devices) showed its whole body many times over in the account.
+    const desktop = makeDevice(DESKTOP);
+    const phone = makeDevice(PHONE);
+    addNote(desktop, "p1", ["Pack the tent", "Book the train"]);
+    addNote(phone, "p1", ["Pack the tent", "Book the train"]);
+    await desktop.sync.signUp(server.baseUrl, { username: "ada", password: PASSWORD });
+    await desktop.sync.settled();
+    const onDesktop = await openPage(desktop, "p1");
+    await phone.sync.signIn(server.baseUrl, "ada", PASSWORD);
+    await phone.sync.settled();
+    const onPhone = await openPage(phone, "p1");
+    typeInto(onPhone, 0, "Now: ");
+    await soon(() => body(onDesktop)[0] === "Now: Pack the tent", "the phone's typing");
+    expect(body(onDesktop)).toEqual(["Now: Pack the tent", "Book the train"]);
+    expect(await serverBody("p1")).toEqual(["Now: Pack the tent", "Book the train"]);
+  });
+
+  it("stays live and single after a device signs out and in again", async () => {
+    const { desktop, phone } = await pair();
+    addNote(desktop, "p1", ["Pack the tent"]);
+    desktop.sync.notifyLocalChange();
+    await soon(() => title(phone, "p1") === "Trip", "the note on the phone");
+    const onDesktop = await openPage(desktop, "p1");
+    const first = await openPage(phone, "p1");
+    typeInto(first, 0, "A ");
+    await soon(() => body(onDesktop)[0] === "A Pack the tent", "the first edit");
+    phone.sync.pages()?.release("p1");
+    await phone.sync.signOut();
+    await phone.sync.signIn(server.baseUrl, "ada", PASSWORD);
+    await phone.sync.settled();
+    const again = await openPage(phone, "p1");
+    expect(body(again)).toEqual(["A Pack the tent"]);
+    typeInto(again, 0, "B ");
+    await soon(() => body(onDesktop)[0] === "B A Pack the tent", "the edit after signing in again");
+    edit(desktop, "UPDATE entities SET title = 'Trip north' WHERE id = 'p1'");
+    await soon(() => title(phone, "p1") === "Trip north", "a title after signing in again");
+    expect(await serverBody("p1")).toEqual(["B A Pack the tent"]);
+  });
+});
+
+describe("a device whose session ended while it was closed", () => {
+  it("syncs live again after signing in", async () => {
+    // Bug: launched with a session the server no longer knew, the device was signed out
+    // but kept a sync that had no session; signing in again left that one running, so
+    // the account looked fine while sync said "Sign in first." for good.
+    const { desktop, phone } = await pair();
+    addTask(desktop, "t1", "Buy milk");
+    desktop.sync.notifyLocalChange();
+    await soon(() => title(phone, "t1") === "Buy milk", "the task on the phone");
+    // The phone is closed; its session is ended from the desktop meanwhile.
+    phone.sync.stop();
+    const api = desktop.sync.account();
+    const session = (await api?.sessions())?.find((s) => !s.current);
+    if (!api || !session) throw new Error("no session for the phone");
+    await api.revokeSession(session.id);
+    // Launched again, with the same database and stored token.
+    const relaunched = new SyncRuntime({
+      driver: phone.driver,
+      device: PHONE,
+      onApplied: () => {},
+      connect: (baseUrl, onSignedOut) =>
+        new ApiClient({ baseUrl, tokens: phone.tokens, onSignedOut }),
+    });
+    const launched: AppDevice = { ...phone, sync: relaunched };
+    devices.push(launched);
+    await relaunched.restore(server.baseUrl);
+    await soon(() => relaunched.store.getState().user === null, "the phone signed out");
+    await relaunched.signIn(server.baseUrl, "ada", PASSWORD);
+    await relaunched.settled();
+    expect(relaunched.store.getState().status.error).toBeNull();
+    edit(desktop, "UPDATE entities SET title = 'Buy oat milk' WHERE id = 't1'");
+    await soon(() => title(launched, "t1") === "Buy oat milk", "the desktop's edit on the phone");
+    edit(launched, "UPDATE entities SET title = 'Buy oat milk today' WHERE id = 't1'");
+    await soon(() => title(desktop, "t1") === "Buy oat milk today", "the phone's edit");
+    await soon(() => relaunched.store.getState().status.state === "idle", "sync at rest");
+    expect(relaunched.store.getState().status.error).toBeNull();
   });
 });

@@ -126,6 +126,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   private filesCounted = { uploaded: 0, downloaded: 0 };
   private docs: PageDocs | null = null;
   private flushing = false;
+  private starting: Promise<void> | null = null;
   private filesTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(deps: SyncRuntimeDeps<A>) {
@@ -154,6 +155,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   private connect(serverUrl: string): A {
     const url = normalizeServerUrl(serverUrl);
     this.store.setState({ serverUrl: url });
+    // A sync still running belongs to the session before this one: it must not outlive it,
+    // or the new sign in would keep the old, ended session's sync.
+    if (this.client) this.stop();
     const api = this.deps.connect(url, () => {
       // Only the current account's client speaks for this device.
       if (this.api === api) void this.signedOutByServer();
@@ -172,10 +176,14 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       this.store.setState({ user });
       await this.rememberUser(user);
     } catch {
+      // The server ended this session while the device was closed: it is signed out, and
+      // no sync starts for a session that is gone.
+      if (!(await api.isSignedIn())) return;
       // Offline at launch: the account last seen here, so the device still says it is
       // signed in; sync starts anyway and catches up when the server is back.
       this.store.setState({ user: await this.rememberedUser() });
     }
+    if (this.api !== api) return;
     await this.start().catch(() => {});
   }
 
@@ -308,9 +316,27 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     return this.blobs;
   }
 
-  private async start() {
+  /// One start at a time: two that overlap (a launch that restores twice) would each make
+  /// a sync, and only one of them could ever be stopped.
+  private start(): Promise<void> {
+    const before = this.starting;
+    const next = (async () => {
+      await before?.catch(() => {});
+      await this.startOnce();
+    })();
+    this.starting = next;
+    void next
+      .catch(() => {})
+      .finally(() => {
+        if (this.starting === next) this.starting = null;
+      });
+    return next;
+  }
+
+  private async startOnce() {
     const serverUrl = this.store.getState().serverUrl;
-    if (!this.api || this.client || !serverUrl) return;
+    const api = this.api;
+    if (!api || this.client || !serverUrl) return;
     if (!(await this.engine.isEnabled())) await this.prepareFirstSync(serverUrl);
     else this.store.setState({ migration: await this.loadMigration() });
     this.blobsFor(serverUrl);
@@ -318,9 +344,11 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       await this.settings.seed();
       this.stopSettings = this.settings.start();
     }
+    // Signed out or signed in elsewhere while this was getting ready.
+    if (this.api !== api || this.client) return;
     this.client = new SyncClient({
       engine: this.engine,
-      transport: this.api.syncTransport(),
+      transport: api.syncTransport(),
       onStatus: (status) => this.store.setState({ status }),
       onApplied: this.deps.onApplied,
       afterCycle: (applied) => this.afterCycle(applied),
