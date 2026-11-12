@@ -14,10 +14,12 @@ function dayName(day: string): string {
   });
 }
 
-/// Opens the field or property row named `label` (its button reads "label, value").
+/// Opens the field or property row named `label` (its button reads "label, value"). On a
+/// phone a task's page shows the same property as a chip at a glance; both open one picker.
 export async function openRow(screen: Screen, label: string) {
   const name = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}, `);
-  await fireEvent.press(await screen.findByRole("button", { name }));
+  const [first] = await screen.findAllByRole("button", { name });
+  await fireEvent.press(first);
 }
 
 /// Picks a day (`YYYY-MM-DD`) in the calendar sheet that is open, paging the months to it.

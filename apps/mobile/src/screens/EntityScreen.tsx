@@ -14,7 +14,7 @@ import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
 import { useDetails, useDetailsFor } from "../shell/DetailsDrawer.tsx";
 import { useInspectorShown, useIsTablet } from "../ui/pane.tsx";
-import { PartProvider } from "../ui/parts.tsx";
+import { GlanceProvider, PartProvider } from "../ui/parts.tsx";
 import { ItemParts } from "./ItemParts.tsx";
 import { TaskStepper } from "./TaskDetail.tsx";
 import { useReadOnly } from "./useReadOnly.ts";
@@ -151,9 +151,11 @@ function OpenEntity({
           </View>
           <TitleField entity={entity} readOnly={readOnly} />
         </View>
-        <PartProvider value="main">
-          <ItemParts entity={entity} readOnly={readOnly} />
-        </PartProvider>
+        <GlanceProvider value={details}>
+          <PartProvider value="main">
+            <ItemParts entity={entity} readOnly={readOnly} />
+          </PartProvider>
+        </GlanceProvider>
       </Screen>
       <EditorToolbar />
     </KeyboardAvoidingView>

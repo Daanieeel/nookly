@@ -21,6 +21,8 @@ export function SheetProperty({
   label,
   value,
   valueIcon,
+  empty,
+  valueTone,
   readOnly = false,
   size,
   children,
@@ -29,6 +31,8 @@ export function SheetProperty({
   label: string;
   value: string;
   valueIcon?: React.ReactNode;
+  empty?: boolean;
+  valueTone?: "destructive";
   readOnly?: boolean;
   size?: SheetSize;
   children: React.ReactNode;
@@ -41,6 +45,8 @@ export function SheetProperty({
         label={label}
         value={value}
         valueIcon={valueIcon}
+        empty={empty}
+        valueTone={valueTone}
         disabled={readOnly}
         onPress={() => setOpen(true)}
       />
@@ -60,6 +66,7 @@ export function ChoiceProperty<Id extends string>({
   options,
   onChange,
   readOnly = false,
+  emptyId,
 }: {
   icon?: React.ReactNode;
   label: string;
@@ -67,6 +74,8 @@ export function ChoiceProperty<Id extends string>({
   options: Option<Id>[];
   onChange: (id: Id) => void;
   readOnly?: boolean;
+  /// The choice that means nothing is set (None, Never).
+  emptyId?: Id;
 }) {
   const current = options.find((option) => option.id === value);
   return (
@@ -75,6 +84,7 @@ export function ChoiceProperty<Id extends string>({
       label={label}
       value={current?.label ?? ""}
       valueIcon={current?.icon}
+      empty={!current || current.id === emptyId}
       readOnly={readOnly}
     >
       <OptionList label={label} options={options} value={value} onChange={onChange} />
@@ -129,6 +139,7 @@ export function DayProperty({
   readOnly = false,
   quick,
   clearable = true,
+  valueTone,
 }: {
   icon?: React.ReactNode;
   label: string;
@@ -141,12 +152,15 @@ export function DayProperty({
   quick?: { label: string; value: string }[];
   /// Whether the value can be taken away (a session always has a day).
   clearable?: boolean;
+  valueTone?: "destructive";
 }) {
   return (
     <SheetProperty
       icon={icon}
       label={label}
       value={value ? shownValue(mode, value) : (placeholder ?? "None")}
+      empty={!value}
+      valueTone={valueTone}
       readOnly={readOnly}
     >
       {mode === "date" ? (

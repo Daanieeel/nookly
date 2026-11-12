@@ -30,7 +30,7 @@ import {
   useTasks,
 } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { DetailsPart, MainPart } from "../ui/parts.tsx";
+import { AtAGlance, DetailsPart, MainPart, usePropertyLook } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty } from "../ui/property-rows.tsx";
 import { Section } from "../ui/Row.tsx";
@@ -106,7 +106,7 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
   );
 }
 
-/// A task's properties, one card of rows: tap a row to change it.
+/// A task's properties, one card of rows (or chips at a glance): tap one to change it.
 function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
   const theme = useTheme();
   const { data: task } = useTask(id);
@@ -121,14 +121,19 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
   const effort = useLocalWrite((db, value: number | null) => setTaskEffort(db, id, value));
   const [scale] = useSetting("general.effortScale");
   const repeat = useLocalWrite((db, rule: RepeatRule | null) => setTaskRepeat(db, id, rule));
+  const look = usePropertyLook();
   if (!task) return null;
   const muted = theme.colors.mutedForeground;
+  // At a glance the icons sit in chips beside their text, as small as the desktop's.
+  const size = look === "chip" ? 16 : 20;
+  const finished = (statuses.find((s) => s.id === task.statusId)?.doneness ?? 0) >= 100;
+  const late = !finished && task.dueDate !== null && task.dueDate.slice(0, 10) < localDay();
   const repeatId =
     REPEATS.find((r) => JSON.stringify(r.rule) === JSON.stringify(task.repeat))?.label ?? "Custom";
   return (
     <PropertyList>
       <ChoiceProperty
-        icon={<IconCircleDot size={20} color={muted} />}
+        icon={<IconCircleDot size={size} color={muted} />}
         label="Status"
         value={task.statusId}
         readOnly={readOnly}
@@ -140,7 +145,7 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(statusId) => status.mutate(statusId)}
       />
       <ChoiceProperty
-        icon={<IconGauge size={20} color={muted} />}
+        icon={<IconGauge size={size} color={muted} />}
         label="Effort"
         value={task.effort === null ? "none" : String(task.effort)}
         readOnly={readOnly}
@@ -151,19 +156,21 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
             label: effortLabel(step.value, scale),
           })),
         ]}
+        emptyId="none"
         onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}
       />
       <DayProperty
-        icon={<IconCalendarPlus size={20} color={muted} />}
+        icon={<IconCalendarPlus size={size} color={muted} />}
         label="Start date"
         value={task.startDate}
         readOnly={readOnly}
         onChange={(day) => start.mutate(day)}
       />
       <DayProperty
-        icon={<IconCalendarDue size={20} color={muted} />}
+        icon={<IconCalendarDue size={size} color={late ? theme.colors.destructive : muted} />}
         label="Due date"
         value={task.dueDate}
+        valueTone={late ? "destructive" : undefined}
         readOnly={readOnly}
         quick={[
           { label: "Today", value: localDay() },
@@ -172,11 +179,12 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(day) => dates.mutate(day)}
       />
       <ChoiceProperty
-        icon={<IconRepeat size={20} color={muted} />}
+        icon={<IconRepeat size={size} color={muted} />}
         label="Repeat"
         value={repeatId}
         readOnly={readOnly}
         options={REPEATS.map((r) => ({ id: r.label, label: r.label }))}
+        emptyId="Never"
         onChange={(label) => repeat.mutate(REPEATS.find((r) => r.label === label)?.rule ?? null)}
       />
     </PropertyList>
@@ -188,6 +196,9 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
 export function TaskItem({ id, readOnly, sub }: { id: string; readOnly: boolean; sub: boolean }) {
   return (
     <>
+      <AtAGlance>
+        <TaskProperties id={id} readOnly={readOnly} />
+      </AtAGlance>
       <MainPart>
         <PageEditor entityId={id} readOnly={readOnly} live={false} />
         {sub ? null : <Subtasks id={id} readOnly={readOnly} />}

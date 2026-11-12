@@ -11,18 +11,20 @@ import {
 import { fireEvent } from "expo-router/testing-library";
 import { useEffect, useState } from "react";
 import { renderScreens, testData } from "../test/render.tsx";
-import { type Part, PartProvider } from "../ui/parts.tsx";
+import { GlanceProvider, type Part, PartProvider } from "../ui/parts.tsx";
 import { useDb } from "../data/context.tsx";
 import { ItemParts } from "./ItemParts.tsx";
 
-function Item({ id, part }: { id: string; part: Part }) {
+function Item({ id, part, glance = false }: { id: string; part: Part; glance?: boolean }) {
   const db = useDb();
   const [entity, setEntity] = useState<EntityRecord | null>(null);
   useEffect(() => void getEntity(db, id).then(setEntity), [db, id]);
   return entity ? (
-    <PartProvider value={part}>
-      <ItemParts entity={entity} readOnly={false} />
-    </PartProvider>
+    <GlanceProvider value={glance}>
+      <PartProvider value={part}>
+        <ItemParts entity={entity} readOnly={false} />
+      </PartProvider>
+    </GlanceProvider>
   ) : null;
 }
 
@@ -44,6 +46,17 @@ describe("an item's page and its details", () => {
     expect(await details.findByRole("button", { name: /^Status/ })).toBeTruthy();
     expect(details.getByRole("button", { name: /^Due date/ })).toBeTruthy();
     expect(details.queryByText("Sub-tasks")).toBeNull();
+  });
+
+  it("shows a task's properties at a glance under its title when its details wait behind the page", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const id = await createTask(data.db, space, "Report");
+    const screen = await renderScreens({ index: () => <Item id={id} part="main" glance /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: /^Status, / }));
+    expect(await screen.findByRole("radio", { name: /Done/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Due date, / })).toBeTruthy();
+    expect(screen.getByText("Sub-tasks")).toBeTruthy();
   });
 
   it("keeps a course's exams and assignments in the page and its professor in the details", async () => {

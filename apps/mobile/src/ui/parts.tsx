@@ -18,3 +18,23 @@ export function MainPart({ children }: { children: ReactNode }) {
 export function DetailsPart({ children }: { children: ReactNode }) {
   return usePart() === "main" ? null : <>{children}</>;
 }
+
+/// Whether the item's details wait behind the page (a phone), so the page itself shows the
+/// main properties at a glance under the title.
+const GlanceContext = createContext(false);
+export const GlanceProvider = GlanceContext.Provider;
+
+/// Properties at a glance: in the page, as a row of chips, only where the details are not
+/// already beside the page. Tapping a chip opens the same picker as the details' row.
+export function AtAGlance({ children }: { children: ReactNode }) {
+  const part = usePart();
+  const glance = useContext(GlanceContext);
+  if (part !== "main" || !glance) return null;
+  return <PropertyLookProvider value="chip">{children}</PropertyLookProvider>;
+}
+
+/// How a property draws: a row of a `PropertyList`, or a chip at a glance.
+export type PropertyLook = "row" | "chip";
+const PropertyLookContext = createContext<PropertyLook>("row");
+const PropertyLookProvider = PropertyLookContext.Provider;
+export const usePropertyLook = () => useContext(PropertyLookContext);

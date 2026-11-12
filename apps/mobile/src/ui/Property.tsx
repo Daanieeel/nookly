@@ -5,13 +5,17 @@ import { Pressable, View } from "react-native";
 import { cn } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
-import { TOUCH_ROW } from "./touch.ts";
+import { usePropertyLook } from "./parts.tsx";
+import { MIN_TOUCH, TOUCH_ROW, touchSlop } from "./touch.ts";
 
 /// An item's properties as one card of rows, like Linear's: each row a name and its value,
 /// hairlines between them. Nothing floats on its own. A row that can change opens its
 /// picker in a sheet.
 export function PropertyList({ children }: { children: ReactNode }) {
   const rows = Children.toArray(children);
+  if (usePropertyLook() === "chip") {
+    return <View className="flex-row flex-wrap gap-2">{rows}</View>;
+  }
   return (
     <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0")}>
       {rows.map((row, index) => (
@@ -28,6 +32,10 @@ export function PropertyList({ children }: { children: ReactNode }) {
   );
 }
 
+/// A property at a glance: as tall as the desktop's property value (`h-7`) plus a little,
+/// its hit area grown to a finger's.
+const CHIP_HEIGHT = 32;
+
 /// One property: an icon, its name, its value on the right. With `onPress` it opens its
 /// picker (a sheet).
 export function Property({
@@ -35,6 +43,8 @@ export function Property({
   label,
   value,
   valueIcon,
+  empty = false,
+  valueTone,
   disabled = false,
   onPress,
 }: {
@@ -43,11 +53,34 @@ export function Property({
   value: string;
   /// Shown beside the value (a status's symbol).
   valueIcon?: ReactNode;
+  /// Nothing is set: a chip says the property's name, faded, rather than "None".
+  empty?: boolean;
+  /// The value in a colour that warns (a due date that has passed).
+  valueTone?: "destructive";
   disabled?: boolean;
   onPress?: () => void;
 }) {
   const theme = useTheme();
   const interactive = Boolean(onPress) && !disabled;
+  if (usePropertyLook() === "chip") {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, ${value}`}
+        accessibilityState={{ disabled: !interactive }}
+        disabled={!interactive}
+        onPress={onPress}
+        hitSlop={touchSlop(CHIP_HEIGHT, MIN_TOUCH)}
+        style={{ height: CHIP_HEIGHT }}
+        className="flex-row items-center gap-1.5 rounded-md border border-border px-2.5 active:bg-accent/60"
+      >
+        {valueIcon ?? icon}
+        <Text tone={empty ? "muted" : (valueTone ?? "default")} numberOfLines={1}>
+          {empty ? label : value}
+        </Text>
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       accessibilityRole="button"
@@ -63,7 +96,7 @@ export function Property({
         {label}
       </Text>
       {valueIcon}
-      <Text tone="muted" numberOfLines={1} style={{ maxWidth: "55%" }}>
+      <Text tone={valueTone ?? "muted"} numberOfLines={1} style={{ maxWidth: "55%" }}>
         {value}
       </Text>
       {interactive ? <IconSelector size={16} color={theme.colors.mutedForeground} /> : null}
