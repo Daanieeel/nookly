@@ -276,3 +276,7 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Context:** every select opened a bottom sheet, which the user found too much for picking one of a few.
 - **Decision:** a select or choice property with at most `COMPACT_CHOICES` (8) options opens `Popover`, a small menu at its trigger like the desktop dropdown (under it, above when there is no room, closed by a pick or a tap beside it). Longer lists, date, icon and colour pickers, forms, item menus and confirmations stay in the sheet. `OptionList` serves both through `SheetCloser`.
 - **Decision (user):** a compact menu is the desktop popover in full: its search field with the desktop's placeholder ("Change status…", "Set effort…"), every icon, the right hand details (`Option.detail`) and the same extra rows ("Remove effort" under a separator). Only keyboard number shortcuts are left out, as a tap can't use them. It moves clear of the keyboard while its search is typed in.
+
+## D47. Phone motion: iOS springs from one token file
+
+- **Decision:** `apps/mobile/src/ui/motion.ts` holds the springs (`SPRING.sheet` 420 ms no overshoot, `menu` 300 ms light bounce, `press` 260 ms), the fades for Reduce Motion and the pure helpers (`rubberBand`, `dragFrom`, `settleSheet`), which are unit tested. The sheet springs with the release velocity, stops under a touch and resists past its top; the compact menu grows out of its trigger. Rule in `AGENTS.md`.
