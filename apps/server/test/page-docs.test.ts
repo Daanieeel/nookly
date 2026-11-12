@@ -108,6 +108,29 @@ describe("page documents on a device", () => {
     ]);
   });
 
+  it("keep a page open for the editor when it was opened twice at once and closed once", async () => {
+    // Bug: an editor that asked for its page twice in a row (as every page open does while
+    // the app starts it twice, and the phone does when the item loads) got two documents;
+    // giving the first one back closed the one the editor was using, so nothing typed
+    // anywhere showed up any more.
+    const { desktop, owner } = await setup();
+    const docs = docsFor(desktop, owner);
+    const [first, second] = await Promise.all([docs.open("p1"), docs.open("p1")]);
+    expect(first).not.toBeNull();
+    expect(second).toBe(first);
+    docs.release("p1");
+    await Bun.sleep(200);
+    typeInto(second?.doc ?? new Y.Doc(), 0, 0, "Now: ");
+    const other = device(desktop.api);
+    await other.engine.enable();
+    await syncOnce(other);
+    const seen = await docsFor(other, owner).open("p1");
+    await until(
+      () => pageBlocks(seen?.doc ?? new Y.Doc())[0]?.content === "Now: Pack the tent",
+      "the typing on another device",
+    );
+  });
+
   it("open a page made here and not yet on the server at once, on its rows", async () => {
     // Bug: a new page waited for the server's document for 4 seconds, which the server can
     // not have before the page reaches it, so the editor of every new page stayed blank

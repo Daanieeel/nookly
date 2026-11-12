@@ -61,6 +61,7 @@ export class PageDocs {
   private readonly socket: HocuspocusProviderWebsocket;
   private readonly entries = new Map<string, Entry>();
   private closed = false;
+  private readonly opening = new Map<string, Promise<PageSession | null>>();
   /// Writes to the device, one after the other, so closing can wait for the last one.
   private writes: Promise<void> = Promise.resolve();
 
@@ -153,11 +154,28 @@ export class PageDocs {
   /// can't be reached in `waitMs`: the page then edits its rows as before.
   async open(entityId: string, waitMs = 4000): Promise<PageSession | null> {
     if (this.closed) return null;
+    // A page being opened right now is the same page: everyone who asks gets its one
+    // document. Two made side by side would close each other.
+    const underway = this.opening.get(entityId);
+    if (underway) {
+      await underway.catch(() => null);
+      return this.open(entityId, waitMs);
+    }
     const existing = this.entries.get(entityId);
     if (existing) {
       existing.users += 1;
       return existing.session;
     }
+    const opened = this.openNew(entityId, waitMs);
+    this.opening.set(entityId, opened);
+    try {
+      return await opened;
+    } finally {
+      this.opening.delete(entityId);
+    }
+  }
+
+  private async openNew(entityId: string, waitMs: number): Promise<PageSession | null> {
     const owner = await this.options.ownerOf(entityId);
     if (!owner) return null;
     const local = await this.loadLocal(entityId);

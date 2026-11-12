@@ -291,7 +291,10 @@ describe("a page open on two devices", () => {
     const onPhone = await openPage(phone, "p1");
     expect(body(onPhone)).toEqual(["Pack the tent", "Book the train"]);
     typeInto(onDesktop, 0, "Now: ");
-    await soon(() => body(onPhone)[0] === "Now: Pack the tent", "the desktop's typing on the phone");
+    await soon(
+      () => body(onPhone)[0] === "Now: Pack the tent",
+      "the desktop's typing on the phone",
+    );
     typeInto(onPhone, 1, "Then: ");
     await soon(
       () => body(onDesktop)[1] === "Then: Book the train",
