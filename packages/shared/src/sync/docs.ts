@@ -148,8 +148,11 @@ export class PageDocs {
     }
     const owner = await this.options.ownerOf(entityId);
     if (!owner) return null;
-    const doc = new Y.Doc();
     const local = await this.loadLocal(entityId);
+    // A page this device made that the server has not confirmed yet can have no document
+    // there: it opens on its rows at once instead of waiting for one, and live next time.
+    if (!local && !(await this.knownToServer(entityId))) return null;
+    const doc = new Y.Doc();
     if (local) Y.applyUpdate(doc, local);
     const entry = this.connect(entityId, doc, owner);
     entry.users = 1;
@@ -166,6 +169,15 @@ export class PageDocs {
     }
     entry.session.readOnly = pageSchemaVersion(doc) > PAGE_SCHEMA_VERSION;
     return entry.session;
+  }
+
+  /// Whether the server has confirmed this page's entity row (sync's base for it).
+  private async knownToServer(entityId: string): Promise<boolean> {
+    const rows = await this.options.driver.query(
+      "SELECT 1 AS known FROM sync_rows WHERE tbl = 'entities' AND pk = ?",
+      [entityId],
+    );
+    return rows.length > 0;
   }
 
   private drop(entityId: string) {

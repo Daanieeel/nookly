@@ -96,12 +96,28 @@ describe("page documents on a device", () => {
     // Back online, nobody opens the page: the edit goes out anyway.
     const back = docsFor(desktop, owner);
     expect(await back.flushPending()).toBe(0);
-    const check = docsFor(device(desktop.api), owner);
+    // Another device, which has the page from sync, as every device that opens one does.
+    const other = device(desktop.api);
+    await other.engine.enable();
+    await syncOnce(other);
+    const check = docsFor(other, owner);
     const seen = await check.open("p1");
     expect(pageBlocks(seen?.doc ?? new Y.Doc()).map((b) => b.content)).toEqual([
       "Pack the tent",
       "Offline: Book the train",
     ]);
+  });
+
+  it("open a page made here and not yet on the server at once, on its rows", async () => {
+    // Bug: a new page waited for the server's document for 4 seconds, which the server can
+    // not have before the page reaches it, so the editor of every new page stayed blank
+    // that long while signed in.
+    const { desktop, owner } = await setup();
+    addPage(desktop, "p2", "Fresh", []);
+    const docs = docsFor(desktop, owner);
+    const started = Date.now();
+    expect(await docs.open("p2")).toBeNull();
+    expect(Date.now() - started).toBeLessThan(300);
   });
 
   it("stay on rows when the page has no copy here and the server can't be reached", async () => {
