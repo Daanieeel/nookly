@@ -290,6 +290,13 @@ function DeviceCards() {
     queryFn: async () => (await sync.account()?.sessions()) ?? [],
   });
   const ordered = [...sessions].sort((a, b) => Number(b.current) - Number(a.current));
+  if (ordered.length === 0) {
+    return (
+      <Text variant="small" tone="muted" className="px-1">
+        Your devices show once this phone reaches the server.
+      </Text>
+    );
+  }
   return (
     <View accessibilityLabel="Signed in devices" className="gap-2">
       {ordered.map((session) => (
@@ -397,7 +404,7 @@ function SharedCards() {
   });
   if (shares.length === 0) {
     return (
-      <Text variant="small" tone="muted">
+      <Text variant="small" tone="muted" className="px-1">
         Nothing is shared with you yet.
       </Text>
     );
@@ -542,7 +549,7 @@ function SignedInOnly({ what, children }: { what: string; children: React.ReactN
   const signedIn = useSyncState((s) => s.user !== null);
   if (!signedIn) {
     return (
-      <Text variant="small" tone="muted">
+      <Text variant="small" tone="muted" className="px-1">
         Sign in to see {what}.
       </Text>
     );
