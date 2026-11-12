@@ -270,3 +270,8 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 
 - **Context:** bar buttons hid iOS 26's glass background to look like the desktop's ghost icon buttons, so they looked unlike the back button beside them.
 - **Decision (user):** every top corner button is the system's own bar button with its round background, like the back button. `bar.test.ts` forbids `hidesSharedBackground: true`. The Dashboard has no + (it only ever made a task).
+
+## D46. A few choices open as a compact menu
+
+- **Context:** every select opened a bottom sheet, which the user found too much for picking one of a few.
+- **Decision:** a select or choice property with at most `COMPACT_CHOICES` (8) options opens `Popover`, a small menu at its trigger like the desktop dropdown (under it, above when there is no room, closed by a pick or a tap beside it). Longer lists (with their search), date, icon and colour pickers, forms, item menus and confirmations stay in the sheet. `OptionList` serves both through `SheetCloser`.

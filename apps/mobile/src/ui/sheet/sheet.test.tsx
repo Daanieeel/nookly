@@ -104,13 +104,18 @@ describe("the sheet", () => {
   });
 });
 
+/// More choices than a compact menu holds, so they open in the sheet.
+const MANY = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota"].map(
+  (label) => ({ id: label.toLowerCase(), label }),
+);
+
 describe("a field inside a sheet", () => {
-  it("opens its choices as a step of the same sheet, and goes back to the form on a pick", async () => {
+  it("opens a long list of choices as a step of the same sheet, and goes back to the form on a pick", async () => {
     function Form() {
       const [value, setValue] = useState<string | null>(null);
       return (
         <Sheet open onOpenChange={() => {}} title="New Task">
-          <SelectField label="Letter" value={value} options={OPTIONS} onChange={setValue} />
+          <SelectField label="Letter" value={value} options={MANY} onChange={setValue} />
         </Sheet>
       );
     }
@@ -122,6 +127,27 @@ describe("a field inside a sheet", () => {
     fireEvent.press(screen.getByRole("radio", { name: "Beta" }));
     expect(await screen.findByRole("button", { name: "Letter, Beta" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+  });
+
+  // A few choices (priority, size, status) open as a compact menu at the field, the
+  // desktop's dropdown, not as a step of the sheet.
+  it("opens a few choices as a menu at the field, over the form", async () => {
+    function Form() {
+      const [value, setValue] = useState<string | null>(null);
+      return (
+        <Sheet open onOpenChange={() => {}} title="New Task">
+          <SelectField label="Letter" value={value} options={OPTIONS} onChange={setValue} />
+        </Sheet>
+      );
+    }
+    const screen = render(<Form />);
+    fireEvent.press(screen.getByRole("button", { name: "Letter, Choose…" }));
+    expect(await screen.findByLabelText("Letter choices")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+    expect(screen.getByText("New Task")).toBeTruthy();
+    fireEvent.press(screen.getByRole("radio", { name: "Beta" }));
+    expect(await screen.findByRole("button", { name: "Letter, Beta" })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByLabelText("Letter choices")).toBeNull());
   });
 });
 

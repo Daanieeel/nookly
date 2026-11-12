@@ -1,11 +1,12 @@
 import { FORM_FIELD_CLASSES } from "@nookly/frontend/classes";
 import { INPUT_CLASSES } from "@nookly/ui/classes";
 import { IconSelector } from "@tabler/icons-react-native";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, type RefObject, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { cn, row, splitText } from "./classes.ts";
 import { FieldLabel } from "./Field.tsx";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
+import { COMPACT_CHOICES, Popover } from "./sheet/Popover.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
@@ -22,7 +23,9 @@ export function SheetTrigger({
   disabled = false,
   hint,
   onPress,
+  ref,
 }: {
+  ref?: RefObject<View | null>;
   label: string;
   text: string | null;
   icon?: ReactNode;
@@ -35,6 +38,7 @@ export function SheetTrigger({
   const input = splitText(row(INPUT_CLASSES));
   return (
     <Pressable
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={`${label}, ${text ?? placeholder}`}
       accessibilityHint={hint}
@@ -83,7 +87,9 @@ export function SelectField<Id extends string>({
 }) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
+  const anchor = useRef<View>(null);
   const current = options.find((o) => o.id === value);
+  const list = <OptionList label={label} options={options} value={value} onChange={onChange} />;
   return (
     <View className={FORM_FIELD_CLASSES}>
       {showLabel ? <FieldLabel label={label} required={required} /> : null}
@@ -92,6 +98,7 @@ export function SelectField<Id extends string>({
       ) : (
         <View className="flex-row">
           <SheetTrigger
+            ref={anchor}
             label={label}
             text={current?.label ?? null}
             icon={current?.icon}
@@ -102,9 +109,15 @@ export function SelectField<Id extends string>({
           />
         </View>
       )}
-      <Sheet open={open} onOpenChange={setOpen} title={label}>
-        <OptionList label={label} options={options} value={value} onChange={onChange} />
-      </Sheet>
+      {options.length <= COMPACT_CHOICES ? (
+        <Popover open={open} onOpenChange={setOpen} anchor={anchor} label={`${label} choices`}>
+          {list}
+        </Popover>
+      ) : (
+        <Sheet open={open} onOpenChange={setOpen} title={label}>
+          {list}
+        </Sheet>
+      )}
     </View>
   );
 }

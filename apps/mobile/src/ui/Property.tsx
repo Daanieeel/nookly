@@ -1,6 +1,6 @@
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconSelector } from "@tabler/icons-react-native";
-import { Children, cloneElement, isValidElement, type ReactNode } from "react";
+import { Children, cloneElement, isValidElement, type ReactNode, type RefObject } from "react";
 import { Pressable, View } from "react-native";
 import { cn } from "./classes.ts";
 import { Text } from "./Text.tsx";
@@ -52,7 +52,10 @@ export function Property({
   valueTone,
   disabled = false,
   onPress,
+  ref,
 }: {
+  /// What a compact menu opened from it sits beside.
+  ref?: RefObject<View | null>;
   icon?: ReactNode;
   label: string;
   value: string;
@@ -70,6 +73,7 @@ export function Property({
   if (usePropertyLook() === "chip") {
     return (
       <Pressable
+        ref={ref}
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${value}`}
         accessibilityState={{ disabled: !interactive }}
@@ -88,6 +92,7 @@ export function Property({
   }
   return (
     <Pressable
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={`${label}, ${value}`}
       accessibilityState={{ disabled: !interactive }}

@@ -409,3 +409,21 @@ export function RouteSheet({
     </SheetFrame>
   );
 }
+
+/// Gives content laid out for a sheet (`OptionList`, `MenuList`) its way to close when it
+/// sits somewhere else: the compact menu (`Popover`). It has no steps.
+export function SheetCloser({ close, children }: { close: () => void; children: ReactNode }) {
+  const handle = useMemo<SheetHandle>(
+    () => ({
+      close: (then) => {
+        close();
+        then?.();
+      },
+      push: () => {},
+      back: close,
+      depth: 1,
+    }),
+    [close],
+  );
+  return <SheetContext.Provider value={handle}>{children}</SheetContext.Provider>;
+}
