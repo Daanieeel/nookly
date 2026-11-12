@@ -2,7 +2,7 @@ import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { type AssignmentRecord, updateAssignment } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
-import { IconLayoutKanban, IconList, IconPlus } from "@tabler/icons-react-native";
+import { IconLayoutKanban, IconList } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -12,7 +12,6 @@ import { usePreference } from "../data/preferences.ts";
 import { useAssignments, useCourses, useSpaces } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
 import { SpaceDot } from "../ui/Badge.tsx";
-import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { ListHeader } from "../ui/ListBar.tsx";
 import { ROW_DIVIDER } from "../ui/Row.tsx";
@@ -20,7 +19,6 @@ import { Screen } from "../ui/Screen.tsx";
 import { FilterField, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
-import { useTheme } from "../ui/theme.ts";
 import {
   ASSIGNMENT_GROUPINGS,
   type AssignmentGroup,
@@ -31,7 +29,8 @@ import { dueText } from "./dashboard-model.ts";
 import { localDay } from "./dates.ts";
 import { DueLine, StatusIcon } from "./TaskRow.tsx";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
-import { barItem } from "../ui/bar.ts";
+import { barButton } from "../ui/bar.ts";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 
 /// Assignments that no longer wait on the student: handed in, or graded.
 export const ASSIGNMENT_DONE = new Set(["submitted", "evaluated"]);
@@ -116,7 +115,6 @@ function Row({
 /// does (overdue, today, this week, next week, later, no due date, and what is done), or by
 /// course, status or Space, narrowed by course and status, or laid out as a board by status.
 export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null }) {
-  const theme = useTheme();
   const router = useRouter();
   const today = localDay();
   const { data: all = [] } = useAssignments(spaceId ? { spaceId } : {});
@@ -158,13 +156,7 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
         options={{
           title: "Assignments",
           unstable_headerRightItems: () => [
-            barItem(
-              <IconButton
-                label="New Assignment"
-                icon={<IconPlus size={22} color={theme.colors.foreground} />}
-                onPress={newOne}
-              />,
-            ),
+            barButton({ label: "New Assignment", icon: TOOLBAR_ICONS.plus, onPress: newOne }),
           ],
         }}
       />

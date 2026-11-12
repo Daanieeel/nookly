@@ -21,6 +21,8 @@ describe("the bar's buttons", () => {
       for (const button of buttons)
         expect([file, button.includes("{...BAR_BUTTON}")]).toEqual([file, true]);
       expect([file, /headerLeft:|headerRight:/.test(text)]).toEqual([file, false]);
+      // Every bar button is the system's own, with a Tabler icon; none is drawn by the app.
+      expect([file, /type: "custom"|barItem\(/.test(text)]).toEqual([file, false]);
       if (text.includes("headerRightBarButtonItems")) {
         expect([file, text.includes("hidesSharedBackground: true")]).toEqual([file, true]);
       }

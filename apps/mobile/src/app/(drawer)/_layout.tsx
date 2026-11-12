@@ -1,10 +1,9 @@
 import { Stack } from "expo-router";
-import { IconMenu2 } from "@tabler/icons-react-native";
 import { useSidebarBeside } from "../../ui/pane.tsx";
-import { IconButton } from "../../ui/Button.tsx";
 import { useSidebarDrawer } from "../../shell/SidebarDrawer.tsx";
 import { useTheme } from "../../ui/theme.ts";
-import { barItem } from "../../ui/bar.ts";
+import { barButton } from "../../ui/bar.ts";
+import { TOOLBAR_ICONS } from "../../ui/toolbar-icons.ts";
 
 /// The app's top level pages. The sidebar is the root layout's drawer around the whole
 /// stack, so it opens from any page; here is its menu button, except on a tablet where
@@ -24,13 +23,11 @@ export default function TopLevelLayout() {
           beside || !drawer
             ? []
             : [
-                barItem(
-                  <IconButton
-                    label="Open Sidebar"
-                    icon={<IconMenu2 size={22} color={theme.colors.foreground} />}
-                    onPress={drawer.open}
-                  />,
-                ),
+                barButton({
+                  label: "Open Sidebar",
+                  icon: TOOLBAR_ICONS.menu,
+                  onPress: drawer.open,
+                }),
               ],
       }}
     >

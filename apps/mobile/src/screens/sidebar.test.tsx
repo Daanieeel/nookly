@@ -1,5 +1,6 @@
 import { createSpace, createTask, createView, markOpened, setPinned } from "@nookly/shared/data";
-import { fireEvent } from "expo-router/testing-library";
+import { act, fireEvent } from "expo-router/testing-library";
+import { devHooks } from "../dev/hooks.ts";
 import { Slot } from "expo-router";
 import { Text } from "react-native";
 import type { ReactTestInstance } from "react-test-renderer";
@@ -86,7 +87,9 @@ describe("the text of the sidebar's buttons", () => {
 });
 
 describe("the app's frame", () => {
-  it("opens the sidebar from the menu button, which is the whole app's drawer", async () => {
+  // The menu button is the system bar's own (`barButton`), outside the tree a test renders;
+  // it calls the drawer's `open`, which the dev hook reaches the same way.
+  it("opens the sidebar, the whole app's drawer, from any top level page", async () => {
     const screen = await renderScreens({
       _layout: () => (
         <SidebarDrawer enabled edgeBack={false}>
@@ -97,7 +100,7 @@ describe("the app's frame", () => {
       "(drawer)/index": () => <Text>Home</Text>,
     });
     expect(await screen.findByText("Home")).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText("Open Sidebar"));
+    act(() => devHooks.openSidebar?.());
     expect(await screen.findByRole("search", { name: "Search" })).toBeTruthy();
   });
 });

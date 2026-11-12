@@ -1,14 +1,14 @@
 import { MODULE_LABELS, type ModuleKey, isModuleKey } from "@nookly/shared/modules";
 import { Stack, useRouter } from "expo-router";
-import { IconFileImport, IconSettings } from "@tabler/icons-react-native";
+import { IconFileImport } from "@tabler/icons-react-native";
 import { View } from "react-native";
-import { IconButton } from "../ui/Button.tsx";
 import { useSpaceModules, useSpaces } from "../data/queries.ts";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { barItem } from "../ui/bar.ts";
+import { barButton } from "../ui/bar.ts";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 
 /// What the phone can start in a Space; a module joins the Space with its first item.
 const PHONE_MODULES: ModuleKey[] = [
@@ -56,13 +56,11 @@ export function SpaceScreen({ spaceId }: { spaceId: string }) {
         options={{
           title: space?.name ?? "Space",
           unstable_headerRightItems: () => [
-            barItem(
-              <IconButton
-                label="Space Settings"
-                icon={<IconSettings size={20} color={theme.colors.foreground} />}
-                onPress={() => router.push(`/space-settings/${spaceId}`)}
-              />,
-            ),
+            barButton({
+              label: "Space Settings",
+              icon: TOOLBAR_ICONS.settings,
+              onPress: () => router.push(`/space-settings/${spaceId}`),
+            }),
           ],
         }}
       />
