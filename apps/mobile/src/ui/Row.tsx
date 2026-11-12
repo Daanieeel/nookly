@@ -3,7 +3,7 @@ import { SEPARATOR_CLASSES } from "@nookly/ui/classes";
 import { Pressable, View } from "react-native";
 import { cn, row, withState } from "./classes.ts";
 import { Text } from "./Text.tsx";
-import { TOUCH_ROW } from "./touch.ts";
+import { LIST_ROW } from "./touch.ts";
 
 /// A list row, the desktop's (`LIST_ROW_CLASSES`): an icon, a title with an optional
 /// line below, and something trailing. Taller with a second line, so it stays easy to hit.
@@ -35,11 +35,12 @@ export function Row({
       accessibilityHint={accessibilityHint}
       onPress={onPress}
       onLongPress={onLongPress}
-      style={TOUCH_ROW}
+      style={LIST_ROW}
       className={cn(
         row(LIST_ROW_CLASSES),
         "gap-3 rounded-md px-2 active:bg-accent/40",
-        subtitle && "h-auto min-h-12 py-2",
+        "h-auto",
+        subtitle && "py-2",
         muted && "opacity-50",
       )}
     >

@@ -45,3 +45,7 @@ export const TOUCH_ROW = { minHeight: MIN_TOUCH };
 
 /// A field's height: the desktop's input, tall enough for a finger.
 export const FIELD_HEIGHT = { height: MIN_TOUCH };
+
+/// A row of a list on a page (settings, an item's properties, items): iOS's own list row
+/// height, taller than a menu's row (`TOUCH_ROW`).
+export const LIST_ROW = { minHeight: 52 };

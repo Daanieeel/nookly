@@ -6,7 +6,7 @@ import { cn } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 import { usePropertyLook } from "./parts.tsx";
-import { MIN_TOUCH, TOUCH_ROW, touchSlop } from "./touch.ts";
+import { CONTROL_SIZE, LIST_ROW, MIN_TOUCH, touchSlop } from "./touch.ts";
 
 /// An item's properties as one card of rows, like Linear's: each row a name and its value,
 /// hairlines between them. Nothing floats on its own. A row that can change opens its
@@ -34,7 +34,7 @@ export function PropertyList({ children }: { children: ReactNode }) {
 
 /// A property at a glance: as tall as the desktop's property value (`h-7`) plus a little,
 /// its hit area grown to a finger's.
-const CHIP_HEIGHT = 32;
+const CHIP_HEIGHT = CONTROL_SIZE.chip;
 
 /// A row's icon at a chip's size, the desktop's 16 points beside text.
 function chipIcon(icon: ReactNode): ReactNode {
@@ -98,8 +98,8 @@ export function Property({
       accessibilityState={{ disabled: !interactive }}
       disabled={!interactive}
       onPress={onPress}
-      style={TOUCH_ROW}
-      className="min-h-12 flex-row items-center gap-3 px-4 active:bg-accent/40"
+      style={LIST_ROW}
+      className="flex-row items-center gap-3 px-4 active:bg-accent/40"
     >
       {icon}
       <Text className="flex-1" numberOfLines={1}>

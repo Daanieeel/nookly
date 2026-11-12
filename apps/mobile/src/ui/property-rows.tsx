@@ -11,6 +11,7 @@ import { type Option, OptionList } from "./sheet/OptionList.tsx";
 import { COMPACT_CHOICES, Popover } from "./sheet/Popover.tsx";
 import { Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
 import { TimeInput } from "./TimeInput.tsx";
+import { LIST_ROW } from "./touch.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 
@@ -230,7 +231,7 @@ export function TextRow({
   // Typed in place, so it stays in the details rather than among the chips at a glance.
   if (look === "chip") return null;
   return (
-    <View className="min-h-12 flex-row items-center gap-3 px-4">
+    <View style={LIST_ROW} className="flex-row items-center gap-3 px-4">
       {icon}
       <Text numberOfLines={1}>{label}</Text>
       <TextInput
@@ -284,7 +285,7 @@ export function NumberRow({
   if (look === "chip") return null;
   return (
     <View>
-      <View className="min-h-12 flex-row items-center gap-3 px-4">
+      <View style={LIST_ROW} className="flex-row items-center gap-3 px-4">
         {icon}
         <Text numberOfLines={1}>{label}</Text>
         <TextInput

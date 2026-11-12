@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { useState } from "react";
 import { type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { Button, IconButton } from "../Button.tsx";
+import { Row } from "../Row.tsx";
 import { ChoiceProperty } from "../property-rows.tsx";
 import { SelectField } from "../SelectField.tsx";
 import { MIN_TOUCH, gapBetween, touchSlop } from "../touch.ts";
@@ -212,6 +213,15 @@ describe("touch sizes", () => {
     expect(height(screen.getByRole("button", { name: "Save" }))).toBeGreaterThanOrEqual(MIN_TOUCH);
     expect(height(screen.getByRole("button", { name: "Filter" }))).toBeGreaterThanOrEqual(36);
     expect(height(screen.getByRole("button", { name: "More" }))).toBeGreaterThanOrEqual(MIN_TOUCH);
+  });
+
+  // Settings and item lists used the desktop's 40 point rows; a phone list row is taller.
+  it("draw list rows at the phone's row height", () => {
+    const screen = render(<Row title="Appearance" onPress={() => {}} />);
+    const style = StyleSheet.flatten(
+      screen.getByRole("button", { name: "Appearance" }).props.style,
+    );
+    expect(style?.minHeight).toBeGreaterThanOrEqual(52);
   });
 
   it("keep neighbours far enough apart that their hit areas never overlap", () => {
