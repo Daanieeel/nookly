@@ -271,7 +271,7 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Context:** bar buttons hid iOS 26's glass background to look like the desktop's ghost icon buttons, so they looked unlike the back button beside them.
 - **Decision (user):** every top corner button is the system's own bar button with its round background, like the back button. `bar.test.ts` forbids `hidesSharedBackground: true`. The Dashboard has no + (it only ever made a task).
 
-## D46. A few choices open as a compact menu
+## D46. A few choices open as a compact menu (superseded by D50)
 
 - **Context:** every select opened a bottom sheet, which the user found too much for picking one of a few.
 - **Decision:** a select or choice property with at most `COMPACT_CHOICES` (8) options opens `Popover`, a small menu at its trigger like the desktop dropdown (under it, above when there is no room, closed by a pick or a tap beside it). Longer lists, date, icon and colour pickers, forms, item menus and confirmations stay in the sheet. `OptionList` serves both through `SheetCloser`.
@@ -294,3 +294,9 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Where:** a pick in a list or menu, a segment or tab change (select), switches (toggle), the sidebar and details drawers opening (open), a sheet falling back onto its stop (detent), a swipe row revealing its actions (edge), a task done by swipe (complete), a button's result (success, error).
 - **Off:** iPads and the simulator have no Taptic Engine, so nothing plays. Android plays nothing for now (the brief allows short vibrations at most; none is better than a buzz that does not match). A switch under Settings, Appearance, This phone turns haptics off on this phone; the system's own System Haptics switch also silences the fallback presets.
 - **Build note:** `@expo/plist` 0.8 calls the XML parser without a mime type, which the pinned `@xmldom/xmldom` 0.9 rejects, so `expo prebuild` failed. A one line patch (`patches/@expo%2Fplist@0.8.2.patch`) passes `text/xml`.
+
+## D50. The phone feels native to iOS; selects are sheets with a pinned search
+
+- **Context:** the user saw the searchable selects and found them ugly, and asked for components that feel native to iOS rather than flat desktop widgets (the full brief is in `IMPLEMENTATION_STATE.md`, section 4).
+- **Decision (user):** semantic adaptive colours, SF Symbols in tinted rounded square badges, continuous corners, blur for sheets and bars, subtle depth. Selects and pickers open the bottom sheet with a pinned search, sticky section headers, icon, title and subtitle rows and a checkmark. Design tokens and a small set of base components come first and are reused everywhere. This replaces the compact menus of D46 and the rule to copy the desktop styling exactly; the desktop stays the reference for content, metadata, hierarchy and copy, and Nookly's accent and status colours stay.
+- **Kept:** D47 motion, D49 haptics (Core Haptics covers the brief's expo-haptics), the user's rule that pickers keep every icon and detail the desktop shows. A Space's own chosen icon stays the Tabler icon the user picked.
