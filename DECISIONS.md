@@ -280,3 +280,9 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 ## D47. Phone motion: iOS springs from one token file
 
 - **Decision:** `apps/mobile/src/ui/motion.ts` holds the springs (`SPRING.sheet` 420 ms no overshoot, `menu` 300 ms light bounce, `press` 260 ms), the fades for Reduce Motion and the pure helpers (`rubberBand`, `dragFrom`, `settleSheet`), which are unit tested. The sheet springs with the release velocity, stops under a touch and resists past its top; the compact menu grows out of its trigger. Rule in `AGENTS.md`.
+
+## D48. Same named Spaces from two devices stay two Spaces
+
+- **Context:** the dev account showed Study three times and Personal twice. Cause: the scratch fixture was added to the same account several times, each copy with fresh ids. No device makes Spaces on its own, so a real person only gets two Spaces of one name when two devices each hold their own data and "Add to the account" is chosen on the second.
+- **Decision:** keep both; nothing merges by name. A silent merge would mix two sets of items, labels, statuses and key counters (two `TSK-1`), which could not be undone cleanly. Alternative for later: a "Merge into…" action on a Space that moves its items with the existing move logic.
+- **Flag:** the user should double check that keeping both is wanted.
