@@ -172,6 +172,8 @@ Append newest last: date, what was done, what is next. Earlier entries (2026-11-
 
 - 2026-11-12 (evening): live sync, page bodies and cursors fixed and checked in the running apps (see section 2). Next: sign out wipes local data and the import question on sign in (section 2), then the Account settings rework (section 3), then section 4.
 
+- 2026-11-12 (late): the user's seven findings worked through. Corner buttons have the round background like back (D45), no + on the Dashboard, Filter, Display and Today are secondary, Notes and Jots flat with a Sort button and quiet preset tabs, previews without markdown. Editor: each open of an item added a blank line (the web view's editor bound before the page arrived; fixed with `loadGate`), a tap under the text types on a free line, the keyboard's own bar is replaced by the app's toolbar with Hide Keyboard, and an editor lets go of the keyboard when a page opens over it. Needs the user on a device: the toolbar's place over a real keyboard. Next: the remaining section 4 items (mascot, touch sizes, motion, compact menus, other item types, duplicate Spaces, Account page, final sweep).
+
 ## Final report (fill in when everything above is done)
 
 Write this at the very end, plainly and honestly, in this section (not in `REPORT.md`, which is untracked and stale):
