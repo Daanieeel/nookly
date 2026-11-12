@@ -359,7 +359,7 @@ describe("the dashboard", () => {
     const phone = await renderScreens({ index: () => <DashboardScreen /> }, data, "/", {
       width: PHONE,
     });
-    expect(await phone.findByText("Today")).toBeTruthy();
+    expect(await phone.findByRole("header", { name: "Today" })).toBeTruthy();
     expect(await phone.findByRole("button", { name: /^Dentist, 09:00 to 10:00/ })).toBeTruthy();
     phone.unmount();
     const ipad = await renderScreens({ index: () => <DashboardScreen /> }, data, "/", {
@@ -367,7 +367,7 @@ describe("the dashboard", () => {
     });
     // The hours: the same item as a block, the Today list gone.
     expect(await ipad.findByRole("button", { name: "Dentist, 09:00 to 10:00" })).toBeTruthy();
-    expect(ipad.queryByText("Today")).toBeNull();
+    expect(ipad.queryByRole("header", { name: "Today" })).toBeNull();
     expect(ipad.getByRole("header", { name: "Tasks" })).toBeTruthy();
   });
 });

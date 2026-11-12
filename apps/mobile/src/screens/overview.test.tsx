@@ -35,7 +35,7 @@ describe("the dashboard", () => {
       data,
     );
     expect(await screen.findByRole("button", { name: "Idea for the app" })).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "To be refined 1" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "To be refined 1" })).toBeTruthy();
     // The sentence says what the day holds, with the counts as links.
     expect((await screen.findAllByRole("link", { name: /1 overdue/ })).length).toBeGreaterThan(0);
     expect(jot).toBeTruthy();
@@ -61,8 +61,21 @@ describe("the dashboard", () => {
     await createAssignment(data.db, space, "Sheet 3", course, addDays(localDay(), 3));
     await createDeck(data.db, space, "Graph terms");
     const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
-    await fireEvent.press(await screen.findByRole("radio", { name: "Next 7 days 1" }));
+    await fireEvent.press(await screen.findByRole("tab", { name: "Next 7 days 1" }));
     expect(await screen.findByRole("button", { name: "Sheet 3" })).toBeTruthy();
+  });
+
+  it("opens each panel on its first tab that holds something", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    await createAssignment(data.db, space, "Sheet 3", course, addDays(localDay(), 3));
+    const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
+    // Nothing is due today, so the panel opens on the next week rather than on nothing.
+    expect(await screen.findByRole("button", { name: "Sheet 3" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Next 7 days 1" }).props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true }),
+    );
   });
 });
 
