@@ -166,6 +166,8 @@ Append newest last: date, what was done, what is next.
 
 - 2026-11-11/12: section 1, the merge of `main` (0.75.0, 168 commits, 69 conflicts) is done; decisions in D39. Safe point before it: `b3bdc02b`. Checks after: Rust 1543 pass (the 20000 entity search budget fails only under the full parallel run, passes alone), frontend 3584, shared 296, mobile 264, server 85, lint, format, typecheck, duplication 0.16%. Snapshots regenerated and read: CLI schema (the `blob` field), desktop schema (new tables and columns), desktop samples (format version 2), editor schema (plot, mindmap, text color, file page range). Not yet done for section 1: a check in the running desktop app on a copy of a released database, porting the rest of main's features to the phone (sidebar, settings, page font on the phone editor, flashcards with blocks on the phone, Moodle stays desktop only, the phone import passing `storeFile`), and the open bug that a desktop started offline shows "Sign in to sync". Next: those, then section 2.
 
+- 2026-11-12: the merged desktop opened a copy of a pre-merge development database (v44, signed in): it reached v54, every old entity, block, file, task and assignment row is unchanged, file hashes kept, sync still on (the extra rows are main's debug sample data). Fixed: a desktop started while the server can not be reached kept saying "Sign in to sync"; the account is now remembered in `sync_meta` (test in `runtime.test.ts`). Next: the phone import passing `storeFile`, then section 2.
+
 ## Final report (fill in when everything above is done)
 
 Write this at the very end, plainly and honestly, in this section (not in `REPORT.md`, which is untracked and stale):

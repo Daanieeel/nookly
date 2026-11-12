@@ -1,4 +1,5 @@
 import type { ApiClient, DeviceInfo, SignUp, User } from "../api/index.ts";
+import { userSchema } from "../api/schemas.ts";
 import { SYNCED_TABLES } from "../schema.ts";
 import { type BlobPlatform, type BlobProgress, BlobSync } from "./blobs.ts";
 import {
@@ -161,17 +162,44 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const api = this.connect(serverUrl);
     if (!(await api.isSignedIn())) return;
     try {
-      this.store.setState({ user: await api.me() });
+      const user = await api.me();
+      this.store.setState({ user });
+      await this.rememberUser(user);
     } catch {
-      // Offline at launch: sync starts anyway and catches up when the server is back.
+      // Offline at launch: the account last seen here, so the device still says it is
+      // signed in; sync starts anyway and catches up when the server is back.
+      this.store.setState({ user: await this.rememberedUser() });
     }
     await this.start().catch(() => {});
+  }
+
+  /// The signed in account, kept on the device while sync is on (sign out clears it with
+  /// the rest of sync's own data).
+  private async rememberUser(user: User) {
+    await this.deps.driver.batch([
+      run(
+        "INSERT INTO sync_meta (key, value) VALUES ('user', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+        JSON.stringify(user),
+      ),
+    ]);
+  }
+
+  private async rememberedUser(): Promise<User | null> {
+    const raw = await this.meta("user");
+    if (!raw) return null;
+    try {
+      const parsed = userSchema.safeParse(JSON.parse(raw));
+      return parsed.success ? parsed.data : null;
+    } catch {
+      return null;
+    }
   }
 
   async signUp(serverUrl: string, input: SignUp): Promise<User> {
     const user = await this.connect(serverUrl).signUp(input, this.deps.device);
     this.store.setState({ user, signedOutReason: null });
     await this.start().catch(() => {});
+    await this.rememberUser(user);
     return user;
   }
 
@@ -180,6 +208,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const user = await this.connect(serverUrl).signIn(identifier, password, this.deps.device);
     this.store.setState({ user, signedOutReason: null });
     await this.start().catch(() => {});
+    await this.rememberUser(user);
     return user;
   }
 

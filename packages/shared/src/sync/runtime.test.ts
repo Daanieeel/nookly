@@ -183,6 +183,25 @@ describe("the desktop's sync", () => {
     expect(driver.rows("SELECT COUNT(*) AS n FROM sync_rows")[0].n).toBe(0);
   });
 
+  it("stays signed in when it starts while the server can not be reached", async () => {
+    // Bug: the account was only read from the server, so a desktop started offline said
+    // "Sign in to sync" although it was signed in and kept syncing once back online.
+    const server = new MemoryServer();
+    const driver = new NodeSqliteDriver();
+    const first = runtime(server, driver);
+    await first.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await first.sync.settled();
+    first.sync.stop();
+    const second = runtime(server, driver);
+    second.account.signedIn = true;
+    second.account.me = async () => {
+      throw new NetworkError("Can't reach the server.");
+    };
+    await second.sync.restore("https://sync.example.com");
+    expect(second.sync.store.getState().user).toEqual(ADA);
+    second.sync.stop();
+  });
+
   it("picks up again after a restart with the saved sign in", async () => {
     const server = new MemoryServer();
     const driver = new NodeSqliteDriver();
