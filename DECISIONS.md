@@ -265,3 +265,8 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Decision:** the copies of page documents a device keeps (`page_docs`) are tied to the account and server they came from (`sync_meta` key `pages_account`). Copies from another one are dropped before any page opens; text in them that never reached a server goes as row edits. Nothing about a page is written after sync stops, and opening a page is shared, so two opens side by side use one document.
 - **Why:** two documents of the same page (one from an earlier sign in) merge into a page with its body twice, and two documents opened side by side closed each other, which showed as "nothing is live".
 - **No repair** for documents doubled before this: sync never shipped, only dev data was affected.
+
+## D45. Corner buttons keep the system's round background
+
+- **Context:** bar buttons hid iOS 26's glass background to look like the desktop's ghost icon buttons, so they looked unlike the back button beside them.
+- **Decision (user):** every top corner button is the system's own bar button with its round background, like the back button. `bar.test.ts` forbids `hidesSharedBackground: true`. The Dashboard has no + (it only ever made a task).

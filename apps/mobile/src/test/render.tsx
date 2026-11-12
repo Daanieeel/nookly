@@ -139,6 +139,11 @@ export async function pressBarButton(screen: { toJSON(): Tree }, label: string) 
   await act(async () => find()?.onPress?.());
 }
 
+/// The labels of the buttons in a page's native bar.
+export function barLabels(screen: { toJSON(): Tree }): (string | undefined)[] {
+  return barItems(screen.toJSON()).map((i) => i.accessibilityLabel);
+}
+
 function barItems(tree: Tree): BarItem[] {
   if (!tree) return [];
   if (Array.isArray(tree)) return tree.flatMap((node) => barItems(node));

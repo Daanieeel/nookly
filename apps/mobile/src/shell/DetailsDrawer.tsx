@@ -117,7 +117,6 @@ export function DetailsDrawer({ children }: { children: ReactNode }) {
                 headerRightBarButtonItems: [
                   {
                     type: "button",
-                    hidesSharedBackground: true,
                     icon: { type: "templateSource", templateSource: TOOLBAR_ICONS.hideDetails },
                     accessibilityLabel: "Hide Details",
                     onPress: handle.hide,
@@ -126,7 +125,6 @@ export function DetailsDrawer({ children }: { children: ReactNode }) {
                     ? [
                         {
                           type: "button" as const,
-                          hidesSharedBackground: true,
                           icon: {
                             type: "templateSource" as const,
                             templateSource: TOOLBAR_ICONS.more,

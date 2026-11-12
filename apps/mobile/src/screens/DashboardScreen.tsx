@@ -1,4 +1,3 @@
-import { Stack } from "expo-router";
 import { View } from "react-native";
 import { useSyncState } from "../data/context.tsx";
 import {
@@ -16,7 +15,6 @@ import {
 import { useSetting } from "../data/settings.ts";
 import { Section, Empty } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
-import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
 import { AgendaRow } from "./CalendarScreen.tsx";
@@ -28,8 +26,6 @@ import { tasksFor } from "./dashboard-model.ts";
 import { addDays, localDay } from "./dates.ts";
 import { TimeGrid } from "./TimeGrid.tsx";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
-import { useRouter } from "expo-router";
-import { BAR_BUTTON } from "../ui/bar.ts";
 
 const AHEAD_DAYS = 14;
 /// From this pane width the dashboard has today's hours beside its lists.
@@ -40,7 +36,6 @@ const TODAY_WIDTH = 360;
 /// and names open the matching list, then panels for assignments, tasks, decks and jots, and
 /// today's hours (beside the panels on an iPad, under them on a phone).
 export function DashboardScreen() {
-  const router = useRouter();
   const today = localDay();
   const horizon = addDays(today, AHEAD_DAYS);
   const { data: items = [] } = useAgenda(today, today);
@@ -134,14 +129,6 @@ export function DashboardScreen() {
   const wide = usePaneWidth() >= WIDE_DASHBOARD;
   const page = (
     <>
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button
-          icon={TOOLBAR_ICONS.plus}
-          {...BAR_BUTTON}
-          accessibilityLabel="New Task"
-          onPress={() => router.push("/new/task")}
-        />
-      </Stack.Toolbar>
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide={wide}>
         <View className="gap-2">
           <Text variant="small" tone="muted">

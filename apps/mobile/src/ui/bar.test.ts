@@ -11,9 +11,9 @@ function sources(dir: string): string[] {
 }
 
 describe("the bar's buttons", () => {
-  // The desktop has ghost icon buttons; iOS 26 draws a round glass background behind bar
-  // items unless each one says not to.
-  it("all go without the round background", () => {
+  // iOS 26 draws the round glass background behind bar items, the back button included;
+  // every corner button keeps it so they all look alike.
+  it("all keep the system's round background, like the back button", () => {
     const root = join(__dirname, "..");
     for (const file of sources(root)) {
       const text = readFileSync(file, "utf8");
@@ -23,9 +23,7 @@ describe("the bar's buttons", () => {
       expect([file, /headerLeft:|headerRight:/.test(text)]).toEqual([file, false]);
       // Every bar button is the system's own, with a Tabler icon; none is drawn by the app.
       expect([file, /type: "custom"|barItem\(/.test(text)]).toEqual([file, false]);
-      if (text.includes("headerRightBarButtonItems")) {
-        expect([file, text.includes("hidesSharedBackground: true")]).toEqual([file, true]);
-      }
+      expect([file, /hidesSharedBackground: true/.test(text)]).toEqual([file, false]);
     }
   });
 });

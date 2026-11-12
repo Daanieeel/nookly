@@ -12,7 +12,7 @@ import {
 import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
-import { renderScreens, testData } from "../test/render.tsx";
+import { barLabels, renderScreens, testData } from "../test/render.tsx";
 import { choose } from "../test/sheet.ts";
 import { readPreference } from "../data/preferences.ts";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
@@ -63,6 +63,14 @@ describe("the dashboard", () => {
     const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
     await fireEvent.press(await screen.findByRole("tab", { name: "Next 7 days 1" }));
     expect(await screen.findByRole("button", { name: "Sheet 3" })).toBeTruthy();
+  });
+
+  // A general page: a + there would only ever make a task, which reads as misleading.
+  it("has no New Task button in its bar", async () => {
+    const data = testData();
+    const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
+    expect((await screen.findAllByRole("tab")).length).toBeGreaterThan(0);
+    expect(barLabels(screen)).not.toContain("New Task");
   });
 
   it("opens each panel on its first tab that holds something", async () => {
