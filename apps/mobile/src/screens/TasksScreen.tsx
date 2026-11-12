@@ -1,10 +1,5 @@
 import { createView } from "@nookly/shared/data";
-import {
-  IconAdjustmentsHorizontal,
-  IconFilter,
-  IconLayoutKanban,
-  IconList,
-} from "@tabler/icons-react-native";
+import { IconLayoutKanban, IconList } from "@tabler/icons-react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -20,7 +15,7 @@ import {
 } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
-import { ListTitle, Presets } from "../ui/ListBar.tsx";
+import { ListHeader, Presets } from "../ui/ListBar.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
@@ -30,7 +25,6 @@ import { FilterField, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/Disp
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
 import {
   DEFAULT_DISPLAY,
@@ -157,7 +151,6 @@ function FilterPanel({
 /// board, grouped, ordered and filtered the way the person chose. The overview opens as a list
 /// by due date; a Space's tasks as a board where there is room (an iPad), else a list by status.
 export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
-  const theme = useTheme();
   const router = useRouter();
   const tablet = useIsTablet();
   const { data: tasks = [] } = useTasks(spaceId);
@@ -268,25 +261,7 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
         />
       </Stack.Toolbar>
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide={board}>
-        <View className="flex-row items-center gap-2">
-          <View className="flex-1">
-            <ListTitle title="Tasks" count={tasks.length} />
-          </View>
-          <Button
-            label="Filter"
-            variant={panel === "filter" ? "secondary" : "ghost"}
-            size="sm"
-            icon={<IconFilter size={16} color={theme.colors.foreground} />}
-            onPress={() => setPanel((open) => (open === "filter" ? null : "filter"))}
-          />
-          <Button
-            label="Display"
-            variant={panel === "display" ? "secondary" : "ghost"}
-            size="sm"
-            icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
-            onPress={() => setPanel((open) => (open === "display" ? null : "display"))}
-          />
-        </View>
+        <ListHeader title="Tasks" count={tasks.length} panel={panel} onPanel={setPanel} />
         {views.length > 0 ? (
           <Presets
             label="Views"

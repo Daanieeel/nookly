@@ -2,7 +2,7 @@ import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { type AssignmentRecord, updateAssignment } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
-import { IconCheck, IconLayoutKanban, IconList, IconPlus } from "@tabler/icons-react-native";
+import { IconLayoutKanban, IconList, IconPlus } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -12,9 +12,9 @@ import { usePreference } from "../data/preferences.ts";
 import { useAssignments, useCourses, useSpaces } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
 import { SpaceDot } from "../ui/Badge.tsx";
-import { Button, IconButton } from "../ui/Button.tsx";
+import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
-import { ListTitle } from "../ui/ListBar.tsx";
+import { ListHeader } from "../ui/ListBar.tsx";
 import { ROW_DIVIDER } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { FilterField, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
@@ -28,8 +28,8 @@ import {
   isHandedIn,
 } from "./assignment-view.ts";
 import { dueText } from "./dashboard-model.ts";
-import { dayLabel, localDay } from "./dates.ts";
-import { StatusIcon } from "./TaskRow.tsx";
+import { localDay } from "./dates.ts";
+import { DueLine, StatusIcon } from "./TaskRow.tsx";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
 import { barItem } from "../ui/bar.ts";
 
@@ -61,7 +61,6 @@ function Row({
 }) {
   const entityMenu = useEntityMenu();
   const router = useRouter();
-  const theme = useTheme();
   const done = isHandedIn(assignment);
   const mark = useLocalWrite((db, next: string) =>
     updateAssignment(db, assignment.entity.id, { status: next }),
@@ -69,7 +68,7 @@ function Row({
   const due = assignment.dueDate && !done ? dueText(assignment.dueDate.slice(0, 10), today) : null;
   return (
     <View
-      className={cn("flex-row items-center gap-3 px-4 py-2", ROW_DIVIDER, done && "opacity-60")}
+      className={cn("flex-row items-center gap-3 px-1 py-2", ROW_DIVIDER, done && "opacity-60")}
     >
       <Pressable
         accessibilityRole="checkbox"
@@ -77,12 +76,9 @@ function Row({
         accessibilityLabel={`${done ? "Reopen" : "Mark done"} ${assignment.entity.title || "assignment"}`}
         hitSlop={touchSlop(CONTROL_SIZE.check)}
         onPress={() => mark.mutate(done ? "not_started" : "submitted")}
-        className={cn(
-          "size-6 items-center justify-center rounded-full border",
-          done ? "border-positive bg-positive" : "border-border",
-        )}
+        className="size-6 items-center justify-center"
       >
-        {done ? <IconCheck size={14} color={theme.colors.background} /> : null}
+        <StatusIcon status={ASSIGNMENT_STATUSES.find((s) => s.id === assignment.status)} />
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -96,19 +92,7 @@ function Row({
           <Text variant="small" tone="muted">
             {assignment.entity.key}
           </Text>
-          {assignment.dueDate ? (
-            <Text variant="small" tone="muted">
-              {dayLabel(assignment.dueDate)}
-            </Text>
-          ) : null}
-          {due ? (
-            <Text
-              variant="small"
-              tone={due.overdue ? "destructive" : due.text === "Today" ? "caution" : "muted"}
-            >
-              {due.text}
-            </Text>
-          ) : null}
+          {assignment.dueDate ? <DueLine day={assignment.dueDate} due={due} /> : null}
           {courseName ? (
             <Text variant="small" tone="muted" numberOfLines={1}>
               {courseName}
@@ -185,21 +169,7 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
         }}
       />
       <Screen wide={display.layout === "board"}>
-        <ListTitle title="Assignments" count={all.length} />
-        <View className="flex-row items-center gap-2">
-          <Button
-            label="Filter"
-            variant={panel === "filter" ? "secondary" : "ghost"}
-            size="sm"
-            onPress={() => setPanel((p) => (p === "filter" ? null : "filter"))}
-          />
-          <Button
-            label="Display"
-            variant={panel === "display" ? "secondary" : "ghost"}
-            size="sm"
-            onPress={() => setPanel((p) => (p === "display" ? null : "display"))}
-          />
-        </View>
+        <ListHeader title="Assignments" count={all.length} panel={panel} onPanel={setPanel} />
         <Sheet
           open={panel === "filter"}
           onOpenChange={(open) => !open && setPanel(null)}
@@ -296,12 +266,10 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
               count={group.items.length}
               initiallyOpen={group.id !== "done"}
             >
-              <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden")}>
-                <View className="-mb-px">
-                  {group.items.map((a) => (
-                    <View key={a.entity.id}>{row(a)}</View>
-                  ))}
-                </View>
+              <View>
+                {group.items.map((a) => (
+                  <View key={a.entity.id}>{row(a)}</View>
+                ))}
               </View>
             </Band>
           ))

@@ -46,7 +46,13 @@ export function StatusIcon({
 
 /// When a task is due, said once: how late it is or "Today" and "Tomorrow" while it is
 /// close, the day itself once it is further out.
-function DueLine({ day, due }: { day: string; due: { text: string; overdue: boolean } | null }) {
+export function DueLine({
+  day,
+  due,
+}: {
+  day: string;
+  due: { text: string; overdue: boolean } | null;
+}) {
   const near = due && (due.overdue || due.text === "Today" || due.text === "Tomorrow");
   return (
     <Text

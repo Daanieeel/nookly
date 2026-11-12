@@ -1,5 +1,6 @@
 import { INPUT_CLASSES } from "@nookly/ui/classes";
-import { IconSearch } from "@tabler/icons-react-native";
+import { IconAdjustmentsHorizontal, IconFilter, IconSearch } from "@tabler/icons-react-native";
+import { Button } from "./Button.tsx";
 import { TextInput, View } from "react-native";
 import { cn, row, splitText } from "./classes.ts";
 import { Chip, ChipGroup } from "./Chips.tsx";
@@ -45,6 +46,46 @@ export function ListTitle({ title, count }: { title: string; count: number }) {
         {title}
       </Text>
       <Text tone="muted">{count}</Text>
+    </View>
+  );
+}
+
+export type ListPanel = "filter" | "display" | null;
+
+/// A list page's header, as the desktop's: the title with how many it lists, and Filter
+/// and Display on the right, each opening its sheet.
+export function ListHeader({
+  title,
+  count,
+  panel,
+  onPanel,
+}: {
+  title: string;
+  count: number;
+  panel: ListPanel;
+  onPanel: (next: ListPanel) => void;
+}) {
+  const theme = useTheme();
+  const toggle = (which: Exclude<ListPanel, null>) => onPanel(panel === which ? null : which);
+  return (
+    <View className="flex-row items-center gap-2">
+      <View className="flex-1">
+        <ListTitle title={title} count={count} />
+      </View>
+      <Button
+        label="Filter"
+        variant={panel === "filter" ? "secondary" : "ghost"}
+        size="sm"
+        icon={<IconFilter size={16} color={theme.colors.foreground} />}
+        onPress={() => toggle("filter")}
+      />
+      <Button
+        label="Display"
+        variant={panel === "display" ? "secondary" : "ghost"}
+        size="sm"
+        icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
+        onPress={() => toggle("display")}
+      />
     </View>
   );
 }
