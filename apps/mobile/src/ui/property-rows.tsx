@@ -69,6 +69,7 @@ export function ChoiceProperty<Id extends string>({
   onChange,
   readOnly = false,
   emptyId,
+  searchPlaceholder,
 }: {
   icon?: React.ReactNode;
   label: string;
@@ -76,6 +77,8 @@ export function ChoiceProperty<Id extends string>({
   options: Option<Id>[];
   onChange: (id: Id) => void;
   readOnly?: boolean;
+  /// The desktop popover's search field: "Change status…". Every choice can be searched.
+  searchPlaceholder?: string;
   /// The choice that means nothing is set (None, Never).
   emptyId?: Id;
 }) {
@@ -85,11 +88,20 @@ export function ChoiceProperty<Id extends string>({
   const shown = {
     icon,
     label,
-    value: current?.label ?? "",
+    value: current?.label ?? "None",
     valueIcon: current?.icon,
     empty: !current || current.id === emptyId,
   };
-  const list = <OptionList label={label} options={options} value={value} onChange={onChange} />;
+  const list = (
+    <OptionList
+      label={label}
+      options={options}
+      value={value}
+      onChange={onChange}
+      search
+      searchPlaceholder={searchPlaceholder ?? `Change ${label.toLowerCase()}…`}
+    />
+  );
   // A few choices open as the desktop's dropdown at the row; a long list in the sheet.
   if (options.length > COMPACT_CHOICES) {
     return (

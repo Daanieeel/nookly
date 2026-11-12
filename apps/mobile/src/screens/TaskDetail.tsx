@@ -16,6 +16,7 @@ import {
   IconGauge,
   IconPlus,
   IconRepeat,
+  IconX,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -144,14 +145,24 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
       <ChoiceProperty
         icon={<IconGauge size={20} color={muted} />}
         label="Effort"
+        searchPlaceholder="Set effort…"
         value={task.effort === null ? "none" : String(task.effort)}
         readOnly={readOnly}
         options={[
-          { id: "none", label: "None" },
           ...EFFORT_STEPS.map((step) => ({
             id: String(step.value),
             label: effortLabel(step.value, scale),
           })),
+          ...(task.effort === null
+            ? []
+            : [
+                {
+                  id: "none",
+                  label: "Remove effort",
+                  icon: <IconX size={16} color={muted} />,
+                  separatorBefore: true,
+                },
+              ]),
         ]}
         emptyId="none"
         onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}

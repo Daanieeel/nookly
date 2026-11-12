@@ -6,7 +6,15 @@ import {
   useEffect,
   useState,
 } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import {
+  Keyboard,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { SheetCloser } from "./Sheet.tsx";
@@ -49,6 +57,19 @@ export function Popover({
   const [box, setBox] = useState<Box | null>(null);
   const [height, setHeight] = useState(0);
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
+  /// How much of the screen the keyboard takes while its search is typed in.
+  const [keyboard, setKeyboard] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    const shown = Keyboard.addListener("keyboardWillShow", (e) =>
+      setKeyboard(e.endCoordinates.height),
+    );
+    const hidden = Keyboard.addListener("keyboardWillHide", () => setKeyboard(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -71,9 +92,19 @@ export function Popover({
   const ready = box !== null && height > 0;
   const width = Math.min(Math.max(box?.width ?? 0, MIN_WIDTH), screen.width - EDGE * 2);
   const left = Math.min(Math.max(box?.x ?? EDGE, EDGE), screen.width - EDGE - width);
+  // Under its trigger, else above it, and always clear of the keyboard.
+  const floor = screen.height - Math.max(insets.bottom, keyboard) - EDGE;
+  const ceiling = insets.top + EDGE;
+  const maxHeight = Math.min(screen.height * 0.6, floor - ceiling);
+  const shownHeight = Math.min(height, maxHeight);
   const below = (box?.y ?? 0) + (box?.height ?? 0) + GAP;
-  const fitsBelow = below + height <= screen.height - insets.bottom - EDGE;
-  const top = fitsBelow ? below : Math.max(insets.top + EDGE, (box?.y ?? 0) - GAP - height);
+  const above = (box?.y ?? 0) - GAP - shownHeight;
+  const top =
+    below + shownHeight <= floor
+      ? below
+      : above >= ceiling
+        ? above
+        : Math.max(ceiling, floor - shownHeight);
 
   return (
     <Modal transparent visible animationType="none" onRequestClose={close}>
@@ -100,7 +131,7 @@ export function Popover({
         <Animated.View
           key={ready ? "shown" : "measuring"}
           entering={ready ? FadeIn.duration(120) : undefined}
-          style={{ maxHeight: screen.height * 0.6 }}
+          style={{ maxHeight }}
           className="rounded-lg border border-border bg-popover p-1 shadow-lg"
         >
           <SheetCloser close={close}>

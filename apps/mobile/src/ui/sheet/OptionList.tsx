@@ -17,6 +17,8 @@ export interface Option<Id extends string = string> {
   keywords?: string[];
   /// A line drawn above it, the desktop's `separatorBefore`.
   separatorBefore?: boolean;
+  /// Muted text at the row's end, as the desktop shows beside a choice (a date).
+  detail?: string;
 }
 
 /// Lists longer than this get a search field, as the desktop's searchable selects do.
@@ -117,6 +119,11 @@ export function OptionList<Id extends string>(
                   {option.label}
                 </Text>
                 {on ? <IconCheck size={16} color={theme.colors.primary} /> : null}
+                {option.detail ? (
+                  <Text variant="small" tone="muted" numberOfLines={1}>
+                    {option.detail}
+                  </Text>
+                ) : null}
               </Pressable>
             </View>
           );

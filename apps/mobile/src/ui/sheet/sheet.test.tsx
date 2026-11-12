@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { useState } from "react";
 import { Text, View } from "react-native";
+import { ChoiceProperty } from "../property-rows.tsx";
 import { SelectField } from "../SelectField.tsx";
 import { MIN_TOUCH, gapBetween, touchSlop } from "../touch.ts";
 import { MenuList, SEPARATOR, menuGroups } from "./MenuList.tsx";
@@ -198,5 +199,35 @@ describe("touch sizes", () => {
   it("keep neighbours far enough apart that their hit areas never overlap", () => {
     const slop = touchSlop(28).right ?? 0;
     expect(gapBetween(28)).toBeGreaterThanOrEqual(2 * slop);
+  });
+});
+
+describe("a compact menu", () => {
+  // The desktop's property popovers have a search field and show each choice's icon and
+  // details; the phone's keep them, however few the choices.
+  it("can be searched, and shows each choice's details", async () => {
+    function Field() {
+      const [value, setValue] = useState<string>("a");
+      return (
+        <ChoiceProperty
+          label="Status"
+          value={value}
+          onChange={setValue}
+          searchPlaceholder="Change status…"
+          options={[
+            { id: "a", label: "Alpha", detail: "Mon, Nov 9" },
+            { id: "b", label: "Beta" },
+          ]}
+        />
+      );
+    }
+    const screen = render(<Field />);
+    fireEvent.press(screen.getByRole("button", { name: "Status, Alpha" }));
+    expect(await screen.findByLabelText("Status choices")).toBeTruthy();
+    expect(screen.getByText("Mon, Nov 9")).toBeTruthy();
+    fireEvent.changeText(screen.getByPlaceholderText("Change status…"), "bet");
+    expect(screen.queryByRole("radio", { name: "Alpha" })).toBeNull();
+    fireEvent.press(screen.getByRole("radio", { name: "Beta" }));
+    expect(await screen.findByRole("button", { name: "Status, Beta" })).toBeTruthy();
   });
 });

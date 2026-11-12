@@ -58,7 +58,8 @@ describe("a task's effort and sub-tasks", () => {
     await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBe(3));
     // The row shows the estimate once the page has it.
     await fireEvent.press((await screen.findAllByRole("button", { name: "Effort, M" }))[0]);
-    await fireEvent.press(await screen.findByRole("radio", { name: "None" }));
+    // As on the desktop, the estimate is taken off with Remove effort under the sizes.
+    await fireEvent.press(await screen.findByRole("radio", { name: "Remove effort" }));
     await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBeNull());
   });
 
