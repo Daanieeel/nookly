@@ -1,7 +1,7 @@
 import { type PageSession, caretColor, presenceName } from "@nookly/shared/sync";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
-import { applyAwarenessUpdate, encodeAwarenessUpdate } from "y-protocols/awareness";
+import { type Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { recents, search } from "@nookly/shared/data";
 import { useRouter } from "expo-router";
@@ -16,7 +16,8 @@ import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { VimKeys } from "./VimKeys.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { type AwarenessChanges, type Origin, fromBase64, toBase64 } from "./bridge.ts";
-import PageEditorDom, { type EditorHandle } from "./PageEditorDom.tsx";
+import type { EditorHandle } from "./PageEditorDom.tsx";
+import { usePageEditorView } from "./editor-view.tsx";
 import { type ToolbarId, editorStateSchema } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
 
@@ -26,6 +27,30 @@ const FROM_EDITOR = "editor";
 /// A page as a live document: the editor in a web view, kept in step with the phone's
 /// copy of the document (offline copy, socket to the server) by swapping Yjs updates.
 export function LivePage({ session, editable }: { session: PageSession; editable: boolean }) {
+  return (
+    <PageDocEditor
+      doc={session.doc}
+      awareness={session.provider.awareness ?? null}
+      entityId={session.entityId}
+      editable={editable}
+    />
+  );
+}
+
+/// The page editor on a page document: the live one from the server, or one kept only on
+/// this phone (`RowsPage`), with who else is here when it is live.
+export function PageDocEditor({
+  doc: pageDoc,
+  awareness: pageAwareness,
+  entityId,
+  editable,
+}: {
+  doc: Y.Doc;
+  awareness: Awareness | null;
+  entityId: string;
+  editable: boolean;
+}) {
+  const EditorView = usePageEditorView();
   const theme = useTheme();
   const reveal = useReveal();
   const handle = useRef<EditorHandle>(null);
@@ -47,8 +72,8 @@ export function LivePage({ session, editable }: { session: PageSession; editable
   // Edits made elsewhere reach the editor as they arrive.
   useEffect(() => {
     ready.current = false;
-    const doc = session.doc;
-    const awareness = session.provider.awareness;
+    const doc = pageDoc;
+    const awareness = pageAwareness;
     const sendUpdate = (update: Uint8Array, origin: Origin) => {
       if (origin !== FROM_EDITOR && ready.current) {
         handle.current?.applyUpdate(toBase64(update));
@@ -68,33 +93,33 @@ export function LivePage({ session, editable }: { session: PageSession; editable
     };
     // `toolbar.clear` is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  }, [pageDoc, pageAwareness]);
 
   const onReady = useCallback(async () => {
     // The editor starts from the whole document, and from who else is here.
-    handle.current?.applyUpdate(toBase64(Y.encodeStateAsUpdate(session.doc)));
-    const awareness = session.provider.awareness;
+    handle.current?.applyUpdate(toBase64(Y.encodeStateAsUpdate(pageDoc)));
+    const awareness = pageAwareness;
     if (awareness) {
       handle.current?.applyAwareness(
         toBase64(encodeAwarenessUpdate(awareness, [...awareness.getStates().keys()])),
       );
     }
     ready.current = true;
-  }, [session]);
+  }, [pageDoc, pageAwareness]);
 
   const onUpdate = useCallback(
     async (update: string) => {
-      Y.applyUpdate(session.doc, fromBase64(update), FROM_EDITOR);
+      Y.applyUpdate(pageDoc, fromBase64(update), FROM_EDITOR);
     },
-    [session],
+    [pageDoc],
   );
 
   const onAwareness = useCallback(
     async (update: string) => {
-      const awareness = session.provider.awareness;
+      const awareness = pageAwareness;
       if (awareness) applyAwarenessUpdate(awareness, fromBase64(update), FROM_EDITOR);
     },
-    [session],
+    [pageAwareness],
   );
 
   const onState = useCallback(
@@ -121,11 +146,11 @@ export function LivePage({ session, editable }: { session: PageSession; editable
       const items = query.trim() ? await search(db, query, 8) : await recents(db, 8);
       return JSON.stringify(
         items
-          .filter((e) => e.id !== session.entityId)
+          .filter((e) => e.id !== entityId)
           .map((e) => ({ id: e.id, title: e.title, key: e.key })),
       );
     },
-    [db, session.entityId],
+    [db, entityId],
   );
 
   /// A mention opens the item; a web address opens in the browser.
@@ -142,7 +167,7 @@ export function LivePage({ session, editable }: { session: PageSession; editable
 
   return (
     <View ref={anchor} collapsable={false} className="min-h-40">
-      <PageEditorDom
+      <EditorView
         ref={handle}
         dom={{ matchContents: true, useExpoDOMWebView: true, scrollEnabled: false }}
         editable={editable}

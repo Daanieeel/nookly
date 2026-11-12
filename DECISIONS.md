@@ -245,3 +245,8 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 
 - **Decision:** the sync icon sits left of Import, a ghost button as before. It turns green for two seconds when a round sent changes from this device or brought changes from another (`SyncStatus.lastChangedAt`), never for a round that only checked (the minute timer, a reconnect that found nothing), and not for what was already synced when the window opened. Only a colour change, no movement, so it needs nothing different for reduced motion. The tooltip stays.
 - **Alternatives:** after every round (the minute timer would make it blink for nothing); a toast (too loud).
+
+## D42. One page editor on the phone, live or not
+
+- **Decision:** a page without a live document (an item's description, a page made here that the server has not seen, a page offline that was never opened) is edited in the same ProseMirror editor as a live page, with its `/` menu and toolbar, on a document kept only on the phone (`RowsPage`). The old list of text fields with its "Add Block" button and its native action sheet is gone. What changes is written back as block rows half a second after typing stops, and only what was edited, field by field (`@nookly/shared/data` `page-rows`): a block another device changed meanwhile keeps that change, and blocks changed elsewhere come into the open editor when this one did not touch them.
+- **Alternatives:** keep the text fields without the button (still not the desktop's editor, and a native action sheet against the rules); a server document for every item (descriptions are rows by design, D6).

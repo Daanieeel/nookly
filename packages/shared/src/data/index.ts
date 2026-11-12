@@ -18,3 +18,4 @@ export * from "./relationships.ts";
 export * from "./bookmark-metadata.ts";
 export * from "./portable.ts";
 export * from "./portable-import.ts";
+export * from "./page-rows.ts";

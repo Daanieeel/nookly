@@ -3,7 +3,6 @@ import {
   createSpace,
   createTask,
   getTask,
-  listBlocks,
   listTasks,
   markOpened,
   setTaskStatus,
@@ -67,7 +66,7 @@ describe("making a task", () => {
 });
 
 describe("a page", () => {
-  it("edits its blocks as text and saves when done typing", async () => {
+  it("is written on directly, with no Add Block button, and goes to the Trash", async () => {
     const { data, space } = await seeded();
     const page = await createPage(data.db, space, "note", "Physics");
     const menu = new RecordingMenu();
@@ -77,12 +76,10 @@ describe("a page", () => {
       `/entity/${page}`,
       { menu },
     );
-    const block = await screen.findByLabelText("Text block");
-    await fireEvent.changeText(block, "Waves move energy");
-    await fireEvent(block, "endEditing");
-    await waitFor(async () =>
-      expect((await listBlocks(data.db, page))[0].content).toBe("Waves move energy"),
-    );
+    // The page editor itself (a web view) is checked in the simulator; what it writes back
+    // is tested in `@nookly/shared/data` (`page-rows.test.ts`).
+    expect(await screen.findByLabelText("Page editor")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add Block" })).toBeNull();
     await pressBarButton(screen, "More");
     menu.choose("Move to Trash");
     expect(await screen.findByText("In Trash")).toBeTruthy();

@@ -47,7 +47,7 @@ export function useSyncState<T>(selector: (state: SyncAccountState) => T): T {
 }
 
 /// After a local write: every view refreshes, and sync sends it shortly.
-function afterLocalWrite(queryClient: QueryClient, sync: MobileSync) {
+export function afterLocalWrite(queryClient: QueryClient, sync: MobileSync) {
   void queryClient.invalidateQueries({ queryKey: keys.local });
   sync.notifyLocalChange();
 }
