@@ -57,6 +57,15 @@ describe("Titlebar split button", () => {
     expect(screen.getByRole("button", { name: /^Split Right/ })).toBeInTheDocument();
   });
 
+  it("puts the sync status left of Import, with the other quiet buttons", async () => {
+    renderWithProviders(<Titlebar />);
+    const sync = await screen.findByRole("button", { name: /sync/i });
+    const importButton = screen.getByRole("button", { name: "Import" });
+    expect(
+      sync.compareDocumentPosition(importButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("splits to the chosen side and closes the popover", async () => {
     const { user } = renderWithProviders(<Titlebar />);
     await user.click(await screen.findByRole("button", { name: "Split" }));

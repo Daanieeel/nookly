@@ -48,6 +48,9 @@ export interface SyncStatus {
   /// Whether the live channel to the server is open, so other devices' changes arrive as
   /// they are made. Rounds can still go through without it; the status says so.
   live: boolean;
+  /// When a round last sent changes from here or brought changes from elsewhere; a round
+  /// that only checked leaves it, so "just synced" means something moved.
+  lastChangedAt: number | null;
 }
 
 export interface SyncClientOptions {
@@ -109,6 +112,7 @@ export class SyncClient {
     lastSyncedAt: null,
     error: null,
     live: false,
+    lastChangedAt: null,
   };
 
   constructor(options: SyncClientOptions) {
@@ -197,15 +201,17 @@ export class SyncClient {
     this.report({ state: "syncing", error: null });
     try {
       let applied = await this.pullAll();
-      await this.pushAll();
+      const sent = await this.pushAll();
       applied = (await this.pullAll()) || applied;
       this.failures = 0;
       const conflicts = await this.countConflicts();
+      const at = Date.now();
       this.report({
         state: "idle",
         pending: await this.engine.pendingCount(),
         conflicts,
-        lastSyncedAt: Date.now(),
+        lastSyncedAt: at,
+        ...((applied || sent) && { lastChangedAt: at }),
       });
       if (applied) this.onApplied?.();
       await this.afterCycle?.(applied);
@@ -244,15 +250,19 @@ export class SyncClient {
     return changed;
   }
 
-  private async pushAll() {
+  /// Sends everything waiting; whether anything went.
+  private async pushAll(): Promise<boolean> {
+    let sent = false;
     for (let round = 0; round < 1_000; round++) {
       const planned = await this.engine.collect();
-      if (planned.length === 0) return;
+      if (planned.length === 0) return sent;
       const response = await this.transport.push({ changes: planned.map((p) => p.change) });
       this.assertStarted();
       await this.engine.acknowledge(planned, response.results);
+      sent = true;
       this.report({ pending: await this.engine.pendingCount() });
     }
+    return sent;
   }
 
   /// Waits longer after each failure, up to a minute, with some spread so a server

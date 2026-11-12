@@ -151,6 +151,27 @@ describe("the sync client", () => {
     b.client.stop();
   });
 
+  it("marks the rounds that sent or brought changes, and only those", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    await vi.advanceTimersByTimeAsync(1_000);
+    // A round that only checks leaves the mark where the first one (the account's rows
+    // arriving) put it.
+    const first = a.client.current().lastChangedAt;
+    await vi.advanceTimersByTimeAsync(500);
+    await a.client.syncNow();
+    expect(a.client.current().lastChangedAt).toBe(first);
+    addTask(a.driver, "t1", "Sent");
+    a.client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(2_000);
+    const sent = a.client.current().lastChangedAt;
+    expect(sent).not.toBe(first);
+    await a.client.syncNow();
+    expect(a.client.current().lastChangedAt).toBe(sent);
+    a.client.stop();
+  });
+
   it("says when the live channel is down even though requests still work", async () => {
     // Bug: a round that went through set the status back to synced while the live channel
     // stayed closed, so a device that heard nothing from the others still said "Synced".

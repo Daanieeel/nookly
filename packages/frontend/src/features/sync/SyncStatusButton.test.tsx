@@ -1,6 +1,6 @@
 import type { SyncStatus } from "@nookly/shared/sync";
 import { act, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { useNavStore } from "#/lib/store/nav.ts";
@@ -24,6 +24,7 @@ const status = (patch: Partial<SyncStatus>): SyncStatus => ({
   lastSyncedAt: null,
   error: null,
   live: true,
+  lastChangedAt: null,
   ...patch,
 });
 
@@ -79,5 +80,23 @@ describe("the sync status", () => {
     const { user } = renderWithProviders(<SyncStatusButton />);
     await user.click(screen.getByRole("button", { name: "Synced" }));
     expect(useNavStore.getState().settingsOpen).toBe(true);
+  });
+
+  it("turns green for two seconds after a sync that moved changes, not on every check", () => {
+    vi.useFakeTimers();
+    act(() => syncRuntime.store.setState({ user: ADA, status: status({ lastChangedAt: 1000 }) }));
+    renderWithProviders(<SyncStatusButton />);
+    const icon = () => screen.getByRole("button", { name: "Synced" }).querySelector("svg");
+    // What was already synced when it appeared is old news.
+    expect(icon()).not.toHaveClass("text-positive");
+    act(() =>
+      syncRuntime.store.setState({ status: status({ lastSyncedAt: 5000, lastChangedAt: 1000 }) }),
+    );
+    expect(icon()).not.toHaveClass("text-positive");
+    act(() => syncRuntime.store.setState({ status: status({ lastChangedAt: 6000 }) }));
+    expect(icon()).toHaveClass("text-positive");
+    act(() => vi.advanceTimersByTime(2100));
+    expect(icon()).not.toHaveClass("text-positive");
+    vi.useRealTimers();
   });
 });

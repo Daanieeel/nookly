@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { SyncAccountState } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
@@ -122,7 +123,26 @@ export function syncSummary(
   };
 }
 
-/// A quiet sync indicator in the titlebar. Its tooltip says when it last synced.
+/// How long the icon stays green after a sync that moved changes.
+const JUST_SYNCED_MS = 2000;
+
+/// True for a moment after `changedAt` moves on: a sync that sent or brought changes, not a
+/// check that found nothing, and not what was already synced when the button appeared.
+function useJustSynced(changedAt: number | null): boolean {
+  const [shown, setShown] = useState(false);
+  const seen = useRef(changedAt);
+  useEffect(() => {
+    if (changedAt === null || changedAt === seen.current) return;
+    seen.current = changedAt;
+    setShown(true);
+    const timer = setTimeout(() => setShown(false), JUST_SYNCED_MS);
+    return () => clearTimeout(timer);
+  }, [changedAt]);
+  return shown;
+}
+
+/// A quiet sync indicator in the titlebar. Its tooltip says when it last synced. It turns
+/// green for two seconds after a sync that moved changes (a colour change, no motion).
 export function SyncStatusButton() {
   const user = useSyncState((s) => s.user);
   const status = useSyncState((s) => s.status);
@@ -130,6 +150,7 @@ export function SyncStatusButton() {
   const files = useSyncState((s) => s.files);
   const summary = syncSummary({ user, status, migration, files });
   const Icon = summary.icon;
+  const justSynced = useJustSynced(status.lastChangedAt) && summary.label === "Synced";
   const open = () => {
     if (summary.opens === "account") useAccountDialog.getState().show("signIn");
     else if (summary.opens === "firstSync") useAccountDialog.getState().setFirstSyncOpen(true);
@@ -144,7 +165,13 @@ export function SyncStatusButton() {
     <Tooltip>
       <TooltipTrigger asChild>
         <Button variant="ghost" size="iconSm" aria-label={summary.label} onClick={open}>
-          <Icon size={14} className={cn(summary.tone, summary.spin && "animate-spin")} />
+          <Icon
+            size={14}
+            className={cn(
+              justSynced ? "text-positive" : summary.tone,
+              summary.spin && "animate-spin",
+            )}
+          />
         </Button>
       </TooltipTrigger>
       <TooltipContent>

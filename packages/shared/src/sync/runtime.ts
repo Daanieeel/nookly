@@ -93,6 +93,7 @@ const OFF: SyncStatus = {
   lastSyncedAt: null,
   error: null,
   live: false,
+  lastChangedAt: null,
 };
 
 const MIGRATION_KEY = "migration";

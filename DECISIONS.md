@@ -240,3 +240,8 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Phone build:** the merge's lockfile gave Expo `lightningcss` 1.33, which `react-native-css` can not drive (the bundle failed). Pinned to 1.30.1 workspace wide (root `overrides`); the desktop's Vite build is fine with it.
 - **Where a clash shows ⚑:** when the server sees both edits, every device offers the clash. When a device pulls the other edit before sending its own, the clash is kept on that device only, and only it offers the merge editor. Nothing is lost either way. Alternative not built yet: devices report their own clashes to the server so every device offers every clash (needs resolving them on both sides together).
 - **Not covered by the test:** the platforms' own wiring (the desktop's Tauri SQL bridge, the phone's SQLite driver and its app lifecycle), which the real two device check covers.
+
+## D41. The titlebar's sync icon turns green after a sync that moved something
+
+- **Decision:** the sync icon sits left of Import, a ghost button as before. It turns green for two seconds when a round sent changes from this device or brought changes from another (`SyncStatus.lastChangedAt`), never for a round that only checked (the minute timer, a reconnect that found nothing), and not for what was already synced when the window opened. Only a colour change, no movement, so it needs nothing different for reduced motion. The tooltip stays.
+- **Alternatives:** after every round (the minute timer would make it blink for nothing); a toast (too loud).

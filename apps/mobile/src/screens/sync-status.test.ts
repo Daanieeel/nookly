@@ -9,6 +9,7 @@ const status = (patch: Partial<SyncStatus>): SyncStatus => ({
   lastSyncedAt: null,
   error: null,
   live: true,
+  lastChangedAt: null,
   ...patch,
 });
 
