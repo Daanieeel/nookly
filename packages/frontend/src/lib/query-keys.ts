@@ -187,6 +187,8 @@ export const qk = {
     entityConflicts: (entityId: string, total: number) =>
       ["sync", "conflict-views", entityId, total] as const,
     role: (entityId: string) => ["sync", "role", entityId] as const,
+    localData: () => ["sync", "local-data"] as const,
+    unsent: () => ["sync", "unsent"] as const,
   },
   backups: {
     root: ["backups"] as const,

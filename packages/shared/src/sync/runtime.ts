@@ -50,8 +50,9 @@ export interface SyncRuntimeDeps<A extends AccountApi> {
   /// Remote changes landed; views refresh.
   onApplied: () => void;
   /// A full backup of the device, made before a first sync sends anything. When it
-  /// fails, nothing is sent.
-  backup?: () => Promise<{ path: string }>;
+  /// fails, nothing is sent. With `keep` it holds the only copy of something (data kept
+  /// out of an account, changes that never reached it) and must never be cleaned up.
+  backup?: (keep?: boolean) => Promise<{ path: string }>;
   /// How this device stores, hashes, uploads and downloads files.
   blobs?: (serverUrl: string, api: A) => BlobPlatform;
   /// The device's settings, for the ones that follow the account.
@@ -95,6 +96,22 @@ const OFF: SyncStatus = {
   live: false,
   lastChangedAt: null,
 };
+
+/// What a sign in does with data already on the device: `add` (the default) sends it to
+/// the account, `setAside` backs it up and clears it, so only the account's data shows.
+export interface SignInOptions {
+  localData?: "add" | "setAside";
+}
+
+export interface SignOutResult {
+  /// Changes that had not reached the account when the device signed out.
+  unsent: number;
+  /// The backup made because of them.
+  backupPath: string | null;
+}
+
+/// How long a sign out waits for the last changes to go out.
+const LAST_SYNC_MS = 10_000;
 
 const MIGRATION_KEY = "migration";
 /// Which account's page documents the device's copies are (`claimPageCopies`).
@@ -212,8 +229,38 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     }
   }
 
-  async signUp(serverUrl: string, input: SignUp): Promise<User> {
-    const user = await this.connect(serverUrl).signUp(input, this.deps.device);
+  /// How many items are on this device and in no account: what a sign in has to ask
+  /// about. Nothing once the device syncs.
+  async localDataCount(): Promise<number> {
+    if (await this.engine.isEnabled()) return 0;
+    return this.engine.itemCount();
+  }
+
+  /// A device's own data that is to stay out of the account: backed up first, then
+  /// cleared, so only the account's data shows. Without a backup nothing is cleared and
+  /// the sign in is taken back.
+  private async setLocalDataAside(api: A) {
+    if (await this.engine.isEnabled()) return;
+    try {
+      if (!this.deps.backup) throw new Error("This device can't make a backup.");
+      await this.deps.backup(true);
+    } catch (error) {
+      await api.signOut().catch(() => {});
+      throw error;
+    }
+    await this.cleared(await this.engine.wipe());
+  }
+
+  /// The device's data went: what is derived from it and every view follow.
+  private async cleared(entityIds: string[]) {
+    if (entityIds.length > 0) await this.deps.reindex?.(entityIds).catch(() => {});
+    this.deps.onApplied();
+  }
+
+  async signUp(serverUrl: string, input: SignUp, options: SignInOptions = {}): Promise<User> {
+    const api = this.connect(serverUrl);
+    const user = await api.signUp(input, this.deps.device);
+    if (options.localData === "setAside") await this.setLocalDataAside(api);
     this.store.setState({ user, signedOutReason: null });
     await this.start().catch(() => {});
     await this.rememberUser(user);
@@ -221,8 +268,15 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   }
 
   /// `identifier` is a username or an email address.
-  async signIn(serverUrl: string, identifier: string, password: string): Promise<User> {
-    const user = await this.connect(serverUrl).signIn(identifier, password, this.deps.device);
+  async signIn(
+    serverUrl: string,
+    identifier: string,
+    password: string,
+    options: SignInOptions = {},
+  ): Promise<User> {
+    const api = this.connect(serverUrl);
+    const user = await api.signIn(identifier, password, this.deps.device);
+    if (options.localData === "setAside") await this.setLocalDataAside(api);
     this.store.setState({ user, signedOutReason: null });
     await this.start().catch(() => {});
     await this.rememberUser(user);
@@ -281,7 +335,12 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     };
     this.store.setState({ migration: base });
     let backupPath: string | null = null;
-    if (this.deps.backup) {
+    // A device with nothing on it has nothing to lose to a first sync.
+    const [own] = await this.deps.driver.query(
+      "SELECT (SELECT COUNT(*) FROM entities) + (SELECT COUNT(*) FROM spaces) AS n",
+      [],
+    );
+    if (this.deps.backup && Number(own?.n ?? 0) > 0) {
       try {
         backupPath = (await this.deps.backup()).path;
       } catch (error) {
@@ -643,9 +702,36 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     this.client?.notifyLocalChange();
   }
 
-  /// Signs this device out. Every row stays; only what the device knew of the server
-  /// goes, so signing in again (to this or another account) is a safe first sync.
-  async signOut(): Promise<void> {
+  /// What on this device has not reached the account: row changes, typing in pages and
+  /// files still to send.
+  async unsentCount(): Promise<number> {
+    if (!(await this.engine.isEnabled())) return 0;
+    const rows = await this.engine.pendingCount();
+    const [pages] = await this.deps.driver.query(
+      "SELECT COUNT(*) AS n FROM page_docs WHERE pending = 1",
+      [],
+    );
+    const files = this.blobs ? (await this.blobs.plan()).uploads.length : 0;
+    return rows + Number(pages?.n ?? 0) + files;
+  }
+
+  /// Signs this device out and leaves it as a new one: its data stays in the account and
+  /// on the other devices, not here. What has not reached the account is tried once more;
+  /// if some still waits, the whole device is backed up first, and when that backup fails
+  /// nothing happens at all. Returns how much was unsent and where its backup is.
+  async signOut(): Promise<SignOutResult> {
+    // Not signed in: there is no account holding this data, so nothing may be cleared.
+    if (!this.store.getState().user) return { unsent: 0, backupPath: null };
+    if (this.client) {
+      await Promise.race([
+        this.client.syncNow().catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, LAST_SYNC_MS)),
+      ]);
+      await this.docs?.flushPending().catch(() => 0);
+    }
+    const unsent = await this.unsentCount();
+    let backupPath: string | null = null;
+    if (unsent > 0 && this.deps.backup) backupPath = (await this.deps.backup(true)).path;
     const client = this.client;
     this.stop();
     // A sync still on its way must not write after the wipe below.
@@ -658,11 +744,29 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       // Offline: the server ends the session when it expires.
     }
     await this.engine.disable();
-    // The device's copies of page documents belong to the account; the rows stay.
+    const gone = await this.engine.wipe();
+    this.store.setState({ user: null, status: OFF, migration: null, files: null });
+    await this.cleared(gone);
+    return { unsent, backupPath };
+  }
+
+  /// The account is gone from the server (deleted from this device): the device lets go of
+  /// it and keeps every row, which is now the only copy.
+  async detach(): Promise<void> {
+    const client = this.client;
+    this.stop();
+    await client?.finished();
+    await this.closingDocs;
+    await this.api?.signOut().catch(() => {});
+    await this.engine.disable();
     await this.deps.driver.batch([run("DELETE FROM page_docs")]);
     this.store.setState({ user: null, status: OFF, migration: null, files: null });
   }
 
+  /// The server ended this device's session (signed out from another device, a password
+  /// reset, an account or a server that is gone). The data stays here: the device can't
+  /// tell a wanted sign out from a server that lost everything, and must never be the
+  /// reason the last copy disappears. The next sign in asks what to do with it.
   private async signedOutByServer() {
     const client = this.client;
     this.stop();

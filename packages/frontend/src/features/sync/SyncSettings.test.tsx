@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { ApiClient, type Session } from "@nookly/shared/api";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SettingsDialog } from "#/features/settings/SettingsDialog.tsx";
@@ -74,6 +74,25 @@ afterEach(() => {
 });
 
 describe("the Sync settings", () => {
+  it("says what signing out does, and what has not been sent, before it signs out", async () => {
+    signedIn();
+    vi.spyOn(syncRuntime, "unsentCount").mockResolvedValue(3);
+    const signOut = vi
+      .spyOn(syncRuntime, "signOut")
+      .mockResolvedValue({ unsent: 3, backupPath: "/backups/x" });
+    const { user } = await openSync();
+    await user.click(await screen.findByRole("button", { name: "Sign Out" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
+    expect(dialog).toHaveTextContent("It is removed from this computer");
+    await waitFor(() =>
+      expect(dialog).toHaveTextContent("3 changes have not reached the account yet"),
+    );
+    expect(signOut).not.toHaveBeenCalled();
+    await expectNoA11yViolations();
+    await user.click(within(dialog).getByRole("button", { name: "Sign Out" }));
+    expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
   it("offers to sign in, and says sync is optional", async () => {
     mockCommand("sync_query", []);
     await openSync();

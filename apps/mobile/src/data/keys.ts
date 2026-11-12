@@ -66,5 +66,6 @@ export const keys = {
     sharesWithMe: ["sync", "shares", "incoming"] as const,
     conflicts: ["sync", "conflicts"] as const,
     conflictItems: ["sync", "conflicts", "items"] as const,
+    localData: ["sync", "local-data"] as const,
   },
 };

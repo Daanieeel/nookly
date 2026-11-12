@@ -105,6 +105,16 @@ function runtime(
 
 const now = () => new Date().toISOString();
 
+function addSpace(driver: NodeSqliteDriver, id = "s1", name = "Personal") {
+  driver.exec(
+    "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES (?, ?, 'blue', ?, ?)",
+    id,
+    name,
+    now(),
+    now(),
+  );
+}
+
 describe("the desktop's sync", () => {
   it("is off until someone signs in", async () => {
     const { sync, driver } = runtime();
@@ -167,20 +177,125 @@ describe("the desktop's sync", () => {
     expect(sync.store.getState().user).toBeNull();
   });
 
-  it("signs out, forgets the server's state and keeps every row here", async () => {
-    const { sync, account, driver } = runtime();
-    driver.exec(
-      "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
-      now(),
-      now(),
-    );
+  it("signs out and leaves the device as new: its data is in the account, not here", async () => {
+    const { sync, account, driver, server, onApplied } = runtime();
+    addSpace(driver);
     await sync.signIn("https://sync.example.com", "ada", "a long password");
     await sync.syncNow();
+    onApplied.mockClear();
     await sync.signOut();
     expect(account.calls.at(-1)).toBe("signOut");
     expect(sync.store.getState()).toMatchObject({ user: null, status: { state: "off" } });
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([]);
+    expect(server.records.has("spaces\u0000s1")).toBe(true);
+    // What every new device starts with is back.
+    expect(driver.rows("SELECT COUNT(*) AS n FROM task_statuses")[0].n).toBe(5);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM sync_rows")[0].n).toBe(0);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM sync_dirty")[0].n).toBe(0);
+    expect(onApplied).toHaveBeenCalled();
+    expect(await sync.localDataCount()).toBe(0);
+  });
+
+  it("clears nothing when asked to sign out while nobody is signed in", async () => {
+    const { sync, driver } = runtime();
+    addSpace(driver);
+    await sync.signOut();
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
+  });
+
+  it("backs the device up before signing out when something never reached the account", async () => {
+    const backup = vi.fn(async () => ({ path: "/backups/before-sign-out" }));
+    const { sync, account, driver } = runtime(undefined, undefined, backup);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    backup.mockClear();
+    account.failPushesAfter = account.pushes;
+    addSpace(driver);
+    expect(await sync.unsentCount()).toBe(1);
+    const result = await sync.signOut();
+    expect(backup).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ unsent: 1, backupPath: "/backups/before-sign-out" });
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([]);
+  });
+
+  it("stays signed in with everything in place when that backup fails", async () => {
+    let fail = false;
+    const backup = vi.fn(async () => {
+      if (fail) throw new Error("The disk is full.");
+      return { path: "/backups/first" };
+    });
+    const { sync, account, driver } = runtime(undefined, undefined, backup);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    account.failPushesAfter = account.pushes;
+    addSpace(driver);
+    fail = true;
+    await expect(sync.signOut()).rejects.toThrow("The disk is full.");
+    expect(sync.store.getState().user).toEqual(ADA);
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
+    expect(await sync.unsentCount()).toBe(1);
+    sync.stop();
+  });
+
+  it("keeps every row when the account itself was deleted", async () => {
+    const { sync, driver } = runtime();
+    addSpace(driver);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    await sync.detach();
+    expect(sync.store.getState()).toMatchObject({ user: null, status: { state: "off" } });
     expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
     expect(driver.rows("SELECT COUNT(*) AS n FROM sync_rows")[0].n).toBe(0);
+  });
+
+  it("says how much is on a device before anyone signs in, and nothing once it syncs", async () => {
+    const { sync, driver } = runtime();
+    expect(await sync.localDataCount()).toBe(0);
+    addSpace(driver);
+    driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at) VALUES ('n1', 's1', 'note', 'Mine', ?, ?)",
+      now(),
+      now(),
+    );
+    expect(await sync.localDataCount()).toBe(1);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    expect(await sync.localDataCount()).toBe(0);
+    sync.stop();
+  });
+
+  it("keeps a device's own data out of the account when asked: backed up, then cleared", async () => {
+    const server = new MemoryServer();
+    const other = runtime(server);
+    addSpace(other.driver, "s9", "From the account");
+    await other.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await other.sync.settled();
+    other.sync.stop();
+
+    const backup = vi.fn(async () => ({ path: "/backups/set-aside" }));
+    const here = runtime(server, undefined, backup);
+    addSpace(here.driver);
+    await here.sync.signIn("https://sync.example.com", "ada", "a long password", {
+      localData: "setAside",
+    });
+    await here.sync.settled();
+    expect(backup).toHaveBeenCalled();
+    expect(here.driver.rows("SELECT name FROM spaces")).toEqual([{ name: "From the account" }]);
+    expect(server.records.has("spaces\u0000s1")).toBe(false);
+    here.sync.stop();
+  });
+
+  it("signs in to nothing and clears nothing when the data can't be backed up first", async () => {
+    const backup = vi.fn(async (): Promise<{ path: string }> => {
+      throw new Error("The disk is full.");
+    });
+    const { sync, account, driver } = runtime(undefined, undefined, backup);
+    addSpace(driver);
+    await expect(
+      sync.signIn("https://sync.example.com", "ada", "a long password", { localData: "setAside" }),
+    ).rejects.toThrow("The disk is full.");
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
+    expect(sync.store.getState().user).toBeNull();
+    expect(account.signedIn).toBe(false);
   });
 
   it("stays signed in when it starts while the server can not be reached", async () => {

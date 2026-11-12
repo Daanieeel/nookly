@@ -14,6 +14,14 @@ import { useEffect, useId, useState } from "react";
 import { z } from "zod";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@nookly/ui/components/alert-dialog";
 import { FormField, fieldMessage } from "#/components/form-field.tsx";
 import type { RowSpec } from "#/features/settings/setting-rows.tsx";
 import { qk } from "#/lib/query-keys.ts";
@@ -256,12 +264,8 @@ function AccountSummary() {
   const user = useSyncState((s) => s.user);
   const serverUrl = useSyncState((s) => s.serverUrl);
   const status = useSyncState((s) => s.status);
-  const queryClient = useQueryClient();
   const syncNow = useMutation({ mutationFn: () => syncRuntime.syncNow() });
-  const signOut = useMutation({
-    mutationFn: () => syncRuntime.signOut(),
-    onSuccess: () => queryClient.removeQueries({ queryKey: qk.sync.root }),
-  });
+  const [signingOut, setSigningOut] = useState(false);
   const resend = useMutation({
     mutationFn: async () =>
       user?.email ? syncRuntime.account()?.resendVerification(user.email) : undefined,
@@ -306,14 +310,10 @@ function AccountSummary() {
               errorLabel="Couldn't sync"
             />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => signOut.mutate()}>
-            <StatusButtonContent
-              status={statusOf(signOut)}
-              label="Sign Out"
-              successLabel="Signed out"
-              errorLabel="Couldn't sign out"
-            />
+          <Button size="sm" variant="ghost" onClick={() => setSigningOut(true)}>
+            Sign Out
           </Button>
+          <SignOutDialog open={signingOut} onOpenChange={setSigningOut} />
         </div>
       </div>
       <FirstSyncLine />
@@ -321,6 +321,62 @@ function AccountSummary() {
       <ChangePassword />
       <DeleteAccount />
     </div>
+  );
+}
+
+/// Signing out clears this device: said before it happens, with what has not reached the
+/// account yet, which is backed up first.
+function SignOutDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data: unsent = 0 } = useQuery({
+    queryKey: qk.sync.unsent(),
+    queryFn: () => syncRuntime.unsentCount(),
+    enabled: open,
+    gcTime: 0,
+  });
+  const signOut = useMutation({
+    mutationFn: () => syncRuntime.signOut(),
+    onSuccess: () => {
+      onOpenChange(false);
+      // Every view showed the account's data, which is no longer here.
+      queryClient.removeQueries({ queryKey: qk.sync.root });
+      void queryClient.invalidateQueries();
+    },
+  });
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Sign out of this computer?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Everything stays in your account and on your other devices. It is removed from this
+            computer, and comes back when you sign in again.
+            {unsent > 0 &&
+              ` ${unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`} not reached the account yet. Nookly tries once more and saves a backup of this computer first.`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <FieldError message={errorText(signOut.error)} />
+        <AlertDialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Stay Signed In
+          </Button>
+          <Button onClick={() => signOut.mutate()} disabled={signOut.isPending}>
+            <StatusButtonContent
+              status={statusOf(signOut)}
+              label="Sign Out"
+              successLabel="Signed out"
+              errorLabel="Couldn't sign out"
+            />
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -335,7 +391,8 @@ function DeleteAccount() {
       const api = syncRuntime.account();
       if (!api) throw new Error("Sign in first.");
       await api.deleteAccount(password);
-      await syncRuntime.signOut();
+      // The account is gone: what is on this device is the only copy, and stays.
+      await syncRuntime.detach();
     },
     onSuccess: () => {
       setConfirming(false);

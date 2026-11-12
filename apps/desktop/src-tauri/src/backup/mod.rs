@@ -49,6 +49,10 @@ const RESTORE_ERROR_LOG: &str = "restore-error.log";
 /// The backups made before a first sign in (`commands::backup::create_pre_sync_backup`),
 /// inside the app data folder. Left out of every other backup.
 pub const PRE_SYNC_DIR: &str = "pre-sync-backups";
+/// Backups that hold the only copy of something (data kept out of an account, changes that
+/// never reached it before a sign out), inside the app data folder. Never pruned, and left
+/// out of every other backup.
+pub const KEPT_DIR: &str = "kept-backups";
 
 /// What a backup contains, stored as `manifest.json` inside it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +108,7 @@ fn is_excluded(name: &str) -> bool {
             | PENDING_DIR
             | SAFETY_DIR
             | PRE_SYNC_DIR
+            | KEPT_DIR
     ) || name.ends_with(".tmp")
         || name.ends_with(".partial")
 }

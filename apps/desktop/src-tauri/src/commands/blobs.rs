@@ -250,18 +250,25 @@ pub async fn blob_download(
 
 /// The full backup made before a first sign in sends anything, in the app data
 /// folder (`pre-sync-backups`), checked end to end like every backup. The three
-/// newest are kept.
+/// newest are kept. With `keep` it holds the only copy of something (data kept out of
+/// an account, changes that never reached it): it goes to `kept-backups`, where none
+/// is ever removed.
 #[tauri::command]
-pub async fn create_pre_sync_backup(app: AppHandle) -> AppResult<BackupInfo> {
+pub async fn create_pre_sync_backup(app: AppHandle, keep: Option<bool>) -> AppResult<BackupInfo> {
     let data_dir = data_dir(&app)?;
+    let (folder, count) = if keep.unwrap_or(false) {
+        (backup::KEPT_DIR, usize::MAX)
+    } else {
+        (backup::PRE_SYNC_DIR, 3)
+    };
     blocking(move || {
         let snapshot = {
             let state = app.state::<DbState>();
             let conn = state.conn()?;
             backup::snapshot(&conn)?
         };
-        let dest = data_dir.join(backup::PRE_SYNC_DIR);
-        backup::create_backup(snapshot, &data_dir, &dest, 3)
+        let dest = data_dir.join(folder);
+        backup::create_backup(snapshot, &data_dir, &dest, count)
     })
     .await
 }

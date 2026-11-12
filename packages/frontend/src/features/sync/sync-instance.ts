@@ -43,7 +43,7 @@ export const syncRuntime = new SyncRuntime<ApiClient>({
   device: thisDevice(),
   reindex: reindexEntities,
   onApplied: () => refreshViews(),
-  backup: preSyncBackup,
+  backup: (keep) => preSyncBackup(keep),
   blobs: (serverUrl) => tauriBlobs(serverUrl),
   settings: settingsBridge,
 });

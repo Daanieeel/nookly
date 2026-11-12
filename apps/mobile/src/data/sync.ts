@@ -72,7 +72,7 @@ export type MobileSync = SyncRuntime<ApiClient>;
 export function createSync(db: PhoneDb, onApplied: () => void): MobileSync {
   return new SyncRuntime<ApiClient>({
     driver: db.driver,
-    backup: () => backUpBeforeSync(db.sqlite),
+    backup: (keep) => backUpBeforeSync(db.sqlite, keep),
     blobs: (serverUrl, api) => phoneBlobs(serverUrl, api, db.driver),
     settings: settingsBridge,
     connect: (baseUrl, onSignedOut) =>

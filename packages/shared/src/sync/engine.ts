@@ -8,6 +8,7 @@ import {
   syncedTable,
 } from "../schema.ts";
 import { HybridClock } from "./hlc.ts";
+import { seedStatements } from "./local-schema.ts";
 import {
   type Change,
   MAX_PUSH_CHANGES,
@@ -349,6 +350,32 @@ export class SyncEngine {
       run("DELETE FROM sync_rows"),
     ]);
     this.clock = null;
+  }
+
+  /// How many items this device holds.
+  async itemCount(): Promise<number> {
+    const rows = await this.driver.query("SELECT COUNT(*) AS n FROM entities", []);
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  /// Leaves the device as a new one: every synced row goes, with what sync kept about
+  /// them, and the rows a new database starts with come back. Only ever called with sync
+  /// off, after the data is known to be in the account or in a backup. Returns the items
+  /// that went, so what the device derives from them (search) can follow.
+  async wipe(): Promise<string[]> {
+    if (await this.isEnabled()) throw new Error("Sync is still on.");
+    const gone = (await this.driver.query("SELECT id FROM entities", [])).map((r) => String(r.id));
+    const result = await this.batch([
+      run("PRAGMA defer_foreign_keys = ON"),
+      ...[...SYNCED_TABLES].reverse().map((table) => run(`DELETE FROM ${ident(table.name)}`)),
+      run("DELETE FROM sync_dirty"),
+      run("DELETE FROM sync_rows"),
+      run("DELETE FROM sync_conflicts"),
+      run("DELETE FROM page_docs"),
+      ...seedStatements(),
+    ]);
+    if (result.outcome !== "done") throw new Error("Couldn't clear this device.");
+    return gone;
   }
 
   async cursors(): Promise<Record<string, number>> {

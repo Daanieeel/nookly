@@ -56,9 +56,36 @@ describe("signing in", () => {
         expect.stringMatching(/^http/),
         "ada",
         "a long password",
+        {},
       ),
     );
     await waitFor(() => expect(data.onboarded.get()).toBe("1"));
+  });
+
+  it("asks what happens to what is on this phone, and signs in with the answer", async () => {
+    const data = testData();
+    jest.spyOn(data.sync, "localDataCount").mockResolvedValue(12);
+    const signIn = jest.spyOn(data.sync, "signIn").mockResolvedValue(ADA);
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    expect(await screen.findByText(/This phone already holds 12 items/)).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Username or email"), "ada");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    // Nothing joins an account, and nothing is cleared, without an answer.
+    await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
+    expect(await screen.findByText("Choose one of the two first.")).toBeTruthy();
+    expect(signIn).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole("radio", { name: "Keep out of the account" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
+    await waitFor(() =>
+      expect(signIn).toHaveBeenCalledWith(
+        expect.stringMatching(/^http/),
+        "ada",
+        "a long password",
+        {
+          localData: "setAside",
+        },
+      ),
+    );
   });
 
   it("keeps the server tucked away until asked for", async () => {
@@ -84,11 +111,11 @@ describe("creating an account", () => {
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
     await waitFor(() =>
-      expect(signUp).toHaveBeenCalledWith(expect.stringMatching(/^http/), {
-        username: "ada",
-        email: undefined,
-        password: "a long password",
-      }),
+      expect(signUp).toHaveBeenCalledWith(
+        expect.stringMatching(/^http/),
+        { username: "ada", email: undefined, password: "a long password" },
+        {},
+      ),
     );
   });
 });

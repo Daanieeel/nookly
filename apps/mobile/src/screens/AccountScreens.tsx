@@ -1,11 +1,11 @@
 import { ApiClient, emailSchema, signInSchema, usernameSchema } from "@nookly/shared/api";
-import { normalizeServerUrl } from "@nookly/shared/sync";
+import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import { IconNotebook } from "@tabler/icons-react-native";
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 import { useAppData } from "../data/context.tsx";
@@ -137,6 +137,85 @@ function useServer() {
   };
 }
 
+type LocalData = NonNullable<SignInOptions["localData"]>;
+
+/// What is already on this phone, and the question a sign in has to ask about it: nothing
+/// joins an account without a yes. A phone with nothing on it is not asked.
+function useLocalData() {
+  const { sync } = useAppData();
+  const { data: count = 0 } = useQuery({
+    queryKey: keys.sync.localData,
+    queryFn: () => sync.localDataCount(),
+  });
+  const [choice, setChoice] = useState<LocalData | null>(null);
+  const [missing, setMissing] = useState(false);
+  return {
+    count,
+    choice,
+    missing,
+    choose: (next: LocalData) => {
+      setChoice(next);
+      setMissing(false);
+    },
+    /// Whether the form may go; says so under the question when it is still open.
+    answered(): boolean {
+      const ok = count === 0 || choice !== null;
+      setMissing(!ok);
+      return ok;
+    },
+    options: (): SignInOptions => (count > 0 && choice ? { localData: choice } : {}),
+  };
+}
+
+const LOCAL_DATA_CHOICES: { value: LocalData; label: string; description: string }[] = [
+  {
+    value: "add",
+    label: "Add to the account",
+    description:
+      "They join what the account already has and show on every device. A backup is made first.",
+  },
+  {
+    value: "setAside",
+    label: "Keep out of the account",
+    description:
+      "They are saved as a backup on this phone and cleared from Nookly, so only the account's data shows.",
+  },
+];
+
+function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) {
+  if (data.count === 0) return null;
+  const items = data.count === 1 ? "1 item" : `${data.count.toLocaleString()} items`;
+  return (
+    <View className="gap-2" accessibilityRole="radiogroup">
+      <Text tone="muted">
+        This phone already holds {items}. What should happen to {data.count === 1 ? "it" : "them"}?
+      </Text>
+      {LOCAL_DATA_CHOICES.map((option) => {
+        const selected = data.choice === option.value;
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={option.label}
+            onPress={() => data.choose(option.value)}
+            className={cn(
+              "min-h-11 gap-1 rounded-md border p-3",
+              selected ? "border-primary bg-primary/10" : "border-border",
+            )}
+          >
+            <Text className="font-medium">{option.label}</Text>
+            <Text variant="small" tone="muted">
+              {option.description}
+            </Text>
+          </Pressable>
+        );
+      })}
+      {data.missing ? <Text tone="destructive">Choose one of the two first.</Text> : null}
+    </View>
+  );
+}
+
 /// What happens once an account is in: this phone has answered the welcome screen, and
 /// everything here starts moving into the account.
 function useAfterSignIn() {
@@ -182,21 +261,24 @@ export function SignInScreen() {
   const router = useRouter();
   const { sync } = useAppData();
   const server = useServer();
+  const local = useLocalData();
   const done = useAfterSignIn();
   const signIn = useMutation({
     mutationFn: (value: z.infer<typeof signInSchema>) =>
-      sync.signIn(server.commit(), value.identifier, value.password),
+      sync.signIn(server.commit(), value.identifier, value.password, local.options()),
     onSuccess: done,
   });
   const form = useForm({
     defaultValues: { identifier: "", password: "" },
     validators: { onChange: signInSchema, onSubmit: signInSchema },
-    onSubmit: ({ value }) => signIn.mutate(value),
+    onSubmit: ({ value }) => {
+      if (local.answered()) signIn.mutate(value);
+    },
   });
   return (
     <Page
       title="Welcome back"
-      intro="Sign in to see your Spaces, pages and files on this phone. Nothing here is removed."
+      intro="Sign in to see your Spaces, pages and files on this phone. You decide what happens to what is already here."
     >
       <form.Field name="identifier">
         {(field) => (
@@ -230,6 +312,7 @@ export function SignInScreen() {
         )}
       </form.Field>
       <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+      <LocalDataQuestion data={local} />
       {signIn.error ? <Text tone="destructive">{signIn.error.message}</Text> : null}
       <View className="gap-2">
         <Button
@@ -258,25 +341,32 @@ export function SignUpScreen() {
   const router = useRouter();
   const { sync } = useAppData();
   const server = useServer();
+  const local = useLocalData();
   const done = useAfterSignIn();
   const signUp = useMutation({
     mutationFn: (value: z.infer<typeof signUpForm>) =>
-      sync.signUp(server.commit(), {
-        username: value.username.trim(),
-        email: value.email.trim() || undefined,
-        password: value.password,
-      }),
+      sync.signUp(
+        server.commit(),
+        {
+          username: value.username.trim(),
+          email: value.email.trim() || undefined,
+          password: value.password,
+        },
+        local.options(),
+      ),
     onSuccess: done,
   });
   const form = useForm({
     defaultValues: { username: "", email: "", password: "" },
     validators: { onChange: signUpForm, onSubmit: signUpForm },
-    onSubmit: ({ value }) => signUp.mutate(value),
+    onSubmit: ({ value }) => {
+      if (local.answered()) signUp.mutate(value);
+    },
   });
   return (
     <Page
       title="Create your account"
-      intro="One account for your phone, tablet and computer. Everything already on this phone comes along, after a backup."
+      intro="One account for your phone, tablet and computer. You decide whether what is already on this phone comes along."
     >
       <form.Field name="username">
         {(field) => (
@@ -327,6 +417,7 @@ export function SignUpScreen() {
         )}
       </form.Field>
       <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+      <LocalDataQuestion data={local} />
       {signUp.error ? <Text tone="destructive">{signUp.error.message}</Text> : null}
       <View className="gap-2">
         <Button

@@ -39,7 +39,7 @@ export function tauriBlobs(serverUrl: string): BlobPlatform {
 }
 
 /// The full backup made before a first sync sends anything (`pre-sync-backups`).
-export async function preSyncBackup(): Promise<{ path: string }> {
-  const info = await invoke<{ path: string }>("create_pre_sync_backup");
+export async function preSyncBackup(keep = false): Promise<{ path: string }> {
+  const info = await invoke<{ path: string }>("create_pre_sync_backup", { keep });
   return { path: info.path };
 }

@@ -51,9 +51,26 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/Username or email/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Sign In" }));
-    expect(signIn).toHaveBeenCalledWith("http://localhost:3000", "ada", "a long password");
+    expect(signIn).toHaveBeenCalledWith("http://localhost:3000", "ada", "a long password", {});
     expect(settings.get("sync.serverUrl")).toBe("http://localhost:3000");
     expect(useAccountDialog.getState().open).toBe(false);
+  });
+
+  it("asks what happens to what is on this device, and signs in with the answer", async () => {
+    vi.spyOn(syncRuntime, "localDataCount").mockResolvedValue(120);
+    const signIn = vi.spyOn(syncRuntime, "signIn").mockResolvedValue(ADA);
+    const { user } = open();
+    expect(await screen.findByText(/This device already holds 120 items/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Username or email/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    // Nothing joins an account, and nothing is cleared, without an answer.
+    expect(screen.getByRole("button", { name: "Sign In" })).toBeDisabled();
+    await expectNoA11yViolations();
+    await user.click(screen.getByRole("button", { name: "Keep out of the account" }));
+    await user.click(screen.getByRole("button", { name: "Sign In" }));
+    expect(signIn).toHaveBeenCalledWith("http://localhost:3000", "ada", "a long password", {
+      localData: "setAside",
+    });
   });
 
   it("keeps the dialog open with the reason when signing in fails", async () => {
@@ -79,11 +96,15 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
-    expect(signUp).toHaveBeenCalledWith("http://localhost:3000", {
-      username: "ada",
-      email: undefined,
-      password: "a long password",
-    });
+    expect(signUp).toHaveBeenCalledWith(
+      "http://localhost:3000",
+      {
+        username: "ada",
+        email: undefined,
+        password: "a long password",
+      },
+      {},
+    );
   });
 
   it("checks the username and the password length before creating anything", async () => {
@@ -121,6 +142,6 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/Username or email/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Sign In" }));
-    expect(signIn).toHaveBeenCalledWith("https://sync.example.com", "ada", "a long password");
+    expect(signIn).toHaveBeenCalledWith("https://sync.example.com", "ada", "a long password", {});
   });
 });

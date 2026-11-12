@@ -1,7 +1,7 @@
 import { ApiClient, emailSchema, signInSchema, usernameSchema } from "@nookly/shared/api";
-import { normalizeServerUrl } from "@nookly/shared/sync";
+import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { z } from "zod";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
@@ -9,6 +9,7 @@ import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-fie
 import { qk } from "#/lib/query-keys.ts";
 import { settings, useSetting } from "#/lib/settings/settings.ts";
 import { Button } from "@nookly/ui/components/button";
+import { CardPicker } from "@nookly/ui/components/card-picker";
 import {
   Dialog,
   DialogContent,
@@ -51,12 +52,12 @@ const TITLES = {
   signIn: {
     title: "Sign in to Nookly",
     description:
-      "Your Spaces, pages and files stay the same on every device you sign in on. Nothing on this device is removed.",
+      "Your Spaces, pages and files stay the same on every device you sign in on. You decide what happens to what is already here.",
   },
   signUp: {
     title: "Create your account",
     description:
-      "One account for the desktop and the phone. Everything already on this device comes along, after a backup.",
+      "One account for the desktop and the phone. You decide whether what is already on this device comes along.",
   },
   reset: {
     title: "Reset your password",
@@ -151,8 +152,59 @@ function useServer() {
   };
 }
 
+type LocalData = NonNullable<SignInOptions["localData"]>;
+
+/// What is already on this device, and the question a sign in has to ask about it: nothing
+/// joins an account without a yes. A device with nothing on it is not asked.
+function useLocalData() {
+  const { data: count = 0 } = useQuery({
+    queryKey: qk.sync.localData(),
+    queryFn: () => syncRuntime.localDataCount(),
+  });
+  const [choice, setChoice] = useState<LocalData | null>(null);
+  return {
+    count,
+    choice,
+    setChoice,
+    /// The form can't be sent while the question is open.
+    open: count > 0 && choice === null,
+    options: (): SignInOptions => (count > 0 && choice ? { localData: choice } : {}),
+  };
+}
+
+function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) {
+  if (data.count === 0) return null;
+  const items = data.count === 1 ? "1 item" : `${data.count.toLocaleString()} items`;
+  return (
+    <div className="flex flex-col gap-1.5" role="group" aria-label="What is already on this device">
+      <p className="text-xs text-muted-foreground">
+        This device already holds {items}. What should happen to {data.count === 1 ? "it" : "them"}?
+      </p>
+      <CardPicker
+        // SAFETY: nothing is picked until the person picks; the picker shows no selection.
+        value={(data.choice ?? "") as LocalData}
+        onChange={data.setChoice}
+        options={[
+          {
+            value: "add",
+            label: "Add to the account",
+            description:
+              "They join what the account already has and show on every device. A backup is made first.",
+          },
+          {
+            value: "setAside",
+            label: "Keep out of the account",
+            description:
+              "They are saved as a backup on this computer and cleared from Nookly, so only the account's data shows.",
+          },
+        ]}
+      />
+    </div>
+  );
+}
+
 function afterSignIn(queryClient: ReturnType<typeof useQueryClient>) {
-  void queryClient.invalidateQueries({ queryKey: qk.sync.root });
+  void queryClient.invalidateQueries();
   const { close, setFirstSyncOpen } = useAccountDialog.getState();
   close();
   const migration = syncRuntime.store.getState().migration;
@@ -162,11 +214,12 @@ function afterSignIn(queryClient: ReturnType<typeof useQueryClient>) {
 function SignInForm({ onForgot }: { onForgot: () => void }) {
   const queryClient = useQueryClient();
   const server = useServer();
+  const local = useLocalData();
   const identifierId = useId();
   const passwordId = useId();
   const signIn = useMutation({
     mutationFn: (value: z.infer<typeof signInSchema>) =>
-      syncRuntime.signIn(server.commit(), value.identifier, value.password),
+      syncRuntime.signIn(server.commit(), value.identifier, value.password, local.options()),
     onSuccess: () => afterSignIn(queryClient),
   });
   const form = useForm({
@@ -217,6 +270,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
         )}
       </form.Field>
       <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+      <LocalDataQuestion data={local} />
       <FieldError message={errorText(signIn.error)} />
       <form.Subscribe selector={hasVisibleErrors}>
         {(blocked) => (
@@ -224,7 +278,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
             <Button type="button" size="sm" variant="ghost" onClick={onForgot}>
               Forgot Password
             </Button>
-            <Button type="submit" size="sm" className="ml-auto" disabled={blocked}>
+            <Button type="submit" size="sm" className="ml-auto" disabled={blocked || local.open}>
               <StatusButtonContent
                 status={statusOf(signIn)}
                 label="Sign In"
@@ -242,14 +296,19 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
 function SignUpForm() {
   const queryClient = useQueryClient();
   const server = useServer();
+  const local = useLocalData();
   const ids = { username: useId(), email: useId(), password: useId() };
   const signUp = useMutation({
     mutationFn: (value: z.infer<typeof signUpForm>) =>
-      syncRuntime.signUp(server.commit(), {
-        username: value.username.trim(),
-        email: value.email.trim() || undefined,
-        password: value.password,
-      }),
+      syncRuntime.signUp(
+        server.commit(),
+        {
+          username: value.username.trim(),
+          email: value.email.trim() || undefined,
+          password: value.password,
+        },
+        local.options(),
+      ),
     onSuccess: () => afterSignIn(queryClient),
   });
   const form = useForm({
@@ -324,11 +383,12 @@ function SignUpForm() {
         )}
       </form.Field>
       <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+      <LocalDataQuestion data={local} />
       <FieldError message={errorText(signUp.error)} />
       <form.Subscribe selector={hasVisibleErrors}>
         {(blocked) => (
           <div className="flex justify-end pt-1">
-            <Button type="submit" size="sm" disabled={blocked}>
+            <Button type="submit" size="sm" disabled={blocked || local.open}>
               <StatusButtonContent
                 status={statusOf(signUp)}
                 label="Create Account"

@@ -101,8 +101,26 @@ function Account() {
   const syncNow = useMutation({ mutationFn: () => sync.syncNow() });
   const signOut = useMutation({
     mutationFn: () => sync.signOut(),
-    onSuccess: () => queryClient.removeQueries({ queryKey: keys.sync.root }),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: keys.sync.root });
+      // Every screen showed the account's data, which is no longer on this phone.
+      void queryClient.invalidateQueries();
+    },
   });
+  /// Signing out clears this phone: said before it happens, with what has not reached the
+  /// account yet, which is backed up first.
+  const confirmSignOut = async () => {
+    const unsent = await sync.unsentCount().catch(() => 0);
+    const waiting =
+      unsent === 0
+        ? ""
+        : ` ${unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`} not reached the account yet. Nookly tries once more and saves a backup of this phone first.`;
+    menu.confirm({
+      title: "Sign out of this phone?",
+      description: `Everything stays in your account and on your other devices. It is removed from this phone, and comes back when you sign in again.${waiting}`,
+      actions: [{ label: "Sign Out", onPress: () => signOut.mutate() }],
+    });
+  };
   const { data: sessions = [] } = useQuery({
     queryKey: keys.sync.sessions,
     queryFn: async () => (await sync.account()?.sessions()) ?? [],
@@ -116,7 +134,8 @@ function Account() {
   const remove = useMutation({
     mutationFn: async () => {
       await sync.account()?.deleteAccount(password);
-      await sync.signOut();
+      // The account is gone: what is on this phone is the only copy, and stays.
+      await sync.detach();
     },
   });
   const confirmDelete = () =>
@@ -162,9 +181,11 @@ function Account() {
               label="Sign Out"
               variant="ghost"
               status={statusOf(signOut)}
-              onPress={() => signOut.mutate()}
+              errorLabel="Couldn't sign out"
+              onPress={() => void confirmSignOut()}
             />
           </View>
+          {signOut.error ? <Text tone="destructive">{signOut.error.message}</Text> : null}
         </View>
       </Section>
       <Section title="Devices">

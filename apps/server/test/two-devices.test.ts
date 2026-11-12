@@ -66,7 +66,7 @@ interface AppDevice {
   tokens: MemoryTokens;
 }
 
-function makeDevice(info: typeof DESKTOP): AppDevice {
+function makeDevice(info: typeof DESKTOP, backup?: () => Promise<{ path: string }>): AppDevice {
   const network = new Network();
   const driver = new BunSqliteDriver();
   const tokens = new MemoryTokens();
@@ -74,6 +74,7 @@ function makeDevice(info: typeof DESKTOP): AppDevice {
     driver,
     device: info,
     onApplied: () => {},
+    backup,
     connect: (baseUrl, onSignedOut) =>
       new ApiClient({
         baseUrl,
@@ -227,7 +228,8 @@ describe("two devices on one account", () => {
     if (!phoneSession) throw new Error("no session for the phone");
     await api.revokeSession(phoneSession.id);
     await soon(() => phone.sync.store.getState().user === null, "the phone signed out");
-    // Signing out never removes what is on the device.
+    // A sign out the server did never removes what is on the device: it could as well be
+    // a server that lost everything, and this the last copy.
     expect(title(phone, "t1")).toBe("Buy milk");
   });
 });
@@ -365,6 +367,7 @@ describe("a device that changes account", () => {
       String(kept.state),
       String(kept.updated_at),
     );
+    addNote(phone, "p1", ["Pack the tent", "Book the train"]);
     await phone.sync.signUp(server.baseUrl, { username: "ada", password: PASSWORD });
     await phone.sync.settled();
     const session = await openPage(phone, "p1");
@@ -376,7 +379,11 @@ describe("a device that changes account", () => {
   it("writes nothing about a page after signing out", async () => {
     // Bug: a page closed with typing still on its way was saved again seconds after the
     // sign out had cleared the device's page copies.
-    const phone = makeDevice(PHONE);
+    let backedUp: unknown[] = [];
+    const phone: AppDevice = makeDevice(PHONE, async () => {
+      backedUp = phone.driver.rows("SELECT content FROM blocks WHERE entity_id = 'p1'");
+      return { path: "/backups/before-sign-out" };
+    });
     addNote(phone, "p1", ["Pack the tent"]);
     await phone.sync.signUp(server.baseUrl, { username: "ada", password: PASSWORD });
     await phone.sync.settled();
@@ -388,10 +395,9 @@ describe("a device that changes account", () => {
     await phone.sync.signOut();
     await Bun.sleep(2600);
     expect(phone.driver.rows("SELECT entity_id FROM page_docs")).toEqual([]);
-    // What was typed is in the rows, which stay.
-    expect(phone.driver.rows("SELECT content FROM blocks WHERE entity_id = 'p1'")).toEqual([
-      { content: "Offline Pack the tent" },
-    ]);
+    // What was typed never reached the account: it is in the backup made first.
+    expect(backedUp).toEqual([{ content: "Offline Pack the tent" }]);
+    expect(phone.driver.rows("SELECT content FROM blocks WHERE entity_id = 'p1'")).toEqual([]);
   });
 });
 
