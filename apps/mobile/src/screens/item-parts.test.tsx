@@ -93,6 +93,19 @@ describe("an item's page and its details", () => {
     expect(await other.findByRole("button", { name: "Cards, 0" })).toBeTruthy();
   });
 
+  // The desktop's details list properties flat, with hairlines; the phone had them in a box.
+  it("lists properties in the details flat, without a card around them", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const id = await createTask(data.db, space, "Report");
+    const details = await show(id, "details", data);
+    type Node = { parent: Node | null; props: { className?: unknown } };
+    let at: Node | null = await details.findByRole("button", { name: /^Status/ });
+    const classes: string[] = [];
+    for (; at; at = at.parent) classes.push(String(at.props.className ?? ""));
+    expect(classes.some((c) => c.includes("rounded-xl"))).toBe(false);
+  });
+
   it("keeps a course's exams and assignments in the page and its professor in the details", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");

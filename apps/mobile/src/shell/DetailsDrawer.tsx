@@ -1,3 +1,4 @@
+import { devHooks } from "../dev/hooks.ts";
 import { useIsFocused } from "expo-router";
 import {
   type Dispatch,
@@ -69,6 +70,12 @@ export function DetailsDrawer({ children }: { children: ReactNode }) {
     () => ({ open, show: () => setOpen(true), hide: () => setOpen(false) }),
     [open, setOpen],
   );
+  // End to end scripts open and close it by name (`hooks.openDetails()`), as the bar's
+  // details button does.
+  useEffect(() => {
+    devHooks.openDetails = handle.show;
+    devHooks.closeDetails = handle.hide;
+  }, [handle]);
   const drawerWidth = Math.min(width * 0.86, 360);
   // Closed, only a drag to the left is this drawer's; a drag to the right belongs to the
   // sidebar behind the whole app.

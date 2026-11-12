@@ -1,23 +1,20 @@
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconSelector } from "@tabler/icons-react-native";
 import { Children, cloneElement, isValidElement, type ReactNode, type RefObject } from "react";
 import { Pressable, View } from "react-native";
-import { cn } from "./classes.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 import { usePropertyLook } from "./parts.tsx";
 import { CONTROL_SIZE, LIST_ROW, MIN_TOUCH, touchSlop } from "./touch.ts";
 
-/// An item's properties as one card of rows, like Linear's: each row a name and its value,
-/// hairlines between them. Nothing floats on its own. A row that can change opens its
-/// picker in a sheet.
+/// An item's properties as rows, like the desktop's details: each row a name and its value,
+/// hairlines between them, flat on the page. A row that can change opens its picker.
 export function PropertyList({ children }: { children: ReactNode }) {
   const rows = Children.toArray(children);
   if (usePropertyLook() === "chip") {
     return <View className="flex-row flex-wrap gap-2">{rows}</View>;
   }
   return (
-    <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0")}>
+    <View>
       {rows.map((row, index) => (
         <View
           // The rows are fixed in number and order.
@@ -99,7 +96,7 @@ export function Property({
       disabled={!interactive}
       onPress={onPress}
       style={LIST_ROW}
-      className="flex-row items-center gap-3 px-4 active:bg-accent/40"
+      className="flex-row items-center gap-3 px-1 active:bg-accent/40"
     >
       {icon}
       <Text className="flex-1" numberOfLines={1}>

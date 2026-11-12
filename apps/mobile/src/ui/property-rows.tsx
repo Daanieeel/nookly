@@ -231,7 +231,7 @@ export function TextRow({
   // Typed in place in the details; at a glance it shows what it holds, read only.
   if (look === "chip") return value ? <Property icon={icon} label={label} value={value} /> : null;
   return (
-    <View style={LIST_ROW} className="flex-row items-center gap-3 px-4">
+    <View style={LIST_ROW} className="flex-row items-center gap-3 px-1">
       {icon}
       <Text numberOfLines={1}>{label}</Text>
       <TextInput
@@ -287,7 +287,7 @@ export function NumberRow({
   }
   return (
     <View>
-      <View style={LIST_ROW} className="flex-row items-center gap-3 px-4">
+      <View style={LIST_ROW} className="flex-row items-center gap-3 px-1">
         {icon}
         <Text numberOfLines={1}>{label}</Text>
         <TextInput
@@ -303,7 +303,7 @@ export function NumberRow({
         />
       </View>
       {parsed.success ? null : (
-        <View className="flex-row items-center gap-1 px-4 pb-2">
+        <View className="flex-row items-center gap-1 px-1 pb-2">
           <IconX size={12} color={theme.colors.destructive} />
           <Text variant="small" tone="destructive">
             Enter a number, like 1.7

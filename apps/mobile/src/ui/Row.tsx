@@ -100,7 +100,7 @@ export function Separator() {
 
 export function Empty({ text }: { text: string }) {
   return (
-    <View className="p-4">
+    <View className="px-1 py-3">
       <Text tone="muted">{text}</Text>
     </View>
   );
