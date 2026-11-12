@@ -25,6 +25,7 @@ import { FilterField, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/Disp
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
+import { ListGroup } from "../ui/ListMotion.tsx";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
 import {
   DEFAULT_DISPLAY,
@@ -309,29 +310,31 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
             showsHorizontalScrollIndicator={false}
             contentContainerClassName="gap-3"
           >
-            {groups.map((group) => (
-              <View
-                key={group.id}
-                className="w-72 gap-1"
-                accessibilityLabel={`${group.title} column`}
-              >
-                <Section title={`${group.title} · ${group.tasks.length}`}>
-                  {group.tasks.map((task) => (
-                    <View key={task.entity.id}>{row(task)}</View>
-                  ))}
-                </Section>
-                {display.grouping === "status" ? (
-                  <View className="items-start">
-                    <Button
-                      label={`New Task in ${group.title}`}
-                      variant="ghost"
-                      size="sm"
-                      onPress={() => newTask(group.id)}
-                    />
-                  </View>
-                ) : null}
-              </View>
-            ))}
+            <ListGroup>
+              {groups.map((group) => (
+                <View
+                  key={group.id}
+                  className="w-72 gap-1"
+                  accessibilityLabel={`${group.title} column`}
+                >
+                  <Section title={`${group.title} · ${group.tasks.length}`}>
+                    {group.tasks.map((task) => (
+                      <View key={task.entity.id}>{row(task)}</View>
+                    ))}
+                  </Section>
+                  {display.grouping === "status" ? (
+                    <View className="items-start">
+                      <Button
+                        label={`New Task in ${group.title}`}
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => newTask(group.id)}
+                      />
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </ListGroup>
           </ScrollView>
         ) : (
           groups.map((group) => {

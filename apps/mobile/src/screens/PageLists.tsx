@@ -7,6 +7,7 @@ import { Pressable, View } from "react-native";
 import { usePageSummaries } from "../data/queries.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
+import { ListGroup, ListItem } from "../ui/ListMotion.tsx";
 import { FilterField, ListTitle, Presets, SortButton } from "../ui/ListBar.tsx";
 import { cn } from "../ui/classes.ts";
 import { ROW_DIVIDER } from "../ui/Row.tsx";
@@ -113,9 +114,13 @@ export function NoteList({ spaceId }: { spaceId: string }) {
             {pages.length === 0 ? "No notes yet. Tap + to write one." : "No notes match."}
           </Text>
         ) : null}
-        {shown.map((page) => (
-          <PageRow key={page.entity.id} page={page} jot={false} />
-        ))}
+        <ListGroup>
+          {shown.map((page) => (
+            <ListItem key={page.entity.id}>
+              <PageRow page={page} jot={false} />
+            </ListItem>
+          ))}
+        </ListGroup>
       </View>
     </View>
   );
@@ -177,9 +182,13 @@ export function JotList({ spaceId }: { spaceId: string }) {
               No jots here.
             </Text>
           ) : null}
-          {shown.map((jot) => (
-            <PageRow key={jot.entity.id} page={jot} jot />
-          ))}
+          <ListGroup>
+            {shown.map((jot) => (
+              <ListItem key={jot.entity.id}>
+                <PageRow page={jot} jot />
+              </ListItem>
+            ))}
+          </ListGroup>
         </View>
       )}
     </View>

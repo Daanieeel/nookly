@@ -11,6 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { useLocalWrite } from "../data/context.tsx";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
+import { ListItem } from "../ui/ListMotion.tsx";
 import { ROW_DIVIDER } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { cn } from "../ui/classes.ts";
@@ -93,58 +94,60 @@ export function TaskRow({
   const today = localDay();
   const due = task.dueDate && !finished ? dueText(task.dueDate.slice(0, 10), today) : null;
   return (
-    <SwipeRow
-      left={{
-        label: finished ? "Reopen" : "Done",
-        tone: "positive",
-        onPress: () => setStatus.mutate(finished ? "todo" : "done"),
-      }}
-      right={{
-        label: "Trash",
-        tone: "destructive",
-        onPress: () => trash.mutate(task.entity.id),
-      }}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${task.entity.title || "Untitled"}, ${task.entity.key}`}
-        onPress={() => router.push(`/entity/${task.entity.id}`)}
-        onLongPress={() => entityMenu(task.entity)}
-        className={cn(
-          "min-h-14 justify-center gap-1 px-1 py-2 active:bg-accent/40",
-          ROW_DIVIDER,
-          finished && "opacity-50",
-        )}
+    <ListItem>
+      <SwipeRow
+        left={{
+          label: finished ? "Reopen" : "Done",
+          tone: "positive",
+          onPress: () => setStatus.mutate(finished ? "todo" : "done"),
+        }}
+        right={{
+          label: "Trash",
+          tone: "destructive",
+          onPress: () => trash.mutate(task.entity.id),
+        }}
       >
-        <View className="flex-row items-center gap-3">
-          <StatusIcon status={status} />
-          <Text numberOfLines={1} className="flex-1">
-            {task.entity.title || "Untitled"}
-          </Text>
-        </View>
-        <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1 pl-8">
-          <Text variant="small" tone="muted">
-            {task.entity.key}
-          </Text>
-          {task.dueDate ? <DueLine day={task.dueDate} due={due} /> : null}
-          {labels.map((label) => (
-            <Badge key={label.id} label={label.name} size="sm" />
-          ))}
-          {spaceName ? (
-            <View className="flex-row items-center gap-1">
-              {spaceColor ? <SpaceDot color={spaceColor} /> : null}
-              <Text variant="small" tone="muted">
-                {spaceName}
-              </Text>
-            </View>
-          ) : spaceColor ? (
-            <SpaceDot color={spaceColor} />
-          ) : null}
-          {task.effort !== null ? (
-            <Badge label={effortLabel(task.effort, scale)} size="sm" />
-          ) : null}
-        </View>
-      </Pressable>
-    </SwipeRow>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${task.entity.title || "Untitled"}, ${task.entity.key}`}
+          onPress={() => router.push(`/entity/${task.entity.id}`)}
+          onLongPress={() => entityMenu(task.entity)}
+          className={cn(
+            "min-h-14 justify-center gap-1 px-1 py-2 active:bg-accent/40",
+            ROW_DIVIDER,
+            finished && "opacity-50",
+          )}
+        >
+          <View className="flex-row items-center gap-3">
+            <StatusIcon status={status} />
+            <Text numberOfLines={1} className="flex-1">
+              {task.entity.title || "Untitled"}
+            </Text>
+          </View>
+          <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1 pl-8">
+            <Text variant="small" tone="muted">
+              {task.entity.key}
+            </Text>
+            {task.dueDate ? <DueLine day={task.dueDate} due={due} /> : null}
+            {labels.map((label) => (
+              <Badge key={label.id} label={label.name} size="sm" />
+            ))}
+            {spaceName ? (
+              <View className="flex-row items-center gap-1">
+                {spaceColor ? <SpaceDot color={spaceColor} /> : null}
+                <Text variant="small" tone="muted">
+                  {spaceName}
+                </Text>
+              </View>
+            ) : spaceColor ? (
+              <SpaceDot color={spaceColor} />
+            ) : null}
+            {task.effort !== null ? (
+              <Badge label={effortLabel(task.effort, scale)} size="sm" />
+            ) : null}
+          </View>
+        </Pressable>
+      </SwipeRow>
+    </ListItem>
   );
 }

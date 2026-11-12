@@ -39,6 +39,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { addDays, localDay } from "./dates.ts";
 import { orderTasks } from "./task-view.ts";
+import { ListGroup } from "../ui/ListMotion.tsx";
 import { PageEditor } from "./PageEditor.tsx";
 import { StatusIcon, TaskRow } from "./TaskRow.tsx";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
@@ -73,11 +74,11 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
         )
       }
     >
-      {subtasks.map((task) => (
-        <View key={task.entity.id}>
-          <TaskRow task={task} statuses={statuses} />
-        </View>
-      ))}
+      <ListGroup>
+        {subtasks.map((task) => (
+          <TaskRow key={task.entity.id} task={task} statuses={statuses} />
+        ))}
+      </ListGroup>
       {!readOnly ? (
         <View className="min-h-12 flex-row items-center gap-2 px-4">
           <IconPlus size={18} color={theme.colors.mutedForeground} />
