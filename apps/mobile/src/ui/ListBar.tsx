@@ -1,9 +1,17 @@
 import { INPUT_CLASSES } from "@nookly/ui/classes";
-import { IconAdjustmentsHorizontal, IconFilter, IconSearch } from "@tabler/icons-react-native";
+import {
+  IconAdjustmentsHorizontal,
+  IconArrowsSort,
+  IconFilter,
+  IconSearch,
+} from "@tabler/icons-react-native";
+import { useState } from "react";
 import { Button } from "./Button.tsx";
 import { TextInput, View } from "react-native";
 import { cn, row, splitText } from "./classes.ts";
-import { Chip, ChipGroup } from "./Chips.tsx";
+import { PageTabs } from "./PageTabs.tsx";
+import { type Option, OptionList } from "./sheet/OptionList.tsx";
+import { Sheet } from "./sheet/Sheet.tsx";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 
@@ -90,7 +98,8 @@ export function ListHeader({
   );
 }
 
-/// The desktop's row of presets: a few views of one list, each with how many it holds.
+/// The desktop's row of presets: a few views of one list, each with how many it holds, as
+/// the desktop's quiet page tabs.
 export function Presets<Id extends string>({
   label,
   options,
@@ -102,16 +111,36 @@ export function Presets<Id extends string>({
   value: Id;
   onChange: (id: Id) => void;
 }) {
+  return <PageTabs label={label} tabs={options} value={value} onChange={onChange} />;
+}
+
+/// The order of a list: a secondary button saying the order in use, the desktop's sortable
+/// column header; tapped, the orders to pick from.
+export function SortButton<Id extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Option<Id>[];
+  value: Id;
+  onChange: (id: Id) => void;
+}) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.id === value)?.label ?? "";
   return (
-    <ChipGroup label={label} scroll>
-      {options.map((option) => (
-        <Chip
-          key={option.id}
-          label={option.count === undefined ? option.label : `${option.label} ${option.count}`}
-          selected={option.id === value}
-          onPress={() => onChange(option.id)}
-        />
-      ))}
-    </ChipGroup>
+    <>
+      <Button
+        label={current}
+        accessibilityLabel={`Sort, ${current}`}
+        variant="secondary"
+        size="sm"
+        icon={<IconArrowsSort size={16} color={theme.colors.foreground} />}
+        onPress={() => setOpen(true)}
+      />
+      <Sheet open={open} onOpenChange={setOpen} title="Sort">
+        <OptionList label="Sort" options={options} value={value} onChange={onChange} />
+      </Sheet>
+    </>
   );
 }

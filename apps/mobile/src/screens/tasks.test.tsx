@@ -125,9 +125,9 @@ describe("saved views", () => {
       ]);
     });
     // Back to everything, then open the saved View.
-    await fireEvent.press(await screen.findByRole("radio", { name: "All" }));
+    await fireEvent.press(await screen.findByRole("tab", { name: "All" }));
     expect((await screen.findAllByRole("button", { name: "Backlog" })).length).toBeGreaterThan(0);
-    await fireEvent.press(await screen.findByRole("radio", { name: "Todo only" }));
+    await fireEvent.press(await screen.findByRole("tab", { name: "Todo only" }));
     expect((await screen.findAllByRole("button", { name: "Todo" })).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("button", { name: "Backlog" })).toEqual([]);
   });
@@ -143,7 +143,7 @@ describe("saved views", () => {
       }),
     });
     const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
-    await fireEvent.press(await screen.findByRole("radio", { name: "Overdue board" }));
+    await fireEvent.press(await screen.findByRole("tab", { name: "Overdue board" }));
     expect(await screen.findByText(/also uses due/)).toBeTruthy();
     expect(await screen.findByLabelText("Backlog column")).toBeTruthy();
   });

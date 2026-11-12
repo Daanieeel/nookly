@@ -1,4 +1,5 @@
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
+import { previewLines } from "@nookly/frontend/lib/note-preview";
 import { useEntityMenu } from "./entity-actions.tsx";
 import type {
   AssignmentRecord,
@@ -360,7 +361,7 @@ export function JotsPanel({ jots, spaces }: { jots: JotSummary[]; spaces: Spaces
       {() => (
         <Rows count={jots.length}>
           {jots.map((jot) => {
-            const first = (jot.entity.title || jot.preview).split("\n")[0].trim();
+            const first = jot.entity.title.trim() || (previewLines(jot.preview)[0] ?? "");
             return (
               <ListRow
                 key={jot.entity.id}

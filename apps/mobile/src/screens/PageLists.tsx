@@ -1,14 +1,13 @@
 import type { PageSummary } from "@nookly/shared/data";
+import { notePreviewText } from "@nookly/frontend/lib/note-preview";
 import { IconFeather, IconLink } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { usePageSummaries } from "../data/queries.ts";
 import { Badge } from "../ui/Badge.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { FilterField, ListTitle, Presets } from "../ui/ListBar.tsx";
-import { CARD_CLASSES } from "@nookly/ui/classes";
+import { FilterField, ListTitle, Presets, SortButton } from "../ui/ListBar.tsx";
 import { cn } from "../ui/classes.ts";
 import { ROW_DIVIDER } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -23,14 +22,15 @@ function PageRow({ page, jot }: { page: PageSummary; jot: boolean }) {
   const router = useRouter();
   const { entity } = page;
   const title = entity.title.trim();
-  const empty = jot && !title && !page.preview;
+  const preview = notePreviewText(page.preview, title);
+  const empty = jot && !title && !preview;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={title || page.preview || (jot ? "Nothing written yet" : "Untitled")}
+      accessibilityLabel={title || preview || (jot ? "Nothing written yet" : "Untitled")}
       onPress={() => router.push(`/entity/${entity.id}`)}
       onLongPress={() => entityMenu(entity)}
-      className={cn("gap-1 px-4 py-3 active:bg-accent/40", ROW_DIVIDER)}
+      className={cn("gap-1 px-1 py-3 active:bg-accent/40", ROW_DIVIDER)}
     >
       <View className="flex-row items-center gap-3">
         <EntityIcon type={entity.type} icon={entity.icon} />
@@ -38,15 +38,15 @@ function PageRow({ page, jot }: { page: PageSummary; jot: boolean }) {
           numberOfLines={1}
           className={cn("flex-1 font-medium", empty && "font-normal italic text-muted-foreground")}
         >
-          {title || page.preview.split("\n")[0] || (jot ? "Nothing written yet" : "Untitled")}
+          {title || preview || (jot ? "Nothing written yet" : "Untitled")}
         </Text>
         <Text variant="small" tone="muted">
           {ago(entity.updatedAt)}
         </Text>
       </View>
-      {page.preview && title ? (
+      {preview && title ? (
         <Text variant="small" tone="muted" numberOfLines={1} className="pl-8">
-          {page.preview}
+          {preview}
         </Text>
       ) : null}
       <View className="flex-row flex-wrap items-center gap-2 pl-8">
@@ -100,31 +100,22 @@ export function NoteList({ spaceId }: { spaceId: string }) {
   const shown = pages.filter((p) => matches(p, query)).sort(compare(order));
   return (
     <View className="gap-3">
-      <ListTitle title="Notes" count={pages.length} />
-      <FilterField label="Filter notes" value={query} onChange={setQuery} />
-      <ChipGroup label="Order" scroll>
-        {ORDERS.map((o) => (
-          <Chip
-            key={o.id}
-            label={o.label}
-            selected={order === o.id}
-            onPress={() => setOrder(o.id)}
-          />
-        ))}
-      </ChipGroup>
-      <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden")}>
-        <View className="-mb-px">
-          {shown.length === 0 ? (
-            <Text tone="muted" className="p-4">
-              {pages.length === 0 ? "No notes yet. Tap + to write one." : "No notes match."}
-            </Text>
-          ) : null}
-          {shown.map((page) => (
-            <View key={page.entity.id}>
-              <PageRow page={page} jot={false} />
-            </View>
-          ))}
+      <View className="flex-row items-center gap-2">
+        <View className="flex-1">
+          <ListTitle title="Notes" count={pages.length} />
         </View>
+        <SortButton options={ORDERS} value={order} onChange={setOrder} />
+      </View>
+      <FilterField label="Filter notes" value={query} onChange={setQuery} />
+      <View>
+        {shown.length === 0 ? (
+          <Text tone="muted" className="px-1 py-4">
+            {pages.length === 0 ? "No notes yet. Tap + to write one." : "No notes match."}
+          </Text>
+        ) : null}
+        {shown.map((page) => (
+          <PageRow key={page.entity.id} page={page} jot={false} />
+        ))}
       </View>
     </View>
   );
@@ -180,19 +171,15 @@ export function JotList({ spaceId }: { spaceId: string }) {
           </Text>
         </View>
       ) : (
-        <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden")}>
-          <View className="-mb-px">
-            {shown.length === 0 ? (
-              <Text tone="muted" className="p-4">
-                No jots here.
-              </Text>
-            ) : null}
-            {shown.map((jot) => (
-              <View key={jot.entity.id}>
-                <PageRow page={jot} jot />
-              </View>
-            ))}
-          </View>
+        <View>
+          {shown.length === 0 ? (
+            <Text tone="muted" className="px-1 py-4">
+              No jots here.
+            </Text>
+          ) : null}
+          {shown.map((jot) => (
+            <PageRow key={jot.entity.id} page={jot} jot />
+          ))}
         </View>
       )}
     </View>
