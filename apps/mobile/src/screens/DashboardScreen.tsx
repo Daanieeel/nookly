@@ -29,6 +29,7 @@ import { addDays, localDay } from "./dates.ts";
 import { TimeGrid } from "./TimeGrid.tsx";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 import { useRouter } from "expo-router";
+import { BAR_BUTTON } from "../ui/bar.ts";
 
 const AHEAD_DAYS = 14;
 /// From this pane width the dashboard has today's hours beside its lists.
@@ -136,7 +137,7 @@ export function DashboardScreen() {
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
           icon={TOOLBAR_ICONS.plus}
-          iconRenderingMode="template"
+          {...BAR_BUTTON}
           accessibilityLabel="New Task"
           onPress={() => router.push("/new/task")}
         />

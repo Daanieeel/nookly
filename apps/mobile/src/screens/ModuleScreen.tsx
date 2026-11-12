@@ -23,6 +23,7 @@ import { SemesterList } from "./SemesterList.tsx";
 import { RecipeRows } from "./RecipeScreens.tsx";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
+import { BAR_BUTTON } from "../ui/bar.ts";
 
 /// Brings in a deck written to a file, from the phone's files.
 function ImportDeckButton({ spaceId }: { spaceId: string }) {
@@ -162,7 +163,7 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
         <Stack.Toolbar placement="right">
           <Stack.Toolbar.Button
             icon={TOOLBAR_ICONS.plus}
-            iconRenderingMode="template"
+            {...BAR_BUTTON}
             accessibilityLabel="Add Files"
             onPress={() => addFiles.mutate(undefined)}
           />
@@ -171,7 +172,7 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
         <Stack.Toolbar placement="right">
           <Stack.Toolbar.Button
             icon={TOOLBAR_ICONS.plus}
-            iconRenderingMode="template"
+            {...BAR_BUTTON}
             accessibilityLabel={`New in ${MODULE_LABELS[module]}`}
             onPress={() => router.push(create(spaceId))}
           />

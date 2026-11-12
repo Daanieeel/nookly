@@ -33,6 +33,7 @@ import { useCalendarColors } from "./calendar-colors.ts";
 import { TimeGrid, gutterFor } from "./TimeGrid.tsx";
 import { usePeriodSwipe } from "./period-swipe.ts";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
+import { BAR_BUTTON } from "../ui/bar.ts";
 
 const AGENDA_DAYS = 14;
 /// From this pane width the calendar is the desktop's: day, work week, week and month.
@@ -323,7 +324,7 @@ export function CalendarScreen({
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
           icon={TOOLBAR_ICONS.plus}
-          iconRenderingMode="template"
+          {...BAR_BUTTON}
           accessibilityLabel={create === "session" ? "New Session" : "New Calendar Entry"}
           onPress={() => router.push(`/new/${create}${spaceId ? `?spaceId=${spaceId}` : ""}`)}
         />

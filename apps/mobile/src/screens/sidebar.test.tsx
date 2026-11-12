@@ -1,4 +1,4 @@
-import { createSpace, createTask, createView, setPinned } from "@nookly/shared/data";
+import { createSpace, createTask, createView, markOpened, setPinned } from "@nookly/shared/data";
 import { fireEvent } from "expo-router/testing-library";
 import { Slot } from "expo-router";
 import { Text } from "react-native";
@@ -31,6 +31,19 @@ describe("the sidebar", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Tasks in Work" }));
     expect(close).toHaveBeenCalled();
     expect(screen.getPathname()).toBe(`/module/${work}/tasks`);
+  });
+});
+
+describe("the sidebar's sections", () => {
+  it("has no Recents, as the desktop's sidebar has none", async () => {
+    const data = testData();
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    const task = await createTask(data.db, work, "Opened lately");
+    await markOpened(data.db, task);
+    const screen = await renderScreens({ index: () => <Sidebar close={jest.fn()} /> }, data);
+    expect(await screen.findByRole("button", { name: "Work" })).toBeTruthy();
+    expect(screen.queryByText("Recents")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Opened lately" })).toBeNull();
   });
 });
 

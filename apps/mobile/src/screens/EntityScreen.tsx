@@ -21,6 +21,7 @@ import { useReadOnly } from "./useReadOnly.ts";
 import { type MenuEntry, useMenu } from "../ui/menu.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { useEntityActions } from "./entity-actions.tsx";
+import { BAR_BUTTON } from "../ui/bar.ts";
 
 function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
   const [title, setTitle] = useState(entity.title);
@@ -72,7 +73,7 @@ function BarActions({ entity, menu }: { entity: EntityRecord; menu: MenuEntry[] 
       {details ? (
         <Stack.Toolbar.Button
           icon={details.open ? TOOLBAR_ICONS.hideDetails : TOOLBAR_ICONS.showDetails}
-          iconRenderingMode="template"
+          {...BAR_BUTTON}
           accessibilityLabel={details.open ? "Hide Details" : "Show Details"}
           onPress={() => (details.open ? details.hide() : details.show())}
         />
@@ -80,7 +81,7 @@ function BarActions({ entity, menu }: { entity: EntityRecord; menu: MenuEntry[] 
       {menu.length > 0 ? (
         <Stack.Toolbar.Button
           icon={TOOLBAR_ICONS.more}
-          iconRenderingMode="template"
+          {...BAR_BUTTON}
           accessibilityLabel="More"
           onPress={() => present.show(entity.title || entity.key, menu)}
         />

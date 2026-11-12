@@ -45,6 +45,7 @@ import {
   viewConfigFromDisplay,
 } from "./task-view.ts";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
+import { BAR_BUTTON } from "../ui/bar.ts";
 
 /// How many finished tasks a group shows at first; the rest are a tap away in their Space.
 const FINISHED_SHOWN = 10;
@@ -263,7 +264,7 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
           icon={TOOLBAR_ICONS.plus}
-          iconRenderingMode="template"
+          {...BAR_BUTTON}
           accessibilityLabel="New Task"
           onPress={() => newTask()}
         />

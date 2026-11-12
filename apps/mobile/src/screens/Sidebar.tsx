@@ -32,7 +32,6 @@ import {
   useDecks,
   useExams,
   usePinned,
-  useRecents,
   useSpaceModules,
   useSpaces,
   useStatuses,
@@ -338,7 +337,7 @@ function SpaceRows({
 }
 
 /// The app's navigation, as a sidebar that slides the page aside: Search, the
-/// overviews across every Space, Pinned, each Space with its modules, Recents, and
+/// overviews across every Space, Pinned, each Space with its modules, and
 /// Trash and Settings at the bottom. Mirrors the desktop's sidebar.
 export function Sidebar({ close }: { close: () => void }) {
   const entityMenu = useEntityMenu();
@@ -348,7 +347,6 @@ export function Sidebar({ close }: { close: () => void }) {
   const insets = useSafeAreaInsets();
   const { data: spaces = [] } = useSpaces();
   const { data: pinnedItems = [] } = usePinned();
-  const { data: recentItems = [] } = useRecents();
   const syncState = useSyncState((s) => s.status);
   const signedIn = useSyncState((s) => s.user !== null);
   const go = (href: Href) => {
@@ -438,20 +436,6 @@ export function Sidebar({ close }: { close: () => void }) {
         {spaces.map((space) => (
           <SpaceRows key={space.id} space={space} pathname={pathname} go={go} />
         ))}
-        {recentItems.length > 0 ? (
-          <>
-            <Heading title="Recents" />
-            {recentItems.slice(0, 5).map((entity) => (
-              <NavRow
-                key={entity.id}
-                label={entity.title || "Untitled"}
-                icon={<EntityIcon type={entity.type} icon={entity.icon} />}
-                onPress={() => push(`/entity/${entity.id}`)}
-                onLongPress={() => entityMenu(entity)}
-              />
-            ))}
-          </>
-        ) : null}
       </ScrollView>
       <View className="border-t border-sidebar-border px-2 pt-2">
         <NavRow

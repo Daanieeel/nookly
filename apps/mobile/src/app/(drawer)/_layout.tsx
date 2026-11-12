@@ -4,6 +4,7 @@ import { useSidebarBeside } from "../../ui/pane.tsx";
 import { IconButton } from "../../ui/Button.tsx";
 import { useSidebarDrawer } from "../../shell/SidebarDrawer.tsx";
 import { useTheme } from "../../ui/theme.ts";
+import { barItem } from "../../ui/bar.ts";
 
 /// The app's top level pages. The sidebar is the root layout's drawer around the whole
 /// stack, so it opens from any page; here is its menu button, except on a tablet where
@@ -19,14 +20,18 @@ export default function TopLevelLayout() {
         headerStyle: { backgroundColor: theme.colors.page },
         headerShadowVisible: false,
         headerTintColor: theme.colors.foreground,
-        headerLeft: () =>
-          beside || !drawer ? null : (
-            <IconButton
-              label="Open Sidebar"
-              icon={<IconMenu2 size={22} color={theme.colors.foreground} />}
-              onPress={drawer.open}
-            />
-          ),
+        unstable_headerLeftItems: () =>
+          beside || !drawer
+            ? []
+            : [
+                barItem(
+                  <IconButton
+                    label="Open Sidebar"
+                    icon={<IconMenu2 size={22} color={theme.colors.foreground} />}
+                    onPress={drawer.open}
+                  />,
+                ),
+              ],
       }}
     >
       <Stack.Screen name="index" options={{ title: "Dashboard" }} />

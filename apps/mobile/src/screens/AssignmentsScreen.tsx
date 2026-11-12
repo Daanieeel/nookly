@@ -31,6 +31,7 @@ import { dueText } from "./dashboard-model.ts";
 import { dayLabel, localDay } from "./dates.ts";
 import { StatusIcon } from "./TaskRow.tsx";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
+import { barItem } from "../ui/bar.ts";
 
 /// Assignments that no longer wait on the student: handed in, or graded.
 export const ASSIGNMENT_DONE = new Set(["submitted", "evaluated"]);
@@ -172,13 +173,15 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
       <Stack.Screen
         options={{
           title: "Assignments",
-          headerRight: () => (
-            <IconButton
-              label="New Assignment"
-              icon={<IconPlus size={22} color={theme.colors.foreground} />}
-              onPress={newOne}
-            />
-          ),
+          unstable_headerRightItems: () => [
+            barItem(
+              <IconButton
+                label="New Assignment"
+                icon={<IconPlus size={22} color={theme.colors.foreground} />}
+                onPress={newOne}
+              />,
+            ),
+          ],
         }}
       />
       <Screen wide={display.layout === "board"}>
