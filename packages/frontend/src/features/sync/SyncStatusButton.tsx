@@ -106,6 +106,14 @@ export function syncSummary(
       opens: "settings",
     };
   }
+  if (!status.live) {
+    return {
+      label: "Synced, but not live. Changes from your other devices may take a minute.",
+      icon: IconCloud,
+      tone: "text-caution",
+      opens: "settings",
+    };
+  }
   return {
     label: "Synced",
     icon: IconCloudCheck,

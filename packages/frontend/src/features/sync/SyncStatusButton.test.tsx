@@ -23,6 +23,7 @@ const status = (patch: Partial<SyncStatus>): SyncStatus => ({
   parked: 0,
   lastSyncedAt: null,
   error: null,
+  live: true,
   ...patch,
 });
 
@@ -56,6 +57,11 @@ describe("the sync status", () => {
       files: null,
     });
     expect(syncSummary(signedIn({ state: "idle" })).label).toBe("Synced");
+    // Rounds went through but the live channel is down: changes from other devices only
+    // arrive on the next round, so it does not claim to be in step.
+    expect(syncSummary(signedIn({ state: "idle", live: false })).label).toBe(
+      "Synced, but not live. Changes from your other devices may take a minute.",
+    );
     expect(syncSummary(signedIn({ state: "syncing" })).label).toBe("Syncing");
     expect(syncSummary(signedIn({ state: "offline", pending: 3 })).label).toBe(
       "Offline. 3 changes wait to sync.",

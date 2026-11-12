@@ -235,6 +235,13 @@ function statusLine(status: SyncStatus): StatusLine {
     case "off":
       return { icon: IconCloudOff, text: "Sync is off.", tone: "text-muted-foreground" };
     case "idle":
+      if (!status.live) {
+        return {
+          icon: IconAlertTriangle,
+          text: "Synced, but not live. Changes from your other devices may take a minute.",
+          tone: "text-caution",
+        };
+      }
       return {
         icon: IconCircleCheck,
         text: status.lastSyncedAt

@@ -45,6 +45,9 @@ export interface SyncStatus {
   parked: number;
   lastSyncedAt: number | null;
   error: string | null;
+  /// Whether the live channel to the server is open, so other devices' changes arrive as
+  /// they are made. Rounds can still go through without it; the status says so.
+  live: boolean;
 }
 
 export interface SyncClientOptions {
@@ -105,6 +108,7 @@ export class SyncClient {
     parked: 0,
     lastSyncedAt: null,
     error: null,
+    live: false,
   };
 
   constructor(options: SyncClientOptions) {
@@ -272,13 +276,14 @@ export class SyncClient {
     this.closeLive = this.transport.live({
       onOpen: () => {
         this.liveAttempts = 0;
+        this.report({ live: true });
         void this.syncNow();
       },
       onChanges: () => void this.syncNow(),
       onClose: () => {
         this.closeLive = null;
         if (!this.started) return;
-        if (this.status.state === "idle") this.report({ state: "offline" });
+        this.report({ live: false, ...(this.status.state === "idle" && { state: "offline" }) });
         const delay = this.backoff(this.liveAttempts++, MAX_LIVE_BACKOFF_MS);
         this.reconnect = setTimeout(() => {
           this.reconnect = null;

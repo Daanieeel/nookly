@@ -45,6 +45,7 @@ function signedIn(sessions: Session[] = []) {
         parked: 0,
         lastSyncedAt: Date.now(),
         error: null,
+        live: true,
       },
     }),
   );
@@ -63,6 +64,7 @@ afterEach(() => {
         parked: 0,
         lastSyncedAt: null,
         error: null,
+        live: true,
       },
     });
     useNavStore.getState().setSettingsOpen(false);

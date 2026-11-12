@@ -92,6 +92,7 @@ const OFF: SyncStatus = {
   parked: 0,
   lastSyncedAt: null,
   error: null,
+  live: false,
 };
 
 const MIGRATION_KEY = "migration";

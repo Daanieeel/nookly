@@ -151,6 +151,33 @@ describe("the sync client", () => {
     b.client.stop();
   });
 
+  it("says when the live channel is down even though requests still work", async () => {
+    // Bug: a round that went through set the status back to synced while the live channel
+    // stayed closed, so a device that heard nothing from the others still said "Synced".
+    const network = new FakeNetwork();
+    const blocked = network.transport();
+    const a = new SyncClient({
+      engine: new SyncEngine({ driver: new NodeSqliteDriver() }),
+      transport: {
+        ...blocked,
+        live: (handlers) => {
+          setTimeout(() => handlers.onClose(), 0);
+          return () => {};
+        },
+      },
+    });
+    await a.start();
+    await vi.advanceTimersByTimeAsync(1_000);
+    await a.syncNow();
+    expect(a.current()).toMatchObject({ state: "idle", live: false });
+    a.stop();
+    const b = deviceOn(network);
+    await b.client.start();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(b.client.current()).toMatchObject({ state: "idle", live: true });
+    b.client.stop();
+  });
+
   it("is live again within seconds of the network coming back, even after a long outage", async () => {
     // The longest wait the retries can draw.
     const random = vi.spyOn(Math, "random").mockReturnValue(0.999);

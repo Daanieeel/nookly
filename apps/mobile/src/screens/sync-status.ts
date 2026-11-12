@@ -10,6 +10,8 @@ export function statusText(status: SyncStatus): string {
       : "Offline.";
   if (state === "error") return error ?? "Sync failed.";
   if (state === "off") return "Sync is off.";
+  if (!status.live)
+    return "Synced, but not live. Changes from your other devices may take a minute.";
   return lastSyncedAt
     ? `Synced at ${new Date(lastSyncedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
     : "Synced";
