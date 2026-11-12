@@ -4,7 +4,7 @@ import { useWindowDimensions, View } from "react-native";
 import { type Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { recents, search } from "@nookly/shared/data";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Linking } from "react-native";
 import { useAppData, useSyncState } from "../data/context.tsx";
 import { automationDevice } from "../dev/device.ts";
@@ -119,6 +119,17 @@ export function PageDocEditor({
     // `toolbar.clear` is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageDoc, pageAwareness]);
+
+  // A page opened over this one, or going back from it: the editor lets go of the keyboard,
+  // so its toolbar never shows over another page.
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        handle.current?.run("done");
+      },
+      [],
+    ),
+  );
 
   const onReady = useCallback(async () => {
     // The editor starts from the whole document, and from who else is here.
