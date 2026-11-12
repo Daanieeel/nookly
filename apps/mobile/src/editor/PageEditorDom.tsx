@@ -51,6 +51,7 @@ import {
   toggleUnderline,
   typingKeys,
 } from "./commands.ts";
+import { loadGate } from "./load-gate.ts";
 import { pageSchema } from "./schema.ts";
 
 const undo: Command = (state) => Boolean(yUndo(state));
@@ -209,9 +210,11 @@ export default function PageEditorDom({
   /// What the Vim indicator shows: the mode and what is half typed; empty with Vim off.
   const [vimLabel, setVimLabel] = useState("");
 
+  /// Whether the phone's copy of the page has arrived; the editor binds only then.
+  const [loaded, setLoaded] = useState(false);
+  const gate = useRef(loadGate(doc.current, () => setLoaded(true)));
   const methods = {
-    applyUpdate: (update: string) =>
-      Y.applyUpdate(doc.current, fromBase64(String(update)), "remote"),
+    applyUpdate: (update: string) => gate.current.apply(fromBase64(String(update)), "remote"),
     applyAwareness: (update: string) =>
       applyAwarenessUpdate(awareness.current, fromBase64(String(update)), "remote"),
     run: (command: string) => {
@@ -257,9 +260,9 @@ export default function PageEditorDom({
     awareness.current.setLocalStateField("user", person);
   }, [person.name, person.color]);
 
-  // The editor: built once, on the document.
+  // The editor: built once, on the document, after the page arrived (`loadGate`).
   useEffect(() => {
-    if (!host.current) return;
+    if (!host.current || !loaded) return;
     const fragment = doc.current.getXmlFragment("default");
     const report = (e: EditorView) => {
       const a = active(e.state);
@@ -404,7 +407,7 @@ export default function PageEditorDom({
       view.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loaded]);
 
   // Items to mention, found for what is typed after the `@`.
   const mentionQuery = menu?.trigger.kind === "mention" ? menu.trigger.query : null;
@@ -437,7 +440,7 @@ export default function PageEditorDom({
   // End to end checks only: scripts run in this web view too, to type into the editor.
   useEffect(() => {
     const url = process.env.EXPO_PUBLIC_AUTOMATION_URL;
-    if (!url) return;
+    if (!url || !loaded) return;
     let stop: (() => void) | undefined;
     void import("../dev/automation.ts").then(({ startAutomation }) => {
       stop = startAutomation(url, `${automationDevice}-editor`, {
@@ -447,7 +450,7 @@ export default function PageEditorDom({
       });
     });
     return () => stop?.();
-  }, []);
+  }, [loaded]);
 
   const editableRef = useRef(editable);
   const macrosRef = useRef(macros);
