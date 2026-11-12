@@ -311,7 +311,7 @@ export function CalendarScreen({
             icon={<IconChevronRight size={20} color={theme.colors.foreground} />}
             onPress={() => step(1)}
           />
-          <Button label="Today" variant="ghost" size="sm" onPress={() => setAnchor(today)} />
+          <Button label="Today" variant="secondary" size="sm" onPress={() => setAnchor(today)} />
         </View>
       ) : null}
     </>

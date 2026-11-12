@@ -74,14 +74,14 @@ export function ListHeader({
       </View>
       <Button
         label="Filter"
-        variant={panel === "filter" ? "secondary" : "ghost"}
+        variant="secondary"
         size="sm"
         icon={<IconFilter size={16} color={theme.colors.foreground} />}
         onPress={() => toggle("filter")}
       />
       <Button
         label="Display"
-        variant={panel === "display" ? "secondary" : "ghost"}
+        variant="secondary"
         size="sm"
         icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
         onPress={() => toggle("display")}
