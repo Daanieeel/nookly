@@ -12,11 +12,13 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { useSetting } from "../../data/settings.ts";
 import { localDay } from "../../screens/dates.ts";
-import { IconButton } from "../Button.tsx";
-import { cn } from "../classes.ts";
-import { Text } from "../Text.tsx";
-import { useTheme } from "../theme.ts";
-import { CONTROL_SIZE, MIN_TOUCH, gapBetween } from "../touch.ts";
+import { haptic } from "../haptics.ts";
+import { type FallbackIcon, Glyph, type SymbolName } from "../kit/Glyph.tsx";
+import { Label } from "../kit/Label.tsx";
+import { useScheme, useSemantic } from "../kit/scheme.ts";
+import { Surface } from "../kit/Surface.tsx";
+import { SPACE, TINT, TINT_FILL, withAlpha } from "../tokens.ts";
+import { MIN_TOUCH } from "../touch.ts";
 
 const toDate = (day: string) => {
   const [y, m, d] = day.split("-").map(Number);
@@ -30,8 +32,9 @@ function useWeekStart() {
   return resolveWeekStart(setting, automaticWeekStart(dateFormat));
 }
 
-/// The desktop's `Calendar`: the month and its arrows, the weekdays, and six weeks of days,
-/// today in blue with a dot, the picked day filled. Each day is a finger's height.
+/// The desktop's `Calendar` as iOS's inline date picker draws it (D50): the month with its
+/// arrows in the accent, the weekdays small and muted, six weeks of days, today in the
+/// accent and the picked day in a filled accent circle. Each day is a finger's height.
 export function CalendarPanel({
   value,
   onSelect,
@@ -39,7 +42,9 @@ export function CalendarPanel({
   value: string | null;
   onSelect: (day: string) => void;
 }) {
-  const theme = useTheme();
+  const scheme = useScheme();
+  const accent = TINT.blue[scheme];
+  const pressedFill = useSemantic("pressed");
   const weekStart = useWeekStart();
   const today = localDay();
   const [month, setMonth] = useState(() => firstOfMonth(value ?? today));
@@ -47,36 +52,51 @@ export function CalendarPanel({
   // Always six weeks, as on the desktop, so the sheet keeps its height month to month.
   const days = Array.from({ length: 42 }, (_, i) => addDaysTo(start, i));
   const title = toDate(month).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const turn = (by: number) => {
+    haptic("select");
+    setMonth(addMonthsTo(month, by));
+  };
   return (
-    <View className="gap-2">
-      <View className="flex-row items-center justify-between">
-        <Text className="pl-1 font-medium">{title}</Text>
-        <View className="flex-row items-center" style={{ gap: gapBetween(CONTROL_SIZE.icon) }}>
-          <IconButton
-            label="Previous Month"
-            icon={<IconChevronLeft size={18} color={theme.colors.foreground} />}
-            onPress={() => setMonth(addMonthsTo(month, -1))}
-          />
-          <IconButton
-            label="Next Month"
-            icon={<IconChevronRight size={18} color={theme.colors.foreground} />}
-            onPress={() => setMonth(addMonthsTo(month, 1))}
-          />
-        </View>
+    <Surface padding={SPACE.sm}>
+      <View style={{ flexDirection: "row", alignItems: "center", paddingLeft: SPACE.sm }}>
+        <Label type="headline" style={{ flex: 1 }} accessibilityRole="header">
+          {title}
+        </Label>
+        <MonthArrow
+          label="Previous Month"
+          symbol="chevron.left"
+          fallback={IconChevronLeft}
+          color={accent}
+          onPress={() => turn(-1)}
+        />
+        <MonthArrow
+          label="Next Month"
+          symbol="chevron.right"
+          fallback={IconChevronRight}
+          color={accent}
+          onPress={() => turn(1)}
+        />
       </View>
-      <View className="flex-row">
+      <View style={{ flexDirection: "row", paddingVertical: SPACE.xs }}>
         {days.slice(0, 7).map((day) => (
-          <Text key={day} variant="small" tone="muted" className="flex-1 py-1 text-center">
-            {toDate(day).toLocaleDateString(undefined, { weekday: "short" })}
-          </Text>
+          <Label
+            key={day}
+            type="footnote"
+            color="tertiaryLabel"
+            weight="600"
+            style={{ flex: 1, textAlign: "center" }}
+          >
+            {toDate(day).toLocaleDateString(undefined, { weekday: "short" }).toUpperCase()}
+          </Label>
         ))}
       </View>
       <View accessibilityLabel={title}>
         {[0, 1, 2, 3, 4, 5].map((week) => (
-          <View key={week} className="flex-row">
+          <View key={week} style={{ flexDirection: "row" }}>
             {days.slice(week * 7, week * 7 + 7).map((day) => {
               const selected = day === value;
               const isToday = day === today;
+              const inMonth = sameMonth(day, month);
               const label = toDate(day).toLocaleDateString(undefined, {
                 weekday: "long",
                 month: "long",
@@ -89,36 +109,44 @@ export function CalendarPanel({
                   accessibilityRole="button"
                   accessibilityLabel={label}
                   accessibilityState={{ selected }}
-                  onPress={() => onSelect(day)}
-                  style={{ height: MIN_TOUCH }}
-                  className="flex-1 items-center justify-center"
+                  unstable_pressDelay={0}
+                  onPress={() => {
+                    haptic("select");
+                    onSelect(day);
+                  }}
+                  style={{
+                    flex: 1,
+                    height: MIN_TOUCH,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
                   {({ pressed }) => (
                     <View
-                      className={cn(
-                        "h-9 w-11 items-center justify-center rounded-md",
-                        pressed && !selected && "bg-accent",
-                        selected && "bg-primary",
-                      )}
+                      style={{
+                        width: DAY,
+                        height: DAY,
+                        borderRadius: DAY / 2,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: selected
+                          ? accent
+                          : pressed
+                            ? pressedFill
+                            : isToday
+                              ? withAlpha(accent, TINT_FILL[scheme])
+                              : undefined,
+                      }}
                     >
-                      <Text
-                        className={cn(
-                          "tabular-nums",
-                          !sameMonth(day, month) && "text-muted-foreground/50",
-                          isToday && !selected && "font-semibold text-primary",
-                          selected && "font-medium text-primary-foreground",
-                        )}
+                      <Label
+                        type="title3"
+                        weight={selected || isToday ? "600" : "400"}
+                        color={inMonth ? "label" : "tertiaryLabel"}
+                        tint={selected ? "#ffffff" : isToday ? accent : undefined}
+                        style={{ fontVariant: ["tabular-nums"] }}
                       >
                         {String(toDate(day).getDate())}
-                      </Text>
-                      {isToday ? (
-                        <View
-                          className={cn(
-                            "absolute bottom-1 size-1 rounded-full",
-                            selected ? "bg-primary-foreground" : "bg-primary",
-                          )}
-                        />
-                      ) : null}
+                      </Label>
                     </View>
                   )}
                 </Pressable>
@@ -127,6 +155,48 @@ export function CalendarPanel({
           </View>
         ))}
       </View>
-    </View>
+    </Surface>
+  );
+}
+
+/// How wide a day's circle is.
+const DAY = 40;
+
+function MonthArrow({
+  label,
+  symbol,
+  fallback,
+  color,
+  onPress,
+}: {
+  label: string;
+  symbol: SymbolName;
+  fallback: FallbackIcon;
+  color: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      unstable_pressDelay={0}
+      style={({ pressed }) => ({
+        width: MIN_TOUCH,
+        height: MIN_TOUCH,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: pressed ? 0.4 : 1,
+      })}
+    >
+      <Glyph
+        name={symbol}
+        fallback={fallback}
+        size={20}
+        color={color}
+        hex={color}
+        weight="semibold"
+      />
+    </Pressable>
   );
 }
