@@ -28,7 +28,9 @@ import {
   IconSchool,
   IconUser,
   IconX,
+  IconChecklist,
 } from "@tabler/icons-react-native";
+import type { Option } from "../ui/sheet/OptionList.tsx";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
@@ -79,6 +81,27 @@ import { UiIcon } from "../ui/kit/UiIcon.tsx";
 /// them on the desktop.
 
 /// A fixed set of statuses as the options of a row.
+/// The desktop's Evaluation: ungraded work (homework) or work that counts towards the
+/// course grade. Going back to ungraded hides the grade but keeps it.
+const EVALUATIONS: Option[] = [
+  {
+    id: "ungraded",
+    label: "Ungraded",
+    subtitle: "Does not count towards the course grade",
+    symbol: "checklist",
+    fallbackIcon: IconChecklist,
+    tint: "gray",
+  },
+  {
+    id: "graded",
+    label: "Graded",
+    subtitle: "Counts towards the course grade",
+    symbol: "rosette",
+    fallbackIcon: IconAward,
+    tint: "yellow",
+  },
+];
+
 function statusOptions(statuses: FixedStatus[]) {
   return statuses.map(statusOption);
 }
@@ -204,16 +227,9 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         options={statusOptions(EXAM_STATUSES)}
         onChange={(status) => update.mutate({ status })}
       />
-      <CourseProperty
-        icon={<UiIcon icon={IconSchool} size={20} color={muted} />}
-        spaceId={exam.entity.spaceId}
-        value={exam.courseId}
-        readOnly={readOnly}
-        onChange={(courseId) => course.mutate(courseId)}
-      />
       <DayProperty
         icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
-        label="Day"
+        label="Exam date"
         value={exam.examDate}
         readOnly={readOnly}
         onChange={(examDate) => update.mutate({ examDate })}
@@ -250,6 +266,13 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         readOnly={readOnly}
         placeholder="1.7"
         onSave={(grade) => update.mutate({ grade })}
+      />
+      <CourseProperty
+        icon={<UiIcon icon={IconSchool} size={20} color={muted} />}
+        spaceId={exam.entity.spaceId}
+        value={exam.courseId}
+        readOnly={readOnly}
+        onChange={(courseId) => course.mutate(courseId)}
       />
     </PropertyList>
   );
@@ -460,13 +483,6 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
         options={statusOptions(ASSIGNMENT_STATUSES)}
         onChange={(status) => update.mutate({ status })}
       />
-      <CourseProperty
-        icon={<UiIcon icon={IconSchool} size={20} color={muted} />}
-        spaceId={assignment.entity.spaceId}
-        value={assignment.courseId}
-        readOnly={readOnly}
-        onChange={(courseId) => course.mutate(courseId)}
-      />
       <AssignmentDueProperty assignment={assignment} readOnly={readOnly} />
       <NumberRow
         icon={<UiIcon icon={IconPercentage} size={20} color={muted} />}
@@ -476,13 +492,30 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
         placeholder="10"
         onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
       />
-      <NumberRow
-        icon={<UiIcon icon={IconAward} size={20} color={muted} />}
-        label="Grade"
-        value={assignment.grade}
+      <ChoiceProperty
+        icon={<UiIcon icon={IconChecklist} size={20} color={muted} />}
+        label="Evaluation"
+        value={assignment.ungraded ? "ungraded" : "graded"}
         readOnly={readOnly}
-        placeholder="1.3"
-        onSave={(grade) => update.mutate({ grade })}
+        options={EVALUATIONS}
+        onChange={(choice) => update.mutate({ ungraded: choice === "ungraded" })}
+      />
+      {assignment.ungraded ? null : (
+        <NumberRow
+          icon={<UiIcon icon={IconAward} size={20} color={muted} />}
+          label="Grade"
+          value={assignment.grade}
+          readOnly={readOnly}
+          placeholder="1.3"
+          onSave={(grade) => update.mutate({ grade })}
+        />
+      )}
+      <CourseProperty
+        icon={<UiIcon icon={IconSchool} size={20} color={muted} />}
+        spaceId={assignment.entity.spaceId}
+        value={assignment.courseId}
+        readOnly={readOnly}
+        onChange={(courseId) => course.mutate(courseId)}
       />
     </PropertyList>
   );

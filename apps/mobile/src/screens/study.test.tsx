@@ -51,7 +51,7 @@ describe("an exam", () => {
       `/entity/${exam}`,
     );
     await choose(screen, "Status", "Studying");
-    await pickDay(screen, "Day", "2027-02-10");
+    await pickDay(screen, "Exam date", "2027-02-10");
     await pickTime(screen, "Time", "09:30");
     await fireEvent.changeText(screen.getByLabelText("Grade"), "1,7");
     await fireEvent(screen.getByLabelText("Grade"), "endEditing");
@@ -254,6 +254,29 @@ describe("an item's links", () => {
         ["blocks", other],
       ]),
     );
+  });
+});
+
+describe("an assignment's evaluation", () => {
+  it("is graded or ungraded like the desktop's, and a grade shows only when graded", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 1", course, "2026-01-01");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    await choose(screen, "Evaluation", "Graded");
+    await waitFor(async () =>
+      expect((await getAssignment(data.db, assignment))?.ungraded).toBe(false),
+    );
+    await fireEvent.changeText(await screen.findByLabelText("Grade"), "1,3");
+    await fireEvent(screen.getByLabelText("Grade"), "endEditing");
+    await waitFor(async () => expect((await getAssignment(data.db, assignment))?.grade).toBe(1.3));
+    await choose(screen, "Evaluation", "Ungraded");
+    await waitFor(() => expect(screen.queryByLabelText("Grade")).toBeNull());
+    // Going back to ungraded hides the grade but keeps it.
+    expect(await getAssignment(data.db, assignment)).toMatchObject({ ungraded: true, grade: 1.3 });
   });
 });
 
