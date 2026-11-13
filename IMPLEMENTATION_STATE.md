@@ -183,11 +183,37 @@ Append newest last: date, what was done, what is next. Earlier entries (2026-11-
 
 ## Final report (fill in when everything above is done)
 
-Write this at the very end, plainly and honestly, in this section (not in `REPORT.md`, which is untracked and stale):
+**Status 2026-11-13: sections 0 to 3 done; section 4 partly done (see its unticked items); final checks run, results below.** This report is current as of commit `86750bbd` and is updated as work continues.
 
-- What was done per section, with commit ranges.
-- Decisions made (summary, with the ones worth a second look marked; the details are in `DECISIONS.md`).
-- Anything stubbed, skipped, partial or fragile, stated plainly.
-- **Needs the user** (things you could not verify or decide alone), for example: the iPad keyboard shortcut module's Swift source was never in git (an ignore rule hid `modules/*/ios`); it was recovered from the main checkout and committed, check it matches what you expect; the feel of the haptics and the animations on a real iPhone, touch and swipe gestures on a real device, OAuth providers with real keys, a real mail provider for password reset, the rewritten 1.0.0 release notes, releasing 1.0.0 (tag and push, which you did not do).
-- How to run everything and a manual test checklist of at most 15 minutes (two devices, offline conflict and the merge editor, the main mobile screens).
-- Where the before and after screenshots are (`docs/todo-screenshots/`).
+### Done per section
+
+- **0 and 1:** old branch removed; main 0.75.0 merged (D39); phone ports: sidebar, Settings, page font and size, cards with blocks (D55); Moodle desktop only (D54).
+- **2, sync:** headless two device tests (`apps/server/test/two-devices.test.ts`, 15 tests); a clash only one device saw now shows on every device and settles everywhere (D40); restart during first sync guarded by three tests; real two device check rerun on 2026-11-13 with an account made on the phone (section 2 notes, `docs/todo-screenshots/dod-*`).
+- **3, desktop:** Account cards, cloud icon, fast new pages.
+- **4, phone (partial):** tokens and kit (`ui/tokens.ts`, `ui/kit/`), selects and pickers as sheets with pinned search, icon and date pickers, segmented control, iOS form rows (D52), capsule buttons (D53), sheet detents, Settings, Account, Backup, LaTeX, Shortcuts and Review Changes as grouped pages, plain list rows on tokens, calendar segmented control, motion (D47) and haptics (D49). A Hermes crash fixed (`src/polyfills.ts`).
+
+### Checks (2026-11-13)
+
+- `bun run lint`, `format:check`, `typecheck`: pass. `bun run duplication`: 0.18 %.
+- `bun run test`: shared 321, mobile 339 and server 102 of 104 passed in the full run; the 2 server and about 13 frontend failures were timeouts while `cargo test` ran beside them (rerun in isolation below).
+- Report only: `unused` lists 6 files (5 are tool scripts, one dead file removed), unused exports and 3 unused mobile prosemirror dependencies; `audit` fails on Rust advisories, among them RUSTSEC-2026-0459 (SQLite bundled by `libsqlite3-sys`, fixed in `rusqlite` 0.41, which needs Rust 1.89) and RUSTSEC-2026-0436, 0385, 0310.
+
+### Needs the user
+
+- Upgrade `rusqlite` to 0.41 for the SQLite advisory (touches the desktop's database layer and the Rust toolchain).
+- Feel on a real iPhone: haptics, springs, sheet detents, swipes (sidebar, details drawer, back edge), the keyboard toolbar over a software keyboard, the iPad key commands.
+- The phone's lifecycle during a first sync (backgrounding mid sync).
+- Module tints (D51) and the 1.0.0 release notes; releasing 1.0.0 (no tag was made).
+- OAuth providers with real keys and a real mail provider.
+
+### Fragile or partial
+
+- Section 4 items still open: remaining Tabler interface icons, layout transitions everywhere, states and accessibility tests for every component, item pages compared type by type with the desktop, the phone feature gaps, the iPad pass.
+- Once, an assignment page said "This item isn't on this device." right after the account synced; it opened fine on the next try.
+- Hot reloading the phone's `_layout.tsx` leaves the old app setup running (dev only; relaunch).
+
+### How to run and a 15 minute check
+
+See "How to run everything" above. Check: sign up on the phone, add a task; sign in on the desktop on a scratch folder with "Add to the account"; edit a title on each and watch the other; stop the phone's network, edit the same title on both, reconnect; open Review Changes on both, decide on one, see the other clear.
+
+Screenshots: `docs/todo-screenshots/`.
