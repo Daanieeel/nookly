@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { PAGE_BACKGROUND, cn } from "./classes.ts";
 import { useInSheet } from "./sheet/Sheet.tsx";
+import { useSemantic } from "./kit/scheme.ts";
 
 /// Lets what sits in a screen's scrolling page ask for a point of its own to be in
 /// view: the editor, for the line being typed in.
@@ -20,6 +21,8 @@ export const useReveal = () => useContext(RevealContext);
 /// create form) the sheet scrolls, so the page is only its column.
 export function Screen(props: {
   wide?: boolean;
+  /// A page of grouped sections (Settings): iOS's grouped background behind them.
+  grouped?: boolean;
   children: React.ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
@@ -31,16 +34,19 @@ export function Screen(props: {
 
 function ScrollingScreen({
   children,
+  grouped = false,
   onRefresh,
   refreshing = false,
   wide = false,
 }: {
   /// Fills a wide pane instead of staying a comfortable reading width (the week view).
   wide?: boolean;
+  grouped?: boolean;
   children: React.ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
 }) {
+  const groupedBackground = useSemantic("groupedBackground");
   const scroll = useRef<ScrollView>(null);
   const content = useRef<View>(null);
   const offset = useRef(0);
@@ -76,7 +82,8 @@ function ScrollingScreen({
     <RevealContext.Provider value={reveal}>
       <ScrollView
         ref={scroll}
-        className={cn("flex-1", PAGE_BACKGROUND)}
+        className={cn("flex-1", grouped ? undefined : PAGE_BACKGROUND)}
+        style={grouped ? { backgroundColor: groupedBackground } : undefined}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={32}

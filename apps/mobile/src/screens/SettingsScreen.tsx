@@ -3,7 +3,7 @@ import {
   IconCalendar,
   IconDeviceFloppy,
   IconMathFunction,
-  IconChevronRight,
+  IconSearch,
   IconInfoCircle,
   IconKeyboard,
   IconLayoutSidebar,
@@ -12,20 +12,18 @@ import {
   IconPalette,
   IconSettings,
   IconUserCircle,
-  type Icon,
 } from "@tabler/icons-react-native";
 import { version } from "../../package.json";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { View } from "react-native";
 import { useSyncState } from "../data/context.tsx";
-import { Badge } from "../ui/Badge.tsx";
-import { FilterField } from "../ui/ListBar.tsx";
-import { Row, Section } from "../ui/Row.tsx";
+import { GroupedSection, INSET } from "../ui/kit/GroupedSection.tsx";
+import { IconBadge } from "../ui/kit/IconBadge.tsx";
+import { ListRow } from "../ui/kit/ListRow.tsx";
+import { SearchField } from "../ui/kit/SearchField.tsx";
+import { EmptyState } from "../ui/kit/States.tsx";
+import type { BadgeLook } from "../ui/kit/symbols.ts";
 import { Screen } from "../ui/Screen.tsx";
-import { Text } from "../ui/Text.tsx";
-import { cn } from "../ui/classes.ts";
-import { useTheme } from "../ui/theme.ts";
 import { AccountPage } from "./settings/AccountPage.tsx";
 import { BackupPage } from "./settings/BackupPage.tsx";
 import { LatexPage } from "./settings/LatexPage.tsx";
@@ -34,19 +32,20 @@ import { SettingRow } from "./settings/SettingRow.tsx";
 import { PAGES, SETTING_IDS, SETTING_UI, type SettingsPage, sectionOf } from "./settings/spec.ts";
 import { statusText } from "./sync-status.ts";
 
-const PAGE_ICONS = {
-  general: IconSettings,
-  appearance: IconPalette,
-  calendar: IconCalendar,
-  editor: IconNotes,
-  latex: IconMathFunction,
-  backup: IconDeviceFloppy,
-} satisfies Record<SettingsPage, Icon>;
+/// Each page's badge, as iOS's Settings tints its rows (D50).
+const PAGE_BADGES = {
+  general: { symbol: "gearshape", fallback: IconSettings, tint: "gray" },
+  appearance: { symbol: "paintpalette", fallback: IconPalette, tint: "blue" },
+  calendar: { symbol: "calendar", fallback: IconCalendar, tint: "red" },
+  editor: { symbol: "doc.text", fallback: IconNotes, tint: "yellow" },
+  latex: { symbol: "function", fallback: IconMathFunction, tint: "purple" },
+  backup: { symbol: "externaldrive", fallback: IconDeviceFloppy, tint: "green" },
+} satisfies Record<SettingsPage, BadgeLook>;
 
 interface NavLink {
   title: string;
   subtitle: string;
-  icon: Icon;
+  badge: BadgeLook;
   /// Where it goes; About has nowhere to go and only says the version.
   href?: string;
 }
@@ -56,7 +55,7 @@ const pageLink = (id: SettingsPage): NavLink => {
   return {
     title: page?.title ?? id,
     subtitle: page?.subtitle ?? "",
-    icon: PAGE_ICONS[id],
+    badge: PAGE_BADGES[id],
     href: `/settings/${id}`,
   };
 };
@@ -73,13 +72,13 @@ const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
       {
         title: "Sidebar",
         subtitle: "What it lists first, and in what order",
-        icon: IconLayoutSidebar,
+        badge: { symbol: "sidebar.left", fallback: IconLayoutSidebar, tint: "blue" },
         href: "/settings/sidebar",
       },
       {
         title: "Keyboard Shortcuts",
         subtitle: "For an iPad with a keyboard",
-        icon: IconKeyboard,
+        badge: { symbol: "keyboard", fallback: IconKeyboard, tint: "gray" },
         href: "/settings/shortcuts",
       },
       pageLink("latex"),
@@ -91,10 +90,14 @@ const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
       {
         title: "What's New",
         subtitle: "What changed in Nookly",
-        icon: IconSparkles,
+        badge: { symbol: "sparkles", fallback: IconSparkles, tint: "pink" },
         href: "/settings/whats-new",
       },
-      { title: "About", subtitle: `Nookly ${version}`, icon: IconInfoCircle },
+      {
+        title: "About",
+        subtitle: `Nookly ${version}`,
+        badge: { symbol: "info.circle", fallback: IconInfoCircle, tint: "gray" },
+      },
     ],
   },
 ];
@@ -102,26 +105,27 @@ const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
 /// Who is signed in (or the way in), at the top of Settings like the apps beside it.
 function AccountCard() {
   const router = useRouter();
-  const theme = useTheme();
   const user = useSyncState((s) => s.user);
   const status = useSyncState((s) => s.status);
   const conflicts = status.conflicts;
   return (
-    <Section>
-      <Row
+    <GroupedSection margin={0} inset={INSET.badge}>
+      <ListRow
+        badge={
+          <IconBadge
+            symbol="person.crop.circle.fill"
+            fallback={IconUserCircle}
+            tint="blue"
+            size={44}
+          />
+        }
         title={user ? user.username : "Sign in to sync"}
         subtitle={user ? statusText(status) : "Keep your phone, tablet and computer in step"}
-        icon={<IconUserCircle size={28} color={theme.colors.primary} />}
-        trailing={
-          conflicts > 0 ? (
-            <Badge label={`${conflicts} to review`} variant="warning" />
-          ) : (
-            <IconChevronRight size={16} color={theme.colors.mutedForeground} />
-          )
-        }
+        detail={conflicts > 0 ? `${conflicts} to review` : undefined}
+        accessory="chevron"
         onPress={() => router.push("/settings/account")}
       />
-    </Section>
+    </GroupedSection>
   );
 }
 
@@ -135,56 +139,65 @@ export function searchSettings(query: string): SharedSettingId[] {
   });
 }
 
-/// Settings: the account, then every setting by category, the desktop's own.
+/// Settings: the account, then every setting by category, the desktop's own, as iOS's
+/// Settings lays them out.
 export function SettingsScreen() {
   const router = useRouter();
-  const theme = useTheme();
   const [query, setQuery] = useState("");
   const found = query.trim() ? searchSettings(query) : [];
   return (
-    <Screen>
-      <FilterField label="Search settings" value={query} onChange={setQuery} />
+    <Screen grouped>
+      <SearchField
+        label="Search settings"
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search"
+      />
       {query.trim() ? (
-        <Section>
-          {found.length === 0 ? (
-            <Text tone="muted" className="p-4">
-              No setting matches.
-            </Text>
-          ) : null}
-          {found.map((id) => (
-            <View key={id}>
-              <SettingRow id={id} />
-            </View>
-          ))}
-        </Section>
-      ) : null}
-      {query.trim() ? null : <AccountCard />}
-      {query.trim() ? null : (
+        found.length === 0 ? (
+          <EmptyState
+            symbol="magnifyingglass"
+            fallback={IconSearch}
+            title="No Results"
+            message="No setting matches."
+          />
+        ) : (
+          <GroupedSection margin={0}>
+            {found.map((id) => (
+              <SettingRow key={id} id={id} />
+            ))}
+          </GroupedSection>
+        )
+      ) : (
         <>
+          <AccountCard />
           {NAV_GROUPS.map((group, index) => (
-            <Section key={group.label ?? `group-${index}`} title={group.label ?? undefined}>
-              {group.links.map((link) => {
-                const Glyph = link.icon;
-                return (
-                  <View key={link.title}>
-                    <Row
-                      title={link.title}
-                      subtitle={link.subtitle}
-                      icon={<Glyph size={20} color={theme.colors.mutedForeground} />}
-                      trailing={
-                        link.href ? (
-                          <IconChevronRight size={16} color={theme.colors.mutedForeground} />
-                        ) : undefined
-                      }
-                      onPress={
-                        // SAFETY: every `href` in NAV_GROUPS is a route under `src/app/settings`.
-                        link.href ? () => router.push(link.href as never) : undefined
-                      }
+            <GroupedSection
+              key={group.label ?? `group-${index}`}
+              title={group.label ?? undefined}
+              margin={0}
+              inset={INSET.badge}
+            >
+              {group.links.map((link) => (
+                <ListRow
+                  key={link.title}
+                  badge={
+                    <IconBadge
+                      symbol={link.badge.symbol}
+                      fallback={link.badge.fallback}
+                      tint={link.badge.tint}
                     />
-                  </View>
-                );
-              })}
-            </Section>
+                  }
+                  title={link.title}
+                  subtitle={link.subtitle}
+                  accessory={link.href ? "chevron" : "none"}
+                  onPress={
+                    // SAFETY: every `href` in NAV_GROUPS is a route under `src/app/settings`.
+                    link.href ? () => router.push(link.href as never) : undefined
+                  }
+                />
+              ))}
+            </GroupedSection>
           ))}
         </>
       )}
@@ -213,28 +226,29 @@ export function SettingsCategoryScreen({ page }: { page: string }) {
   const ids = SETTING_IDS.filter((id: SharedSettingId) => SETTING_UI[id].page === known?.id);
   const sections = [...new Set(ids.map((id) => sectionOf(id)))];
   return (
-    <Screen>
+    <Screen grouped>
       {known ? (
         sections.map((title) => (
-          <Section key={title ?? "none"} title={title}>
+          <GroupedSection key={title ?? "none"} title={title} margin={0}>
             {ids
               .filter((id) => sectionOf(id) === title)
               .map((id) => (
-                <View key={id}>
-                  <SettingRow id={id} />
-                </View>
+                <SettingRow key={id} id={id} />
               ))}
-          </Section>
+          </GroupedSection>
         ))
       ) : (
-        <Text tone="muted" className={cn("p-4")}>
-          There is no such page in Settings.
-        </Text>
+        <EmptyState
+          symbol="questionmark.circle"
+          fallback={IconSearch}
+          title="Not Found"
+          message="There is no such page in Settings."
+        />
       )}
       {known?.id === "appearance" && (
-        <Section title="This phone">
+        <GroupedSection title="This phone" margin={0}>
           <HapticsRow />
-        </Section>
+        </GroupedSection>
       )}
     </Screen>
   );

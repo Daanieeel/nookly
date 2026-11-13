@@ -19,7 +19,13 @@ export function SectionHeader({ title, sticky = false }: { title: string; sticky
         backgroundColor: sticky ? background : undefined,
       }}
     >
-      <Label type="footnote" color="secondaryLabel" weight="500" accessibilityRole="header">
+      <Label
+        type="footnote"
+        color="secondaryLabel"
+        weight="500"
+        accessibilityRole="header"
+        accessibilityLabel={title}
+      >
         {title.toUpperCase()}
       </Label>
     </View>

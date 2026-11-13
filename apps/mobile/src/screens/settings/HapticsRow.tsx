@@ -1,35 +1,40 @@
 import { Switch, View } from "react-native";
 import { usePreference } from "../../data/preferences.ts";
-import { ROW_DIVIDER } from "../../ui/Row.tsx";
-import { Text } from "../../ui/Text.tsx";
-import { cn } from "../../ui/classes.ts";
+import { Label } from "../../ui/kit/Label.tsx";
+import { useScheme } from "../../ui/kit/scheme.ts";
 import { HAPTICS_PREFERENCE, haptic, hapticsPreference } from "../../ui/haptics.ts";
-import { useTheme } from "../../ui/theme.ts";
+import { GUTTER, SPACE, TINT } from "../../ui/tokens.ts";
 
 /// Haptics on or off for this phone, laid out like a Settings row.
 export function HapticsRow() {
-  const theme = useTheme();
+  const scheme = useScheme();
   const [on, setOn] = usePreference(HAPTICS_PREFERENCE, hapticsPreference, true);
   return (
-    <View className={cn("gap-2 px-1 py-4", ROW_DIVIDER)}>
-      <View className="flex-row items-center gap-2">
-        <Text className="flex-1 font-medium" accessibilityRole="header">
-          Haptics
-        </Text>
-        <Switch
-          accessibilityLabel="Haptics"
-          value={on}
-          onValueChange={(next) => {
-            setOn(next);
-            // Felt only when turned on: the setting is read as it plays.
-            haptic("toggle");
-          }}
-          trackColor={{ true: theme.colors.primary }}
-        />
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACE.md,
+        paddingHorizontal: GUTTER,
+        paddingVertical: SPACE.md - 2,
+      }}
+    >
+      <View style={{ flex: 1, gap: 2 }}>
+        <Label accessibilityRole="header">Haptics</Label>
+        <Label type="footnote" color="secondaryLabel">
+          A gentle tap you feel as you pick, flip, finish or move something.
+        </Label>
       </View>
-      <Text variant="small" tone="muted">
-        A gentle tap you feel as you pick, flip, finish or move something.
-      </Text>
+      <Switch
+        accessibilityLabel="Haptics"
+        value={on}
+        onValueChange={(next) => {
+          setOn(next);
+          // Felt only when turned on: the setting is read as it plays.
+          haptic("toggle");
+        }}
+        trackColor={{ true: TINT.green[scheme] }}
+      />
     </View>
   );
 }
