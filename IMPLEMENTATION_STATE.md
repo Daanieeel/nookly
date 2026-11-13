@@ -195,7 +195,9 @@ Append newest last: date, what was done, what is next. Earlier entries (2026-11-
 ### Checks (2026-11-13)
 
 - `bun run lint`, `format:check`, `typecheck`: pass. `bun run duplication`: 0.18 %.
-- `bun run test`: shared 321, mobile 339 and server 102 of 104 passed in the full run; the 2 server and about 13 frontend failures were timeouts while `cargo test` ran beside them (rerun in isolation below).
+- `bun run test`: shared 321, mobile 339 and server 102 of 104 passed in the full run; the 2 server and 13 frontend failures were 5 s timeouts while `cargo test` ran beside them. Rerun alone on an idle machine: the 6 frontend files 145 of 145, `two-devices.test.ts` 16 of 16 twice.
+- `cargo test`: 1543 passed, 1 failed under the same load (`search_stays_within_its_budget_on_20000_entities`, a time budget); alone it passes in 0.84 s.
+- `lint:rust:strict`: passes with 3 "function too long" warnings (one of 1539 lines, existing).
 - Report only: `unused` lists 6 files (5 are tool scripts, one dead file removed), unused exports and 3 unused mobile prosemirror dependencies; `audit` fails on Rust advisories, among them RUSTSEC-2026-0459 (SQLite bundled by `libsqlite3-sys`, fixed in `rusqlite` 0.41, which needs Rust 1.89) and RUSTSEC-2026-0436, 0385, 0310.
 
 ### Needs the user
