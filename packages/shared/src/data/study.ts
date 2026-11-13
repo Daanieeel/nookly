@@ -556,8 +556,115 @@ const LEARN_AHEAD_MS = 20 * 60_000;
 export interface IndexCard extends Schedule {
   id: string;
   deckId: string;
+  /// Each face as text: what it was written as, or its blocks' markdown.
   front: string;
   back: string;
+  /// Each face's blocks when it was written with blocks (the desktop's card writer, the
+  /// phone's), else null and the text is all there is.
+  frontBlocks: CardBlock[] | null;
+  backBlocks: CardBlock[] | null;
+}
+
+/// One block of a card's face, as the desktop stores it (`page_json::BlockJson`).
+export interface CardBlock {
+  type: string;
+  content: string;
+  language: string | null;
+  filename: string | null;
+  attrs: Record<string, string>;
+}
+
+const cardBlockSchema = z.object({
+  type: z.string(),
+  content: z.string().default(""),
+  language: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
+  filename: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
+  attrs: z
+    .record(z.string(), z.unknown())
+    .default({})
+    .transform((attrs) =>
+      Object.fromEntries(Object.entries(attrs).map(([k, v]) => [k, String(v)])),
+    ),
+});
+
+/// A face's blocks column read back; anything unreadable counts as no blocks, so the text
+/// still shows.
+function faceBlocks(raw: SqlValue | undefined): CardBlock[] | null {
+  if (typeof raw !== "string" || raw === "") return null;
+  try {
+    const parsed = z.array(cardBlockSchema).safeParse(JSON.parse(raw));
+    return parsed.success && parsed.data.length > 0 ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/// A face's blocks as the text the desktop keeps beside them (`block_to_markdown`), close
+/// enough for search, a list of cards and a device that reads only text.
+export function cardFaceText(blocks: Pick<CardBlock, "type" | "content" | "language">[]): string {
+  const one = (block: (typeof blocks)[number]) => {
+    const heading = /^heading([1-6])$/.exec(block.type);
+    if (heading) return `${"#".repeat(Number(heading[1]))} ${block.content}`;
+    if (block.type === "equation" || block.type === "math") return `$$\n${block.content}\n$$`;
+    if (block.type === "quote")
+      return block.content
+        .split("\n")
+        .map((l) => `> ${l}`)
+        .join("\n");
+    if (block.type === "code") return `\`\`\`${block.language ?? ""}\n${block.content}\n\`\`\``;
+    return block.content;
+  };
+  return blocks.map(one).join("\n\n");
+}
+
+type TextFaceBlock = Pick<CardBlock, "type" | "content"> & { attrs?: CardBlock["attrs"] };
+
+/// `$$…$$` over any number of lines, or its LaTeX spellings `\[…\]`, as old cards wrote
+/// display math in their text.
+const DISPLAY_MATH = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]/g;
+
+/// The blocks an old card's text becomes when it is edited: a paragraph per line, display
+/// math as an equation block, `\(…\)` as the `$…$` the editor reads.
+export function textFaceBlocks(text: string): TextFaceBlock[] {
+  const blocks: TextFaceBlock[] = [];
+  const addLines = (chunk: string) => {
+    for (const line of chunk.split("\n")) {
+      blocks.push({
+        type: "paragraph",
+        content: line.replace(/\\\((.+?)\\\)/g, "$$$1$$"),
+      });
+    }
+  };
+  let last = 0;
+  for (const match of text.matchAll(DISPLAY_MATH)) {
+    // The line break that sets a formula apart is not an empty line of its own.
+    const before = text.slice(last, match.index).replace(/\n$/, "");
+    if (before || (last === 0 && match.index > 0)) addLines(before);
+    blocks.push({
+      type: "equation",
+      content: (match[1] ?? match[2] ?? "").trim(),
+      attrs: { view: "rendered" },
+    });
+    last = match.index + match[0].length;
+    if (text[last] === "\n") last += 1;
+  }
+  if (last < text.length || blocks.length === 0) addLines(text.slice(last));
+  return blocks;
+}
+
+/// A face given to write: text (drops its blocks, as the desktop does) or blocks.
+export type CardFace = { text: string } | { blocks: Partial<CardBlock>[] };
+
+function storedFace(face: CardFace): [text: string, blocks: string | null] {
+  if ("text" in face) return [face.text, null];
+  const blocks = face.blocks.map((b) => cardBlockSchema.parse(b));
+  return [cardFaceText(blocks), JSON.stringify(blocks)];
 }
 
 export interface DeckStats {
@@ -584,6 +691,8 @@ function toCard(r: Row): IndexCard {
     deckId: str(r.deck_entity_id),
     front: str(r.front),
     back: str(r.back),
+    frontBlocks: faceBlocks(r.front_blocks),
+    backBlocks: faceBlocks(r.back_blocks),
     state: cardState(r.state),
     dueAt: str(r.due_at),
     stability: num(r.stability),
@@ -682,18 +791,21 @@ export async function setDeckExam(db: LocalDb, id: string, examId: string | null
   await write(db, relink(db, id, "deck-exam", examId));
 }
 
+/// `create_card`: each face as text or as blocks.
 export async function createCard(
   db: LocalDb,
   deckId: string,
-  front: string,
-  back: string,
+  front: string | CardFace,
+  back: string | CardFace,
 ): Promise<string> {
   const id = db.newId();
   const now = iso(db);
+  const [frontText, frontBlocks] = storedFace(typeof front === "string" ? { text: front } : front);
+  const [backText, backBlocks] = storedFace(typeof back === "string" ? { text: back } : back);
   await write(db, [
     {
-      sql: "INSERT INTO index_cards (id, deck_entity_id, front, back, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      params: [id, deckId, front, back, now, now, now],
+      sql: "INSERT INTO index_cards (id, deck_entity_id, front, back, front_blocks, back_blocks, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      params: [id, deckId, frontText, backText, frontBlocks, backBlocks, now, now, now],
     },
   ]);
   return id;
@@ -709,6 +821,31 @@ export async function updateCard(
     {
       sql: "UPDATE index_cards SET front = ?, back = ?, front_blocks = NULL, back_blocks = NULL, updated_at = ? WHERE id = ?",
       params: [front, back, iso(db), id],
+    },
+  ]);
+}
+
+/// `update_card`: rewrites the faces given and leaves the other as it is, so a face written
+/// with blocks keeps them.
+export async function updateCardFaces(
+  db: LocalDb,
+  id: string,
+  faces: { front?: CardFace; back?: CardFace },
+): Promise<void> {
+  const sets: string[] = [];
+  const params: SqlValue[] = [];
+  for (const side of ["front", "back"] as const) {
+    const face = faces[side];
+    if (!face) continue;
+    const [text, blocks] = storedFace(face);
+    sets.push(`${side} = ?`, `${side}_blocks = ?`);
+    params.push(text, blocks);
+  }
+  if (sets.length === 0) return;
+  await write(db, [
+    {
+      sql: `UPDATE index_cards SET ${sets.join(", ")}, updated_at = ? WHERE id = ?`,
+      params: [...params, iso(db), id],
     },
   ]);
 }

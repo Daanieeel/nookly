@@ -1,3 +1,4 @@
+import { textFaceBlocks } from "@nookly/shared/data";
 import type { CardBlock, IndexCard } from "#/lib/api/types.ts";
 import {
   attrsKey,
@@ -11,34 +12,9 @@ export type Side = "front" | "back";
 /// A face the way the card editor holds it: nothing written yet is one empty paragraph.
 export const EMPTY_FACE: CardBlock[] = [{ type: "paragraph", content: "" }];
 
-/// `$$…$$` over any number of lines, or its LaTeX spellings `\[…\]`, as old cards wrote
-/// display math in their text.
-const DISPLAY_MATH = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]/g;
-
-/// The blocks an old card's text becomes when it is edited: a paragraph per line, display
-/// math as an equation block, `\(…\)` as the `$…$` the editor reads.
+/// The blocks an old card's text becomes when it is edited (shared with the phone).
 export function textToBlocks(text: string): CardBlock[] {
-  const blocks: CardBlock[] = [];
-  const addLines = (chunk: string) => {
-    for (const line of chunk.split("\n")) {
-      blocks.push({ type: "paragraph", content: line.replace(/\\\((.+?)\\\)/g, "$$$1$$") });
-    }
-  };
-  let last = 0;
-  for (const match of text.matchAll(DISPLAY_MATH)) {
-    // The line break that sets a formula apart is not an empty line of its own.
-    const before = text.slice(last, match.index).replace(/\n$/, "");
-    if (before || (last === 0 && match.index > 0)) addLines(before);
-    blocks.push({
-      type: "equation",
-      content: (match[1] ?? match[2] ?? "").trim(),
-      attrs: { view: "rendered" },
-    });
-    last = match.index + match[0].length;
-    if (text[last] === "\n") last += 1;
-  }
-  if (last < text.length || blocks.length === 0) addLines(text.slice(last));
-  return blocks;
+  return textFaceBlocks(text) as CardBlock[];
 }
 
 /// The blocks of one side of a card: the ones it was written with, or its old text.

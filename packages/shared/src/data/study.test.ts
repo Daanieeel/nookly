@@ -36,6 +36,7 @@ import {
   setExamCourse,
   studyQueue,
   updateAssignment,
+  updateCardFaces,
   updateExam,
 } from "./study.ts";
 import { createTask } from "./tasks.ts";
@@ -212,5 +213,68 @@ describe("a course's room", () => {
     expect(await getCourse(db, course)).toMatchObject({ professor: "Prof. Ada", room: "H 0104" });
     await setCourseRoom(db, course, "  ");
     expect((await getCourse(db, course))?.room).toBeNull();
+  });
+});
+
+describe("a card's faces written with blocks, as the desktop writes them", () => {
+  const image = {
+    type: "image",
+    content: "",
+    attrs: { file: "f1", width: "320" },
+  };
+  const formula = { type: "equation", content: "e^{i\\pi} + 1 = 0", attrs: { view: "rendered" } };
+
+  async function blockCard() {
+    const space = await createSpace(db, "Uni", "#3b82f6");
+    const deck = await createDeck(db, space, "Analysis");
+    const id = await createCard(db, deck, "Euler", "identity");
+    // What the desktop's `update_card` stores for a face written with blocks.
+    driver.exec(
+      "UPDATE index_cards SET front_blocks = ?, back_blocks = ? WHERE id = ?",
+      JSON.stringify([{ type: "paragraph", content: "Euler's identity", attrs: {} }, image]),
+      JSON.stringify([formula]),
+      id,
+    );
+    return { deck, id };
+  }
+
+  it("reads each face's blocks", async () => {
+    const { deck } = await blockCard();
+    const [card] = await listCards(db, deck);
+    expect(card.frontBlocks?.map((b) => b.type)).toEqual(["paragraph", "image"]);
+    expect(card.backBlocks).toEqual([{ ...formula, language: null, filename: null }]);
+  });
+
+  it("keeps a face's blocks when the other face is edited", async () => {
+    const { deck, id } = await blockCard();
+    await updateCardFaces(db, id, {
+      back: { blocks: [{ type: "paragraph", content: "Euler 1748", attrs: {} }] },
+    });
+    const [card] = await listCards(db, deck);
+    expect(card.frontBlocks?.[1]).toMatchObject({ type: "image", attrs: { file: "f1" } });
+    expect(card.backBlocks).toEqual([
+      { type: "paragraph", content: "Euler 1748", language: null, filename: null, attrs: {} },
+    ]);
+    expect(card.back).toBe("Euler 1748");
+  });
+
+  it("writes a face's text from its blocks, for search and older devices", async () => {
+    const { deck, id } = await blockCard();
+    await updateCardFaces(db, id, {
+      front: { blocks: [formula, { type: "paragraph", content: "Why?" }] },
+    });
+    const [card] = await listCards(db, deck);
+    expect(card.front).toBe("$$\ne^{i\\pi} + 1 = 0\n$$\n\nWhy?");
+  });
+});
+
+describe("a new card written with blocks", () => {
+  it("keeps its blocks and their text", async () => {
+    const space = await createSpace(db, "Uni", "#3b82f6");
+    const deck = await createDeck(db, space, "Analysis");
+    await createCard(db, deck, { blocks: [{ type: "heading2", content: "Limits" }] }, "ε δ");
+    const [card] = await listCards(db, deck);
+    expect(card).toMatchObject({ front: "## Limits", back: "ε δ", backBlocks: null });
+    expect(card.frontBlocks?.[0]).toMatchObject({ type: "heading2", content: "Limits" });
   });
 });
