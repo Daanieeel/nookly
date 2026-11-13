@@ -1,3 +1,5 @@
+// The language features the engine lacks, before any other module runs.
+import "../polyfills.ts";
 import "../global.css";
 import { semanticHex } from "../ui/tokens.ts";
 import {
