@@ -596,9 +596,10 @@ const cardBlockSchema = z.object({
 /// A face's blocks column read back; anything unreadable counts as no blocks, so the text
 /// still shows.
 function faceBlocks(raw: SqlValue | undefined): CardBlock[] | null {
-  if (typeof raw !== "string" || raw === "") return null;
+  const stored = z.string().min(1).safeParse(raw);
+  if (!stored.success) return null;
   try {
-    const parsed = z.array(cardBlockSchema).safeParse(JSON.parse(raw));
+    const parsed = z.array(cardBlockSchema).safeParse(JSON.parse(stored.data));
     return parsed.success && parsed.data.length > 0 ? parsed.data : null;
   } catch {
     return null;
@@ -791,6 +792,13 @@ export async function setDeckExam(db: LocalDb, id: string, examId: string | null
   await write(db, relink(db, id, "deck-exam", examId));
 }
 
+/// A face given as plain text, or as text or blocks.
+function faceOf(face: string | CardFace): CardFace {
+  const text = z.string().safeParse(face);
+  // SAFETY: `face` is a string or a `CardFace`, and it is not a string.
+  return text.success ? { text: text.data } : (face as CardFace);
+}
+
 /// `create_card`: each face as text or as blocks.
 export async function createCard(
   db: LocalDb,
@@ -800,8 +808,8 @@ export async function createCard(
 ): Promise<string> {
   const id = db.newId();
   const now = iso(db);
-  const [frontText, frontBlocks] = storedFace(typeof front === "string" ? { text: front } : front);
-  const [backText, backBlocks] = storedFace(typeof back === "string" ? { text: back } : back);
+  const [frontText, frontBlocks] = storedFace(faceOf(front));
+  const [backText, backBlocks] = storedFace(faceOf(back));
   await write(db, [
     {
       sql: "INSERT INTO index_cards (id, deck_entity_id, front, back, front_blocks, back_blocks, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",

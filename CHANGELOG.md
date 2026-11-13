@@ -6,20 +6,21 @@ All notable changes to Nookly are listed here.
 
 ### Added
 
-- Nookly is now on your iPhone and iPad. Sign in with the same account and your Spaces, tasks, pages, files and settings are there, ready to use.
+- Nookly is now on your iPhone and iPad. Sign in with the same account and your Spaces, tasks, pages, study, files and settings are there, with sheets, haptics and gestures that feel at home on iOS.
 - Changes you make on one device show up on your others as you make them, and everything keeps working offline and catches up when you are back online.
-- If you change the same thing on two devices while one is offline, you choose which version to keep, or keep both, on whichever device you pick up next.
-- When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it. Signing out removes the account's data from that device and keeps it in the account.
+- If you change the same thing on two devices, every device offers both versions side by side, and you keep one, both or a mix. Nothing is lost.
+- When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it, and makes a backup first. Signing out removes the account's data from that device and keeps it in the account.
+- Settings, Account lists every signed in device, and you can sign one out from another.
 
 ### Changed
 
-- **Clearer differences when two devices disagree.** Review Changes shows both versions side by side with line numbers, the other version in red and the one showing now in green, and marks the words that differ inside each line. On a phone they stack, line by line.
+- The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.
+- New pages open at once.
 
 ### Fixed
 
 - **The hidden sidebar is readable when it slides in.** Resting the pointer on the left edge shows it on a solid background, no longer see through over the page.
 - **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on.
-- **Every change that needs a look is offered.** When two devices changed the same thing at the same moment, the other version was kept but nothing said so. The sync status and Settings now count it.
 
 ## 0.75.0 (2026-11-10)
 

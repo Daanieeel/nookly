@@ -3,36 +3,44 @@
     {
       "version": "1.0.0",
       "date": "2026-11-10",
-      "title": "Nookly on your phone",
-      "summary": "The same Nookly on iPhone and iPad, always in step with your computer.",
+      "title": "Nookly on your phone, synced everywhere",
+      "summary": "An iPhone and iPad app, one account for all your devices, live sync and a calm way to settle clashes.",
       "highlights": [
         {
           "title": "Nookly for iPhone and iPad",
-          "description": "Sign in with your account and your whole Nookly is on your phone.",
+          "description": "Your Spaces, tasks, pages, study and files on your phone, with sheets, haptics and gestures that feel at home on iOS.",
           "icon": "device-mobile",
           "tag": "New"
         },
         {
+          "title": "One account, every device",
+          "description": "Sign in on your computer, phone and tablet, and choose whether what is already on a device joins your account.",
+          "icon": "user-circle",
+          "tag": "New"
+        },
+        {
           "title": "Live across devices",
-          "description": "Edits show up on your other devices as you make them, and offline changes catch up when you reconnect.",
+          "description": "Edits show up on your other devices as you make them, and changes made offline catch up when you are back.",
           "icon": "cloud",
           "tag": "New"
         },
         {
           "title": "You decide on clashes",
-          "description": "When two devices changed the same thing, you pick a version or keep both. Nothing is lost.",
+          "description": "When two devices changed the same thing, every device offers both versions side by side, and you keep one, both or a mix.",
           "icon": "layout-columns",
           "tag": "New"
         }
       ],
       "more": {
         "Improved": [
-          "Review Changes puts both versions side by side with line numbers, the other version in red and the one showing now in green, and marks the words that differ inside each line."
+          "Settings, Account shows each signed in device, and you can sign one out from another.",
+          "The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.",
+          "New pages open at once.",
+          "A backup is made before a device first sends its things to your account."
         ],
         "Fixed": [
           "The hidden sidebar slides in on a solid background when you rest the pointer on the left edge.",
-          "In Vim's normal and visual mode the cursor is a block over the character it is on again.",
-          "When two devices changed the same thing at the same moment, the sync status and Settings now say a change needs a look."
+          "In Vim's normal and visual mode the cursor is a block over the character it is on again."
         ]
       }
     },

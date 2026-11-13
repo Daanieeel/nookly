@@ -13,7 +13,7 @@ describe("array polyfills", () => {
   });
 
   it("adds what the engine lacks, copying and leaving the array as it was", () => {
-    for (const n of names) delete (Array.prototype as unknown as Record<string, unknown>)[n];
+    for (const n of names) Reflect.deleteProperty(Array.prototype, n);
     jest.isolateModules(() => {
       require("./polyfills.ts");
     });

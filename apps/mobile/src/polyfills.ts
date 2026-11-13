@@ -2,10 +2,32 @@
 /// written in: the copying array methods (ES2023). Each is added only where missing, not
 /// enumerable, and behaves as the standard says. Imported first, before any other module.
 
-type Proto = Record<string, unknown>;
+const methods = {
+  toSorted<T>(this: T[], compare?: (a: T, b: T) => number): T[] {
+    return this.slice().sort(compare);
+  },
+  toReversed<T>(this: T[]): T[] {
+    return this.slice().reverse();
+  },
+  toSpliced<T>(this: T[], start: number, deleteCount?: number, ...items: T[]): T[] {
+    const copy = this.slice();
+    if (deleteCount === undefined) copy.splice(start);
+    else copy.splice(start, deleteCount, ...items);
+    return copy;
+  },
+  with<T>(this: T[], index: number, value: T): T[] {
+    const at = index < 0 ? this.length + index : index;
+    if (!Number.isInteger(at) || at < 0 || at >= this.length) {
+      throw new RangeError("Invalid index");
+    }
+    const copy = this.slice();
+    copy[at] = value;
+    return copy;
+  },
+};
 
-function define(name: string, value: (this: unknown[], ...args: never[]) => unknown) {
-  if (typeof (Array.prototype as unknown as Proto)[name] === "function") return;
+for (const [name, value] of Object.entries(methods)) {
+  if (name in Array.prototype) continue;
   Object.defineProperty(Array.prototype, name, {
     value,
     writable: true,
@@ -13,29 +35,5 @@ function define(name: string, value: (this: unknown[], ...args: never[]) => unkn
     enumerable: false,
   });
 }
-
-define("toSorted", function toSorted(this: unknown[], compare?: (a: never, b: never) => number) {
-  return Array.prototype.slice.call(this).sort(compare as never);
-});
-
-define("toReversed", function toReversed(this: unknown[]) {
-  return Array.prototype.slice.call(this).reverse();
-});
-
-define("toSpliced", function toSpliced(this: unknown[], start: never, ...rest: never[]) {
-  const copy = Array.prototype.slice.call(this);
-  if (rest.length === 0) copy.splice(start);
-  else copy.splice(start, rest[0], ...rest.slice(1));
-  return copy;
-});
-
-define("with", function withAt(this: unknown[], index: never, value: never) {
-  const length = this.length;
-  const at = Number(index) < 0 ? length + Number(index) : Number(index);
-  if (!Number.isInteger(at) || at < 0 || at >= length) throw new RangeError("Invalid index");
-  const copy = Array.prototype.slice.call(this);
-  copy[at] = value;
-  return copy;
-});
 
 export {};

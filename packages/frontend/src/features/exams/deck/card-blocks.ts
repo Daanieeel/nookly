@@ -14,6 +14,7 @@ export const EMPTY_FACE: CardBlock[] = [{ type: "paragraph", content: "" }];
 
 /// The blocks an old card's text becomes when it is edited (shared with the phone).
 export function textToBlocks(text: string): CardBlock[] {
+  // SAFETY: a text face's block (a type, its text, a language for code) is a `CardBlock`.
   return textFaceBlocks(text) as CardBlock[];
 }
 
