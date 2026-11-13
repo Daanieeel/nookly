@@ -14,13 +14,11 @@ import {
   createSessionPage,
   createSemester,
   courseSemester,
-  createStudyBlock,
   getOrCreateSemesterNotes,
   overrideSession,
   setCourseSemester,
   setCurrentSemester,
   updateSemester,
-  updateStudyBlock,
 } from "@nookly/shared/data";
 import {
   IconCalendarEvent,
@@ -39,17 +37,14 @@ import {
   useAssignments,
   useCourses,
   useExams,
-  useExam,
   useSemester,
   useSemesters,
   useSession,
   useSessionPage,
   useSessions,
   useSpaces,
-  useStudyBlock,
-  useStudyBlocks,
 } from "../data/queries.ts";
-import { Button, IconButton, statusOf } from "../ui/Button.tsx";
+import { Button, statusOf } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { Field } from "../ui/Field.tsx";
@@ -70,12 +65,7 @@ import { SpacePicker } from "./SpacePicker.tsx";
 import { addDays, dayLabel, localDay } from "./dates.ts";
 import { PageEditor } from "./PageEditor.tsx";
 
-/// Sessions, study blocks, semesters and grades: what a student plans and is graded on.
-
-const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
-
-/// "9:00 to 10:30".
-const span = (start: string, end: string) => `${start} to ${end}`;
+/// Sessions, semesters and grades: what a student plans and is graded on.
 
 // --- sessions -------------------------------------------------------------------------
 
@@ -262,166 +252,6 @@ export function NewSessionScreen({ spaceId, courseId }: { spaceId?: string; cour
       </FormSection>
       <Button
         label="New Session"
-        status={statusOf(create)}
-        errorLabel="Couldn't create"
-        onPress={submit}
-      />
-    </Screen>
-  );
-}
-
-// --- study blocks ---------------------------------------------------------------------
-
-/// The time set aside for an exam, with a way to add some.
-export function ExamStudyBlocks({
-  examId,
-  spaceId,
-  readOnly,
-}: {
-  examId: string;
-  spaceId: string;
-  readOnly: boolean;
-}) {
-  const entityMenu = useEntityMenu();
-  const theme = useTheme();
-  const router = useRouter();
-  const { data: blocks = [] } = useStudyBlocks({ examId });
-  return (
-    <Section
-      title="Study blocks"
-      action={
-        readOnly ? undefined : (
-          <IconButton
-            label="New Study Block"
-            icon={<IconPlus size={18} color={theme.colors.mutedForeground} />}
-            onPress={() => router.push(`/new/study-block?spaceId=${spaceId}&examId=${examId}`)}
-          />
-        )
-      }
-    >
-      {blocks.length === 0 ? <Empty text="No study blocks yet." /> : null}
-      {blocks.map((b) => (
-        <View key={b.entity.id}>
-          <Row
-            title={b.entity.title || "Study block"}
-            subtitle={join(dayLabel(b.date), span(b.startTime, b.endTime))}
-            icon={<EntityIcon type="study_block" icon={b.entity.icon} />}
-            onPress={() => router.push(`/entity/${b.entity.id}`)}
-            onLongPress={() => entityMenu(b.entity)}
-          />
-        </View>
-      ))}
-    </Section>
-  );
-}
-
-export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
-  const entityMenu = useEntityMenu();
-  const theme = useTheme();
-  const muted = theme.colors.mutedForeground;
-  const router = useRouter();
-  const { data: block } = useStudyBlock(id);
-  const { data: exam } = useExam(block?.examId ?? "");
-  const patch = useLocalWrite((db, p: Parameters<typeof updateStudyBlock>[2]) =>
-    updateStudyBlock(db, id, p),
-  );
-  if (!block) return null;
-  return (
-    <>
-      <MainPart>
-        <PageEditor entityId={id} readOnly={readOnly} live={false} />
-        {exam ? (
-          <Section>
-            <Row
-              title={exam.entity.title || "Exam"}
-              subtitle="Exam"
-              icon={<EntityIcon type="exam" />}
-              onPress={() => router.push(`/entity/${exam.entity.id}`)}
-              onLongPress={() => entityMenu(exam.entity)}
-            />
-          </Section>
-        ) : null}
-      </MainPart>
-      <DetailsPart>
-        <PropertyList>
-          <DayProperty
-            icon={<IconCalendarEvent size={20} color={muted} />}
-            label="Day"
-            clearable={false}
-            value={block.date}
-            readOnly={readOnly}
-            onChange={(date) => date && patch.mutate({ date })}
-          />
-          <DayProperty
-            icon={<IconClock size={20} color={muted} />}
-            label="Starts"
-            mode="time"
-            clearable={false}
-            value={block.startTime}
-            readOnly={readOnly}
-            onChange={(startTime) => startTime && patch.mutate({ startTime })}
-          />
-          <DayProperty
-            icon={<IconClock size={20} color={muted} />}
-            label="Ends"
-            mode="time"
-            clearable={false}
-            value={block.endTime}
-            readOnly={readOnly}
-            onChange={(endTime) => endTime && patch.mutate({ endTime })}
-          />
-        </PropertyList>
-        {patch.error ? <Text tone="destructive">{patch.error.message}</Text> : null}
-      </DetailsPart>
-    </>
-  );
-}
-
-export function NewStudyBlockScreen({ spaceId, examId }: { spaceId?: string; examId?: string }) {
-  const router = useRouter();
-  const close = useCloseSheet();
-  const { data: exam } = useExam(examId ?? "");
-  const space = spaceId ?? exam?.entity.spaceId;
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState(localDay());
-  const [start, setStart] = useState("14:00");
-  const [end, setEnd] = useState("16:00");
-  const create = useLocalWrite((db, _: undefined) => {
-    if (!space || !examId) throw new Error("Pick an exam for the study block.");
-    return createStudyBlock(db, space, {
-      title: title.trim() || "Study",
-      examId,
-      date,
-      startTime: start,
-      endTime: end,
-    });
-  });
-  const submit = () =>
-    create.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
-  return (
-    <Screen>
-      <FormSection>
-        {exam ? <Text tone="muted">For {exam.entity.title || "the exam"}</Text> : null}
-        <Field label="Title" placeholder="Revise graphs" value={title} onChangeText={setTitle} />
-        <DateField label="Day" clearable={false} value={date} onChange={(d) => d && setDate(d)} />
-        <DateField
-          label="Starts"
-          mode="time"
-          clearable={false}
-          value={start}
-          onChange={(t) => t && setStart(t)}
-        />
-        <DateField
-          label="Ends"
-          mode="time"
-          clearable={false}
-          value={end}
-          onChange={(t) => t && setEnd(t)}
-        />
-        {create.error ? <Text tone="destructive">{create.error.message}</Text> : null}
-      </FormSection>
-      <Button
-        label="New Study Block"
         status={statusOf(create)}
         errorLabel="Couldn't create"
         onPress={submit}

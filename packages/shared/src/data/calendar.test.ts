@@ -7,16 +7,8 @@ import {
   updateCalendarEntry,
 } from "./calendar.ts";
 import { type LocalDb, first, rows } from "./db.ts";
-import { createSpace } from "./entities.ts";
-import {
-  createOneOffSession,
-  createStudyBlock,
-  getSession,
-  listSessions,
-  listStudyBlocks,
-  overrideSession,
-  updateStudyBlock,
-} from "./sessions.ts";
+import { createEntityStatements, createSpace } from "./entities.ts";
+import { createOneOffSession, getSession, listSessions, overrideSession } from "./sessions.ts";
 import { FIELD, TITLE_OVERRIDE, markOverride, validateDate, validateTimes } from "./series.ts";
 import { createCourse, createExam, updateExam } from "./study.ts";
 import { testDb } from "./test-db.ts";
@@ -256,41 +248,25 @@ describe("sessions", () => {
   });
 });
 
-describe("study blocks and the agenda", () => {
-  it("sets time aside for an exam, which shows with the exam on the calendar", async () => {
+describe("study blocks", () => {
+  // Study blocks are gone from Nookly (the desktop removed them); the rows a database
+  // still holds stay where they are, untouched, and the calendar leaves them out.
+  it("no longer show on the calendar, and their rows are kept", async () => {
     const course = await createCourse(db, space, "Algorithms");
     const exam = await createExam(db, space, "Final", course);
     await updateExam(db, exam, { examDate: "2026-12-10", examTime: "09:00" });
-    const block = await createStudyBlock(db, space, {
-      title: "Revise graphs",
-      examId: exam,
-      date: "2026-12-05",
-      startTime: "14:00",
-      endTime: "16:00",
-    });
-    expect((await listStudyBlocks(db, { examId: exam })).map((b) => b.entity.id)).toEqual([block]);
-    const days = await agenda(db, "2026-12-01", "2026-12-31");
-    expect(days.map((i) => [i.date, i.kind, i.title])).toEqual([
-      ["2026-12-05", "study_block", "Revise graphs"],
-      ["2026-12-10", "exam", "Final"],
+    const { id, statements } = createEntityStatements(db, space, "study_block", "Revise graphs");
+    await db.driver.batch([
+      ...statements,
+      {
+        sql: "INSERT INTO study_blocks (entity_id, date, start_time, end_time) VALUES (?, ?, ?, ?)",
+        params: [id, "2026-12-05", "14:00", "16:00"],
+      },
     ]);
-    await updateStudyBlock(db, block, { date: "2026-12-06", startTime: "15:00" });
-    expect((await listStudyBlocks(db))[0]).toMatchObject({
-      date: "2026-12-06",
-      startTime: "15:00",
-      endTime: "16:00",
+    const days = await agenda(db, "2026-12-01", "2026-12-31");
+    expect(days.map((i) => [i.date, i.kind, i.title])).toEqual([["2026-12-10", "exam", "Final"]]);
+    expect(await first(db, "SELECT date FROM study_blocks WHERE entity_id = ?", id)).toEqual({
+      date: "2026-12-05",
     });
-    await expect(updateStudyBlock(db, block, { endTime: "14:00" })).rejects.toThrow(
-      "has to end after",
-    );
-    await expect(
-      createStudyBlock(db, space, {
-        title: "x",
-        examId: "nope",
-        date: "2026-12-05",
-        startTime: "14:00",
-        endTime: "16:00",
-      }),
-    ).rejects.toThrow("Pick an exam");
   });
 });

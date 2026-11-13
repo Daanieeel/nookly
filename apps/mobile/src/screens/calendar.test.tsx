@@ -5,7 +5,6 @@ import {
   createExam,
   createOneOffSession,
   createSpace,
-  createStudyBlock,
   listSpaces,
   updateExam,
 } from "@nookly/shared/data";
@@ -43,18 +42,11 @@ async function planned() {
   });
   const exam = await createExam(data.db, space, "Final", course);
   await updateExam(data.db, exam, { examDate: addDays(today, 1), examTime: "09:00" });
-  await createStudyBlock(data.db, space, {
-    title: "Revise graphs",
-    examId: exam,
-    date: today,
-    startTime: "14:00",
-    endTime: "16:00",
-  });
   return { data, today };
 }
 
 describe("the calendar", () => {
-  it("shows an agenda of sessions, entries, exams and study blocks with what each is", async () => {
+  it("shows an agenda of sessions, entries and exams with what each is", async () => {
     const { data } = await planned();
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
     await fireEvent.press(await screen.findByRole("radio", { name: "Agenda" }));
@@ -63,9 +55,6 @@ describe("the calendar", () => {
     ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Lecture 1, Session, 11:00 to 12:30, Room 5" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Revise graphs, Study block, 14:00 to 16:00" }),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Final, Exam, 09:00" })).toBeTruthy();
   });
@@ -96,7 +85,7 @@ describe("the calendar", () => {
     const { data, today } = await planned();
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
     await fireEvent.press(await screen.findByRole("radio", { name: "Month" }));
-    const cell = await screen.findByRole("button", { name: "Today, 3 items" });
+    const cell = await screen.findByRole("button", { name: "Today, 2 items" });
     expect(cell).toBeTruthy();
     expect(await screen.findByRole("button", { name: /^Dentist/ })).toBeTruthy();
     const tomorrow = screen.getByRole("button", { name: /^Tomorrow, 1 item$/ });
@@ -316,7 +305,7 @@ describe("the calendar on a phone", () => {
     });
     await fireEvent.press(await screen.findByRole("radio", { name: "Week" }));
     const blocks = await screen.findAllByRole("button", { name: /, \d\d:\d\d( to \d\d:\d\d)?$/ });
-    expect(blocks.length).toBeGreaterThanOrEqual(5);
+    expect(blocks.length).toBeGreaterThanOrEqual(4);
     const column = (390 - 40) / 7;
     for (const block of blocks) {
       const style = ReactNative.StyleSheet.flatten(block.props.style);

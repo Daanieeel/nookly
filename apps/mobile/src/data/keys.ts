@@ -25,9 +25,6 @@ export const keys = {
     ["local", "sessions", spaceId, courseId] as const,
   sessionPage: (id: string, kind: string) => ["local", "session-page", id, kind] as const,
   session: (id: string) => ["local", "session", id] as const,
-  studyBlocks: (spaceId: string | null, examId: string | null) =>
-    ["local", "study-blocks", spaceId, examId] as const,
-  studyBlock: (id: string) => ["local", "study-block", id] as const,
   grades: (spaceId: string) => ["local", "grades", spaceId] as const,
   recipes: (spaceId: string | null) => ["local", "recipes", spaceId] as const,
   recipe: (id: string) => ["local", "recipe", id] as const,

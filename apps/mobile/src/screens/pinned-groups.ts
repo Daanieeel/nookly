@@ -54,7 +54,6 @@ const TYPE_LABELS = new Map([
   ["calendar_entry", "Calendar entry"],
   ["calendar_entry_template", "Calendar series"],
   ["exam", "Exam"],
-  ["study_block", "Study block"],
   ["index_card_deck", "Deck"],
   ["assignment", "Assignment"],
   ["file", "File"],

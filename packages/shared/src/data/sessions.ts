@@ -3,8 +3,7 @@ import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } f
 import { createPage } from "./notes.ts";
 import { FIELD, markOverride, validateDate, validateTimes } from "./series.ts";
 
-/// Sessions of a course and study blocks for an exam, as the desktop keeps them
-/// (`db/sessions.rs`, `db/study_blocks.rs`). Whole series are made and edited on the
+/// Sessions of a course, as the desktop keeps them (`db/sessions.rs`). Whole series are made and edited on the
 /// desktop; the rows they produce sync here, and one occurrence can be changed alone.
 
 export interface SessionRecord {
@@ -197,103 +196,6 @@ export async function overrideSession(db: LocalDb, id: string, patch: SessionPat
         mask,
         id,
       ],
-    },
-    { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
-  ]);
-}
-
-export interface StudyBlockRecord {
-  entity: EntityRecord;
-  date: string;
-  startTime: string;
-  endTime: string;
-  examId: string | null;
-}
-
-const BLOCK_SELECT = `SELECT ${ENTITY_COLUMNS}, b.date, b.start_time, b.end_time, r.to_entity_id AS exam_id
-  FROM entities e JOIN study_blocks b ON b.entity_id = e.id
-  LEFT JOIN relationships r ON r.from_entity_id = e.id AND r.relationship_type = 'study-block-exam'`;
-
-const toBlock = (r: Record<string, string | number | null>): StudyBlockRecord => ({
-  entity: toEntity(r),
-  date: str(r.date),
-  startTime: str(r.start_time),
-  endTime: str(r.end_time),
-  examId: optStr(r.exam_id),
-});
-
-export async function listStudyBlocks(
-  db: LocalDb,
-  query: { spaceId?: string; examId?: string } = {},
-): Promise<StudyBlockRecord[]> {
-  const where = ["e.deleted_at IS NULL", "e.hidden_at IS NULL"];
-  const params: string[] = [];
-  if (query.spaceId) {
-    where.push("e.space_id = ?");
-    params.push(query.spaceId);
-  }
-  if (query.examId) {
-    where.push("r.to_entity_id = ?");
-    params.push(query.examId);
-  }
-  return (
-    await rows(
-      db,
-      `${BLOCK_SELECT} WHERE ${where.join(" AND ")} ORDER BY b.date, b.start_time`,
-      ...params,
-    )
-  ).map(toBlock);
-}
-
-export async function getStudyBlock(db: LocalDb, id: string): Promise<StudyBlockRecord | null> {
-  const row = await first(db, `${BLOCK_SELECT} WHERE e.id = ?`, id);
-  return row ? toBlock(row) : null;
-}
-
-/// `create_study_block`: time set aside to prepare for an exam.
-export async function createStudyBlock(
-  db: LocalDb,
-  spaceId: string,
-  input: { title: string; examId: string; date: string; startTime: string; endTime: string },
-): Promise<string> {
-  validateDate("The date", input.date);
-  validateTimes("A study block", false, input.startTime, input.endTime);
-  if (!(await first(db, "SELECT 1 AS yes FROM exams WHERE entity_id = ?", input.examId))) {
-    throw new Error("Pick an exam for the study block.");
-  }
-  const { id, statements } = createEntityStatements(db, spaceId, "study_block", input.title);
-  await write(db, [
-    ...statements,
-    {
-      sql: "INSERT INTO study_blocks (entity_id, date, start_time, end_time) VALUES (?, ?, ?, ?)",
-      params: [id, input.date, input.startTime, input.endTime],
-    },
-    {
-      sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, 'study-block-exam', ?)",
-      params: [db.newId(), id, input.examId, iso(db)],
-    },
-  ]);
-  return id;
-}
-
-export async function updateStudyBlock(
-  db: LocalDb,
-  id: string,
-  patch: { date?: string; startTime?: string; endTime?: string },
-): Promise<void> {
-  const current = await getStudyBlock(db, id);
-  if (!current) throw new Error("This study block isn't here anymore.");
-  const next = {
-    date: patch.date ?? current.date,
-    startTime: patch.startTime ?? current.startTime,
-    endTime: patch.endTime ?? current.endTime,
-  };
-  validateDate("The date", next.date);
-  validateTimes("A study block", false, next.startTime, next.endTime);
-  await write(db, [
-    {
-      sql: "UPDATE study_blocks SET date = ?, start_time = ?, end_time = ? WHERE entity_id = ?",
-      params: [next.date, next.startTime, next.endTime, id],
     },
     { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
   ]);

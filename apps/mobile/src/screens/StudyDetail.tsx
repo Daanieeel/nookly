@@ -71,7 +71,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel, localDay } from "./dates.ts";
 import { AssignmentRows, ExamRows } from "./StudyLists.tsx";
-import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
+import { CourseSemesterPicker } from "./PlannerScreens.tsx";
 import { CourseProperty } from "./StudyPickers.tsx";
 import { PageEditor } from "./PageEditor.tsx";
 import { courseStats, inDays } from "./course-stats.ts";
@@ -279,7 +279,6 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
       <MainPart>
         <PageEditor entityId={id} readOnly={readOnly} live={false} />
         <ExamDecks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
-        <ExamStudyBlocks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
       </MainPart>
       <DetailsPart>{properties}</DetailsPart>
     </>

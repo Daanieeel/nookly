@@ -8,7 +8,7 @@ import { BookmarkDetail } from "./BookmarkDetail.tsx";
 import { CalendarEntryDetail } from "./CalendarEntryDetail.tsx";
 import { FileDetail } from "./FileScreens.tsx";
 import { PageEditor } from "./PageEditor.tsx";
-import { SemesterDetail, SessionDetail, StudyBlockDetail } from "./PlannerScreens.tsx";
+import { SemesterDetail, SessionDetail } from "./PlannerScreens.tsx";
 import { RecipeDetail } from "./RecipeScreens.tsx";
 import { DeckDetail } from "./DeckPage.tsx";
 import { AssignmentDetail, CourseDetail, ExamDetail } from "./StudyDetail.tsx";
@@ -42,8 +42,6 @@ export function ItemParts({ entity, readOnly }: { entity: EntityRecord; readOnly
       return <FileDetail id={id} />;
     case "session":
       return <SessionDetail id={id} readOnly={readOnly} />;
-    case "study_block":
-      return <StudyBlockDetail id={id} readOnly={readOnly} />;
     case "semester":
       return <SemesterDetail id={id} readOnly={readOnly} />;
     case "recipe":

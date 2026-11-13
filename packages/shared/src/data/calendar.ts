@@ -9,11 +9,10 @@ import {
   validateTimes,
 } from "./series.ts";
 
-/// Something on the calendar: a Session (of a Course), a Calendar entry, an Exam or a
-/// Study block.
+/// Something on the calendar: a Session (of a Course), a Calendar entry or an Exam.
 export interface AgendaItem {
   id: string;
-  kind: "session" | "calendar_entry" | "exam" | "study_block";
+  kind: "session" | "calendar_entry" | "exam";
   spaceId: string;
   title: string;
   date: string;
@@ -25,7 +24,7 @@ export interface AgendaItem {
   description: string | null;
 }
 
-/// Every Space's Sessions, Calendar entries, Exams and Study blocks from `from` to `to` (inclusive, ISO
+/// Every Space's Sessions, Calendar entries and Exams from `from` to `to` (inclusive, ISO
 /// days), cancelled ones left out, by day and time.
 export async function agenda(db: LocalDb, from: string, to: string): Promise<AgendaItem[]> {
   const found = await rows(
@@ -41,17 +40,11 @@ export async function agenda(db: LocalDb, from: string, to: string): Promise<Age
      SELECT e.id, 'exam', e.space_id, e.title, x.exam_date, NULL, x.exam_time, NULL, x.exam_time IS NULL, x.room, NULL
        FROM exams x JOIN entities e ON e.id = x.entity_id
        WHERE e.deleted_at IS NULL AND e.hidden_at IS NULL AND x.exam_date BETWEEN ? AND ?
-     UNION ALL
-     SELECT e.id, 'study_block', e.space_id, e.title, b.date, NULL, b.start_time, b.end_time, 0, NULL, NULL
-       FROM study_blocks b JOIN entities e ON e.id = b.entity_id
-       WHERE e.deleted_at IS NULL AND e.hidden_at IS NULL AND b.date BETWEEN ? AND ?
      ORDER BY date, all_day DESC, start_time`,
     from,
     to,
     to,
     from,
-    from,
-    to,
     from,
     to,
   );
@@ -71,7 +64,7 @@ export async function agenda(db: LocalDb, from: string, to: string): Promise<Age
 }
 
 function agendaKind(kind: string): AgendaItem["kind"] {
-  return kind === "session" || kind === "exam" || kind === "study_block" ? kind : "calendar_entry";
+  return kind === "session" || kind === "exam" ? kind : "calendar_entry";
 }
 
 export interface CalendarEntryInput {

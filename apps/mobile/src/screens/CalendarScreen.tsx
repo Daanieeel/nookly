@@ -62,7 +62,6 @@ const KIND_LABELS = {
   session: "Session",
   calendar_entry: null,
   exam: "Exam",
-  study_block: "Study block",
 } as const;
 
 export function AgendaRow({ item, color }: { item: AgendaItem; color?: string }) {
@@ -224,7 +223,7 @@ function MonthView({
   );
 }
 
-/// Every Space's Sessions, Calendar entries, Exams and Study blocks in their Space's
+/// Every Space's Sessions, Calendar entries and Exams in their Space's
 /// color: an agenda, or the hours of a day, three days, a week; on an iPad the desktop's
 /// day, work week, week and month.
 ///

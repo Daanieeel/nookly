@@ -29,7 +29,6 @@ import {
   listAllLabels,
   getSemester,
   getSession,
-  getStudyBlock,
   gradeReport,
   getRecipe,
   getTask,
@@ -43,7 +42,6 @@ import {
   listSemesters,
   listSessions,
   listSteps,
-  listStudyBlocks,
   listSpaces,
   listStatuses,
   listSubtasks,
@@ -333,19 +331,6 @@ export const useSessions = (query: { spaceId?: string; courseId?: string } = {})
 export const useSession = (id: string) => {
   const db = useDb();
   return useQuery({ queryKey: keys.session(id), queryFn: () => getSession(db, id) });
-};
-
-export const useStudyBlocks = (query: { spaceId?: string; examId?: string } = {}) => {
-  const db = useDb();
-  return useQuery({
-    queryKey: keys.studyBlocks(query.spaceId ?? null, query.examId ?? null),
-    queryFn: () => listStudyBlocks(db, query),
-  });
-};
-
-export const useStudyBlock = (id: string) => {
-  const db = useDb();
-  return useQuery({ queryKey: keys.studyBlock(id), queryFn: () => getStudyBlock(db, id) });
 };
 
 export const useGradeReport = (spaceId: string) => {

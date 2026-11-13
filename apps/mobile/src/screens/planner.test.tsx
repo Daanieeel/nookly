@@ -1,15 +1,14 @@
 import {
   createCourse,
+  createEntityStatements,
   createExam,
   createOneOffSession,
   createSemester,
   sessionPage,
   createSpace,
-  createStudyBlock,
   courseSemester,
   getSemester,
   getSession,
-  listStudyBlocks,
   setCourseSemester,
 } from "@nookly/shared/data";
 import { router } from "expo-router";
@@ -82,27 +81,27 @@ describe("a session", () => {
   });
 });
 
-describe("an exam's study blocks", () => {
-  it("lists the blocks of the exam, newest first by day", async () => {
+describe("an exam's page", () => {
+  // Study blocks are gone from Nookly; an old one stays in the database, unseen.
+  it("has no study blocks", async () => {
     const { data, space, course } = await seeded();
     const exam = await createExam(data.db, space, "Final", course);
-    await createStudyBlock(data.db, space, {
-      title: "Revise graphs",
-      examId: exam,
-      date: "2026-12-05",
-      startTime: "14:00",
-      endTime: "16:00",
-    });
+    const { id, statements } = createEntityStatements(data.db, space, "study_block", "Revise");
+    await data.db.driver.batch([
+      ...statements,
+      {
+        sql: "INSERT INTO study_blocks (entity_id, date, start_time, end_time) VALUES (?, ?, ?, ?)",
+        params: [id, "2026-12-05", "14:00", "16:00"],
+      },
+    ]);
     const screen = await renderScreens(
       { "entity/[id]": () => <EntityScreen id={exam} /> },
       data,
       `/entity/${exam}`,
     );
-    expect(
-      await screen.findByRole("button", { name: /^Revise graphs, .*14:00 to 16:00$/ }),
-    ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "New Study Block" })).toBeTruthy();
-    expect(await listStudyBlocks(data.db, { examId: exam })).toHaveLength(1);
+    expect((await screen.findAllByRole("button", { name: /^Status/ })).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(/Study block/i)).toEqual([]);
+    expect(screen.queryByRole("button", { name: "New Study Block" })).toBeNull();
   });
 });
 
