@@ -18,6 +18,8 @@ export const FADE = { in: 160, out: 120 } as const;
 
 /// How much a pressed control shrinks.
 export const PRESS_SCALE = 0.97;
+/// How much a checkbox shrinks: small things give way more, as Reminders' circle does.
+export const CHECK_PRESS_SCALE = 0.85;
 
 /// How far a swipe down must carry a sheet, or how fast, before it goes away.
 export const DISMISS_DISTANCE = 120;

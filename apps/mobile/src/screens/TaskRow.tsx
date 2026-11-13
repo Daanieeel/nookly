@@ -21,6 +21,10 @@ import { useSetting } from "../data/settings.ts";
 import { dueText } from "./dashboard-model.ts";
 import { SwipeRow } from "../ui/SwipeRow.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { haptic } from "../ui/haptics.ts";
+import { CHECK_PRESS_SCALE } from "../ui/motion.ts";
+import { AnimatedPressable, usePressScale } from "../ui/press.ts";
+import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
 import { dayLabel, localDay } from "./dates.ts";
 
 /// A task's status as its circle, the way the desktop draws it.
@@ -43,6 +47,44 @@ export function StatusIcon({
   if (status.doneness > 0)
     return <IconCircleHalf2 size={size} color={color} accessibilityLabel={label} />;
   return <IconCircle size={size} color={color} accessibilityLabel={label} />;
+}
+
+/// A task's circle as Reminders' checkbox: a tap finishes it (or opens it again), the
+/// circle giving way under the finger and a tap felt as it lands.
+function StatusToggle({
+  title,
+  finished,
+  status,
+  onToggle,
+}: {
+  title: string;
+  finished: boolean;
+  status: TaskStatus | undefined;
+  onToggle: () => void;
+}) {
+  const press = usePressScale(CHECK_PRESS_SCALE);
+  return (
+    <AnimatedPressable
+      accessibilityRole="checkbox"
+      accessibilityLabel={title}
+      accessibilityState={{ checked: finished }}
+      accessibilityHint={finished ? "Opens it again" : "Marks it done"}
+      hitSlop={touchSlop(CONTROL_SIZE.check)}
+      unstable_pressDelay={0}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      onPress={() => {
+        haptic(finished ? "tap" : "complete");
+        onToggle();
+      }}
+      style={press.style}
+    >
+      {/* The checkbox says what it does; the status's own name would read twice. */}
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <StatusIcon status={status} />
+      </View>
+    </AnimatedPressable>
+  );
 }
 
 /// When a task is due, said once: how late it is or "Today" and "Tomorrow" while it is
@@ -120,7 +162,12 @@ export function TaskRow({
           )}
         >
           <View className="flex-row items-center gap-3">
-            <StatusIcon status={status} />
+            <StatusToggle
+              title={task.entity.title || "Untitled"}
+              finished={finished}
+              status={status}
+              onToggle={() => setStatus.mutate(finished ? "todo" : "done")}
+            />
             <Text numberOfLines={1} className="flex-1">
               {task.entity.title || "Untitled"}
             </Text>

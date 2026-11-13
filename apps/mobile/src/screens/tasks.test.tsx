@@ -10,6 +10,7 @@ import {
   relatedItems,
   setTaskDates,
   setTaskStatus,
+  getTask,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
@@ -146,5 +147,14 @@ describe("saved views", () => {
     await fireEvent.press(await screen.findByRole("tab", { name: "Overdue board" }));
     expect(await screen.findByText(/also uses due/)).toBeTruthy();
     expect(await screen.findByLabelText("Backlog column")).toBeTruthy();
+  });
+});
+
+describe("a task's circle", () => {
+  it("finishes the task with a tap, and opens it again with another, as Reminders does", async () => {
+    const { data, space, late } = await seeded();
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Overdue report" }));
+    await waitFor(async () => expect((await getTask(data.db, late))?.statusId).toBe("done"));
   });
 });
