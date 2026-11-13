@@ -91,7 +91,7 @@ describe("the details of an item on a phone", () => {
   it("do not repeat on the page: its links are only in the details", async () => {
     const screen = await renderItem();
     // Once, in the details behind the page.
-    expect(await screen.findAllByText("Related", behind)).toHaveLength(1);
+    expect(await screen.findAllByLabelText("Related", behind)).toHaveLength(1);
   });
 
   it("slide the whole page aside, its bar too, rounded like the sidebar's page", async () => {

@@ -229,9 +229,9 @@ describe("an item's links", () => {
       `/entity/${task}`,
     );
     expect(await screen.findByRole("button", { name: /^Review, Blocks · / })).toBeTruthy();
-    expect(screen.getByText("Attachments")).toBeTruthy();
+    expect(screen.getByLabelText("Attachments")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^spec.pdf, Attached file · / })).toBeTruthy();
-    expect(await screen.findByText("Mentioned in")).toBeTruthy();
+    expect(await screen.findByLabelText("Mentioned in")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Plan, / })).toBeTruthy();
   });
 

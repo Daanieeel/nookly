@@ -19,7 +19,7 @@ describe("the details pane", () => {
     const screen = await renderScreens({ index: () => <Inspector id={task} /> }, data);
     expect(await screen.findByText("Details")).toBeTruthy();
     expect(await screen.findByText("Labels")).toBeTruthy();
-    expect(await screen.findByText("Related")).toBeTruthy();
+    expect(await screen.findByLabelText("Related")).toBeTruthy();
     expect(await screen.findByText("Send report")).toBeTruthy();
   });
 
@@ -27,7 +27,7 @@ describe("the details pane", () => {
     const { data, task } = await setup();
     const alone = await renderScreens({ index: () => <EntityScreen id={task} /> }, data);
     // In the details behind the page, which hide them from screen readers while closed.
-    expect(await alone.findByText("Related", { includeHiddenElements: true })).toBeTruthy();
+    expect(await alone.findByLabelText("Related", { includeHiddenElements: true })).toBeTruthy();
     alone.unmount();
     const beside = await renderScreens(
       {

@@ -1,12 +1,21 @@
-import { LIST_ROW_CLASSES, SECTION_HEADING_CLASSES } from "@nookly/frontend/classes";
+import { LIST_ROW_CLASSES } from "@nookly/frontend/classes";
 import { SEPARATOR_CLASSES } from "@nookly/ui/classes";
 import { Pressable, View } from "react-native";
-import { cn, row, withState } from "./classes.ts";
-import { Text } from "./Text.tsx";
+import { withState } from "./classes.ts";
+import { Label } from "./kit/Label.tsx";
+import { useSemantic } from "./kit/scheme.ts";
+import { SPACE } from "./tokens.ts";
 import { LIST_ROW } from "./touch.ts";
 
-/// A list row, the desktop's (`LIST_ROW_CLASSES`): an icon, a title with an optional
-/// line below, and something trailing. Taller with a second line, so it stays easy to hit.
+/// The line under a list row, the desktop's (`LIST_ROW_CLASSES`), for rows of other
+/// content in a `Section`.
+export const ROW_DIVIDER = LIST_ROW_CLASSES.split(" ")
+  .filter((name) => name.startsWith("border-"))
+  .join(" ");
+
+/// A list row as iOS's plain lists draw it, with the desktop's content (`LIST_ROW_CLASSES`):
+/// an icon, a title with an optional line below, and something trailing. At least a finger
+/// tall; it darkens the moment a finger lands.
 export function Row({
   title,
   subtitle,
@@ -28,6 +37,8 @@ export function Row({
   muted?: boolean;
   accessibilityHint?: string;
 }) {
+  const pressed = useSemantic("pressed");
+  const touchable = Boolean(onPress || onLongPress);
   return (
     <Pressable
       accessibilityRole={onPress ? "button" : undefined}
@@ -35,22 +46,26 @@ export function Row({
       accessibilityHint={accessibilityHint}
       onPress={onPress}
       onLongPress={onLongPress}
-      style={LIST_ROW}
-      className={cn(
-        row(LIST_ROW_CLASSES),
-        "gap-3 rounded-md px-2 active:bg-accent/40",
-        "h-auto",
-        subtitle && "py-2",
-        muted && "opacity-50",
-      )}
+      unstable_pressDelay={0}
+      className={ROW_DIVIDER}
+      style={({ pressed: down }) => ({
+        minHeight: subtitle ? 58 : LIST_ROW.minHeight,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACE.md,
+        paddingHorizontal: SPACE.xs,
+        paddingVertical: SPACE.sm,
+        backgroundColor: down && touchable ? pressed : undefined,
+        opacity: muted ? 0.5 : 1,
+      })}
     >
       {icon}
-      <View className="flex-1 gap-0.5">
-        <Text numberOfLines={1}>{title}</Text>
+      <View style={{ flex: 1, gap: 1 }}>
+        <Label numberOfLines={1}>{title}</Label>
         {subtitle ? (
-          <Text variant="small" tone="muted" numberOfLines={1}>
+          <Label type="subheadline" color="secondaryLabel" numberOfLines={1}>
             {subtitle}
-          </Text>
+          </Label>
         ) : null}
       </View>
       {trailing}
@@ -58,15 +73,9 @@ export function Row({
   );
 }
 
-/// The line under a list row, the desktop's (`LIST_ROW_CLASSES`), for rows of other
-/// content in a `Section`.
-export const ROW_DIVIDER = LIST_ROW_CLASSES.split(" ")
-  .filter((name) => name.startsWith("border-"))
-  .join(" ");
-
-/// Rows under a small heading (`SECTION_HEADING_CLASSES`), flat on the page with a thin
-/// line between them, the way the desktop lists settings and items. No card: on the desktop
-/// a box is for things that are boxes by nature, not for every list.
+/// Rows under a small heading, flat on the page with a thin line between them, the way iOS
+/// draws a plain list and the desktop lists items. No card: on the desktop a box is for
+/// things that are boxes by nature, not for every list (settings use `GroupedSection`).
 export function Section({
   title,
   children,
@@ -77,13 +86,27 @@ export function Section({
   action?: React.ReactNode;
 }) {
   return (
-    <View className="gap-1">
+    <View>
       {title || action ? (
-        <View className="min-h-8 flex-row items-center px-1">
+        <View
+          style={{
+            minHeight: 32,
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: SPACE.xs,
+          }}
+        >
           {title ? (
-            <Text accessibilityRole="header" className={cn(SECTION_HEADING_CLASSES, "flex-1 pb-0")}>
-              {title}
-            </Text>
+            <Label
+              type="footnote"
+              color="secondaryLabel"
+              weight="500"
+              accessibilityRole="header"
+              accessibilityLabel={title}
+              style={{ flex: 1 }}
+            >
+              {title.toUpperCase()}
+            </Label>
           ) : null}
           {action}
         </View>
@@ -100,8 +123,8 @@ export function Separator() {
 
 export function Empty({ text }: { text: string }) {
   return (
-    <View className="px-1 py-3">
-      <Text tone="muted">{text}</Text>
+    <View style={{ paddingHorizontal: SPACE.xs, paddingVertical: SPACE.md }}>
+      <Label color="secondaryLabel">{text}</Label>
     </View>
   );
 }

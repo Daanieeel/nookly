@@ -26,6 +26,8 @@ import { Button, statusOf } from "../../ui/Button.tsx";
 import { Field } from "../../ui/Field.tsx";
 import { Section } from "../../ui/Row.tsx";
 import { Screen } from "../../ui/Screen.tsx";
+import { Label } from "../../ui/kit/Label.tsx";
+import { SPACE } from "../../ui/tokens.ts";
 import { useMenu } from "../../ui/menu.tsx";
 import { Text } from "../../ui/Text.tsx";
 import { useTheme } from "../../ui/theme.ts";
@@ -88,7 +90,7 @@ function FirstSyncLine() {
   const files = migration.files > 0 ? ` and ${plural(migration.files, "file", "files")}` : "";
   const text =
     migration.phase === "done"
-      ? `All ${plural(migration.items, "item", "items")}${files} are in your account, checked with the server.`
+      ? `All ${plural(migration.items, "item", "items")}${files} from this phone reached your account, checked with the server.`
       : migration.phase === "failed"
         ? (migration.error ?? "The first sync stopped.")
         : `Bringing this phone into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
@@ -559,9 +561,13 @@ function SignedInOnly({ what, children }: { what: string; children: React.ReactN
 
 function Description({ children }: { children: string }) {
   return (
-    <Text variant="small" tone="muted" className="px-1 pb-2">
+    <Label
+      type="footnote"
+      color="secondaryLabel"
+      style={{ paddingHorizontal: SPACE.xs, paddingBottom: SPACE.sm }}
+    >
       {children}
-    </Text>
+    </Label>
   );
 }
 
@@ -569,7 +575,7 @@ function Description({ children }: { children: string }) {
 export function AccountPage() {
   const signedIn = useSyncState((s) => s.user !== null);
   return (
-    <Screen>
+    <Screen grouped>
       <Section title="Account">{signedIn ? <SignedInCard /> : <SignedOutCard />}</Section>
       <Section title="Devices">
         <Description>

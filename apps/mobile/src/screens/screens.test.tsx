@@ -95,7 +95,7 @@ describe("search", () => {
     await createTask(data.db, space, "Buy milk");
     await markOpened(data.db, id);
     const screen = await renderScreens({ index: () => <SearchScreen /> }, data);
-    expect(await screen.findByText("Recents")).toBeTruthy();
+    expect(await screen.findByLabelText("Recents")).toBeTruthy();
     expect(await screen.findByText("Renew passport")).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText("Search"), "milk");
     expect(await screen.findByText("Buy milk")).toBeTruthy();

@@ -1,47 +1,59 @@
 import type { Icon as TablerIcon } from "@tabler/icons-react-native";
 import type { ReactNode } from "react";
 import { View } from "react-native";
-import { cn } from "../../ui/classes.ts";
-import { Text } from "../../ui/Text.tsx";
-import { useTheme } from "../../ui/theme.ts";
+import { IconBadge } from "../../ui/kit/IconBadge.tsx";
+import { Label } from "../../ui/kit/Label.tsx";
+import { useScheme, useSemantic } from "../../ui/kit/scheme.ts";
+import { BADGE, CORNER, RADIUS, SPACE, TINT, type TintName } from "../../ui/tokens.ts";
 
 /// The desktop's settings cards (Account, Backup, Connections), for the phone: each says
-/// what it is about, how it is doing, and what can be done about it. The desktop puts the
-/// actions at the head's right; on a phone they get a row of their own under it.
+/// what it is about, how it is doing, and what can be done about it. Drawn as a surface of
+/// an iOS grouped page; the desktop puts the actions at the head's right, on a phone they
+/// get a row of their own under it.
 
 export type CardTone = "ok" | "idle" | "busy" | "caution" | "error";
 
-const BADGE = {
-  ok: "bg-primary/10",
-  idle: "bg-muted",
-  busy: "bg-muted",
-  caution: "bg-caution/10",
-  error: "bg-destructive/10",
-} satisfies Record<CardTone, string>;
+const TONE_TINT = {
+  ok: "blue",
+  idle: "gray",
+  busy: "gray",
+  caution: "yellow",
+  error: "red",
+} as const satisfies Record<CardTone, TintName>;
 
-export const DETAIL_TONE = {
-  ok: "positive",
-  idle: "muted",
-  busy: "muted",
-  caution: "caution",
-  error: "destructive",
-} as const satisfies Record<CardTone, string>;
+/// The colour of a card's line under its title: green when all is well.
+const DETAIL_TINT = {
+  ok: "green",
+  idle: null,
+  busy: null,
+  caution: "yellow",
+  error: "red",
+} as const satisfies Record<CardTone, TintName | null>;
 
-/// The frame every card shares: a border that turns red when something is wrong.
+/// The surface every card shares, with a red edge when something is wrong.
 export function SettingsCard({ tone, children }: { tone?: CardTone; children: ReactNode }) {
+  const surface = useSemantic("surface");
+  const scheme = useScheme();
   return (
     <View
-      className={cn(
-        "gap-3 rounded-lg border bg-card p-4",
-        tone === "error" ? "border-destructive/50" : "border-border",
-      )}
+      style={[
+        CORNER,
+        {
+          gap: SPACE.md,
+          padding: SPACE.lg,
+          borderRadius: RADIUS.section,
+          backgroundColor: surface,
+          borderWidth: tone === "error" ? 1 : 0,
+          borderColor: TINT.red[scheme],
+        },
+      ]}
     >
       {children}
     </View>
   );
 }
 
-/// A card's head: a round badge with its icon in the tone's colour, a title, a line under it.
+/// A card's head: its icon in a badge tinted by how it is doing, a title, a line under it.
 export function CardHead({
   icon: Icon,
   tone,
@@ -56,30 +68,34 @@ export function CardHead({
   /// Beside the title ("This device").
   badge?: ReactNode;
 }) {
-  const theme = useTheme();
-  const color = {
-    ok: theme.colors.primary,
-    idle: theme.colors.mutedForeground,
-    busy: theme.colors.mutedForeground,
-    caution: theme.colors.caution,
-    error: theme.colors.destructive,
-  }[tone];
+  const scheme = useScheme();
+  const color = TINT[TONE_TINT[tone]][scheme];
+  const detailTint = DETAIL_TINT[tone];
   return (
-    <View className="flex-row items-center gap-3">
-      <View className={cn("size-9 items-center justify-center rounded-full", BADGE[tone])}>
-        <Icon size={18} color={color} />
-      </View>
-      <View className="min-w-0 flex-1 gap-0.5">
-        <View className="flex-row flex-wrap items-center gap-2">
-          <Text className="font-medium" numberOfLines={1}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.md }}>
+      <IconBadge
+        tint={TONE_TINT[tone]}
+        size={BADGE.size + 8}
+        icon={<Icon size={20} color={color} />}
+      />
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <View
+          style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACE.sm }}
+        >
+          <Label weight="600" numberOfLines={1}>
             {title}
-          </Text>
+          </Label>
           {badge}
         </View>
         {detail ? (
-          <Text variant="small" tone={DETAIL_TONE[tone]} accessibilityLiveRegion="polite">
+          <Label
+            type="subheadline"
+            color="secondaryLabel"
+            tint={detailTint ? TINT[detailTint][scheme] : undefined}
+            accessibilityLiveRegion="polite"
+          >
             {detail}
-          </Text>
+          </Label>
         ) : null}
       </View>
     </View>
@@ -88,12 +104,28 @@ export function CardHead({
 
 /// A card's actions, in a row under its head.
 export function CardActions({ children }: { children: ReactNode }) {
-  return <View className="flex-row flex-wrap items-center gap-2">{children}</View>;
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACE.sm }}>
+      {children}
+    </View>
+  );
 }
 
-/// A quiet line under a divider at the bottom of a card.
+/// A quiet line under a hairline at the bottom of a card.
 export function CardFoot({ children }: { children: ReactNode }) {
+  const separator = useSemantic("separator");
   return (
-    <View className="flex-row items-center gap-2 border-t border-border/60 pt-3">{children}</View>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACE.sm,
+        borderTopWidth: 0.5,
+        borderTopColor: separator,
+        paddingTop: SPACE.md,
+      }}
+    >
+      {children}
+    </View>
   );
 }

@@ -8,6 +8,6 @@ describe("Settings, Keyboard Shortcuts", () => {
     expect(screen.getByLabelText("Search shortcut").props.children).toBe("⌘K");
     expect(screen.getByLabelText("Commands shortcut").props.children).toBe("⇧⌘P");
     expect(screen.getByLabelText("New Tab shortcut").props.children).toBe("⌘T");
-    expect(screen.getByText("Tabs")).toBeTruthy();
+    expect(screen.getByLabelText("Tabs")).toBeTruthy();
   });
 });

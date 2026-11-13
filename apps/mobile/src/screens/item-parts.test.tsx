@@ -40,7 +40,7 @@ describe("an item's page and its details", () => {
     const space = await createSpace(data.db, "Work", "#3b82f6");
     const id = await createTask(data.db, space, "Report");
     const page = await show(id, "main", data);
-    expect(await page.findByText("Sub-tasks")).toBeTruthy();
+    expect(await page.findByLabelText("Sub-tasks")).toBeTruthy();
     expect(page.queryByRole("button", { name: /^Status/ })).toBeNull();
     expect(page.queryByRole("button", { name: /^Due date/ })).toBeNull();
     page.unmount();
@@ -58,7 +58,7 @@ describe("an item's page and its details", () => {
     await fireEvent.press(await screen.findByRole("button", { name: /^Status, / }));
     expect(await screen.findByRole("radio", { name: /Done/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Due date, / })).toBeTruthy();
-    expect(screen.getByText("Sub-tasks")).toBeTruthy();
+    expect(screen.getByLabelText("Sub-tasks")).toBeTruthy();
   });
 
   it("shows an assignment's and an exam's properties at a glance, not the fields typed in place", async () => {
@@ -113,8 +113,8 @@ describe("an item's page and its details", () => {
     await createExam(data.db, space, "Midterm", course);
     await createAssignment(data.db, space, "Sheet 1", course);
     const page = await show(course, "main", data);
-    expect(await page.findByText("Exams")).toBeTruthy();
-    expect(page.getByText("Assignments")).toBeTruthy();
+    expect(await page.findByLabelText("Exams")).toBeTruthy();
+    expect(page.getByLabelText("Assignments")).toBeTruthy();
     expect(page.queryByLabelText("Professor")).toBeNull();
     page.unmount();
     const details = await show(course, "details", data);
