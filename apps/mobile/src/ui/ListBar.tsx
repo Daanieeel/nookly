@@ -14,6 +14,7 @@ import { type Option, OptionList } from "./sheet/OptionList.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
+import { UiIcon } from "./kit/UiIcon.tsx";
 
 /// The field above a page's list that narrows it as you type: "Filter notes".
 export function FilterField({
@@ -29,7 +30,7 @@ export function FilterField({
   const { box, text } = splitText(row(INPUT_CLASSES));
   return (
     <View className={cn(box, "gap-2")}>
-      <IconSearch size={16} color={theme.colors.mutedForeground} />
+      <UiIcon icon={IconSearch} size={16} color={theme.colors.mutedForeground} />
       <TextInput
         accessibilityLabel={label}
         value={value}
@@ -84,14 +85,14 @@ export function ListHeader({
         label="Filter"
         variant="secondary"
         size="sm"
-        icon={<IconFilter size={16} color={theme.colors.foreground} />}
+        icon={<UiIcon icon={IconFilter} size={16} color={theme.colors.foreground} />}
         onPress={() => toggle("filter")}
       />
       <Button
         label="Display"
         variant="secondary"
         size="sm"
-        icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
+        icon={<UiIcon icon={IconAdjustmentsHorizontal} size={16} color={theme.colors.foreground} />}
         onPress={() => toggle("display")}
       />
     </View>
@@ -135,7 +136,7 @@ export function SortButton<Id extends string>({
         accessibilityLabel={`Sort, ${current}`}
         variant="secondary"
         size="sm"
-        icon={<IconArrowsSort size={16} color={theme.colors.foreground} />}
+        icon={<UiIcon icon={IconArrowsSort} size={16} color={theme.colors.foreground} />}
         onPress={() => setOpen(true)}
       />
       <Sheet open={open} onOpenChange={setOpen} title="Sort">

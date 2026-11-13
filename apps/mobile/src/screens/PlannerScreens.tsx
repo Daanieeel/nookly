@@ -63,6 +63,7 @@ import { CoursePicker } from "./StudyPickers.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { addDays, dayLabel, localDay } from "./dates.ts";
 import { PageEditor } from "./PageEditor.tsx";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// Sessions, study blocks, semesters and grades: what a student plans and is graded on.
 
@@ -88,7 +89,7 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
   const properties = (
     <PropertyList>
       <DayProperty
-        icon={<IconCalendarEvent size={20} color={muted} />}
+        icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
         label="Day"
         clearable={false}
         value={session.date}
@@ -96,7 +97,7 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
         onChange={(date) => date && patch.mutate({ date })}
       />
       <DayProperty
-        icon={<IconClock size={20} color={muted} />}
+        icon={<UiIcon icon={IconClock} size={20} color={muted} />}
         label="Starts"
         mode="time"
         clearable={false}
@@ -105,7 +106,7 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
         onChange={(startTime) => startTime && patch.mutate({ startTime })}
       />
       <DayProperty
-        icon={<IconClock size={20} color={muted} />}
+        icon={<UiIcon icon={IconClock} size={20} color={muted} />}
         label="Ends"
         mode="time"
         clearable={false}
@@ -114,7 +115,7 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
         onChange={(endTime) => endTime && patch.mutate({ endTime })}
       />
       <TextRow
-        icon={<IconMapPin size={20} color={muted} />}
+        icon={<UiIcon icon={IconMapPin} size={20} color={muted} />}
         label="Where"
         value={session.location}
         readOnly={readOnly}
@@ -287,7 +288,7 @@ export function ExamStudyBlocks({
         readOnly ? undefined : (
           <IconButton
             label="New Study Block"
-            icon={<IconPlus size={18} color={theme.colors.mutedForeground} />}
+            icon={<UiIcon icon={IconPlus} size={18} color={theme.colors.mutedForeground} />}
             onPress={() => router.push(`/new/study-block?spaceId=${spaceId}&examId=${examId}`)}
           />
         )
@@ -339,7 +340,7 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
       <DetailsPart>
         <PropertyList>
           <DayProperty
-            icon={<IconCalendarEvent size={20} color={muted} />}
+            icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
             label="Day"
             clearable={false}
             value={block.date}
@@ -347,7 +348,7 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
             onChange={(date) => date && patch.mutate({ date })}
           />
           <DayProperty
-            icon={<IconClock size={20} color={muted} />}
+            icon={<UiIcon icon={IconClock} size={20} color={muted} />}
             label="Starts"
             mode="time"
             clearable={false}
@@ -356,7 +357,7 @@ export function StudyBlockDetail({ id, readOnly }: { id: string; readOnly: boole
             onChange={(startTime) => startTime && patch.mutate({ startTime })}
           />
           <DayProperty
-            icon={<IconClock size={20} color={muted} />}
+            icon={<UiIcon icon={IconClock} size={20} color={muted} />}
             label="Ends"
             mode="time"
             clearable={false}
@@ -478,7 +479,7 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
       <DetailsPart>
         <PropertyList>
           <DayProperty
-            icon={<IconCalendarEvent size={20} color={muted} />}
+            icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
             label="Starts"
             clearable={false}
             value={semester.startDate}
@@ -486,7 +487,7 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
             onChange={(startDate) => startDate && update.mutate({ startDate })}
           />
           <DayProperty
-            icon={<IconCalendarEvent size={20} color={muted} />}
+            icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
             label="Ends"
             clearable={false}
             value={semester.endDate}
@@ -552,7 +553,7 @@ export function CourseSemesterPicker({
   if (semesters.length === 0) return null;
   return (
     <ChoiceProperty
-      icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
+      icon={<UiIcon icon={IconCalendarEvent} size={20} color={theme.colors.mutedForeground} />}
       label="Semester"
       value={current ?? "none"}
       readOnly={readOnly}
@@ -714,7 +715,7 @@ function AddCourse({
       <Button
         label="Add Course"
         variant="secondary"
-        icon={<IconPlus size={16} color={theme.colors.foreground} />}
+        icon={<UiIcon icon={IconPlus} size={16} color={theme.colors.foreground} />}
         onPress={() => setOpen(true)}
       />
       <Sheet open={open} onOpenChange={setOpen} title="Add Course">

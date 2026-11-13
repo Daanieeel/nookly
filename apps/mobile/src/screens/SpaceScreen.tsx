@@ -9,6 +9,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { barButton } from "../ui/bar.ts";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// What the phone can start in a Space; a module joins the Space with its first item.
 const PHONE_MODULES: ModuleKey[] = [
@@ -74,7 +75,7 @@ export function SpaceScreen({ spaceId }: { spaceId: string }) {
           <Row
             title="Import a Nookly File"
             subtitle="A page, task, deck or assignment saved on a computer"
-            icon={<IconFileImport size={18} color={theme.colors.mutedForeground} />}
+            icon={<UiIcon icon={IconFileImport} size={18} color={theme.colors.mutedForeground} />}
             onPress={() => router.push(`/new/import?spaceId=${spaceId}`)}
           />
         </Section>

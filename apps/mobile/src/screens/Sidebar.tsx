@@ -52,6 +52,7 @@ import { cn, row, splitText, withState } from "../ui/classes.ts";
 import { useTheme } from "../ui/theme.ts";
 import { DEFAULT_TOP, type TopId, topSchema, visibleTop } from "./sidebar-top.ts";
 import { usePreference } from "../data/preferences.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// The top rows' icons: SF Symbols close to the desktop's, its Tabler icons where SF Symbols
 /// are not (D51).
@@ -188,7 +189,7 @@ function TasksRow({
               indent={1}
               label={view.entity.title || "Untitled"}
               accessibilityLabel={`${view.entity.title || "Untitled"}, saved view`}
-              icon={<IconChecklist size={16} color={theme.colors.mutedForeground} />}
+              icon={<UiIcon icon={IconChecklist} size={16} color={theme.colors.mutedForeground} />}
               onPress={() => go(`/tasks?view=${view.entity.id}`)}
             />
           ))
@@ -327,7 +328,7 @@ function SpaceModules({
         <IconButton
           label={`${space.name} Menu`}
           size="iconSm"
-          icon={<IconDots size={16} color={muted} />}
+          icon={<UiIcon icon={IconDots} size={16} color={muted} />}
           onPress={() =>
             menu.show(space.name, [
               {
@@ -348,7 +349,7 @@ function SpaceModules({
         <NavRow
           label="Start something"
           accessibilityLabel={`Start something in ${space.name}`}
-          icon={<IconPlus size={20} color={muted} />}
+          icon={<UiIcon icon={IconPlus} size={20} color={muted} />}
           onPress={() => go(`/space/${space.id}`)}
         />
       ) : null}
@@ -412,7 +413,7 @@ function SpaceSwitcher({
       {overflow.length > 0 ? (
         <IconButton
           label="More Spaces"
-          icon={<IconDots size={20} color={theme.colors.mutedForeground} />}
+          icon={<UiIcon icon={IconDots} size={20} color={theme.colors.mutedForeground} />}
           onPress={() =>
             menu.show(
               "Spaces",
@@ -510,7 +511,7 @@ export function Sidebar({ close }: { close: () => void }) {
       <View className="flex-row items-center border-t border-sidebar-border px-1 pt-1">
         <IconButton
           label="New"
-          icon={<IconPlus size={20} color={muted} />}
+          icon={<UiIcon icon={IconPlus} size={20} color={muted} />}
           onPress={() =>
             menu.show(undefined, [
               { label: "New Space", icon: IconFolderPlus, onPress: () => push("/new/space") },
@@ -532,12 +533,12 @@ export function Sidebar({ close }: { close: () => void }) {
         <View className="mx-1 h-4 w-px bg-sidebar-border" />
         <IconButton
           label="Trash"
-          icon={<IconTrash size={20} color={muted} />}
+          icon={<UiIcon icon={IconTrash} size={20} color={muted} />}
           onPress={() => go("/trash")}
         />
         <IconButton
           label="Settings"
-          icon={<IconSettings size={20} color={muted} />}
+          icon={<UiIcon icon={IconSettings} size={20} color={muted} />}
           onPress={() => push("/settings")}
         />
       </View>

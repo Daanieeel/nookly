@@ -27,6 +27,7 @@ import { useSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const range = (s: SemesterRecord) =>
   s.startDate && s.endDate ? `${dayLabel(s.startDate)} to ${dayLabel(s.endDate)}` : null;
@@ -91,7 +92,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
           className="flex-1 flex-row items-center gap-2 py-2"
         >
           <Chevron size={16} color={muted} />
-          <IconCalendarStats size={16} color={muted} />
+          <UiIcon icon={IconCalendarStats} size={16} color={muted} />
           <View className="flex-1 gap-0.5">
             <View className="flex-row flex-wrap items-center gap-2">
               <Text variant="small" tone="muted">
@@ -109,7 +110,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
         </Pressable>
         <IconButton
           label={`Options for ${name}`}
-          icon={<IconDots size={20} color={muted} />}
+          icon={<UiIcon icon={IconDots} size={20} color={muted} />}
           onPress={() =>
             present.show(name, [
               semester.isCurrent
@@ -155,7 +156,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
               onLongPress={() => entityMenu(c.entity)}
               className="min-h-11 flex-row items-center gap-3 px-4 active:bg-accent/40"
             >
-              <IconSchool size={16} color={muted} />
+              <UiIcon icon={IconSchool} size={16} color={muted} />
               <Text numberOfLines={1} className="flex-1">
                 {c.entity.title || "Untitled"}
               </Text>

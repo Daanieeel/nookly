@@ -44,6 +44,7 @@ import { ListGroup } from "../ui/ListMotion.tsx";
 import { PageEditor } from "./PageEditor.tsx";
 import { TaskRow } from "./TaskRow.tsx";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const REPEATS: { label: string; rule: RepeatRule | null }[] = [
   { label: "Never", rule: null },
@@ -82,7 +83,7 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
       </ListGroup>
       {!readOnly ? (
         <View className="min-h-12 flex-row items-center gap-2 px-4">
-          <IconPlus size={18} color={theme.colors.mutedForeground} />
+          <UiIcon icon={IconPlus} size={18} color={theme.colors.mutedForeground} />
           <TextInput
             accessibilityLabel="New sub-task"
             value={title}
@@ -141,7 +142,7 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(statusId) => status.mutate(statusId)}
       />
       <ChoiceProperty
-        icon={<IconGauge size={20} color={muted} />}
+        icon={<UiIcon icon={IconGauge} size={20} color={muted} />}
         label="Effort"
         searchPlaceholder="Set effort…"
         value={task.effort === null ? "none" : String(task.effort)}
@@ -166,14 +167,20 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}
       />
       <DayProperty
-        icon={<IconCalendarPlus size={20} color={muted} />}
+        icon={<UiIcon icon={IconCalendarPlus} size={20} color={muted} />}
         label="Start date"
         value={task.startDate}
         readOnly={readOnly}
         onChange={(day) => start.mutate(day)}
       />
       <DayProperty
-        icon={<IconCalendarDue size={20} color={late ? theme.colors.destructive : muted} />}
+        icon={
+          <UiIcon
+            icon={IconCalendarDue}
+            size={20}
+            color={late ? theme.colors.destructive : muted}
+          />
+        }
         label="Due date"
         value={task.dueDate}
         valueTone={late ? "destructive" : undefined}
@@ -185,7 +192,7 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         onChange={(day) => dates.mutate(day)}
       />
       <ChoiceProperty
-        icon={<IconRepeat size={20} color={muted} />}
+        icon={<UiIcon icon={IconRepeat} size={20} color={muted} />}
         label="Repeat"
         value={repeatId}
         readOnly={readOnly}
@@ -243,13 +250,13 @@ export function TaskStepper({ id, spaceId }: { id: string; spaceId: string }) {
       <IconButton
         label="Previous Task"
         size="iconSm"
-        icon={<IconChevronUp size={16} color={theme.colors.mutedForeground} />}
+        icon={<UiIcon icon={IconChevronUp} size={16} color={theme.colors.mutedForeground} />}
         onPress={() => index > 0 && go(index - 1)}
       />
       <IconButton
         label="Next Task"
         size="iconSm"
-        icon={<IconChevronDown size={16} color={theme.colors.mutedForeground} />}
+        icon={<UiIcon icon={IconChevronDown} size={16} color={theme.colors.mutedForeground} />}
         onPress={() => index < order.length - 1 && go(index + 1)}
       />
     </View>

@@ -51,6 +51,7 @@ import { useTheme } from "../ui/theme.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { useQuery } from "@tanstack/react-query";
 import { useSpaces } from "../data/queries.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const KIND_LABELS = ["Breakfast", "Lunch", "Dinner", "Snack", "Dessert", "Other"];
 
@@ -68,7 +69,7 @@ export function RecipeRows({ spaceId }: { spaceId: string }) {
   if (recipes.length === 0) {
     return (
       <View className="items-center gap-2 p-8">
-        <IconToolsKitchen2 size={28} color={theme.colors.mutedForeground} />
+        <UiIcon icon={IconToolsKitchen2} size={28} color={theme.colors.mutedForeground} />
         <Text tone="muted" className="text-center">
           No recipes yet. Add a recipe to start tracking its ingredients and steps.
         </Text>
@@ -109,7 +110,7 @@ function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
         {banner && shown ? (
           <Image source={{ uri: banner }} resizeMode="cover" className="size-full" />
         ) : (
-          <IconToolsKitchen2 size={30} color={theme.colors.mutedForeground} />
+          <UiIcon icon={IconToolsKitchen2} size={30} color={theme.colors.mutedForeground} />
         )}
       </View>
       <View className="gap-2 p-3">
@@ -125,7 +126,7 @@ function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
           <Badge label={kind} size="sm" />
           {time ? (
             <View className="flex-row items-center gap-1">
-              <IconClock size={12} color={theme.colors.mutedForeground} />
+              <UiIcon icon={IconClock} size={12} color={theme.colors.mutedForeground} />
               <Text variant="small" tone="muted">
                 {time}
               </Text>
@@ -219,17 +220,17 @@ function Part({
         <View className="flex-row items-center justify-end gap-1">
           <IconButton
             label="Move Up"
-            icon={<IconChevronUp size={18} color={theme.colors.foreground} />}
+            icon={<UiIcon icon={IconChevronUp} size={18} color={theme.colors.foreground} />}
             onPress={() => index > 0 && onMove(index - 1)}
           />
           <IconButton
             label="Move Down"
-            icon={<IconChevronDown size={18} color={theme.colors.foreground} />}
+            icon={<UiIcon icon={IconChevronDown} size={18} color={theme.colors.foreground} />}
             onPress={() => index < count - 1 && onMove(index + 1)}
           />
           <IconButton
             label="Delete"
-            icon={<IconTrash size={18} color={theme.colors.destructive} />}
+            icon={<UiIcon icon={IconTrash} size={18} color={theme.colors.destructive} />}
             onPress={onDelete}
           />
         </View>

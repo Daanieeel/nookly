@@ -22,6 +22,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
 import { FIELD_HEIGHT } from "../ui/touch.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// Up to two decimals, so a 1.7 stays 1.7 and a 1.5333 becomes 1.53.
 export const formatGrade = (grade: number | null) =>
@@ -248,7 +249,7 @@ export function GradesScreen({ spaceId }: { spaceId: string }) {
       {report.semesters.map((group) => (
         <Band
           key={group.semester?.entity.id ?? "none"}
-          icon={<IconCalendarStats size={16} color={theme.colors.mutedForeground} />}
+          icon={<UiIcon icon={IconCalendarStats} size={16} color={theme.colors.mutedForeground} />}
           title={semesterName(group)}
           count={group.courses.length}
           badge={group.semester?.isCurrent ? "Current" : undefined}

@@ -6,6 +6,7 @@ import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
 import { TOUCH_ROW } from "../touch.ts";
 import { useSheet } from "./Sheet.tsx";
+import { UiIcon } from "../kit/UiIcon.tsx";
 
 /// A Tabler icon, drawn in the item's color.
 export type MenuIcon = ComponentType<{ size?: number; color?: string }>;
@@ -91,9 +92,11 @@ export function MenuList({ entries }: { entries: MenuEntry[] }) {
                 >
                   {item.label}
                 </Text>
-                {item.checked ? <IconCheck size={16} color={theme.colors.primary} /> : null}
+                {item.checked ? (
+                  <UiIcon icon={IconCheck} size={16} color={theme.colors.primary} />
+                ) : null}
                 {item.submenu || item.page ? (
-                  <IconChevronRight size={16} color={theme.colors.mutedForeground} />
+                  <UiIcon icon={IconChevronRight} size={16} color={theme.colors.mutedForeground} />
                 ) : null}
               </Pressable>
             );

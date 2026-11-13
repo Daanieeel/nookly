@@ -12,6 +12,7 @@ import { useTheme } from "../ui/theme.ts";
 import { COMMANDS, type PaletteCommand, filterCommands } from "./commands.ts";
 import { type Shortcut, SHORTCUTS, shortcutLabel } from "./shortcuts.ts";
 import { type PaletteMode, useShell } from "./store.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
 
@@ -83,7 +84,7 @@ export function CommandPalette({ onAction }: { onAction: (action: AppAction) => 
           style={{ width: Math.min(640, width - 48), maxHeight: height * 0.45 }}
         >
           <View className={cn(box, "h-12 items-center gap-2 rounded-none border-0 border-b px-4")}>
-            <IconSearch size={18} color={theme.colors.mutedForeground} />
+            <UiIcon icon={IconSearch} size={18} color={theme.colors.mutedForeground} />
             <TextInput
               autoFocus
               accessibilityLabel="Search everything"

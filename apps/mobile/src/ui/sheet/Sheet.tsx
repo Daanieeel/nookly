@@ -34,6 +34,7 @@ import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
 import { useSemantic } from "../kit/scheme.ts";
 import { CORNER, DEPTH, RADIUS } from "../tokens.ts";
+import { UiIcon } from "../kit/UiIcon.tsx";
 
 /// The app's one bottom sheet: every picker, menu, confirmation and create form on the
 /// phone opens in it, in place of the desktop's popovers, menus and dialogs. It comes up
@@ -327,7 +328,13 @@ function SheetFrame({
                         {pages.length > 0 ? (
                           <IconButton
                             label="Back"
-                            icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
+                            icon={
+                              <UiIcon
+                                icon={IconChevronLeft}
+                                size={20}
+                                color={theme.colors.foreground}
+                              />
+                            }
                             onPress={handle.back}
                           />
                         ) : null}

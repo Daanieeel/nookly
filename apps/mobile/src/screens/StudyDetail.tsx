@@ -73,6 +73,7 @@ import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
 import { CourseProperty } from "./StudyPickers.tsx";
 import { PageEditor } from "./PageEditor.tsx";
 import { courseStats, inDays } from "./course-stats.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// The fields of Courses, Exams, Assignments and Decks, as their detail pages show
 /// them on the desktop.
@@ -102,14 +103,14 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
     readOnly ? undefined : (
       <IconButton
         label={label}
-        icon={<IconPlus size={18} color={muted} />}
+        icon={<UiIcon icon={IconPlus} size={18} color={muted} />}
         onPress={() => router.push(`/new/${what}?spaceId=${spaceId}&courseId=${id}`)}
       />
     );
   const properties = (
     <PropertyList>
       <TextRow
-        icon={<IconUser size={20} color={muted} />}
+        icon={<UiIcon icon={IconUser} size={20} color={muted} />}
         label="Professor"
         value={course.professor}
         readOnly={readOnly}
@@ -117,7 +118,7 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
         onSave={(value) => professor.mutate(value)}
       />
       <TextRow
-        icon={<IconDoor size={20} color={muted} />}
+        icon={<UiIcon icon={IconDoor} size={20} color={muted} />}
         label="Room"
         value={course.room}
         readOnly={readOnly}
@@ -204,21 +205,21 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         onChange={(status) => update.mutate({ status })}
       />
       <CourseProperty
-        icon={<IconSchool size={20} color={muted} />}
+        icon={<UiIcon icon={IconSchool} size={20} color={muted} />}
         spaceId={exam.entity.spaceId}
         value={exam.courseId}
         readOnly={readOnly}
         onChange={(courseId) => course.mutate(courseId)}
       />
       <DayProperty
-        icon={<IconCalendarEvent size={20} color={muted} />}
+        icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
         label="Day"
         value={exam.examDate}
         readOnly={readOnly}
         onChange={(examDate) => update.mutate({ examDate })}
       />
       <DayProperty
-        icon={<IconClock size={20} color={muted} />}
+        icon={<UiIcon icon={IconClock} size={20} color={muted} />}
         label="Time"
         mode="time"
         placeholder="All day"
@@ -227,7 +228,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         onChange={(examTime) => update.mutate({ examTime })}
       />
       <TextRow
-        icon={<IconDoor size={20} color={muted} />}
+        icon={<UiIcon icon={IconDoor} size={20} color={muted} />}
         label="Room"
         value={exam.room}
         readOnly={readOnly}
@@ -235,7 +236,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         onSave={(room) => update.mutate({ room })}
       />
       <NumberRow
-        icon={<IconPercentage size={20} color={muted} />}
+        icon={<UiIcon icon={IconPercentage} size={20} color={muted} />}
         label="Weight (%)"
         value={weightPercent(exam.weight)}
         readOnly={readOnly}
@@ -243,7 +244,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
       />
       <NumberRow
-        icon={<IconAward size={20} color={muted} />}
+        icon={<UiIcon icon={IconAward} size={20} color={muted} />}
         label="Grade"
         value={exam.grade}
         readOnly={readOnly}
@@ -334,7 +335,7 @@ function AssignmentDueProperty({
   const value = assignment.dueDate ? shownValue("date", assignment.dueDate) : "None";
   return (
     <SheetProperty
-      icon={<IconCalendarDue size={20} color={theme.colors.mutedForeground} />}
+      icon={<UiIcon icon={IconCalendarDue} size={20} color={theme.colors.mutedForeground} />}
       label="Due date"
       value={value}
       readOnly={readOnly}
@@ -460,7 +461,7 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
         onChange={(status) => update.mutate({ status })}
       />
       <CourseProperty
-        icon={<IconSchool size={20} color={muted} />}
+        icon={<UiIcon icon={IconSchool} size={20} color={muted} />}
         spaceId={assignment.entity.spaceId}
         value={assignment.courseId}
         readOnly={readOnly}
@@ -468,7 +469,7 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
       />
       <AssignmentDueProperty assignment={assignment} readOnly={readOnly} />
       <NumberRow
-        icon={<IconPercentage size={20} color={muted} />}
+        icon={<UiIcon icon={IconPercentage} size={20} color={muted} />}
         label="Weight (%)"
         value={weightPercent(assignment.weight)}
         readOnly={readOnly}
@@ -476,7 +477,7 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
         onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
       />
       <NumberRow
-        icon={<IconAward size={20} color={muted} />}
+        icon={<UiIcon icon={IconAward} size={20} color={muted} />}
         label="Grade"
         value={assignment.grade}
         readOnly={readOnly}
@@ -647,7 +648,7 @@ function ExamDecks({
       })}
       {readOnly ? null : (
         <View className="min-h-12 flex-row items-center gap-2 px-4">
-          <IconPlus size={18} color={theme.colors.mutedForeground} />
+          <UiIcon icon={IconPlus} size={18} color={theme.colors.mutedForeground} />
           <TextInput
             accessibilityLabel="New deck"
             value={title}

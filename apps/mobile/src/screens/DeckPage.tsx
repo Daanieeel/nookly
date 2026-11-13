@@ -31,6 +31,7 @@ import { dayLabel } from "./dates.ts";
 import { CardFaceEditor } from "../editor/CardFaceEditor.tsx";
 import { sameFace } from "../editor/card-face.ts";
 import { ExamProperty } from "./StudyPickers.tsx";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// A half written card kept for its deck: each face's blocks.
 const blockSchema = z.object({
@@ -283,24 +284,24 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
   const properties = (
     <PropertyList>
       <ExamProperty
-        icon={<IconCalendarEvent size={20} color={muted} />}
+        icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
         spaceId={deck.entity.spaceId}
         value={deck.examId}
         readOnly={readOnly}
         onChange={(examId) => exam.mutate(examId)}
       />
       <InfoRow
-        icon={<IconCards size={20} color={muted} />}
+        icon={<UiIcon icon={IconCards} size={20} color={muted} />}
         label="Cards"
         value={String(deck.stats.total)}
       />
       <InfoRow
-        icon={<IconClock size={20} color={muted} />}
+        icon={<UiIcon icon={IconClock} size={20} color={muted} />}
         label="Next due"
         value={next ? dayLabel(next.slice(0, 10)) : "Nothing waiting"}
       />
       <InfoRow
-        icon={<IconStack2 size={20} color={muted} />}
+        icon={<UiIcon icon={IconStack2} size={20} color={muted} />}
         label="Created"
         value={dayLabel(deck.entity.createdAt.slice(0, 10))}
       />

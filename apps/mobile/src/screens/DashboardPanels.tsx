@@ -34,6 +34,7 @@ import {
 } from "./dashboard-model.ts";
 import { DeckTile } from "./StudyGalleries.tsx";
 import { StatusIcon } from "./TaskRow.tsx";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// Rows a list panel shows before "Show more".
 const LIST_LIMIT = 4;
@@ -183,7 +184,7 @@ export function TasksPanel({
   const router = useRouter();
   return (
     <Panel
-      icon={<IconChecklist size={16} color={theme.colors.mutedForeground} />}
+      icon={<UiIcon icon={IconChecklist} size={16} color={theme.colors.mutedForeground} />}
       title="Tasks"
       tabs={TASK_TABS.map((t) => ({
         ...t,
@@ -250,7 +251,7 @@ export function AssignmentsPanel({
   const router = useRouter();
   return (
     <Panel
-      icon={<IconClipboardList size={16} color={theme.colors.mutedForeground} />}
+      icon={<UiIcon icon={IconClipboardList} size={16} color={theme.colors.mutedForeground} />}
       title="Assignments"
       tabs={ASSIGNMENT_TABS.map((t) => ({
         ...t,
@@ -316,7 +317,7 @@ export function DecksPanel({
   const shown = all ? ready : ready.slice(0, LIST_LIMIT);
   return (
     <Panel
-      icon={<IconCards size={16} color={theme.colors.mutedForeground} />}
+      icon={<UiIcon icon={IconCards} size={16} color={theme.colors.mutedForeground} />}
       title="Decks"
       tabs={[{ id: "today", label: "Learn today", count: ready.length }]}
     >
@@ -354,7 +355,7 @@ export function JotsPanel({ jots, spaces }: { jots: JotSummary[]; spaces: Spaces
   const router = useRouter();
   return (
     <Panel
-      icon={<IconFeather size={16} color={theme.colors.mutedForeground} />}
+      icon={<UiIcon icon={IconFeather} size={16} color={theme.colors.mutedForeground} />}
       title="Jots"
       tabs={[{ id: "refine", label: "To be refined", count: jots.length }]}
     >

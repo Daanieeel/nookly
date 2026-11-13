@@ -33,6 +33,7 @@ import { Text } from "../../ui/Text.tsx";
 import { useTheme } from "../../ui/theme.ts";
 import { ago } from "../dates.ts";
 import { CardActions, CardFoot, CardHead, type CardTone, SettingsCard } from "./cards.tsx";
+import { UiIcon } from "../../ui/kit/UiIcon.tsx";
 
 /// Settings, Account, as the desktop's cards: who is signed in and how sync is doing, every
 /// device, the changes to review, what is shared, then the password, deleting the account
@@ -538,7 +539,7 @@ function ServerLine() {
   if (!serverUrl) return null;
   return (
     <View className="flex-row items-center gap-2">
-      <IconServer size={14} color={theme.colors.mutedForeground} />
+      <UiIcon icon={IconServer} size={14} color={theme.colors.mutedForeground} />
       <Text variant="small" tone="muted" numberOfLines={1} className="flex-1">
         {serverUrl}
       </Text>

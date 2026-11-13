@@ -32,6 +32,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// Modules offered under Add Module: all of them but the passenger that comes with Courses.
 const ADDABLE = MODULE_KEYS.filter((key) => key !== "semesters");
@@ -177,7 +178,7 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
             <Text className="flex-1">Position</Text>
             <IconButton
               label="Move Space Up"
-              icon={<IconChevronUp size={18} color={theme.colors.foreground} />}
+              icon={<UiIcon icon={IconChevronUp} size={18} color={theme.colors.foreground} />}
               onPress={() =>
                 at > 0 &&
                 order.mutate(
@@ -191,7 +192,7 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
             />
             <IconButton
               label="Move Space Down"
-              icon={<IconChevronDown size={18} color={theme.colors.foreground} />}
+              icon={<UiIcon icon={IconChevronDown} size={18} color={theme.colors.foreground} />}
               onPress={() =>
                 at < spaces.length - 1 &&
                 order.mutate(
@@ -215,12 +216,12 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
                 <Text className="ml-2 flex-1">{MODULE_LABELS[key]}</Text>
                 <IconButton
                   label={`Move ${MODULE_LABELS[key]} Up`}
-                  icon={<IconChevronUp size={18} color={theme.colors.foreground} />}
+                  icon={<UiIcon icon={IconChevronUp} size={18} color={theme.colors.foreground} />}
                   onPress={() => index > 0 && reorder.mutate(move(shown, index, index - 1))}
                 />
                 <IconButton
                   label={`Move ${MODULE_LABELS[key]} Down`}
-                  icon={<IconChevronDown size={18} color={theme.colors.foreground} />}
+                  icon={<UiIcon icon={IconChevronDown} size={18} color={theme.colors.foreground} />}
                   onPress={() =>
                     index < shown.length - 1 && reorder.mutate(move(shown, index, index + 1))
                   }
@@ -228,7 +229,7 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
                 {removalGroup(key).length > 0 ? (
                   <IconButton
                     label={`Remove ${MODULE_LABELS[key]}`}
-                    icon={<IconTrash size={18} color={theme.colors.destructive} />}
+                    icon={<UiIcon icon={IconTrash} size={18} color={theme.colors.destructive} />}
                     onPress={() => askRemove(key)}
                   />
                 ) : null}
@@ -241,7 +242,7 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
             <Button
               label="Add Module"
               variant="secondary"
-              icon={<IconPlus size={16} color={theme.colors.foreground} />}
+              icon={<UiIcon icon={IconPlus} size={16} color={theme.colors.foreground} />}
               onPress={() =>
                 menu.show(
                   "Add Module",

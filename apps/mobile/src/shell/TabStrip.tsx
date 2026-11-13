@@ -9,6 +9,7 @@ import { type Tab, titleOfPath } from "./tabs.ts";
 import { useTabs } from "./tabs-store.ts";
 import { useTabCommands } from "./useTabCommands.ts";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// A page's name for its tab: the item's own title, or the page's.
 export function usePathTitle(path: string): string {
@@ -87,7 +88,7 @@ export function TabStrip() {
       <IconButton
         label="New Tab"
         size="iconSm"
-        icon={<IconPlus size={16} color={theme.colors.mutedForeground} />}
+        icon={<UiIcon icon={IconPlus} size={16} color={theme.colors.mutedForeground} />}
         onPress={commands.open}
       />
     </View>

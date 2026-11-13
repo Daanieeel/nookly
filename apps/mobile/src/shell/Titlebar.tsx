@@ -24,6 +24,7 @@ import { history } from "./history.ts";
 import { SHORTCUTS, shortcutLabel } from "./shortcuts.ts";
 import { useShell } from "./store.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "../ui/touch.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
 
@@ -69,9 +70,9 @@ export function Titlebar({
         label={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         icon={
           sidebarCollapsed ? (
-            <IconLayoutSidebarLeftExpand size={20} color={muted} />
+            <UiIcon icon={IconLayoutSidebarLeftExpand} size={20} color={muted} />
           ) : (
-            <IconLayoutSidebarLeftCollapse size={20} color={muted} />
+            <UiIcon icon={IconLayoutSidebarLeftCollapse} size={20} color={muted} />
           )
         }
         onPress={() => onAction("toggleSidebar")}
@@ -79,14 +80,14 @@ export function Titlebar({
       <View className={cn(!history.canGoBack() && "opacity-40")}>
         <IconButton
           label="Go Back"
-          icon={<IconChevronLeft size={20} color={muted} />}
+          icon={<UiIcon icon={IconChevronLeft} size={20} color={muted} />}
           onPress={() => onAction("back")}
         />
       </View>
       <View className={cn(!history.canGoForward() && "opacity-40")}>
         <IconButton
           label="Go Forward"
-          icon={<IconChevronRight size={20} color={muted} />}
+          icon={<UiIcon icon={IconChevronRight} size={20} color={muted} />}
           onPress={() => onAction("forward")}
         />
       </View>
@@ -99,7 +100,7 @@ export function Titlebar({
           hitSlop={touchSlop(CONTROL_SIZE.sm, MIN_TOUCH)}
           className="h-8 w-full max-w-md flex-row items-center gap-2 rounded-md border border-input bg-background px-3 active:bg-accent"
         >
-          <IconSearch size={16} color={muted} />
+          <UiIcon icon={IconSearch} size={16} color={muted} />
           <Text variant="small" tone="muted" className="flex-1">
             Search
           </Text>
@@ -119,7 +120,7 @@ export function Titlebar({
       />
       <IconButton
         label="Settings"
-        icon={<IconSettings size={20} color={muted} />}
+        icon={<UiIcon icon={IconSettings} size={20} color={muted} />}
         onPress={() => router.push("/settings")}
       />
     </View>

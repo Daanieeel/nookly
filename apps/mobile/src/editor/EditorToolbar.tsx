@@ -25,6 +25,7 @@ import { useTheme } from "../ui/theme.ts";
 import { TOOLBAR, type ToolbarId } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const ICONS = {
   bold: IconBold,
@@ -82,7 +83,7 @@ export function EditorToolbar() {
       <View className="justify-center border-l border-border px-1">
         <IconButton
           label="Hide Keyboard"
-          icon={<IconKeyboardHide size={20} color={theme.colors.foreground} />}
+          icon={<UiIcon icon={IconKeyboardHide} size={20} color={theme.colors.foreground} />}
           onPress={() => run("done")}
         />
       </View>

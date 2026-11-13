@@ -9,6 +9,7 @@ import { CORNER, RADIUS, SPACE, TINT, TINT_FILL, semanticHex, withAlpha } from "
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
 import { AnimatedPressable, usePressScale } from "./press.ts";
 import { haptic } from "./haptics.ts";
+import { UiIcon } from "./kit/UiIcon.tsx";
 
 export type ButtonStatus = "idle" | "pending" | "success" | "error";
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
@@ -166,9 +167,13 @@ export function Button({
       {status === "pending" ? (
         <ActivityIndicator size="small" color={look.text} />
       ) : status === "error" ? (
-        <IconAlertTriangle size={16} color={variant === "default" ? look.text : red} />
+        <UiIcon
+          icon={IconAlertTriangle}
+          size={16}
+          color={variant === "default" ? look.text : red}
+        />
       ) : showSuccess ? (
-        <IconCheck size={16} color={variant === "default" ? look.text : green} />
+        <UiIcon icon={IconCheck} size={16} color={variant === "default" ? look.text : green} />
       ) : (
         icon
       )}
