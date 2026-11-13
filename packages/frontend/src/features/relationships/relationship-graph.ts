@@ -12,7 +12,7 @@ export const GRAPH_RING_CAP = 50;
 /// invisible outside their Course or Semester page.
 const HIDDEN_TYPES = new Set(["course-note", "semester-notes"]);
 
-export interface GraphNode {
+interface GraphNode {
   id: string;
   /// 0 is the item itself, 1 its direct links, 2 the links of those.
   ring: 0 | 1 | 2;

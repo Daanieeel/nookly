@@ -750,7 +750,7 @@ function FileStateRow({ file }: { file: FileEntity }) {
 
 /// Picks the same file on this device. Only this device's path changes: the File, its
 /// labels and relationships stay, and so does the path it has on other devices.
-export function LocateFileButton({
+function LocateFileButton({
   file,
   variant = "ghost",
   className,

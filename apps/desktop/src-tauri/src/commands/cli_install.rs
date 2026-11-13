@@ -9,7 +9,6 @@
 
 use crate::error::{AppError, AppResult};
 use serde::Serialize;
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +29,7 @@ pub struct CliInstallStatus {
 #[cfg(unix)]
 mod unix_impl {
     use super::*;
+    use std::path::PathBuf;
 
     fn candidate_dirs() -> Vec<PathBuf> {
         let mut dirs = vec![
