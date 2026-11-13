@@ -1,6 +1,6 @@
 import { IconX } from "@tabler/icons-react-native";
 import { useEffect, useState } from "react";
-import { TextInput, View } from "react-native";
+import { TextInput, type TextInputProps, View } from "react-native";
 import { z } from "zod";
 import { Button } from "./Button.tsx";
 import { shownValue } from "./DateField.tsx";
@@ -11,6 +11,9 @@ import { type Option, OptionList } from "./sheet/OptionList.tsx";
 import { Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
 import { TimeInput } from "./TimeInput.tsx";
 import { LIST_ROW } from "./touch.ts";
+import { Label } from "./kit/Label.tsx";
+import { useSemanticPair } from "./kit/scheme.ts";
+import { FACE, SPACE, TYPE } from "./tokens.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 
@@ -196,6 +199,67 @@ export function DayProperty({
 
 /// A line of text edited in place: its value sits on the right of the row and saves when
 /// typing ends. Blank clears it.
+/// A property typed in place: its name and value in the same text as the rows that open a
+/// picker (`Property`), the value on the right.
+function InputRow({
+  icon,
+  label,
+  value,
+  readOnly,
+  placeholder,
+  keyboardType,
+  onChangeText,
+  onEndEditing,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  readOnly: boolean;
+  placeholder?: string;
+  keyboardType?: TextInputProps["keyboardType"];
+  onChangeText: (text: string) => void;
+  onEndEditing: () => void;
+}) {
+  // Solid greys: a text field draws a colour's transparency twice, which reads fainter
+  // than the values beside it.
+  const valueColor = useSemanticPair("secondaryLabelSolid").color;
+  const placeholderColor = useSemanticPair("tertiaryLabelSolid").color;
+  const { fontWeight, ...size } = TYPE.body;
+  return (
+    <View
+      style={[
+        LIST_ROW,
+        { flexDirection: "row", alignItems: "center", gap: SPACE.md, paddingHorizontal: SPACE.xs },
+      ]}
+    >
+      {icon}
+      <Label numberOfLines={1}>{label}</Label>
+      <TextInput
+        accessibilityLabel={label}
+        value={value}
+        editable={!readOnly}
+        placeholder={placeholder ?? "None"}
+        placeholderTextColor={placeholderColor}
+        keyboardType={keyboardType}
+        onChangeText={onChangeText}
+        onEndEditing={onEndEditing}
+        returnKeyType="done"
+        maxFontSizeMultiplier={2}
+        style={[
+          size,
+          {
+            flex: 1,
+            minHeight: LIST_ROW.minHeight,
+            textAlign: "right",
+            fontFamily: FACE[fontWeight],
+            color: valueColor,
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
 export function TextRow({
   icon,
   label,
@@ -211,31 +275,24 @@ export function TextRow({
   onSave: (value: string | null) => void;
   readOnly?: boolean;
 }) {
-  const theme = useTheme();
   const look = usePropertyLook();
   const [text, setText] = useState(value ?? "");
   useEffect(() => setText(value ?? ""), [value]);
   // Typed in place in the details; at a glance it shows what it holds, read only.
   if (look === "chip") return value ? <Property icon={icon} label={label} value={value} /> : null;
   return (
-    <View style={LIST_ROW} className="flex-row items-center gap-3 px-1">
-      {icon}
-      <Text numberOfLines={1}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        value={text}
-        editable={!readOnly}
-        placeholder={placeholder ?? "None"}
-        placeholderTextColor={theme.colors.mutedForeground}
-        onChangeText={setText}
-        onEndEditing={() => {
-          const next = text.trim() || null;
-          if (next !== value) onSave(next);
-        }}
-        returnKeyType="done"
-        className="h-12 flex-1 text-right font-sans text-sm text-muted-foreground"
-      />
-    </View>
+    <InputRow
+      icon={icon}
+      label={label}
+      value={text}
+      readOnly={readOnly}
+      placeholder={placeholder}
+      onChangeText={setText}
+      onEndEditing={() => {
+        const next = text.trim() || null;
+        if (next !== value) onSave(next);
+      }}
+    />
   );
 }
 
@@ -274,21 +331,16 @@ export function NumberRow({
   }
   return (
     <View>
-      <View style={LIST_ROW} className="flex-row items-center gap-3 px-1">
-        {icon}
-        <Text numberOfLines={1}>{label}</Text>
-        <TextInput
-          accessibilityLabel={label}
-          value={text}
-          editable={!readOnly}
-          placeholder={placeholder ?? "None"}
-          placeholderTextColor={theme.colors.mutedForeground}
-          keyboardType="decimal-pad"
-          onChangeText={setText}
-          onEndEditing={() => parsed.success && parsed.data !== value && onSave(parsed.data)}
-          className="h-12 flex-1 text-right font-sans text-sm text-muted-foreground"
-        />
-      </View>
+      <InputRow
+        icon={icon}
+        label={label}
+        value={text}
+        readOnly={readOnly}
+        placeholder={placeholder}
+        keyboardType="decimal-pad"
+        onChangeText={setText}
+        onEndEditing={() => parsed.success && parsed.data !== value && onSave(parsed.data)}
+      />
       {parsed.success ? null : (
         <View className="flex-row items-center gap-1 px-1 pb-2">
           <IconX size={12} color={theme.colors.destructive} />

@@ -7,6 +7,34 @@ import { useReadOnly } from "../screens/useReadOnly.ts";
 import { INSPECTOR_WIDTH } from "../ui/pane.tsx";
 import { PartProvider } from "../ui/parts.tsx";
 import { Text } from "../ui/Text.tsx";
+import { IconCalendarPlus, IconClock } from "@tabler/icons-react-native";
+import { dayLabel, localDay } from "../screens/dates.ts";
+import { UiIcon } from "../ui/kit/UiIcon.tsx";
+import { PropertyList } from "../ui/Property.tsx";
+import { InfoRow } from "../ui/property-rows.tsx";
+import { useTheme } from "../ui/theme.ts";
+
+/// The day of a stored moment, in the phone's own time zone.
+const dayOf = (iso: string) => dayLabel(localDay(new Date(iso)));
+
+/// When the item was made and last changed, the last of the desktop's properties.
+function Times({ createdAt, updatedAt }: { createdAt: string; updatedAt: string }) {
+  const muted = useTheme().colors.mutedForeground;
+  return (
+    <PropertyList>
+      <InfoRow
+        icon={<UiIcon icon={IconCalendarPlus} size={20} color={muted} />}
+        label="Created"
+        value={dayOf(createdAt)}
+      />
+      <InfoRow
+        icon={<UiIcon icon={IconClock} size={20} color={muted} />}
+        label="Updated"
+        value={dayOf(updatedAt)}
+      />
+    </PropertyList>
+  );
+}
 
 /// What the details hold, in the desktop's order: the item's own properties, its labels and
 /// everything it is tied to.
@@ -19,6 +47,7 @@ export function DetailsBody({ id }: { id: string }) {
     <>
       <PartProvider value="details">
         <ItemParts entity={entity} readOnly={readOnly || Boolean(entity.deletedAt)} />
+        <Times createdAt={entity.createdAt} updatedAt={entity.updatedAt} />
       </PartProvider>
       {/* A task lists its labels among its own properties, as the desktop does. */}
       {mine && entity.type !== "task" ? (

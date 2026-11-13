@@ -23,6 +23,13 @@ describe("the details pane", () => {
     expect(await screen.findByText("Send report")).toBeTruthy();
   });
 
+  it("says when the item was created and last changed, as the desktop does", async () => {
+    const { data, task } = await setup();
+    const screen = await renderScreens({ index: () => <Inspector id={task} /> }, data);
+    expect(await screen.findByLabelText("Created, Today")).toBeTruthy();
+    expect(screen.getByLabelText("Updated, Today")).toBeTruthy();
+  });
+
   it("takes labels and links off the page while it is beside it", async () => {
     const { data, task } = await setup();
     const alone = await renderScreens({ index: () => <EntityScreen id={task} /> }, data);
