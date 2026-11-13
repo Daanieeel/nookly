@@ -1,5 +1,21 @@
 # Implementation brief and state
 
+> ## ⛔ DO NOT STOP WORKING. UNDER NO CIRCUMSTANCES.
+>
+> **You keep working until every item in "Definition of done" is ticked and the final report is written. There is no other reason to end a turn.**
+>
+> None of these is a reason to stop. Each one has its own next step:
+>
+> - **A batch is finished.** Pick the next unticked item.
+> - **You want to report progress or summarise.** Write it in the progress log, commit, push and keep going.
+> - **A server, Metro, the hub or the simulator stopped** (for example at the 2 hour background limit). Restart it, or move to work that does not need it.
+> - **A side request from the user is done** (a bug fix, starting servers). Go straight back to this list.
+> - **Context is filling up.** It compacts on its own, and this file carries you over.
+> - **Something needs a real device, the user's eyes or a decision.** Decide yourself (record it in `DECISIONS.md`), or add it to "Needs the user", and move on.
+> - **The session has been long.** Length does not matter.
+>
+> Agents stopped on 2026-11-12 and on 2026-11-13 for exactly these reasons. Every time, that was wrong. Stop only when the user explicitly says to stop for now. Even then, the next instruction to continue means continuing until done.
+
 **This file is a ready to run prompt.** An autonomous coding agent is told "read `IMPLEMENTATION_STATE.md` and get to work", and then reads this file, `AGENTS.md` and `docs/00-index.md` and carries the whole list out from start to finish **without any human help**. The user reviews everything once, at the end. It is also the handover file: keep it current at all times (tick items, record findings, append to the progress log after every meaningful step) so a fresh session can resume after an interruption or a context reset.
 
 ## Situation
