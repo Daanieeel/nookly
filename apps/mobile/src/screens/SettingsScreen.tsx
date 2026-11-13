@@ -211,14 +211,14 @@ export function SettingsCategoryScreen({ page }: { page: string }) {
   const known = PAGES.find((p) => p.id === page);
   if (known?.id === "latex") {
     return (
-      <Screen>
+      <Screen grouped>
         <LatexPage />
       </Screen>
     );
   }
   if (known?.id === "backup") {
     return (
-      <Screen>
+      <Screen grouped>
         <BackupPage />
       </Screen>
     );

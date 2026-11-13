@@ -38,6 +38,7 @@ export function Row({
   accessibilityHint?: string;
 }) {
   const pressed = useSemantic("pressed");
+  const separator = useSemantic("separator");
   const touchable = Boolean(onPress || onLongPress);
   return (
     <Pressable
@@ -47,8 +48,9 @@ export function Row({
       onPress={onPress}
       onLongPress={onLongPress}
       unstable_pressDelay={0}
-      className={ROW_DIVIDER}
       style={({ pressed: down }) => ({
+        borderBottomWidth: 0.5,
+        borderBottomColor: separator,
         minHeight: subtitle ? 58 : LIST_ROW.minHeight,
         flexDirection: "row",
         alignItems: "center",

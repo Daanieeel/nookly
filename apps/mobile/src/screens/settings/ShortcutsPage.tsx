@@ -1,8 +1,9 @@
-import { View } from "react-native";
 import { SHORTCUTS, shortcutLabel } from "../../shell/shortcuts.ts";
-import { Row, Section } from "../../ui/Row.tsx";
+import { GroupedSection } from "../../ui/kit/GroupedSection.tsx";
+import { Label } from "../../ui/kit/Label.tsx";
+import { ListRow } from "../../ui/kit/ListRow.tsx";
 import { Screen } from "../../ui/Screen.tsx";
-import { Text } from "../../ui/Text.tsx";
+import { SPACE } from "../../ui/tokens.ts";
 
 const SECTIONS = ["Navigation", "Tabs", "Create"] as const;
 
@@ -10,26 +11,23 @@ const SECTIONS = ["Navigation", "Tabs", "Create"] as const;
 /// them when Command is held: the desktop's keys wherever the desktop has the same action.
 export function ShortcutsPage() {
   return (
-    <Screen>
-      <Text tone="muted">
+    <Screen grouped>
+      <Label type="footnote" color="secondaryLabel" style={{ paddingHorizontal: SPACE.lg }}>
         Hold Command on an iPad with a keyboard to see these anywhere in Nookly. They are the
         desktop's keys, for the same things.
-      </Text>
+      </Label>
       {SECTIONS.map((section) => (
-        <Section key={section} title={section}>
+        <GroupedSection key={section} title={section} margin={0}>
           {SHORTCUTS.filter((s) => s.section === section).map((shortcut) => (
-            <View key={shortcut.id}>
-              <Row
-                title={shortcut.title}
-                trailing={
-                  <Text tone="muted" accessibilityLabel={`${shortcut.title} shortcut`}>
-                    {shortcutLabel(shortcut)}
-                  </Text>
-                }
-              />
-            </View>
+            <ListRow
+              key={shortcut.id}
+              title={shortcut.title}
+              detail={shortcutLabel(shortcut)}
+              accessibilityRole="text"
+              accessibilityLabel={`${shortcut.title}, ${shortcutLabel(shortcut)}`}
+            />
           ))}
-        </Section>
+        </GroupedSection>
       ))}
     </Screen>
   );

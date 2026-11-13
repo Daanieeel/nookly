@@ -10,19 +10,30 @@ import { useState } from "react";
 import { View } from "react-native";
 import { phoneSettings, useSettingJson } from "../../data/settings.ts";
 import { Button, IconButton } from "../../ui/Button.tsx";
-import { Chip, ChipGroup } from "../../ui/Chips.tsx";
 import { Field } from "../../ui/Field.tsx";
-import { ROW_DIVIDER, Section } from "../../ui/Row.tsx";
+import { FormSection } from "../../ui/kit/Form.tsx";
+import { GroupedSection } from "../../ui/kit/GroupedSection.tsx";
+import { Label } from "../../ui/kit/Label.tsx";
+import { Segmented } from "../../ui/Segmented.tsx";
+import { GUTTER, SPACE } from "../../ui/tokens.ts";
 import { Text } from "../../ui/Text.tsx";
 import { useTheme } from "../../ui/theme.ts";
-import { cn } from "../../ui/classes.ts";
 import { SettingRow } from "./SettingRow.tsx";
 
 /// One macro of the list: its command, how many arguments it takes and what it stands for.
 function MacroRow({ entry, onRemove }: { entry: MacroEntry; onRemove: () => void }) {
   const theme = useTheme();
   return (
-    <View className={cn("flex-row items-center gap-3 p-3", ROW_DIVIDER)}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACE.md,
+        paddingLeft: GUTTER,
+        paddingRight: SPACE.sm,
+        paddingVertical: SPACE.sm,
+      }}
+    >
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-baseline gap-2">
           <Text className="font-mono font-medium">{entry.name}</Text>
@@ -80,63 +91,66 @@ export function LatexPage() {
   };
   return (
     <View className="gap-4">
-      <ChipGroup label="View">
-        <Chip label="List" selected={mode === "list"} onPress={() => setMode("list")} />
-        <Chip label="Raw" selected={mode === "raw"} onPress={() => setMode("raw")} />
-      </ChipGroup>
+      <Segmented
+        label="View"
+        value={mode}
+        options={[
+          { value: "list", label: "List" },
+          { value: "raw", label: "Raw" },
+        ]}
+        onChange={setMode}
+      />
       {mode === "raw" ? (
-        <Section>
+        <GroupedSection margin={0}>
           <SettingRow id="notes.latexMacros" />
-        </Section>
+        </GroupedSection>
       ) : (
         <>
-          <Text variant="small" tone="muted">
-            Your own LaTeX commands, for every math block and inline formula in every Space.
-          </Text>
-          <Section title="Macros">
+          <GroupedSection
+            title="Macros"
+            margin={0}
+            footer="Your own LaTeX commands, for every math block and inline formula in every Space."
+          >
             {entries.length === 0 ? (
-              <Text tone="muted" className="p-4">
+              <Label color="secondaryLabel" style={{ padding: GUTTER }}>
                 No macros yet.
-              </Text>
+              </Label>
             ) : null}
             {entries.map((entry) => (
-              <View key={entry.name}>
-                <MacroRow
-                  entry={entry}
-                  onRemove={() => save(entries.filter((e) => e.name !== entry.name))}
-                />
-              </View>
+              <MacroRow
+                key={entry.name}
+                entry={entry}
+                onRemove={() => save(entries.filter((e) => e.name !== entry.name))}
+              />
             ))}
-          </Section>
+          </GroupedSection>
           {parsed.errors.length > 0 ? (
             <Text variant="small" tone="destructive">
               {parsed.errors.map((e) => `Line ${e.line}: ${e.message}`).join("\n")}
             </Text>
           ) : null}
-          <Section title="Add macro">
-            <View className="gap-3 p-3">
-              <Field
-                label="Command"
-                placeholder="\abs"
-                value={name}
-                autoCapitalize="none"
-                autoCorrect={false}
-                onChangeText={setName}
-              />
-              <Field
-                label="Definition"
-                placeholder="\left|#1\right|"
-                value={body}
-                autoCapitalize="none"
-                autoCorrect={false}
-                onChangeText={setBody}
-                error={error}
-              />
-              <View className="items-start">
-                <Button label="Add Macro" variant="secondary" onPress={add} />
-              </View>
-            </View>
-          </Section>
+          <FormSection title="Add macro">
+            <Field
+              label="Command"
+              placeholder="\abs"
+              value={name}
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setName}
+            />
+            <Field
+              label="Definition"
+              placeholder="\left|#1\right|"
+              value={body}
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setBody}
+              error={error}
+            />
+          </FormSection>
+          <View style={{ alignItems: "flex-start" }}>
+            <Button label="Add Macro" variant="secondary" onPress={add} />
+          </View>
         </>
       )}
     </View>

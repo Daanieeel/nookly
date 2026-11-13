@@ -4,8 +4,10 @@ import { useState } from "react";
 import { View } from "react-native";
 import { useAppData } from "../../data/context.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { Section } from "../../ui/Row.tsx";
-import { Text } from "../../ui/Text.tsx";
+import { SectionHeader } from "../../ui/kit/GroupedSection.tsx";
+import { Label } from "../../ui/kit/Label.tsx";
+import { SPACE } from "../../ui/tokens.ts";
+import { CardActions, CardHead, type CardTone, SettingsCard } from "./cards.tsx";
 
 /// A copy of everything on this phone, checked after it is written, handed to the share
 /// sheet to keep in Files or send to the computer. Restoring is done by signing in: the
@@ -27,31 +29,33 @@ export function BackupPage() {
       setMessage(error instanceof Error ? error.message : "The backup failed.");
     }
   };
+  const tone: CardTone = state === "failed" ? "error" : state === "done" ? "ok" : "idle";
   return (
-    <View className="gap-4">
-      <Section title="Back up now">
-        <View className="gap-3 p-4">
-          <Text tone="muted">
-            One file with every Space, note, file record, deck and setting on this phone. The newest
-            three stay on the phone too.
-          </Text>
-          <View className="items-start">
-            <Button
-              label="Back Up Now"
-              icon={<IconDeviceFloppy size={16} />}
-              disabled={!backup || state === "working"}
-              onPress={() => void run()}
-            />
-          </View>
-          {state === "done" || state === "failed" ? (
-            <Text tone={state === "done" ? "positive" : "destructive"}>{message}</Text>
-          ) : null}
-        </View>
-      </Section>
-      <Text variant="small" tone="muted">
+    <View style={{ gap: SPACE.sm }}>
+      <SectionHeader title="Back up now" />
+      <SettingsCard tone={tone}>
+        <CardHead
+          icon={IconDeviceFloppy}
+          tone={tone}
+          title="A backup of this phone"
+          detail={
+            state === "done" || state === "failed"
+              ? message
+              : "One file with every Space, note, file record, deck and setting on this phone. The newest three stay on the phone too."
+          }
+        />
+        <CardActions>
+          <Button
+            label={state === "working" ? "Backing Up" : "Back Up Now"}
+            disabled={!backup || state === "working"}
+            onPress={() => void run()}
+          />
+        </CardActions>
+      </SettingsCard>
+      <Label type="footnote" color="secondaryLabel" style={{ paddingHorizontal: SPACE.lg }}>
         To restore, sign in on a new phone: your account brings everything back and never replaces
         what is already here.
-      </Text>
+      </Label>
     </View>
   );
 }
