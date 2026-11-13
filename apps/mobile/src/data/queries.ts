@@ -5,6 +5,7 @@ import {
   getAssignment,
   getCourse,
   getDeck,
+  reviewedToday,
   getExam,
   listAssignments,
   listCards,
@@ -202,6 +203,20 @@ export const useDecks = (spaceId: string | null) => {
 export const useDeck = (id: string) => {
   const db = useDb();
   return useQuery({ queryKey: keys.deck(id), queryFn: () => getDeck(db, id) });
+};
+
+/// How many of a deck's cards were rated since midnight here, kept under the deck's key so a
+/// rating refreshes it.
+export const useReviewedToday = (deckId: string) => {
+  const db = useDb();
+  return useQuery({
+    queryKey: [...keys.deck(deckId), "reviewed-today"],
+    queryFn: () => {
+      const midnight = new Date();
+      midnight.setHours(0, 0, 0, 0);
+      return reviewedToday(db, deckId, midnight);
+    },
+  });
 };
 
 export const useCards = (deckId: string) => {

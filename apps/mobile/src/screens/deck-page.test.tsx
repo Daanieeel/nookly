@@ -1,4 +1,4 @@
-import { createCard, createDeck, createSpace, listCards } from "@nookly/shared/data";
+import { createCard, createDeck, createSpace, listCards, reviewCard } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
@@ -23,6 +23,25 @@ describe("a deck's page", () => {
     expect(screen.getByRole("button", { name: "Study 1" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Quicksort average?, n log n" })).toBeTruthy();
     expect(screen.getByText("1 card waiting")).toBeTruthy();
+  });
+
+  it("says how many cards were rated today, as the desktop's deck does", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const deck = await createDeck(data.db, space, "Sorting");
+    await reviewCard(
+      data.db,
+      await createCard(data.db, deck, "Quicksort average?", "n log n"),
+      "good",
+    );
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={deck} /> },
+      data,
+      `/entity/${deck}`,
+    );
+    expect(
+      (await screen.findAllByLabelText("Rated today, 1", { includeHiddenElements: true })).length,
+    ).toBeGreaterThan(0);
   });
 
   it("writes a card on the large card: the front, flipped, then the back", async () => {

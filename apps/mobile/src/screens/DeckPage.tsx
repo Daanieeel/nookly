@@ -9,7 +9,8 @@ import {
   updateCardFaces,
 } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
-import { IconCalendarEvent, IconCards, IconClock, IconClockPlus } from "@tabler/icons-react-native";
+import { IconCalendarCheck, IconCards, IconClock } from "@tabler/icons-react-native";
+import { MODULE_ICONS } from "../ui/icons.tsx";
 import { useRouter } from "expo-router";
 
 import { useCallback, useRef, useState } from "react";
@@ -17,7 +18,7 @@ import { Pressable, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import { usePreference } from "../data/preferences.ts";
-import { useCards, useDeck } from "../data/queries.ts";
+import { useCards, useDeck, useReviewedToday } from "../data/queries.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
@@ -262,6 +263,7 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
   const router = useRouter();
   const { data: deck } = useDeck(id);
   const { data: cards = [] } = useCards(id);
+  const { data: rated = 0 } = useReviewedToday(id);
   const [mode, setMode] = useState<"overview" | "write">("overview");
   const [editing, setEditing] = useState<string | null>(null);
   const exam = useLocalWrite((db, examId: string | null) => setDeckExam(db, id, examId));
@@ -283,7 +285,7 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
   const properties = (
     <PropertyList>
       <ExamProperty
-        icon={<IconCalendarEvent size={20} color={muted} />}
+        icon={<MODULE_ICONS.exams size={20} color={muted} />}
         spaceId={deck.entity.spaceId}
         value={deck.examId}
         readOnly={readOnly}
@@ -295,14 +297,14 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         value={String(deck.stats.total)}
       />
       <InfoRow
+        icon={<IconCalendarCheck size={20} color={muted} />}
+        label="Rated today"
+        value={String(rated)}
+      />
+      <InfoRow
         icon={<IconClock size={20} color={muted} />}
         label="Next due"
         value={next ? dayLabel(next.slice(0, 10)) : "Nothing waiting"}
-      />
-      <InfoRow
-        icon={<IconClockPlus size={20} color={muted} />}
-        label="Created"
-        value={dayLabel(deck.entity.createdAt.slice(0, 10))}
       />
     </PropertyList>
   );

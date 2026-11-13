@@ -27,6 +27,7 @@ import {
   listCards,
   listExams,
   reviewCard,
+  reviewedToday,
   setCourseRoom,
   undoReview,
   setAssignmentCourse,
@@ -142,6 +143,24 @@ describe("decks", () => {
 
     await setDeckExam(db, deck, null);
     expect((await getDeck(db, deck))?.examId).toBeNull();
+  });
+});
+
+describe("cards rated today", () => {
+  it("counts a deck's reviews since the start of the day, as the desktop's deck shows", async () => {
+    const space = await createSpace(db, "Uni", "#3b82f6");
+    const deck = await createDeck(db, space, "Sorting");
+    const other = await createDeck(db, space, "Graphs");
+    const a = await createCard(db, deck, "Quicksort average?", "n log n");
+    const b = await createCard(db, deck, "Merge sort stable?", "Yes");
+    const c = await createCard(db, other, "BFS?", "Queue");
+    const start = db.now();
+    expect(await reviewedToday(db, deck, start)).toBe(0);
+    await reviewCard(db, a, "good");
+    await reviewCard(db, b, "again");
+    await reviewCard(db, c, "good");
+    expect(await reviewedToday(db, deck, start)).toBe(2);
+    expect(await reviewedToday(db, deck, db.now())).toBe(0);
   });
 });
 

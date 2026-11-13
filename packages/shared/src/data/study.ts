@@ -772,6 +772,19 @@ export async function getDeck(db: LocalDb, id: string): Promise<DeckRecord | nul
   };
 }
 
+/// How many of a deck's cards were rated since `since` (the start of today, in the device's
+/// time zone), as the desktop's deck shows under "Rated today".
+export async function reviewedToday(db: LocalDb, deckId: string, since: Date): Promise<number> {
+  const row = await first(
+    db,
+    `SELECT COUNT(*) AS n FROM index_card_reviews r JOIN index_cards c ON c.id = r.card_id
+     WHERE c.deck_entity_id = ? AND r.reviewed_at >= ?`,
+    deckId,
+    since.toISOString(),
+  );
+  return Number(row?.n ?? 0);
+}
+
 /// `create_deck`, filed under an Exam or none.
 export async function createDeck(
   db: LocalDb,

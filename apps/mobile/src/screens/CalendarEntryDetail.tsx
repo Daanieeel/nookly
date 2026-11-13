@@ -108,7 +108,7 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
       )}
       <TextRow
         icon={<IconMapPin size={20} color={muted} />}
-        label="Where"
+        label="Location"
         value={item.location}
         readOnly={readOnly}
         placeholder="Add location"
