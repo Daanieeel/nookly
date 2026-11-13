@@ -23,6 +23,7 @@ import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import {
   ASSIGNMENT_GROUPINGS,
+  ASSIGNMENT_ORDERINGS,
   type AssignmentGroup,
   groupAssignments,
   isHandedIn,
@@ -41,12 +42,22 @@ export const ASSIGNMENT_DONE = new Set(["submitted", "evaluated"]);
 const displaySchema = z.object({
   layout: z.enum(["list", "board"]),
   grouping: z.enum(["due", "course", "status", "space"]),
+  /// Older saved displays have none: they keep the rest and order automatically.
+  ordering: z
+    .enum(["auto", "due", "created", "updated", "title", "status", "grade"])
+    .default("auto"),
   /// Course and status ids the list is narrowed to; empty means all.
   courses: z.array(z.string()),
   statuses: z.array(z.string()),
 });
 type Display = z.infer<typeof displaySchema>;
-const DEFAULT: Display = { layout: "list", grouping: "due", courses: [], statuses: [] };
+const DEFAULT: Display = {
+  layout: "list",
+  grouping: "due",
+  ordering: "auto",
+  courses: [],
+  statuses: [],
+};
 
 function Row({
   assignment,
@@ -137,11 +148,16 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
       (display.statuses.length === 0 || display.statuses.includes(a.status)),
   );
   const grouping = display.layout === "board" ? "status" : display.grouping;
-  const groups: AssignmentGroup[] = groupAssignments(shown, grouping, {
-    today,
-    courseName,
-    spaceName: (id) => spaceOf(id)?.name,
-  });
+  const groups: AssignmentGroup[] = groupAssignments(
+    shown,
+    grouping,
+    {
+      today,
+      courseName,
+      spaceName: (id) => spaceOf(id)?.name,
+    },
+    display.ordering,
+  );
   const newOne = () =>
     router.push(spaceId ? `/new/assignment?spaceId=${spaceId}` : "/new/assignment");
   const row = (a: AssignmentRecord) => (
@@ -210,6 +226,12 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
                 onChange={(grouping) => setDisplay({ ...display, grouping })}
               />
             ) : null}
+            <SelectRow
+              label="Ordering"
+              value={display.ordering}
+              options={[...ASSIGNMENT_ORDERINGS]}
+              onChange={(ordering) => setDisplay({ ...display, ordering })}
+            />
           </View>
         </Sheet>
         {all.length === 0 ? (

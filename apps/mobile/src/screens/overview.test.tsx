@@ -140,6 +140,23 @@ describe("the assignments overview", () => {
     await fireEvent.press(screen.getByRole("radio", { name: "Board" }));
     expect(await screen.findByLabelText("Not started column")).toBeTruthy();
   });
+  it("orders the assignments as picked under Display, as the desktop does", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    await createAssignment(data.db, space, "Zeta sheet", course, addDays(localDay(), 2));
+    await createAssignment(data.db, space, "Alpha sheet", course, addDays(localDay(), 2));
+    const screen = await renderScreens({ index: () => <AssignmentsScreen /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
+    await choose(screen, "Ordering", "Title");
+    await waitFor(async () =>
+      expect(
+        (await screen.findAllByRole("checkbox", { name: /^Mark done/ })).map(
+          (box) => box.props.accessibilityLabel,
+        ),
+      ).toEqual(["Mark done Alpha sheet", "Mark done Zeta sheet"]),
+    );
+  });
 });
 
 describe("quick jot", () => {

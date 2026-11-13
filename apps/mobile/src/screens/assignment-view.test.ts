@@ -1,5 +1,10 @@
 import type { AssignmentRecord } from "@nookly/shared/data";
-import { deadlineBucket, groupAssignments } from "./assignment-view.ts";
+import {
+  ASSIGNMENT_ORDERINGS,
+  type AssignmentOrdering,
+  deadlineBucket,
+  groupAssignments,
+} from "./assignment-view.ts";
 
 // Wednesday 21 October 2026.
 const TODAY = "2026-10-21";
@@ -59,6 +64,39 @@ describe("the groups of the list", () => {
     expect(groupAssignments(list, "status", ctx).map((g) => g.id)).toEqual([
       "not_started",
       "evaluated",
+    ]);
+  });
+});
+
+describe("the order within a group", () => {
+  const ctx = { today: TODAY, courseName: () => "Algorithms", spaceName: () => "Uni" };
+  const titled = (id: string, over: Partial<AssignmentRecord>) =>
+    a(id, { ...over, entity: { ...a(id, {}).entity, title: id, ...over.entity } });
+  const list = [
+    titled("b", { dueDate: "2026-10-24", grade: 2, status: "in_progress" }),
+    titled("a", { dueDate: "2026-10-23", grade: null, status: "not_started" }),
+    titled("c", { dueDate: "2026-10-22", grade: 5, status: "not_started" }),
+  ];
+  const ids = (ordering: AssignmentOrdering) =>
+    groupAssignments(list, "course", ctx, ordering)[0].items.map((x) => x.entity.id);
+
+  it("follows the ordering picked, as the desktop's Ordering does", () => {
+    expect(ids("auto")).toEqual(["c", "a", "b"]);
+    expect(ids("due")).toEqual(["c", "a", "b"]);
+    expect(ids("title")).toEqual(["a", "b", "c"]);
+    expect(ids("grade")).toEqual(["c", "b", "a"]);
+    expect(ids("status")).toEqual(["c", "a", "b"]);
+  });
+
+  it("offers the desktop's orderings", () => {
+    expect(ASSIGNMENT_ORDERINGS.map((o) => o.label)).toEqual([
+      "Automatic",
+      "Due date",
+      "Created",
+      "Updated",
+      "Title",
+      "Status",
+      "Grade",
     ]);
   });
 });

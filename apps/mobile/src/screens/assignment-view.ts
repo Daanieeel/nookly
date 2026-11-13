@@ -13,6 +13,18 @@ export const ASSIGNMENT_GROUPINGS = [
 ] as const;
 export type AssignmentGrouping = (typeof ASSIGNMENT_GROUPINGS)[number]["id"];
 
+/// The desktop's orderings of the Assignments page (`assignment-model.ts`).
+export const ASSIGNMENT_ORDERINGS = [
+  { id: "auto", label: "Automatic" },
+  { id: "due", label: "Due date" },
+  { id: "created", label: "Created" },
+  { id: "updated", label: "Updated" },
+  { id: "title", label: "Title" },
+  { id: "status", label: "Status" },
+  { id: "grade", label: "Grade" },
+] as const;
+export type AssignmentOrdering = (typeof ASSIGNMENT_ORDERINGS)[number]["id"];
+
 export type Tone = "destructive" | "caution" | "positive" | "muted";
 
 export const DEADLINE_BUCKETS = [
@@ -67,13 +79,34 @@ const byDue = (a: AssignmentRecord, b: AssignmentRecord) =>
   (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") ||
   a.entity.createdAt.localeCompare(b.entity.createdAt);
 
-/// The groups of the list, in a stable order, empty ones left out, each by due day.
+const byCreated = (a: AssignmentRecord, b: AssignmentRecord) =>
+  b.entity.createdAt.localeCompare(a.entity.createdAt);
+const byUpdated = (a: AssignmentRecord, b: AssignmentRecord) =>
+  b.entity.updatedAt.localeCompare(a.entity.updatedAt);
+const statusPosition = (a: AssignmentRecord) =>
+  ASSIGNMENT_STATUSES.findIndex((s) => s.id === a.status);
+
+/// Each ordering's comparison, as the desktop's `orderAssignments`: highest grade first,
+/// ungraded last; ties go by due date.
+const ORDER: Record<AssignmentOrdering, (a: AssignmentRecord, b: AssignmentRecord) => number> = {
+  auto: byDue,
+  due: byDue,
+  created: byCreated,
+  updated: byUpdated,
+  title: (a, b) =>
+    (a.entity.title ?? "").localeCompare(b.entity.title ?? "", undefined, { sensitivity: "base" }),
+  status: (a, b) => statusPosition(a) - statusPosition(b) || byDue(a, b),
+  grade: (a, b) => (b.grade ?? -1) - (a.grade ?? -1) || byDue(a, b),
+};
+
+/// The groups of the list, in a stable order, empty ones left out, each in `ordering`.
 export function groupAssignments(
   list: AssignmentRecord[],
   grouping: AssignmentGrouping,
   ctx: Context,
+  ordering: AssignmentOrdering = "auto",
 ): AssignmentGroup[] {
-  const sorted = [...list].sort(byDue);
+  const sorted = [...list].sort(ORDER[ordering]);
   const build = (key: (a: AssignmentRecord) => string, title: (id: string) => string) => {
     const ids = [...new Set(sorted.map(key))].sort((a, b) => title(a).localeCompare(title(b)));
     return ids.map((id) => ({

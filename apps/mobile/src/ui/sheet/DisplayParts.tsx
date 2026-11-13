@@ -5,7 +5,11 @@ import { Pressable, Switch, View } from "react-native";
 import { cn } from "../classes.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
+import { TYPE } from "../tokens.ts";
 import { TOUCH_ROW } from "../touch.ts";
+
+/// Rows and tiles at the size of the sheet's menu items.
+const BODY = { fontSize: TYPE.body.fontSize, lineHeight: TYPE.body.lineHeight };
 import { type Option, OptionList } from "./OptionList.tsx";
 import { useSheet } from "./Sheet.tsx";
 
@@ -37,15 +41,15 @@ export function LayoutTiles<T extends string>({
             style={TOUCH_ROW}
             className={cn(
               "active:opacity-60",
-              "flex-1 items-center justify-center gap-1 rounded-md border border-border py-2",
+              "flex-1 items-center justify-center gap-1.5 rounded-lg border border-border py-3",
               on && "border-foreground/20 bg-accent",
             )}
           >
             <tile.icon
-              size={16}
+              size={24}
               color={on ? theme.colors.foreground : theme.colors.mutedForeground}
             />
-            <Text variant="small" tone={on ? "default" : "muted"}>
+            <Text tone={on ? "default" : "muted"} style={BODY}>
               {tile.label}
             </Text>
           </Pressable>
@@ -123,13 +127,13 @@ function NextRow({ label, value, onPress }: { label: string; value: string; onPr
       style={TOUCH_ROW}
       className="-mx-2 flex-row items-center gap-3 rounded-md px-2 active:bg-accent"
     >
-      <Text tone="muted" className="flex-1">
+      <Text tone="muted" className="flex-1" style={BODY}>
         {label}
       </Text>
-      <Text numberOfLines={1} style={{ maxWidth: "55%" }}>
+      <Text numberOfLines={1} style={[BODY, { maxWidth: "55%" }]}>
         {value}
       </Text>
-      <IconChevronRight size={16} color={theme.colors.mutedForeground} />
+      <IconChevronRight size={20} color={theme.colors.mutedForeground} />
     </Pressable>
   );
 }
@@ -147,7 +151,7 @@ export function SwitchRow({
   const theme = useTheme();
   return (
     <View style={TOUCH_ROW} className="flex-row items-center gap-3">
-      <Text tone="muted" className="flex-1">
+      <Text tone="muted" className="flex-1" style={BODY}>
         {label}
       </Text>
       <Switch
