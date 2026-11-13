@@ -31,6 +31,27 @@ describe("the base components", () => {
     expect(onPress).toHaveBeenCalled();
   });
 
+  it("a row puts its detail under the title when the text is very large", () => {
+    const at = (fontScale: number) => {
+      const window = { width: 390, height: 844, scale: 3, fontScale };
+      // SAFETY: React Native's own module, whose default export is the hook.
+      const hook = require("react-native/Libraries/Utilities/useWindowDimensions") as {
+        default: () => typeof window;
+      };
+      const spy = jest.spyOn(hook, "default").mockReturnValue(window);
+      const tree = render(<ListRow title="mira" detail="Synced at 17:19" />).toJSON();
+      spy.mockRestore();
+      return tree;
+    };
+    const stacked = at(2);
+    const beside = at(1);
+    // The row holds one column of text; at the default size the detail sits beside it.
+    const count = (node: typeof stacked) =>
+      node && !Array.isArray(node) ? (node.children ?? []).length : 0;
+    expect(count(stacked)).toBe(1);
+    expect(count(beside)).toBe(2);
+  });
+
   it("a row without an action can not be pressed, and a disabled one says so", () => {
     const screen = render(<ListRow title="Read only" disabled />);
     expect(

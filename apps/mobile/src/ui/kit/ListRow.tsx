@@ -1,11 +1,20 @@
 import { IconCheck, IconChevronRight } from "@tabler/icons-react-native";
 import type { ReactNode } from "react";
-import { type AccessibilityRole, type AccessibilityState, Pressable, View } from "react-native";
+import {
+  type AccessibilityRole,
+  type AccessibilityState,
+  Pressable,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { MIN_TOUCH } from "../touch.ts";
 import { GUTTER, SPACE, TINT } from "../tokens.ts";
 import { Glyph } from "./Glyph.tsx";
 import { Label } from "./Label.tsx";
 import { useScheme, useSemantic, useSemanticPair } from "./scheme.ts";
+
+/// The text size (a share of the default) from which a row's detail goes under its title.
+const STACK_SCALE = 1.35;
 
 /// A row of a list as iOS draws it: an icon badge, a title with a subtitle under it, a
 /// value or detail on the right, and a check on the chosen one or a chevron where it
@@ -43,6 +52,8 @@ export function ListRow({
   const pressed = useSemantic("pressed");
   const muted = useSemanticPair("tertiaryLabel");
   const accent = TINT.blue[scheme];
+  /// With large text a detail goes under the title, as iOS stacks a row's value.
+  const stacked = useWindowDimensions().fontScale >= STACK_SCALE;
   return (
     <Pressable
       accessibilityRole={accessibilityRole}
@@ -74,8 +85,13 @@ export function ListRow({
             {subtitle}
           </Label>
         ) : null}
+        {detail && stacked ? (
+          <Label type="subheadline" color="secondaryLabel">
+            {detail}
+          </Label>
+        ) : null}
       </View>
-      {detail ? (
+      {detail && !stacked ? (
         <Label color="secondaryLabel" numberOfLines={1} style={{ maxWidth: "45%" }}>
           {detail}
         </Label>

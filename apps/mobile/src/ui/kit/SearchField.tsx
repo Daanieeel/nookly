@@ -33,7 +33,7 @@ export function SearchField({
       style={[
         CORNER,
         {
-          height: HEIGHT,
+          minHeight: HEIGHT,
           borderRadius: RADIUS.control,
           backgroundColor: fill,
           flexDirection: "row",
@@ -63,9 +63,11 @@ export function SearchField({
         onSubmitEditing={onSubmit}
         clearButtonMode="never"
         hitSlop={touchSlop(HEIGHT, MIN_TOUCH)}
+        maxFontSizeMultiplier={2}
         style={{
           flex: 1,
-          height: "100%",
+          minHeight: HEIGHT,
+          paddingVertical: SPACE.xs,
           fontFamily: FACE["400"],
           fontSize: TYPE.body.fontSize,
           color: text,

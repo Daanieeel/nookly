@@ -77,8 +77,9 @@ export function ListHeader({
   const theme = useTheme();
   const toggle = (which: Exclude<ListPanel, null>) => onPanel(panel === which ? null : which);
   return (
-    <View className="flex-row items-center gap-2">
-      <View className="flex-1">
+    // With large text the buttons go under the title rather than squeeze it.
+    <View className="flex-row flex-wrap items-center gap-2">
+      <View style={{ flexGrow: 1, flexShrink: 0, maxWidth: "100%" }}>
         <ListTitle title={title} count={count} />
       </View>
       <Button
