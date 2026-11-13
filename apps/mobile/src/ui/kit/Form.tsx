@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext } from "react";
+import { Children, createContext, type ReactNode, useContext } from "react";
 import { View } from "react-native";
 import { CORNER, GUTTER, RADIUS, SPACE, TINT } from "../tokens.ts";
 import { GroupedSection } from "./GroupedSection.tsx";
@@ -19,6 +19,7 @@ export function FormSection({
   footer?: string;
   children: ReactNode;
 }) {
+  if (Children.toArray(children).length === 0) return null;
   return (
     <InForm.Provider value>
       <GroupedSection title={title} footer={footer} margin={0}>

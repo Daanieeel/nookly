@@ -1,11 +1,9 @@
-import { INPUT_CLASSES } from "@nookly/ui/classes";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Pressable, TextInput, type TextStyle, View } from "react-native";
 import { useSetting } from "../data/settings.ts";
-import { cn, row, splitText } from "./classes.ts";
-import { Text } from "./Text.tsx";
-import { useTheme } from "./theme.ts";
-import { FIELD_HEIGHT, MIN_TOUCH } from "./touch.ts";
+import { Label } from "./kit/Label.tsx";
+import { useSemantic } from "./kit/scheme.ts";
+import { CORNER, FACE, RADIUS, SPACE, TYPE } from "./tokens.ts";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -38,7 +36,9 @@ export function TimeInput({
   onChange: (time: string) => void;
   autoFocus?: boolean;
 }) {
-  const theme = useTheme();
+  const fill = useSemantic("fill");
+  const text = useSemantic("label");
+  const placeholder = useSemantic("tertiaryLabel");
   const twelve = useTwelveHour();
   const { hour, minute } = parse(value);
   const shownHour = (h: number | null) =>
@@ -82,13 +82,31 @@ export function TimeInput({
     const n = Number(digits);
     if (digits.length === 2 && n <= 59) commit(now().hour ?? 0, n);
   };
-  const input = splitText(row(INPUT_CLASSES));
-  const segment = "w-8 text-center font-sans text-sm tabular-nums text-foreground";
+  const segment: TextStyle = {
+    width: 30,
+    height: "100%",
+    textAlign: "center",
+    fontFamily: FACE["400"],
+    fontSize: TYPE.body.fontSize,
+    fontVariant: ["tabular-nums"],
+    color: text,
+    padding: 0,
+  };
   return (
     <View
       accessibilityLabel={label}
-      className={cn(input.box, "items-center gap-0.5 self-start")}
-      style={FIELD_HEIGHT}
+      style={[
+        CORNER,
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          alignSelf: "center",
+          height: 36,
+          paddingHorizontal: SPACE.xs,
+          borderRadius: RADIUS.control,
+          backgroundColor: fill,
+        },
+      ]}
     >
       <TextInput
         accessibilityLabel={`${label}, hour`}
@@ -99,10 +117,10 @@ export function TimeInput({
         selectTextOnFocus
         autoFocus={autoFocus}
         placeholder="--"
-        placeholderTextColor={theme.colors.mutedForeground}
-        className={cn(segment, "h-full")}
+        placeholderTextColor={placeholder}
+        style={segment}
       />
-      <Text tone="muted">:</Text>
+      <Label color="secondaryLabel">:</Label>
       <TextInput
         ref={minuteField}
         accessibilityLabel={`${label}, minute`}
@@ -115,8 +133,8 @@ export function TimeInput({
         maxLength={2}
         selectTextOnFocus
         placeholder="--"
-        placeholderTextColor={theme.colors.mutedForeground}
-        className={cn(segment, "h-full")}
+        placeholderTextColor={placeholder}
+        style={segment}
       />
       {twelve ? (
         <Pressable
@@ -126,10 +144,10 @@ export function TimeInput({
             const { hour: h, minute: m } = now();
             if (h !== null) commit((h + 12) % 24, m ?? 0);
           }}
-          style={{ minWidth: MIN_TOUCH, height: MIN_TOUCH }}
-          className="items-center justify-center"
+          hitSlop={4}
+          style={{ minWidth: 40, height: 36, alignItems: "center", justifyContent: "center" }}
         >
-          <Text className="tabular-nums">{pm ? "PM" : "AM"}</Text>
+          <Label>{pm ? "PM" : "AM"}</Label>
         </Pressable>
       ) : null}
     </View>

@@ -7,6 +7,7 @@ import {
   resolveTermDates,
 } from "@nookly/shared/academic";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { FormSection } from "../ui/kit/Form.tsx";
 import {
   createCourse,
   createOneOffSession,
@@ -225,38 +226,34 @@ export function NewSessionScreen({ spaceId, courseId }: { spaceId?: string; cour
     create.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
   return (
     <Screen>
-      <SpacePicker
-        value={space}
-        onChange={(id) => {
-          setChosen(id);
-          setCourse(null);
-        }}
-      />
-      {space ? <CoursePicker spaceId={space} value={course} onChange={setCourse} /> : null}
-      <Field label="Title" placeholder="Lecture 1" value={title} onChangeText={setTitle} />
-      <DateField label="Day" clearable={false} value={date} onChange={(d) => d && setDate(d)} />
-      <View className="flex-row gap-3">
-        <View className="flex-1">
-          <DateField
-            label="Starts"
-            mode="time"
-            clearable={false}
-            value={start}
-            onChange={(t) => t && setStart(t)}
-          />
-        </View>
-        <View className="flex-1">
-          <DateField
-            label="Ends"
-            mode="time"
-            clearable={false}
-            value={end}
-            onChange={(t) => t && setEnd(t)}
-          />
-        </View>
-      </View>
-      <Field label="Where" placeholder="Room 5" value={where} onChangeText={setWhere} />
-      {create.error ? <Text tone="destructive">{create.error.message}</Text> : null}
+      <FormSection>
+        <SpacePicker
+          value={space}
+          onChange={(id) => {
+            setChosen(id);
+            setCourse(null);
+          }}
+        />
+        {space ? <CoursePicker spaceId={space} value={course} onChange={setCourse} /> : null}
+        <Field label="Title" placeholder="Lecture 1" value={title} onChangeText={setTitle} />
+        <DateField label="Day" clearable={false} value={date} onChange={(d) => d && setDate(d)} />
+        <DateField
+          label="Starts"
+          mode="time"
+          clearable={false}
+          value={start}
+          onChange={(t) => t && setStart(t)}
+        />
+        <DateField
+          label="Ends"
+          mode="time"
+          clearable={false}
+          value={end}
+          onChange={(t) => t && setEnd(t)}
+        />
+        <Field label="Where" placeholder="Room 5" value={where} onChangeText={setWhere} />
+        {create.error ? <Text tone="destructive">{create.error.message}</Text> : null}
+      </FormSection>
       <Button
         label="New Session"
         status={statusOf(create)}
@@ -397,30 +394,26 @@ export function NewStudyBlockScreen({ spaceId, examId }: { spaceId?: string; exa
     create.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
   return (
     <Screen>
-      {exam ? <Text tone="muted">For {exam.entity.title || "the exam"}</Text> : null}
-      <Field label="Title" placeholder="Revise graphs" value={title} onChangeText={setTitle} />
-      <DateField label="Day" clearable={false} value={date} onChange={(d) => d && setDate(d)} />
-      <View className="flex-row gap-3">
-        <View className="flex-1">
-          <DateField
-            label="Starts"
-            mode="time"
-            clearable={false}
-            value={start}
-            onChange={(t) => t && setStart(t)}
-          />
-        </View>
-        <View className="flex-1">
-          <DateField
-            label="Ends"
-            mode="time"
-            clearable={false}
-            value={end}
-            onChange={(t) => t && setEnd(t)}
-          />
-        </View>
-      </View>
-      {create.error ? <Text tone="destructive">{create.error.message}</Text> : null}
+      <FormSection>
+        {exam ? <Text tone="muted">For {exam.entity.title || "the exam"}</Text> : null}
+        <Field label="Title" placeholder="Revise graphs" value={title} onChangeText={setTitle} />
+        <DateField label="Day" clearable={false} value={date} onChange={(d) => d && setDate(d)} />
+        <DateField
+          label="Starts"
+          mode="time"
+          clearable={false}
+          value={start}
+          onChange={(t) => t && setStart(t)}
+        />
+        <DateField
+          label="Ends"
+          mode="time"
+          clearable={false}
+          value={end}
+          onChange={(t) => t && setEnd(t)}
+        />
+        {create.error ? <Text tone="destructive">{create.error.message}</Text> : null}
+      </FormSection>
       <Button
         label="New Study Block"
         status={statusOf(create)}
@@ -604,40 +597,42 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
     create.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
   return (
     <Screen>
-      <SpacePicker value={space} onChange={setChosen} />
-      <SelectField
-        label="Term system"
-        value={system}
-        options={ACADEMIC_SYSTEM_KEYS.map((key) => ({
-          id: key,
-          label: ACADEMIC_SYSTEMS[key].label,
-        }))}
-        onChange={(key) => {
-          setSystem(key);
-          setTermKey(null);
-          setRegion(null);
-        }}
-      />
-      <SelectField
-        label="Term"
-        value={term.key}
-        options={def.terms.map((t) => ({ id: t.key, label: t.label }))}
-        onChange={setTermKey}
-      />
-      <ChipGroup label="Year">
-        {[theYear - 1, theYear, theYear + 1].map((y) => (
-          <Chip key={y} label={String(y)} selected={y === theYear} onPress={() => setYear(y)} />
-        ))}
-      </ChipGroup>
-      <SelectField
-        label="Typical dates for"
-        value={region ?? "none"}
-        options={[
-          { id: "none", label: "No dates" },
-          ...regions.map((r) => ({ id: r.key, label: r.label })),
-        ]}
-        onChange={(key) => setRegion(key === "none" ? null : key)}
-      />
+      <FormSection>
+        <SpacePicker value={space} onChange={setChosen} />
+        <SelectField
+          label="Term system"
+          value={system}
+          options={ACADEMIC_SYSTEM_KEYS.map((key) => ({
+            id: key,
+            label: ACADEMIC_SYSTEMS[key].label,
+          }))}
+          onChange={(key) => {
+            setSystem(key);
+            setTermKey(null);
+            setRegion(null);
+          }}
+        />
+        <SelectField
+          label="Term"
+          value={term.key}
+          options={def.terms.map((t) => ({ id: t.key, label: t.label }))}
+          onChange={setTermKey}
+        />
+        <ChipGroup label="Year">
+          {[theYear - 1, theYear, theYear + 1].map((y) => (
+            <Chip key={y} label={String(y)} selected={y === theYear} onPress={() => setYear(y)} />
+          ))}
+        </ChipGroup>
+        <SelectField
+          label="Typical dates for"
+          value={region ?? "none"}
+          options={[
+            { id: "none", label: "No dates" },
+            ...regions.map((r) => ({ id: r.key, label: r.label })),
+          ]}
+          onChange={(key) => setRegion(key === "none" ? null : key)}
+        />
+      </FormSection>
       <Text tone="muted">
         {def.formatTitle(term, theYear)}
         {dates ? `, ${dayLabel(dates.startDate)} to ${dayLabel(dates.endDate)}` : ""}

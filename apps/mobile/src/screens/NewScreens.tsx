@@ -262,19 +262,21 @@ export function NewPageScreen({ spaceId, type }: { spaceId?: string; type: "note
   });
   return (
     <Screen>
-      <SpacePicker value={space} onChange={setSpace} />
-      <form.Field name="title">
-        {(field) => (
-          <Field
-            label="Title"
-            autoFocus
-            placeholder={type === "jot" ? "A quick thought" : "Untitled"}
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onSubmitEditing={() => void form.handleSubmit()}
-          />
-        )}
-      </form.Field>
+      <FormSection>
+        <SpacePicker value={space} onChange={setSpace} />
+        <form.Field name="title">
+          {(field) => (
+            <Field
+              label="Title"
+              autoFocus
+              placeholder={type === "jot" ? "A quick thought" : "Untitled"}
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onSubmitEditing={() => void form.handleSubmit()}
+            />
+          )}
+        </form.Field>
+      </FormSection>
       <Button
         label={type === "jot" ? "New Jot" : "New Page"}
         status={statusOf(create)}
@@ -305,33 +307,35 @@ export function NewBookmarkScreen({ spaceId }: { spaceId?: string }) {
   });
   return (
     <Screen>
-      <SpacePicker value={space} onChange={setSpace} />
-      <form.Field name="url">
-        {(field) => (
-          <Field
-            label="Address"
-            required
-            autoFocus
-            autoCapitalize="none"
-            keyboardType="url"
-            placeholder="https://"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
-      <form.Field name="title">
-        {(field) => (
-          <Field
-            label="Title"
-            placeholder="Taken from the address when empty"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-          />
-        )}
-      </form.Field>
+      <FormSection>
+        <SpacePicker value={space} onChange={setSpace} />
+        <form.Field name="url">
+          {(field) => (
+            <Field
+              label="Address"
+              required
+              autoFocus
+              autoCapitalize="none"
+              keyboardType="url"
+              placeholder="https://"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+        <form.Field name="title">
+          {(field) => (
+            <Field
+              label="Title"
+              placeholder="Taken from the address when empty"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+            />
+          )}
+        </form.Field>
+      </FormSection>
       <Button
         label="Add Bookmark"
         status={statusOf(create)}
@@ -352,21 +356,23 @@ export function NewEntryScreen({ spaceId }: { spaceId?: string }) {
   });
   return (
     <Screen>
-      <SpacePicker value={space} onChange={setSpace} />
-      <CalendarEntryForm
-        initial={{
-          title: "",
-          date: localDay(),
-          startTime: "09:00",
-          endTime: "10:00",
-          allDay: false,
-          location: null,
-        }}
-        showTitle
-        submitLabel="Add to Calendar"
-        status={create}
-        onSubmit={(input) => void create.mutateAsync(input).then(() => close())}
-      />
+      <FormSection>
+        <SpacePicker value={space} onChange={setSpace} />
+        <CalendarEntryForm
+          initial={{
+            title: "",
+            date: localDay(),
+            startTime: "09:00",
+            endTime: "10:00",
+            allDay: false,
+            location: null,
+          }}
+          showTitle
+          submitLabel="Add to Calendar"
+          status={create}
+          onSubmit={(input) => void create.mutateAsync(input).then(() => close())}
+        />
+      </FormSection>
     </Screen>
   );
 }
@@ -389,20 +395,22 @@ export function NewSpaceScreen() {
   });
   return (
     <Screen>
-      <form.Field name="name">
-        {(field) => (
-          <Field
-            label="Name"
-            required
-            autoFocus
-            placeholder="Work"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
+      <FormSection>
+        <form.Field name="name">
+          {(field) => (
+            <Field
+              label="Name"
+              required
+              autoFocus
+              placeholder="Work"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+      </FormSection>
       <ColorChoices
         label="Color"
         colors={ACCENT_COLORS}
@@ -450,23 +458,25 @@ function NewStudyItem({
   });
   return (
     <Screen>
-      {spaceId ? null : <SpacePicker value={space} onChange={setSpace} />}
-      <form.Field name="title">
-        {(field) => (
-          <Field
-            label="Title"
-            required
-            autoFocus
-            placeholder={placeholder}
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
-      {space && children ? children(space) : null}
-      {write.error ? <Text tone="destructive">{write.error.message}</Text> : null}
+      <FormSection>
+        {spaceId ? null : <SpacePicker value={space} onChange={setSpace} />}
+        <form.Field name="title">
+          {(field) => (
+            <Field
+              label="Title"
+              required
+              autoFocus
+              placeholder={placeholder}
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+        {space && children ? children(space) : null}
+        {write.error ? <Text tone="destructive">{write.error.message}</Text> : null}
+      </FormSection>
       <Button
         label={submitLabel}
         status={statusOf(write)}

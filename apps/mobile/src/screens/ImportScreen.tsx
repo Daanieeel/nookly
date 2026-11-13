@@ -1,5 +1,6 @@
 import { type ImportPreview, importNooklyFile, previewNooklyFile } from "@nookly/shared/data";
 import { useMutation } from "@tanstack/react-query";
+import { FormSection } from "../ui/kit/Form.tsx";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
@@ -86,7 +87,9 @@ export function ImportScreen({ spaceId }: { spaceId?: string }) {
   const needsCourse = preview?.parentType === "course";
   return (
     <Screen>
-      {spaceId ? null : <SpacePicker value={space} onChange={setSpace} />}
+      <FormSection>
+        {spaceId ? null : <SpacePicker value={space} onChange={setSpace} />}
+      </FormSection>
       <Button
         label="Choose File"
         variant="secondary"

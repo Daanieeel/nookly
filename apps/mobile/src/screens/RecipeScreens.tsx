@@ -18,6 +18,7 @@ import {
   updateStep,
 } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { FormSection } from "../ui/kit/Form.tsx";
 import {
   IconChevronDown,
   IconChevronUp,
@@ -159,15 +160,17 @@ export function NewRecipeScreen({ spaceId }: { spaceId?: string }) {
     create.mutate(title.trim(), { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
   return (
     <Screen>
-      <SpacePicker value={space} onChange={setChosen} />
-      <Field
-        label="Title"
-        autoFocus
-        placeholder="Pancakes"
-        value={title}
-        onChangeText={setTitle}
-        onSubmitEditing={submit}
-      />
+      <FormSection>
+        <SpacePicker value={space} onChange={setChosen} />
+        <Field
+          label="Title"
+          autoFocus
+          placeholder="Pancakes"
+          value={title}
+          onChangeText={setTitle}
+          onSubmitEditing={submit}
+        />
+      </FormSection>
       <Button
         label="New Recipe"
         status={statusOf(create)}
