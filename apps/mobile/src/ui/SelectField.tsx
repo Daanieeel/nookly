@@ -1,18 +1,19 @@
-import { FORM_FIELD_CLASSES } from "@nookly/frontend/classes";
-import { INPUT_CLASSES } from "@nookly/ui/classes";
 import { IconSelector } from "@tabler/icons-react-native";
 import { type ReactNode, type RefObject, useState } from "react";
 import { Pressable, View } from "react-native";
-import { cn, row, splitText } from "./classes.ts";
-import { FieldLabel } from "./Field.tsx";
+import { FormRow, RowLabel } from "./kit/Form.tsx";
+import { Glyph } from "./kit/Glyph.tsx";
+import { Label } from "./kit/Label.tsx";
+import { useSemantic, useSemanticPair } from "./kit/scheme.ts";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
-import { Text } from "./Text.tsx";
-import { useTheme } from "./theme.ts";
-import { FIELD_HEIGHT } from "./touch.ts";
+import { GUTTER, SPACE } from "./tokens.ts";
+import { MIN_TOUCH } from "./touch.ts";
 
-/// The trigger of a field that opens a sheet: the desktop's select button, its label
-/// above, the value (or a muted placeholder) and an icon on the right.
+/// The trigger of a field that opens a sheet, as an iOS form row (D52): the field's name at
+/// the start, the value (or a muted placeholder) at the end with an icon before it and the
+/// up and down chevrons of a pop up button. `showLabel` off draws only the value and the
+/// chevrons, for a row that names it already (a setting).
 export function SheetTrigger({
   label,
   text,
@@ -23,6 +24,9 @@ export function SheetTrigger({
   hint,
   onPress,
   ref,
+  showLabel = true,
+  required,
+  error,
 }: {
   ref?: RefObject<View | null>;
   label: string;
@@ -33,9 +37,13 @@ export function SheetTrigger({
   disabled?: boolean;
   hint?: string;
   onPress: () => void;
+  showLabel?: boolean;
+  required?: boolean;
+  error?: string | null;
 }) {
-  const input = splitText(row(INPUT_CLASSES));
-  return (
+  const pressed = useSemantic("pressed");
+  const muted = useSemanticPair("tertiaryLabel");
+  const button = (
     <Pressable
       ref={ref}
       accessibilityRole="button"
@@ -44,19 +52,54 @@ export function SheetTrigger({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={FIELD_HEIGHT}
-      className={cn(input.box, "flex-1 items-center gap-2 px-2.5 active:bg-accent/80")}
+      unstable_pressDelay={0}
+      style={({ pressed: down }) => ({
+        flex: showLabel ? undefined : 1,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACE.sm,
+        minHeight: MIN_TOUCH + (showLabel ? 4 : 0),
+        paddingHorizontal: showLabel ? GUTTER : 0,
+        backgroundColor: down && showLabel ? pressed : undefined,
+        opacity: disabled ? 0.45 : down && !showLabel ? 0.5 : 1,
+      })}
     >
-      {icon}
-      <Text
-        numberOfLines={1}
-        className={cn(input.text, "flex-1", !text && "text-muted-foreground")}
+      {showLabel ? (
+        <View style={{ flexShrink: 0, maxWidth: "45%" }}>
+          <RowLabel label={label} required={required} />
+        </View>
+      ) : null}
+      <View
+        style={{
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: showLabel ? "flex-end" : "flex-start",
+          gap: SPACE.sm,
+        }}
       >
-        {text ?? placeholder}
-      </Text>
-      {trailing}
+        {icon}
+        <Label
+          numberOfLines={1}
+          color={text ? "secondaryLabel" : "tertiaryLabel"}
+          style={{ flexShrink: 1 }}
+        >
+          {text ?? placeholder}
+        </Label>
+      </View>
+      {trailing ?? (
+        <Glyph
+          name="chevron.up.chevron.down"
+          fallback={IconSelector}
+          size={13}
+          color={muted.color}
+          hex={muted.hex}
+          weight="semibold"
+        />
+      )}
     </Pressable>
   );
+  return showLabel ? <FormRow error={error}>{button}</FormRow> : button;
 }
 
 /// The desktop's `SelectField` with its label: a button showing the choice, which opens the
@@ -84,32 +127,36 @@ export function SelectField<Id extends string>({
   /// Said instead of the field when there is nothing to choose.
   empty?: string;
 }) {
-  const theme = useTheme();
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.id === value);
   const list = <OptionList label={label} options={options} value={value} onChange={onChange} />;
   return (
-    <View className={FORM_FIELD_CLASSES}>
-      {showLabel ? <FieldLabel label={label} required={required} /> : null}
+    <>
       {options.length === 0 && empty ? (
-        <Text tone="muted">{empty}</Text>
+        <FormRow>
+          <View style={{ paddingHorizontal: GUTTER, paddingVertical: SPACE.md, gap: SPACE.xxs }}>
+            <RowLabel label={label} required={required} />
+            <Label type="subheadline" color="secondaryLabel">
+              {empty}
+            </Label>
+          </View>
+        </FormRow>
       ) : (
-        <View className="flex-row">
-          <SheetTrigger
-            label={label}
-            text={current?.label ?? null}
-            icon={current?.icon}
-            placeholder={placeholder}
-            disabled={disabled}
-            onPress={() => setOpen(true)}
-            trailing={<IconSelector size={16} color={theme.colors.mutedForeground} />}
-          />
-        </View>
+        <SheetTrigger
+          label={label}
+          showLabel={showLabel}
+          required={required}
+          text={current?.label ?? null}
+          icon={current?.icon}
+          placeholder={placeholder}
+          disabled={disabled}
+          onPress={() => setOpen(true)}
+        />
       )}
       <Sheet open={open} onOpenChange={setOpen} title={label}>
         {list}
       </Sheet>
-    </View>
+    </>
   );
 }
 
@@ -130,18 +177,16 @@ export function MultiSelectField<Id extends string>({
   placeholder?: string;
   disabled?: boolean;
 }) {
-  const theme = useTheme();
   const [open, setOpen] = useState(false);
   const names = options.filter((o) => values.includes(o.id)).map((o) => o.label);
   return (
-    <View className="flex-row">
+    <>
       <SheetTrigger
         label={label}
         text={names.length > 0 ? names.join(", ") : null}
         placeholder={placeholder}
         disabled={disabled}
         onPress={() => setOpen(true)}
-        trailing={<IconSelector size={16} color={theme.colors.mutedForeground} />}
       />
       <Sheet open={open} onOpenChange={setOpen} title={label}>
         <OptionList
@@ -152,6 +197,6 @@ export function MultiSelectField<Id extends string>({
           onToggle={(id, on) => onChange(on ? [...values, id] : values.filter((v) => v !== id))}
         />
       </Sheet>
-    </View>
+    </>
   );
 }

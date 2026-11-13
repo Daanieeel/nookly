@@ -1,72 +1,84 @@
-import {
-  FIELD_ERROR_CLASSES,
-  FORM_FIELD_CLASSES,
-  REQUIRED_MARK_CLASSES,
-} from "@nookly/frontend/classes";
-import { FIELD_LABEL_CLASSES, INPUT_CLASSES, TEXTAREA_CLASSES } from "@nookly/ui/classes";
-import { IconAlertTriangle } from "@tabler/icons-react-native";
 import { TextInput, type TextInputProps, View } from "react-native";
-import { cn, row, splitText } from "./classes.ts";
-import { Text } from "./Text.tsx";
-import { useTheme } from "./theme.ts";
-import { FIELD_HEIGHT } from "./touch.ts";
+import { FormRow, RowLabel } from "./kit/Form.tsx";
+import { Label } from "./kit/Label.tsx";
+import { useSemantic } from "./kit/scheme.ts";
+import { FACE, GUTTER, SPACE, TYPE } from "./tokens.ts";
+import { MIN_TOUCH } from "./touch.ts";
 
-/// The desktop's `FieldError`: a warning icon and what is wrong.
-function FieldError({ message }: { message: string | null | undefined }) {
-  const theme = useTheme();
-  if (!message) return null;
-  const { box, text } = splitText(row(FIELD_ERROR_CLASSES));
-  return (
-    <View className={box} accessibilityLiveRegion="polite">
-      <IconAlertTriangle size={12} color={theme.colors.destructive} />
-      <Text className={text}>{message}</Text>
-    </View>
-  );
-}
-
-/// The desktop's `FieldLabel`, with the red star of a required field.
+/// A field's name above what it holds, for the few places that lay a control out on their
+/// own (a list of labels to tick).
 export function FieldLabel({ label, required }: { label: string; required?: boolean }) {
-  const { box, text } = splitText(row(FIELD_LABEL_CLASSES));
   return (
-    <View className={box}>
-      <Text className={text}>{label}</Text>
-      {required ? (
-        <Text className={cn(text, REQUIRED_MARK_CLASSES)} accessibilityLabel="required">
-          *
-        </Text>
-      ) : null}
+    <View style={{ paddingHorizontal: GUTTER, paddingBottom: SPACE.xs }}>
+      <Label type="footnote" color="secondaryLabel">
+        {label.toUpperCase()}
+        {required ? " *" : ""}
+      </Label>
     </View>
   );
 }
 
-/// The desktop's `FormField` around its `Input` (or `Textarea` when multiline): the
-/// label above, the error below, the control outlined in red while there is one.
+/// Text typed into a form, as an iOS form row (D52): its name at the start and the text
+/// beside it, or, for several lines, the name small above a taller box. Errors show under
+/// it in red.
 export function Field({
   label,
   required,
   error,
   multiline,
-  className,
+  className: _className,
+  style,
   ...props
 }: TextInputProps & { label: string; required?: boolean; error?: string; className?: string }) {
+  const text = useSemantic("label");
+  const muted = useSemantic("tertiaryLabel");
+  const input = (
+    <TextInput
+      accessibilityLabel={label}
+      multiline={multiline}
+      placeholderTextColor={muted}
+      {...props}
+      style={[
+        {
+          flex: multiline ? undefined : 1,
+          minHeight: multiline ? 88 : MIN_TOUCH,
+          fontFamily: FACE["400"],
+          fontSize: TYPE.body.fontSize,
+          lineHeight: multiline ? TYPE.body.lineHeight : undefined,
+          color: text,
+          paddingVertical: multiline ? SPACE.xs : 0,
+        },
+        style,
+      ]}
+      textAlignVertical={multiline ? "top" : "center"}
+    />
+  );
   return (
-    <View className={FORM_FIELD_CLASSES}>
-      <FieldLabel label={label} required={required} />
-      <TextInput
-        accessibilityLabel={label}
-        multiline={multiline}
-        {...props}
-        className={cn(
-          multiline ? TEXTAREA_CLASSES : INPUT_CLASSES,
-          "font-sans text-foreground",
-          multiline && "min-h-24",
-          error && "border-destructive",
-          className,
-        )}
-        style={multiline ? undefined : FIELD_HEIGHT}
-        textAlignVertical={multiline ? "top" : "center"}
-      />
-      <FieldError message={error} />
-    </View>
+    <FormRow error={error}>
+      {multiline ? (
+        <View style={{ paddingHorizontal: GUTTER, paddingTop: SPACE.sm, gap: SPACE.xxs }}>
+          <Label type="footnote" color="secondaryLabel">
+            {label}
+            {required ? " *" : ""}
+          </Label>
+          {input}
+        </View>
+      ) : (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: SPACE.md,
+            paddingHorizontal: GUTTER,
+            minHeight: MIN_TOUCH + 4,
+          }}
+        >
+          <View style={{ maxWidth: "40%" }}>
+            <RowLabel label={label} required={required} />
+          </View>
+          {input}
+        </View>
+      )}
+    </FormRow>
   );
 }

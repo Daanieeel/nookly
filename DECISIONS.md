@@ -306,3 +306,9 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Context:** D50 asks for SF Symbols in tinted badges; the desktop draws each module with a muted Tabler icon.
 - **Decision:** `ui/kit/symbols.ts` maps every module to an SF Symbol close to its desktop icon, keeps that Tabler icon as the fallback, and gives each a tint (tasks and assignments blue, notes and jots yellow, courses and semesters purple, calendar and exams red, decks pink, sessions, recipes and grades green, files and Moodle gray). Item pickers (links, a new task's link, courses, exams) show the module's badge with the item's key or the course's professor under the title. Items with their own icon keep it. Statuses, labels and Spaces tint their badge with their own colour.
 - **Why:** mixed lists read at a glance, like iOS Settings. **Flag:** the tint per module is a judgement call; the desktop has none.
+
+## D52. Form fields are iOS form rows
+
+- **Context:** D50. The phone's fields were the desktop's (label above an outlined box).
+- **Decision:** `Field`, `SelectField`, `MultiSelectField`, `DateField` and `SheetTrigger` draw as rows of an iOS grouped form: the name at the start, the value at the end in secondary text with the up and down chevrons of a pop up button (or a clear button), several lines with the name small above. `FormSection` (`ui/kit/Form.tsx`) groups consecutive fields on one surface with hairlines; a field outside one brings its own rounded surface. Errors show under the row in red. Empty values read "None", as iOS does.
+- **Why:** the user's brief; the desktop's labels and required marks stay.

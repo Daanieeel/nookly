@@ -1,15 +1,16 @@
-import { FORM_FIELD_CLASSES } from "@nookly/frontend/classes";
-import { IconCalendarEvent, IconX } from "@tabler/icons-react-native";
+import { IconX } from "@tabler/icons-react-native";
 import { useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { dayLabel, localDay } from "../screens/dates.ts";
-import { IconButton } from "./Button.tsx";
-import { FieldLabel } from "./Field.tsx";
+import { FormRow, RowLabel } from "./kit/Form.tsx";
+import { Glyph } from "./kit/Glyph.tsx";
+import { useSemanticPair } from "./kit/scheme.ts";
 import { SheetTrigger } from "./SelectField.tsx";
 import { DayPicker } from "./sheet/DayPicker.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
 import { TimeInput } from "./TimeInput.tsx";
-import { useTheme } from "./theme.ts";
+import { GUTTER, SPACE } from "./tokens.ts";
+import { MIN_TOUCH } from "./touch.ts";
 
 /// The words a day (`YYYY-MM-DD`) or a time (`HH:MM`) is shown in.
 export function shownValue(mode: "date" | "time", value: string): string {
@@ -42,42 +43,58 @@ export function DateField({
   clearable?: boolean;
   readOnly?: boolean;
 }) {
-  const theme = useTheme();
   const [open, setOpen] = useState(false);
+  const muted = useSemanticPair("tertiaryLabel");
   const clear =
     clearable && value && !readOnly ? (
-      <IconButton
-        label={`Clear ${label}`}
-        icon={<IconX size={18} color={theme.colors.mutedForeground} />}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Clear ${label}`}
         onPress={() => onChange(null)}
-      />
+        hitSlop={12}
+        style={({ pressed }) => ({ opacity: pressed ? 0.4 : 1 })}
+      >
+        <Glyph
+          name="xmark.circle.fill"
+          fallback={IconX}
+          size={17}
+          color={muted.color}
+          hex={muted.hex}
+        />
+      </Pressable>
     ) : null;
   if (mode === "time") {
     return (
-      <View className={FORM_FIELD_CLASSES}>
-        <FieldLabel label={label} />
-        <View className="flex-row items-center gap-1">
+      <FormRow>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: SPACE.sm,
+            paddingHorizontal: GUTTER,
+            minHeight: MIN_TOUCH + 4,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <RowLabel label={label} />
+          </View>
           <TimeInput label={label} value={value} onChange={onChange} />
           {clear}
         </View>
-      </View>
+      </FormRow>
     );
   }
   return (
-    <View className={FORM_FIELD_CLASSES}>
-      <FieldLabel label={label} />
-      <View className="flex-row items-center gap-1">
-        <SheetTrigger
-          label={label}
-          text={value ? shownValue("date", value) : null}
-          placeholder={placeholder ?? "Pick a date…"}
-          icon={<IconCalendarEvent size={16} color={theme.colors.mutedForeground} />}
-          disabled={readOnly}
-          hint="Opens a calendar"
-          onPress={() => setOpen(true)}
-        />
-        {clear}
-      </View>
+    <>
+      <SheetTrigger
+        label={label}
+        text={value ? shownValue("date", value) : null}
+        placeholder={placeholder ?? "None"}
+        disabled={readOnly}
+        hint="Opens a calendar"
+        onPress={() => setOpen(true)}
+        trailing={clear ?? undefined}
+      />
       <Sheet open={open} onOpenChange={setOpen} title={label}>
         <DayPicker
           label={label}
@@ -87,6 +104,6 @@ export function DateField({
           quick={[{ label: "Today", value: localDay() }]}
         />
       </Sheet>
-    </View>
+    </>
   );
 }

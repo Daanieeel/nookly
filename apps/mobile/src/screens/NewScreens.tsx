@@ -1,5 +1,4 @@
 import { entityOption, labelOption, statusOption } from "./option-badges.tsx";
-import { FORM_FIELD_CLASSES } from "@nookly/frontend/classes";
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
   createAssignment,
@@ -15,23 +14,25 @@ import {
   type EntityRecord,
 } from "@nookly/shared/data";
 import type { LocalDb } from "@nookly/shared/data";
-import { IconTag, IconX } from "@tabler/icons-react-native";
+import { IconX } from "@tabler/icons-react-native";
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import { useLabels, useRecents, useSearch, useSpaces, useStatuses } from "../data/queries.ts";
-import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { Field, FieldLabel } from "../ui/Field.tsx";
+import { Button, statusOf } from "../ui/Button.tsx";
+import { Field } from "../ui/Field.tsx";
+import { FormSection } from "../ui/kit/Form.tsx";
+import { Glyph } from "../ui/kit/Glyph.tsx";
+import { useSemanticPair } from "../ui/kit/scheme.ts";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { SelectField, SheetTrigger } from "../ui/SelectField.tsx";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { useCloseSheet } from "../ui/sheet/route.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { Text } from "../ui/Text.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { CalendarEntryForm } from "./CalendarEntryForm.tsx";
@@ -59,31 +60,39 @@ function LinkTarget({
   value: EntityRecord | null;
   onChange: (e: EntityRecord | null) => void;
 }) {
-  const theme = useTheme();
   const [open, setOpen] = useState(false);
+  const muted = useSemanticPair("tertiaryLabel");
   return (
-    <View className={FORM_FIELD_CLASSES}>
-      <FieldLabel label="Link to" />
-      <View className="flex-row items-center gap-1">
-        <SheetTrigger
-          label="Link to"
-          text={value ? value.title || "Untitled" : null}
-          icon={value ? <EntityIcon type={value.type} icon={value.icon} /> : null}
-          placeholder="Search for an item"
-          onPress={() => setOpen(true)}
-        />
-        {value ? (
-          <IconButton
-            label="Remove Link"
-            icon={<IconX size={18} color={theme.colors.mutedForeground} />}
-            onPress={() => onChange(null)}
-          />
-        ) : null}
-      </View>
+    <>
+      <SheetTrigger
+        label="Link to"
+        text={value ? value.title || "Untitled" : null}
+        icon={value ? <EntityIcon type={value.type} icon={value.icon} /> : null}
+        placeholder="None"
+        onPress={() => setOpen(true)}
+        trailing={
+          value ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Remove Link"
+              hitSlop={12}
+              onPress={() => onChange(null)}
+            >
+              <Glyph
+                name="xmark.circle.fill"
+                fallback={IconX}
+                size={17}
+                color={muted.color}
+                hex={muted.hex}
+              />
+            </Pressable>
+          ) : undefined
+        }
+      />
       <Sheet open={open} onOpenChange={setOpen} title="Link to" size="large">
         <EntitySearch onPick={onChange} />
       </Sheet>
-    </View>
+    </>
   );
 }
 
@@ -122,23 +131,18 @@ function LabelsField({
   value: string[];
   onChange: (ids: string[]) => void;
 }) {
-  const theme = useTheme();
   const { data: labels = [] } = useLabels(spaceId);
   const [open, setOpen] = useState(false);
   const names = labels.filter((l) => value.includes(l.id)).map((l) => l.name);
   if (labels.length === 0) return null;
   return (
-    <View className={FORM_FIELD_CLASSES}>
-      <FieldLabel label="Labels" />
-      <View className="flex-row">
-        <SheetTrigger
-          label="Labels"
-          text={names.length > 0 ? names.join(", ") : null}
-          icon={<IconTag size={16} color={theme.colors.mutedForeground} />}
-          placeholder="No labels"
-          onPress={() => setOpen(true)}
-        />
-      </View>
+    <>
+      <SheetTrigger
+        label="Labels"
+        text={names.length > 0 ? names.join(", ") : null}
+        placeholder="None"
+        onPress={() => setOpen(true)}
+      />
       <Sheet open={open} onOpenChange={setOpen} title="Labels">
         <OptionList
           label="Labels"
@@ -148,7 +152,7 @@ function LabelsField({
           onToggle={(id, on) => onChange(on ? [...value, id] : value.filter((x) => x !== id))}
         />
       </Sheet>
-    </View>
+    </>
   );
 }
 
@@ -187,38 +191,42 @@ export function NewTaskScreen({
   });
   return (
     <Screen>
-      <SpacePicker
-        value={space}
-        onChange={(id) => {
-          setSpace(id);
-          setChosen([]);
-        }}
-      />
-      <form.Field name="title">
-        {(field) => (
-          <Field
-            label="Title"
-            required
-            autoFocus
-            placeholder="Call the dentist"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            returnKeyType="done"
-            onSubmitEditing={() => void form.handleSubmit()}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
-      <SelectField
-        label="Status"
-        value={statusId}
-        onChange={setStatusId}
-        options={statuses.map(statusOption)}
-      />
-      <DateField label="Due date" value={due} onChange={setDue} />
-      {space ? <LabelsField spaceId={space} value={chosen} onChange={setChosen} /> : null}
-      <LinkTarget value={link} onChange={setLink} />
+      <FormSection>
+        <form.Field name="title">
+          {(field) => (
+            <Field
+              label="Title"
+              required
+              autoFocus
+              placeholder="Call the dentist"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              returnKeyType="done"
+              onSubmitEditing={() => void form.handleSubmit()}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+      </FormSection>
+      <FormSection>
+        <SpacePicker
+          value={space}
+          onChange={(id) => {
+            setSpace(id);
+            setChosen([]);
+          }}
+        />
+        <SelectField
+          label="Status"
+          value={statusId}
+          onChange={setStatusId}
+          options={statuses.map(statusOption)}
+        />
+        <DateField label="Due date" value={due} onChange={setDue} />
+        {space ? <LabelsField spaceId={space} value={chosen} onChange={setChosen} /> : null}
+        <LinkTarget value={link} onChange={setLink} />
+      </FormSection>
       <View className="flex-row gap-2">
         <Button
           label="Create"
