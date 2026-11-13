@@ -62,6 +62,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { CoursePicker } from "./StudyPickers.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
+import { semesterRange } from "./SemesterList.tsx";
 import { addDays, dayLabel, localDay } from "./dates.ts";
 import { PageEditor } from "./PageEditor.tsx";
 
@@ -394,7 +395,16 @@ export function CourseSemesterPicker({
       readOnly={readOnly}
       options={[
         { id: "none", label: "None" },
-        ...semesters.map((s) => ({ id: s.entity.id, label: s.entity.title || "Untitled" })),
+        // Each with its icon, when it runs and whether it is the current one, as the
+        // desktop's picker shows a semester.
+        ...semesters.map((s) => ({
+          id: s.entity.id,
+          label: s.entity.title || "Untitled",
+          glyph: IconCalendarWeek,
+          tint: "blue",
+          subtitle: semesterRange(s) ?? s.entity.key,
+          detail: s.isCurrent ? "Current" : undefined,
+        })),
       ]}
       onChange={(id) => set.mutate(id === "none" ? null : id)}
     />

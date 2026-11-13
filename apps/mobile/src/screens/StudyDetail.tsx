@@ -32,7 +32,7 @@ import {
 } from "@tabler/icons-react-native";
 import type { Option } from "../ui/sheet/OptionList.tsx";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import {
@@ -69,6 +69,7 @@ import { cn } from "../ui/classes.ts";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { clockText, useTwelveHour } from "../ui/TimeInput.tsx";
 import { dayLabel, localDay } from "./dates.ts";
 import { AssignmentRows, ExamRows } from "./StudyLists.tsx";
 import { CourseSemesterPicker } from "./PlannerScreens.tsx";
@@ -313,12 +314,19 @@ function DueChoice({
       onPress={onPress}
       style={TOUCH_ROW}
       className={cn(
-        "flex-row items-center gap-3 rounded-lg border border-border px-3 py-2 active:bg-accent",
+        "min-h-16 flex-row items-center gap-3 rounded-xl border border-border px-4 py-3.5 active:bg-accent",
         selected && "border-primary bg-primary/10",
         disabled && "opacity-50",
       )}
     >
-      <Icon size={18} color={selected ? theme.colors.primary : theme.colors.mutedForeground} />
+      <View
+        className={cn(
+          "size-9 items-center justify-center rounded-lg",
+          selected ? "bg-primary/15" : "bg-muted",
+        )}
+      >
+        <Icon size={20} color={selected ? theme.colors.primary : theme.colors.mutedForeground} />
+      </View>
       <View className="flex-1 gap-0.5">
         <Text className="font-medium">{title}</Text>
         <Text variant="small" tone="muted">
@@ -386,10 +394,8 @@ function AssignmentDueSteps({
   onBefore: (days: number, session: string | null) => void;
 }) {
   const sheet = useSheet();
-  const { data: sessions = [] } = useSessions({ courseId: assignment.courseId ?? undefined });
   const days = assignment.dueSessionOffsetDays;
   const picked = useAssignmentDueSession(assignment.entity.id);
-  const upcoming = sessions.filter((s) => !s.cancelled && s.date >= localDay());
   const noCourse = !assignment.courseId;
   const presets = (session: string | null) => (
     <OptionList
@@ -399,8 +405,17 @@ function AssignmentDueSteps({
       onChange={(n) => onBefore(Number(n), session)}
     />
   );
+  /// Why there is nothing to follow: no course, or no session coming.
+  const nothing = (text: string) => (
+    <Text tone="muted" className="py-4 text-center">
+      {text}
+    </Text>
+  );
+  const noSessions = noCourse
+    ? "Pick a course first, to follow its sessions."
+    : "This course has no upcoming sessions.";
   return (
-    <View className="gap-2">
+    <View className="gap-3">
       <DueChoice
         icon={IconCalendarEvent}
         title="Specific date"
@@ -424,38 +439,36 @@ function AssignmentDueSteps({
         title="Before session"
         description="Follows the course's next session."
         selected={days !== null && picked === null}
-        disabled={noCourse}
-        onPress={() => sheet?.push({ title: "Before session", content: presets(null) })}
+        onPress={() =>
+          sheet?.push({
+            title: "Before session",
+            content: noCourse ? nothing(noSessions) : presets(null),
+          })
+        }
       />
       <DueChoice
         icon={IconCalendarTime}
         title="Specific session"
         description="Follows one of the course's upcoming sessions."
         selected={picked !== null}
-        disabled={noCourse || upcoming.length === 0}
         onPress={() =>
           sheet?.push({
             title: "Specific session",
             content: (
-              <OptionList
-                label="Upcoming sessions"
-                options={upcoming.map((s) => ({
-                  id: s.entity.id,
-                  label: `${dayLabel(s.date)} ${s.startTime}`,
-                }))}
-                value={picked}
-                onChange={(session) => onBefore(days ?? 0, session)}
+              <SessionChoices
+                courseId={assignment.courseId}
+                picked={picked}
+                empty={nothing(noSessions)}
+                onPick={(session) =>
+                  sheet?.push({ title: "Days before", content: presets(session) })
+                }
               />
             ),
           })
         }
       />
       {assignment.dueDate || days !== null ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          label="Clear due date"
-          icon={<IconX size={16} />}
+        <ClearDue
           onPress={() => {
             onDay(null);
             sheet?.close();
@@ -463,6 +476,54 @@ function AssignmentDueSteps({
         />
       ) : null}
     </View>
+  );
+}
+
+/// The course's upcoming sessions to follow, read as they arrive: the sheet's step stays
+/// open while they load.
+function SessionChoices({
+  courseId,
+  picked,
+  empty,
+  onPick,
+}: {
+  courseId: string | null;
+  picked: string | null;
+  empty: ReactNode;
+  onPick: (session: string) => void;
+}) {
+  const twelve = useTwelveHour();
+  const { data: sessions = [] } = useSessions({ courseId: courseId ?? undefined });
+  const upcoming = courseId ? sessions.filter((s) => !s.cancelled && s.date >= localDay()) : [];
+  if (upcoming.length === 0) return empty;
+  return (
+    <OptionList
+      label="Upcoming sessions"
+      options={upcoming.map((s) => ({
+        id: s.entity.id,
+        label: s.entity.title || "Session",
+        glyph: IconCalendarTime,
+        tint: "blue",
+        subtitle: `${dayLabel(s.date)}, ${clockText(s.startTime, twelve)}`,
+      }))}
+      value={picked}
+      // Then how long before it, as the desktop asks.
+      onChange={onPick}
+    />
+  );
+}
+
+/// Takes the due date away: full width and tall enough for a thumb, its cross quiet.
+function ClearDue({ onPress }: { onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Button
+      variant="secondary"
+      size="lg"
+      label="Clear due date"
+      icon={<IconX size={18} color={theme.colors.mutedForeground} />}
+      onPress={onPress}
+    />
   );
 }
 

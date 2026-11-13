@@ -28,7 +28,8 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
 
-const range = (s: SemesterRecord) =>
+/// When a semester runs, as its list and the course page's picker say it.
+export const semesterRange = (s: SemesterRecord) =>
   s.startDate && s.endDate ? `${dayLabel(s.startDate)} to ${dayLabel(s.endDate)}` : null;
 
 /// A new name typed in the menu's sheet, as the desktop renames a semester in place.
@@ -103,7 +104,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
               {semester.isCurrent ? <Badge label="Current" variant="positive" size="sm" /> : null}
             </View>
             <Text variant="small" tone="muted">
-              {`${mine.length} ${mine.length === 1 ? "course" : "courses"} · ${range(semester) ?? "Set dates"}`}
+              {`${mine.length} ${mine.length === 1 ? "course" : "courses"} · ${semesterRange(semester) ?? "Set dates"}`}
             </Text>
           </View>
         </Pressable>

@@ -156,6 +156,11 @@ describe("semesters", () => {
       `/entity/${course}`,
     );
     await openRow(screen, "Semester");
+    // Each semester as the desktop's picker shows it: its dates and whether it is the current one.
+    expect(
+      await screen.findByText(`${dayLabel("2025-10-15")} to ${dayLabel("2026-02-15")}`),
+    ).toBeTruthy();
+    expect(screen.getAllByText("Current").length).toBeGreaterThan(0);
     await fireEvent.press(await screen.findByRole("radio", { name: "WS 25/26" }));
     await waitFor(async () => expect(await courseSemester(data.db, course)).toBe(ws));
   });

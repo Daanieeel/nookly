@@ -363,4 +363,44 @@ describe("an assignment's due date", () => {
       }),
     );
   });
+
+  it("can follow one session picked from the course's upcoming ones, so many days before", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 2", course, null);
+    await createOneOffSession(data.db, space, {
+      title: "Lecture",
+      courseId: course,
+      date: "2999-03-10",
+      startTime: "10:00",
+      endTime: "11:30",
+    });
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    await openRow(screen, "Due date");
+    await fireEvent.press(await screen.findByRole("button", { name: "Specific session" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: /^Lecture/ }));
+    // Then how long before it, as on the desktop.
+    await fireEvent.press(await screen.findByRole("radio", { name: "2 days" }));
+    await waitFor(async () =>
+      expect((await getAssignment(data.db, assignment))?.dueDate).toBe("2999-03-08"),
+    );
+  });
+
+  it("offers a session even without one coming, and says why there is none", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 3", course, null);
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    await openRow(screen, "Due date");
+    const specific = await screen.findByRole("button", { name: "Specific session" });
+    expect(specific.props.accessibilityState?.disabled).toBeFalsy();
+    await fireEvent.press(specific);
+    expect(await screen.findByText("This course has no upcoming sessions.")).toBeTruthy();
+  });
 });
