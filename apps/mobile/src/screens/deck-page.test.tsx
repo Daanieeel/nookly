@@ -23,6 +23,9 @@ describe("a deck's page", () => {
     expect(screen.getByRole("button", { name: "Study 1" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Quicksort average?, n log n" })).toBeTruthy();
     expect(screen.getByText("1 card waiting")).toBeTruthy();
+    // At a glance a count says what it counts, not a bare number.
+    expect(screen.getByText("1 card")).toBeTruthy();
+    expect(screen.getByText("0 rated today")).toBeTruthy();
   });
 
   it("says how many cards were rated today, as the desktop's deck does", async () => {

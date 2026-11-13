@@ -102,6 +102,7 @@ const PAGE_TITLES = new Map([
   ["/assignments", "Assignments"],
   ["/trash", "Trash"],
   ["/search", "Search"],
+  ["/pinned", "Pinned"],
   ["/settings", "Settings"],
   ["/conflicts", "Review Changes"],
 ]);
@@ -115,5 +116,7 @@ export function titleOfPath(path: string): string | null {
   if (module && isModuleKey(module)) return MODULE_LABELS[module];
   if (path.startsWith("/settings")) return "Settings";
   if (path.startsWith("/space/")) return "Space";
+  if (path.startsWith("/study/")) return "Study";
+  if (path.startsWith("/space-settings/")) return "Space Settings";
   return null;
 }

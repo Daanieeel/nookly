@@ -24,7 +24,9 @@ import {
 } from "@nookly/shared/data";
 import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
+import { TINT } from "../ui/tokens.ts";
+import { shownValue } from "../ui/DateField.tsx";
 import { renderScreens, testData } from "../test/render.tsx";
 import { choose, openRow, pickDay, pickDayInSheet, pickTime } from "../test/sheet.ts";
 import { ConflictBadge } from "./ConflictBadge.tsx";
@@ -254,6 +256,23 @@ describe("an item's links", () => {
         ["blocks", other],
       ]),
     );
+  });
+});
+
+describe("an overdue assignment", () => {
+  it("shows its due date in red, as the desktop does, until it is handed in", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 1", course, "2020-01-06");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    const red = [TINT.red.light, TINT.red.dark];
+    const [day] = await screen.findAllByText(shownValue("date", "2020-01-06"), {
+      includeHiddenElements: true,
+    });
+    expect(red).toContain(StyleSheet.flatten(day.props.style).color);
   });
 });
 

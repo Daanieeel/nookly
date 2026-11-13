@@ -103,5 +103,9 @@ describe("a tab's name", () => {
     expect(titleOfPath("/settings")).toBe("Settings");
     expect(titleOfPath("/module/s1/notes")).toBe("Notes");
     expect(titleOfPath("/entity/abc")).toBeNull();
+    // Each page a tab can show has a name; none is "Untitled".
+    expect(titleOfPath("/pinned")).toBe("Pinned");
+    expect(titleOfPath("/study/abc")).toBe("Study");
+    expect(titleOfPath("/space-settings/abc")).toBe("Space Settings");
   });
 });

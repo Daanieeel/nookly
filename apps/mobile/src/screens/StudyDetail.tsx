@@ -1,3 +1,4 @@
+import { deadlineBucket } from "./assignment-view.ts";
 import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES, type FixedStatus } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
@@ -352,11 +353,19 @@ function AssignmentDueProperty({
     setAssignmentDueBeforeSession(db, id, input.days, input.session),
   );
   const value = assignment.dueDate ? shownValue("date", assignment.dueDate) : "None";
+  // Red once missed and not handed in, as the desktop's due date.
+  const late = deadlineBucket(assignment, localDay()) === "overdue";
   return (
     <SheetProperty
-      icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
+      icon={
+        <IconCalendarEvent
+          size={20}
+          color={late ? theme.colors.destructive : theme.colors.mutedForeground}
+        />
+      }
       label="Due date"
       value={value}
+      valueTone={late ? "destructive" : undefined}
       readOnly={readOnly}
     >
       <AssignmentDueSteps

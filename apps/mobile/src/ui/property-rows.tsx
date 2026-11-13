@@ -358,11 +358,16 @@ export function InfoRow({
   icon,
   label,
   value,
+  glance,
 }: {
   icon?: React.ReactNode;
   label: string;
   value: string;
+  /// What the chip at a glance says instead of the bare value, when the value alone does not
+  /// say what it is ("3 cards" for a count of 3).
+  glance?: string;
 }) {
   // Nothing to change: at a glance it is a quiet chip that says what it holds.
-  return <Property icon={icon} label={label} value={value} />;
+  const look = usePropertyLook();
+  return <Property icon={icon} label={label} value={look === "chip" && glance ? glance : value} />;
 }

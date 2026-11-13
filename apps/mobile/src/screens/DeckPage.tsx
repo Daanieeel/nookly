@@ -295,11 +295,13 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         icon={<IconCards size={20} color={muted} />}
         label="Cards"
         value={String(deck.stats.total)}
+        glance={`${deck.stats.total} ${deck.stats.total === 1 ? "card" : "cards"}`}
       />
       <InfoRow
         icon={<IconCalendarCheck size={20} color={muted} />}
         label="Rated today"
         value={String(rated)}
+        glance={`${rated} rated today`}
       />
       <InfoRow
         icon={<IconClock size={20} color={muted} />}
