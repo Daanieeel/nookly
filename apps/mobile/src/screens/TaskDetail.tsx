@@ -25,12 +25,15 @@ import { TextInput, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { useSetting } from "../data/settings.ts";
 import {
+  useEntity,
   useStatuses,
   useSubtaskProgress,
   useSubtasks,
   useTask,
   useTasks,
 } from "../data/queries.ts";
+import { isSharedSpace } from "@nookly/shared/api";
+import { LabelsProperty } from "./RelatedSection.tsx";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
@@ -110,10 +113,12 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
   );
 }
 
-/// A task's properties, one card of rows (or chips at a glance): tap one to change it.
+/// A task's properties in the desktop's order (status, labels, start, due, effort, repeat),
+/// one card of rows (or chips at a glance): tap one to change it.
 function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
   const theme = useTheme();
   const { data: task } = useTask(id);
+  const { data: entity } = useEntity(id);
   const { data: statuses = [] } = useStatuses();
   const status = useLocalWrite((db, statusId: string) => setTaskStatus(db, id, statusId));
   const dates = useLocalWrite((db, due: string | null) =>
@@ -141,31 +146,9 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         options={statuses.map(statusOption)}
         onChange={(statusId) => status.mutate(statusId)}
       />
-      <ChoiceProperty
-        icon={<UiIcon icon={IconGauge} size={20} color={muted} />}
-        label="Effort"
-        searchPlaceholder="Set effort…"
-        value={task.effort === null ? "none" : String(task.effort)}
-        readOnly={readOnly}
-        options={[
-          ...EFFORT_STEPS.map((step) => ({
-            id: String(step.value),
-            label: effortLabel(step.value, scale),
-          })),
-          ...(task.effort === null
-            ? []
-            : [
-                {
-                  id: "none",
-                  label: "Remove effort",
-                  icon: <IconX size={16} color={muted} />,
-                  separatorBefore: true,
-                },
-              ]),
-        ]}
-        emptyId="none"
-        onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}
-      />
+      {entity && !isSharedSpace(entity.spaceId) ? (
+        <LabelsProperty entity={entity} readOnly={readOnly} />
+      ) : null}
       <DayProperty
         icon={<UiIcon icon={IconCalendarPlus} size={20} color={muted} />}
         label="Start date"
@@ -190,6 +173,31 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
           { label: "Tomorrow", value: addDays(localDay(), 1) },
         ]}
         onChange={(day) => dates.mutate(day)}
+      />
+      <ChoiceProperty
+        icon={<UiIcon icon={IconGauge} size={20} color={muted} />}
+        label="Effort"
+        searchPlaceholder="Set effort…"
+        value={task.effort === null ? "none" : String(task.effort)}
+        readOnly={readOnly}
+        options={[
+          ...EFFORT_STEPS.map((step) => ({
+            id: String(step.value),
+            label: effortLabel(step.value, scale),
+          })),
+          ...(task.effort === null
+            ? []
+            : [
+                {
+                  id: "none",
+                  label: "Remove effort",
+                  icon: <IconX size={16} color={muted} />,
+                  separatorBefore: true,
+                },
+              ]),
+        ]}
+        emptyId="none"
+        onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}
       />
       <ChoiceProperty
         icon={<UiIcon icon={IconRepeat} size={20} color={muted} />}

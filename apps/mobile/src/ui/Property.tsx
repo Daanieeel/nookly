@@ -23,12 +23,11 @@ export function PropertyList({ children }: { children: ReactNode }) {
           // The rows are fixed in number and order.
           // oxlint-disable-next-line react/no-array-index-key
           key={index}
-          style={
-            index > 0
-              ? { borderTopWidth: 0.5, borderTopColor: separator, marginLeft: 36 }
-              : undefined
-          }
         >
+          {/* The hairline starts under the text, past the icon; the row itself does not move. */}
+          {index > 0 ? (
+            <View style={{ height: 0.5, backgroundColor: separator, marginLeft: 36 }} />
+          ) : null}
           {row}
         </View>
       ))}

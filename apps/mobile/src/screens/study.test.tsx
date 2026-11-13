@@ -133,7 +133,9 @@ describe("a task's due date, labels and links", () => {
     await screen.findByText("Status");
     await pickDay(screen, "Due date", "2026-10-31");
     await waitFor(async () => expect((await getTask(data.db, task))?.dueDate).toBe("2026-10-31"));
-    await fireEvent.press(await screen.findByRole("button", { name: "Labels, None" }));
+    // At a glance under the title and in the details: either opens the labels.
+    const labels = await screen.findAllByRole("button", { name: "Labels, None" });
+    await fireEvent.press(labels[labels.length - 1]);
     await fireEvent.changeText(await screen.findByLabelText("Search Labels"), "Urgent");
     await fireEvent.press(screen.getByRole("button", { name: "Create Urgent" }));
     await waitFor(async () =>

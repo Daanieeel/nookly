@@ -20,7 +20,10 @@ export function DetailsBody({ id }: { id: string }) {
       <PartProvider value="details">
         <ItemParts entity={entity} readOnly={readOnly || Boolean(entity.deletedAt)} />
       </PartProvider>
-      {mine ? <LabelsSection entity={entity} readOnly={readOnly} /> : null}
+      {/* A task lists its labels among its own properties, as the desktop does. */}
+      {mine && entity.type !== "task" ? (
+        <LabelsSection entity={entity} readOnly={readOnly} />
+      ) : null}
       {mine ? <RelatedSection entity={entity} readOnly={readOnly} /> : null}
     </>
   );
