@@ -50,6 +50,7 @@ export function Property({
   icon,
   label,
   value,
+  chipText,
   valueIcon,
   empty = false,
   valueTone,
@@ -62,6 +63,8 @@ export function Property({
   icon?: ReactNode;
   label: string;
   value: string;
+  /// What the chip shows instead of `value`, which screen readers still hear.
+  chipText?: string;
   /// Shown beside the value (a status's mark).
   valueIcon?: ReactNode;
   /// Nothing is set: a chip says the property's name, faded, rather than "None".
@@ -109,7 +112,7 @@ export function Property({
           tint={empty ? undefined : tint}
           numberOfLines={1}
         >
-          {empty ? label : value}
+          {empty ? label : (chipText ?? value)}
         </Label>
       </Pressable>
     );

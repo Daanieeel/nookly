@@ -368,6 +368,5 @@ export function InfoRow({
   glance?: string;
 }) {
   // Nothing to change: at a glance it is a quiet chip that says what it holds.
-  const look = usePropertyLook();
-  return <Property icon={icon} label={label} value={look === "chip" && glance ? glance : value} />;
+  return <Property icon={icon} label={label} value={value} chipText={glance} />;
 }
