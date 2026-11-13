@@ -19,7 +19,7 @@ import { usePreference } from "../data/preferences.ts";
 import { useAgenda, useSpaces } from "../data/queries.ts";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { Button, IconButton } from "../ui/Button.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
+import { Segmented } from "../ui/Segmented.tsx";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
@@ -283,19 +283,15 @@ export function CalendarScreen({
   const agendaDays = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(today, i));
   const controls = (
     <>
-      <ChipGroup label="View" stretch>
-        {available.map((v) => (
-          <Chip
-            key={v.id}
-            label={v.label}
-            selected={view === v.id}
-            onPress={() => {
-              setStored(v.id);
-              if (v.id === "agenda") setAnchor(today);
-            }}
-          />
-        ))}
-      </ChipGroup>
+      <Segmented
+        label="View"
+        value={view}
+        options={available.map((v) => ({ value: v.id, label: v.label }))}
+        onChange={(next) => {
+          setStored(next);
+          if (next === "agenda") setAnchor(today);
+        }}
+      />
       {wide && view !== "agenda" ? (
         <View className="flex-row items-center gap-1">
           <IconButton
