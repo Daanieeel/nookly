@@ -45,11 +45,7 @@ export function IconBadge({
         },
       ]}
     >
-      {glyph ? (
-        <Glyph icon={glyph} size={size * (BADGE.icon / BADGE.size)} color={color} />
-      ) : (
-        icon
-      )}
+      {glyph ? <Glyph icon={glyph} size={size * (BADGE.icon / BADGE.size)} color={color} /> : icon}
     </View>
   );
 }
