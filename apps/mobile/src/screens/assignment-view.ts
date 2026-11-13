@@ -88,7 +88,7 @@ const statusPosition = (a: AssignmentRecord) =>
 
 /// Each ordering's comparison, as the desktop's `orderAssignments`: highest grade first,
 /// ungraded last; ties go by due date.
-const ORDER: Record<AssignmentOrdering, (a: AssignmentRecord, b: AssignmentRecord) => number> = {
+const ORDER = {
   auto: byDue,
   due: byDue,
   created: byCreated,
@@ -97,7 +97,7 @@ const ORDER: Record<AssignmentOrdering, (a: AssignmentRecord, b: AssignmentRecor
     (a.entity.title ?? "").localeCompare(b.entity.title ?? "", undefined, { sensitivity: "base" }),
   status: (a, b) => statusPosition(a) - statusPosition(b) || byDue(a, b),
   grade: (a, b) => (b.grade ?? -1) - (a.grade ?? -1) || byDue(a, b),
-};
+} satisfies Record<AssignmentOrdering, (a: AssignmentRecord, b: AssignmentRecord) => number>;
 
 /// The groups of the list, in a stable order, empty ones left out, each in `ordering`.
 export function groupAssignments(

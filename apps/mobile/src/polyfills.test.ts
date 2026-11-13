@@ -36,3 +36,21 @@ describe("array polyfills", () => {
     expect(Array.prototype.toSorted).toBe(own);
   });
 });
+
+/// Hermes has no `Intl.DisplayNames`; the desktop's time zone table builds one when it is
+/// loaded, which would stop the phone's Settings from opening.
+describe("Intl.DisplayNames", () => {
+  const saved = Object.getOwnPropertyDescriptor(Intl, "DisplayNames");
+  afterEach(() => {
+    if (saved) Object.defineProperty(Intl, "DisplayNames", saved);
+  });
+
+  it("is there where the engine lacks it, and names nothing rather than guessing", () => {
+    Reflect.deleteProperty(Intl, "DisplayNames");
+    jest.isolateModules(() => {
+      require("./polyfills.ts");
+    });
+    const names = new Intl.DisplayNames(["en"], { type: "region" });
+    expect(names.of("DE")).toBeUndefined();
+  });
+});

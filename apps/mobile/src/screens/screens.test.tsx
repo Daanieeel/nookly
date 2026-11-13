@@ -133,10 +133,10 @@ describe("Settings", () => {
     );
     expect(await screen.findByText("Session length")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Reset to Default" })).toBeNull();
-    await fireEvent.press(screen.getAllByRole("button", { name: "More" })[0]);
-    expect(await screen.findByText("95 min")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Reset to Default" }));
-    expect(await screen.findByText("90 min")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Increase Session length" }));
+    expect(screen.getByLabelText("Session length").props.value).toBe("100");
+    await fireEvent.press(await screen.findByRole("button", { name: "Reset to Default" }));
+    expect(screen.getByLabelText("Session length").props.value).toBe("90");
     expect(phoneSettings.isDefault("calendar.sessionLengthMinutes")).toBe(true);
   });
 

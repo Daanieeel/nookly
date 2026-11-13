@@ -356,3 +356,7 @@ iOS 27 stops at launch any app that has not adopted the scene lifecycle, and the
 ## D60. Dark mode sits on a deep charcoal
 
 The user asked for the backmost background to be a deep charcoal instead of black on both apps. The desktop's `--background` (dark) in `packages/ui/src/theme.css` and the file viewer's mirror of it become `#111111`, the calendar's weekend shade moves from `#121212` to `#161616` so it still reads against it, and cards stay at `#1a1a1a` above it. This edits existing tokens, which `AGENTS.md` normally forbids; the user's explicit request is the exception. The phone's page and grouped page backgrounds use the same value on iOS too (a dynamic colour, the system's own in light mode), checked by `ui/tokens.test.ts`.
+
+## D61. Flags on the phone are the system's
+
+The desktop draws the flags of the date and time formats and of each time zone from `react-flagpack` images, a 3.6 MB web only set the phone cannot load without an SVG file loader. The phone shows the same flags as the system's emoji flags (US, EU, and each zone's country from the desktop's own zone table), which iOS draws natively. Hermes also lacks `Intl.supportedValuesOf` and `Intl.DisplayNames`: the zone list falls back to the desktop's table, and a minimal `Intl.DisplayNames` in `polyfills.ts` names nothing, so a zone shows no country name on the phone. The code language marks come from the desktop's components, written out as SVG text (`packages/frontend/src/lib/code-language-marks.ts`, checked by a desktop test).
