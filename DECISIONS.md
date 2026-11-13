@@ -330,3 +330,9 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Context:** the desktop stores a card's faces as blocks (`front_blocks`, `back_blocks`) with the markdown text beside them. The phone wrote plain text and cleared the blocks, so an edit on the phone lost the desktop's formatting on both faces.
 - **Decision:** the phone writes cards with the page editor (`CardFaceEditor`), stores blocks and the text made from them, and saves only the face that changed (`updateCardFaces`). The draft of a new card is kept as blocks; an old text draft is carried over.
 - **Why:** data safety; one editor everywhere.
+
+## D56. Which desktop features the phone has in 1.0.0
+
+- **On the phone:** restoring is signing in (the account brings everything back and replaces nothing), and Settings, Backup writes a checked backup file to share; PDFs and other files open in the system's viewer through the share sheet; tables and every other block the desktop writes show and edit in the phone's page editor (same schema); the semester setup is there (New, Semester setup, `SetupSemestersScreen`); saved views on Tasks.
+- **Desktop only for now ⚑:** external calendar subscriptions (they are not part of sync); editing a whole series (the phone changes one session or entry, and says so); saved views on Assignments; Moodle (D54).
+- **Why:** each of these needs either data that does not sync yet or a flow that is long on a phone. Nothing is lost: what the desktop makes syncs and shows on the phone.
