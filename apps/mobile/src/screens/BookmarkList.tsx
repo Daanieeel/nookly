@@ -14,7 +14,6 @@ import { Grid } from "../ui/Grid.tsx";
 import { ListTitle } from "../ui/ListBar.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const hostOf = (url: string) => url.replace(/^https?:\/\//, "").split("/")[0];
 
@@ -46,7 +45,7 @@ function BookmarkCard({ bookmark }: { bookmark: BookmarkRecord }) {
               className="size-full"
             />
           ) : (
-            <UiIcon icon={IconBookmark} size={32} color={theme.colors.mutedForeground} />
+            <IconBookmark size={32} color={theme.colors.mutedForeground} />
           )}
         </View>
         <View className="gap-1 p-3">
@@ -71,7 +70,7 @@ function BookmarkCard({ bookmark }: { bookmark: BookmarkRecord }) {
       <View className="absolute right-1 top-1">
         <IconButton
           label={`Details of ${bookmark.entity.title}`}
-          icon={<UiIcon icon={IconInfoCircle} size={20} color={theme.colors.mutedForeground} />}
+          icon={<IconInfoCircle size={20} color={theme.colors.mutedForeground} />}
           onPress={() => router.push(`/entity/${bookmark.entity.id}`)}
         />
       </View>
@@ -119,7 +118,7 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
         </Grid>
       )}
       <View className={cn(CARD_CLASSES, "flex-row items-center gap-2 p-3")}>
-        <UiIcon icon={IconLink} size={18} color={theme.colors.mutedForeground} />
+        <IconLink size={18} color={theme.colors.mutedForeground} />
         <TextInput
           accessibilityLabel="Paste a URL to save it"
           value={url}
@@ -136,7 +135,7 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
         {url.trim() ? (
           <IconButton
             label="Save Bookmark"
-            icon={<UiIcon icon={IconArrowUp} size={20} color={theme.colors.foreground} />}
+            icon={<IconArrowUp size={20} color={theme.colors.foreground} />}
             onPress={submit}
           />
         ) : null}

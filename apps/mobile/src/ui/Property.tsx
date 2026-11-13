@@ -62,7 +62,7 @@ export function Property({
   icon?: ReactNode;
   label: string;
   value: string;
-  /// Shown beside the value (a status's symbol).
+  /// Shown beside the value (a status's mark).
   valueIcon?: ReactNode;
   /// Nothing is set: a chip says the property's name, faded, rather than "None".
   empty?: boolean;
@@ -141,16 +141,7 @@ export function Property({
       <Label color="secondaryLabel" tint={tint} numberOfLines={1} style={{ maxWidth: "55%" }}>
         {value}
       </Label>
-      {interactive ? (
-        <Glyph
-          name="chevron.up.chevron.down"
-          fallback={IconSelector}
-          size={13}
-          color={muted.color}
-          hex={muted.hex}
-          weight="semibold"
-        />
-      ) : null}
+      {interactive ? <Glyph icon={IconSelector} size={13} color={muted.hex} /> : null}
     </Pressable>
   );
 }

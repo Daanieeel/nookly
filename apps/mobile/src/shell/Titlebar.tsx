@@ -5,7 +5,8 @@ import {
   IconCloud,
   IconCloudCheck,
   IconCloudOff,
-  IconCloudUpload,
+  IconCloudX,
+  IconRefresh,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconSearch,
@@ -24,7 +25,6 @@ import { history } from "./history.ts";
 import { SHORTCUTS, shortcutLabel } from "./shortcuts.ts";
 import { useShell } from "./store.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "../ui/touch.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
 
@@ -49,17 +49,20 @@ export function Titlebar({
   const status = useSyncState((s) => s.status);
   const signedIn = useSyncState((s) => s.user !== null);
   const muted = theme.colors.mutedForeground;
+  // The desktop's sync icons, state for state (`SyncStatusButton`).
   const SyncIcon = !signedIn
-    ? IconCloudOff
-    : status.state === "syncing"
-      ? IconCloudUpload
-      : status.state === "idle"
-        ? IconCloudCheck
-        : status.state === "error"
-          ? IconAlertTriangle
-          : status.state === "offline"
-            ? IconCloudOff
-            : IconCloud;
+    ? IconCloud
+    : status.conflicts > 0
+      ? IconAlertTriangle
+      : status.state === "syncing"
+        ? IconRefresh
+        : status.state === "offline"
+          ? IconCloudOff
+          : status.state === "error"
+            ? IconCloudX
+            : status.live
+              ? IconCloudCheck
+              : IconCloud;
   const line = syncLine(signedIn, status);
   return (
     <View
@@ -70,9 +73,9 @@ export function Titlebar({
         label={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         icon={
           sidebarCollapsed ? (
-            <UiIcon icon={IconLayoutSidebarLeftExpand} size={20} color={muted} />
+            <IconLayoutSidebarLeftExpand size={20} color={muted} />
           ) : (
-            <UiIcon icon={IconLayoutSidebarLeftCollapse} size={20} color={muted} />
+            <IconLayoutSidebarLeftCollapse size={20} color={muted} />
           )
         }
         onPress={() => onAction("toggleSidebar")}
@@ -80,14 +83,14 @@ export function Titlebar({
       <View className={cn(!history.canGoBack() && "opacity-40")}>
         <IconButton
           label="Go Back"
-          icon={<UiIcon icon={IconChevronLeft} size={20} color={muted} />}
+          icon={<IconChevronLeft size={20} color={muted} />}
           onPress={() => onAction("back")}
         />
       </View>
       <View className={cn(!history.canGoForward() && "opacity-40")}>
         <IconButton
           label="Go Forward"
-          icon={<UiIcon icon={IconChevronRight} size={20} color={muted} />}
+          icon={<IconChevronRight size={20} color={muted} />}
           onPress={() => onAction("forward")}
         />
       </View>
@@ -100,7 +103,7 @@ export function Titlebar({
           hitSlop={touchSlop(CONTROL_SIZE.sm, MIN_TOUCH)}
           className="h-8 w-full max-w-md flex-row items-center gap-2 rounded-md border border-input bg-background px-3 active:bg-accent"
         >
-          <UiIcon icon={IconSearch} size={16} color={muted} />
+          <IconSearch size={16} color={muted} />
           <Text variant="small" tone="muted" className="flex-1">
             Search
           </Text>
@@ -120,7 +123,7 @@ export function Titlebar({
       />
       <IconButton
         label="Settings"
-        icon={<UiIcon icon={IconSettings} size={20} color={muted} />}
+        icon={<IconSettings size={20} color={muted} />}
         onPress={() => router.push("/settings")}
       />
     </View>

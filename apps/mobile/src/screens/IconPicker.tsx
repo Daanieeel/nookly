@@ -1,7 +1,7 @@
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import { setEntityIcon, updateSpace } from "@nookly/shared/data";
 import { ICON_LIBRARY_NAMES, iconLibraryValue, isIconLibraryValue } from "@nookly/shared/icons";
-import { IconMoodEmpty } from "@tabler/icons-react-native";
+import { IconSearch } from "@tabler/icons-react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
@@ -133,8 +133,7 @@ export function IconPickerScreen() {
       )}
       {empty ? (
         <EmptyState
-          symbol="magnifyingglass"
-          fallback={IconMoodEmpty}
+          glyph={IconSearch}
           title="No Results"
           message="Check the spelling or try a new search."
         />

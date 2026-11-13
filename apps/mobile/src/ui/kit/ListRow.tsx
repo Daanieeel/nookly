@@ -98,26 +98,11 @@ export function ListRow({
       ) : null}
       {accessory === "check" ? (
         <View style={{ width: 20, alignItems: "center" }}>
-          {selected ? (
-            <Glyph
-              name="checkmark"
-              fallback={IconCheck}
-              color={accent}
-              hex={accent}
-              weight="semibold"
-            />
-          ) : null}
+          {selected ? <Glyph icon={IconCheck} color={accent} /> : null}
         </View>
       ) : null}
       {accessory === "chevron" ? (
-        <Glyph
-          name="chevron.right"
-          fallback={IconChevronRight}
-          size={14}
-          color={muted.color}
-          hex={muted.hex}
-          weight="semibold"
-        />
+        <Glyph icon={IconChevronRight} size={14} color={muted.hex} />
       ) : null}
     </Pressable>
   );

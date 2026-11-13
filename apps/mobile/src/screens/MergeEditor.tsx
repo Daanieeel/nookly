@@ -16,7 +16,6 @@ import { Text } from "../ui/Text.tsx";
 import { cn } from "../ui/classes.ts";
 import { usePaneWidth } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// The width from which the two versions sit side by side; below it they stack.
 const SIDE_BY_SIDE = 700;
@@ -368,9 +367,7 @@ export function MergeEditor() {
       {views.map((view) => (
         <ListRow
           key={view.id}
-          badge={
-            <IconBadge symbol="arrow.left.arrow.right" fallback={IconGitCompare} tint="yellow" />
-          }
+          badge={<IconBadge glyph={IconGitCompare} tint="yellow" />}
           title={view.itemTitle}
           subtitle={view.fieldLabel}
           accessory={wide ? "check" : "chevron"}
@@ -388,7 +385,7 @@ export function MergeEditor() {
       </Text>
       {isFetched && views.length === 0 ? (
         <View className="flex-row items-center gap-2 py-6">
-          <UiIcon icon={IconCheck} size={16} color={theme.colors.positive} />
+          <IconCheck size={16} color={theme.colors.positive} />
           <Text tone="muted">Nothing needs a look.</Text>
         </View>
       ) : wide ? (

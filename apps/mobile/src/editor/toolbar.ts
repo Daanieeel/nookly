@@ -6,7 +6,6 @@ import { z } from "zod";
 export const TOOLBAR = [
   { id: "bold", label: "Bold" },
   { id: "italic", label: "Italic" },
-  { id: "underline", label: "Underline" },
   { id: "strike", label: "Strikethrough" },
   { id: "code", label: "Code" },
   { id: "highlight", label: "Highlight" },

@@ -44,11 +44,7 @@ export function DayPicker({
               <ListRow
                 key={q.label}
                 badge={
-                  <IconBadge
-                    symbol="calendar"
-                    fallback={IconCalendarEvent}
-                    tint={q.value === today ? "blue" : "gray"}
-                  />
+                  <IconBadge glyph={IconCalendarEvent} tint={q.value === today ? "blue" : "gray"} />
                 }
                 title={q.label}
                 detail={shortDate(q.value)}
@@ -64,7 +60,7 @@ export function DayPicker({
               ? [
                   <ListRow
                     key="clear"
-                    badge={<IconBadge symbol="xmark" fallback={IconX} tint="red" />}
+                    badge={<IconBadge glyph={IconX} tint="red" />}
                     title={`Clear ${label}`}
                     destructive
                     onPress={() => choose(null)}

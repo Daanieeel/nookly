@@ -7,7 +7,6 @@ import { useTheme } from "../theme.ts";
 import { TOUCH_ROW } from "../touch.ts";
 import { type Option, OptionList } from "./OptionList.tsx";
 import { useSheet } from "./Sheet.tsx";
-import { UiIcon } from "../kit/UiIcon.tsx";
 
 /// The pieces of the desktop's Display and Filter popovers (`display-menu.tsx`,
 /// `filter-menu.tsx`), for the sheets that stand in for them.
@@ -128,7 +127,7 @@ function NextRow({ label, value, onPress }: { label: string; value: string; onPr
       <Text numberOfLines={1} style={{ maxWidth: "55%" }}>
         {value}
       </Text>
-      <UiIcon icon={IconChevronRight} size={16} color={theme.colors.mutedForeground} />
+      <IconChevronRight size={16} color={theme.colors.mutedForeground} />
     </Pressable>
   );
 }

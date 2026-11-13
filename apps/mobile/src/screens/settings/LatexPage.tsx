@@ -19,7 +19,6 @@ import { GUTTER, SPACE } from "../../ui/tokens.ts";
 import { Text } from "../../ui/Text.tsx";
 import { useTheme } from "../../ui/theme.ts";
 import { SettingRow } from "./SettingRow.tsx";
-import { UiIcon } from "../../ui/kit/UiIcon.tsx";
 
 /// One macro of the list: its command, how many arguments it takes and what it stands for.
 function MacroRow({ entry, onRemove }: { entry: MacroEntry; onRemove: () => void }) {
@@ -50,7 +49,7 @@ function MacroRow({ entry, onRemove }: { entry: MacroEntry; onRemove: () => void
       </View>
       <IconButton
         label={`Remove ${entry.name}`}
-        icon={<UiIcon icon={IconTrash} size={18} color={theme.colors.destructive} />}
+        icon={<IconTrash size={18} color={theme.colors.destructive} />}
         onPress={onRemove}
       />
     </View>

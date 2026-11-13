@@ -2,7 +2,7 @@ import { IconAlertTriangle } from "@tabler/icons-react-native";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { MIN_TOUCH } from "../touch.ts";
 import { SPACE, TINT } from "../tokens.ts";
-import { type FallbackIcon, Glyph, type SymbolName } from "./Glyph.tsx";
+import { Glyph, type GlyphIcon } from "./Glyph.tsx";
 import { Label } from "./Label.tsx";
 import { useScheme, useSemantic, useSemanticPair } from "./scheme.ts";
 
@@ -10,14 +10,12 @@ import { useScheme, useSemantic, useSemanticPair } from "./scheme.ts";
 /// still loading, and failed. Centred, quiet, in the same words everywhere.
 
 export function EmptyState({
-  symbol,
-  fallback,
+  glyph,
   title,
   message,
   action,
 }: {
-  symbol?: SymbolName;
-  fallback?: FallbackIcon;
+  glyph?: GlyphIcon;
   title: string;
   message?: string;
   action?: { label: string; onPress: () => void };
@@ -32,16 +30,7 @@ export function EmptyState({
         paddingHorizontal: SPACE.xxl,
       }}
     >
-      {symbol && fallback ? (
-        <Glyph
-          name={symbol}
-          fallback={fallback}
-          size={34}
-          color={muted.color}
-          hex={muted.hex}
-          weight="regular"
-        />
-      ) : null}
+      {glyph ? <Glyph icon={glyph} size={34} color={muted.hex} /> : null}
       <Label
         type="headline"
         accessibilityRole="summary"
@@ -99,14 +88,7 @@ export function ErrorState({
         paddingHorizontal: SPACE.xxl,
       }}
     >
-      <Glyph
-        name="exclamationmark.triangle"
-        fallback={IconAlertTriangle}
-        size={30}
-        color={TINT.red[scheme]}
-        hex={TINT.red[scheme]}
-        weight="regular"
-      />
+      <Glyph icon={IconAlertTriangle} size={30} color={TINT.red[scheme]} />
       <Label
         type="headline"
         accessibilityRole="alert"

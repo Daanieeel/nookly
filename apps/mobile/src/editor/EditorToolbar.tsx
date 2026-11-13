@@ -6,16 +6,15 @@ import {
   IconH1,
   IconH2,
   IconHighlight,
-  IconIndentDecrease,
-  IconIndentIncrease,
+  IconArrowBarToLeft,
+  IconArrowBarToRight,
   IconItalic,
-  IconKeyboardHide,
+  IconKeyboard,
   IconList,
   IconListCheck,
   IconListNumbers,
   IconQuote,
   IconStrikethrough,
-  IconUnderline,
 } from "@tabler/icons-react-native";
 import type { ComponentType } from "react";
 import { ScrollView, View } from "react-native";
@@ -25,12 +24,10 @@ import { useTheme } from "../ui/theme.ts";
 import { TOOLBAR, type ToolbarId } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const ICONS = {
   bold: IconBold,
   italic: IconItalic,
-  underline: IconUnderline,
   strike: IconStrikethrough,
   code: IconCode,
   highlight: IconHighlight,
@@ -40,8 +37,8 @@ const ICONS = {
   numbers: IconListNumbers,
   tasks: IconListCheck,
   quote: IconQuote,
-  outdent: IconIndentDecrease,
-  indent: IconIndentIncrease,
+  outdent: IconArrowBarToLeft,
+  indent: IconArrowBarToRight,
   undo: IconArrowBackUp,
   redo: IconArrowForwardUp,
 } satisfies Record<ToolbarId, ComponentType<{ size?: number; color?: string }>>;
@@ -83,7 +80,7 @@ export function EditorToolbar() {
       <View className="justify-center border-l border-border px-1">
         <IconButton
           label="Hide Keyboard"
-          icon={<UiIcon icon={IconKeyboardHide} size={20} color={theme.colors.foreground} />}
+          icon={<IconKeyboard size={20} color={theme.colors.foreground} />}
           onPress={() => run("done")}
         />
       </View>

@@ -1,7 +1,7 @@
 import { SHARED_SETTINGS, type SharedSettingId } from "@nookly/shared/settings";
 import {
   IconCalendar,
-  IconDeviceFloppy,
+  IconArchive,
   IconMathFunction,
   IconSearch,
   IconInfoCircle,
@@ -22,7 +22,7 @@ import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { ListRow } from "../ui/kit/ListRow.tsx";
 import { SearchField } from "../ui/kit/SearchField.tsx";
 import { EmptyState } from "../ui/kit/States.tsx";
-import type { BadgeLook } from "../ui/kit/symbols.ts";
+import type { BadgeLook } from "../ui/kit/badges.ts";
 import { Screen } from "../ui/Screen.tsx";
 import { AccountPage } from "./settings/AccountPage.tsx";
 import { BackupPage } from "./settings/BackupPage.tsx";
@@ -34,12 +34,12 @@ import { statusText } from "./sync-status.ts";
 
 /// Each page's badge, as iOS's Settings tints its rows (D50).
 const PAGE_BADGES = {
-  general: { symbol: "gearshape", fallback: IconSettings, tint: "gray" },
-  appearance: { symbol: "paintpalette", fallback: IconPalette, tint: "blue" },
-  calendar: { symbol: "calendar", fallback: IconCalendar, tint: "red" },
-  editor: { symbol: "doc.text", fallback: IconNotes, tint: "yellow" },
-  latex: { symbol: "function", fallback: IconMathFunction, tint: "purple" },
-  backup: { symbol: "externaldrive", fallback: IconDeviceFloppy, tint: "green" },
+  general: { glyph: IconSettings, tint: "gray" },
+  appearance: { glyph: IconPalette, tint: "blue" },
+  calendar: { glyph: IconCalendar, tint: "red" },
+  editor: { glyph: IconNotes, tint: "yellow" },
+  latex: { glyph: IconMathFunction, tint: "purple" },
+  backup: { glyph: IconArchive, tint: "green" },
 } satisfies Record<SettingsPage, BadgeLook>;
 
 interface NavLink {
@@ -72,13 +72,13 @@ const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
       {
         title: "Sidebar",
         subtitle: "What it lists first, and in what order",
-        badge: { symbol: "sidebar.left", fallback: IconLayoutSidebar, tint: "blue" },
+        badge: { glyph: IconLayoutSidebar, tint: "blue" },
         href: "/settings/sidebar",
       },
       {
         title: "Keyboard Shortcuts",
         subtitle: "For an iPad with a keyboard",
-        badge: { symbol: "keyboard", fallback: IconKeyboard, tint: "gray" },
+        badge: { glyph: IconKeyboard, tint: "gray" },
         href: "/settings/shortcuts",
       },
       pageLink("latex"),
@@ -90,13 +90,13 @@ const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
       {
         title: "What's New",
         subtitle: "What changed in Nookly",
-        badge: { symbol: "sparkles", fallback: IconSparkles, tint: "pink" },
+        badge: { glyph: IconSparkles, tint: "pink" },
         href: "/settings/whats-new",
       },
       {
         title: "About",
         subtitle: `Nookly ${version}`,
-        badge: { symbol: "info.circle", fallback: IconInfoCircle, tint: "gray" },
+        badge: { glyph: IconInfoCircle, tint: "gray" },
       },
     ],
   },
@@ -111,14 +111,7 @@ function AccountCard() {
   return (
     <GroupedSection margin={0} inset={INSET.badge}>
       <ListRow
-        badge={
-          <IconBadge
-            symbol="person.crop.circle.fill"
-            fallback={IconUserCircle}
-            tint="blue"
-            size={44}
-          />
-        }
+        badge={<IconBadge glyph={IconUserCircle} tint="blue" size={44} />}
         title={user ? user.username : "Sign in to sync"}
         subtitle={user ? statusText(status) : "Keep your phone, tablet and computer in step"}
         detail={conflicts > 0 ? `${conflicts} to review` : undefined}
@@ -155,12 +148,7 @@ export function SettingsScreen() {
       />
       {query.trim() ? (
         found.length === 0 ? (
-          <EmptyState
-            symbol="magnifyingglass"
-            fallback={IconSearch}
-            title="No Results"
-            message="No setting matches."
-          />
+          <EmptyState glyph={IconSearch} title="No Results" message="No setting matches." />
         ) : (
           <GroupedSection margin={0}>
             {found.map((id) => (
@@ -181,13 +169,7 @@ export function SettingsScreen() {
               {group.links.map((link) => (
                 <ListRow
                   key={link.title}
-                  badge={
-                    <IconBadge
-                      symbol={link.badge.symbol}
-                      fallback={link.badge.fallback}
-                      tint={link.badge.tint}
-                    />
-                  }
+                  badge={<IconBadge glyph={link.badge.glyph} tint={link.badge.tint} />}
                   title={link.title}
                   subtitle={link.subtitle}
                   accessory={link.href ? "chevron" : "none"}
@@ -239,8 +221,7 @@ export function SettingsCategoryScreen({ page }: { page: string }) {
         ))
       ) : (
         <EmptyState
-          symbol="questionmark.circle"
-          fallback={IconSearch}
+          glyph={IconSearch}
           title="Not Found"
           message="There is no such page in Settings."
         />

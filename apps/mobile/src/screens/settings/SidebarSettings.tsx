@@ -9,7 +9,6 @@ import { cn } from "../../ui/classes.ts";
 import { useTheme } from "../../ui/theme.ts";
 import { DEFAULT_TOP, orderedTop, topSchema } from "../sidebar-top.ts";
 import { haptic } from "../../ui/haptics.ts";
-import { UiIcon } from "../../ui/kit/UiIcon.tsx";
 
 /// Which overviews the sidebar lists at the top, and in what order. Kept on this phone,
 /// like the desktop's.
@@ -38,12 +37,12 @@ export function SidebarSettingsScreen() {
             <Text className="flex-1">{item.label}</Text>
             <IconButton
               label={`Move ${item.label} Up`}
-              icon={<UiIcon icon={IconChevronUp} size={18} color={theme.colors.foreground} />}
+              icon={<IconChevronUp size={18} color={theme.colors.foreground} />}
               onPress={() => index > 0 && move(index, index - 1)}
             />
             <IconButton
               label={`Move ${item.label} Down`}
-              icon={<UiIcon icon={IconChevronDown} size={18} color={theme.colors.foreground} />}
+              icon={<IconChevronDown size={18} color={theme.colors.foreground} />}
               onPress={() => index < items.length - 1 && move(index, index + 1)}
             />
             <Switch

@@ -1,4 +1,4 @@
-import { IconDeviceFloppy } from "@tabler/icons-react-native";
+import { IconArchive } from "@tabler/icons-react-native";
 import * as Sharing from "expo-sharing";
 import { useState } from "react";
 import { View } from "react-native";
@@ -35,7 +35,7 @@ export function BackupPage() {
       <SectionHeader title="Back up now" />
       <SettingsCard tone={tone}>
         <CardHead
-          icon={IconDeviceFloppy}
+          icon={IconArchive}
           tone={tone}
           title="A backup of this phone"
           detail={

@@ -4,7 +4,13 @@ import {
   setCalendarEntryCancelled,
   updateCalendarEntry,
 } from "@nookly/shared/data";
-import { IconCalendarEvent, IconClock, IconMapPin, IconSun } from "@tabler/icons-react-native";
+import {
+  IconCalendarEvent,
+  IconClock,
+  IconMapPin,
+  IconSun,
+  IconRepeat,
+} from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -17,7 +23,6 @@ import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty, InfoRow, TextRow } from "../ui/property-rows.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// A Calendar entry: its description in the page; its day, times and place as rows of the
 /// details, each saved as it changes. An entry of a series changes alone; the series
@@ -53,7 +58,7 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
   const properties = (
     <PropertyList>
       <DayProperty
-        icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
+        icon={<IconCalendarEvent size={20} color={muted} />}
         label="Date"
         clearable={false}
         value={item.date}
@@ -61,7 +66,7 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
         onChange={(date) => date && change({ date })}
       />
       <DayProperty
-        icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
+        icon={<IconCalendarEvent size={20} color={muted} />}
         label="Last day"
         placeholder="Only this day"
         value={item.endDate ?? null}
@@ -69,7 +74,7 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
         onChange={(endDate) => change({ endDate })}
       />
       <ChoiceProperty
-        icon={<UiIcon icon={IconSun} size={20} color={muted} />}
+        icon={<IconSun size={20} color={muted} />}
         label="All day"
         value={item.allDay ? "yes" : "no"}
         readOnly={readOnly}
@@ -80,14 +85,10 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
         onChange={(value) => change({ allDay: value === "yes" })}
       />
       {item.allDay ? (
-        <InfoRow
-          icon={<UiIcon icon={IconClock} size={20} color={muted} />}
-          label="Time"
-          value="All day"
-        />
+        <InfoRow icon={<IconClock size={20} color={muted} />} label="Time" value="All day" />
       ) : (
         <DayProperty
-          icon={<UiIcon icon={IconClock} size={20} color={muted} />}
+          icon={<IconClock size={20} color={muted} />}
           label="Starts"
           mode="time"
           value={item.startTime}
@@ -97,7 +98,7 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
       )}
       {item.allDay ? null : (
         <DayProperty
-          icon={<UiIcon icon={IconClock} size={20} color={muted} />}
+          icon={<IconClock size={20} color={muted} />}
           label="Ends"
           mode="time"
           value={item.endTime}
@@ -106,7 +107,7 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
         />
       )}
       <TextRow
-        icon={<UiIcon icon={IconMapPin} size={20} color={muted} />}
+        icon={<IconMapPin size={20} color={muted} />}
         label="Where"
         value={item.location}
         readOnly={readOnly}
@@ -114,7 +115,7 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
         onSave={(location) => change({ location })}
       />
       <InfoRow
-        icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
+        icon={<IconRepeat size={20} color={muted} />}
         label="Repeats"
         value={item.templateId ? "A series" : "Never"}
       />

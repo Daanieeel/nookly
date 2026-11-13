@@ -9,21 +9,19 @@ import {
   tint as tintOf,
   withAlpha,
 } from "../tokens.ts";
-import { type FallbackIcon, Glyph, type SymbolName } from "./Glyph.tsx";
+import { Glyph, type GlyphIcon } from "./Glyph.tsx";
 import { useScheme } from "./scheme.ts";
 
-/// An icon in a tinted rounded square, as iOS's Settings draws its rows: the symbol in the
-/// tint, on the tint faded. `icon` draws something of the user's own instead (a Space's
+/// An icon in a tinted rounded square, as iOS's Settings draws its rows: the desktop's icon
+/// in the tint, on the tint faded. `icon` draws something of the user's own instead (a Space's
 /// chosen icon, a status's mark), on the same square.
 export function IconBadge({
-  symbol,
-  fallback,
+  glyph,
   icon,
   tint = "blue",
   size = BADGE.size,
 }: {
-  symbol?: SymbolName;
-  fallback?: FallbackIcon;
+  glyph?: GlyphIcon;
   icon?: ReactNode;
   /// One of Nookly's tints, or a colour (`#rrggbb`) such as a Space's.
   tint?: TintName | string;
@@ -47,14 +45,8 @@ export function IconBadge({
         },
       ]}
     >
-      {symbol && fallback ? (
-        <Glyph
-          name={symbol}
-          fallback={fallback}
-          size={size * (BADGE.symbol / BADGE.size)}
-          color={color}
-          hex={color}
-        />
+      {glyph ? (
+        <Glyph icon={glyph} size={size * (BADGE.icon / BADGE.size)} color={color} />
       ) : (
         icon
       )}

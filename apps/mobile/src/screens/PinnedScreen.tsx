@@ -12,7 +12,6 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { groupPinned } from "./pinned-groups.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// Everything pinned, across every Space: a section per Space, and in it a small heading per
 /// module with its items as compact rows.
@@ -31,7 +30,7 @@ export function PinnedScreen() {
       <ListTitle title="Pinned" count={pinned.length} />
       {sections.length === 0 ? (
         <View className="items-center gap-2 p-8">
-          <UiIcon icon={IconPin} size={28} color={theme.colors.mutedForeground} />
+          <IconPin size={28} color={theme.colors.mutedForeground} />
           <Text tone="muted" className="text-center">
             Nothing pinned yet. Pin an item from anywhere to keep it one tap away.
           </Text>

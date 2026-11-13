@@ -87,16 +87,7 @@ export function SheetTrigger({
           {text ?? placeholder}
         </Label>
       </View>
-      {trailing ?? (
-        <Glyph
-          name="chevron.up.chevron.down"
-          fallback={IconSelector}
-          size={13}
-          color={muted.color}
-          hex={muted.hex}
-          weight="semibold"
-        />
-      )}
+      {trailing ?? <Glyph icon={IconSelector} size={13} color={muted.hex} />}
     </Pressable>
   );
   return showLabel ? <FormRow error={error}>{button}</FormRow> : button;

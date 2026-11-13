@@ -9,8 +9,7 @@ import { SelectField } from "../ui/SelectField.tsx";
 const NO_EXAM: Option = {
   id: "none",
   label: "No exam",
-  symbol: "xmark",
-  fallbackIcon: IconX,
+  glyph: IconX,
   tint: "gray",
 };
 

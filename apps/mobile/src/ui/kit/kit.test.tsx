@@ -1,4 +1,3 @@
-import { IconPlus, IconUsers } from "@tabler/icons-react-native";
 import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 import { MIN_TOUCH } from "../touch.ts";
@@ -6,7 +5,6 @@ import { GroupedSection } from "./GroupedSection.tsx";
 import { ListRow } from "./ListRow.tsx";
 import { SearchField } from "./SearchField.tsx";
 import { EmptyState, ErrorState, LoadingState } from "./States.tsx";
-import { INTERFACE_SYMBOLS, UiIcon } from "./UiIcon.tsx";
 
 /// The base components every screen is built from: what a screen reader hears of them,
 /// that a finger can hit them, and their empty, loading and error states.
@@ -107,11 +105,5 @@ describe("the base components", () => {
     ).toBeTruthy();
     fireEvent.press(screen.getByRole("button", { name: "Try Again" }));
     expect(onRetry).toHaveBeenCalled();
-  });
-
-  it("interface icons have an SF Symbol; one without falls back to Tabler", () => {
-    expect(INTERFACE_SYMBOLS.get(IconPlus)).toBe("plus");
-    expect(INTERFACE_SYMBOLS.get(IconUsers)).toBe("person.2");
-    expect(() => render(<UiIcon icon={IconPlus} size={16} color="#ffffff" />)).not.toThrow();
   });
 });

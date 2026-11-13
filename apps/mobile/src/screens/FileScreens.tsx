@@ -13,6 +13,7 @@ import {
   IconBrandDropbox,
   IconCalendarEvent,
   IconCode,
+  IconCategory,
   IconFile,
   IconFileSpreadsheet,
   IconFileText,
@@ -47,7 +48,6 @@ import { SelectField } from "../ui/SelectField.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { useRouter } from "expo-router";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const KIND_ICONS = {
   image: IconPhoto,
@@ -159,7 +159,7 @@ function AddBar({ spaceId }: { spaceId: string }) {
   return (
     <View className={cn(CARD_CLASSES, "gap-2 p-3")}>
       <View className="flex-row items-center gap-2">
-        <UiIcon icon={IconLink} size={18} color={theme.colors.mutedForeground} />
+        <IconLink size={18} color={theme.colors.mutedForeground} />
         <TextInput
           accessibilityLabel="Paste a link"
           value={link}
@@ -176,7 +176,7 @@ function AddBar({ spaceId }: { spaceId: string }) {
         {link.trim() ? (
           <IconButton
             label="Add Link"
-            icon={<UiIcon icon={IconArrowUp} size={20} color={theme.colors.foreground} />}
+            icon={<IconArrowUp size={20} color={theme.colors.foreground} />}
             onPress={submit}
           />
         ) : null}
@@ -285,12 +285,12 @@ export function FileDetail({ id }: { id: string }) {
       <AtAGlance>
         <PropertyList>
           <InfoRow
-            icon={<UiIcon icon={IconFile} size={20} color={muted} />}
+            icon={<IconCategory size={20} color={muted} />}
             label="Kind"
             value={KIND_LABELS[fileKindOf(name)]}
           />
           <InfoRow
-            icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
+            icon={<IconCalendarEvent size={20} color={muted} />}
             label="Added"
             value={dayLabel(file.entity.createdAt.slice(0, 10))}
           />
@@ -321,22 +321,22 @@ export function FileDetail({ id }: { id: string }) {
           <Text tone="muted">{state(file)}</Text>
           <PropertyList>
             <InfoRow
-              icon={<UiIcon icon={IconFile} size={20} color={muted} />}
+              icon={<IconCategory size={20} color={muted} />}
               label="Kind"
               value={KIND_LABELS[fileKindOf(name)]}
             />
             <InfoRow
-              icon={<UiIcon icon={IconFileText} size={20} color={muted} />}
+              icon={<IconFileText size={20} color={muted} />}
               label="File name"
               value={name}
             />
             <InfoRow
-              icon={<UiIcon icon={IconLink} size={20} color={muted} />}
+              icon={<IconLink size={20} color={muted} />}
               label={link ? "Source" : "Location"}
               value={link ?? file.sourcePath ?? "In Nookly"}
             />
             <InfoRow
-              icon={<UiIcon icon={IconCalendarEvent} size={20} color={muted} />}
+              icon={<IconCalendarEvent size={20} color={muted} />}
               label="Added"
               value={dayLabel(file.entity.createdAt.slice(0, 10))}
             />

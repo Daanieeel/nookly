@@ -3,9 +3,7 @@ import { CARD_CLASSES, SIDEBAR_PANEL_CLASSES, sidebarMenuButtonVariants } from "
 import { spaceRow } from "@nookly/frontend/lib/space-row";
 import { MODULE_LABELS, isModuleKey } from "@nookly/shared/modules";
 import {
-  IconCalendarEvent,
   IconChecklist,
-  IconClipboardList,
   IconPin,
   IconChevronDown,
   IconChevronRight,
@@ -18,6 +16,8 @@ import {
   IconSearch,
   IconSettings,
   IconTrash,
+  IconCalendarWeek,
+  IconClipboardCheck,
 } from "@tabler/icons-react-native";
 import { z } from "zod";
 import { type Href, usePathname, useRouter } from "expo-router";
@@ -41,7 +41,7 @@ import { isoWeek, localDay } from "./dates.ts";
 import { IconButton } from "../ui/Button.tsx";
 import { Glyph } from "../ui/kit/Glyph.tsx";
 import { useScheme, useSemanticPair } from "../ui/kit/scheme.ts";
-import { type BadgeLook, MODULE_BADGES } from "../ui/kit/symbols.ts";
+import { type BadgeLook, MODULE_BADGES } from "../ui/kit/badges.ts";
 import { TINT } from "../ui/tokens.ts";
 import { Mascot } from "../ui/Mascot.tsx";
 import { useMenu } from "../ui/menu.tsx";
@@ -52,39 +52,25 @@ import { cn, row, splitText, withState } from "../ui/classes.ts";
 import { useTheme } from "../ui/theme.ts";
 import { DEFAULT_TOP, type TopId, topSchema, visibleTop } from "./sidebar-top.ts";
 import { usePreference } from "../data/preferences.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
-/// The top rows' icons: SF Symbols close to the desktop's, its Tabler icons where SF Symbols
-/// are not (D51).
+/// The top rows' icons, the desktop's own.
 const TOP_ICONS = {
-  dashboard: { symbol: "square.grid.2x2", fallback: IconLayoutDashboard },
-  calendar: { symbol: "calendar", fallback: IconCalendarEvent },
-  tasks: { symbol: "checklist", fallback: IconChecklist },
-  assignments: { symbol: "doc.text", fallback: IconClipboardList },
-  pinned: { symbol: "pin", fallback: IconPin },
-  jot: { symbol: "pencil.line", fallback: IconFeather },
-} satisfies Record<TopId, Pick<BadgeLook, "symbol" | "fallback">>;
+  dashboard: { glyph: IconLayoutDashboard },
+  calendar: { glyph: IconCalendarWeek },
+  tasks: { glyph: IconChecklist },
+  assignments: { glyph: IconClipboardCheck },
+  pinned: { glyph: IconPin },
+  jot: { glyph: IconFeather },
+} satisfies Record<TopId, Pick<BadgeLook, "glyph">>;
 
 /// A row's icon in the sidebar: muted, in the accent on the page shown now.
-function SideIcon({
-  look,
-  active = false,
-}: {
-  look: Pick<BadgeLook, "symbol" | "fallback">;
-  active?: boolean;
-}) {
+function SideIcon({ look, active = false }: { look: Pick<BadgeLook, "glyph">; active?: boolean }) {
   const scheme = useScheme();
   const muted = useSemanticPair("secondaryLabel");
   const accent = TINT.blue[scheme];
   return (
     <View style={{ width: 24, alignItems: "center" }}>
-      <Glyph
-        name={look.symbol}
-        fallback={look.fallback}
-        size={19}
-        color={active ? accent : muted.color}
-        hex={active ? accent : muted.hex}
-      />
+      <Glyph icon={look.glyph} size={19} color={active ? accent : muted.hex} />
     </View>
   );
 }
@@ -189,7 +175,7 @@ function TasksRow({
               indent={1}
               label={view.entity.title || "Untitled"}
               accessibilityLabel={`${view.entity.title || "Untitled"}, saved view`}
-              icon={<UiIcon icon={IconChecklist} size={16} color={theme.colors.mutedForeground} />}
+              icon={<IconChecklist size={16} color={theme.colors.mutedForeground} />}
               onPress={() => go(`/tasks?view=${view.entity.id}`)}
             />
           ))
@@ -328,7 +314,7 @@ function SpaceModules({
         <IconButton
           label={`${space.name} Menu`}
           size="iconSm"
-          icon={<UiIcon icon={IconDots} size={16} color={muted} />}
+          icon={<IconDots size={16} color={muted} />}
           onPress={() =>
             menu.show(space.name, [
               {
@@ -349,7 +335,7 @@ function SpaceModules({
         <NavRow
           label="Start something"
           accessibilityLabel={`Start something in ${space.name}`}
-          icon={<UiIcon icon={IconPlus} size={20} color={muted} />}
+          icon={<IconPlus size={20} color={muted} />}
           onPress={() => go(`/space/${space.id}`)}
         />
       ) : null}
@@ -413,7 +399,7 @@ function SpaceSwitcher({
       {overflow.length > 0 ? (
         <IconButton
           label="More Spaces"
-          icon={<UiIcon icon={IconDots} size={20} color={theme.colors.mutedForeground} />}
+          icon={<IconDots size={20} color={theme.colors.mutedForeground} />}
           onPress={() =>
             menu.show(
               "Spaces",
@@ -473,12 +459,7 @@ export function Sidebar({ close }: { close: () => void }) {
           label="Search"
           role="search"
           active={pathname === "/search"}
-          icon={
-            <SideIcon
-              look={{ symbol: "magnifyingglass", fallback: IconSearch }}
-              active={pathname === "/search"}
-            />
-          }
+          icon={<SideIcon look={{ glyph: IconSearch }} active={pathname === "/search"} />}
           onPress={() => go("/search")}
         />
         {top.map(({ id, label, href, look }) =>
@@ -511,7 +492,7 @@ export function Sidebar({ close }: { close: () => void }) {
       <View className="flex-row items-center border-t border-sidebar-border px-1 pt-1">
         <IconButton
           label="New"
-          icon={<UiIcon icon={IconPlus} size={20} color={muted} />}
+          icon={<IconPlus size={20} color={muted} />}
           onPress={() =>
             menu.show(undefined, [
               { label: "New Space", icon: IconFolderPlus, onPress: () => push("/new/space") },
@@ -533,12 +514,12 @@ export function Sidebar({ close }: { close: () => void }) {
         <View className="mx-1 h-4 w-px bg-sidebar-border" />
         <IconButton
           label="Trash"
-          icon={<UiIcon icon={IconTrash} size={20} color={muted} />}
+          icon={<IconTrash size={20} color={muted} />}
           onPress={() => go("/trash")}
         />
         <IconButton
           label="Settings"
-          icon={<UiIcon icon={IconSettings} size={20} color={muted} />}
+          icon={<IconSettings size={20} color={muted} />}
           onPress={() => push("/settings")}
         />
       </View>

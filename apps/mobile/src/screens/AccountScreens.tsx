@@ -18,7 +18,6 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const serverSchema = z
   .string()
@@ -54,7 +53,7 @@ export function WelcomeScreen() {
     >
       <View className="flex-1 items-center justify-center gap-5">
         <View className="size-16 items-center justify-center rounded-2xl bg-primary">
-          <UiIcon icon={IconNotebook} size={32} color={theme.colors.primaryForeground} />
+          <IconNotebook size={32} color={theme.colors.primaryForeground} />
         </View>
         <Text variant="title" className="text-3xl">
           Nookly

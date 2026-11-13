@@ -49,7 +49,6 @@ import {
   triggerAt,
   slashMatches,
   toggleTasks,
-  toggleUnderline,
   typingKeys,
 } from "./commands.ts";
 import { loadGate } from "./load-gate.ts";
@@ -117,7 +116,6 @@ interface Props {
 const COMMANDS = {
   bold: toggleBold,
   italic: toggleItalic,
-  underline: toggleUnderline,
   strike: toggleStrike,
   code: toggleCode,
   highlight: toggleHighlight,
@@ -291,7 +289,6 @@ export default function PageEditorDom({
         on: {
           bold: a.bold,
           italic: a.italic,
-          underline: a.underline,
           strike: a.strike,
           code: a.code,
           highlight: a.highlight,

@@ -1,9 +1,9 @@
-import { IconMoodEmpty, IconPlus } from "@tabler/icons-react-native";
+import { IconSearch, IconPlus } from "@tabler/icons-react-native";
 import { type ReactNode, useState } from "react";
 import { View } from "react-native";
 import { runOnJS, useAnimatedReaction, useSharedValue } from "react-native-reanimated";
 import { haptic } from "../haptics.ts";
-import type { FallbackIcon, SymbolName } from "../kit/Glyph.tsx";
+import type { GlyphIcon } from "../kit/Glyph.tsx";
 import { GroupedSection, INSET, SectionHeader } from "../kit/GroupedSection.tsx";
 import { IconBadge } from "../kit/IconBadge.tsx";
 import { ListRow } from "../kit/ListRow.tsx";
@@ -18,9 +18,8 @@ export interface Option<Id extends string = string> {
   label: string;
   /// An icon of its own (a status's mark, a Space's icon, a colour dot), drawn on a badge.
   icon?: ReactNode;
-  /// An SF Symbol for the badge instead, with its Tabler twin.
-  symbol?: SymbolName;
-  fallbackIcon?: FallbackIcon;
+  /// One of the desktop's icons for the badge instead.
+  glyph?: GlyphIcon;
   /// The badge's tint: one of Nookly's, or a colour of its own.
   tint?: TintName | string;
   /// A line under the label (the desktop's secondary text: a course, a key, a description).
@@ -55,8 +54,8 @@ export function groupOptions<Id extends string>(options: Option<Id>[]): Group<Id
 }
 
 function badgeOf(option: Option): ReactNode {
-  if (option.symbol && option.fallbackIcon) {
-    return <IconBadge symbol={option.symbol} fallback={option.fallbackIcon} tint={option.tint} />;
+  if (option.glyph) {
+    return <IconBadge glyph={option.glyph} tint={option.tint} />;
   }
   if (option.icon) return <IconBadge icon={option.icon} tint={option.tint ?? "gray"} />;
   return undefined;
@@ -113,7 +112,7 @@ export function OptionList<Id extends string>(
   const creating = onCreate !== undefined && words !== "" && !exact;
   const chosen = (id: Id) => (props.multiple ? props.values.includes(id) : props.value === id);
   const groups = groupOptions(shown);
-  const inset = options.some((o) => o.icon || o.symbol) ? INSET.badge : INSET.plain;
+  const inset = options.some((o) => o.icon || o.glyph) ? INSET.badge : INSET.plain;
   const current = useStuckSection(groups.length);
 
   const pick = (option: Option<Id>) => {
@@ -183,7 +182,7 @@ export function OptionList<Id extends string>(
         {creating ? (
           <GroupedSection margin={0} inset={INSET.badge}>
             <ListRow
-              badge={<IconBadge symbol="plus" fallback={IconPlus} tint="blue" />}
+              badge={<IconBadge glyph={IconPlus} tint="blue" />}
               title={`Create "${query.trim()}"`}
               accessibilityLabel={`Create ${query.trim()}`}
               onPress={create}
@@ -192,8 +191,7 @@ export function OptionList<Id extends string>(
         ) : null}
         {shown.length === 0 && !creating ? (
           <EmptyState
-            symbol="magnifyingglass"
-            fallback={IconMoodEmpty}
+            glyph={IconSearch}
             title={!words && props.empty ? props.empty.title : "No Results"}
             message={
               !words && props.empty

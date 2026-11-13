@@ -1,10 +1,5 @@
 import { INPUT_CLASSES } from "@nookly/ui/classes";
-import {
-  IconAdjustmentsHorizontal,
-  IconArrowsSort,
-  IconFilter,
-  IconSearch,
-} from "@tabler/icons-react-native";
+import { IconAdjustmentsHorizontal, IconFilter, IconSearch } from "@tabler/icons-react-native";
 import { useState } from "react";
 import { Button } from "./Button.tsx";
 import { TextInput, View } from "react-native";
@@ -14,7 +9,6 @@ import { type Option, OptionList } from "./sheet/OptionList.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
-import { UiIcon } from "./kit/UiIcon.tsx";
 
 /// The field above a page's list that narrows it as you type: "Filter notes".
 export function FilterField({
@@ -30,7 +24,7 @@ export function FilterField({
   const { box, text } = splitText(row(INPUT_CLASSES));
   return (
     <View className={cn(box, "gap-2")}>
-      <UiIcon icon={IconSearch} size={16} color={theme.colors.mutedForeground} />
+      <IconSearch size={16} color={theme.colors.mutedForeground} />
       <TextInput
         accessibilityLabel={label}
         value={value}
@@ -86,14 +80,14 @@ export function ListHeader({
         label="Filter"
         variant="secondary"
         size="sm"
-        icon={<UiIcon icon={IconFilter} size={16} color={theme.colors.foreground} />}
+        icon={<IconFilter size={16} color={theme.colors.foreground} />}
         onPress={() => toggle("filter")}
       />
       <Button
         label="Display"
         variant="secondary"
         size="sm"
-        icon={<UiIcon icon={IconAdjustmentsHorizontal} size={16} color={theme.colors.foreground} />}
+        icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
         onPress={() => toggle("display")}
       />
     </View>
@@ -137,7 +131,7 @@ export function SortButton<Id extends string>({
         accessibilityLabel={`Sort, ${current}`}
         variant="secondary"
         size="sm"
-        icon={<UiIcon icon={IconArrowsSort} size={16} color={theme.colors.foreground} />}
+        icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
         onPress={() => setOpen(true)}
       />
       <Sheet open={open} onOpenChange={setOpen} title="Sort">

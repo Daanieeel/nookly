@@ -24,7 +24,6 @@ import { useTheme } from "../ui/theme.ts";
 import { courseStats, inDays } from "./course-stats.ts";
 import { dayLabel, localDay } from "./dates.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "../ui/touch.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// A soft, light color for a name, steered around the yellows, as the desktop's course
 /// banners are: the same name always gets the same one, a rename a new one.
@@ -116,7 +115,7 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
   if (courses.length === 0) {
     return (
       <View className="items-center gap-2 p-8">
-        <UiIcon icon={IconSchool} size={28} color={theme.colors.mutedForeground} />
+        <IconSchool size={28} color={theme.colors.mutedForeground} />
         <Text tone="muted" className="text-center">
           No courses yet. Tap + to add one.
         </Text>
@@ -137,9 +136,7 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
         return grouped ? (
           <Band
             key={band.semester?.entity.id ?? "none"}
-            icon={
-              <UiIcon icon={IconCalendarStats} size={16} color={theme.colors.mutedForeground} />
-            }
+            icon={<IconCalendarStats size={16} color={theme.colors.mutedForeground} />}
             title={band.semester?.entity.title || (band.semester ? "Untitled" : "No semester")}
             count={band.courses.length}
             badge={band.semester?.isCurrent ? "Active" : undefined}
@@ -231,7 +228,7 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
               <View className="flex-row flex-wrap items-center gap-2">
                 {courseName(e.courseId) ? (
                   <View className="flex-row items-center gap-1">
-                    <UiIcon icon={IconSchool} size={12} color={theme.colors.mutedForeground} />
+                    <IconSchool size={12} color={theme.colors.mutedForeground} />
                     <Text variant="small" tone="muted">
                       {courseName(e.courseId)}
                     </Text>
@@ -356,7 +353,7 @@ export function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: stri
             hitSlop={touchSlop(CONTROL_SIZE.sm, MIN_TOUCH)}
             className="h-8 flex-row items-center gap-1 rounded-full bg-primary px-3 active:opacity-80"
           >
-            <UiIcon icon={IconPlayerPlayFilled} size={12} color={theme.colors.primaryForeground} />
+            <IconPlayerPlayFilled size={12} color={theme.colors.primaryForeground} />
             <Text variant="small" className="font-medium text-primary-foreground">
               {waiting}
             </Text>

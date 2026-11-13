@@ -7,7 +7,7 @@ import {
   createRelationship,
   unrelate,
 } from "@nookly/shared/data";
-import { IconLinkOff, IconPlus, IconTag } from "@tabler/icons-react-native";
+import { IconUnlink, IconPlus, IconTag } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
@@ -31,7 +31,6 @@ import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { LabelPicker } from "./EntityPickers.tsx";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 /// How an item is tied to others, as the desktop's right sidebar shows it: its links in both
 /// directions, each read as "Blocks" or "blocked by", the files attached to it, and the
@@ -50,7 +49,7 @@ export function RelatedSection({ entity, readOnly }: { entity: EntityRecord; rea
     readOnly || !item.type.creatable ? undefined : (
       <IconButton
         label={`Unlink ${item.entity.title || "Untitled"}`}
-        icon={<UiIcon icon={IconLinkOff} size={18} color={theme.colors.mutedForeground} />}
+        icon={<IconUnlink size={18} color={theme.colors.mutedForeground} />}
         onPress={() => remove.mutate(item.relationshipId)}
       />
     );
@@ -83,7 +82,7 @@ export function RelatedSection({ entity, readOnly }: { entity: EntityRecord; rea
           readOnly ? undefined : (
             <IconButton
               label="Add Related Item"
-              icon={<UiIcon icon={IconPlus} size={18} color={theme.colors.mutedForeground} />}
+              icon={<IconPlus size={18} color={theme.colors.mutedForeground} />}
               onPress={() => setLinking(true)}
             />
           )
@@ -112,7 +111,7 @@ export function LabelsProperty({ entity, readOnly }: { entity: EntityRecord; rea
   const { data: attached = [] } = useEntityLabels(entity.id);
   return (
     <SheetProperty
-      icon={<UiIcon icon={IconTag} size={20} color={theme.colors.mutedForeground} />}
+      icon={<IconTag size={20} color={theme.colors.mutedForeground} />}
       label="Labels"
       value={attached.length === 0 ? "None" : attached.map((l) => l.name).join(", ")}
       readOnly={readOnly}

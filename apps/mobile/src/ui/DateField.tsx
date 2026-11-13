@@ -54,13 +54,7 @@ export function DateField({
         hitSlop={12}
         style={({ pressed }) => ({ opacity: pressed ? 0.4 : 1 })}
       >
-        <Glyph
-          name="xmark.circle.fill"
-          fallback={IconX}
-          size={17}
-          color={muted.color}
-          hex={muted.hex}
-        />
+        <Glyph icon={IconX} size={17} color={muted.hex} />
       </Pressable>
     ) : null;
   if (mode === "time") {

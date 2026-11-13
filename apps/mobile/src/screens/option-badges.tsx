@@ -9,7 +9,7 @@ import type {
 import { moduleForEntityType } from "@nookly/shared/modules";
 import { View } from "react-native";
 import { IconValue } from "../ui/icons.tsx";
-import { MODULE_BADGES } from "../ui/kit/symbols.ts";
+import { MODULE_BADGES } from "../ui/kit/badges.ts";
 import { BADGE, TINT } from "../ui/tokens.ts";
 import { dayLabel, localDay } from "./dates.ts";
 import type { Option } from "../ui/sheet/OptionList.tsx";
@@ -23,7 +23,7 @@ export function statusOption(status: FixedStatus): Option {
   return {
     id: status.id,
     label: status.name,
-    icon: <StatusIcon status={status} size={BADGE.symbol} />,
+    icon: <StatusIcon status={status} size={BADGE.icon} />,
     tint: status.color,
   };
 }
@@ -41,7 +41,7 @@ export function spaceOption(space: Space): Option {
   return {
     id: space.id,
     label: space.name,
-    icon: <SpaceIcon space={space} size={BADGE.symbol} />,
+    icon: <SpaceIcon space={space} size={BADGE.icon} />,
     tint: space.color,
   };
 }
@@ -55,9 +55,9 @@ export function entityOption(entity: EntityRecord): Option {
     label: entity.title || "Untitled",
     subtitle: entity.key || undefined,
     ...(entity.icon
-      ? { icon: <IconValue value={entity.icon} size={BADGE.symbol} fallback={TINT.gray.dark} /> }
+      ? { icon: <IconValue value={entity.icon} size={BADGE.icon} fallback={TINT.gray.dark} /> }
       : look
-        ? { symbol: look.symbol, fallbackIcon: look.fallback }
+        ? { glyph: look.glyph }
         : {}),
     tint: look?.tint ?? "gray",
   };

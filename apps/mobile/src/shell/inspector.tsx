@@ -7,9 +7,8 @@ import { useReadOnly } from "../screens/useReadOnly.ts";
 import { INSPECTOR_WIDTH } from "../ui/pane.tsx";
 import { PartProvider } from "../ui/parts.tsx";
 import { Text } from "../ui/Text.tsx";
-import { IconCalendarPlus, IconClock } from "@tabler/icons-react-native";
+import { IconClockPlus, IconClockEdit } from "@tabler/icons-react-native";
 import { dayLabel, localDay } from "../screens/dates.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -23,12 +22,12 @@ function Times({ createdAt, updatedAt }: { createdAt: string; updatedAt: string 
   return (
     <PropertyList>
       <InfoRow
-        icon={<UiIcon icon={IconCalendarPlus} size={20} color={muted} />}
+        icon={<IconClockPlus size={20} color={muted} />}
         label="Created"
         value={dayOf(createdAt)}
       />
       <InfoRow
-        icon={<UiIcon icon={IconClock} size={20} color={muted} />}
+        icon={<IconClockEdit size={20} color={muted} />}
         label="Updated"
         value={dayOf(updatedAt)}
       />

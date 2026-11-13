@@ -16,7 +16,6 @@ import { InfoRow } from "../ui/property-rows.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const address = z.url("Enter a web address");
 
@@ -64,9 +63,7 @@ export function BookmarkDetail({ id, readOnly }: { id: string; readOnly: boolean
       <AtAGlance>
         <PropertyList>
           <InfoRow
-            icon={
-              <UiIcon icon={IconCalendarEvent} size={20} color={theme.colors.mutedForeground} />
-            }
+            icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
             label="Added"
             value={dayLabel(bookmark.entity.createdAt.slice(0, 10))}
           />
@@ -151,14 +148,12 @@ export function BookmarkDetail({ id, readOnly }: { id: string; readOnly: boolean
           </View>
           <PropertyList>
             <InfoRow
-              icon={<UiIcon icon={IconLink} size={20} color={theme.colors.mutedForeground} />}
+              icon={<IconLink size={20} color={theme.colors.mutedForeground} />}
               label="Key"
               value={bookmark.entity.key}
             />
             <InfoRow
-              icon={
-                <UiIcon icon={IconCalendarEvent} size={20} color={theme.colors.mutedForeground} />
-              }
+              icon={<IconCalendarEvent size={20} color={theme.colors.mutedForeground} />}
               label="Added"
               value={dayLabel(bookmark.entity.createdAt.slice(0, 10))}
             />

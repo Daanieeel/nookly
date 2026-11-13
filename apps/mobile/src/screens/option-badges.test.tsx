@@ -58,7 +58,6 @@ describe("item badges (D51)", () => {
       id: "e1",
       label: "Write essay",
       subtitle: "TSK-14",
-      symbol: "checklist",
       tint: "blue",
     });
   });

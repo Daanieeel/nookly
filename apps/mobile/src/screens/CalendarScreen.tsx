@@ -34,7 +34,6 @@ import { TimeGrid, gutterFor } from "./TimeGrid.tsx";
 import { usePeriodSwipe } from "./period-swipe.ts";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 import { BAR_BUTTON } from "../ui/bar.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 const AGENDA_DAYS = 14;
 /// From this pane width the calendar is the desktop's: day, work week, week and month.
@@ -297,7 +296,7 @@ export function CalendarScreen({
         <View className="flex-row items-center gap-1">
           <IconButton
             label="Previous"
-            icon={<UiIcon icon={IconChevronLeft} size={20} color={theme.colors.foreground} />}
+            icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
             onPress={() => step(-1)}
           />
           <Text className="flex-1 text-center font-medium" accessibilityRole="header">
@@ -305,7 +304,7 @@ export function CalendarScreen({
           </Text>
           <IconButton
             label="Next"
-            icon={<UiIcon icon={IconChevronRight} size={20} color={theme.colors.foreground} />}
+            icon={<IconChevronRight size={20} color={theme.colors.foreground} />}
             onPress={() => step(1)}
           />
           <Button label="Today" variant="secondary" size="sm" onPress={() => setAnchor(today)} />

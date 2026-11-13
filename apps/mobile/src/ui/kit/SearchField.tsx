@@ -43,13 +43,7 @@ export function SearchField({
         },
       ]}
     >
-      <Glyph
-        name="magnifyingglass"
-        fallback={IconSearch}
-        size={16}
-        color={muted.color}
-        hex={muted.hex}
-      />
+      <Glyph icon={IconSearch} size={16} color={muted.hex} />
       <TextInput
         accessibilityLabel={label}
         value={value}
@@ -81,13 +75,7 @@ export function SearchField({
           hitSlop={touchSlop(HEIGHT, MIN_TOUCH)}
           style={{ paddingHorizontal: SPACE.sm, height: "100%", justifyContent: "center" }}
         >
-          <Glyph
-            name="xmark.circle.fill"
-            fallback={IconX}
-            size={16}
-            color={muted.color}
-            hex={muted.hex}
-          />
+          <Glyph icon={IconX} size={16} color={muted.hex} />
         </Pressable>
       ) : null}
     </View>

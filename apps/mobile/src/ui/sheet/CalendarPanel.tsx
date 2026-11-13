@@ -13,7 +13,7 @@ import { Pressable, View } from "react-native";
 import { useSetting } from "../../data/settings.ts";
 import { localDay } from "../../screens/dates.ts";
 import { haptic } from "../haptics.ts";
-import { type FallbackIcon, Glyph, type SymbolName } from "../kit/Glyph.tsx";
+import { Glyph, type GlyphIcon } from "../kit/Glyph.tsx";
 import { Label } from "../kit/Label.tsx";
 import { useScheme, useSemantic } from "../kit/scheme.ts";
 import { Surface } from "../kit/Surface.tsx";
@@ -64,15 +64,13 @@ export function CalendarPanel({
         </Label>
         <MonthArrow
           label="Previous Month"
-          symbol="chevron.left"
-          fallback={IconChevronLeft}
+          glyph={IconChevronLeft}
           color={accent}
           onPress={() => turn(-1)}
         />
         <MonthArrow
           label="Next Month"
-          symbol="chevron.right"
-          fallback={IconChevronRight}
+          glyph={IconChevronRight}
           color={accent}
           onPress={() => turn(1)}
         />
@@ -164,14 +162,12 @@ const DAY = 40;
 
 function MonthArrow({
   label,
-  symbol,
-  fallback,
+  glyph,
   color,
   onPress,
 }: {
   label: string;
-  symbol: SymbolName;
-  fallback: FallbackIcon;
+  glyph: GlyphIcon;
   color: string;
   onPress: () => void;
 }) {
@@ -189,14 +185,7 @@ function MonthArrow({
         opacity: pressed ? 0.4 : 1,
       })}
     >
-      <Glyph
-        name={symbol}
-        fallback={fallback}
-        size={20}
-        color={color}
-        hex={color}
-        weight="semibold"
-      />
+      <Glyph icon={glyph} size={20} color={color} />
     </Pressable>
   );
 }

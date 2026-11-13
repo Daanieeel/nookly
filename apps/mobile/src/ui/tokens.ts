@@ -55,8 +55,8 @@ export function semantic(name: SemanticName, scheme: Scheme): ColorValue {
   return Platform.OS === "ios" ? PlatformColor(color.ios) : color[scheme];
 }
 
-/// A semantic colour as a plain hex for `scheme`, for what cannot take a system colour (a
-/// Tabler icon drawn where SF Symbols are not).
+/// A semantic colour as a plain hex for `scheme`, for what cannot take a system colour (an
+/// icon).
 export function semanticHex(name: SemanticName, scheme: Scheme): string {
   return SEMANTIC[name][scheme];
 }
@@ -90,7 +90,7 @@ export function withAlpha(hex: string, alpha: number): string {
   return `${hex.slice(0, 7)}${channel.toString(16).padStart(2, "0")}`;
 }
 
-/// How strong a tinted background is behind its symbol, per scheme.
+/// How strong a tinted background is behind its icon, per scheme.
 export const TINT_FILL = { light: 0.14, dark: 0.22 } as const;
 
 /// Spacing on a 4 point grid, as iOS lays out its lists.
@@ -168,8 +168,8 @@ export const DEPTH = {
   },
 } satisfies Record<string, ViewStyle>;
 
-/// An icon badge: the symbol in a tinted rounded square, as iOS's Settings draws them.
-export const BADGE = { size: 30, symbol: 17 } as const;
+/// An icon badge: the icon in a tinted rounded square, as iOS's Settings draws them.
+export const BADGE = { size: 30, icon: 17 } as const;
 
 /// A segmented control's chosen segment: raised white on light, a lighter gray on dark, as
 /// iOS draws it (it has no system colour of its own).

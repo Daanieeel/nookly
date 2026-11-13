@@ -22,7 +22,6 @@ import { type MenuEntry, useMenu } from "../ui/menu.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { useEntityActions } from "./entity-actions.tsx";
 import { BAR_BUTTON } from "../ui/bar.ts";
-import { UiIcon } from "../ui/kit/UiIcon.tsx";
 
 function TitleField({ entity, readOnly }: { entity: EntityRecord; readOnly: boolean }) {
   const [title, setTitle] = useState(entity.title);
@@ -145,7 +144,7 @@ function OpenEntity({
             {!bar && menu.length > 0 ? (
               <IconButton
                 label="More"
-                icon={<UiIcon icon={IconDots} size={22} color={theme.colors.mutedForeground} />}
+                icon={<IconDots size={22} color={theme.colors.mutedForeground} />}
                 onPress={() => present.show(entity.title || entity.key, menu)}
               />
             ) : null}

@@ -78,13 +78,7 @@ function LinkTarget({
               hitSlop={12}
               onPress={() => onChange(null)}
             >
-              <Glyph
-                name="xmark.circle.fill"
-                fallback={IconX}
-                size={17}
-                color={muted.color}
-                hex={muted.hex}
-              />
+              <Glyph icon={IconX} size={17} color={muted.hex} />
             </Pressable>
           ) : undefined
         }
