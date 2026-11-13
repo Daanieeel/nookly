@@ -1,6 +1,16 @@
 import { ApiClient, emailSchema, signInSchema, usernameSchema } from "@nookly/shared/api";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
-import { IconNotebook } from "@tabler/icons-react-native";
+import {
+  type Icon,
+  IconBrandAppleFilled,
+  IconBrandGithubFilled,
+  IconBrandGoogleFilled,
+  IconBrandNotion,
+  IconCloudOff,
+  IconDevices,
+  IconNotebook,
+  IconUsers,
+} from "@tabler/icons-react-native";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -11,8 +21,12 @@ import { z } from "zod";
 import { useAppData } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
 import { DEFAULT_SERVER } from "../data/sync.ts";
+import { Badge } from "../ui/Badge.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
+import { FormSection } from "../ui/kit/Form.tsx";
+import { useSemantic } from "../ui/kit/scheme.ts";
+import { RADIUS, SPACE } from "../ui/tokens.ts";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -234,10 +248,13 @@ function useAfterSignIn() {
 function Page({
   title,
   intro,
+  beta = false,
   children,
 }: {
   title: string;
   intro: string;
+  /// Says the account is part of the closed beta.
+  beta?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -246,8 +263,9 @@ function Page({
       className="flex-1"
     >
       <Screen>
-        <View className="gap-1 pt-2">
-          <Text variant="title" className="text-2xl">
+        <View className="gap-2 pt-2">
+          {beta ? <Badge label="Closed beta" /> : null}
+          <Text variant="title" className="text-3xl" accessibilityRole="header">
             {title}
           </Text>
           <Text tone="muted">{intro}</Text>
@@ -255,6 +273,104 @@ function Page({
         {children}
       </Screen>
     </KeyboardAvoidingView>
+  );
+}
+
+/// Other accounts to sign in with, shown before they work so people know they are coming.
+const PROVIDERS: { name: string; icon: Icon }[] = [
+  { name: "Google", icon: IconBrandGoogleFilled },
+  { name: "Apple", icon: IconBrandAppleFilled },
+  { name: "GitHub", icon: IconBrandGithubFilled },
+  { name: "Notion", icon: IconBrandNotion },
+];
+
+/// Signing in with another account: there, but not working yet, and said so under them.
+function OtherAccounts({ verb }: { verb: "in" | "up" }) {
+  const theme = useTheme();
+  const separator = useSemantic("separator");
+  const surface = useSemantic("surface");
+  return (
+    <View className="gap-3">
+      <View className="flex-row items-center gap-3">
+        <View style={{ flex: 1, height: 1, backgroundColor: separator }} />
+        <Text variant="small" tone="muted">
+          or sign {verb} using
+        </Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: separator }} />
+      </View>
+      <View className="flex-row flex-wrap" style={{ gap: SPACE.sm }}>
+        {PROVIDERS.map(({ name, icon: ProviderIcon }) => (
+          <View
+            key={name}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={`Sign ${verb} with ${name}`}
+            accessibilityHint="Coming soon"
+            accessibilityState={{ disabled: true }}
+            style={{
+              flexBasis: "47%",
+              flexGrow: 1,
+              minHeight: 48,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: SPACE.sm,
+              borderRadius: RADIUS.control,
+              borderCurve: "continuous",
+              backgroundColor: surface,
+              opacity: 0.55,
+            }}
+          >
+            <ProviderIcon size={20} color={theme.colors.foreground} />
+            <Text className="font-medium">{name}</Text>
+          </View>
+        ))}
+      </View>
+      <Text variant="small" tone="muted" className="text-center">
+        Coming soon
+      </Text>
+    </View>
+  );
+}
+
+/// What an account gives, said to someone about to make one.
+const BENEFITS: { icon: Icon; text: string }[] = [
+  { icon: IconDevices, text: "Live on your computer, phone and tablet" },
+  { icon: IconUsers, text: "Share a Space with the people you work with" },
+  { icon: IconCloudOff, text: "Keeps working offline and catches up later" },
+];
+
+function Benefits() {
+  const theme = useTheme();
+  return (
+    <View className="gap-3">
+      {BENEFITS.map(({ icon: BenefitIcon, text }) => (
+        <View key={text} className="flex-row items-center gap-3">
+          <BenefitIcon size={22} color={theme.colors.primary} />
+          <Text className="flex-1">{text}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/// The other way in, at the foot of the page: a question and its answer.
+function SwitchAccount({
+  question,
+  label,
+  onPress,
+}: {
+  question: string;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <View className="gap-2 pt-2">
+      <Text tone="muted" className="text-center">
+        {question}
+      </Text>
+      <Button label={label} variant="secondary" size="lg" onPress={onPress} />
+    </View>
   );
 }
 
@@ -279,43 +395,46 @@ export function SignInScreen() {
   return (
     <Page
       title="Welcome back"
-      intro="Sign in to see your Spaces, pages and files on this phone. You decide what happens to what is already here."
+      intro="Pick up where you left off. Your Spaces, pages and files, the same on every device."
+      beta
     >
-      <form.Field name="identifier">
-        {(field) => (
-          <Field
-            label="Username or email"
-            required
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="username"
-            autoComplete="username"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
-      <form.Field name="password">
-        {(field) => (
-          <Field
-            label="Password"
-            required
-            secureTextEntry
-            textContentType="password"
-            autoComplete="current-password"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
+      <FormSection>
+        <form.Field name="identifier">
+          {(field) => (
+            <Field
+              label="Username or email"
+              required
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="username"
+              autoComplete="username"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+        <form.Field name="password">
+          {(field) => (
+            <Field
+              label="Password"
+              required
+              secureTextEntry
+              textContentType="password"
+              autoComplete="current-password"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+      </FormSection>
       <ServerField value={server.server} onChange={server.setServer} error={server.error} />
       <LocalDataQuestion data={local} />
       {signIn.error ? <Text tone="destructive">{signIn.error.message}</Text> : null}
-      <View className="gap-2">
+      <View className="gap-1">
         <Button
           label="Sign In"
           size="lg"
@@ -323,17 +442,21 @@ export function SignInScreen() {
           errorLabel="Couldn't sign in"
           onPress={() => void form.handleSubmit()}
         />
-        <Button
-          label="Forgot Password"
-          variant="ghost"
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Forgot Password"
           onPress={() => router.push("/account/forgot")}
-        />
-        <Button
-          label="Create an Account Instead"
-          variant="ghost"
-          onPress={() => router.replace("/account/sign-up")}
-        />
+          className="min-h-11 items-center justify-center active:opacity-60"
+        >
+          <Text tone="muted">Forgot Password</Text>
+        </Pressable>
       </View>
+      <OtherAccounts verb="in" />
+      <SwitchAccount
+        question="New to Nookly?"
+        label="Create Account"
+        onPress={() => router.replace("/account/sign-up")}
+      />
     </Page>
   );
 }
@@ -367,73 +490,76 @@ export function SignUpScreen() {
   return (
     <Page
       title="Create your account"
-      intro="One account for your phone, tablet and computer. You decide whether what is already on this phone comes along."
+      intro="One account for your phone, tablet and computer, free during the closed beta."
+      beta
     >
-      <form.Field name="username">
-        {(field) => (
-          <Field
-            label="Username"
-            required
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="username"
-            autoComplete="username-new"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
-      <form.Field name="email">
-        {(field) => (
-          <Field
-            label="Email (optional)"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            autoComplete="email"
-            placeholder="For a forgotten password and invites"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
-      <form.Field name="password">
-        {(field) => (
-          <Field
-            label="Password"
-            required
-            secureTextEntry
-            textContentType="newPassword"
-            autoComplete="password-new"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
+      <Benefits />
+      <FormSection>
+        <form.Field name="username">
+          {(field) => (
+            <Field
+              label="Username"
+              required
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="username"
+              autoComplete="username-new"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+        <form.Field name="email">
+          {(field) => (
+            <Field
+              label="Email (optional)"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              autoComplete="email"
+              placeholder="For a forgotten password and invites"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+        <form.Field name="password">
+          {(field) => (
+            <Field
+              label="Password"
+              required
+              secureTextEntry
+              textContentType="newPassword"
+              autoComplete="password-new"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+      </FormSection>
       <ServerField value={server.server} onChange={server.setServer} error={server.error} />
       <LocalDataQuestion data={local} />
       {signUp.error ? <Text tone="destructive">{signUp.error.message}</Text> : null}
-      <View className="gap-2">
-        <Button
-          label="Create Account"
-          size="lg"
-          status={statusOf(signUp)}
-          errorLabel="Couldn't create it"
-          onPress={() => void form.handleSubmit()}
-        />
-        <Button
-          label="I Already Have an Account"
-          variant="ghost"
-          onPress={() => router.replace("/account/sign-in")}
-        />
-      </View>
+      <Button
+        label="Create Account"
+        size="lg"
+        status={statusOf(signUp)}
+        errorLabel="Couldn't create it"
+        onPress={() => void form.handleSubmit()}
+      />
+      <OtherAccounts verb="up" />
+      <SwitchAccount
+        question="Already have an account?"
+        label="Sign In"
+        onPress={() => router.replace("/account/sign-in")}
+      />
     </Page>
   );
 }

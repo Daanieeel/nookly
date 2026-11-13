@@ -144,4 +144,23 @@ describe("the account dialog", () => {
     await user.click(screen.getByRole("button", { name: "Sign In" }));
     expect(signIn).toHaveBeenCalledWith("https://sync.example.com", "ada", "a long password", {});
   });
+
+  it("offers signing in with other accounts as coming soon, without doing anything yet", async () => {
+    const { user } = open();
+    for (const provider of ["Google", "Apple", "GitHub", "Notion"]) {
+      const button = screen.getByRole("button", { name: `Sign in with ${provider}` });
+      expect(button).toBeDisabled();
+    }
+    await user.hover(screen.getByRole("button", { name: "Sign in with Google" }).parentElement!);
+    expect(await screen.findAllByText("Signing in with Google is coming soon")).not.toHaveLength(0);
+    await expectNoA11yViolations();
+  });
+
+  it("invites someone new to create an account, free during the beta", async () => {
+    const { user } = open();
+    await user.click(screen.getByRole("radio", { name: "I'm new here" }));
+    expect(screen.getByRole("dialog", { name: "Create your account" })).toBeInTheDocument();
+    expect(screen.getByText(/free during the closed beta/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create Account" })).toBeInTheDocument();
+  });
 });

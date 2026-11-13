@@ -360,3 +360,7 @@ The user asked for the backmost background to be a deep charcoal instead of blac
 ## D61. Flags on the phone are the system's
 
 The desktop draws the flags of the date and time formats and of each time zone from `react-flagpack` images, a 3.6 MB web only set the phone cannot load without an SVG file loader. The phone shows the same flags as the system's emoji flags (US, EU, and each zone's country from the desktop's own zone table), which iOS draws natively. Hermes also lacks `Intl.supportedValuesOf` and `Intl.DisplayNames`: the zone list falls back to the desktop's table, and a minimal `Intl.DisplayNames` in `polyfills.ts` names nothing, so a zone shows no country name on the phone. The code language marks come from the desktop's components, written out as SVG text (`packages/frontend/src/lib/code-language-marks.ts`, checked by a desktop test).
+
+## D62. Sign in with other accounts shows before it works
+
+The sign in and sign up screens on both apps show Google, Apple, GitHub and Notion under "or sign in using", disabled, with "coming soon" (a tooltip on the desktop, a line under them on the phone). The marks are Tabler's brand icons, so the phone keeps to the desktop's icons. Nothing is wired to a provider yet: the buttons do nothing until the server supports it. Both screens say the account is part of the free closed beta.

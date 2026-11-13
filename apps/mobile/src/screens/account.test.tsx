@@ -32,6 +32,19 @@ describe("the welcome screen", () => {
 });
 
 describe("signing in", () => {
+  it("leads with signing in, keeps a forgotten password quiet, and invites someone new", async () => {
+    const screen = await renderScreens({ index: () => <SignInScreen /> });
+    expect(await screen.findByRole("header", { name: "Welcome back" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Forgot Password" })).toBeTruthy();
+    expect(screen.getByText("New to Nookly?")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Create Account" })).toBeTruthy();
+    expect(screen.queryByText("Create an Account Instead")).toBeNull();
+    for (const provider of ["Google", "Apple", "GitHub", "Notion"]) {
+      expect(screen.getByRole("button", { name: `Sign in with ${provider}` })).toBeDisabled();
+    }
+    expect(screen.getByText("Coming soon")).toBeTruthy();
+  });
+
   it("shows what is missing instead of doing nothing", async () => {
     const screen = await renderScreens({ index: () => <SignInScreen /> });
     await fireEvent.press(await screen.findByRole("button", { name: "Sign In" }));
