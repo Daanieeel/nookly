@@ -1,14 +1,13 @@
-import {
-  SEGMENTED_CLASSES,
-  SEGMENT_CLASSES,
-  SEGMENT_IDLE_CLASSES,
-  SEGMENT_SELECTED_CLASSES,
-} from "@nookly/frontend/classes";
+import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
-import { cn, row, splitText } from "./classes.ts";
-import { Text } from "./Text.tsx";
-import { MIN_TOUCH } from "./touch.ts";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { haptic } from "./haptics.ts";
+import { Label } from "./kit/Label.tsx";
+import { useScheme, useSemantic } from "./kit/scheme.ts";
+import { SPRING } from "./motion.ts";
+import { useReduceMotion } from "./reduce-motion.ts";
+import { CORNER, DEPTH, SEGMENT_THUMB } from "./tokens.ts";
+import { MIN_TOUCH } from "./touch.ts";
 
 export interface SegmentOption<T extends string> {
   value: T;
@@ -16,8 +15,11 @@ export interface SegmentOption<T extends string> {
   icon?: React.ReactNode;
 }
 
-/// A few choices side by side, the desktop's segmented control (`SEGMENTED_CLASSES`): a
-/// muted track with the chosen one raised on it, never a block of full colour. As tall as a
+/// Room between the track and the chosen segment.
+const INSET = 2;
+
+/// A few choices side by side as iOS's segmented control (D50): a filled track with the
+/// chosen one on a raised thumb that springs across to the next choice. As tall as a
 /// finger needs, each choice an equal share of the width.
 export function Segmented<T extends string>({
   label,
@@ -30,35 +32,84 @@ export function Segmented<T extends string>({
   options: SegmentOption<T>[];
   onChange: (next: T) => void;
 }) {
-  const track = splitText(row(SEGMENTED_CLASSES));
+  const scheme = useScheme();
+  const track = useSemantic("fill");
+  const reduce = useReduceMotion();
+  const [width, setWidth] = useState(0);
+  const index = Math.max(
+    0,
+    options.findIndex((o) => o.value === value),
+  );
+  const segment = width > 0 ? (width - INSET * 2) / options.length : 0;
+  const x = useSharedValue(index * segment);
+  useEffect(() => {
+    const to = index * segment;
+    x.value = reduce || segment === 0 ? to : withSpring(to, SPRING.press);
+  }, [index, segment, reduce, x]);
+  const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={label}
-      style={{ height: MIN_TOUCH }}
-      className={cn(track.box, "h-auto w-full p-1")}
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      style={[
+        CORNER,
+        {
+          height: MIN_TOUCH,
+          width: "100%",
+          flexDirection: "row",
+          padding: INSET,
+          borderRadius: 10,
+          backgroundColor: track,
+        },
+      ]}
     >
+      {segment > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            CORNER,
+            DEPTH.raised,
+            {
+              position: "absolute",
+              top: INSET,
+              bottom: INSET,
+              left: INSET,
+              width: segment,
+              borderRadius: 8,
+              backgroundColor: SEGMENT_THUMB[scheme],
+            },
+            thumb,
+          ]}
+        />
+      ) : null}
       {options.map((option) => {
         const selected = option.value === value;
-        const { box, text } = splitText(
-          cn(SEGMENT_CLASSES, selected ? SEGMENT_SELECTED_CLASSES : SEGMENT_IDLE_CLASSES),
-        );
         return (
           <Pressable
             key={option.value}
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
             accessibilityLabel={option.label}
+            unstable_pressDelay={0}
             onPress={() => {
               if (!selected) haptic("select");
               onChange(option.value);
             }}
-            className={cn(box, "flex-1 flex-row items-center justify-center gap-1.5 px-2")}
+            style={({ pressed }) => ({
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              paddingHorizontal: 8,
+              opacity: pressed && !selected ? 0.55 : 1,
+            })}
           >
             {option.icon}
-            <Text numberOfLines={1} className={cn(text, "text-sm")}>
+            <Label type="subheadline" weight={selected ? "600" : "500"} numberOfLines={1}>
               {option.label}
-            </Text>
+            </Label>
           </Pressable>
         );
       })}

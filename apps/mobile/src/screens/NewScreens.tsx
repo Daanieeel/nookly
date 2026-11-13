@@ -39,7 +39,7 @@ import { CoursePicker, ExamPicker } from "./StudyPickers.tsx";
 import { localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
-import { Swatch } from "../ui/Swatch.tsx";
+import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
 
 /// The Space to make something in: the one asked for, else the first.
 export function useTargetSpace(asked?: string) {
@@ -395,21 +395,12 @@ export function NewSpaceScreen() {
           />
         )}
       </form.Field>
-      <View
-        accessibilityRole="radiogroup"
-        accessibilityLabel="Color"
-        className="-mx-2.5 flex-row flex-wrap"
-      >
-        {ACCENT_COLORS.map((c) => (
-          <Swatch
-            key={c}
-            label={`Color ${c}`}
-            color={c}
-            selected={c === color}
-            onPress={() => setColor(c)}
-          />
-        ))}
-      </View>
+      <ColorChoices
+        label="Color"
+        colors={ACCENT_COLORS}
+        value={color}
+        onChange={(c) => c && setColor(c)}
+      />
       <Button
         label="Create Space"
         status={statusOf(create)}

@@ -145,6 +145,16 @@ describe("the icon picker", () => {
     );
   });
 
+  it("finds a library icon by its name", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const page = await createPage(data.db, space, "note", "Note");
+    const screen = await pickerFor(data, page);
+    await fireEvent.changeText(await screen.findByLabelText("Search icons"), "hea");
+    expect(screen.getByRole("button", { name: "Heart" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Star" })).toBeNull();
+  });
+
   it("gives an item an emoji found by name", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Work", "#3b82f6");

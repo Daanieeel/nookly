@@ -167,3 +167,7 @@ export const DEPTH = {
 
 /// An icon badge: the symbol in a tinted rounded square, as iOS's Settings draws them.
 export const BADGE = { size: 30, symbol: 17 } as const;
+
+/// A segmented control's chosen segment: raised white on light, a lighter gray on dark, as
+/// iOS draws it (it has no system colour of its own).
+export const SEGMENT_THUMB = { light: "#ffffff", dark: "#636366" } as const;

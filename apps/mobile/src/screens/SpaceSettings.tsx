@@ -31,7 +31,7 @@ import { useMenu } from "../ui/menu.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { Swatch } from "../ui/Swatch.tsx";
+import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
 
 /// Modules offered under Add Module: all of them but the passenger that comes with Courses.
 const ADDABLE = MODULE_KEYS.filter((key) => key !== "semesters");
@@ -46,21 +46,12 @@ function Swatches({
   onPick: (color: string) => void;
 }) {
   return (
-    <View
-      accessibilityRole="radiogroup"
-      accessibilityLabel={label}
-      className="-mx-2.5 flex-row flex-wrap"
-    >
-      {ACCENT_COLORS.map((c) => (
-        <Swatch
-          key={c}
-          label={`${label} ${c}`}
-          color={c}
-          selected={c === value}
-          onPress={() => onPick(c)}
-        />
-      ))}
-    </View>
+    <ColorChoices
+      label={label}
+      colors={ACCENT_COLORS}
+      value={value}
+      onChange={(c) => c && onPick(c)}
+    />
   );
 }
 
