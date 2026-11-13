@@ -4,7 +4,12 @@ import { Pressable, View } from "react-native";
 import { cn } from "../classes.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
+import { TYPE } from "../tokens.ts";
 import { TOUCH_ROW } from "../touch.ts";
+
+/// Menu items at the size of iOS's own menus: body text and icons to match.
+const ICON = 22;
+const ROW = { minHeight: 50 };
 import { useSheet } from "./Sheet.tsx";
 
 /// A Tabler icon, drawn in the item's color.
@@ -16,6 +21,8 @@ export type MenuIcon = ComponentType<{ size?: number; color?: string }>;
 export interface MenuItem {
   label: string;
   icon?: MenuIcon;
+  /// A picture of its own in place of `icon`: a Space's icon in its colour.
+  leading?: ReactNode;
   destructive?: boolean;
   disabled?: boolean;
   /// Shown with a check (a label that is on).
@@ -65,7 +72,7 @@ export function MenuList({ entries }: { entries: MenuEntry[] }) {
                 accessibilityLabel={item.label}
                 accessibilityState={{ disabled: !!item.disabled, checked: item.checked }}
                 disabled={item.disabled}
-                style={TOUCH_ROW}
+                style={[TOUCH_ROW, ROW]}
                 onPress={() => {
                   const step =
                     item.page?.() ?? (item.submenu ? <MenuList entries={item.submenu()} /> : null);
@@ -83,17 +90,18 @@ export function MenuList({ entries }: { entries: MenuEntry[] }) {
                   item.disabled && "opacity-50",
                 )}
               >
-                {Icon ? <Icon size={16} color={color} /> : null}
+                {item.leading ?? (Icon ? <Icon size={ICON} color={color} /> : null)}
                 <Text
                   numberOfLines={1}
                   tone={item.destructive ? "destructive" : "default"}
                   className="flex-1"
+                  style={{ fontSize: TYPE.body.fontSize, lineHeight: TYPE.body.lineHeight }}
                 >
                   {item.label}
                 </Text>
-                {item.checked ? <IconCheck size={16} color={theme.colors.primary} /> : null}
+                {item.checked ? <IconCheck size={20} color={theme.colors.primary} /> : null}
                 {item.submenu || item.page ? (
-                  <IconChevronRight size={16} color={theme.colors.mutedForeground} />
+                  <IconChevronRight size={20} color={theme.colors.mutedForeground} />
                 ) : null}
               </Pressable>
             );

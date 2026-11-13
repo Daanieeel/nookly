@@ -22,6 +22,11 @@ export class RecordingMenu implements MenuPresenter {
     return this.shown.map((item) => item.label);
   }
 
+  /// The items of the menu shown last.
+  items(): MenuItem[] {
+    return this.shown;
+  }
+
   /// Chooses an action of the menu shown last.
   choose(label: string) {
     const item = this.shown.find((i) => i.label === label);

@@ -165,6 +165,23 @@ describe("a menu in the sheet", () => {
     ]);
   });
 
+  it("draws its items at the size of iOS's own menus: body text and large icons", () => {
+    const Glyph = ({ size }: { size?: number }) => <Text>{`icon ${size}`}</Text>;
+    const screen = render(
+      <MenuList
+        entries={[
+          { label: "Pin", icon: Glyph },
+          { label: "Work", leading: <Text>space icon</Text> },
+        ]}
+      />,
+    );
+    const label = StyleSheet.flatten(screen.getByText("Pin").props.style);
+    expect(label.fontSize).toBe(17);
+    expect(screen.getByText("icon 22")).toBeTruthy();
+    // A leading picture of its own in place of an icon, a Space's for instance.
+    expect(screen.getByText("space icon")).toBeTruthy();
+  });
+
   it("runs an action once the sheet has gone", async () => {
     const run = jest.fn();
     function Menu() {

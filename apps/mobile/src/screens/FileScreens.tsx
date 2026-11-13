@@ -6,31 +6,22 @@ import {
   fileKindOf,
   isDownloading,
   isLinkOnly,
-  isTextFile,
 } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { KIND_ICONS, KIND_LABELS, nameOf, pathOf, viewerFor } from "./file-kinds.ts";
+import { useFileViewer } from "../ui/file-viewer.tsx";
 import {
   IconBrandDropbox,
   IconCalendarEvent,
-  IconCode,
   IconCategory,
-  IconFile,
-  IconFileSpreadsheet,
   IconFileText,
-  IconFileTypePdf,
-  IconFileZip,
   IconLink,
-  IconMovie,
-  IconMusic,
-  IconPhoto,
-  IconPresentation,
-  type Icon,
 } from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { File } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { useState } from "react";
-import { Image, Linking, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Image, Linking, Pressable, TextInput, View } from "react-native";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconArrowUp } from "@tabler/icons-react-native";
 import { useLocalWrite } from "../data/context.tsx";
@@ -48,34 +39,6 @@ import { SelectField } from "../ui/SelectField.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { useRouter } from "expo-router";
-
-const KIND_ICONS = {
-  image: IconPhoto,
-  pdf: IconFileTypePdf,
-  document: IconFileText,
-  sheet: IconFileSpreadsheet,
-  slides: IconPresentation,
-  archive: IconFileZip,
-  audio: IconMusic,
-  video: IconMovie,
-  code: IconCode,
-  other: IconFile,
-} satisfies Record<FileKindId, Icon>;
-
-const KIND_LABELS = {
-  image: "Image",
-  pdf: "PDF",
-  document: "Document",
-  sheet: "Spreadsheet",
-  slides: "Slides",
-  archive: "Archive",
-  audio: "Audio",
-  video: "Video",
-  code: "Code",
-  other: "File",
-} satisfies Record<FileKindId, string>;
-
-const nameOf = (file: FileRecord) => file.originalFilename ?? file.entity.title;
 
 function state(file: FileRecord): string {
   if (isDownloading(file)) return "Downloading from your account";
@@ -233,38 +196,48 @@ export function FileRows({ spaceId }: { spaceId: string }) {
   );
 }
 
-/// Whatever the file is, shown as far as the phone can: an image as it is, text as
-/// text, anything else offered to the system's own viewers.
+/// The file on its page: a picture of its first page (or the image itself, or the start of
+/// its text) that opens it full screen in the viewer.
 function Preview({ file }: { file: FileRecord }) {
-  const path = file.localPath ?? file.sourcePath;
+  const router = useRouter();
+  const theme = useTheme();
+  const path = pathOf(file);
   const name = nameOf(file);
-  const kind = fileKindOf(name);
-  const text = useQuery({
-    queryKey: ["file-text", path],
-    enabled: Boolean(path) && isTextFile(name),
-    queryFn: async () => (path ? (await new File(path).text()).slice(0, 200_000) : ""),
+  const kind = viewerFor(file);
+  const viewer = useFileViewer();
+  const thumbnail = useQuery({
+    queryKey: ["file-thumbnail", path],
+    enabled: Boolean(path) && kind !== "text" && kind !== "none",
+    queryFn: async () => (path ? await viewer.thumbnail(path, name, 600) : null),
   });
-  if (!path) return null;
-  if (kind === "image") {
-    return (
-      <Image
-        accessibilityLabel={name}
-        source={{ uri: path }}
-        resizeMode="contain"
-        className="aspect-[4/3] w-full rounded-lg bg-muted"
-      />
-    );
-  }
-  if (isTextFile(name)) {
-    return (
-      <ScrollView horizontal className="max-h-96 rounded-lg border border-border">
-        <Text className="p-3 font-mono text-sm" selectable>
-          {text.data ?? "Reading…"}
+  const text = useQuery({
+    queryKey: ["file-text-start", path],
+    enabled: Boolean(path) && kind === "text",
+    queryFn: async () => (path ? (await new File(path).text()).slice(0, 4000) : ""),
+  });
+  if (!path || kind === "none") return null;
+  const picture = thumbnail.data ?? (fileKindOf(name) === "image" ? path : null);
+  const Glyph = KIND_ICONS[fileKindOf(name)];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`View ${name}`}
+      onPress={() => router.push(`/file/${file.entity.id}`)}
+      className="overflow-hidden rounded-xl border border-border bg-secondary active:opacity-80"
+    >
+      {kind === "text" ? (
+        <Text numberOfLines={14} className="p-3 font-mono text-sm">
+          {text.data ?? ""}
         </Text>
-      </ScrollView>
-    );
-  }
-  return null;
+      ) : picture ? (
+        <Image source={{ uri: picture }} resizeMode="contain" className="aspect-[4/3] w-full" />
+      ) : (
+        <View className="aspect-[4/3] w-full items-center justify-center">
+          <Glyph size={56} color={theme.colors.mutedForeground} strokeWidth={1.5} />
+        </View>
+      )}
+    </Pressable>
+  );
 }
 
 /// A file's own page: the file in the page, as far as the phone can show it; what it is

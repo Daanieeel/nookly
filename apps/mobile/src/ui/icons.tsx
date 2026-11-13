@@ -47,7 +47,7 @@ import {
   IconToolsKitchen2,
   type Icon,
 } from "@tabler/icons-react-native";
-import { Text } from "./Text.tsx";
+import { Text as NativeText, View } from "react-native";
 import { useTheme } from "./theme.ts";
 
 /// The same Tabler icon per module as on the desktop (`MODULE_ICONS`).
@@ -125,7 +125,26 @@ export function IconValue({
     const Glyph = known ? ICON_LIBRARY[known] : null;
     if (Glyph) return <Glyph size={size} color={color ?? fallback} accessibilityElementsHidden />;
   }
-  return <Text style={{ fontSize: size - 2 }}>{value}</Text>;
+  // An emoji is taller than its font size: a line of its own height centred in the square
+  // keeps it from shifting up and being clipped at the top.
+  return (
+    <View
+      style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}
+      accessibilityElementsHidden
+    >
+      <NativeText
+        allowFontScaling={false}
+        style={{
+          fontSize: size - 2,
+          lineHeight: Math.ceil(size * 1.25),
+          textAlign: "center",
+          includeFontPadding: false,
+        }}
+      >
+        {value}
+      </NativeText>
+    </View>
+  );
 }
 
 /// An entity's own icon (an emoji or a library pick) or its type's, in the neutral

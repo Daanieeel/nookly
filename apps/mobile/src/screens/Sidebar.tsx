@@ -21,7 +21,7 @@ import {
 } from "@tabler/icons-react-native";
 import { z } from "zod";
 import { type Href, usePathname, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Space } from "@nookly/shared/data";
@@ -42,7 +42,13 @@ import { IconButton } from "../ui/Button.tsx";
 import { Glyph } from "../ui/kit/Glyph.tsx";
 import { useScheme, useSemanticPair } from "../ui/kit/scheme.ts";
 import { type BadgeLook, MODULE_BADGES } from "../ui/kit/badges.ts";
-import { TINT } from "../ui/tokens.ts";
+import { TINT, TYPE, withAlpha } from "../ui/tokens.ts";
+import { BlurView } from "expo-blur";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+
+/// The sidebar's rows read at the size of iOS's own sidebars: body text, and icons to match.
+const ROW_ICON = 22;
+const SMALL_TEXT = { fontSize: TYPE.footnote.fontSize, lineHeight: TYPE.footnote.lineHeight };
 import { Mascot } from "../ui/Mascot.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { usePanes } from "../shell/panes.tsx";
@@ -63,14 +69,85 @@ const TOP_ICONS = {
   jot: { glyph: IconFeather },
 } satisfies Record<TopId, Pick<BadgeLook, "glyph">>;
 
+/// The sidebar's icons: the label colour, a little faded, so they read without shouting.
+function useSidebarIconColor() {
+  return withAlpha(useSemanticPair("label").hex, 0.85);
+}
+
+/// Nookly's name over the sidebar, always in view, with Search beside it, on a blur that
+/// fades into the list scrolling under it.
+const HEADER_HEIGHT = 52;
+const HEADER_FADE = 20;
+
+function SidebarHeader({ top, onSearch }: { top: number; onSearch: () => void }) {
+  const theme = useTheme();
+  const page = theme.colors.background;
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{ position: "absolute", top: 0, left: 0, right: 0, height: top + HEADER_HEIGHT }}
+    >
+      <BlurView
+        intensity={24}
+        tint={theme.dark ? "dark" : "light"}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      <Svg
+        pointerEvents="none"
+        width="100%"
+        height={top + HEADER_HEIGHT + HEADER_FADE}
+        style={{ position: "absolute", top: 0, left: 0, right: 0 }}
+      >
+        <Defs>
+          <LinearGradient id="sidebar-header" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={page} stopOpacity={0.9} />
+            <Stop offset="0.7" stopColor={page} stopOpacity={0.6} />
+            <Stop offset="1" stopColor={page} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#sidebar-header)" />
+      </Svg>
+      <View
+        style={{
+          marginTop: top,
+          height: HEADER_HEIGHT,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingLeft: 16,
+          paddingRight: 8,
+        }}
+      >
+        <Text
+          accessibilityRole="header"
+          style={{
+            fontFamily: "InterTight_900Black",
+            fontSize: 28,
+            lineHeight: 34,
+            letterSpacing: -0.5,
+            color: theme.colors.foreground,
+          }}
+        >
+          Nookly
+        </Text>
+        <IconButton
+          label="Search"
+          icon={<IconSearch size={ROW_ICON} color={theme.colors.foreground} />}
+          onPress={onSearch}
+        />
+      </View>
+    </View>
+  );
+}
+
 /// A row's icon in the sidebar: muted, in the accent on the page shown now.
 function SideIcon({ look, active = false }: { look: Pick<BadgeLook, "glyph">; active?: boolean }) {
   const scheme = useScheme();
-  const muted = useSemanticPair("secondaryLabel");
+  const color = useSidebarIconColor();
   const accent = TINT.blue[scheme];
   return (
-    <View style={{ width: 24, alignItems: "center" }}>
-      <Glyph icon={look.glyph} size={19} color={active ? accent : muted.hex} />
+    <View style={{ width: 28, alignItems: "center" }}>
+      <Glyph icon={look.glyph} size={ROW_ICON} color={active ? accent : color} />
     </View>
   );
 }
@@ -86,11 +163,8 @@ function NavRow({
   indent = 0,
   subtitle,
   accessibilityLabel,
-  role = "button",
 }: {
   label: string;
-  /// `search` for the row that opens Search.
-  role?: "button" | "search";
   /// When the visible name alone is ambiguous, like a module's in a Space.
   accessibilityLabel?: string;
   icon: React.ReactNode;
@@ -108,25 +182,28 @@ function NavRow({
   );
   return (
     <Pressable
-      accessibilityRole={role}
+      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? (subtitle ? `${label}, ${subtitle}` : label)}
       accessibilityState={{ selected: active }}
       onPress={onPress}
       onLongPress={onLongPress}
       style={TOUCH_ROW}
-      className={cn(box, "h-auto min-h-10 gap-3 py-2", indent > 0 && "pl-8")}
+      className={cn(box, "h-auto min-h-11 gap-3 py-2", indent > 0 && "pl-9")}
     >
       {icon}
       <View className="flex-1" pointerEvents="none">
         <Text
           numberOfLines={1}
           className={text}
-          style={active ? { color: theme.colors.foreground } : undefined}
+          style={[
+            { fontSize: TYPE.body.fontSize, lineHeight: TYPE.body.lineHeight },
+            active ? { color: theme.colors.foreground } : undefined,
+          ]}
         >
           {label}
         </Text>
         {subtitle ? (
-          <Text variant="small" tone="muted" numberOfLines={1}>
+          <Text variant="small" tone="muted" numberOfLines={1} style={SMALL_TEXT}>
             {subtitle}
           </Text>
         ) : null}
@@ -161,7 +238,7 @@ function TasksRow({
             <IconButton
               label={open ? "Hide Task Views" : "Show Task Views"}
               size="iconSm"
-              icon={<Chevron size={16} color={theme.colors.mutedForeground} />}
+              icon={<Chevron size={18} color={theme.colors.mutedForeground} />}
               onPress={() => setOpen((o) => !o)}
             />
           ) : null
@@ -175,7 +252,7 @@ function TasksRow({
               indent={1}
               label={view.entity.title || "Untitled"}
               accessibilityLabel={`${view.entity.title || "Untitled"}, saved view`}
-              icon={<IconChecklist size={16} color={theme.colors.mutedForeground} />}
+              icon={<IconChecklist size={20} color={theme.colors.mutedForeground} />}
               onPress={() => go(`/tasks?view=${view.entity.id}`)}
             />
           ))
@@ -205,7 +282,7 @@ function ModuleMeta({ spaceId, module }: { spaceId: string; module: string }) {
     text = String(decks.length);
   }
   return text ? (
-    <Text variant="small" tone="muted">
+    <Text variant="small" tone="muted" style={SMALL_TEXT}>
       {text}
     </Text>
   ) : null;
@@ -267,10 +344,15 @@ function DayCard({ go }: { go: (href: Href) => void }) {
         <Mascot size={44} animate={inView} />
       </View>
       <View className="flex-1 gap-0.5" pointerEvents="none">
-        <Text variant="small" tone="muted" numberOfLines={1}>
+        <Text
+          variant="small"
+          tone="muted"
+          numberOfLines={1}
+          style={{ fontSize: 14, lineHeight: 19 }}
+        >
           {`${now.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })} · Week ${isoWeek(now)}`}
         </Text>
-        <Text style={{ color: theme.colors.foreground }} numberOfLines={1}>
+        <Text className="font-medium" style={{ color: theme.colors.foreground }} numberOfLines={1}>
           {line?.text ?? "Nothing waiting. Enjoy the calm."}
         </Text>
       </View>
@@ -301,13 +383,13 @@ function SpaceModules({
   return (
     <View>
       <View className="mt-4 mb-1 flex-row items-center gap-2 pl-3">
-        <SpaceIcon space={space} size={16} />
+        <SpaceIcon space={space} size={18} />
         <Text
           accessibilityRole="header"
           variant="label"
           numberOfLines={1}
           className="flex-1"
-          style={{ color: muted }}
+          style={[SMALL_TEXT, { color: muted }]}
         >
           {space.name}
         </Text>
@@ -335,7 +417,7 @@ function SpaceModules({
         <NavRow
           label="Start something"
           accessibilityLabel={`Start something in ${space.name}`}
-          icon={<IconPlus size={20} color={muted} />}
+          icon={<IconPlus size={ROW_ICON} color={muted} />}
           onPress={() => go(`/space/${space.id}`)}
         />
       ) : null}
@@ -387,11 +469,11 @@ function SpaceSwitcher({
           >
             <View
               className={cn(
-                "size-9 items-center justify-center rounded-md",
+                "size-10 items-center justify-center rounded-md",
                 selected && "bg-sidebar-accent",
               )}
             >
-              <SpaceIcon space={space} size={20} />
+              <SpaceIcon space={space} size={ROW_ICON} />
             </View>
           </Pressable>
         );
@@ -399,12 +481,13 @@ function SpaceSwitcher({
       {overflow.length > 0 ? (
         <IconButton
           label="More Spaces"
-          icon={<IconDots size={20} color={theme.colors.mutedForeground} />}
+          icon={<IconDots size={ROW_ICON} color={theme.colors.mutedForeground} />}
           onPress={() =>
             menu.show(
               "Spaces",
               overflow.map((space) => ({
                 label: space.name,
+                leading: <SpaceIcon space={space} size={ROW_ICON} />,
                 checked: space.id === active?.id,
                 onPress: () => onPick(space),
               })),
@@ -422,7 +505,6 @@ const SPACE_SHOWN = z.string().nullable();
 /// the mascot's card, Search and the overviews across every Space, then one Space at a time
 /// with its modules, and at the bottom the Space switcher, Trash and Settings.
 export function Sidebar({ close }: { close: () => void }) {
-  const theme = useTheme();
   const router = useRouter();
   const menu = useMenu();
   const pathname = usePathname();
@@ -436,32 +518,31 @@ export function Sidebar({ close }: { close: () => void }) {
     close();
     router.push(href);
   };
-  const muted = theme.colors.mutedForeground;
+  const muted = useSidebarIconColor();
   const [topPref] = usePreference("sidebar.top", topSchema, DEFAULT_TOP);
   const top = visibleTop(topPref).map((item) => ({ ...item, look: TOP_ICONS[item.id] }));
   const [shownId, setShownId] = usePreference("sidebar.space", SPACE_SHOWN, null);
-  // Opening a module of another Space (from a link, a search) shows that Space here.
+  // Opening a module of another Space (from a link, a search) shows that Space here. Only
+  // when the page changes: picking another Space in the switcher must not snap back.
   const pathSpace = /^\/module\/([^/]+)\//.exec(pathname)?.[1] ?? null;
+  const followed = useRef<string | null>(null);
   useEffect(() => {
+    if (pathSpace === followed.current) return;
+    followed.current = pathSpace;
     if (pathSpace && pathSpace !== shownId) setShownId(pathSpace);
   }, [pathSpace, shownId, setShownId]);
   const shown = spaces.find((s) => s.id === shownId) ?? spaces[0] ?? null;
   return (
     // Inset like the desktop's (`SIDEBAR_PANEL_CLASSES`): the page's background shows
     // through. To bring the panel back: bg-sidebar here, the sidebar color in the drawer.
-    <View
-      className={SIDEBAR_PANEL_CLASSES}
-      style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 4 }}
-    >
-      <ScrollView className="flex-1" contentContainerClassName="p-2 pt-1">
+    <View className={SIDEBAR_PANEL_CLASSES} style={{ paddingBottom: insets.bottom + 4 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="p-2"
+        contentContainerStyle={{ paddingTop: insets.top + HEADER_HEIGHT + 4 }}
+        scrollIndicatorInsets={{ top: HEADER_HEIGHT }}
+      >
         <DayCard go={go} />
-        <NavRow
-          label="Search"
-          role="search"
-          active={pathname === "/search"}
-          icon={<SideIcon look={{ glyph: IconSearch }} active={pathname === "/search"} />}
-          onPress={() => go("/search")}
-        />
         {top.map(({ id, label, href, look }) =>
           id === "tasks" ? (
             <TasksRow
@@ -489,10 +570,11 @@ export function Sidebar({ close }: { close: () => void }) {
           </Text>
         )}
       </ScrollView>
+      <SidebarHeader top={insets.top} onSearch={() => go("/search")} />
       <View className="flex-row items-center border-t border-sidebar-border px-1 pt-1">
         <IconButton
           label="New"
-          icon={<IconPlus size={20} color={muted} />}
+          icon={<IconPlus size={ROW_ICON} color={muted} />}
           onPress={() =>
             menu.show(undefined, [
               { label: "New Space", icon: IconFolderPlus, onPress: () => push("/new/space") },
@@ -514,12 +596,12 @@ export function Sidebar({ close }: { close: () => void }) {
         <View className="mx-1 h-4 w-px bg-sidebar-border" />
         <IconButton
           label="Trash"
-          icon={<IconTrash size={20} color={muted} />}
+          icon={<IconTrash size={ROW_ICON} color={muted} />}
           onPress={() => go("/trash")}
         />
         <IconButton
           label="Settings"
-          icon={<IconSettings size={20} color={muted} />}
+          icon={<IconSettings size={ROW_ICON} color={muted} />}
           onPress={() => push("/settings")}
         />
       </View>

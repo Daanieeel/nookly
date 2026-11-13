@@ -5,6 +5,7 @@ import { Slot } from "expo-router";
 import { Text } from "react-native";
 import type { ReactTestInstance } from "react-test-renderer";
 import DrawerLayout from "../app/(drawer)/_layout.tsx";
+import { RecordingMenu } from "../test/menu.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
 import { Sidebar } from "./Sidebar.tsx";
@@ -32,6 +33,51 @@ describe("the sidebar", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Tasks in Home" }));
     expect(close).toHaveBeenCalled();
     expect(screen.getPathname()).toBe(`/module/${home}/tasks`);
+  });
+
+  it("switches Space while a module of another Space is open", async () => {
+    const data = testData();
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    const home = await createSpace(data.db, "Home", "#22c55e");
+    await createTask(data.db, work, "Quarterly report");
+    await createTask(data.db, home, "Fix the tap");
+    const screen = await renderScreens(
+      { "module/[spaceId]/[module]": () => <Sidebar close={jest.fn()} /> },
+      data,
+      `/module/${work}/tasks`,
+    );
+    expect(await screen.findByRole("button", { name: "Tasks in Work" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Home" }));
+    expect(await screen.findByRole("button", { name: "Tasks in Home" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Tasks in Work" })).toBeNull();
+  });
+
+  it("lists the Spaces that do not fit with their icons and colours", async () => {
+    const data = testData();
+    const names = ["Work", "Home", "Uni", "Club", "Band", "Gym"];
+    for (const name of names) await createSpace(data.db, name, "#3b82f6");
+    const menu = new RecordingMenu();
+    const screen = await renderScreens({ index: () => <Sidebar close={jest.fn()} /> }, data, "/", {
+      menu,
+    });
+    await fireEvent.press(await screen.findByRole("button", { name: "More Spaces" }));
+    expect(menu.items().length).toBeGreaterThan(0);
+    for (const item of menu.items()) expect(item.leading).toBeTruthy();
+  });
+
+  it("has Nookly's name as its header, with Search as a button beside it", async () => {
+    const data = testData();
+    const close = jest.fn();
+    const screen = await renderScreens(
+      { index: () => <Sidebar close={close} />, search: () => <Text>Search page</Text> },
+      data,
+    );
+    expect(await screen.findByRole("header", { name: "Nookly" })).toBeTruthy();
+    // The header's button replaces the old Search row.
+    expect(screen.queryByRole("search")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Search" }));
+    expect(close).toHaveBeenCalled();
+    expect(screen.getPathname()).toBe("/search");
   });
 
   it("says a shared Space is shared, and leaves pinned items to Pinned, as the desktop does", async () => {
@@ -79,7 +125,7 @@ describe("the text of the sidebar's buttons", () => {
     const work = await createSpace(data.db, "Work", "#3b82f6");
     await createTask(data.db, work, "Report");
     const screen = await renderScreens({ index: () => <Sidebar close={() => {}} /> }, data);
-    for (const words of [...(await screen.findAllByText("Tasks")), screen.getByText("Search")]) {
+    for (const words of await screen.findAllByText("Tasks")) {
       expect(touchesOf(words)).toBe("none");
     }
     expect(touchesOf(screen.getByText(/Week \d+/))).toBe("none");
@@ -101,7 +147,7 @@ describe("the app's frame", () => {
     });
     expect(await screen.findByText("Home")).toBeTruthy();
     act(() => devHooks.openSidebar?.());
-    expect(await screen.findByRole("search", { name: "Search" })).toBeTruthy();
+    expect(await screen.findByRole("header", { name: "Nookly" })).toBeTruthy();
   });
 });
 

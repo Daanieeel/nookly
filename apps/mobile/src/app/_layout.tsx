@@ -8,7 +8,7 @@ import {
   Inter_600SemiBold,
   useFonts,
 } from "@expo-google-fonts/inter";
-import { InterTight_600SemiBold } from "@expo-google-fonts/inter-tight";
+import { InterTight_600SemiBold, InterTight_900Black } from "@expo-google-fonts/inter-tight";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   DarkTheme,
@@ -109,6 +109,7 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     InterTight_600SemiBold,
+    InterTight_900Black,
   });
   const [data, setData] = useState<AppData | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -194,13 +195,13 @@ export default function RootLayout() {
       <Stack.Screen name="account/sign-up" options={{ title: "Create Account" }} />
       <Stack.Screen name="account/forgot" options={{ title: "Reset Password" }} />
       <Stack.Screen name="entity/[id]" options={{ title: "" }} />
+      <Stack.Screen name="file/[id]" options={{ title: "" }} />
       <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
       <Stack.Screen name="settings/index" options={{ title: "Settings", ...groupedHeader }} />
       <Stack.Screen name="settings/[page]" options={{ title: "Settings", ...groupedHeader }} />
       <Stack.Screen name="pick/icon" options={SHEET_ROUTE} />
       <Stack.Screen name="new/recipe" options={SHEET_ROUTE} />
       <Stack.Screen name="new/session" options={SHEET_ROUTE} />
-      <Stack.Screen name="new/study-block" options={SHEET_ROUTE} />
       <Stack.Screen name="new/semester" options={SHEET_ROUTE} />
       <Stack.Screen name="new/semester-setup" options={SHEET_ROUTE} />
       <Stack.Screen name="new/jot" options={SHEET_ROUTE} />

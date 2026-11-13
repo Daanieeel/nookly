@@ -17,6 +17,7 @@ import { SheetHost } from "../ui/sheet/SheetHost.tsx";
 import { ClipboardProvider, type ClipboardWriter, systemClipboard } from "../ui/clipboard.tsx";
 import { FilePickerProvider, type TextFilePicker, systemFilePicker } from "../ui/file-picker.tsx";
 import { WindowWidthProvider } from "../ui/pane.tsx";
+import { type FileViewer, FileViewerProvider, systemFileViewer } from "../ui/file-viewer.tsx";
 import { PageEditorViewProvider } from "../editor/editor-view.tsx";
 import { EditorStandIn } from "./editor-stand-in.tsx";
 
@@ -76,6 +77,8 @@ export async function renderScreens(
     clipboard?: ClipboardWriter;
     /// What the file picker hands over.
     filePicker?: TextFilePicker;
+    /// How files are shown (the native viewer is missing in tests).
+    fileViewer?: FileViewer;
   } = {},
 ) {
   const queryClient = new QueryClient({
@@ -97,7 +100,11 @@ export async function renderScreens(
             <MenuProvider value={options.menu ?? null}>
               <ClipboardProvider value={options.clipboard ?? systemClipboard}>
                 <FilePickerProvider value={options.filePicker ?? systemFilePicker}>
-                  <PageEditorViewProvider value={EditorStandIn}>{children}</PageEditorViewProvider>
+                  <FileViewerProvider value={options.fileViewer ?? systemFileViewer}>
+                    <PageEditorViewProvider value={EditorStandIn}>
+                      {children}
+                    </PageEditorViewProvider>
+                  </FileViewerProvider>
                 </FilePickerProvider>
               </ClipboardProvider>
             </MenuProvider>
