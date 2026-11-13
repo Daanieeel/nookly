@@ -86,7 +86,7 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 ### 4. Mobile: lists and boards
 
 - [x] Tapping the status icon of a task or assignment in a list opens the status sheet instead of marking it done.
-- [ ] Board view for tasks and assignments looks like the desktop: items as cards, columns keep their width. Items can be dragged: a long press makes every card wobble (each with its own time offset, like iOS home screen icons), then cards can be dragged between columns.
+- [x] Board view for tasks and assignments looks like the desktop: items as cards, columns keep their width. Items can be dragged: a long press makes every card wobble (each with its own time offset, like iOS home screen icons), then cards can be dragged between columns.
 - [x] The "Empty Trash" button stretches across the full width of the page.
 
 ### 5. Mobile: page editor
@@ -143,12 +143,15 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ## Needs the user
 
-(none yet)
+- On a real phone: the feel of dragging (sidebar settings rows, board cards with the wobble, the board scrolling near its edges). The simulator can't drag with a finger, so the gestures are checked by tests and by screen reader actions only.
+- On a real phone: the iOS 27 scene lifecycle fix (D59).
 
 ## Progress log
 
 - 2026-11-13: file refilled from `NOTES.md`.
 - 2026-11-13: charcoal background (D60); sidebar (sizes, header, Space switching fix, overflow icons, emoji centring, opacity); menus larger; study blocks gone from the phone; file viewer (`modules/nookly-file-viewer`). Simulator dev build: Debug in the scratch `dd-debug` folder, Metro on 8092 with `RCT_jsLocation` set in the app's defaults (no dev client package). Earlier work (sync, merge, the first mobile rebuild) is in git history and `DECISIONS.md` up to D59.
+
+- 2026-11-13: settings (input fields, layout, keys, time zones, flags, theme cards, code languages, Day starts at, sidebar drag, LaTeX macros with previews); sign in and sign up on both apps (D62); assignment status sheet; Empty Trash full width; boards as cards with wobble and drag across columns (`ui/Board.tsx`).
 
 ## Final report
 

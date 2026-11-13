@@ -81,6 +81,16 @@ describe("the tasks list", () => {
     expect(screen.getByLabelText("Backlog column")).toBeTruthy();
     expect(screen.getByRole("button", { name: "New Task in Todo" })).toBeTruthy();
   });
+
+  it("shows tasks on the board as cards, moved to another column like a drag", async () => {
+    const { data, space, soon } = await seeded();
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Board" }));
+    const card = await screen.findByLabelText("Call Ana, card, drag to move");
+    await fireEvent(card, "accessibilityAction", { nativeEvent: { actionName: "move-done" } });
+    await waitFor(async () => expect((await getTask(data.db, soon))?.statusId).toBe("done"));
+  });
 });
 
 describe("a new task", () => {

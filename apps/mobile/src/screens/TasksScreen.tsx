@@ -1,9 +1,9 @@
 import { labelOption, statusOption } from "./option-badges.tsx";
-import { createView } from "@nookly/shared/data";
+import { createView, setTaskStatus } from "@nookly/shared/data";
 import { IconLayoutKanban, IconList } from "@tabler/icons-react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { usePreference } from "../data/preferences.ts";
 import {
@@ -20,14 +20,15 @@ import { ListHeader, Presets } from "../ui/ListBar.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
-import { Empty, Section } from "../ui/Row.tsx";
+import { Empty } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { FilterField, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
-import { ListGroup } from "../ui/ListMotion.tsx";
-import { TaskRow } from "./TaskRow.tsx";
+import { TaskCard, TaskRow } from "./TaskRow.tsx";
+import { StatusIcon } from "./StatusIcon.tsx";
+import { Board } from "../ui/Board.tsx";
 import {
   DEFAULT_DISPLAY,
   GROUPINGS,
@@ -192,6 +193,9 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
   const finishedGroup = (status: string) =>
     (statuses.find((s) => s.id === status)?.doneness ?? 0) >= 100;
   const board = display.layout === "board";
+  const moveTo = useLocalWrite((db, move: { id: string; statusId: string }) =>
+    setTaskStatus(db, move.id, move.statusId),
+  );
   const openView = (id: string) => {
     setView(id);
     if (id === "all") {
@@ -298,37 +302,62 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
           <Empty text="Nothing matches these filters." />
         ) : null}
         {board ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-3"
-          >
-            <ListGroup>
-              {groups.map((group) => (
-                <View
-                  key={group.id}
-                  className="w-72 gap-1"
-                  accessibilityLabel={`${group.title} column`}
-                >
-                  <Section title={`${group.title} · ${group.tasks.length}`}>
-                    {group.tasks.map((task) => (
-                      <View key={task.entity.id}>{row(task)}</View>
-                    ))}
-                  </Section>
-                  {display.grouping === "status" ? (
-                    <View className="items-start">
-                      <Button
-                        label={`New Task in ${group.title}`}
-                        variant="ghost"
-                        size="sm"
-                        onPress={() => newTask(group.id)}
-                      />
-                    </View>
-                  ) : null}
-                </View>
-              ))}
-            </ListGroup>
-          </ScrollView>
+          <Board
+            columns={(display.grouping === "status"
+              ? // Every status a card can go to, empty ones too, as the desktop's board.
+                statuses
+                  .filter(
+                    (s) =>
+                      (display.statuses.length === 0 || display.statuses.includes(s.id)) &&
+                      (display.showFinished || s.doneness < 100),
+                  )
+                  .map((s) => ({
+                    id: s.id,
+                    title: s.name,
+                    tasks: groups.find((g) => g.id === s.id)?.tasks ?? [],
+                  }))
+              : groups
+            ).map((group) => ({
+              id: group.id,
+              title: group.title,
+              icon:
+                display.grouping === "status" ? (
+                  <StatusIcon status={statuses.find((s) => s.id === group.id)} size={16} />
+                ) : undefined,
+              items: group.tasks,
+              footer:
+                display.grouping === "status" ? (
+                  <View className="items-start">
+                    <Button
+                      label={`New Task in ${group.title}`}
+                      variant="ghost"
+                      size="sm"
+                      onPress={() => newTask(group.id)}
+                    />
+                  </View>
+                ) : undefined,
+            }))}
+            keyOf={(task) => task.entity.id}
+            labelOf={(task) => task.entity.title || "Untitled"}
+            onOpen={(task) => router.push(`/entity/${task.entity.id}`)}
+            onMove={
+              display.grouping === "status"
+                ? (task, statusId) => moveTo.mutate({ id: task.entity.id, statusId })
+                : undefined
+            }
+            renderCard={(task) => {
+              const space = spaceOf(task);
+              return (
+                <TaskCard
+                  task={task}
+                  statuses={statuses}
+                  spaceColor={space?.color}
+                  spaceName={space?.name}
+                  labels={labelsOf(task)}
+                />
+              );
+            }}
+          />
         ) : (
           groups.map((group) => {
             const shown =

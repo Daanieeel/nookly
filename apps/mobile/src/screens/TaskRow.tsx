@@ -102,26 +102,95 @@ export function DueLine({
   );
 }
 
-/// A task in a list. Swipe right to finish it (or open it again), left to move it to Trash.
-/// Two lines, like the desktop's row: the status and title, then the key, when it is due and
-/// how long that is, its labels, its Space and its effort.
-export function TaskRow({
-  task,
-  statuses,
-  spaceColor,
-  spaceName,
-  labels = [],
-}: {
+interface TaskParts {
   task: TaskRecord;
   statuses: TaskStatus[];
   spaceColor?: string;
   /// Shown with the Space's color where tasks of several Spaces are listed together.
   spaceName?: string;
   labels?: { id: string; name: string; color: string }[];
+}
+
+/// A task's second line: its key, when it is due, its labels, its Space and its effort.
+function TaskMeta({
+  task,
+  due,
+  labels,
+  spaceName,
+  spaceColor,
+  className,
+}: {
+  task: TaskRecord;
+  due: { text: string; overdue: boolean } | null;
+  labels: { id: string; name: string }[];
+  spaceName?: string;
+  spaceColor?: string;
+  className?: string;
 }) {
+  const [scale] = useSetting("general.effortScale");
+  return (
+    <View className={cn("flex-row flex-wrap items-center gap-x-2 gap-y-1", className)}>
+      <Text variant="small" tone="muted">
+        {task.entity.key}
+      </Text>
+      {task.dueDate ? <DueLine day={task.dueDate} due={due} /> : null}
+      {labels.map((label) => (
+        <Badge key={label.id} label={label.name} size="sm" />
+      ))}
+      {spaceName ? (
+        <View className="flex-row items-center gap-1">
+          {spaceColor ? <SpaceDot color={spaceColor} /> : null}
+          <Text variant="small" tone="muted">
+            {spaceName}
+          </Text>
+        </View>
+      ) : spaceColor ? (
+        <SpaceDot color={spaceColor} />
+      ) : null}
+      {task.effort !== null ? <Badge label={effortLabel(task.effort, scale)} size="sm" /> : null}
+    </View>
+  );
+}
+
+/// A task on a board's card, as the desktop's: its circle and title, the title on up to
+/// three lines, then the rest under it.
+export function TaskCard({ task, statuses, spaceColor, spaceName, labels = [] }: TaskParts) {
+  const status = statuses.find((s) => s.id === task.statusId);
+  const finished = (status?.doneness ?? 0) >= 100;
+  const setStatus = useLocalWrite((db, statusId: string) =>
+    setTaskStatus(db, task.entity.id, statusId),
+  );
+  const due = task.dueDate && !finished ? dueText(task.dueDate.slice(0, 10), localDay()) : null;
+  return (
+    <>
+      <View className={cn("flex-row items-start gap-3", finished && "opacity-50")}>
+        <StatusButton
+          title={task.entity.title || "Untitled"}
+          status={status}
+          statuses={statuses}
+          onPick={(id) => setStatus.mutate(id)}
+        />
+        <Text numberOfLines={3} className="flex-1">
+          {task.entity.title || "Untitled"}
+        </Text>
+      </View>
+      <TaskMeta
+        task={task}
+        due={due}
+        labels={labels}
+        spaceName={spaceName}
+        spaceColor={spaceColor}
+      />
+    </>
+  );
+}
+
+/// A task in a list. Swipe right to finish it (or open it again), left to move it to Trash.
+/// Two lines, like the desktop's row: the status and title, then the key, when it is due and
+/// how long that is, its labels, its Space and its effort.
+export function TaskRow({ task, statuses, spaceColor, spaceName, labels = [] }: TaskParts) {
   const entityMenu = useEntityMenu();
   const router = useRouter();
-  const [scale] = useSetting("general.effortScale");
   const status = statuses.find((s) => s.id === task.statusId);
   const finished = (status?.doneness ?? 0) >= 100;
   const setStatus = useLocalWrite((db, statusId: string) =>
@@ -167,28 +236,14 @@ export function TaskRow({
               {task.entity.title || "Untitled"}
             </Text>
           </View>
-          <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1 pl-8">
-            <Text variant="small" tone="muted">
-              {task.entity.key}
-            </Text>
-            {task.dueDate ? <DueLine day={task.dueDate} due={due} /> : null}
-            {labels.map((label) => (
-              <Badge key={label.id} label={label.name} size="sm" />
-            ))}
-            {spaceName ? (
-              <View className="flex-row items-center gap-1">
-                {spaceColor ? <SpaceDot color={spaceColor} /> : null}
-                <Text variant="small" tone="muted">
-                  {spaceName}
-                </Text>
-              </View>
-            ) : spaceColor ? (
-              <SpaceDot color={spaceColor} />
-            ) : null}
-            {task.effort !== null ? (
-              <Badge label={effortLabel(task.effort, scale)} size="sm" />
-            ) : null}
-          </View>
+          <TaskMeta
+            task={task}
+            due={due}
+            labels={labels}
+            spaceName={spaceName}
+            spaceColor={spaceColor}
+            className="pl-8"
+          />
         </Pressable>
       </SwipeRow>
     </ListItem>

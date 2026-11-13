@@ -143,6 +143,22 @@ describe("the assignments overview", () => {
     await fireEvent.press(screen.getByRole("radio", { name: "Board" }));
     expect(await screen.findByLabelText("Not started column")).toBeTruthy();
   });
+
+  it("moves an assignment to another column of the board, like a drag", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    const id = await createAssignment(data.db, space, "Sheet", course, addDays(localDay(), 2));
+    const screen = await renderScreens({ index: () => <AssignmentsScreen /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Board" }));
+    const card = await screen.findByLabelText("Sheet, card, drag to move");
+    expect(card.props.accessibilityActions.map((a: { label: string }) => a.label)).toContain(
+      "Move to Submitted",
+    );
+    await fireEvent(card, "accessibilityAction", { nativeEvent: { actionName: "move-submitted" } });
+    await waitFor(async () => expect((await getAssignment(data.db, id))?.status).toBe("submitted"));
+  });
   it("orders the assignments as picked under Display, as the desktop does", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");

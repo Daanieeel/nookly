@@ -3,11 +3,10 @@ import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { type AssignmentRecord, updateAssignment } from "@nookly/shared/data";
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconLayoutKanban, IconList } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import { usePreference } from "../data/preferences.ts";
@@ -32,6 +31,7 @@ import { dueText } from "./dashboard-model.ts";
 import { localDay } from "./dates.ts";
 import { DueLine, StatusButton } from "./TaskRow.tsx";
 import { StatusIcon } from "./StatusIcon.tsx";
+import { Board } from "../ui/Board.tsx";
 import { barButton } from "../ui/bar.ts";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 
@@ -58,19 +58,49 @@ const DEFAULT: Display = {
   statuses: [],
 };
 
-function Row({
-  assignment,
-  courseName,
-  spaceName,
-  spaceColor,
-  today,
-}: {
+interface RowProps {
   assignment: AssignmentRecord;
   courseName?: string;
   spaceName?: string;
   spaceColor?: string;
   today: string;
-}) {
+}
+
+/// An assignment's second line: its key, when it is due, its course and its Space.
+function Meta({
+  assignment,
+  due,
+  courseName,
+  spaceName,
+  spaceColor,
+}: Omit<RowProps, "today"> & { due: { text: string; overdue: boolean } | null }) {
+  return (
+    <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1">
+      <Text variant="small" tone="muted">
+        {assignment.entity.key}
+      </Text>
+      {assignment.dueDate ? <DueLine day={assignment.dueDate} due={due} /> : null}
+      {courseName ? (
+        <Text variant="small" tone="muted" numberOfLines={1}>
+          {courseName}
+        </Text>
+      ) : null}
+      {spaceName ? (
+        <View className="flex-row items-center gap-1">
+          {spaceColor ? <SpaceDot color={spaceColor} /> : null}
+          <Text variant="small" tone="muted">
+            {spaceName}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/// An assignment in a list, or on a board's card (`card`): its status circle, which opens
+/// the statuses, its title and the rest under it.
+function Row({ card = false, ...props }: RowProps & { card?: boolean }) {
+  const { assignment, today } = props;
   const entityMenu = useEntityMenu();
   const router = useRouter();
   const done = isHandedIn(assignment);
@@ -78,18 +108,34 @@ function Row({
     updateAssignment(db, assignment.entity.id, { status: next }),
   );
   const due = assignment.dueDate && !done ? dueText(assignment.dueDate.slice(0, 10), today) : null;
+  const circle = (
+    <View className="size-6 items-center justify-center">
+      <StatusButton
+        title={assignment.entity.title || "assignment"}
+        status={ASSIGNMENT_STATUSES.find((s) => s.id === assignment.status)}
+        statuses={ASSIGNMENT_STATUSES}
+        onPick={(id) => mark.mutate(id)}
+      />
+    </View>
+  );
+  if (card) {
+    return (
+      <>
+        <View className={cn("flex-row items-start gap-3", done && "opacity-60")}>
+          {circle}
+          <Text numberOfLines={3} className="flex-1">
+            {assignment.entity.title || "Untitled"}
+          </Text>
+        </View>
+        <Meta {...props} due={due} />
+      </>
+    );
+  }
   return (
     <View
       className={cn("flex-row items-center gap-3 px-1 py-2", ROW_DIVIDER, done && "opacity-60")}
     >
-      <View className="size-6 items-center justify-center">
-        <StatusButton
-          title={assignment.entity.title || "assignment"}
-          status={ASSIGNMENT_STATUSES.find((s) => s.id === assignment.status)}
-          statuses={ASSIGNMENT_STATUSES}
-          onPick={(id) => mark.mutate(id)}
-        />
-      </View>
+      {circle}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${assignment.entity.title || "Untitled"}, ${assignment.entity.key}`}
@@ -98,25 +144,7 @@ function Row({
         className="min-h-11 flex-1 justify-center gap-1 active:opacity-70"
       >
         <Text numberOfLines={1}>{assignment.entity.title || "Untitled"}</Text>
-        <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1">
-          <Text variant="small" tone="muted">
-            {assignment.entity.key}
-          </Text>
-          {assignment.dueDate ? <DueLine day={assignment.dueDate} due={due} /> : null}
-          {courseName ? (
-            <Text variant="small" tone="muted" numberOfLines={1}>
-              {courseName}
-            </Text>
-          ) : null}
-          {spaceName ? (
-            <View className="flex-row items-center gap-1">
-              {spaceColor ? <SpaceDot color={spaceColor} /> : null}
-              <Text variant="small" tone="muted">
-                {spaceName}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        <Meta {...props} due={due} />
       </Pressable>
     </View>
   );
@@ -155,10 +183,14 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
     },
     display.ordering,
   );
+  const moveTo = useLocalWrite((db, move: { id: string; status: string }) =>
+    updateAssignment(db, move.id, { status: move.status }),
+  );
   const newOne = () =>
     router.push(spaceId ? `/new/assignment?spaceId=${spaceId}` : "/new/assignment");
-  const row = (a: AssignmentRecord) => (
+  const row = (a: AssignmentRecord, card = false) => (
     <Row
+      card={card}
       assignment={a}
       courseName={courseName(a.courseId)}
       spaceName={spaceId ? undefined : spaceOf(a.entity.spaceId)?.name}
@@ -238,37 +270,22 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
           <Text tone="muted">Nothing matches these filters.</Text>
         ) : null}
         {display.layout === "board" ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-3"
-          >
-            {groups.map((group) => (
-              <View
-                key={group.id}
-                className="w-72 gap-1"
-                accessibilityLabel={`${group.title} column`}
-              >
-                <View className="flex-row items-center gap-2 px-1">
-                  <StatusIcon
-                    status={ASSIGNMENT_STATUSES.find((s) => s.id === group.id)}
-                    size={16}
-                  />
-                  <Text className="font-medium">{group.title}</Text>
-                  <Text tone="muted">{group.items.length}</Text>
-                </View>
-                <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden")}>
-                  <View className="-mb-px">
-                    <ListGroup>
-                      {group.items.map((a) => (
-                        <ListItem key={a.entity.id}>{row(a)}</ListItem>
-                      ))}
-                    </ListGroup>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
+          <Board
+            // Every status a card can go to, empty ones too, as the desktop's board.
+            columns={ASSIGNMENT_STATUSES.filter(
+              (s) => display.statuses.length === 0 || display.statuses.includes(s.id),
+            ).map((s) => ({
+              id: s.id,
+              title: s.name,
+              icon: <StatusIcon status={s} size={16} />,
+              items: groups.find((g) => g.id === s.id)?.items ?? [],
+            }))}
+            keyOf={(a) => a.entity.id}
+            labelOf={(a) => a.entity.title || "Untitled"}
+            onOpen={(a) => router.push(`/entity/${a.entity.id}`)}
+            onMove={(a, status) => moveTo.mutate({ id: a.entity.id, status })}
+            renderCard={(a) => row(a, true)}
+          />
         ) : (
           groups.map((group) => (
             <Band

@@ -20,6 +20,16 @@ export const LIFT_DELAY = 280;
 /// How much a lifted row grows, as it comes up off the list.
 export const LIFT_SCALE = 1.03;
 
+/// Cards waiting to be moved shake gently, as icons do on the iOS Home Screen: each tilts
+/// this far either way (degrees), a half swing taking `half` ms, each card starting at its
+/// own point in the swing so they never move as one.
+export const WOBBLE = { angle: 1.6, half: 120 } as const;
+
+/// Where in the swing a card starts: spread out by its place, the same each time.
+export function wobbleDelay(index: number): number {
+  return ((index * 53) % 7) * (WOBBLE.half / 7) * 2;
+}
+
 /// Fades under Reduce Motion, and for things that only appear (a menu going away).
 export const FADE = { in: 160, out: 120 } as const;
 
