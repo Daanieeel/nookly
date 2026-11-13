@@ -67,18 +67,18 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 ### 2. Mobile: menus and sheets
 
 - [x] (2026-11-13, MenuList: body text, 22pt icons, 50pt rows) Items in popovers and menus (the long press sheet on entities and every other menu) get larger text and icons for touch.
-- [ ] The display options sheet gets back grouping and ordering options, and its list and board boxes grow with the larger menu items.
+- [x] (2026-11-13, Assignments gains Ordering; Tasks had both; tiles and rows larger) The display options sheet gets back grouping and ordering options, and its list and board boxes grow with the larger menu items.
 
 ### 3. Mobile: forms and settings
 
-- [ ] Input fields: no more `[label | input]` rows, which look like placeholders. The label sits above the field in a smaller font; a row may lead with an icon instead, `[(icon) | input]`, so the input stays big.
-- [ ] Settings avoid the `[label | input]` layout too, so long labels are not cut off and content is not squished.
-- [ ] Settings show their setting keys above the labels, as on desktop.
-- [ ] Time zone is the same kind of select as on desktop, not a text field.
-- [ ] Date format and time format switchers show the same flag icons as on desktop.
-- [ ] Theme and file viewer theme switchers get the desktop's icons.
-- [ ] Default code language (editor settings) is the desktop's popover, not a text field.
-- [ ] "Day starts at" uses a port of the desktop's number input component.
+- [x] (2026-11-13) Input fields: no more `[label | input]` rows, which look like placeholders. The label sits above the field in a smaller font; a row may lead with an icon instead, `[(icon) | input]`, so the input stays big.
+- [x] (2026-11-13) Settings avoid the `[label | input]` layout too, so long labels are not cut off and content is not squished.
+- [x] (2026-11-13) Settings show their setting keys above the labels, as on desktop.
+- [x] (2026-11-13, flags as emoji, D61) Time zone is the same kind of select as on desktop, not a text field.
+- [x] (2026-11-13) Date format and time format switchers show the same flag icons as on desktop.
+- [x] (2026-11-13, preview cards) Theme and file viewer theme switchers get the desktop's icons.
+- [x] (2026-11-13) Default code language (editor settings) is the desktop's popover, not a text field.
+- [x] (2026-11-13, `ui/NumberInput.tsx`) "Day starts at" uses a port of the desktop's number input component.
 - [ ] Sidebar settings: keep the separate page and the switches, but items are reordered by dragging, not by arrow buttons.
 - [ ] LaTeX settings: adding macros feels like on desktop (with a preview, proper inputs), cut to fit mobile.
 - [ ] Sign in and sign up screens get a real design and hierarchy (creating an account is clearly not the same weight as "Forgot Password", and is phrased better than "Create an Account Instead").
