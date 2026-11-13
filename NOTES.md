@@ -52,6 +52,7 @@ only after that continue:
 - [ ] in the sidebar, show a "Nookly" title (in Inter_tigh and really thick) at the top as a kind of always visible header. then next to it, but space-between, put a native icon button with a magnifying glass. this replaces the "Search" option in the sidebar, so remove it. to make the title and search icon look good, apply a blur gradient behind it so it feels like a proper header
 - [ ] in the sidebar, give the icons a little more opacity than currently. probably 85%-90% is better so they dont look overly irrelevant.
 - [ ] Introduce "/Users/daniel/Downloads/splash.png" as our first splash screen.
+- [ ] on the files page, next to the + button in the top right, introduce another icon button to scan a document and upload it to nookly. for this use package [expo-document-scanner](https://github.com/DineshKachhot/expo-document-scanner) to integrate it nicely with the operating system. make sure that the user can select labels, a title, relationships etc in a bottom sheet after scanning it. however, the document should be uploaded to nookly in the background while this bottom sheet is open. the bottom sheet only applies edits made by the user after the fact. pre-fill the bottom sheet inputs/options with sensible defaults (like filename etc.)
 
 ## Desktop
 
