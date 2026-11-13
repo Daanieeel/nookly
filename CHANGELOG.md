@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.75.1 (2026-11-13)
+
+### Fixed
+
+- Opening notes, jots, and lists while disconnected from Wi-Fi no longer pauses queries and leaves blank pages or loading skeletons.
+
 ## 0.75.0 (2026-11-10)
 
 ### Added

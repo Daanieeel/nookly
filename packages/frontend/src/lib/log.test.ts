@@ -97,6 +97,12 @@ describe("query client", () => {
     expect(onFocus(qk.localFile("/a/b.png"))).toBe(true);
   });
 
+  it("keeps networkMode always so queries and mutations run without an internet connection", () => {
+    const client = createQueryClient();
+    expect(client.getDefaultOptions().queries?.networkMode).toBe("always");
+    expect(client.getDefaultOptions().mutations?.networkMode).toBe("always");
+  });
+
   it("logs a failed query by name, without the rest of its key", async () => {
     mockCommand("log_frontend", null);
     vi.spyOn(console, "error").mockImplementation(() => {});
