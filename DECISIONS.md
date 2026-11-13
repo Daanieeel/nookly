@@ -312,3 +312,9 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Context:** D50. The phone's fields were the desktop's (label above an outlined box).
 - **Decision:** `Field`, `SelectField`, `MultiSelectField`, `DateField` and `SheetTrigger` draw as rows of an iOS grouped form: the name at the start, the value at the end in secondary text with the up and down chevrons of a pop up button (or a clear button), several lines with the name small above. `FormSection` (`ui/kit/Form.tsx`) groups consecutive fields on one surface with hairlines; a field outside one brings its own rounded surface. Errors show under the row in red. Empty values read "None", as iOS does.
 - **Why:** the user's brief; the desktop's labels and required marks stay.
+
+## D53. Buttons are iOS capsules
+
+- **Context:** D50. Buttons were the desktop's `buttonVariants`, small rectangles.
+- **Decision:** `Button` keeps its variants and sizes but draws them as iOS's button styles in capsules: `default` filled with the accent (prominent), `secondary` on the gray fill, `destructive`, `positive`, `warning` tinted, `ghost` and `link` only words, semibold on filled ones. Heights stay `CONTROL_SIZE`.
+- **Why:** capsules match iOS 26 and the round bar buttons (D45).

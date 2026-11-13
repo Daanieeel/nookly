@@ -3,9 +3,9 @@ import { IconAlertTriangle, IconCheck } from "@tabler/icons-react-native";
 import type { VariantProps } from "class-variance-authority";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, type PressableProps, View } from "react-native";
-import { cn, row, splitText } from "./classes.ts";
-import { Text } from "./Text.tsx";
-import { useTheme } from "./theme.ts";
+import { Label } from "./kit/Label.tsx";
+import { useScheme } from "./kit/scheme.ts";
+import { CORNER, RADIUS, SPACE, TINT, TINT_FILL, semanticHex, withAlpha } from "./tokens.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
 import { AnimatedPressable, usePressScale } from "./press.ts";
 import { haptic } from "./haptics.ts";
@@ -37,15 +37,50 @@ export function statusOf(mutation: {
   return mutation.isSuccess ? "success" : "idle";
 }
 
-/// The color of a variant's text, for the spinner and icons beside it.
-function useForeground(variant: ButtonVariant): string {
-  const { colors } = useTheme();
-  if (variant === "default") return colors.primaryForeground;
-  if (variant === "destructive") return colors.destructive;
-  if (variant === "positive") return colors.positive;
-  if (variant === "link") return colors.primary;
-  if (variant === "muted" || variant === "linkMuted") return colors.mutedForeground;
-  return colors.foreground;
+/// How a variant is drawn on the phone (D53): iOS's button styles in Nookly's colours. The
+/// main action is filled with the accent; the rest are tinted or gray capsules, or only
+/// words, as iOS draws a prominent, a tinted, a gray and a plain button.
+interface Look {
+  fill?: string;
+  text: string;
+  border?: string;
+  weight: "500" | "600";
+}
+
+function useLook(variant: ButtonVariant): Look {
+  const scheme = useScheme();
+  const fill = semanticHex("fill", scheme);
+  const label = semanticHex("label", scheme);
+  const muted = semanticHex("secondaryLabel", scheme);
+  const separator = semanticHex("separator", scheme);
+  const tinted = (name: "blue" | "red" | "green" | "yellow"): Look => ({
+    fill: withAlpha(TINT[name][scheme], TINT_FILL[scheme]),
+    text: TINT[name][scheme],
+    weight: "600",
+  });
+  switch (variant) {
+    case "default":
+      return { fill: TINT.blue[scheme], text: "#ffffff", weight: "600" };
+    case "destructive":
+      return tinted("red");
+    case "positive":
+      return tinted("green");
+    case "warning":
+    case "caution":
+      return tinted("yellow");
+    case "secondary":
+    case "neutral":
+      return { fill, text: label, weight: "600" };
+    case "outline":
+      return { border: separator, text: label, weight: "600" };
+    case "link":
+      return { text: TINT.blue[scheme], weight: "500" };
+    case "muted":
+    case "linkMuted":
+      return { text: muted, weight: "500" };
+    default:
+      return { text: label, weight: "500" };
+  }
 }
 
 interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
@@ -74,8 +109,10 @@ export function Button({
   className,
   ...props
 }: ButtonProps) {
-  const theme = useTheme();
-  const foreground = useForeground(variant);
+  const scheme = useScheme();
+  const look = useLook(variant);
+  const red = TINT.red[scheme];
+  const green = TINT.green[scheme];
   const press = usePressScale();
   const [showSuccess, setShowSuccess] = useState(false);
   useEffect(() => {
@@ -86,9 +123,10 @@ export function Button({
     const timer = setTimeout(() => setShowSuccess(false), 2000);
     return () => clearTimeout(timer);
   }, [status]);
-  const { box, text } = splitText(row(buttonVariants({ variant, size, className })));
   const shown =
     status === "error" ? (errorLabel ?? label) : showSuccess ? (successLabel ?? label) : label;
+  const small = size === "sm";
+  const words = variant === "link" || variant === "linkMuted";
   return (
     <AnimatedPressable
       accessibilityRole="button"
@@ -96,6 +134,7 @@ export function Button({
       accessibilityState={{ disabled: !!disabled, busy: status === "pending" }}
       disabled={disabled || status === "pending"}
       hitSlop={slopFor(size)}
+      unstable_pressDelay={0}
       {...props}
       onPressIn={(event) => {
         press.onPressIn();
@@ -105,31 +144,44 @@ export function Button({
         press.onPressOut();
         props.onPressOut?.(event);
       }}
-      style={[drawnAt(size), press.style]}
-      className={cn(box, "active:opacity-80")}
+      style={[
+        drawnAt(size),
+        CORNER,
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: SPACE.sm - 2,
+          paddingHorizontal: words ? 0 : small ? SPACE.md + 2 : SPACE.xl,
+          borderRadius: RADIUS.pill,
+          backgroundColor: look.fill,
+          borderWidth: look.border ? 1 : 0,
+          borderColor: look.border,
+          opacity: disabled ? 0.4 : 1,
+        },
+        press.style,
+      ]}
+      className={className}
     >
       {status === "pending" ? (
-        <ActivityIndicator size="small" color={foreground} />
+        <ActivityIndicator size="small" color={look.text} />
       ) : status === "error" ? (
-        <IconAlertTriangle size={16} color={theme.colors.destructive} />
+        <IconAlertTriangle size={16} color={variant === "default" ? look.text : red} />
       ) : showSuccess ? (
-        <IconCheck size={16} color={variant === "default" ? foreground : theme.colors.positive} />
+        <IconCheck size={16} color={variant === "default" ? look.text : green} />
       ) : (
         icon
       )}
       {/* The words never take the touch, so a press on them reaches the button. */}
       <View pointerEvents="none">
-        <Text
-          className={cn(
-            text,
-            // The desktop's small buttons have extra small words; at a finger's size they
-            // read as small text.
-            size === "sm" && "text-sm",
-            status === "error" && variant !== "default" && "text-destructive",
-          )}
+        <Label
+          type={small ? "subheadline" : "body"}
+          weight={look.weight}
+          tint={status === "error" && variant !== "default" ? red : look.text}
+          numberOfLines={1}
         >
           {shown}
-        </Text>
+        </Label>
       </View>
     </AnimatedPressable>
   );
@@ -157,8 +209,12 @@ export function IconButton({
       onPress={onPress}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
-      style={[drawnAt(size), press.style]}
-      className={cn(row(buttonVariants({ variant: "ghost", size })), "active:bg-accent")}
+      unstable_pressDelay={0}
+      style={[
+        drawnAt(size),
+        { alignItems: "center", justifyContent: "center", borderRadius: RADIUS.pill },
+        press.style,
+      ]}
     >
       <View pointerEvents="none">{icon}</View>
     </AnimatedPressable>

@@ -1,5 +1,6 @@
 import { fireEvent } from "expo-router/testing-library";
 import { useState } from "react";
+import { StyleSheet } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
 import { ListHeader, type ListPanel } from "./ListBar.tsx";
 
@@ -14,7 +15,7 @@ describe("a list's header", () => {
   it("shows Filter and Display as secondary buttons, open or closed", async () => {
     const screen = await renderScreens({ index: () => <Header /> }, testData());
     const filled = (name: string) =>
-      String(screen.getByRole("button", { name }).props.className).includes("bg-accent");
+      Boolean(StyleSheet.flatten(screen.getByRole("button", { name }).props.style).backgroundColor);
     expect(await screen.findByRole("button", { name: "Filter" })).toBeTruthy();
     expect([filled("Filter"), filled("Display")]).toEqual([true, true]);
     await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
