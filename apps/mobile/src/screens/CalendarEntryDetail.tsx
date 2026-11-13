@@ -111,7 +111,7 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
         label="Where"
         value={item.location}
         readOnly={readOnly}
-        placeholder="Room 2"
+        placeholder="Add location"
         onSave={(location) => change({ location })}
       />
       <InfoRow

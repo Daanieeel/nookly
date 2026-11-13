@@ -124,7 +124,7 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
         label="Where"
         value={session.location}
         readOnly={readOnly}
-        placeholder="Room 5"
+        placeholder="Add location"
         onSave={(location) => patch.mutate({ location })}
       />
     </PropertyList>

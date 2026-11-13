@@ -133,7 +133,7 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
         label="Professor"
         value={course.professor}
         readOnly={readOnly}
-        placeholder="Who teaches it"
+        placeholder="Add professor"
         onSave={(value) => professor.mutate(value)}
       />
       <TextRow
@@ -141,7 +141,7 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
         label="Room"
         value={course.room}
         readOnly={readOnly}
-        placeholder="Where it meets"
+        placeholder="Add room"
         onSave={(value) => room.mutate(value)}
       />
       <CourseSemesterPicker courseId={id} spaceId={spaceId} readOnly={readOnly} />
@@ -244,7 +244,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         label="Room"
         value={exam.room}
         readOnly={readOnly}
-        placeholder="H 0104"
+        placeholder="Add room"
         onSave={(room) => update.mutate({ room })}
       />
       <NumberRow
@@ -252,7 +252,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         label="Weight (%)"
         value={weightPercent(exam.weight)}
         readOnly={readOnly}
-        placeholder="20"
+        placeholder="Add weight"
         onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
       />
       <NumberRow
@@ -260,7 +260,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
         label="Grade"
         value={exam.grade}
         readOnly={readOnly}
-        placeholder="1.7"
+        placeholder="Add grade"
         onSave={(grade) => update.mutate({ grade })}
       />
       <CourseProperty
@@ -485,7 +485,7 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
         label="Weight (%)"
         value={weightPercent(assignment.weight)}
         readOnly={readOnly}
-        placeholder="10"
+        placeholder="Add weight"
         onSave={(p) => update.mutate({ weight: p === null ? null : p / 100 })}
       />
       <ChoiceProperty
@@ -508,7 +508,7 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
           label="Grade"
           value={assignment.grade}
           readOnly={readOnly}
-          placeholder="1.3"
+          placeholder="Add grade"
           onSave={(grade) => update.mutate({ grade })}
         />
       )}
