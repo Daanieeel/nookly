@@ -13,4 +13,13 @@ describe("the editor's toolbar", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Hide Keyboard" }));
     expect(run).toHaveBeenCalledWith("done");
   });
+
+  it("has buttons a finger can hit, 44 points or more", async () => {
+    const screen = await renderScreens({ index: () => <EditorToolbar /> }, testData());
+    act(() => useToolbar.getState().set({ focused: true, on: {} }, jest.fn()));
+    const bold = await screen.findByRole("button", { name: "Bold" });
+    const style = Object.assign({}, ...[bold.props.style].flat(3).filter(Boolean));
+    expect(style.width).toBeGreaterThanOrEqual(44);
+    expect(style.height).toBeGreaterThanOrEqual(44);
+  });
 });

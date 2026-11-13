@@ -30,6 +30,9 @@ export interface Theme {
     destructive: string;
     /// The theme's purple, a calendar entry's color when its Space has none.
     accentPurple: string;
+    /// Code's keywords and its functions, as the desktop colours them.
+    accentPink: string;
+    accentBlue: string;
     positive: string;
     caution: string;
   };
@@ -50,6 +53,8 @@ export function useTheme(): Theme {
       mutedForeground: useToken("muted-foreground"),
       destructive: useToken("destructive"),
       accentPurple: useToken("accent-purple"),
+      accentPink: useToken("accent-pink"),
+      accentBlue: useToken("accent-blue"),
       positive: useToken("accent-green"),
       caution: useToken("accent-yellow"),
     },

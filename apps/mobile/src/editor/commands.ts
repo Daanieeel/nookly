@@ -240,9 +240,15 @@ export function triggerAt(state: EditorState): Trigger | null {
   };
 }
 
+/// The block menu's groups, in the desktop's order.
+export const SLASH_GROUPS = ["Text", "Lists"] as const;
+
 export interface SlashItem {
   id: string;
   label: string;
+  /// One line under the name, the desktop's words.
+  description: string;
+  group: (typeof SLASH_GROUPS)[number];
   keywords: string[];
   run: Command;
 }
@@ -265,29 +271,91 @@ export const SLASH_ITEMS: SlashItem[] = [
   {
     id: "text",
     label: "Text",
+    description: "Plain paragraph",
+    group: "Text",
     keywords: ["paragraph", "plain"],
     run: setBlock(nodes.paragraph, {}),
   },
-  { id: "h1", label: "Heading", keywords: ["title", "h1", "large"], run: toggleHeadingOn(1) },
-  { id: "h2", label: "Subheading", keywords: ["h2", "medium"], run: toggleHeadingOn(2) },
-  { id: "h3", label: "Small heading", keywords: ["h3", "small"], run: toggleHeadingOn(3) },
-  { id: "bullets", label: "Bulleted list", keywords: ["list", "ul", "bullet"], run: toggleBullets },
-  { id: "numbers", label: "Numbered list", keywords: ["list", "ol", "number"], run: toggleNumbers },
-  { id: "tasks", label: "Task list", keywords: ["todo", "check", "checkbox"], run: toggleTasks },
-  { id: "quote", label: "Quote", keywords: ["blockquote"], run: toggleQuote },
   {
-    id: "code",
-    label: "Code block",
-    keywords: ["code", "snippet"],
-    run: setBlockType(nodes.codeBlock),
+    id: "h1",
+    label: "Heading 1",
+    description: "Big section heading",
+    group: "Text",
+    keywords: ["title", "h1", "large"],
+    run: toggleHeadingOn(1),
+  },
+  {
+    id: "h2",
+    label: "Heading 2",
+    description: "Medium section heading",
+    group: "Text",
+    keywords: ["h2", "medium"],
+    run: toggleHeadingOn(2),
+  },
+  {
+    id: "h3",
+    label: "Heading 3",
+    description: "Small section heading",
+    group: "Text",
+    keywords: ["h3", "small"],
+    run: toggleHeadingOn(3),
+  },
+  {
+    id: "quote",
+    label: "Quote",
+    description: "Capture a quote",
+    group: "Text",
+    keywords: ["blockquote"],
+    run: toggleQuote,
   },
   {
     id: "callout",
     label: "Callout",
+    description: "An aside that stands out",
+    group: "Text",
     keywords: ["note", "info", "warning"],
     run: setBlock(nodes.callout, {}),
   },
-  { id: "divider", label: "Divider", keywords: ["line", "rule", "separator"], run: insertDivider },
+  {
+    id: "divider",
+    label: "Divider",
+    description: "A line between sections",
+    group: "Text",
+    keywords: ["line", "rule", "separator"],
+    run: insertDivider,
+  },
+  {
+    id: "code",
+    label: "Code block",
+    description: "A block of preformatted code",
+    group: "Text",
+    keywords: ["code", "snippet"],
+    run: setBlockType(nodes.codeBlock),
+  },
+  {
+    id: "bullets",
+    label: "Bulleted list",
+    description: "A simple bulleted list",
+    group: "Lists",
+    keywords: ["list", "ul", "bullet"],
+    run: toggleBullets,
+  },
+  {
+    id: "numbers",
+    label: "Numbered list",
+    description: "A list with numbering",
+    group: "Lists",
+    keywords: ["list", "ol", "number"],
+    run: toggleNumbers,
+  },
+  {
+    id: "tasks",
+    label: "Checklist",
+    description: "Items to tick off",
+    group: "Lists",
+    keywords: ["todo", "check", "checkbox", "task"],
+    run: toggleTasks,
+  },
 ];
 
 function toggleHeadingOn(level: number): Command {
@@ -302,6 +370,15 @@ export function slashMatches(query: string): SlashItem[] {
     (item) =>
       item.label.toLowerCase().includes(words) || item.keywords.some((k) => k.startsWith(words)),
   );
+}
+
+/// The matches for what has been typed, under their groups' headings.
+export function slashGroups(query: string) {
+  const found = slashMatches(query);
+  return SLASH_GROUPS.map((group) => ({
+    group,
+    items: found.filter((item) => item.group === group),
+  })).filter((g) => g.items.length > 0);
 }
 
 /// Puts the chosen block in place of what was typed after the slash.

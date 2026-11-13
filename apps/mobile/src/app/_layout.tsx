@@ -39,6 +39,7 @@ import { createSync, onboardedStore, serverUrlStore, themeStore } from "../data/
 // Before the first frame, so a picked theme never flashes the system's.
 restoreTheme(themeStore);
 import { SheetHost } from "../ui/sheet/SheetHost.tsx";
+import { EditorToolbar } from "../editor/EditorToolbar.tsx";
 import { SHEET_ROUTE } from "../ui/sheet/route.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -250,6 +251,7 @@ export default function RootLayout() {
                   </SidebarDrawer>
                 </SidebarBesideProvider>
               )}
+              <EditorToolbar />
             </SheetHost>
           </ThemeProvider>
         </AppDataProvider>

@@ -17,6 +17,7 @@ export function EditorStandIn({ ref, placeholder, onReady, onUpdate }: PageEdito
     applyAwareness: () => {},
     run: () => {},
     closeVimHelp: () => {},
+    setCodeLanguage: () => {},
   }));
   useEffect(() => {
     void onReady();

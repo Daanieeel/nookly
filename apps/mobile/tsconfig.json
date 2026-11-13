@@ -9,5 +9,5 @@
     "types": ["jest"]
   },
   "include": ["src", "*.ts", "nativewind-env.d.ts"],
-  "exclude": ["styles.test.ts"]
+  "exclude": ["styles.test.ts", "code-highlight.test.ts"]
 }

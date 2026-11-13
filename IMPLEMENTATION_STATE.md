@@ -91,12 +91,12 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ### 5. Mobile: page editor
 
-- [ ] Code blocks get syntax highlighting.
-- [ ] Code blocks get the desktop's header: file title, language select and a copy button.
-- [ ] The slash menu looks like the desktop's (groups, icon in a box, a description) and scrolls through every result, not just the top five.
-- [ ] The formatting toolbar sits above the keyboard, not hidden below it.
-- [ ] A button to dismiss the keyboard.
-- [ ] Toolbar buttons are large enough for touch.
+- [x] Code blocks get syntax highlighting.
+- [x] Code blocks get the desktop's header: file title, language select and a copy button.
+- [x] The slash menu looks like the desktop's (groups, icon in a box, a description) and scrolls through every result, not just the top five.
+- [x] The formatting toolbar sits above the keyboard, not hidden below it.
+- [x] A button to dismiss the keyboard.
+- [x] Toolbar buttons are large enough for touch.
 
 ### 6. Mobile: item pages and pickers
 
@@ -145,6 +145,7 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 - On a real phone: the feel of dragging (sidebar settings rows, board cards with the wobble, the board scrolling near its edges). The simulator can't drag with a finger, so the gestures are checked by tests and by screen reader actions only.
 - On a real phone: the iOS 27 scene lifecycle fix (D59).
+- On a real phone: the editor's toolbar riding on the keyboard, and the slash menu (grouped, with icons, scrolling). The simulator here shows no software keyboard to type a slash into; both are covered by tests, and the code block header and colours were checked on screen.
 
 ## Progress log
 

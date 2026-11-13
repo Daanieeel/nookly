@@ -3,7 +3,8 @@ import { IconDots } from "@tabler/icons-react-native";
 import { Stack } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
-import { EditorToolbar } from "../editor/EditorToolbar.tsx";
+import { TOOLBAR_HEIGHT } from "../editor/EditorToolbar.tsx";
+import { useToolbar } from "../editor/toolbar-store.ts";
 import { useAppData, useLocalWrite } from "../data/context.tsx";
 import { useEntity, useSpaces } from "../data/queries.ts";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
@@ -118,6 +119,7 @@ function OpenEntity({
   // On a phone the system's bar over the page carries back, the details and the more
   // menu; beside the details pane (tablet, split view) they sit in the page's first row.
   const bar = !embedded && !tablet;
+  const toolbarUp = useToolbar((s) => s.focused);
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -157,7 +159,8 @@ function OpenEntity({
           </PartProvider>
         </GlanceProvider>
       </Screen>
-      <EditorToolbar />
+      {/* Room for the toolbar riding on the keyboard, so the caret never hides under it. */}
+      {toolbarUp ? <View style={{ height: TOOLBAR_HEIGHT }} /> : null}
     </KeyboardAvoidingView>
   );
 }

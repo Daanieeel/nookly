@@ -15,6 +15,11 @@ import { pageTypographyCss } from "./typography.ts";
 import { useReveal } from "../ui/Screen.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { VimKeys } from "./VimKeys.tsx";
+import { useClipboard } from "../ui/clipboard.tsx";
+import { haptic } from "../ui/haptics.ts";
+import { CODE_LANGUAGE_OPTIONS } from "../ui/LanguageMark.tsx";
+import { OptionList } from "../ui/sheet/OptionList.tsx";
+import { useOptionalSheetHost } from "../ui/sheet/SheetHost.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { type AwarenessChanges, type Origin, fromBase64, toBase64 } from "./bridge.ts";
 import type { EditorHandle } from "./PageEditorDom.tsx";
@@ -99,6 +104,8 @@ export function PageDocEditor({
       ? Math.max(DESCRIPTION_HEIGHT, window.height - top - 120)
       : DESCRIPTION_HEIGHT;
   const router = useRouter();
+  const host = useOptionalSheetHost();
+  const clipboard = useClipboard();
 
   // Edits made elsewhere reach the editor as they arrive.
   useEffect(() => {
@@ -207,6 +214,34 @@ export function PageDocEditor({
     [router],
   );
 
+  /// A code block's language, picked from the phone's sheet of the desktop's languages.
+  const onPickLanguage = useCallback(
+    async (pos: number, language: string) => {
+      host?.present({
+        title: "Language",
+        size: "large",
+        content: (
+          <OptionList
+            label="Language"
+            searchPlaceholder="Search languages"
+            options={CODE_LANGUAGE_OPTIONS}
+            value={language}
+            onChange={(next) => handle.current?.setCodeLanguage(pos, next)}
+          />
+        ),
+      });
+    },
+    [host],
+  );
+
+  const onCopy = useCallback(
+    async (text: string) => {
+      await clipboard.copy(text);
+      haptic("success");
+    },
+    [clipboard],
+  );
+
   return (
     <View
       ref={anchor}
@@ -237,6 +272,13 @@ export function PageDocEditor({
           border: theme.colors.border,
           primary: theme.colors.primary,
           dark: theme.dark,
+          accents: {
+            pink: theme.colors.accentPink,
+            green: theme.colors.positive,
+            purple: theme.colors.accentPurple,
+            blue: theme.colors.accentBlue,
+            yellow: theme.colors.caution,
+          },
         }}
         onReady={onReady}
         onUpdate={onUpdate}
@@ -246,6 +288,8 @@ export function PageDocEditor({
         automationDevice={automationDevice()}
         onSearch={onSearch}
         onOpen={onOpen}
+        onPickLanguage={onPickLanguage}
+        onCopy={onCopy}
       />
       <Sheet
         open={vimHelp}

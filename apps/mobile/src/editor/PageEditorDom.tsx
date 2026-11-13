@@ -2,9 +2,13 @@
 /// <reference lib="dom" />
 
 import { highlightCss } from "@nookly/shared/highlight";
+import { SLASH_ICON_PATHS } from "./slash-icons.ts";
 import { VIM_MODE_LABELS, closeVimHelp, vimPlugin, vimState } from "@nookly/shared/vim";
 import type { ParsedMacros } from "@nookly/shared/latex";
 import { inlineMathView, mathBlockView } from "./math-views.ts";
+import { codeBlockView } from "./code-block-view.ts";
+import { codeHighlightPlugin } from "./code-blocks.ts";
+import { codeSpans } from "./code-highlight.ts";
 import {
   undo as yUndo,
   redo as yRedo,
@@ -47,6 +51,7 @@ import {
   toggleTaskAt,
   toNextFreeLine,
   triggerAt,
+  slashGroups,
   slashMatches,
   toggleTasks,
   typingKeys,
@@ -70,6 +75,8 @@ export interface EditorHandle {
   run(command: string): void;
   /// The Vim key list was closed on the phone's side.
   closeVimHelp(): void;
+  /// The language picked on the phone's side for the code block at `pos`.
+  setCodeLanguage(pos: number, language: string): void;
 }
 
 export interface EditorColors {
@@ -80,6 +87,8 @@ export interface EditorColors {
   primary: string;
   /// A dark page: highlights are dimmed, as on the desktop.
   dark: boolean;
+  /// The theme's accents, which colour code as on the desktop.
+  accents: { pink: string; green: string; purple: string; blue: string; yellow: string };
 }
 
 interface Props {
@@ -111,6 +120,10 @@ interface Props {
   onOpen: (href: string) => Promise<void>;
   /// Where the cursor's line ends, from the top of the editor, so the page can scroll to it.
   onCaret: (bottom: number) => Promise<void>;
+  /// A code block's language button: the phone shows its languages to pick from.
+  onPickLanguage: (pos: number, language: string) => Promise<void>;
+  /// A code block's copy button: the code, for the phone's clipboard.
+  onCopy: (text: string) => Promise<void>;
 }
 
 const COMMANDS = {
@@ -132,6 +145,9 @@ const COMMANDS = {
 } satisfies Record<ToolbarId, Command>;
 
 const isToolbarId = (id: string): id is ToolbarId => Object.hasOwn(COMMANDS, id);
+
+/// Room an open menu needs under the page's last line.
+const MENU_ROOM = 372;
 
 const CSS = `
 html, body { margin: 0; height: auto; min-height: 0; background: transparent; -webkit-text-size-adjust: 100%; }
@@ -168,11 +184,26 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 .pm .toggle { margin: 0 0 .6em; padding-left: .9em; border-left: 3px solid var(--border); }
 .pm .card { margin: 0 0 .6em; padding: .7em .8em; border-radius: 8px; border: 1px solid var(--border); color: var(--muted); font-size: .9em; user-select: none; }
 .pm .math { font-family: ui-monospace, Menlo, monospace; color: var(--muted); }
-.menu { position: absolute; z-index: 5; width: 232px; max-height: 240px; overflow-y: auto; padding: 4px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); box-shadow: 0 6px 24px rgba(0,0,0,.25); }
-.menu button { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--fg); font: 15px/1.2 -apple-system, system-ui, sans-serif; text-align: left; }
+.codeblock { margin: 0 0 .6em; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; background: color-mix(in srgb, var(--fg) 4%, transparent); }
+.codeblock-header { display: flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.codeblock-name { flex: 1; min-width: 0; height: 40px; border: 0; padding: 0; background: transparent; color: var(--fg); font: 500 14px/1.2 -apple-system, system-ui, sans-serif; outline: none; }
+.codeblock-name::placeholder { color: var(--muted); }
+.codeblock-language, .codeblock-copy { display: flex; align-items: center; gap: 6px; min-height: 40px; min-width: 40px; justify-content: center; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: 13px/1 -apple-system, system-ui, sans-serif; }
+.codeblock-language:active, .codeblock-copy:active { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+.codeblock-language .mark { display: flex; }
+.codeblock-language .mark svg { width: 16px; height: 16px; }
+.pm .codeblock-body { margin: 0; border-radius: 0; background: transparent; padding: .7em .8em; }
+.pm .codeblock-body code { background: transparent; padding: 0; font-size: 14px; }
+.menu { position: absolute; z-index: 5; width: 280px; max-height: 360px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 4px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); box-shadow: 0 8px 28px rgba(0,0,0,.28); }
+.menu button { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--fg); font: 15px/1.2 -apple-system, system-ui, sans-serif; text-align: left; }
 .menu button:active { background: color-mix(in srgb, var(--primary) 15%, transparent); }
 .menu small { color: var(--muted); font-size: 12px; }
 .menu p { margin: 0; padding: 9px 10px; color: var(--muted); font: 14px/1.3 -apple-system, system-ui, sans-serif; }
+.menu h6 { margin: 0; padding: 10px 10px 4px; color: var(--muted); font: 600 12px/1.2 -apple-system, system-ui, sans-serif; }
+.menu .block { justify-content: flex-start; gap: 12px; padding: 7px 8px; min-height: 52px; }
+.menu .mark { display: flex; flex: none; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--border); background: color-mix(in srgb, var(--fg) 4%, transparent); }
+.menu .words { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.menu .words small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pm .ProseMirror-selectednode { outline: 2px solid var(--primary); }
 .pm[contenteditable="false"] { caret-color: transparent; }
 .pm.vim-normal, .pm.vim-visual, .pm.vim-visual-line { caret-color: transparent; }
@@ -201,6 +232,8 @@ export default function PageEditorDom({
   automationDevice,
   onSearch,
   onOpen,
+  onPickLanguage,
+  onCopy,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -240,6 +273,12 @@ export default function PageEditorDom({
         closeVimHelp(editor);
         editor.focus();
       }
+    },
+    setCodeLanguage: (pos: number, language: string) => {
+      const editor = view.current;
+      const node = editor?.state.doc.nodeAt(Number(pos));
+      if (!editor || node?.type.name !== "codeBlock") return;
+      editor.dispatch(editor.state.tr.setNodeAttribute(Number(pos), "language", String(language)));
     },
   } satisfies EditorHandle;
   // SAFETY: Expo types a handle as functions of JSON and sees a second copy of React's
@@ -345,9 +384,15 @@ export default function PageEditorDom({
           blockIds,
           dropCursor(),
           gapCursor(),
+          codeHighlightPlugin(codeSpans),
         ],
       }),
       nodeViews: {
+        codeBlock: codeBlockView({
+          pickLanguage: (pos, language) => void pickLanguageRef.current(pos, language),
+          copy: (text) => void copyRef.current(text),
+          editable: () => editableRef.current,
+        }),
         inlineMath: inlineMathView(() => macrosRef.current),
         math: mathBlockView(() => macrosRef.current),
         equation: mathBlockView(() => macrosRef.current),
@@ -484,6 +529,10 @@ export default function PageEditorDom({
   const editableRef = useRef(editable);
   const macrosRef = useRef(macros);
   macrosRef.current = macros;
+  const pickLanguageRef = useRef(onPickLanguage);
+  pickLanguageRef.current = onPickLanguage;
+  const copyRef = useRef(onCopy);
+  copyRef.current = onCopy;
   /// The formula being edited: where it is in the page, its source, and where it sits.
   const [mathEdit, setMathEdit] = useState<{
     pos: number;
@@ -510,6 +559,14 @@ export default function PageEditorDom({
     "--muted": colors.muted,
     "--border": colors.border,
     "--primary": colors.primary,
+    // Code's colours, by the desktop's names (`shiki-theme.ts`).
+    "--foreground": colors.foreground,
+    "--muted-foreground": colors.muted,
+    "--accent-pink": colors.accents.pink,
+    "--accent-green": colors.accents.green,
+    "--accent-purple": colors.accents.purple,
+    "--accent-blue": colors.accents.blue,
+    "--accent-yellow": colors.accents.yellow,
   } as React.CSSProperties;
 
   return (
@@ -517,7 +574,13 @@ export default function PageEditorDom({
       <style>{CSS}</style>
       <style>{typography}</style>
       <style>{highlightCss(".pm", colors.dark)}</style>
-      <div ref={host} className="host" style={{ minHeight }} />
+      {/* The web view is as tall as the page: room under the caret for an open menu, so it
+          is never cut off at the page's end. */}
+      <div
+        ref={host}
+        className="host"
+        style={{ minHeight, paddingBottom: menu || mathEdit ? MENU_ROOM : 0 }}
+      />
       {vimLabel ? (
         <p role="status" aria-label="Vim mode" className="vim-status">
           {vimLabel}
@@ -565,23 +628,42 @@ export default function PageEditorDom({
           style={{ left: menu.left, top: menu.top }}
         >
           {menu.trigger.kind === "slash"
-            ? slashMatches(menu.trigger.query).map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  // Keeps the selection and the keyboard where they are.
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() =>
-                    choose((e, trigger) => {
-                      const tr = applySlash(e.state, trigger, item);
-                      if (tr) e.dispatch(tr);
-                    })
-                  }
-                >
-                  {item.label}
-                </button>
+            ? slashGroups(menu.trigger.query).map(({ group, items }) => (
+                <div key={group} role="group" aria-label={group}>
+                  <h6>{group}</h6>
+                  {items.map((item) => {
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        role="option"
+                        aria-selected={false}
+                        className="block"
+                        // Keeps the selection and the keyboard where they are.
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() =>
+                          choose((e, trigger) => {
+                            const tr = applySlash(e.state, trigger, item);
+                            if (tr) e.dispatch(tr);
+                          })
+                        }
+                      >
+                        <span
+                          className="mark"
+                          aria-hidden
+                          // SAFETY: Tabler's own paths, written in this app, never typed text.
+                          dangerouslySetInnerHTML={{
+                            __html: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${SLASH_ICON_PATHS.get(item.id) ?? ""}</svg>`,
+                          }}
+                        />
+                        <span className="words">
+                          {item.label}
+                          <small>{item.description}</small>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               ))
             : found.map((item) => (
                 <button

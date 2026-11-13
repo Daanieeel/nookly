@@ -17,6 +17,7 @@ import {
   applyMention,
   applySlash,
   blockIds,
+  slashGroups,
   slashMatches,
   toggleHighlight,
   toggleTaskAt,
@@ -246,6 +247,21 @@ describe("what opens a menu", () => {
     expect(slashMatches("head").map((i) => i.id)).toEqual(["h1", "h2", "h3"]);
     expect(slashMatches("todo").map((i) => i.id)).toEqual(["tasks"]);
     expect(slashMatches("zzz")).toEqual([]);
+  });
+
+  it("names, describes and groups every block as the desktop's menu does", () => {
+    for (const item of SLASH_ITEMS) {
+      expect(item.description.length).toBeGreaterThan(0);
+      expect(["Text", "Lists"]).toContain(item.group);
+    }
+    expect(SLASH_ITEMS.find((i) => i.id === "tasks")).toMatchObject({
+      label: "Checklist",
+      description: "Items to tick off",
+    });
+    // A group's items stay together, in the desktop's order of groups.
+    expect(slashGroups("").map((g) => g.group)).toEqual(["Text", "Lists"]);
+    expect(slashGroups("list").map((g) => g.group)).toEqual(["Lists"]);
+    expect(slashGroups("").flatMap((g) => g.items).length).toBe(SLASH_ITEMS.length);
   });
 });
 

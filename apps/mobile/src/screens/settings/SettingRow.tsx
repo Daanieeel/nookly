@@ -1,5 +1,4 @@
 import { SHARED_SETTINGS, type SharedSettingId } from "@nookly/shared/settings";
-import { CODE_LANGUAGE_MARKS } from "@nookly/frontend/lib/code-language-marks";
 import { useEffect, useState } from "react";
 import { Switch, TextInput, View } from "react-native";
 import type { SettingJson } from "@nookly/shared/settings";
@@ -8,7 +7,7 @@ import { Button } from "../../ui/Button.tsx";
 import { Segmented } from "../../ui/Segmented.tsx";
 import { Label } from "../../ui/kit/Label.tsx";
 import { useScheme, useSemantic } from "../../ui/kit/scheme.ts";
-import { LanguageMark } from "../../ui/LanguageMark.tsx";
+import { CODE_LANGUAGE_OPTIONS } from "../../ui/LanguageMark.tsx";
 import { NumberInput } from "../../ui/NumberInput.tsx";
 import { SelectField } from "../../ui/SelectField.tsx";
 import type { Option } from "../../ui/sheet/OptionList.tsx";
@@ -139,17 +138,6 @@ function Picker({
 }
 
 /// A code block without a language, as the desktop stores it.
-const PLAIN_TEXT = "plaintext";
-
-const LANGUAGE_OPTIONS: Option[] = [
-  { id: PLAIN_TEXT, label: "Plain Text", icon: <LanguageMark language={PLAIN_TEXT} /> },
-  ...CODE_LANGUAGE_MARKS.map((lang) => ({
-    id: lang.value,
-    label: lang.label,
-    icon: <LanguageMark language={lang.value} />,
-  })),
-];
-
 /// What edits the setting, under its title.
 function Editor({ id, control }: { id: SharedSettingId; control: Control }) {
   const value = useSettingJson(id);
@@ -176,7 +164,7 @@ function Editor({ id, control }: { id: SharedSettingId; control: Control }) {
     case "format":
       return <Picker id={id} options={formatOptions(control.of)} onChange={set} />;
     case "codeLanguage":
-      return <Picker id={id} options={LANGUAGE_OPTIONS} onChange={set} />;
+      return <Picker id={id} options={CODE_LANGUAGE_OPTIONS} onChange={set} />;
     case "choice": {
       const pick = (next: string) =>
         set(control.options.find((o) => String(o.value) === next)?.value ?? next);
