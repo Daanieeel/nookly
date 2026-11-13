@@ -337,6 +337,11 @@ export function CalendarScreen({
           items={items}
           width={width}
           colorOf={colorOf}
+          onCreateAt={(day, time) =>
+            router.push(
+              `/new/${create}?date=${day}&start=${time}${spaceId ? `&spaceId=${spaceId}` : ""}`,
+            )
+          }
         />
       </View>
     );

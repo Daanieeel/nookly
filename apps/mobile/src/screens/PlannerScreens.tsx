@@ -63,7 +63,7 @@ import { useTheme } from "../ui/theme.ts";
 import { CoursePicker } from "./StudyPickers.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { semesterRange } from "./SemesterList.tsx";
-import { addDays, dayLabel, localDay } from "./dates.ts";
+import { addDays, dayLabel, hourAfter, localDay } from "./dates.ts";
 import { PageEditor } from "./PageEditor.tsx";
 
 /// Sessions, semesters and grades: what a student plans and is graded on.
@@ -195,7 +195,18 @@ function SessionNotes({
 }
 
 /// New Session: one session of a course. A weekly series is made on the computer.
-export function NewSessionScreen({ spaceId, courseId }: { spaceId?: string; courseId?: string }) {
+export function NewSessionScreen({
+  spaceId,
+  courseId,
+  date: day,
+  start: from,
+}: {
+  spaceId?: string;
+  courseId?: string;
+  /// The day and time a finger rested on the calendar's hours.
+  date?: string;
+  start?: string;
+}) {
   const router = useRouter();
   const close = useCloseSheet();
   const { data: spaces = [] } = useSpaces();
@@ -203,9 +214,9 @@ export function NewSessionScreen({ spaceId, courseId }: { spaceId?: string; cour
   const space = chosen ?? spaces[0]?.id ?? null;
   const [course, setCourse] = useState<string | null>(courseId ?? null);
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(localDay());
-  const [start, setStart] = useState("10:00");
-  const [end, setEnd] = useState("11:30");
+  const [date, setDate] = useState(day ?? localDay());
+  const [start, setStart] = useState(from ?? "10:00");
+  const [end, setEnd] = useState(from ? hourAfter(from, 90) : "11:30");
   const [where, setWhere] = useState("");
   const create = useLocalWrite((db, _: undefined) => {
     if (!space) throw new Error("Pick a Space");

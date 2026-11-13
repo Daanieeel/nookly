@@ -37,7 +37,7 @@ import { Text } from "../ui/Text.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { CalendarEntryForm } from "./CalendarEntryForm.tsx";
 import { CoursePicker, ExamPicker } from "./StudyPickers.tsx";
-import { localDay } from "./dates.ts";
+import { hourAfter, localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
@@ -342,7 +342,16 @@ export function NewBookmarkScreen({ spaceId }: { spaceId?: string }) {
 }
 
 /// New Calendar entry: the day comes first, today by default.
-export function NewEntryScreen({ spaceId }: { spaceId?: string }) {
+/// A new calendar entry: today at nine, or the day and time a finger rested on the hours.
+export function NewEntryScreen({
+  spaceId,
+  date,
+  start,
+}: {
+  spaceId?: string;
+  date?: string;
+  start?: string;
+}) {
   const close = useCloseSheet();
   const [space, setSpace] = useTargetSpace(spaceId);
   const create = useLocalWrite((db, input: Parameters<typeof createCalendarEntry>[2]) => {
@@ -356,9 +365,9 @@ export function NewEntryScreen({ spaceId }: { spaceId?: string }) {
         <CalendarEntryForm
           initial={{
             title: "",
-            date: localDay(),
-            startTime: "09:00",
-            endTime: "10:00",
+            date: date ?? localDay(),
+            startTime: start ?? "09:00",
+            endTime: hourAfter(start ?? "09:00"),
             allDay: false,
             location: null,
           }}

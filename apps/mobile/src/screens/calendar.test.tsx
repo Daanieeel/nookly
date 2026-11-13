@@ -8,6 +8,7 @@ import {
   listSpaces,
   updateExam,
 } from "@nookly/shared/data";
+import { useLocalSearchParams } from "expo-router";
 import { fireEvent } from "expo-router/testing-library";
 import { act } from "@testing-library/react-native";
 import * as ReactNative from "react-native";
@@ -70,6 +71,27 @@ describe("the calendar", () => {
     expect(screen.queryByRole("button", { name: /^Dentist/ })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Today" }));
     expect(await screen.findByRole("button", { name: /^Dentist/ })).toBeTruthy();
+  });
+
+  it("starts a new entry where a finger rests on the hours, at that quarter hour", async () => {
+    const { data, today } = await planned();
+    const screen = await renderScreens(
+      {
+        index: () => <CalendarScreen />,
+        "new/entry": () => {
+          const params = useLocalSearchParams();
+          return <ReactNative.Text>{`New entry ${params.date} ${params.start}`}</ReactNative.Text>;
+        },
+      },
+      data,
+    );
+    await fireEvent.press(await screen.findByRole("radio", { name: "Day" }));
+    const [column] = await screen.findAllByLabelText(`Hours of ${today}, hold to add an entry`);
+    // 14:40 rounds down to the quarter hour.
+    await fireEvent(column, "longPress", {
+      nativeEvent: { locationY: 14 * HOUR_PX + (40 / 60) * HOUR_PX },
+    });
+    expect(await screen.findByText(`New entry ${today} 14:30`)).toBeTruthy();
   });
 
   it("shows a week with every day of it", async () => {

@@ -15,6 +15,8 @@ import Animated, { type AnimatedStyle } from "react-native-reanimated";
 import type { StyleProp, ViewStyle } from "react-native";
 import { useSetting } from "../data/settings.ts";
 import { cn } from "../ui/classes.ts";
+import { haptic } from "../ui/haptics.ts";
+import { LIFT_DELAY } from "../ui/motion.ts";
 import { Text } from "../ui/Text.tsx";
 import { useCalendarColors } from "./calendar-colors.ts";
 import { localDay } from "./dates.ts";
@@ -57,6 +59,13 @@ function hourLabel(hour: number, twelve: boolean): string {
   return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
 }
 
+/// The quarter hour at `y` points down a day's hours, as `HH:mm`.
+export function quarterAt(y: number): string {
+  const minutes = Math.max(0, Math.min(DAY_MINUTES - 15, Math.floor((y / HOUR_PX) * 4) * 15));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+}
+
 /// The width of the column of hour labels for a grid this wide.
 export const gutterFor = (width: number) => (width >= 600 ? 52 : 40);
 
@@ -78,7 +87,10 @@ export function TimeGrid({
   items,
   width,
   colorOf,
+  onCreateAt,
 }: {
+  /// A finger resting on a day's hours: a new entry on that day, at that quarter hour.
+  onCreateAt?: (day: string, time: string) => void;
   days: string[];
   neighbours?: Neighbours;
   items: AgendaItem[];
@@ -237,9 +249,16 @@ export function TimeGrid({
         {content.map(({ day, timed }, index) => {
           const lanes = layoutLanes(timed, (MIN_BLOCK_PX / HOUR_PX) * 60);
           return (
-            <View
+            <Pressable
               key={day}
               testID="gridline"
+              accessibilityLabel={onCreateAt ? `Hours of ${day}, hold to add an entry` : undefined}
+              disabled={!onCreateAt}
+              delayLongPress={LIFT_DELAY}
+              onLongPress={(event) => {
+                haptic("select");
+                onCreateAt?.(day, quarterAt(event.nativeEvent.locationY));
+              }}
               className={cn(
                 "absolute inset-y-0 border-l",
                 index === pageDays.length - 1 && "border-r",
@@ -309,7 +328,7 @@ export function TimeGrid({
                   style={{ top: (now / DAY_MINUTES) * 24 * HOUR_PX - 1 }}
                 />
               ) : null}
-            </View>
+            </Pressable>
           );
         })}
       </View>

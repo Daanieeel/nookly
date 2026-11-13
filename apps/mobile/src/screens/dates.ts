@@ -72,3 +72,10 @@ export function periodHeader(days: string[]): string {
   const [y, m, d] = middle.split("-").map(Number);
   return `${periodTitle(days[0], days[days.length - 1])}, Week ${isoWeek(new Date(y, m - 1, d))}`;
 }
+
+/// `minutes` after `HH:mm`, kept within the day.
+export function hourAfter(time: string, minutes = 60): string {
+  const [h, m] = time.split(":").map(Number);
+  const end = Math.min(h * 60 + m + minutes, 23 * 60 + 59);
+  return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+}

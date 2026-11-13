@@ -107,7 +107,7 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 - [x] The assignment due date selector offers "Specific session" as the desktop does.
 - [x] The due date selector's option boxes are a little bigger.
 - [x] The "Clear due date" button is taller and its x icon is no longer full black.
-- [ ] The calendar creates an entry on a long press, as real calendars do.
+- [x] The calendar creates an entry on a long press, as real calendars do.
 - [ ] A calendar entry's page has a "Move to Trash" button at the bottom.
 - [ ] Bookmark previews load instead of saying "Couldn't reach it".
 
@@ -135,6 +135,10 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 - [ ] Live sync: when another device types and the word your cursor is in moves, your cursor moves with it, so it seems not to move at all.
 - [ ] The "xyz on iPhone" cursor label no longer disappears at the top when the other device is in the first line of a note.
+
+### 11b. Merge main (asked 2026-11-13)
+
+- [ ] Merge `main` into this branch again and adapt the fixes it brought to this branch's code (the rebuilt mobile screens, sync). Never push to `main`.
 
 ### 12. Final checks and report
 
