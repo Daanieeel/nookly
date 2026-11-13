@@ -150,11 +150,15 @@ describe("saved views", () => {
   });
 });
 
-describe("a task's circle", () => {
-  it("finishes the task with a tap, and opens it again with another, as Reminders does", async () => {
+describe("a task's status circle", () => {
+  it("opens the statuses to pick from, as the desktop's row does", async () => {
     const { data, space, late } = await seeded();
     const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
-    await fireEvent.press(await screen.findByRole("checkbox", { name: "Overdue report" }));
+    const circles = await screen.findAllByRole("button", { name: "Status of Overdue report" });
+    // The list draws a row twice while it settles; the last is the one on screen.
+    const circle = circles[circles.length - 1];
+    await fireEvent.press(circle);
+    await fireEvent.press(await screen.findByRole("radio", { name: "Done" }));
     await waitFor(async () => expect((await getTask(data.db, late))?.statusId).toBe("done"));
   });
 });

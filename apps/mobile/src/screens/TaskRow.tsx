@@ -22,8 +22,11 @@ import { dueText } from "./dashboard-model.ts";
 import { SwipeRow } from "../ui/SwipeRow.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { haptic } from "../ui/haptics.ts";
+import { OptionList } from "../ui/sheet/OptionList.tsx";
+import { useOptionalSheetHost } from "../ui/sheet/SheetHost.tsx";
 import { CHECK_PRESS_SCALE } from "../ui/motion.ts";
-import { AnimatedPressable, usePressScale } from "../ui/press.ts";
+import Animated from "react-native-reanimated";
+import { usePressScale } from "../ui/press.ts";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
 import { dayLabel, localDay } from "./dates.ts";
 
@@ -49,41 +52,62 @@ export function StatusIcon({
   return <IconCircle size={size} color={color} accessibilityLabel={label} />;
 }
 
-/// A task's circle as Reminders' checkbox: a tap finishes it (or opens it again), the
-/// circle giving way under the finger and a tap felt as it lands.
-function StatusToggle({
+/// A task's circle in a list, as the desktop's row: a tap opens its statuses to pick from,
+/// the circle giving way under the finger.
+function StatusButton({
   title,
-  finished,
   status,
-  onToggle,
+  statuses,
+  onPick,
 }: {
   title: string;
-  finished: boolean;
   status: TaskStatus | undefined;
-  onToggle: () => void;
+  statuses: TaskStatus[];
+  onPick: (statusId: string) => void;
 }) {
+  const host = useOptionalSheetHost();
   const press = usePressScale(CHECK_PRESS_SCALE);
   return (
-    <AnimatedPressable
-      accessibilityRole="checkbox"
-      accessibilityLabel={title}
-      accessibilityState={{ checked: finished }}
-      accessibilityHint={finished ? "Opens it again" : "Marks it done"}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Status of ${title}`}
+      accessibilityValue={{ text: status?.name ?? "" }}
       hitSlop={touchSlop(CONTROL_SIZE.check)}
       unstable_pressDelay={0}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
-      onPress={() => {
-        haptic(finished ? "tap" : "complete");
-        onToggle();
-      }}
-      style={press.style}
+      onPress={() =>
+        host?.present({
+          title: "Status",
+          content: (
+            <OptionList
+              label="Status"
+              search={false}
+              value={status?.id ?? null}
+              options={statuses.map((s) => ({
+                id: s.id,
+                label: s.name,
+                icon: <StatusIcon status={s} size={17} />,
+                tint: s.color,
+              }))}
+              onChange={(id) => {
+                if (statuses.find((s) => s.id === id)?.doneness === 100) haptic("complete");
+                onPick(id);
+              }}
+            />
+          ),
+        })
+      }
     >
-      {/* The checkbox says what it does; the status's own name would read twice. */}
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {/* The button says what it does; the status's own name would read twice. */}
+      <Animated.View
+        style={press.style}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
         <StatusIcon status={status} />
-      </View>
-    </AnimatedPressable>
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -162,11 +186,11 @@ export function TaskRow({
           )}
         >
           <View className="flex-row items-center gap-3">
-            <StatusToggle
+            <StatusButton
               title={task.entity.title || "Untitled"}
-              finished={finished}
               status={status}
-              onToggle={() => setStatus.mutate(finished ? "todo" : "done")}
+              statuses={statuses}
+              onPick={(id) => setStatus.mutate(id)}
             />
             <Text numberOfLines={1} className="flex-1">
               {task.entity.title || "Untitled"}
