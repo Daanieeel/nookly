@@ -39,7 +39,10 @@ import {
 import { tasksFor } from "./dashboard-model.ts";
 import { isoWeek, localDay } from "./dates.ts";
 import { IconButton } from "../ui/Button.tsx";
-import { MODULE_ICONS } from "../ui/icons.tsx";
+import { Glyph } from "../ui/kit/Glyph.tsx";
+import { useScheme, useSemanticPair } from "../ui/kit/scheme.ts";
+import { type BadgeLook, MODULE_BADGES } from "../ui/kit/symbols.ts";
+import { TINT } from "../ui/tokens.ts";
 import { Mascot } from "../ui/Mascot.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { usePanes } from "../shell/panes.tsx";
@@ -50,14 +53,40 @@ import { useTheme } from "../ui/theme.ts";
 import { DEFAULT_TOP, type TopId, topSchema, visibleTop } from "./sidebar-top.ts";
 import { usePreference } from "../data/preferences.ts";
 
+/// The top rows' icons: SF Symbols close to the desktop's, its Tabler icons where SF Symbols
+/// are not (D51).
 const TOP_ICONS = {
-  dashboard: IconLayoutDashboard,
-  calendar: IconCalendarEvent,
-  tasks: IconChecklist,
-  assignments: IconClipboardList,
-  pinned: IconPin,
-  jot: IconFeather,
-} satisfies Record<TopId, typeof IconSearch>;
+  dashboard: { symbol: "square.grid.2x2", fallback: IconLayoutDashboard },
+  calendar: { symbol: "calendar", fallback: IconCalendarEvent },
+  tasks: { symbol: "checklist", fallback: IconChecklist },
+  assignments: { symbol: "doc.text", fallback: IconClipboardList },
+  pinned: { symbol: "pin", fallback: IconPin },
+  jot: { symbol: "pencil.line", fallback: IconFeather },
+} satisfies Record<TopId, Pick<BadgeLook, "symbol" | "fallback">>;
+
+/// A row's icon in the sidebar: muted, in the accent on the page shown now.
+function SideIcon({
+  look,
+  active = false,
+}: {
+  look: Pick<BadgeLook, "symbol" | "fallback">;
+  active?: boolean;
+}) {
+  const scheme = useScheme();
+  const muted = useSemanticPair("secondaryLabel");
+  const accent = TINT.blue[scheme];
+  return (
+    <View style={{ width: 24, alignItems: "center" }}>
+      <Glyph
+        name={look.symbol}
+        fallback={look.fallback}
+        size={19}
+        color={active ? accent : muted.color}
+        hex={active ? accent : muted.hex}
+      />
+    </View>
+  );
+}
 
 /// One line of the sidebar: an icon, a name, and the current page lit up.
 function NavRow({
@@ -324,7 +353,6 @@ function SpaceModules({
         />
       ) : null}
       {modules.filter(isModuleKey).map((module) => {
-        const Icon = MODULE_ICONS[module];
         const href = `/module/${space.id}/${module}`;
         return (
           <NavRow
@@ -332,7 +360,7 @@ function SpaceModules({
             label={MODULE_LABELS[module]}
             accessibilityLabel={`${MODULE_LABELS[module]} in ${space.name}`}
             active={pathname === href}
-            icon={<Icon size={20} color={muted} />}
+            icon={<SideIcon look={MODULE_BADGES[module]} active={pathname === href} />}
             trailing={<ModuleMeta spaceId={space.id} module={module} />}
             onPress={() => go(href)}
           />
@@ -423,7 +451,7 @@ export function Sidebar({ close }: { close: () => void }) {
   };
   const muted = theme.colors.mutedForeground;
   const [topPref] = usePreference("sidebar.top", topSchema, DEFAULT_TOP);
-  const top = visibleTop(topPref).map((item) => ({ ...item, Icon: TOP_ICONS[item.id] }));
+  const top = visibleTop(topPref).map((item) => ({ ...item, look: TOP_ICONS[item.id] }));
   const [shownId, setShownId] = usePreference("sidebar.space", SPACE_SHOWN, null);
   // Opening a module of another Space (from a link, a search) shows that Space here.
   const pathSpace = /^\/module\/([^/]+)\//.exec(pathname)?.[1] ?? null;
@@ -444,14 +472,19 @@ export function Sidebar({ close }: { close: () => void }) {
           label="Search"
           role="search"
           active={pathname === "/search"}
-          icon={<IconSearch size={20} color={muted} />}
+          icon={
+            <SideIcon
+              look={{ symbol: "magnifyingglass", fallback: IconSearch }}
+              active={pathname === "/search"}
+            />
+          }
           onPress={() => go("/search")}
         />
-        {top.map(({ id, label, href, Icon }) =>
+        {top.map(({ id, label, href, look }) =>
           id === "tasks" ? (
             <TasksRow
               key={href}
-              icon={<Icon size={20} color={muted} />}
+              icon={<SideIcon look={look} active={pathname === href} />}
               active={pathname === href}
               go={go}
             />
@@ -460,7 +493,7 @@ export function Sidebar({ close }: { close: () => void }) {
               key={href}
               label={label}
               active={pathname === href}
-              icon={<Icon size={20} color={muted} />}
+              icon={<SideIcon look={look} active={pathname === href} />}
               // Quick Jot is something to do, so it opens over the page, not instead of it.
               onPress={() => (id === "jot" ? push(href) : go(href))}
             />
