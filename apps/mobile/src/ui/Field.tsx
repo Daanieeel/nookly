@@ -1,5 +1,6 @@
-import { TextInput, type TextInputProps, View } from "react-native";
-import { FormRow, RowLabel } from "./kit/Form.tsx";
+import { type ReactNode, useRef } from "react";
+import { Pressable, TextInput, type TextInputProps, View } from "react-native";
+import { FormRow } from "./kit/Form.tsx";
 import { Label } from "./kit/Label.tsx";
 import { useSemantic } from "./kit/scheme.ts";
 import { FACE, GUTTER, SPACE, TYPE } from "./tokens.ts";
@@ -18,67 +19,72 @@ export function FieldLabel({ label, required }: { label: string; required?: bool
   );
 }
 
-/// Text typed into a form, as an iOS form row (D52): its name at the start and the text
-/// beside it, or, for several lines, the name small above a taller box. Errors show under
-/// it in red.
+/// Text typed into a form, as an iOS form row: its name small above the text, so the name
+/// never passes for a placeholder, or an icon at the start in place of the name. A tap
+/// anywhere on the row puts the cursor in it. Errors show under it in red.
 export function Field({
   label,
   required,
   error,
   multiline,
+  icon,
   className: _className,
   style,
   ...props
-}: TextInputProps & { label: string; required?: boolean; error?: string; className?: string }) {
+}: TextInputProps & {
+  label: string;
+  required?: boolean;
+  error?: string;
+  className?: string;
+  /// Stands for the name at the start of the row; the name is still read out.
+  icon?: ReactNode;
+}) {
   const text = useSemantic("label");
   const muted = useSemantic("tertiaryLabel");
-  const input = (
-    <TextInput
-      accessibilityLabel={label}
-      multiline={multiline}
-      placeholderTextColor={muted}
-      {...props}
-      style={[
-        {
-          flex: multiline ? undefined : 1,
-          minHeight: multiline ? 88 : MIN_TOUCH,
-          fontFamily: FACE["400"],
-          fontSize: TYPE.body.fontSize,
-          lineHeight: multiline ? TYPE.body.lineHeight : undefined,
-          color: text,
-          paddingVertical: multiline ? SPACE.xs : 0,
-        },
-        style,
-      ]}
-      textAlignVertical={multiline ? "top" : "center"}
-    />
-  );
+  const field = useRef<TextInput>(null);
   return (
     <FormRow error={error}>
-      {multiline ? (
-        <View style={{ paddingHorizontal: GUTTER, paddingTop: SPACE.sm, gap: SPACE.xxs }}>
-          <Label type="footnote" color="secondaryLabel">
-            {label}
-            {required ? " *" : ""}
-          </Label>
-          {input}
+      <Pressable
+        accessible={false}
+        onPress={() => field.current?.focus()}
+        style={{
+          flexDirection: "row",
+          alignItems: multiline ? "flex-start" : "center",
+          gap: SPACE.md,
+          paddingHorizontal: GUTTER,
+          paddingVertical: icon ? 0 : SPACE.sm,
+          minHeight: MIN_TOUCH + 12,
+        }}
+      >
+        {icon ? <View style={{ paddingTop: multiline ? SPACE.md : 0 }}>{icon}</View> : null}
+        <View style={{ flex: 1, flexDirection: "column", gap: SPACE.xxs }}>
+          {icon ? null : (
+            <Label type="footnote" color="secondaryLabel">
+              {label}
+              {required ? " *" : ""}
+            </Label>
+          )}
+          <TextInput
+            ref={field}
+            accessibilityLabel={label}
+            multiline={multiline}
+            placeholderTextColor={muted}
+            {...props}
+            style={[
+              {
+                minHeight: multiline ? 88 : icon ? MIN_TOUCH : 26,
+                fontFamily: FACE["400"],
+                fontSize: TYPE.body.fontSize,
+                lineHeight: multiline ? TYPE.body.lineHeight : undefined,
+                color: text,
+                paddingVertical: multiline && icon ? SPACE.sm : 0,
+              },
+              style,
+            ]}
+            textAlignVertical={multiline ? "top" : "center"}
+          />
         </View>
-      ) : (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: SPACE.md,
-            paddingHorizontal: GUTTER,
-            minHeight: MIN_TOUCH + 4,
-          }}
-        >
-          <View style={{ maxWidth: "40%" }}>
-            <RowLabel label={label} required={required} />
-          </View>
-          {input}
-        </View>
-      )}
+      </Pressable>
     </FormRow>
   );
 }

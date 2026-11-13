@@ -1,6 +1,6 @@
 import { IconX } from "@tabler/icons-react-native";
-import { useEffect, useState } from "react";
-import { TextInput, type TextInputProps, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, TextInput, type TextInputProps, View } from "react-native";
 import { z } from "zod";
 import { Button } from "./Button.tsx";
 import { shownValue } from "./DateField.tsx";
@@ -197,10 +197,8 @@ export function DayProperty({
   );
 }
 
-/// A line of text edited in place: its value sits on the right of the row and saves when
-/// typing ends. Blank clears it.
-/// A property typed in place: its name and value in the same text as the rows that open a
-/// picker (`Property`), the value on the right.
+/// A property typed in place: its icon, then its name small above the value, which saves when
+/// typing ends (blank clears it). A tap anywhere on the row puts the cursor in it.
 function InputRow({
   icon,
   label,
@@ -225,38 +223,40 @@ function InputRow({
   const valueColor = useSemanticPair("secondaryLabelSolid").color;
   const placeholderColor = useSemanticPair("tertiaryLabelSolid").color;
   const { fontWeight, ...size } = TYPE.body;
+  const field = useRef<TextInput>(null);
   return (
-    <View
+    <Pressable
+      accessible={false}
+      onPress={() => field.current?.focus()}
       style={[
         LIST_ROW,
         { flexDirection: "row", alignItems: "center", gap: SPACE.md, paddingHorizontal: SPACE.xs },
       ]}
     >
       {icon}
-      <Label numberOfLines={1}>{label}</Label>
-      <TextInput
-        accessibilityLabel={label}
-        value={value}
-        editable={!readOnly}
-        placeholder={placeholder ?? "None"}
-        placeholderTextColor={placeholderColor}
-        keyboardType={keyboardType}
-        onChangeText={onChangeText}
-        onEndEditing={onEndEditing}
-        returnKeyType="done"
-        maxFontSizeMultiplier={2}
-        style={[
-          size,
-          {
-            flex: 1,
-            minHeight: LIST_ROW.minHeight,
-            textAlign: "right",
-            fontFamily: FACE[fontWeight],
-            color: valueColor,
-          },
-        ]}
-      />
-    </View>
+      <View style={{ flex: 1, flexDirection: "column", paddingVertical: SPACE.xs }}>
+        <Label type="footnote" color="secondaryLabel" numberOfLines={1}>
+          {label}
+        </Label>
+        <TextInput
+          ref={field}
+          accessibilityLabel={label}
+          value={value}
+          editable={!readOnly}
+          placeholder={placeholder ?? "None"}
+          placeholderTextColor={placeholderColor}
+          keyboardType={keyboardType}
+          onChangeText={onChangeText}
+          onEndEditing={onEndEditing}
+          returnKeyType="done"
+          maxFontSizeMultiplier={2}
+          style={[
+            size,
+            { minHeight: 26, paddingVertical: 0, fontFamily: FACE[fontWeight], color: valueColor },
+          ]}
+        />
+      </View>
+    </Pressable>
   );
 }
 

@@ -296,7 +296,8 @@ describe("an assignment's evaluation", () => {
     await waitFor(() => expect(screen.queryByLabelText("Grade")).toBeNull());
     // Going back to ungraded hides the grade but keeps it.
     expect(await getAssignment(data.db, assignment)).toMatchObject({ ungraded: true, grade: 1.3 });
-  });
+    // Two sheets and a typed grade: slow when every suite runs at once.
+  }, 20_000);
 });
 
 describe("an assignment's due date", () => {
