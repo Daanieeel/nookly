@@ -79,8 +79,8 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 - [x] (2026-11-13, preview cards) Theme and file viewer theme switchers get the desktop's icons.
 - [x] (2026-11-13) Default code language (editor settings) is the desktop's popover, not a text field.
 - [x] (2026-11-13, `ui/NumberInput.tsx`) "Day starts at" uses a port of the desktop's number input component.
-- [ ] Sidebar settings: keep the separate page and the switches, but items are reordered by dragging, not by arrow buttons.
-- [ ] LaTeX settings: adding macros feels like on desktop (with a preview, proper inputs), cut to fit mobile.
+- [x] Sidebar settings: keep the separate page and the switches, but items are reordered by dragging, not by arrow buttons.
+- [x] LaTeX settings: adding macros feels like on desktop (with a preview, proper inputs), cut to fit mobile.
 - [ ] Sign in and sign up screens get a real design and hierarchy (creating an account is clearly not the same weight as "Forgot Password", and is phrased better than "Create an Account Instead").
 
 ### 4. Mobile: lists and boards

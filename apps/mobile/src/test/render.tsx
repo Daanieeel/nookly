@@ -19,6 +19,7 @@ import { FilePickerProvider, type TextFilePicker, systemFilePicker } from "../ui
 import { WindowWidthProvider } from "../ui/pane.tsx";
 import { type FileViewer, FileViewerProvider, systemFileViewer } from "../ui/file-viewer.tsx";
 import { PageEditorViewProvider } from "../editor/editor-view.tsx";
+import { MathViewProvider } from "../ui/math/MathPreview.tsx";
 import { EditorStandIn } from "./editor-stand-in.tsx";
 
 let ids = 0;
@@ -63,6 +64,8 @@ export function testData(): TestData {
   return { db, driver, sync, serverUrl, theme: themePreference, onboarded: onboardedPreference };
 }
 
+const NoMath = () => null;
+
 /// Renders screens as routes of the app, inside its providers.
 export async function renderScreens(
   routes: Record<string, ComponentType>,
@@ -102,7 +105,8 @@ export async function renderScreens(
                 <FilePickerProvider value={options.filePicker ?? systemFilePicker}>
                   <FileViewerProvider value={options.fileViewer ?? systemFileViewer}>
                     <PageEditorViewProvider value={EditorStandIn}>
-                      {children}
+                      {/* No web view to draw formulas in. */}
+                      <MathViewProvider value={NoMath}>{children}</MathViewProvider>
                     </PageEditorViewProvider>
                   </FileViewerProvider>
                 </FilePickerProvider>

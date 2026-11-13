@@ -37,30 +37,93 @@ describe("Settings", () => {
     }
   });
 
-  it("adds a LaTeX macro to the list, and takes it off again", async () => {
+  it("adds a LaTeX macro in a sheet, with a live preview, as on the desktop", async () => {
     phoneSettings.reset("notes.latexMacros");
+    phoneSettings.setJson("notes.latexMacros", "");
     const screen = await renderScreens(
       { index: () => <SettingsCategoryScreen page="latex" /> },
       testData(),
     );
-    await fireEvent.changeText(await screen.findByLabelText("Command"), "\\pair");
+    await fireEvent.press(await screen.findByRole("button", { name: "Add Macro" }));
+    await fireEvent.changeText(await screen.findByLabelText("Command name"), "\\pair");
     await fireEvent.changeText(screen.getByLabelText("Definition"), "(#1, #2)");
-    await fireEvent.press(screen.getByRole("button", { name: "Add Macro" }));
-    expect(await screen.findByText("\\pair")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Remove \\pair" }));
-    await waitFor(() => expect(screen.queryByText("\\pair")).toBeNull());
+    expect(await screen.findByText("2 arguments")).toBeTruthy();
+    // The command used on sample arguments, drawn as it will be in a formula.
+    expect(screen.getAllByLabelText("\\pair{x}{y}").length).toBeGreaterThan(0);
+    await fireEvent.press(screen.getByRole("button", { name: "Save Macro" }));
+    await waitFor(() =>
+      expect(String(phoneSettings.get("notes.latexMacros"))).toBe(
+        "\\newcommand{\\pair}[2]{(#1, #2)}",
+      ),
+    );
+    expect(await screen.findByRole("button", { name: "Edit \\pair" })).toBeTruthy();
     phoneSettings.reset("notes.latexMacros");
   });
 
-  it("says what a LaTeX macro is not valid", async () => {
+  it("says what is wrong with a macro and keeps it from being saved", async () => {
+    phoneSettings.setJson("notes.latexMacros", "\\newcommand{\\N}{\\mathbb{N}}");
     const screen = await renderScreens(
       { index: () => <SettingsCategoryScreen page="latex" /> },
       testData(),
     );
-    await fireEvent.changeText(await screen.findByLabelText("Command"), "123");
-    await fireEvent.changeText(screen.getByLabelText("Definition"), "x");
-    await fireEvent.press(screen.getByRole("button", { name: "Add Macro" }));
-    expect(await screen.findByText(/backslash and letters/)).toBeTruthy();
+    await fireEvent.press(await screen.findByRole("button", { name: "Add Macro" }));
+    await fireEvent.changeText(await screen.findByLabelText("Command name"), "N2");
+    expect(await screen.findByText("A command name is letters only, like N or abs.")).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Command name"), "N");
+    expect(await screen.findByText("\\N is already defined.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save Macro" })).toBeDisabled();
+    await fireEvent.changeText(screen.getByLabelText("Command name"), "R");
+    await fireEvent.changeText(screen.getByLabelText("Definition"), "\\notacommand");
+    expect(await screen.findByText(/^Invalid LaTeX/)).toBeTruthy();
+    phoneSettings.reset("notes.latexMacros");
+  });
+
+  it("fills the form from a pasted newcommand", async () => {
+    phoneSettings.setJson("notes.latexMacros", "");
+    const screen = await renderScreens(
+      { index: () => <SettingsCategoryScreen page="latex" /> },
+      testData(),
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Add Macro" }));
+    await fireEvent.changeText(
+      await screen.findByLabelText("Command name"),
+      "\\newcommand{\\abs}[1]{\\left|#1\\right|}",
+    );
+    expect(screen.getByLabelText("Command name").props.value).toBe("abs");
+    expect(screen.getByLabelText("Definition").props.value).toBe("\\left|#1\\right|");
+    phoneSettings.reset("notes.latexMacros");
+  });
+
+  it("edits a macro and deletes it after asking", async () => {
+    phoneSettings.setJson("notes.latexMacros", "\\newcommand{\\N}{\\mathbb{N}}");
+    const screen = await renderScreens(
+      { index: () => <SettingsCategoryScreen page="latex" /> },
+      testData(),
+    );
+    // Each macro shows what it draws.
+    expect(await screen.findByLabelText("\\N")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Edit \\N" }));
+    await fireEvent.changeText(await screen.findByLabelText("Definition"), "\\mathbb{Z}");
+    await fireEvent.press(screen.getByRole("button", { name: "Save Macro" }));
+    await waitFor(() =>
+      expect(String(phoneSettings.get("notes.latexMacros"))).toBe("\\newcommand{\\N}{\\mathbb{Z}}"),
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Delete \\N" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(String(phoneSettings.get("notes.latexMacros"))).toBe(""));
+    phoneSettings.reset("notes.latexMacros");
+  });
+
+  it("keeps a macro list with lines it can't read for the raw view", async () => {
+    phoneSettings.setJson("notes.latexMacros", "\\newcommand{\\N}{\\mathbb{N}}\nnot a macro");
+    const screen = await renderScreens(
+      { index: () => <SettingsCategoryScreen page="latex" /> },
+      testData(),
+    );
+    expect(await screen.findByText(/^Line 2:/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add Macro" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Fix in Raw" })).toBeTruthy();
+    phoneSettings.reset("notes.latexMacros");
   });
 
   it("turns Vim keys on for this phone only, under Editing as on the desktop", async () => {

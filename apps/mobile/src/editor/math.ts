@@ -25,3 +25,22 @@ export function mathMarkup(
     return `<code class="math-error">${escaped}</code>`;
   }
 }
+
+/// What KaTeX finds wrong with a formula, in its own words, or null when it draws.
+export function mathProblem(latex: string, macros: ParsedMacros["macros"]): string | null {
+  try {
+    katex.renderToString(latex, {
+      output: "mathml",
+      macros: { ...macros },
+      throwOnError: true,
+      strict: "ignore",
+      trust: false,
+    });
+    return null;
+  } catch (error) {
+    return (error instanceof Error ? error.message : String(error)).replace(
+      /^KaTeX parse error: /,
+      "",
+    );
+  }
+}
