@@ -5,8 +5,11 @@ import {
   type PushRequest,
   type PushResponse,
   type DeviceName,
+  type ConflictReport,
+  type ConflictReported,
   type ServerConflict,
   type ServerMessage,
+  conflictReportedSchema,
   devicesSchema,
   missingResponseSchema,
   serverConflictsSchema,
@@ -449,6 +452,11 @@ export class ApiClient {
   /// Conflicts nobody decided on yet, the account's whole history of them.
   async conflicts(): Promise<ServerConflict[]> {
     return (await this.call("GET", "/v1/conflicts", serverConflictsSchema)).conflicts;
+  }
+
+  /// Hands a clash only this device saw to the server, so every device offers it.
+  reportConflict(report: ConflictReport): Promise<ConflictReported> {
+    return this.call("POST", "/v1/conflicts", conflictReportedSchema, report);
   }
 
   resolveConflict(id: string): Promise<void> {

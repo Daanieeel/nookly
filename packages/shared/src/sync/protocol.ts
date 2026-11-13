@@ -162,6 +162,21 @@ export const serverConflictSchema = z.object({
 export type ServerConflict = z.infer<typeof serverConflictSchema>;
 export const serverConflictsSchema = z.object({ conflicts: z.array(serverConflictSchema) });
 
+/// A clash only one device saw (it pulled the other edit before sending its own), handed to
+/// the server so every device offers it (DECISIONS.md D40).
+export const conflictReportSchema = z.object({
+  table: z.string().min(1).max(64),
+  pk: z.string().min(1).max(512),
+  field: z.string().min(1).max(64),
+  losingValue: sqlValueSchema,
+  losingClock: z.string().min(1).max(128),
+  winningClock: z.string().max(128).nullable(),
+});
+export type ConflictReport = z.infer<typeof conflictReportSchema>;
+/// The server's entry for a reported clash, and whether someone already decided on it.
+export const conflictReportedSchema = z.object({ id: z.uuid(), resolved: z.boolean() });
+export type ConflictReported = z.infer<typeof conflictReportedSchema>;
+
 /// A device that synced for the account, by the id that ends each of its clocks.
 export const deviceNameSchema = z.object({
   deviceId: z.string(),

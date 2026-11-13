@@ -119,6 +119,8 @@ const META = {
   clockFloor: "clock_floor",
   parked: "parked",
   cursor: (dataset: string) => `cursor:${dataset}`,
+  /// The server's entry for a clash this device handed over, by this device's id for it.
+  reported: (id: string) => `reported:${id}`,
   role: (dataset: string) => `role:${dataset}`,
 };
 
@@ -513,6 +515,28 @@ export class SyncEngine {
         id,
       ),
     ]);
+  }
+
+  /// Clashes this device handed to the server: this device's id, the server's id, and
+  /// whether it is still open here.
+  async conflictReports(): Promise<{ id: string; serverId: string; open: boolean }[]> {
+    const rows = await this.driver.query(
+      "SELECT m.key, m.value, c.id AS conflict, c.resolved_at FROM sync_meta m LEFT JOIN sync_conflicts c ON c.id = substr(m.key, 10) WHERE m.key LIKE 'reported:%'",
+      [],
+    );
+    return rows.map((r) => ({
+      id: String(r.key).slice("reported:".length),
+      serverId: String(r.value),
+      open: r.conflict !== null && r.conflict !== undefined && r.resolved_at === null,
+    }));
+  }
+
+  async markConflictReported(id: string, serverId: string): Promise<void> {
+    await this.batch([setMeta(META.reported(id), serverId)]);
+  }
+
+  async forgetConflictReport(id: string): Promise<void> {
+    await this.batch([run("DELETE FROM sync_meta WHERE key = ?", META.reported(id))]);
   }
 
   /// The rows, bases and dirty marks of `pks` in `table`.

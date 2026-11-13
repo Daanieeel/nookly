@@ -100,7 +100,7 @@ Open:
 
 Open:
 
-- [ ] D40 (flagged): a clash shows only on the device that pulled first, unless the server saw both edits. Decide whether every device should offer it.
+- [x] (2026-11-13: every device offers it; the device that saw it hands it to the server, and deciding anywhere settles it everywhere, D40, two new tests in `two-devices.test.ts`) D40 (flagged): a clash shows only on the device that pulled first, unless the server saw both edits. Decide whether every device should offer it.
 - [ ] Once, a phone edit stayed pending after a sign in plus restart during the first sync's checking phase; not reproduced in 4 tries. Try again.
 - [ ] Re-run the old definition of done for real (account made on mobile and used on desktop, offline conflict and the merge editor on both apps) and record it.
 

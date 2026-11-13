@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { DeviceInfo, SignUp, User } from "../api/index.ts";
-import type { ServerConflict } from "./protocol.ts";
+import type { ConflictReport, ServerConflict } from "./protocol.ts";
 import type { BlobPlatform } from "./blobs.ts";
 import { NetworkError, type SyncTransport } from "./client.ts";
 import { MemoryServer } from "./testing/memory-server.ts";
@@ -52,7 +52,15 @@ class FakeAccount implements AccountApi {
   async conflicts() {
     return this.serverConflicts;
   }
-  async resolveConflict() {}
+  /// Like the server: a reported clash joins the log until someone decides on it.
+  async reportConflict(report: ConflictReport) {
+    const id = crypto.randomUUID();
+    this.serverConflicts.push({ ...report, id, createdAt: new Date().toISOString() });
+    return { id, resolved: false };
+  }
+  async resolveConflict(id: string) {
+    this.serverConflicts = this.serverConflicts.filter((c) => c.id !== id);
+  }
   async devices() {
     return [];
   }

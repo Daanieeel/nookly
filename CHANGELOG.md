@@ -8,7 +8,7 @@ All notable changes to Nookly are listed here.
 
 - Nookly is now on your iPhone and iPad. Sign in with the same account and your Spaces, tasks, pages, files and settings are there, ready to use.
 - Changes you make on one device show up on your others as you make them, and everything keeps working offline and catches up when you are back online.
-- If you change the same thing on two devices while one is offline, you choose which version to keep, or keep both.
+- If you change the same thing on two devices while one is offline, you choose which version to keep, or keep both, on whichever device you pick up next.
 - When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it. Signing out removes the account's data from that device and keeps it in the account.
 
 ### Changed

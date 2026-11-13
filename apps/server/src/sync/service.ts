@@ -4,6 +4,8 @@ import { syncedTable } from "@nookly/shared/schema";
 import {
   type Change,
   type DeviceName,
+  type ConflictReport,
+  type ConflictReported,
   type ServerConflict,
   EMPTY_RECORD,
   MAX_PULL_RECORDS,
@@ -491,6 +493,35 @@ export class SyncService {
       winningClock: r.winningClock,
       createdAt: r.createdAt.toISOString(),
     }));
+  }
+
+  /// Takes a clash only one device saw, so every device offers it. A clash reported again
+  /// (the same edit lost) is the entry already there, decided or not.
+  async reportConflict(userId: string, report: ConflictReport): Promise<ConflictReported> {
+    const same = and(
+      eq(conflicts.ownerId, userId),
+      eq(conflicts.tbl, report.table),
+      eq(conflicts.pk, report.pk),
+      eq(conflicts.field, report.field),
+      eq(conflicts.losingClock, report.losingClock),
+    );
+    const [known] = await this.db.select().from(conflicts).where(same).limit(1);
+    if (known) return { id: known.id, resolved: known.resolvedAt !== null };
+    const [row] = await this.db
+      .insert(conflicts)
+      .values({
+        ownerId: userId,
+        authorId: userId,
+        tbl: report.table,
+        pk: report.pk,
+        field: report.field,
+        losingValue: report.losingValue,
+        losingClock: report.losingClock,
+        winningClock: report.winningClock,
+      })
+      .returning({ id: conflicts.id });
+    this.hub.notify(userId, { type: "changes", dataset: OWN_DATASET });
+    return { id: row.id, resolved: false };
   }
 
   /// Marks a conflict decided, for every device. Both versions stay in the log.

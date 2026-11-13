@@ -12,6 +12,7 @@ import {
   missingRequestSchema,
   pullRequestSchema,
   pushRequestSchema,
+  conflictReportSchema,
 } from "@nookly/shared/sync";
 import { Elysia } from "elysia";
 import { z } from "zod";
@@ -432,6 +433,18 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           {
             detail: {
               summary: "Changes made on two devices that nobody decided on yet",
+              tags: ["Sync"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/conflicts",
+          async ({ headers, body }) => sync.reportConflict((await claimsOf(headers)).userId, body),
+          {
+            body: conflictReportSchema,
+            detail: {
+              summary: "Hand over a clash only this device saw, so every device offers it",
               tags: ["Sync"],
               security: [{ bearer: [] }],
             },

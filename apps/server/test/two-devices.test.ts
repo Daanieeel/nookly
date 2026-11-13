@@ -215,6 +215,76 @@ describe("two devices on one account", () => {
     expect([view.current, view.other].sort()).toEqual(["Buy milk (desktop)", "Buy milk (phone)"]);
   });
 
+  it("offers a clash only one device saw on every device, and settles it everywhere", async () => {
+    const { desktop, phone } = await pair();
+    addTask(desktop, "t1", "Buy milk");
+    desktop.sync.notifyLocalChange();
+    await soon(() => title(phone, "t1") === "Buy milk", "the task on the phone");
+    phone.network.unplug();
+    edit(phone, "UPDATE entities SET title = 'Buy milk (phone)' WHERE id = 't1'");
+    await Bun.sleep(150);
+    edit(desktop, "UPDATE entities SET title = 'Buy milk (desktop)' WHERE id = 't1'");
+    await Bun.sleep(300);
+    phone.network.plugIn();
+    await until(
+      () => phone.sync.store.getState().status.conflicts === 1,
+      "the phone offers the clash",
+      15_000,
+    );
+    // The phone pulled the desktop's edit before sending its own, so only the phone saw
+    // the clash. The desktop offers it too (DECISIONS.md D40).
+    await until(
+      () => desktop.sync.store.getState().status.conflicts === 1,
+      "the desktop offers the clash too",
+      5_000,
+    );
+    const [view] = await desktop.sync.conflictViews();
+    expect([view.current, view.other].sort()).toEqual(["Buy milk (desktop)", "Buy milk (phone)"]);
+    expect(await phone.sync.conflictViews()).toHaveLength(1);
+    // Deciding on one device settles it on both, and the choice reaches both.
+    await desktop.sync.resolveConflict(view, { value: "Buy milk (both)" });
+    await until(
+      () =>
+        desktop.sync.store.getState().status.conflicts === 0 &&
+        phone.sync.store.getState().status.conflicts === 0,
+      "the clash settled on both devices",
+      5_000,
+    );
+    await soon(() => title(phone, "t1") === "Buy milk (both)", "the choice on the phone");
+    expect(await phone.sync.conflictViews()).toHaveLength(0);
+    expect(await desktop.sync.conflictViews()).toHaveLength(0);
+  }, 30_000);
+
+  it("settles a clash decided offline on the device that saw it, everywhere, once back", async () => {
+    const { desktop, phone } = await pair();
+    addTask(desktop, "t1", "Buy milk");
+    desktop.sync.notifyLocalChange();
+    await soon(() => title(phone, "t1") === "Buy milk", "the task on the phone");
+    phone.network.unplug();
+    edit(phone, "UPDATE entities SET title = 'Buy milk (phone)' WHERE id = 't1'");
+    await Bun.sleep(150);
+    edit(desktop, "UPDATE entities SET title = 'Buy milk (desktop)' WHERE id = 't1'");
+    await Bun.sleep(300);
+    phone.network.plugIn();
+    await until(
+      () => desktop.sync.store.getState().status.conflicts === 1,
+      "the desktop offers the clash",
+      15_000,
+    );
+    phone.network.unplug();
+    const [view] = await phone.sync.conflictViews();
+    await phone.sync.resolveConflict(view, "current");
+    expect(await phone.sync.conflictViews()).toHaveLength(0);
+    phone.network.plugIn();
+    phone.sync.notifyLocalChange();
+    await until(
+      () => desktop.sync.store.getState().status.conflicts === 0,
+      "the clash settled on the desktop",
+      15_000,
+    );
+    expect(await desktop.sync.conflictViews()).toHaveLength(0);
+  }, 30_000);
+
   it("signs a device out at once when another device ends its session", async () => {
     const { desktop, phone } = await pair();
     addTask(desktop, "t1", "Buy milk");

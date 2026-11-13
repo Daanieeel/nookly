@@ -11,7 +11,7 @@ import {
 import { PageDocs } from "./docs.ts";
 import type { SqlValue } from "../schema.ts";
 import { SyncClient, type SyncStatus } from "./client.ts";
-import { SyncEngine } from "./engine.ts";
+import { type Conflict, SyncEngine } from "./engine.ts";
 import { MAX_MISSING_KEYS } from "./protocol.ts";
 import { AccountSettingsSync, type SettingsBridge } from "./settings.ts";
 import { type SqlDriver, ident, pkSql, run } from "./sql.ts";
@@ -35,6 +35,7 @@ export type AccountApi = Pick<
   | "missing"
   | "sessionToken"
   | "conflicts"
+  | "reportConflict"
   | "resolveConflict"
   | "devices"
 >;
@@ -448,16 +449,57 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   /// devices online that changed the same field at the same moment leave one only in the
   /// server's log, and it must still be offered.
   private async openConflicts(): Promise<AnyConflict[]> {
-    const device = await this.engine.conflicts();
+    let device = await this.engine.conflicts();
     let server: AnyConflict[] = [];
     if (this.api) {
       try {
         server = (await this.api.conflicts()).map((c) => ({ ...c, source: "server" as const }));
+        if (await this.shareConflicts(this.api, device, server)) {
+          device = await this.engine.conflicts();
+        }
       } catch {
-        // Offline: this device's own conflicts still count.
+        // Offline: this device's own conflicts still count, and are handed over later.
       }
     }
     return mergeConflictLists(device, server);
+  }
+
+  /// A clash only this device saw (it pulled the other edit before sending its own) goes to
+  /// the server, so every device offers it; one decided elsewhere is settled here, and one
+  /// decided here while offline is settled on the server (DECISIONS.md D40). Nothing is
+  /// deleted: both versions stay in both logs. True when this device's list changed.
+  private async shareConflicts(api: A, device: Conflict[], server: Conflict[]) {
+    const openOnServer = new Set(server.map((c) => c.id));
+    const reports = new Map((await this.engine.conflictReports()).map((r) => [r.id, r]));
+    let changed = false;
+    for (const conflict of device) {
+      // A removed row can only be put back where its copy is; it stays on this device.
+      if (conflict.field === null || conflict.losingClock === null) continue;
+      let serverId = reports.get(conflict.id)?.serverId;
+      if (!serverId) {
+        const reported = await api.reportConflict({
+          table: conflict.table,
+          pk: conflict.pk,
+          field: conflict.field,
+          losingValue: conflict.losingValue,
+          losingClock: conflict.losingClock,
+          winningClock: conflict.winningClock,
+        });
+        await this.engine.markConflictReported(conflict.id, reported.id);
+        if (!reported.resolved) continue;
+        serverId = reported.id;
+      } else if (openOnServer.has(serverId)) continue;
+      // Someone decided on it on another device; their choice arrives as an edit.
+      await this.engine.dismissConflict(conflict.id);
+      await this.engine.forgetConflictReport(conflict.id);
+      changed = true;
+    }
+    for (const report of reports.values()) {
+      if (report.open) continue;
+      if (openOnServer.has(report.serverId)) await api.resolveConflict(report.serverId);
+      await this.engine.forgetConflictReport(report.id);
+    }
+    return changed;
   }
 
   /// Every open conflict, described for the merge editor.
@@ -500,6 +542,16 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     if (view.source === "device") {
       if (choice === "current") await this.engine.dismissConflict(view.id);
       else await this.engine.resolveConflict(view.id, value);
+      // Handed to the server: settled there too, now or on the next sync.
+      const report = (await this.engine.conflictReports()).find((r) => r.id === view.id);
+      if (report && this.api) {
+        try {
+          await this.api.resolveConflict(report.serverId);
+          await this.engine.forgetConflictReport(view.id);
+        } catch {
+          // Offline: the next sync settles it on the server.
+        }
+      }
     } else {
       if (field && choice !== "current")
         await this.engine.setField(view.table, view.pk, field, value);
