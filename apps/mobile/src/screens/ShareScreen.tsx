@@ -51,6 +51,7 @@ function RolePicker({
           accessibilityState={{ checked: r.role === value }}
           onPress={() => onChange(r.role)}
           className={cn(
+            "active:opacity-60",
             splitText(SEGMENT_CLASSES).box,
             "justify-center px-3",
             r.role === value && splitText(SEGMENT_SELECTED_CLASSES).box,

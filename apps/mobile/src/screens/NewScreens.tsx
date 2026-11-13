@@ -77,6 +77,7 @@ function LinkTarget({
               accessibilityLabel="Remove Link"
               hitSlop={12}
               onPress={() => onChange(null)}
+              className="active:opacity-60"
             >
               <Glyph icon={IconX} size={17} color={muted.hex} />
             </Pressable>

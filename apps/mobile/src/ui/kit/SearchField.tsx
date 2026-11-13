@@ -73,7 +73,10 @@ export function SearchField({
           accessibilityLabel="Clear Search"
           onPress={() => onChangeText("")}
           hitSlop={touchSlop(HEIGHT, MIN_TOUCH)}
-          style={{ paddingHorizontal: SPACE.sm, height: "100%", justifyContent: "center" }}
+          style={({ pressed }) => [
+            { paddingHorizontal: SPACE.sm, height: "100%", justifyContent: "center" },
+            pressed && { opacity: 0.6 },
+          ]}
         >
           <Glyph icon={IconX} size={16} color={muted.hex} />
         </Pressable>

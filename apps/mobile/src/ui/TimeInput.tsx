@@ -145,7 +145,10 @@ export function TimeInput({
             if (h !== null) commit((h + 12) % 24, m ?? 0);
           }}
           hitSlop={4}
-          style={{ minWidth: 40, height: 36, alignItems: "center", justifyContent: "center" }}
+          style={({ pressed }) => [
+            { minWidth: 40, height: 36, alignItems: "center", justifyContent: "center" },
+            pressed && { opacity: 0.6 },
+          ]}
         >
           <Label>{pm ? "PM" : "AM"}</Label>
         </Pressable>

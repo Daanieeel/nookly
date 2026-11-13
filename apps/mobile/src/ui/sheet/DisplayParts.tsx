@@ -1,3 +1,4 @@
+import { haptic } from "../haptics.ts";
 import { IconChevronRight } from "@tabler/icons-react-native";
 import { type ComponentType, useState } from "react";
 import { Pressable, Switch, View } from "react-native";
@@ -35,6 +36,7 @@ export function LayoutTiles<T extends string>({
             onPress={() => onSelect(tile.id)}
             style={TOUCH_ROW}
             className={cn(
+              "active:opacity-60",
               "flex-1 items-center justify-center gap-1 rounded-md border border-border py-2",
               on && "border-foreground/20 bg-accent",
             )}
@@ -151,7 +153,10 @@ export function SwitchRow({
       <Switch
         accessibilityLabel={label}
         value={value}
-        onValueChange={onChange}
+        onValueChange={(next) => {
+          haptic("toggle");
+          onChange(next);
+        }}
         trackColor={{ true: theme.colors.primary }}
       />
     </View>

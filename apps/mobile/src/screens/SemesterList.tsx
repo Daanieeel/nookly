@@ -88,7 +88,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
           accessibilityLabel={name}
           accessibilityState={{ expanded: open }}
           onPress={() => setOpen((o) => !o)}
-          className="flex-1 flex-row items-center gap-2 py-2"
+          className="flex-1 flex-row items-center gap-2 py-2 active:opacity-60"
         >
           <Chevron size={16} color={muted} />
           <IconCalendarStats size={16} color={muted} />

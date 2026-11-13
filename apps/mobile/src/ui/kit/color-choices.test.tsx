@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import { fireEvent, render } from "@testing-library/react-native";
 import { useState } from "react";
 import { MIN_TOUCH } from "../touch.ts";
@@ -24,7 +25,10 @@ describe("colour choices", () => {
     expect(
       screen.getByRole("radio", { name: "Color #00873d" }).props.accessibilityState.checked,
     ).toBe(false);
-    expect(blue.props.style).toMatchObject({ width: MIN_TOUCH, height: MIN_TOUCH });
+    expect(StyleSheet.flatten(blue.props.style)).toMatchObject({
+      width: MIN_TOUCH,
+      height: MIN_TOUCH,
+    });
     fireEvent.press(screen.getByRole("radio", { name: "Color #00873d" }));
     expect(
       screen.getByRole("radio", { name: "Color #00873d" }).props.accessibilityState.checked,

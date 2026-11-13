@@ -18,6 +18,7 @@ export function ConflictBadge({ entityId }: { entityId: string }) {
       accessibilityRole="button"
       accessibilityLabel={`${label}. Review`}
       onPress={() => router.push("/conflicts")}
+      className="active:opacity-60"
     >
       <Badge variant="warning" label={label} />
     </Pressable>

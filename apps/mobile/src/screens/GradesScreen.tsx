@@ -88,7 +88,7 @@ function ItemRow({ item }: { item: GradeItem }) {
         accessibilityLabel={`${title}, ${item.kind === "exam" ? "Exam" : "Assignment"}`}
         onPress={() => router.push(`/entity/${item.entity.id}`)}
         onLongPress={() => entityMenu(item.entity)}
-        className="flex-row items-baseline gap-2"
+        className="flex-row items-baseline gap-2 active:opacity-60"
       >
         <Text numberOfLines={1} className="flex-1">
           {title}

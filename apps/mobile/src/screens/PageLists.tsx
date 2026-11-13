@@ -62,7 +62,7 @@ function PageRow({ page, jot }: { page: PageSummary; jot: boolean }) {
             accessibilityRole="link"
             accessibilityLabel={`Refined into ${page.refinedInto.title}`}
             onPress={() => router.push(`/entity/${page.refinedInto?.id}`)}
-            className="flex-row items-center gap-1"
+            className="flex-row items-center gap-1 active:opacity-60"
           >
             <IconLink size={12} />
             <Text variant="small" tone="muted" numberOfLines={1}>

@@ -77,7 +77,7 @@ export function PageTabs<Id extends string>({
                 );
               }}
               style={{ height: MIN_TOUCH }}
-              className="flex-row items-center gap-1.5 px-2.5"
+              className="flex-row items-center gap-1.5 px-2.5 active:opacity-60"
             >
               <Text
                 className={cn(

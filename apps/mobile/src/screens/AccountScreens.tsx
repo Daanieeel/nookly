@@ -200,6 +200,7 @@ function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) 
             accessibilityLabel={option.label}
             onPress={() => data.choose(option.value)}
             className={cn(
+              "active:opacity-60",
               "min-h-11 gap-1 rounded-md border p-3",
               selected ? "border-primary bg-primary/10" : "border-border",
             )}

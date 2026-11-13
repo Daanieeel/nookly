@@ -33,7 +33,7 @@ export function Band({
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((o) => !o)}
         style={TOUCH_ROW}
-        className="min-h-9 flex-row items-center gap-2"
+        className="min-h-9 flex-row items-center gap-2 active:opacity-60"
       >
         <Chevron size={16} color={theme.colors.mutedForeground} />
         {icon}

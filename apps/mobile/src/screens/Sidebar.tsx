@@ -383,7 +383,7 @@ function SpaceSwitcher({
             accessibilityState={{ selected }}
             onPress={() => onPick(space)}
             style={{ width: MIN_TOUCH, height: MIN_TOUCH }}
-            className="items-center justify-center"
+            className="items-center justify-center active:opacity-60"
           >
             <View
               className={cn(

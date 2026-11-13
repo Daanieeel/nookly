@@ -38,7 +38,7 @@ export function SwipeRow({
           close();
           run(a);
         }}
-        className={cn("w-24 items-center justify-center", TONES[a.tone])}
+        className={cn("active:opacity-60", "w-24 items-center justify-center", TONES[a.tone])}
       >
         <Text variant="label" className="text-primary-foreground">
           {a.label}

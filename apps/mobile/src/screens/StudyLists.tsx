@@ -1,8 +1,8 @@
+import { ListGroup, ListItem } from "../ui/ListMotion.tsx";
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
 import type { AssignmentRecord, CourseRecord, DeckRecord, ExamRecord } from "@nookly/shared/data";
 import { useRouter } from "expo-router";
-import { View } from "react-native";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row } from "../ui/Row.tsx";
 import { dayLabel } from "./dates.ts";
@@ -20,7 +20,13 @@ function Rows<T extends { entity: { id: string } }>({
   render: (item: T) => React.ReactNode;
 }) {
   if (items.length === 0) return <Empty text={empty} />;
-  return items.map((item) => <View key={item.entity.id}>{render(item)}</View>);
+  return (
+    <ListGroup>
+      {items.map((item) => (
+        <ListItem key={item.entity.id}>{render(item)}</ListItem>
+      ))}
+    </ListGroup>
+  );
 }
 
 const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");

@@ -76,7 +76,10 @@ function Choice({
       accessibilityState={{ checked: selected }}
       onPress={onPress}
       unstable_pressDelay={0}
-      style={{ width: share ?? MIN_TOUCH, height: MIN_TOUCH }}
+      style={({ pressed }) => [
+        { width: share ?? MIN_TOUCH, height: MIN_TOUCH },
+        pressed && { opacity: 0.6 },
+      ]}
     >
       {({ pressed }) => (
         <View

@@ -1,3 +1,4 @@
+import { ListGroup, ListItem } from "../ui/ListMotion.tsx";
 import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
@@ -76,7 +77,7 @@ function Row({
         accessibilityLabel={`${done ? "Reopen" : "Mark done"} ${assignment.entity.title || "assignment"}`}
         hitSlop={touchSlop(CONTROL_SIZE.check)}
         onPress={() => mark.mutate(done ? "not_started" : "submitted")}
-        className="size-6 items-center justify-center"
+        className="size-6 items-center justify-center active:opacity-60"
       >
         <StatusIcon status={ASSIGNMENT_STATUSES.find((s) => s.id === assignment.status)} />
       </Pressable>
@@ -238,9 +239,11 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
                 </View>
                 <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden")}>
                   <View className="-mb-px">
-                    {group.items.map((a) => (
-                      <View key={a.entity.id}>{row(a)}</View>
-                    ))}
+                    <ListGroup>
+                      {group.items.map((a) => (
+                        <ListItem key={a.entity.id}>{row(a)}</ListItem>
+                      ))}
+                    </ListGroup>
                   </View>
                 </View>
               </View>
@@ -256,9 +259,11 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
               initiallyOpen={group.id !== "done"}
             >
               <View>
-                {group.items.map((a) => (
-                  <View key={a.entity.id}>{row(a)}</View>
-                ))}
+                <ListGroup>
+                  {group.items.map((a) => (
+                    <ListItem key={a.entity.id}>{row(a)}</ListItem>
+                  ))}
+                </ListGroup>
               </View>
             </Band>
           ))

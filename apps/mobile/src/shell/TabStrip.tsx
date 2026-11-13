@@ -45,7 +45,7 @@ function TabLabel({
         accessibilityState={{ selected: active }}
         onPress={onSelect}
         hitSlop={{ top: touchSlop(CONTROL_SIZE.sm).top, bottom: touchSlop(CONTROL_SIZE.sm).bottom }}
-        className="min-w-0 flex-shrink"
+        className="min-w-0 flex-shrink active:opacity-60"
       >
         <Text numberOfLines={1} className={cn(!active && "text-muted-foreground")}>
           {title}

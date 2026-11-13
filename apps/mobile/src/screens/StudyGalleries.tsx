@@ -185,7 +185,7 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
             accessibilityRole="button"
             accessibilityLabel={e.entity.title || "Exam"}
             onPress={() => open(e)}
-            className="flex-row items-center gap-2 py-1"
+            className="flex-row items-center gap-2 py-1 active:opacity-60"
           >
             <Text numberOfLines={1} className="flex-1 text-muted-foreground">
               {e.entity.title || "Exam"}

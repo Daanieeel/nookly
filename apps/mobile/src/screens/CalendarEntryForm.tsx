@@ -1,3 +1,4 @@
+import { haptic } from "../ui/haptics.ts";
 import type { CalendarEntryInput } from "@nookly/shared/data";
 import { useForm } from "@tanstack/react-form";
 import { Switch, View } from "react-native";
@@ -133,7 +134,10 @@ export function CalendarEntryForm({
               accessibilityLabel="All day"
               disabled={readOnly}
               value={field.state.value}
-              onValueChange={field.handleChange}
+              onValueChange={(next) => {
+                haptic("toggle");
+                field.handleChange(next);
+              }}
             />
           </View>
         )}
