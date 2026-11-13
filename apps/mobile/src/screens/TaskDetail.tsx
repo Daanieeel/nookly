@@ -1,3 +1,4 @@
+import { statusOption } from "./option-badges.tsx";
 import {
   type RepeatRule,
   createSubtask,
@@ -41,7 +42,7 @@ import { addDays, localDay } from "./dates.ts";
 import { orderTasks } from "./task-view.ts";
 import { ListGroup } from "../ui/ListMotion.tsx";
 import { PageEditor } from "./PageEditor.tsx";
-import { StatusIcon, TaskRow } from "./TaskRow.tsx";
+import { TaskRow } from "./TaskRow.tsx";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
 
 const REPEATS: { label: string; rule: RepeatRule | null }[] = [
@@ -136,11 +137,7 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         label="Status"
         value={task.statusId}
         readOnly={readOnly}
-        options={statuses.map((s) => ({
-          id: s.id,
-          label: s.name,
-          icon: <StatusIcon status={s} size={16} />,
-        }))}
+        options={statuses.map(statusOption)}
         onChange={(statusId) => status.mutate(statusId)}
       />
       <ChoiceProperty

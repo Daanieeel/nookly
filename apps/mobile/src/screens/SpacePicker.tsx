@@ -1,4 +1,4 @@
-import { SpaceIcon } from "./SpaceIcon.tsx";
+import { spaceOption } from "./option-badges.tsx";
 import { useSpaces } from "../data/queries.ts";
 import { SelectField } from "../ui/SelectField.tsx";
 
@@ -18,11 +18,7 @@ export function SpacePicker({
       value={value}
       onChange={onChange}
       empty="Make a Space first, with + next to Spaces in the sidebar."
-      options={spaces.map((space) => ({
-        id: space.id,
-        label: space.name,
-        icon: <SpaceIcon space={space} size={16} />,
-      }))}
+      options={spaces.map(spaceOption)}
     />
   );
 }

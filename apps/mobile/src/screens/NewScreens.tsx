@@ -1,3 +1,4 @@
+import { labelOption, statusOption } from "./option-badges.tsx";
 import { FORM_FIELD_CLASSES } from "@nookly/frontend/classes";
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
@@ -38,7 +39,6 @@ import { CoursePicker, ExamPicker } from "./StudyPickers.tsx";
 import { localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
-import { StatusIcon } from "./TaskRow.tsx";
 import { Swatch } from "../ui/Swatch.tsx";
 
 /// The Space to make something in: the one asked for, else the first.
@@ -154,11 +154,7 @@ function LabelsField({
           label="Labels"
           multiple
           values={value}
-          options={labels.map((l) => ({
-            id: l.id,
-            label: l.name,
-            icon: <View className="size-2 rounded-full" style={{ backgroundColor: l.color }} />,
-          }))}
+          options={labels.map(labelOption)}
           onToggle={(id, on) => onChange(on ? [...value, id] : value.filter((x) => x !== id))}
         />
       </Sheet>
@@ -228,11 +224,7 @@ export function NewTaskScreen({
         label="Status"
         value={statusId}
         onChange={setStatusId}
-        options={statuses.map((s) => ({
-          id: s.id,
-          label: s.name,
-          icon: <StatusIcon status={s} size={16} />,
-        }))}
+        options={statuses.map(statusOption)}
       />
       <DateField label="Due date" value={due} onChange={setDue} />
       {space ? <LabelsField spaceId={space} value={chosen} onChange={setChosen} /> : null}

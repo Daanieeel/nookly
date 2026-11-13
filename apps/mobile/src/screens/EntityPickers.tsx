@@ -1,4 +1,4 @@
-import { SpaceIcon } from "./SpaceIcon.tsx";
+import { labelOption, spaceOption } from "./option-badges.tsx";
 import {
   type EntityRecord,
   attachLabel,
@@ -31,11 +31,7 @@ export function LabelPicker({ entityId, spaceId }: { entityId: string; spaceId: 
       multiple
       searchPlaceholder="Find or make a label"
       values={attached.map((l) => l.id)}
-      options={labels.map((label) => ({
-        id: label.id,
-        label: label.name,
-        icon: <View className="size-2 rounded-full" style={{ backgroundColor: label.color }} />,
-      }))}
+      options={labels.map(labelOption)}
       onToggle={(labelId, on) => toggle.mutate({ labelId, on })}
       onCreate={(name) => add.mutate(name)}
     />
@@ -60,11 +56,7 @@ export function MovePicker({ entity }: { entity: EntityRecord }) {
       ) : (
         <OptionList
           label="Spaces"
-          options={others.map((s) => ({
-            id: s.id,
-            label: s.name,
-            icon: <SpaceIcon space={s} size={16} />,
-          }))}
+          options={others.map(spaceOption)}
           value={null}
           onChange={(spaceId) => move.mutate(spaceId, { onSuccess: () => sheet?.close() })}
         />

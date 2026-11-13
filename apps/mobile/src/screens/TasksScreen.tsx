@@ -1,3 +1,4 @@
+import { labelOption, statusOption } from "./option-badges.tsx";
 import { createView } from "@nookly/shared/data";
 import { IconLayoutKanban, IconList } from "@tabler/icons-react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -26,7 +27,7 @@ import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
 import { ListGroup } from "../ui/ListMotion.tsx";
-import { StatusIcon, TaskRow } from "./TaskRow.tsx";
+import { TaskRow } from "./TaskRow.tsx";
 import {
   DEFAULT_DISPLAY,
   GROUPINGS,
@@ -125,22 +126,14 @@ function FilterPanel({
       <FilterField
         label="Status"
         values={display.statuses}
-        options={statuses.map((s) => ({
-          id: s.id,
-          label: s.name,
-          icon: <StatusIcon status={s} size={16} />,
-        }))}
+        options={statuses.map(statusOption)}
         onChange={(next) => onChange({ ...display, statuses: next })}
       />
       {shownLabels.length > 0 ? (
         <FilterField
           label="Labels"
           values={display.labels}
-          options={shownLabels.map((l) => ({
-            id: l.id,
-            label: l.name,
-            icon: <View className="size-2 rounded-full" style={{ backgroundColor: l.color }} />,
-          }))}
+          options={shownLabels.map(labelOption)}
           onChange={(next) => onChange({ ...display, labels: next })}
         />
       ) : null}

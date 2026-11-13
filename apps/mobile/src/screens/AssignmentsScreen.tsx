@@ -1,3 +1,4 @@
+import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { type AssignmentRecord, updateAssignment } from "@nookly/shared/data";
@@ -180,11 +181,7 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
             <FilterField
               label="Status"
               values={display.statuses}
-              options={ASSIGNMENT_STATUSES.map((s) => ({
-                id: s.id,
-                label: s.name,
-                icon: <StatusIcon status={s} size={16} />,
-              }))}
+              options={ASSIGNMENT_STATUSES.map(statusOption)}
               onChange={(next) => setDisplay({ ...display, statuses: next })}
             />
           </View>

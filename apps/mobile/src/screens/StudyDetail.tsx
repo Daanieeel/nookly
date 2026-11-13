@@ -1,3 +1,4 @@
+import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES, type FixedStatus } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
 import {
@@ -76,7 +77,6 @@ import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
 import { CourseProperty } from "./StudyPickers.tsx";
 import { PageEditor } from "./PageEditor.tsx";
 import { courseStats, inDays } from "./course-stats.ts";
-import { StatusIcon } from "./TaskRow.tsx";
 
 /// The fields of Courses, Exams, Assignments and Decks, as their detail pages show
 /// them on the desktop.
@@ -87,11 +87,7 @@ function Padded({ children }: { children: React.ReactNode }) {
 
 /// A fixed set of statuses as the options of a row.
 function statusOptions(statuses: FixedStatus[]) {
-  return statuses.map((s) => ({
-    id: s.id,
-    label: s.name,
-    icon: <StatusIcon status={s} size={16} />,
-  }));
+  return statuses.map(statusOption);
 }
 
 function useCourseName(spaceId: string) {
