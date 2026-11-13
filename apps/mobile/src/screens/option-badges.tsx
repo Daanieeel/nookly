@@ -14,7 +14,7 @@ import { BADGE, TINT } from "../ui/tokens.ts";
 import { dayLabel, localDay } from "./dates.ts";
 import type { Option } from "../ui/sheet/OptionList.tsx";
 import { SpaceIcon } from "./SpaceIcon.tsx";
-import { StatusIcon } from "./TaskRow.tsx";
+import { StatusIcon } from "./StatusIcon.tsx";
 
 /// The options of a picker for things that carry their own colour, each on a badge tinted
 /// with it, as iOS tints a Settings row's square (D50): a status, a label, a Space.

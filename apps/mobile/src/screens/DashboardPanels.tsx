@@ -33,7 +33,7 @@ import {
   tasksFor,
 } from "./dashboard-model.ts";
 import { DeckTile } from "./StudyGalleries.tsx";
-import { StatusIcon } from "./TaskRow.tsx";
+import { StatusIcon } from "./StatusIcon.tsx";
 
 /// Rows a list panel shows before "Show more".
 const LIST_LIMIT = 4;

@@ -29,7 +29,8 @@ import {
 } from "./assignment-view.ts";
 import { dueText } from "./dashboard-model.ts";
 import { localDay } from "./dates.ts";
-import { DueLine, StatusIcon } from "./TaskRow.tsx";
+import { DueLine } from "./TaskRow.tsx";
+import { StatusIcon } from "./StatusIcon.tsx";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
 import { barButton } from "../ui/bar.ts";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";

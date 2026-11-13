@@ -6,7 +6,7 @@ import { useRouter } from "expo-router";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row } from "../ui/Row.tsx";
 import { dayLabel } from "./dates.ts";
-import { StatusIcon } from "./TaskRow.tsx";
+import { StatusIcon } from "./StatusIcon.tsx";
 
 /// Rows of Courses, Exams, Assignments and Decks, for their module pages and a Course.
 
