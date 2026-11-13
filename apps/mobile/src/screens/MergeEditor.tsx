@@ -1,5 +1,5 @@
 import { type ConflictView, type DiffLine, combinedText, diffLines } from "@nookly/shared/sync";
-import { IconAlertTriangle, IconCheck } from "@tabler/icons-react-native";
+import { IconAlertTriangle, IconCheck, IconGitCompare } from "@tabler/icons-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -8,7 +8,9 @@ import { keys } from "../data/keys.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
-import { ROW_DIVIDER, Section } from "../ui/Row.tsx";
+import { GroupedSection, INSET } from "../ui/kit/GroupedSection.tsx";
+import { IconBadge } from "../ui/kit/IconBadge.tsx";
+import { ListRow } from "../ui/kit/ListRow.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { cn } from "../ui/classes.ts";
@@ -361,20 +363,24 @@ export function MergeEditor() {
     void queryClient.invalidateQueries({ queryKey: keys.local });
   };
   const list = (
-    <Section>
+    <GroupedSection margin={0} inset={INSET.badge}>
       {views.map((view) => (
-        <Button
+        <ListRow
           key={view.id}
-          label={`${view.itemTitle}, ${view.fieldLabel}`}
-          variant={view.id === selected?.id ? "secondary" : "ghost"}
-          className={cn("h-auto justify-start py-2", ROW_DIVIDER)}
+          badge={
+            <IconBadge symbol="arrow.left.arrow.right" fallback={IconGitCompare} tint="yellow" />
+          }
+          title={view.itemTitle}
+          subtitle={view.fieldLabel}
+          accessory={wide ? "check" : "chevron"}
+          selected={wide ? view.id === selected?.id : undefined}
           onPress={() => setPick(view.id)}
         />
       ))}
-    </Section>
+    </GroupedSection>
   );
   return (
-    <Screen>
+    <Screen grouped>
       <Text tone="muted">
         Two of your devices changed the same thing. The newer change is showing, nothing was lost,
         and you can keep either, both, or a mix.

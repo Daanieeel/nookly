@@ -212,7 +212,7 @@ export default function RootLayout() {
       <Stack.Screen name="new/import" options={SHEET_ROUTE} />
       <Stack.Screen name="new/deck" options={SHEET_ROUTE} />
       <Stack.Screen name="new/share" options={SHEET_ROUTE} />
-      <Stack.Screen name="conflicts" options={{ title: "Review Changes" }} />
+      <Stack.Screen name="conflicts" options={{ title: "Review Changes", ...groupedHeader }} />
       <Stack.Screen
         name="study/[deckId]"
         options={{ title: "Study", presentation: "fullScreenModal" }}
