@@ -107,7 +107,16 @@ export function Segmented<T extends string>({
             })}
           >
             {option.icon}
-            <Label type="subheadline" weight={selected ? "600" : "500"} numberOfLines={1}>
+            <Label
+              type="subheadline"
+              weight={selected ? "600" : "500"}
+              numberOfLines={1}
+              // As iOS's segmented control: the labels grow less than body text and shrink
+              // to fit rather than cut a word off.
+              maxFontSizeMultiplier={1.5}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
               {option.label}
             </Label>
           </Pressable>

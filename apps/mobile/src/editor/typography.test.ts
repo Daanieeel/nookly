@@ -11,6 +11,11 @@ describe("a page's font and size on the phone", () => {
     expect(css).toContain(`--page-font: ${PAGE_FONTS.serif};`);
     expect(css).toContain("--page-scale: 1.5;");
   });
+
+  it("grows with the system's text size, as the rest of the app does", () => {
+    expect(pageTypographyCss("default", 14, 2)).toBe(":root { --page-scale: 2; }");
+    expect(pageTypographyCss("default", 21, 1.5)).toContain("--page-scale: 2.25;");
+  });
 });
 
 describe("an empty page's placeholder", () => {

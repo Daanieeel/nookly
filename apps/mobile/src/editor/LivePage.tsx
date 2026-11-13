@@ -225,7 +225,7 @@ export function PageDocEditor({
         }}
         editable={editable}
         vim={vim}
-        typography={pageTypographyCss(pageFont, pageSize)}
+        typography={pageTypographyCss(pageFont, pageSize, window.fontScale)}
         person={person}
         macros={macros}
         placeholder={placeholder}
