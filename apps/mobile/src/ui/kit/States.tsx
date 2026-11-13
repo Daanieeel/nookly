@@ -25,7 +25,6 @@ export function EmptyState({
   const muted = useSemanticPair("tertiaryLabel");
   return (
     <View
-      accessibilityRole="summary"
       style={{
         alignItems: "center",
         gap: SPACE.sm,
@@ -43,11 +42,22 @@ export function EmptyState({
           weight="regular"
         />
       ) : null}
-      <Label type="headline" style={{ textAlign: "center" }}>
+      <Label
+        type="headline"
+        accessibilityRole="summary"
+        accessibilityLabel={message ? `${title}. ${message}` : title}
+        style={{ textAlign: "center" }}
+      >
         {title}
       </Label>
       {message ? (
-        <Label type="subheadline" color="secondaryLabel" style={{ textAlign: "center" }}>
+        <Label
+          type="subheadline"
+          color="secondaryLabel"
+          importantForAccessibility="no"
+          accessibilityElementsHidden
+          style={{ textAlign: "center" }}
+        >
           {message}
         </Label>
       ) : null}
@@ -82,7 +92,6 @@ export function ErrorState({
   const scheme = useScheme();
   return (
     <View
-      accessibilityRole="alert"
       style={{
         alignItems: "center",
         gap: SPACE.sm,
@@ -98,11 +107,23 @@ export function ErrorState({
         hex={TINT.red[scheme]}
         weight="regular"
       />
-      <Label type="headline" style={{ textAlign: "center" }}>
+      <Label
+        type="headline"
+        accessibilityRole="alert"
+        accessibilityLiveRegion="assertive"
+        accessibilityLabel={message ? `${title}. ${message}` : title}
+        style={{ textAlign: "center" }}
+      >
         {title}
       </Label>
       {message ? (
-        <Label type="subheadline" color="secondaryLabel" style={{ textAlign: "center" }}>
+        <Label
+          type="subheadline"
+          color="secondaryLabel"
+          importantForAccessibility="no"
+          accessibilityElementsHidden
+          style={{ textAlign: "center" }}
+        >
           {message}
         </Label>
       ) : null}

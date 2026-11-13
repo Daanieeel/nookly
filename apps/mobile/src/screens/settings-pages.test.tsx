@@ -15,7 +15,9 @@ describe("Settings", () => {
     expect(await screen.findByText("LaTeX macros")).toBeTruthy();
     expect(screen.queryByText("Sign in to sync")).toBeNull();
     await fireEvent.changeText(screen.getByLabelText("Search settings"), "zzzz nothing");
-    expect(await screen.findByText("No setting matches.")).toBeTruthy();
+    expect(
+      await screen.findByRole("summary", { name: "No Results. No setting matches." }),
+    ).toBeTruthy();
   });
 
   it("lists the pages the desktop has, with LaTeX and Backup", async () => {
