@@ -62,7 +62,7 @@ const mark = (type: MarkType): Command => toggleMark(type);
 
 export const toggleBold = mark(marks.bold);
 export const toggleItalic = mark(marks.italic);
-export const toggleUnderline = mark(marks.underline);
+const toggleUnderline = mark(marks.underline);
 export const toggleStrike = mark(marks.strike);
 export const toggleCode = mark(marks.code);
 export const toggleHighlight = mark(marks.highlight);
