@@ -54,6 +54,7 @@ import {
 } from "./commands.ts";
 import { loadGate } from "./load-gate.ts";
 import { pageSchema } from "./schema.ts";
+import { placeholderStyle } from "./typography.ts";
 
 const undo: Command = (state) => Boolean(yUndo(state));
 const redo: Command = (state) => Boolean(yRedo(state));
@@ -139,7 +140,7 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 .root { font: calc(17px * var(--page-scale, 1))/1.55 var(--page-font, -apple-system, system-ui, "Inter", sans-serif); color: var(--fg); }
 .host { display: flex; flex-direction: column; }
 .pm { flex: 1; outline: none; padding: 0 0 24px; min-height: 120px; word-break: break-word; position: relative; }
-.pm > p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before { content: attr(data-placeholder); color: var(--muted); position: absolute; pointer-events: none; }
+.pm > p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before { content: var(--placeholder); color: var(--muted); position: absolute; white-space: nowrap; pointer-events: none; }
 .pm p { margin: 0 0 .6em; }
 .pm h1 { font-size: 1.7em; line-height: 1.25; margin: 1em 0 .4em; }
 .pm h2 { font-size: 1.4em; line-height: 1.3; margin: .9em 0 .4em; }
@@ -354,7 +355,12 @@ export default function PageEditorDom({
         math: mathBlockView(() => macrosRef.current),
         equation: mathBlockView(() => macrosRef.current),
       },
-      attributes: { class: "pm", "data-placeholder": placeholder, spellcheck: "true" },
+      attributes: {
+        class: "pm",
+        "data-placeholder": placeholder,
+        style: placeholderStyle(placeholder),
+        spellcheck: "true",
+      },
       editable: () => editableRef.current,
       // A tap on a formula in the text opens its source to change.
       handleClickOn(

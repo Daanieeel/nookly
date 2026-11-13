@@ -7,3 +7,9 @@ export function pageTypographyCss(font: PageFont, size: number): string {
   const vars = [family ? `--page-font: ${family};` : "", `--page-scale: ${pageScale(size)};`];
   return `:root { ${vars.filter(Boolean).join(" ")} }`;
 }
+
+/// What an empty page says, as the CSS variable its empty paragraph shows (`content:
+/// var(--placeholder)`), the text escaped so it stays one CSS string.
+export function placeholderStyle(text: string): string {
+  return `--placeholder: "${text.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}";`;
+}
