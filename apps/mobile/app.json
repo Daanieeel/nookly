@@ -8,6 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "app.nookly.mobile",
+      "icon": "./assets/Nookly.icon",
       "supportsTablet": true,
       "infoPlist": {
         "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
