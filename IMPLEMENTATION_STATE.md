@@ -102,7 +102,11 @@ Open:
 
 - [x] (2026-11-13: every device offers it; the device that saw it hands it to the server, and deciding anywhere settles it everywhere, D40, two new tests in `two-devices.test.ts`) D40 (flagged): a clash shows only on the device that pulled first, unless the server saw both edits. Decide whether every device should offer it.
 - [x] (2026-11-13: not reproduced. Three headless tests in `two-devices.test.ts` restart a device with 120 items of its own the moment its first sync is sending or checking, with the edit made before or after the restart; 15 of 15 runs sent the edit and finished the first sync. They stay as guards; the phone's own lifecycle (backgrounding mid sync) is on "Needs the user") Once, a phone edit stayed pending after a sign in plus restart during the first sync's checking phase; not reproduced in 4 tries. Try again.
-- [ ] Re-run the old definition of done for real (account made on mobile and used on desktop, offline conflict and the merge editor on both apps) and record it.
+- [x] (2026-11-13, real apps: phone simulator and a desktop debug build on a scratch folder with its first launch sample data, dev server on 3100) Re-run the old definition of done for real (account made on mobile and used on desktop, offline conflict and the merge editor on both apps) and record it.
+  - Account made on the phone (Create Account screen), two tasks added there. The desktop signed in to it choosing "Add to the account": a backup was written first (`pre-sync-backups/`), the phone's tasks landed on the desktop and the desktop's 75 sample items on the phone.
+  - Live edits: a title changed on the phone showed in the desktop's database within 0.5 s, one changed on the desktop on the phone within 0.5 s.
+  - Offline clash: the phone's sync stopped, both changed the same title, the phone came back and pulled the desktop's edit first. Both devices offered the clash (the desktop through the new hand over, D40). Merge editor on both: `docs/todo-screenshots/dod-desktop-clash.png`, `dod-phone-clash.png`. Deciding on the phone ("Keep the Other") set the title on both and cleared the desktop's list live (`dod-desktop-settled.png`).
+  - Found: a hot reload of the phone's `_layout.tsx` leaves the old app setup (its sync and automation poller) running beside the new one; scripts then hit either. Dev only, a cold relaunch clears it (same cause as the "database is locked" item). The phone's Review Changes list still draws its rows in the old style (sweep item).
 
 ### 3. Desktop
 
