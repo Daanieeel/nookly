@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.75.2 (2026-11-13)
+
+### Fixed
+
+- Fixed text in PDF files sometimes not being selectable, especially while scrolling through a document.
+
 ## 0.75.1 (2026-11-13)
 
 ### Fixed
