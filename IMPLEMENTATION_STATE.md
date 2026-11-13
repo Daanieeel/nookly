@@ -148,7 +148,7 @@ Open, named by the user:
   - [x] Custom haptics (D49): Core Haptics module `modules/nookly-haptics`, named patterns in `ui/haptics.ts`, wired into picks, tabs, switches, drawers, sheets, swipes, task done and button results, Settings switch under Appearance. Feel needs a real iPhone.
   - Respect Reduce Motion (swap springs for short fades), keep everything at 60 fps (worklets on the UI thread, no JS driven animation in lists), and test in the simulator (Reduce Motion on and off).
   - Verify by screen recording on the simulator (`xcrun simctl io <id> recordVideo`) and compare against Apple's own apps (Settings, Notes, Reminders) for timing and feel; keep the recordings in a scratch folder (not in git) and look at frames from them yourself; the final feel on a real device goes on the "Needs the user" list.
-- [ ] Overall pass: after the above, review every screen for desktop likeness (typography, spacing, colour, icons, hierarchy), with phone and iPad screenshots in dark and light mode.
+- [ ] (partly, 2026-11-13: phone in dark and light (`mobile-overall-light.png` and the dark shots), largest text, iPad dashboard, Settings, Account and Tasks (`ipad-*.png`). Found on the iPad: Settings leaves its right column empty until a category is picked; iOS opens the first. Not every screen was reviewed on the iPad) Overall pass: after the above, review every screen for desktop likeness (typography, spacing, colour, icons, hierarchy), with phone and iPad screenshots in dark and light mode.
 
 Open, named by the user (2026-11-12, late):
 
