@@ -138,7 +138,7 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ### 11b. Merge main (asked 2026-11-13)
 
-- [ ] Merge `main` into this branch again and adapt the fixes it brought to this branch's code (the rebuilt mobile screens, sync). Never push to `main`.
+- [x] Merge `main` into this branch again and adapt the fixes it brought to this branch's code (the rebuilt mobile screens, sync). Never push to `main`.
 
 ### 12. Final checks and report
 

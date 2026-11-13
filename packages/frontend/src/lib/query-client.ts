@@ -28,7 +28,10 @@ const REFETCH_ON_FOCUS: readonly (readonly string[])[] = [
 /// failure no screen handles still leaves a line in the log.
 export function createQueryClient(): QueryClient {
   const client = new QueryClient({
-    defaultOptions: { queries: { refetchOnWindowFocus: false } },
+    defaultOptions: {
+      queries: { refetchOnWindowFocus: false, networkMode: "always" },
+      mutations: { networkMode: "always" },
+    },
     queryCache: new QueryCache({
       onError: (error, query) =>
         logger.error("query", `Loading ${keyName(query.queryKey, "data")} failed`, error),

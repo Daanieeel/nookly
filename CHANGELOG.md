@@ -23,6 +23,18 @@ All notable changes to Nookly are listed here.
 - **The hidden sidebar is readable when it slides in.** Resting the pointer on the left edge shows it on a solid background, no longer see through over the page.
 - **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on.
 
+## 0.75.2 (2026-11-13)
+
+### Fixed
+
+- Fixed text in PDF files sometimes not being selectable, especially while scrolling through a document.
+
+## 0.75.1 (2026-11-13)
+
+### Fixed
+
+- Opening notes, jots, and lists while disconnected from Wi-Fi no longer pauses queries and leaves blank pages or loading skeletons.
+
 ## 0.75.0 (2026-11-10)
 
 ### Added

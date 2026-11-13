@@ -1,6 +1,7 @@
 /// The pieces that draw the pages of the PDF viewer: lazily mounted, scaled, with their text
 /// layer and search highlights.
 import {
+  type ComponentType,
   type ComponentProps,
   type CSSProperties,
   type ReactNode,
@@ -124,9 +125,11 @@ function useLagged<T>(value: T, ms: number, immediate: boolean): T {
 /// inside is stretched to match. While pdf.js redraws at the new `renderScale`
 /// (react-pdf hides the canvas for that), a copy of the last drawn canvas stays
 /// visible behind it, so zooming never flashes blank. `width` and `height` are the
-/// page's size at zoom 1. Only a `visible` page gets a text and annotation layer,
-/// a copy of its canvas and an instant redraw; pages around it follow a moment later.
+/// page's size at zoom 1. Mounted pages keep a text layer for selection; only a
+/// `visible` page gets an annotation layer, a copy of its canvas and an instant redraw.
+/// Pages around it follow a moment later.
 function ScaledPage({
+  pageComponent: PdfPage = Page,
   width,
   height,
   renderScale: wantedRenderScale,
@@ -134,6 +137,7 @@ function ScaledPage({
   onRenderSuccess,
   ...pageProps
 }: {
+  pageComponent?: ComponentType<ComponentProps<typeof Page>>;
   width: number;
   height: number;
   renderScale: number;
@@ -174,10 +178,10 @@ function ScaledPage({
         }
         className="absolute top-0 left-0 origin-top-left scale-(--page-stretch)"
       >
-        <Page
+        <PdfPage
           {...pageProps}
           scale={renderScale}
-          renderTextLayer={visible}
+          renderTextLayer
           renderAnnotationLayer={visible}
           devicePixelRatio={canvasPixelRatio(
             window.devicePixelRatio || 1,
@@ -196,6 +200,7 @@ function ScaledPage({
 }
 
 interface PdfPageRowProps {
+  pageComponent?: ComponentType<ComponentProps<typeof Page>>;
   page: number;
   /// The page's size at zoom 1.
   width: number;
@@ -215,6 +220,7 @@ interface PdfPageRowProps {
 /// other pages alone. Zooming does not touch its props at all: the box follows
 /// `--pdf-scale` in CSS.
 export const PdfPageRow = memo(function PdfPageRow({
+  pageComponent,
   page,
   width,
   height,
@@ -249,6 +255,7 @@ export const PdfPageRow = memo(function PdfPageRow({
         minHeight="var(--box-height)"
       >
         <ScaledPage
+          pageComponent={pageComponent}
           pageNumber={page}
           width={width}
           height={height}
