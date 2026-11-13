@@ -94,7 +94,7 @@ describe("a new task", () => {
     await openRow(screen, "Labels");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Urgent" }));
     await openRow(screen, "Link to");
-    await fireEvent.changeText(await screen.findByLabelText("Find an item"), "Meeting");
+    await fireEvent.changeText(await screen.findByLabelText("Search Items"), "Meeting");
     await fireEvent.press(await screen.findByRole("radio", { name: "Meeting notes" }));
     await fireEvent.press(screen.getByRole("button", { name: "Create" }));
     await waitFor(async () => {

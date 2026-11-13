@@ -151,8 +151,8 @@ describe("a task's due date, labels and links", () => {
       data,
     );
     await act(() => router.push("/link"));
-    await fireEvent.changeText(await screen.findByLabelText("Find an item"), "Slides");
-    await fireEvent.press(await screen.findByRole("button", { name: "Slides, TSK-2" }));
+    await fireEvent.changeText(await screen.findByLabelText("Search Items"), "Slides");
+    await fireEvent.press(await screen.findByRole("radio", { name: "Slides, TSK-2" }));
     await waitFor(async () =>
       expect((await relatedItems(data.db, task)).map((r) => r.entity.id)).toEqual([other]),
     );
@@ -245,8 +245,8 @@ describe("an item's links", () => {
     );
     await act(() => router.push("/link"));
     await choose(screen, "Kind of link", "Blocks");
-    await fireEvent.changeText(screen.getByLabelText("Find an item"), "Review");
-    await fireEvent.press(await screen.findByRole("button", { name: /^Review, / }));
+    await fireEvent.changeText(screen.getByLabelText("Search Items"), "Review");
+    await fireEvent.press(await screen.findByRole("radio", { name: /^Review, / }));
     await waitFor(async () =>
       expect((await linkedItems(data.db, task)).map((l) => [l.type.name, l.entity.id])).toEqual([
         ["blocks", other],

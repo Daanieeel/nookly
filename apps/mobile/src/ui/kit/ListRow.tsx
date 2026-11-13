@@ -46,7 +46,9 @@ export function ListRow({
   return (
     <Pressable
       accessibilityRole={accessibilityRole}
-      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityLabel={
+        accessibilityLabel ?? [title, subtitle, detail].filter(Boolean).join(", ")
+      }
       accessibilityState={stateOf(disabled, selected)}
       disabled={disabled || !onPress}
       onPress={onPress}

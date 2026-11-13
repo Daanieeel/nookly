@@ -1,6 +1,18 @@
+import { IconX } from "@tabler/icons-react-native";
+import type { Option } from "../ui/sheet/OptionList.tsx";
+import { courseOption, examOption } from "./option-badges.tsx";
 import { useCourses, useExams } from "../data/queries.ts";
 import { ChoiceProperty } from "../ui/property-rows.tsx";
 import { SelectField } from "../ui/SelectField.tsx";
+
+/// The choice of no Exam, first and apart from the Exams.
+const NO_EXAM: Option = {
+  id: "none",
+  label: "No exam",
+  symbol: "xmark",
+  fallbackIcon: IconX,
+  tint: "gray",
+};
 
 /// The Course an exam or assignment belongs to: exactly one, of its Space.
 export function CoursePicker({
@@ -22,7 +34,7 @@ export function CoursePicker({
       onChange={onChange}
       disabled={readOnly}
       empty="Make a Course first, under Courses."
-      options={courses.map((c) => ({ id: c.entity.id, label: c.entity.title || "Untitled" }))}
+      options={courses.map((c) => courseOption(c))}
     />
   );
 }
@@ -46,10 +58,7 @@ export function ExamPicker({
       value={value ?? "none"}
       onChange={(id) => onChange(id === "none" ? null : id)}
       disabled={readOnly}
-      options={[
-        { id: "none", label: "No exam" },
-        ...exams.map((e) => ({ id: e.entity.id, label: e.entity.title || "Untitled" })),
-      ]}
+      options={[NO_EXAM, ...exams.map((e, i) => ({ ...examOption(e), separatorBefore: i === 0 }))]}
     />
   );
 }
@@ -76,7 +85,7 @@ export function CourseProperty({
       label="Course"
       value={value ?? ""}
       readOnly={readOnly}
-      options={courses.map((c) => ({ id: c.entity.id, label: c.entity.title || "Untitled" }))}
+      options={courses.map((c) => courseOption(c))}
       onChange={onChange}
     />
   );
@@ -103,10 +112,7 @@ export function ExamProperty({
       label="Exam"
       value={value ?? "none"}
       readOnly={readOnly}
-      options={[
-        { id: "none", label: "No exam" },
-        ...exams.map((e) => ({ id: e.entity.id, label: e.entity.title || "Untitled" })),
-      ]}
+      options={[NO_EXAM, ...exams.map((e, i) => ({ ...examOption(e), separatorBefore: i === 0 }))]}
       onChange={(id) => onChange(id === "none" ? null : id)}
     />
   );

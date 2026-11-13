@@ -1,3 +1,5 @@
+import { entityOption } from "./option-badges.tsx";
+import { OptionList } from "../ui/sheet/OptionList.tsx";
 import {
   type EntityRecord,
   type LinkedItem,
@@ -19,7 +21,6 @@ import {
   useSearch,
 } from "../data/queries.ts";
 import { IconButton } from "../ui/Button.tsx";
-import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { SheetProperty } from "../ui/property-rows.tsx";
@@ -150,15 +151,6 @@ export function LinkPicker({ entityId }: { entityId: string }) {
   const shown = (searching ? results : recent).filter((e) => !linked.has(e.id));
   return (
     <View className="gap-4">
-      <Field
-        label="Find an item"
-        autoFocus
-        placeholder="Titles, keys like TSK-14, page text"
-        value={query}
-        onChangeText={setQuery}
-        autoCorrect={false}
-        clearButtonMode="while-editing"
-      />
       <SelectField
         label="Kind of link"
         value={typeName}
@@ -169,22 +161,19 @@ export function LinkPicker({ entityId }: { entityId: string }) {
         onChange={setTypeName}
       />
       {link.error ? <Text tone="destructive">{link.error.message}</Text> : null}
-      <Section title={searching ? "Results" : "Recents"}>
-        {shown.length === 0 ? (
-          <Empty text={searching ? "Nothing matches." : "Search for an item to link."} />
-        ) : null}
-        {shown.map((entity) => (
-          <View key={entity.id}>
-            <Row
-              title={entity.title || "Untitled"}
-              subtitle={entity.key}
-              icon={<EntityIcon type={entity.type} icon={entity.icon} />}
-              accessibilityHint="Links it"
-              onPress={() => link.mutate(entity.id, { onSuccess: () => close() })}
-            />
-          </View>
-        ))}
-      </Section>
+      <OptionList
+        label="Items"
+        searchPlaceholder="Titles, keys like TSK-14, page text"
+        onQueryChange={setQuery}
+        empty={{ title: "No Recents", message: "Search for an item to link." }}
+        options={shown.map((e) => ({
+          ...entityOption(e),
+          section: searching ? "Results" : "Recents",
+        }))}
+        value={null}
+        onChange={(id) => link.mutate(id, { onSuccess: () => close() })}
+        afterPick={() => {}}
+      />
     </View>
   );
 }

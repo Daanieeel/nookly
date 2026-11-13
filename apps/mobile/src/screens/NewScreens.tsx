@@ -1,4 +1,4 @@
-import { labelOption, statusOption } from "./option-badges.tsx";
+import { entityOption, labelOption, statusOption } from "./option-badges.tsx";
 import { FORM_FIELD_CLASSES } from "@nookly/frontend/classes";
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
@@ -94,30 +94,20 @@ function EntitySearch({ onPick }: { onPick: (e: EntityRecord) => void }) {
   const { data: recent = [] } = useRecents();
   const shown = query.trim() ? results.slice(0, 30) : recent;
   return (
-    <View className="gap-2">
-      <Field
-        label="Find an item"
-        autoFocus
-        placeholder="Titles, keys like TSK-14, page text"
-        value={query}
-        onChangeText={setQuery}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-      <OptionList
-        label="Items"
-        options={shown.map((e) => ({
-          id: e.id,
-          label: e.title || "Untitled",
-          icon: <EntityIcon type={e.type} icon={e.icon} />,
-        }))}
-        value={null}
-        onChange={(id) => {
-          const e = shown.find((x) => x.id === id);
-          if (e) onPick(e);
-        }}
-      />
-    </View>
+    <OptionList
+      label="Items"
+      searchPlaceholder="Titles, keys like TSK-14, page text"
+      onQueryChange={setQuery}
+      options={shown.map((e) => ({
+        ...entityOption(e),
+        section: query.trim() ? undefined : "Recent",
+      }))}
+      value={null}
+      onChange={(id) => {
+        const e = shown.find((x) => x.id === id);
+        if (e) onPick(e);
+      }}
+    />
   );
 }
 

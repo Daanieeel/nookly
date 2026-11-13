@@ -76,6 +76,11 @@ export function OptionList<Id extends string>(
     onCreate?: (name: string) => void;
     /// `false` leaves the search out (a list that is only ever two or three long and fixed).
     search?: boolean;
+    /// Searches elsewhere (the item search): gets each query, and `options` are then shown
+    /// as given, not filtered here.
+    onQueryChange?: (query: string) => void;
+    /// What an empty list says instead of No Results (before anything is searched).
+    empty?: { title: string; message: string };
   } & (
     | {
         multiple?: false;
@@ -92,13 +97,18 @@ export function OptionList<Id extends string>(
   const sheet = useSheet();
   const [query, setQuery] = useState("");
   const words = query.trim().toLowerCase();
-  const shown = words
-    ? options.filter((o) =>
-        [o.label, o.subtitle ?? "", ...(o.keywords ?? [])].some((k) =>
-          k.toLowerCase().includes(words),
-        ),
-      )
-    : options;
+  const search = (next: string) => {
+    setQuery(next);
+    props.onQueryChange?.(next);
+  };
+  const shown =
+    words && !props.onQueryChange
+      ? options.filter((o) =>
+          [o.label, o.subtitle ?? "", ...(o.keywords ?? [])].some((k) =>
+            k.toLowerCase().includes(words),
+          ),
+        )
+      : options;
   const exact = options.some((o) => o.label.toLowerCase() === words);
   const creating = onCreate !== undefined && words !== "" && !exact;
   const chosen = (id: Id) => (props.multiple ? props.values.includes(id) : props.value === id);
@@ -119,7 +129,7 @@ export function OptionList<Id extends string>(
   const create = () => {
     if (!creating) return;
     onCreate?.(query.trim());
-    setQuery("");
+    search("");
   };
   const stuck = current.index === null ? undefined : groups[current.index]?.title;
 
@@ -130,7 +140,7 @@ export function OptionList<Id extends string>(
           <SearchField
             label={`Search ${label}`}
             value={query}
-            onChangeText={setQuery}
+            onChangeText={search}
             placeholder={searchPlaceholder}
             onSubmit={onCreate ? create : undefined}
           />
@@ -184,8 +194,12 @@ export function OptionList<Id extends string>(
           <EmptyState
             symbol="magnifyingglass"
             fallback={IconMoodEmpty}
-            title="No Results"
-            message="Check the spelling or try a new search."
+            title={!words && props.empty ? props.empty.title : "No Results"}
+            message={
+              !words && props.empty
+                ? props.empty.message
+                : "Check the spelling or try a new search."
+            }
           />
         ) : null}
       </View>

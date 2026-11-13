@@ -275,3 +275,28 @@ describe("a select", () => {
     expect(await screen.findByText("No Results")).toBeTruthy();
   });
 });
+
+describe("an option list searched elsewhere", () => {
+  it("hands the query on and shows what it is given, unfiltered", () => {
+    const asked: string[] = [];
+    function Searched() {
+      const [query, setQuery] = useState("");
+      return (
+        <OptionList
+          label="Items"
+          options={query ? [{ id: "x", label: "Found by its page text" }] : OPTIONS}
+          value={null}
+          onChange={() => {}}
+          onQueryChange={(next) => {
+            asked.push(next);
+            setQuery(next);
+          }}
+        />
+      );
+    }
+    const screen = render(<Searched />);
+    fireEvent.changeText(screen.getByLabelText("Search Items"), "zebra");
+    expect(asked).toEqual(["zebra"]);
+    expect(screen.getByRole("radio", { name: "Found by its page text" })).toBeTruthy();
+  });
+});
