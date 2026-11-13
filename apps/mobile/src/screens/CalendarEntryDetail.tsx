@@ -2,6 +2,7 @@ import {
   type CalendarEntryInput,
   getCalendarEntry,
   setCalendarEntryCancelled,
+  trashEntity,
   updateCalendarEntry,
 } from "@nookly/shared/data";
 import {
@@ -10,7 +11,9 @@ import {
   IconMapPin,
   IconSun,
   IconRepeat,
+  IconTrash,
 } from "@tabler/icons-react-native";
+import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -39,6 +42,9 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
   const cancel = useLocalWrite((d, cancelled: boolean) =>
     setCalendarEntryCancelled(d, id, cancelled),
   );
+  const router = useRouter();
+  // Into Trash, where it can be brought back; the page it was open on goes with it.
+  const trash = useLocalWrite((d, _: undefined) => trashEntity(d, id));
   const [text, setText] = useState("");
   const stored = item?.description;
   useEffect(() => setText(stored ?? ""), [stored]);
@@ -142,6 +148,25 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
             onChangeText={setText}
             onEndEditing={() => text !== (item.description ?? "") && change({ description: text })}
           />
+          {!readOnly ? (
+            <View className="pt-6">
+              <Button
+                label="Move to Trash"
+                variant="destructive"
+                size="lg"
+                icon={<IconTrash size={18} color={theme.colors.destructive} />}
+                status={statusOf(trash)}
+                errorLabel="Couldn't move it"
+                onPress={() =>
+                  trash.mutate(undefined, {
+                    onSuccess: () => {
+                      if (router.canGoBack()) router.back();
+                    },
+                  })
+                }
+              />
+            </View>
+          ) : null}
         </View>
       </MainPart>
       <DetailsPart>

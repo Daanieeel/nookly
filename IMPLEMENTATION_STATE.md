@@ -108,7 +108,7 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 - [x] The due date selector's option boxes are a little bigger.
 - [x] The "Clear due date" button is taller and its x icon is no longer full black.
 - [x] The calendar creates an entry on a long press, as real calendars do.
-- [ ] A calendar entry's page has a "Move to Trash" button at the bottom.
+- [x] A calendar entry's page has a "Move to Trash" button at the bottom.
 - [ ] Bookmark previews load instead of saying "Couldn't reach it".
 
 ### 7. Mobile: Space settings

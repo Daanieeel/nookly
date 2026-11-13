@@ -5,11 +5,13 @@ import {
   createExam,
   createOneOffSession,
   createSpace,
+  getEntity,
   listSpaces,
   updateExam,
 } from "@nookly/shared/data";
 import { useLocalSearchParams } from "expo-router";
-import { fireEvent } from "expo-router/testing-library";
+import { fireEvent, waitFor } from "expo-router/testing-library";
+import { EntityScreen } from "./EntityScreen.tsx";
 import { act } from "@testing-library/react-native";
 import * as ReactNative from "react-native";
 import { fireGestureHandler, getByGestureTestId } from "react-native-gesture-handler/jest-utils";
@@ -381,5 +383,28 @@ describe("the dashboard", () => {
     expect(await ipad.findByRole("button", { name: "Dentist, 09:00 to 10:00" })).toBeTruthy();
     expect(ipad.queryByRole("header", { name: "Today" })).toBeNull();
     expect(ipad.getByRole("header", { name: "Tasks" })).toBeTruthy();
+  });
+});
+
+describe("a calendar entry's page", () => {
+  it("ends with Move to Trash, which takes it off the calendar", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Home", "#3b82f6");
+    const entry = await createCalendarEntry(data.db, space, {
+      title: "Haircut",
+      date: localDay(),
+      startTime: "09:00",
+      endTime: "10:00",
+      allDay: false,
+      location: null,
+    });
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={entry} /> },
+      data,
+      `/entity/${entry}`,
+    );
+    const [trash] = await screen.findAllByRole("button", { name: "Move to Trash" });
+    await fireEvent.press(trash);
+    await waitFor(async () => expect((await getEntity(data.db, entry))?.deletedAt).toBeTruthy());
   });
 });
