@@ -318,3 +318,15 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 - **Context:** D50. Buttons were the desktop's `buttonVariants`, small rectangles.
 - **Decision:** `Button` keeps its variants and sizes but draws them as iOS's button styles in capsules: `default` filled with the accent (prominent), `secondary` on the gray fill, `destructive`, `positive`, `warning` tinted, `ghost` and `link` only words, semibold on filled ones. Heights stay `CONTROL_SIZE`.
 - **Why:** capsules match iOS 26 and the round bar buttons (D45).
+
+## D54. Moodle stays on the desktop
+
+- **Context:** main added Moodle import (signing in to a Moodle site, pulling courses, files and assignments).
+- **Decision:** the phone does not connect to Moodle. What the desktop imports syncs to the phone like any other item; files from Moodle open there as files.
+- **Why:** the import runs long, downloads many files and keeps a Moodle token; the desktop is where the user sets a semester up. **Flag:** revisit if users ask to import from the phone.
+
+## D55. A card's faces are written as blocks on the phone
+
+- **Context:** the desktop stores a card's faces as blocks (`front_blocks`, `back_blocks`) with the markdown text beside them. The phone wrote plain text and cleared the blocks, so an edit on the phone lost the desktop's formatting on both faces.
+- **Decision:** the phone writes cards with the page editor (`CardFaceEditor`), stores blocks and the text made from them, and saves only the face that changed (`updateCardFaces`). The draft of a new card is kept as blocks; an old text draft is carried over.
+- **Why:** data safety; one editor everywhere.

@@ -48,7 +48,7 @@ Written 2026-11-10 after a review session in which the user ran desktop and the 
 ## Order of work
 
 0. [x] Step 0: done.
-1. [~] Section 1, the merge: done; phone ports of a few main features still open (see section 1).
+1. [x] Section 1, the merge and the phone ports.
 2. [~] Section 2, sync: done except the items left open in section 2.
 3. [~] Section 3, desktop items: Account settings rework still open.
 4. [ ] Section 4, mobile, in vertical slices so the app is never half rebuilt: (a) foundations first: the shared tokens (touch sizes, spacing, flat surfaces), the motion token file and the sheet, menu and popover rebuild, the haptics module and API; (b) the shell: sidebar with space switcher, header, mascot, dashboard; (c) list pages (Tasks, Assignments and the other modules); (d) item pages and the editor for every type; (e) settings and the remaining screens; (f) the mobile feature gaps; (g) a final sweep screen by screen in dark and light, phone and iPad. After each slice: screenshots compared with the desktop, tests, this file, commit, push.
@@ -92,7 +92,7 @@ Done sections are summarised; open items keep their full text.
 
 Open:
 
-- [ ] Port the remaining main features to the phone: the sidebar (see section 4), the settings rework style, page font and size in the phone editor, flashcards edited with blocks on the phone. Moodle stays desktop only (record in `DECISIONS.md` if not yet).
+- [x] (2026-11-13: sidebar on SF Symbols, Settings as a grouped list, page font and size in the phone editor, cards written with the page editor as blocks keeping the desktop's faces (D55), Moodle desktop only (D54)) Port the remaining main features to the phone: the sidebar (see section 4), the settings rework style, page font and size in the phone editor, flashcards edited with blocks on the phone. Moodle stays desktop only (record in `DECISIONS.md` if not yet).
 
 ### 2. Sync must actually work
 
