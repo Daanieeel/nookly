@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { z } from "zod";
 
 const mobile = join(__dirname, "..");
 const desktopIcon = join(mobile, "..", "desktop", "src-tauri", "icons", "Nookly.icon");
@@ -17,11 +18,11 @@ function files(dir: string, base = dir): Map<string, string> {
 
 describe("the app icon", () => {
   it("is the desktop's own Icon Composer icon, on the iPhone and iPad", () => {
-    const config = JSON.parse(readFileSync(join(mobile, "app.json"), "utf8")) as {
-      expo: { ios?: { icon?: string } };
-    };
-    const icon = config.expo.ios?.icon;
+    const config = z
+      .object({ expo: z.object({ ios: z.object({ icon: z.string() }) }) })
+      .parse(JSON.parse(readFileSync(join(mobile, "app.json"), "utf8")));
+    const icon = config.expo.ios.icon;
     expect(icon).toMatch(/\.icon$/);
-    expect(files(join(mobile, icon ?? ""))).toEqual(files(desktopIcon));
+    expect(files(join(mobile, icon))).toEqual(files(desktopIcon));
   });
 });
