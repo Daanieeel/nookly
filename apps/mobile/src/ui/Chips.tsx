@@ -1,16 +1,17 @@
-import { buttonVariants } from "@nookly/ui/classes";
 import { createContext, useContext } from "react";
 import { ScrollView, View } from "react-native";
 import { AnimatedPressable, usePressScale } from "./press.ts";
-import { cn, row, splitText } from "./classes.ts";
-import { Text } from "./Text.tsx";
+import { cn } from "./classes.ts";
+import { Label } from "./kit/Label.tsx";
+import { useScheme, useSemantic } from "./kit/scheme.ts";
+import { CORNER, RADIUS, SPACE, TINT } from "./tokens.ts";
 import { CONTROL_SIZE, MIN_TOUCH, TOUCH_GAP, touchSlop } from "./touch.ts";
 
 /// Whether the chips of a group share its width equally.
 const Stretch = createContext(false);
 
-/// One choice of a few: a status, a Space, a label. A small desktop `Button`, `default`
-/// when chosen and `secondary` when not.
+/// One choice of a few: a status, a Space, a label. A capsule on the gray fill, filled with
+/// the accent when chosen (D53).
 export function Chip({
   label,
   selected,
@@ -28,9 +29,8 @@ export function Chip({
   disabled?: boolean;
 }) {
   const stretch = useContext(Stretch);
-  const { box, text } = splitText(
-    row(buttonVariants({ variant: selected ? "default" : "secondary", size: "sm" })),
-  );
+  const scheme = useScheme();
+  const fill = useSemantic("fill");
   const press = usePressScale();
   return (
     <AnimatedPressable
@@ -42,11 +42,33 @@ export function Chip({
       hitSlop={touchSlop(CONTROL_SIZE.chip, MIN_TOUCH)}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
-      style={[{ height: CONTROL_SIZE.chip }, press.style]}
-      className={cn(box, stretch && "flex-1", "active:opacity-80")}
+      unstable_pressDelay={0}
+      style={[
+        CORNER,
+        {
+          height: CONTROL_SIZE.chip,
+          flex: stretch ? 1 : undefined,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: SPACE.xs + 2,
+          paddingHorizontal: SPACE.md + 2,
+          borderRadius: RADIUS.pill,
+          backgroundColor: selected ? TINT.blue[scheme] : fill,
+          opacity: disabled ? 0.45 : 1,
+        },
+        press.style,
+      ]}
     >
       {icon}
-      <Text className={cn(text, "text-sm")}>{label}</Text>
+      <Label
+        type="subheadline"
+        weight={selected ? "600" : "500"}
+        tint={selected ? "#ffffff" : undefined}
+        numberOfLines={1}
+      >
+        {label}
+      </Label>
     </AnimatedPressable>
   );
 }

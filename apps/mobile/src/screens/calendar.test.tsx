@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import {
   createCalendarEntry,
   createCourse,
@@ -163,7 +164,7 @@ describe("the calendar on a phone", () => {
       tabs.push(await screen.findByRole("radio", { name }));
     }
     for (const tab of tabs) {
-      expect(String(tab.props.className)).toMatch(/\bflex-1\b/);
+      expect(StyleSheet.flatten(tab.props.style).flex).toBe(1);
     }
     // In a row that does not wrap, so they share one line.
     const group = screen.getByLabelText("View");

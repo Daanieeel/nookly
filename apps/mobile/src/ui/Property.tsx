@@ -1,8 +1,10 @@
 import { IconSelector } from "@tabler/icons-react-native";
 import { Children, cloneElement, isValidElement, type ReactNode, type RefObject } from "react";
 import { Pressable, View } from "react-native";
-import { Text } from "./Text.tsx";
-import { useTheme } from "./theme.ts";
+import { Glyph } from "./kit/Glyph.tsx";
+import { Label } from "./kit/Label.tsx";
+import { useScheme, useSemantic, useSemanticPair } from "./kit/scheme.ts";
+import { CORNER, RADIUS, SPACE, TINT } from "./tokens.ts";
 import { usePropertyLook } from "./parts.tsx";
 import { CONTROL_SIZE, LIST_ROW, MIN_TOUCH, touchSlop } from "./touch.ts";
 
@@ -10,8 +12,9 @@ import { CONTROL_SIZE, LIST_ROW, MIN_TOUCH, touchSlop } from "./touch.ts";
 /// hairlines between them, flat on the page. A row that can change opens its picker.
 export function PropertyList({ children }: { children: ReactNode }) {
   const rows = Children.toArray(children);
+  const separator = useSemantic("separator");
   if (usePropertyLook() === "chip") {
-    return <View className="flex-row flex-wrap gap-2">{rows}</View>;
+    return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACE.sm }}>{rows}</View>;
   }
   return (
     <View>
@@ -20,7 +23,11 @@ export function PropertyList({ children }: { children: ReactNode }) {
           // The rows are fixed in number and order.
           // oxlint-disable-next-line react/no-array-index-key
           key={index}
-          className={index > 0 ? "border-t border-border/60" : undefined}
+          style={
+            index > 0
+              ? { borderTopWidth: 0.5, borderTopColor: separator, marginLeft: 36 }
+              : undefined
+          }
         >
           {row}
         </View>
@@ -65,8 +72,12 @@ export function Property({
   disabled?: boolean;
   onPress?: () => void;
 }) {
-  const theme = useTheme();
+  const scheme = useScheme();
+  const fill = useSemantic("fill");
+  const pressedFill = useSemantic("pressed");
+  const muted = useSemanticPair("tertiaryLabel");
   const interactive = Boolean(onPress) && !disabled;
+  const tint = valueTone === "destructive" ? TINT.red[scheme] : undefined;
   if (usePropertyLook() === "chip") {
     return (
       <Pressable
@@ -76,14 +87,31 @@ export function Property({
         accessibilityState={{ disabled: !interactive }}
         disabled={!interactive}
         onPress={onPress}
+        unstable_pressDelay={0}
         hitSlop={touchSlop(CHIP_HEIGHT, MIN_TOUCH)}
-        style={{ height: CHIP_HEIGHT }}
-        className="flex-row items-center gap-1.5 rounded-md border border-border px-2.5 active:bg-accent/60"
+        style={({ pressed }) => [
+          CORNER,
+          {
+            height: CHIP_HEIGHT,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: SPACE.xs + 2,
+            paddingHorizontal: SPACE.md,
+            borderRadius: RADIUS.pill,
+            backgroundColor: pressed ? pressedFill : fill,
+          },
+        ]}
       >
         {valueIcon ?? chipIcon(icon)}
-        <Text tone={empty ? "muted" : (valueTone ?? "default")} numberOfLines={1}>
+        <Label
+          type="subheadline"
+          weight="500"
+          color={empty ? "secondaryLabel" : "label"}
+          tint={empty ? undefined : tint}
+          numberOfLines={1}
+        >
           {empty ? label : value}
-        </Text>
+        </Label>
       </Pressable>
     );
   }
@@ -95,18 +123,35 @@ export function Property({
       accessibilityState={{ disabled: !interactive }}
       disabled={!interactive}
       onPress={onPress}
-      style={LIST_ROW}
-      className="flex-row items-center gap-3 px-1 active:bg-accent/40"
+      unstable_pressDelay={0}
+      style={({ pressed }) => ({
+        minHeight: LIST_ROW.minHeight,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACE.md,
+        paddingHorizontal: SPACE.xs,
+        borderRadius: RADIUS.control,
+        backgroundColor: pressed && interactive ? pressedFill : undefined,
+      })}
     >
       {icon}
-      <Text className="flex-1" numberOfLines={1}>
+      <Label style={{ flex: 1 }} numberOfLines={1}>
         {label}
-      </Text>
+      </Label>
       {valueIcon}
-      <Text tone={valueTone ?? "muted"} numberOfLines={1} style={{ maxWidth: "55%" }}>
+      <Label color="secondaryLabel" tint={tint} numberOfLines={1} style={{ maxWidth: "55%" }}>
         {value}
-      </Text>
-      {interactive ? <IconSelector size={16} color={theme.colors.mutedForeground} /> : null}
+      </Label>
+      {interactive ? (
+        <Glyph
+          name="chevron.up.chevron.down"
+          fallback={IconSelector}
+          size={13}
+          color={muted.color}
+          hex={muted.hex}
+          weight="semibold"
+        />
+      ) : null}
     </Pressable>
   );
 }
