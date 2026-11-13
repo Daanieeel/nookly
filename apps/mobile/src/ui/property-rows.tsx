@@ -9,7 +9,7 @@ import { Property } from "./Property.tsx";
 import { DayPicker } from "./sheet/DayPicker.tsx";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
 import { Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
-import { TimeInput } from "./TimeInput.tsx";
+import { TimeInput, useTwelveHour } from "./TimeInput.tsx";
 import { LIST_ROW } from "./touch.ts";
 import { Label } from "./kit/Label.tsx";
 import { useSemanticPair } from "./kit/scheme.ts";
@@ -125,22 +125,25 @@ function TimePicker({
 }) {
   const sheet = useSheet();
   return (
-    <View className="gap-3">
-      <TimeInput label={label} value={value} onChange={onChange} autoFocus />
-      <View className="flex-row items-center gap-2 border-t border-border pt-2">
+    <View className="gap-6 pt-2">
+      <TimeInput label={label} value={value} onChange={onChange} autoFocus large />
+      <View className="flex-row gap-3">
         {clearable && value ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            label={`Clear ${label}`}
-            onPress={() => {
-              onChange(null);
-              sheet?.close();
-            }}
-          />
+          <View className="flex-1">
+            <Button
+              variant="destructive"
+              size="lg"
+              label={`Clear ${label}`}
+              onPress={() => {
+                onChange(null);
+                sheet?.close();
+              }}
+            />
+          </View>
         ) : null}
-        <View className="flex-1" />
-        <Button variant="secondary" size="sm" label="Done" onPress={() => sheet?.close()} />
+        <View className="flex-1">
+          <Button size="lg" label="Done" onPress={() => sheet?.close()} />
+        </View>
       </View>
     </View>
   );
@@ -173,11 +176,12 @@ export function DayProperty({
   clearable?: boolean;
   valueTone?: "destructive";
 }) {
+  const twelve = useTwelveHour();
   return (
     <SheetProperty
       icon={icon}
       label={label}
-      value={value ? shownValue(mode, value) : (placeholder ?? "None")}
+      value={value ? shownValue(mode, value, twelve) : (placeholder ?? "None")}
       empty={!value}
       valueTone={valueTone}
       readOnly={readOnly}

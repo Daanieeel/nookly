@@ -1,7 +1,8 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
 import { Field } from "./Field.tsx";
-import { TextRow } from "./property-rows.tsx";
+import { DayProperty, TextRow } from "./property-rows.tsx";
+import { renderScreens, testData } from "../test/render.tsx";
 
 /// The name of a field sits small above what is typed, never at the start of its line,
 /// where it reads as a placeholder (the user's notes).
@@ -42,5 +43,36 @@ describe("a property typed in place", () => {
   it("has its name small above the value", () => {
     const screen = render(<TextRow label="Room" value="B12" onSave={() => {}} />);
     nameAbove(screen, "Room", "Room");
+  });
+});
+
+describe("a time picked in a sheet", () => {
+  it("is typed into a large clock face, with Clear in red and Done as the main button", async () => {
+    const onChange = jest.fn();
+    const screen = await renderScreens(
+      {
+        index: () => <DayProperty label="Time" mode="time" value="09:30" onChange={onChange} />,
+      },
+      testData(),
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: /^Time/ }));
+    const hour = await screen.findByLabelText("Time, hour");
+    const style = Object.assign({}, ...[hour.props.style].flat(3).filter(Boolean));
+    expect(style.fontSize).toBeGreaterThanOrEqual(48);
+    expect(screen.getByTestId("Time, hour underline")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Clear Time" }));
+    expect(onChange).toHaveBeenCalledWith(null);
+  });
+});
+
+describe("an empty time", () => {
+  // An empty time read as midnight, so the clock showed 12 (or 00) before anything was typed.
+  it("shows no hour until one is typed", async () => {
+    const screen = await renderScreens(
+      { index: () => <DayProperty label="Time" mode="time" value={null} onChange={jest.fn()} /> },
+      testData(),
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: /^Time/ }));
+    expect((await screen.findByLabelText("Time, hour")).props.value).toBe("");
   });
 });

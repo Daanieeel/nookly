@@ -21,7 +21,9 @@ import {
   createOneOffSession,
   createAssignment,
   getAssignment,
+  updateExam,
 } from "@nookly/shared/data";
+import { phoneSettings } from "../data/settings.ts";
 import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { StyleSheet, Text } from "react-native";
@@ -65,6 +67,23 @@ describe("an exam", () => {
         grade: 1.7,
       }),
     );
+  });
+
+  it("shows its time on the clock the time format asks for, AM and PM only on 12 hours", async () => {
+    const { data, space, course } = await seeded();
+    const exam = await createExam(data.db, space, "Final", course);
+    await updateExam(data.db, exam, { examTime: "15:05" });
+    phoneSettings.setJson("general.timeFormat", "european");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={exam} /> },
+      data,
+      `/entity/${exam}`,
+    );
+    expect((await screen.findAllByText("15:05")).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/3:05/)).toBeNull();
+    phoneSettings.setJson("general.timeFormat", "american");
+    expect((await screen.findAllByText("3:05 PM")).length).toBeGreaterThan(0);
+    phoneSettings.reset("general.timeFormat");
   });
 
   it("is made in a Course, which it asks for", async () => {

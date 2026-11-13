@@ -8,19 +8,14 @@ import { useSemanticPair } from "./kit/scheme.ts";
 import { SheetTrigger } from "./SelectField.tsx";
 import { DayPicker } from "./sheet/DayPicker.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
-import { TimeInput } from "./TimeInput.tsx";
+import { TimeInput, clockText } from "./TimeInput.tsx";
 import { GUTTER, SPACE } from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
 
-/// The words a day (`YYYY-MM-DD`) or a time (`HH:MM`) is shown in.
-export function shownValue(mode: "date" | "time", value: string): string {
-  if (mode === "date") return dayLabel(value);
-  const [h, m] = value.split(":").map(Number);
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).toLocaleTimeString(
-    undefined,
-    { hour: "numeric", minute: "2-digit" },
-  );
+/// The words a day (`YYYY-MM-DD`) or a time (`HH:MM`) is shown in: a time on the clock the
+/// time format asks for (`twelve`).
+export function shownValue(mode: "date" | "time", value: string, twelve = false): string {
+  return mode === "date" ? dayLabel(value) : clockText(value, twelve);
 }
 
 /// A day or a time in a form, stored as the desktop stores it. A day is the desktop's

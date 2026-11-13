@@ -100,8 +100,8 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ### 6. Mobile: item pages and pickers
 
-- [ ] The exam time chip shows AM/PM only where the time format uses it, like the popover already does.
-- [ ] The time popover: much bigger hour and minute fields that feel like a real clock face (Inter), no background, two underlines under hour and minute, as if typing into the popover itself. "Clear time" is a destructive button, "Done" is primary.
+- [x] The exam time chip shows AM/PM only where the time format uses it, like the popover already does.
+- [x] The time popover: much bigger hour and minute fields that feel like a real clock face (Inter), no background, two underlines under hour and minute, as if typing into the popover itself. "Clear time" is a destructive button, "Done" is primary.
 - [x] (2026-11-13, UI and agenda; rows untouched) Study blocks are removed from the mobile app (the feature no longer exists).
 - [ ] The course page's semester select shows semesters with their metadata (icon etc.) like the desktop.
 - [ ] The assignment due date selector offers "Specific session" as the desktop does.

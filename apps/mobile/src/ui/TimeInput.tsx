@@ -2,14 +2,23 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, TextInput, type TextStyle, View } from "react-native";
 import { useSetting } from "../data/settings.ts";
 import { Label } from "./kit/Label.tsx";
+import { useTheme } from "./theme.ts";
 import { useSemantic } from "./kit/scheme.ts";
 import { CORNER, FACE, RADIUS, SPACE, TYPE } from "./tokens.ts";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/// A time (`HH:mm`) as the clock in use writes it: `3:05 PM` on 12 hours, `15:05` on 24.
+export function clockText(value: string, twelve: boolean): string {
+  const [h, m] = value.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return value;
+  if (!twelve) return `${pad(h)}:${pad(m)}`;
+  return `${h % 12 === 0 ? 12 : h % 12}:${pad(m)} ${h >= 12 ? "PM" : "AM"}`;
+}
+
 /// Whether times read on a 12 hour clock: the American format, or the phone's own clock
 /// when the setting leaves it to the time zone.
-function useTwelveHour(): boolean {
+export function useTwelveHour(): boolean {
   const [timeFormat] = useSetting("general.timeFormat");
   return (
     timeFormat === "american" ||
@@ -18,7 +27,8 @@ function useTwelveHour(): boolean {
 }
 
 function parse(value: string | null) {
-  const [h, m] = (value ?? "").split(":").map(Number);
+  if (!value) return { hour: null, minute: null };
+  const [h, m] = value.split(":").map(Number);
   return { hour: Number.isFinite(h) ? h : null, minute: Number.isFinite(m) ? m : null };
 }
 
@@ -30,12 +40,17 @@ export function TimeInput({
   value,
   onChange,
   autoFocus = false,
+  large = false,
 }: {
   label: string;
   value: string | null;
   onChange: (time: string) => void;
   autoFocus?: boolean;
+  /// A clock face to type on, for a sheet of its own: big digits on the sheet itself, a line
+  /// under the hour and the minute as if writing into it.
+  large?: boolean;
 }) {
+  const primary = useTheme().colors.primary;
   const fill = useSemantic("fill");
   const text = useSemantic("label");
   const placeholder = useSemantic("tertiaryLabel");
@@ -82,60 +97,98 @@ export function TimeInput({
     const n = Number(digits);
     if (digits.length === 2 && n <= 59) commit(now().hour ?? 0, n);
   };
-  const segment: TextStyle = {
-    width: 30,
-    height: "100%",
-    textAlign: "center",
-    fontFamily: FACE["400"],
-    fontSize: TYPE.body.fontSize,
-    fontVariant: ["tabular-nums"],
-    color: text,
-    padding: 0,
-  };
+  const segment: TextStyle = large
+    ? {
+        width: 96,
+        height: 72,
+        textAlign: "center",
+        fontFamily: FACE["500"],
+        fontSize: 60,
+        fontVariant: ["tabular-nums"],
+        color: text,
+        padding: 0,
+      }
+    : {
+        width: 30,
+        height: "100%",
+        textAlign: "center",
+        fontFamily: FACE["400"],
+        fontSize: TYPE.body.fontSize,
+        fontVariant: ["tabular-nums"],
+        color: text,
+        padding: 0,
+      };
+  /// A digit field, with its line under it on the clock face.
+  const underlined = (name: string, input: React.ReactNode) =>
+    large ? (
+      <View style={{ alignItems: "center" }}>
+        {input}
+        <View
+          testID={`${label}, ${name} underline`}
+          style={{ width: 84, height: 2, borderRadius: 1, backgroundColor: primary }}
+        />
+      </View>
+    ) : (
+      input
+    );
   return (
     <View
       accessibilityLabel={label}
       style={[
         CORNER,
-        {
-          flexDirection: "row",
-          alignItems: "center",
-          alignSelf: "center",
-          height: 36,
-          paddingHorizontal: SPACE.xs,
-          borderRadius: RADIUS.control,
-          backgroundColor: fill,
-        },
+        large
+          ? { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: SPACE.xs }
+          : {
+              flexDirection: "row",
+              alignItems: "center",
+              alignSelf: "center",
+              height: 36,
+              paddingHorizontal: SPACE.xs,
+              borderRadius: RADIUS.control,
+              backgroundColor: fill,
+            },
       ]}
     >
-      <TextInput
-        accessibilityLabel={`${label}, hour`}
-        value={hourText}
-        onChangeText={typedHour}
-        keyboardType="number-pad"
-        maxLength={2}
-        selectTextOnFocus
-        autoFocus={autoFocus}
-        placeholder="--"
-        placeholderTextColor={placeholder}
-        style={segment}
-      />
-      <Label color="secondaryLabel">:</Label>
-      <TextInput
-        ref={minuteField}
-        accessibilityLabel={`${label}, minute`}
-        value={minuteText}
-        onChangeText={typedMinute}
-        onEndEditing={() => {
-          if (minuteText.length === 1) commit(now().hour ?? 0, Number(minuteText));
-        }}
-        keyboardType="number-pad"
-        maxLength={2}
-        selectTextOnFocus
-        placeholder="--"
-        placeholderTextColor={placeholder}
-        style={segment}
-      />
+      {underlined(
+        "hour",
+        <TextInput
+          accessibilityLabel={`${label}, hour`}
+          value={hourText}
+          onChangeText={typedHour}
+          keyboardType="number-pad"
+          maxLength={2}
+          selectTextOnFocus
+          autoFocus={autoFocus}
+          placeholder="--"
+          placeholderTextColor={placeholder}
+          style={segment}
+        />,
+      )}
+      {large ? (
+        <Label color="secondaryLabel" style={{ fontSize: 52, lineHeight: 72, marginBottom: 2 }}>
+          :
+        </Label>
+      ) : (
+        <Label color="secondaryLabel">:</Label>
+      )}
+      {underlined(
+        "minute",
+        <TextInput
+          ref={minuteField}
+          accessibilityLabel={`${label}, minute`}
+          value={minuteText}
+          onChangeText={typedMinute}
+          onEndEditing={() => {
+            if (minuteText.length === 1) commit(now().hour ?? 0, Number(minuteText));
+          }}
+          keyboardType="number-pad"
+          maxLength={2}
+          selectTextOnFocus
+          placeholder="--"
+          placeholderTextColor={placeholder}
+          style={segment}
+        />,
+      )}
       {twelve ? (
         <Pressable
           accessibilityRole="button"
@@ -146,11 +199,19 @@ export function TimeInput({
           }}
           hitSlop={4}
           style={({ pressed }) => [
-            { minWidth: 40, height: 36, alignItems: "center", justifyContent: "center" },
+            {
+              minWidth: large ? 64 : 40,
+              height: large ? 48 : 36,
+              marginLeft: large ? SPACE.sm : 0,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: RADIUS.control,
+              backgroundColor: large ? fill : undefined,
+            },
             pressed && { opacity: 0.6 },
           ]}
         >
-          <Label>{pm ? "PM" : "AM"}</Label>
+          <Label type={large ? "title3" : "body"}>{pm ? "PM" : "AM"}</Label>
         </Pressable>
       ) : null}
     </View>
