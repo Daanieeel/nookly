@@ -63,7 +63,7 @@
   @variant dark {
     /* Card surfaces are a lighter charcoal than the page bg (same tone as --muted) so they
        read as raised toward the light, mirroring the light theme's white-card-on-gray-page. */
-    --background: #000000;
+    --background: #111111;
     --foreground: #eeeeee;
     --card: #1a1a1a;
     --card-foreground: #eeeeee;
@@ -85,7 +85,7 @@
     --input: #3a3a3a;
     --ring: #0070f3;
     --raised: #333333;
-    --weekend: #121212;
+    --weekend: #161616;
 
     --accent-blue: #47a8ff;
     --accent-green: #00cb50;

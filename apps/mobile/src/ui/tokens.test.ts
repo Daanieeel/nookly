@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { SEMANTIC, TINT, TYPE, withAlpha } from "./tokens.ts";
+import { PlatformColor } from "react-native";
+import { CHARCOAL, SEMANTIC, TINT, TYPE, semantic, withAlpha } from "./tokens.ts";
 
 const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/;
 
@@ -21,6 +22,23 @@ describe("design tokens", () => {
       expect(light).toContain(`--accent-${name}: ${TINT[name].light};`);
       expect(dark).toContain(`--accent-${name}: ${TINT[name].dark};`);
     }
+  });
+
+  it("put a deep charcoal, not black, behind everything in dark mode, as the desktop does", () => {
+    const css = readFileSync(join(__dirname, "../../../../packages/ui/src/theme.css"), "utf8");
+    const dark = css.slice(css.indexOf("@variant dark {"));
+    const page = /--background: (#[0-9a-f]{6});/.exec(dark)?.[1];
+    expect(page).toBe(CHARCOAL);
+    expect(SEMANTIC.background.dark).toBe(CHARCOAL);
+    expect(SEMANTIC.groupedBackground.dark).toBe(CHARCOAL);
+    // On iOS too, where the system's own background would be black.
+    expect(semantic("background", "dark")).not.toEqual(PlatformColor("systemBackground"));
+    expect(semantic("groupedBackground", "dark")).not.toEqual(
+      PlatformColor("systemGroupedBackground"),
+    );
+    // Still below the cards and sheets that sit on it.
+    const card = /--card: (#[0-9a-f]{6});/.exec(dark)?.[1] ?? "";
+    expect(parseInt(CHARCOAL.slice(1, 3), 16)).toBeLessThan(parseInt(card.slice(1, 3), 16));
   });
 
   it("tint a colour for a badge's background", () => {

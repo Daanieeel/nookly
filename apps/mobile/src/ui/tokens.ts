@@ -1,5 +1,6 @@
 import {
   type ColorValue,
+  DynamicColorIOS,
   Platform,
   PlatformColor,
   type TextStyle,
@@ -18,14 +19,25 @@ interface SemanticColor {
   /// What it is elsewhere (Android, tests), per scheme.
   light: string;
   dark: string;
+  /// Nookly's own dark value in place of the system's on iOS too.
+  ownDark?: true;
 }
+
+/// The backmost background in dark mode, the desktop's `--background`: a deep charcoal,
+/// not the system's black.
+export const CHARCOAL = "#111111";
 
 /// Surfaces, text and lines: iOS's own adaptive colours.
 export const SEMANTIC = {
   /// A plain page.
-  background: { ios: "systemBackground", light: "#ffffff", dark: "#000000" },
+  background: { ios: "systemBackground", light: "#ffffff", dark: CHARCOAL, ownDark: true },
   /// A page of grouped sections (Settings, an item's details), behind its surfaces.
-  groupedBackground: { ios: "systemGroupedBackground", light: "#f2f2f7", dark: "#000000" },
+  groupedBackground: {
+    ios: "systemGroupedBackground",
+    light: "#f2f2f7",
+    dark: CHARCOAL,
+    ownDark: true,
+  },
   /// A grouped section, a sheet's list, a card: one step up from the page.
   surface: { ios: "secondarySystemGroupedBackground", light: "#ffffff", dark: "#1c1c1e" },
   /// Something on a surface: a field, a search bar, a raised card.
@@ -52,7 +64,10 @@ export function isSemanticName(name: string): name is SemanticName {
 /// A semantic colour for `scheme`: the adaptive system colour on iOS, a fixed one elsewhere.
 export function semantic(name: SemanticName, scheme: Scheme): ColorValue {
   const color: SemanticColor = SEMANTIC[name];
-  return Platform.OS === "ios" ? PlatformColor(color.ios) : color[scheme];
+  if (Platform.OS !== "ios") return color[scheme];
+  return color.ownDark
+    ? DynamicColorIOS({ light: PlatformColor(color.ios), dark: color.dark })
+    : PlatformColor(color.ios);
 }
 
 /// A semantic colour as a plain hex for `scheme`, for what cannot take a system colour (an

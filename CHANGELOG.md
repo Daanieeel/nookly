@@ -14,6 +14,7 @@ All notable changes to Nookly are listed here.
 
 ### Changed
 
+- Dark mode now sits on a deep charcoal instead of pure black.
 - The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.
 - New pages open at once.
 

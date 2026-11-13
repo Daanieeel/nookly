@@ -352,3 +352,7 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 ## D59. The phone app uses the scene lifecycle
 
 iOS 27 stops at launch any app that has not adopted the scene lifecycle, and the phone app did exactly that on a real iPhone. Expo 57 ships the scene delegate (`EXExpoAppSceneDelegate`) but its project template still creates the window in the app delegate. A local config plugin, `apps/mobile/plugins/scene-lifecycle.js`, moves the window to Expo's scene delegate and declares one window scene in Info.plist each time the native project is generated. It throws when the generated AppDelegate changes shape, so a newer template is noticed instead of silently left unadopted. Drop the plugin once Expo's template does this itself.
+
+## D60. Dark mode sits on a deep charcoal
+
+The user asked for the backmost background to be a deep charcoal instead of black on both apps. The desktop's `--background` (dark) in `packages/ui/src/theme.css` and the file viewer's mirror of it become `#111111`, the calendar's weekend shade moves from `#121212` to `#161616` so it still reads against it, and cards stay at `#1a1a1a` above it. This edits existing tokens, which `AGENTS.md` normally forbids; the user's explicit request is the exception. The phone's page and grouped page backgrounds use the same value on iOS too (a dynamic colour, the system's own in light mode), checked by `ui/tokens.test.ts`.
