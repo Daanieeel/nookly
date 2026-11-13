@@ -28,7 +28,7 @@ import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { IconButton } from "../Button.tsx";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
-import { FADE, SPRING, dragFrom, settleSheet } from "../motion.ts";
+import { FADE, SPRING, dragFrom, settleDetent, settleSheet } from "../motion.ts";
 import { useReduceMotion } from "../reduce-motion.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
@@ -216,6 +216,11 @@ function SheetFrame({
 
   const scroll = Gesture.Native();
   const height = window.height;
+  const tallest = window.height - insets.top - 16;
+  // Plain values only: the style runs on the UI thread, which can't take a step's content.
+  const large = (top?.size ?? size) === "large";
+  /// How far down a tall sheet's medium stop is: a little over half of it shows.
+  const medium = Math.round(tallest * 0.45);
   const pan = Gesture.Pan()
     .activeOffsetY(8)
     .failOffsetX([-16, 16])
@@ -231,6 +236,20 @@ function SheetFrame({
     })
     .onEnd((event) => {
       const velocity = scrollY.value <= 0 ? event.velocityY : 0;
+      if (large) {
+        // A tall sheet rests fully up or at its medium stop, as iOS's detents.
+        const stop = settleDetent({ offset: offset.value, velocity, medium });
+        if (stop.to === "closed") {
+          release.value = stop.velocity;
+          runOnJS(onRequestClose)();
+          return;
+        }
+        const to = stop.to === "medium" ? medium : 0;
+        if (to !== target.value) runOnJS(haptic)("detent");
+        target.value = to;
+        offset.value = withSpring(to, { ...SPRING.sheet, velocity: stop.velocity });
+        return;
+      }
       const settled = settleSheet({ offset: offset.value, velocity });
       if (settled.to === "closed") {
         release.value = settled.velocity;
@@ -249,9 +268,6 @@ function SheetFrame({
     scrollY.value = event.contentOffset.y;
   });
 
-  const tallest = window.height - insets.top - 16;
-  // Plain values only: the style runs on the UI thread, which can't take a step's content.
-  const large = (top?.size ?? size) === "large";
   const bottomInset = insets.bottom;
   const panel = useAnimatedStyle(() => ({
     transform: [{ translateY: offset.value }],

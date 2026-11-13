@@ -58,3 +58,32 @@ export function settleSheet({ offset, velocity }: { offset: number; velocity: nu
   const far = offset > DISMISS_DISTANCE && velocity >= 0;
   return { to: flung || far ? "closed" : "open", velocity };
 }
+
+/// Where a tall sheet comes to rest: fully up (`large`), at its `medium` stop (that far
+/// down), or away. The stop nearest the release wins, unless the finger flicked towards
+/// the next one; from the medium stop, a pull far enough or a fling down sends it away.
+export interface DetentSettled {
+  to: "large" | "medium" | "closed";
+  velocity: number;
+}
+
+export function settleDetent({
+  offset,
+  velocity,
+  medium,
+}: {
+  offset: number;
+  velocity: number;
+  medium: number;
+}): DetentSettled {
+  "worklet";
+  const flick = Math.abs(velocity) > DISMISS_VELOCITY / 2;
+  if (offset > medium) {
+    const far = offset - medium > DISMISS_DISTANCE && velocity >= 0;
+    if (far || velocity > DISMISS_VELOCITY) return { to: "closed", velocity };
+    if (velocity < -DISMISS_VELOCITY / 2) return { to: "large", velocity };
+    return { to: "medium", velocity };
+  }
+  if (flick) return { to: velocity > 0 ? "medium" : "large", velocity };
+  return { to: offset > medium / 2 ? "medium" : "large", velocity };
+}
