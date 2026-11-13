@@ -184,23 +184,23 @@ Append newest last: date, what was done, what is next. Earlier entries (2026-11-
 
 ## Final report (fill in when everything above is done)
 
-**Status 2026-11-13: sections 0 to 3 done; section 4 partly done (see its unticked items); final checks run, results below.** This report is current as of commit `86750bbd` and is updated as work continues.
+**Status 2026-11-13: every item of sections 0 to 4 is ticked; what only a real device or the user can settle is listed under Needs the user. Final checks run, results below.** This report is current as of commit `e72de9f2`.
 
 ### Done per section
 
 - **0 and 1:** old branch removed; main 0.75.0 merged (D39); phone ports: sidebar, Settings, page font and size, cards with blocks (D55); Moodle desktop only (D54).
 - **2, sync:** headless two device tests (`apps/server/test/two-devices.test.ts`, 15 tests); a clash only one device saw now shows on every device and settles everywhere (D40); restart during first sync guarded by three tests; real two device check rerun on 2026-11-13 with an account made on the phone (section 2 notes, `docs/todo-screenshots/dod-*`).
 - **3, desktop:** Account cards, cloud icon, fast new pages.
-- **4, phone (partial):** tokens and kit (`ui/tokens.ts`, `ui/kit/`), selects and pickers as sheets with pinned search, icon and date pickers, segmented control, iOS form rows (D52), capsule buttons (D53), sheet detents, Settings, Account, Backup, LaTeX, Shortcuts and Review Changes as grouped pages, plain list rows on tokens, calendar segmented control, motion (D47) and haptics (D49). A Hermes crash fixed (`src/polyfills.ts`).
+- **4, phone:** tokens and kit (`ui/tokens.ts`, `ui/kit/`), selects and pickers as sheets with pinned search, icon and date pickers, segmented control, iOS form rows (D52), capsule buttons (D53), sheet detents, Settings, Account, Backup, LaTeX, Shortcuts and Review Changes as grouped pages, plain list rows on tokens, calendar segmented control, motion (D47) and haptics (D49). A Hermes crash fixed (`src/polyfills.ts`). Item pages compared with the desktop type by type (Evaluation, Created and Updated, rated today, overdue dates). The desktop's icons only, guarded by a test (D57). Pressed feedback, switch haptics and list motion everywhere; the page editor follows the system text size; a hot reload no longer locks the database; phone and iPad passes in dark, light and the largest text. Kit scope settled in D58.
 
-### Checks (2026-11-13)
+### Checks (2026-11-13, final)
 
 - `bun run lint`, `format:check`, `typecheck`: pass. `bun run duplication`: 0.18 %.
-- `bun run test`: shared 321, mobile 339 and server 102 of 104 passed in the full run; the 2 server and 13 frontend failures were 5 s timeouts while `cargo test` ran beside them. Rerun alone on an idle machine: the 6 frontend files 145 of 145, `two-devices.test.ts` 16 of 16 twice.
-- `cargo test`: 1543 passed, 1 failed under the same load (`search_stays_within_its_budget_on_20000_entities`, a time budget); alone it passes in 0.84 s.
+- `bun run test` with `TEST_DATABASE_URL`: shared 322 of 322, server 104 of 104, mobile 359 of 359. Frontend 3588 of 3590 in the full run (1 expected fail); the one failure is the sidebar's Space swipe timing test (`does not take an uneven glide for a second swipe`) under load from the simulator and the desktop dev build; alone it passes, three times out of three. The desktop was not changed in this stretch.
+- `cargo test`: 1543 passed; `search_stays_within_its_budget_on_20000_entities` misses its time budget under the same load and passes alone in 0.76 s.
 - `coverage`: frontend 3588 of 3590 (1 expected fail; the spellcheck speed test misses its budget under instrumentation, passes alone).
 - `lint:rust:strict`: passes with 3 "function too long" warnings (one of 1539 lines, existing).
-- Report only: `unused` lists 6 files (5 are tool scripts, one dead file removed), unused exports and 3 unused mobile prosemirror dependencies; `audit` fails on Rust advisories, among them RUSTSEC-2026-0459 (SQLite bundled by `libsqlite3-sys`, fixed in `rusqlite` 0.41, which needs Rust 1.89) and RUSTSEC-2026-0436, 0385, 0310.
+- Report only: `unused` lists tool scripts, some unused exports and unused mobile prosemirror dependencies (`prosemirror-history`, `-tables`, `-transform`); `audit` fails on Rust advisories, among them RUSTSEC-2026-0459 (SQLite bundled by `libsqlite3-sys`, fixed in `rusqlite` 0.41, which needs Rust 1.89) and RUSTSEC-2026-0436, 0385, 0310.
 
 ### Needs the user
 
@@ -213,8 +213,9 @@ Append newest last: date, what was done, what is next. Earlier entries (2026-11-
 
 ### Fragile or partial
 
-- Section 4 items still open: remaining Tabler interface icons, layout transitions everywhere, states and accessibility tests for every component, item pages compared type by type with the desktop, the phone feature gaps, the iPad pass.
+- Two time budget tests (the sidebar swipe glide, the 20000 entity search) fail when the machine is busy and pass alone.
 - Once, an assignment page said "This item isn't on this device." right after the account synced; it opened fine on the next try.
+- The motion clip of the drawers (`motion.mp4`, 6 MB) stayed out of the repository; still frames were checked.
 
 ### How to run and a 15 minute check
 
