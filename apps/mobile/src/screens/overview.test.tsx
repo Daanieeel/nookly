@@ -200,7 +200,10 @@ describe("the sidebar's settings", () => {
   it("moves and hides items, remembered on this phone", async () => {
     const data = testData();
     const screen = await renderScreens({ index: () => <SidebarSettingsScreen /> }, data);
-    await fireEvent.press(await screen.findByRole("button", { name: "Move Tasks Up" }));
+    // Rows are dragged; no arrow buttons. A screen reader moves them with its actions.
+    expect(screen.queryByRole("button", { name: "Move Tasks Up" })).toBeNull();
+    const tasks = await screen.findByLabelText("Tasks, drag to reorder");
+    await fireEvent(tasks, "accessibilityAction", { nativeEvent: { actionName: "moveUp" } });
     expect(readPreference("sidebar.top", topSchema, DEFAULT_TOP).order.slice(0, 3)).toEqual([
       "dashboard",
       "tasks",

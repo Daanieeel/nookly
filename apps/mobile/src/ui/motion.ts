@@ -11,7 +11,14 @@ export const SPRING = {
   menu: { duration: 300, dampingRatio: 0.82 },
   /// A press giving way and coming back, a selection indicator sliding.
   press: { duration: 260, dampingRatio: 0.7 },
+  /// A row lifted to be dragged, the rows making room for it, and its drop into place.
+  lift: { duration: 320, dampingRatio: 0.86 },
 } as const;
+
+/// How long a finger rests on a row before it lifts to be dragged, as iOS's lists.
+export const LIFT_DELAY = 280;
+/// How much a lifted row grows, as it comes up off the list.
+export const LIFT_SCALE = 1.03;
 
 /// Fades under Reduce Motion, and for things that only appear (a menu going away).
 export const FADE = { in: 160, out: 120 } as const;
