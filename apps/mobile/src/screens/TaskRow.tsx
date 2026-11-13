@@ -23,9 +23,9 @@ import { usePressScale } from "../ui/press.ts";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
 import { dayLabel, localDay } from "./dates.ts";
 
-/// A task's circle in a list, as the desktop's row: a tap opens its statuses to pick from,
-/// the circle giving way under the finger.
-function StatusButton({
+/// A task's or an assignment's circle in a list, as the desktop's row: a tap opens its
+/// statuses to pick from, the circle giving way under the finger.
+export function StatusButton({
   title,
   status,
   statuses,

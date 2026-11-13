@@ -116,14 +116,17 @@ describe("the assignments overview", () => {
     expect(screen.getByText("4d overdue")).toBeTruthy();
   });
 
-  it("marks one done from its round checkbox, and brings it back", async () => {
+  it("opens the statuses from its circle, as the desktop does, and sets the one picked", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
     const course = await createCourse(data.db, space, "Algorithms");
     const id = await createAssignment(data.db, space, "Sheet", course, addDays(localDay(), 2));
     const screen = await renderScreens({ index: () => <AssignmentsScreen /> }, data);
-    await fireEvent.press(await screen.findByRole("checkbox", { name: "Mark done Sheet" }));
-    await waitFor(async () => expect((await getAssignment(data.db, id))?.status).toBe("submitted"));
+    await fireEvent.press(await screen.findByRole("button", { name: "Status of Sheet" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: "In progress" }));
+    await waitFor(async () =>
+      expect((await getAssignment(data.db, id))?.status).toBe("in_progress"),
+    );
   });
 
   it("regroups by course and lays out as a board by status", async () => {
@@ -151,10 +154,10 @@ describe("the assignments overview", () => {
     await choose(screen, "Ordering", "Title");
     await waitFor(async () =>
       expect(
-        (await screen.findAllByRole("checkbox", { name: /^Mark done/ })).map(
+        (await screen.findAllByRole("button", { name: /^Status of/ })).map(
           (box) => box.props.accessibilityLabel,
         ),
-      ).toEqual(["Mark done Alpha sheet", "Mark done Zeta sheet"]),
+      ).toEqual(["Status of Alpha sheet", "Status of Zeta sheet"]),
     );
   });
 });

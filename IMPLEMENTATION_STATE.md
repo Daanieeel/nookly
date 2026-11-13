@@ -85,9 +85,9 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ### 4. Mobile: lists and boards
 
-- [ ] Tapping the status icon of a task or assignment in a list opens the status sheet instead of marking it done.
+- [x] Tapping the status icon of a task or assignment in a list opens the status sheet instead of marking it done.
 - [ ] Board view for tasks and assignments looks like the desktop: items as cards, columns keep their width. Items can be dragged: a long press makes every card wobble (each with its own time offset, like iOS home screen icons), then cards can be dragged between columns.
-- [ ] The "Empty Trash" button stretches across the full width of the page.
+- [x] The "Empty Trash" button stretches across the full width of the page.
 
 ### 5. Mobile: page editor
 

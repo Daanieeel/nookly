@@ -30,9 +30,8 @@ import {
 } from "./assignment-view.ts";
 import { dueText } from "./dashboard-model.ts";
 import { localDay } from "./dates.ts";
-import { DueLine } from "./TaskRow.tsx";
+import { DueLine, StatusButton } from "./TaskRow.tsx";
 import { StatusIcon } from "./StatusIcon.tsx";
-import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
 import { barButton } from "../ui/bar.ts";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 
@@ -83,16 +82,14 @@ function Row({
     <View
       className={cn("flex-row items-center gap-3 px-1 py-2", ROW_DIVIDER, done && "opacity-60")}
     >
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: done }}
-        accessibilityLabel={`${done ? "Reopen" : "Mark done"} ${assignment.entity.title || "assignment"}`}
-        hitSlop={touchSlop(CONTROL_SIZE.check)}
-        onPress={() => mark.mutate(done ? "not_started" : "submitted")}
-        className="size-6 items-center justify-center active:opacity-60"
-      >
-        <StatusIcon status={ASSIGNMENT_STATUSES.find((s) => s.id === assignment.status)} />
-      </Pressable>
+      <View className="size-6 items-center justify-center">
+        <StatusButton
+          title={assignment.entity.title || "assignment"}
+          status={ASSIGNMENT_STATUSES.find((s) => s.id === assignment.status)}
+          statuses={ASSIGNMENT_STATUSES}
+          onPick={(id) => mark.mutate(id)}
+        />
+      </View>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${assignment.entity.title || "Untitled"}, ${assignment.entity.key}`}

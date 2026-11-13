@@ -50,10 +50,11 @@ export function TrashScreen() {
         <FilterField label="Filter Trash" value={query} onChange={setQuery} />
       ) : null}
       {trashed.length > 0 ? (
-        <View className="items-start gap-2">
+        <View className="gap-2">
           <Button
             label="Empty Trash"
             variant="destructive"
+            size="lg"
             status={statusOf(empty)}
             successLabel="Emptied"
             errorLabel="Couldn't empty it"
