@@ -11,6 +11,7 @@ import { automationDevice } from "../dev/device.ts";
 import { deviceName } from "../data/sync.ts";
 import { parseLatexMacros } from "@nookly/shared/latex";
 import { useSetting } from "../data/settings.ts";
+import { pageTypographyCss } from "./typography.ts";
 import { useReveal } from "../ui/Screen.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { VimKeys } from "./VimKeys.tsx";
@@ -78,6 +79,8 @@ export function PageDocEditor({
   const [displayName] = useSetting("general.displayName");
   const [macroText] = useSetting("notes.latexMacros");
   const [vim] = useSetting("notes.vimMode");
+  const [pageFont] = useSetting("notes.editorFont");
+  const [pageSize] = useSetting("notes.editorFontSize");
   /// `?` in Vim's normal mode asked for the key list.
   const [vimHelp, setVimHelp] = useState(false);
   const macros = useMemo(() => parseLatexMacros(macroText).macros, [macroText]);
@@ -219,6 +222,7 @@ export function PageDocEditor({
         }}
         editable={editable}
         vim={vim}
+        typography={pageTypographyCss(pageFont, pageSize)}
         person={person}
         macros={macros}
         placeholder="Write something"

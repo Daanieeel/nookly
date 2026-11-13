@@ -88,6 +88,8 @@ interface Props {
   editable: boolean;
   /// Vim keys (`notes.vimMode`), for a hardware keyboard.
   vim: boolean;
+  /// The page font and size from Settings, as CSS variables (`pageTypographyCss`).
+  typography: string;
   person: { name: string; color: string };
   colors: EditorColors;
   /// The person's own LaTeX commands from Settings.
@@ -134,7 +136,7 @@ const isToolbarId = (id: string): id is ToolbarId => Object.hasOwn(COMMANDS, id)
 
 const CSS = `
 html, body { margin: 0; height: auto; min-height: 0; background: transparent; -webkit-text-size-adjust: 100%; }
-.root { font: 17px/1.55 -apple-system, system-ui, "Inter", sans-serif; color: var(--fg); }
+.root { font: calc(17px * var(--page-scale, 1))/1.55 var(--page-font, -apple-system, system-ui, "Inter", sans-serif); color: var(--fg); }
 .host { display: flex; flex-direction: column; }
 .pm { flex: 1; outline: none; padding: 0 0 24px; min-height: 120px; word-break: break-word; position: relative; }
 .pm > p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before { content: attr(data-placeholder); color: var(--muted); position: absolute; pointer-events: none; }
@@ -186,6 +188,7 @@ export default function PageEditorDom({
   ref,
   editable,
   vim,
+  typography,
   person,
   colors,
   macros,
@@ -509,6 +512,7 @@ export default function PageEditorDom({
   return (
     <div className="root" style={vars}>
       <style>{CSS}</style>
+      <style>{typography}</style>
       <style>{highlightCss(".pm", colors.dark)}</style>
       <div ref={host} className="host" style={{ minHeight }} />
       {vimLabel ? (
