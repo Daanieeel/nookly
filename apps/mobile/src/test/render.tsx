@@ -4,7 +4,6 @@ import type { LocalDb } from "@nookly/shared/data";
 import { SyncRuntime } from "@nookly/shared/sync";
 import { NodeSqliteDriver } from "@nookly/shared/testing";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { View } from "react-native";
 import { Stack } from "expo-router";
 import { renderRouter } from "expo-router/testing-library";
 import { act, waitFor } from "@testing-library/react-native";
@@ -19,11 +18,7 @@ import { ClipboardProvider, type ClipboardWriter, systemClipboard } from "../ui/
 import { FilePickerProvider, type TextFilePicker, systemFilePicker } from "../ui/file-picker.tsx";
 import { WindowWidthProvider } from "../ui/pane.tsx";
 import { PageEditorViewProvider } from "../editor/editor-view.tsx";
-
-/// What stands in for the page editor's web view, which a test can not run.
-function EditorStandIn() {
-  return <View accessibilityLabel="Page editor" />;
-}
+import { EditorStandIn } from "./editor-stand-in.tsx";
 
 let ids = 0;
 

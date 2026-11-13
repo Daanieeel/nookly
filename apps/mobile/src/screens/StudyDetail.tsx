@@ -15,7 +15,6 @@ import {
   updateExam,
   weightPercent,
 } from "@nookly/shared/data";
-import { useForm } from "@tanstack/react-form";
 import {
   IconAward,
   IconCalendarDue,
@@ -33,7 +32,6 @@ import {
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
-import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import {
   useAssignment,
@@ -47,8 +45,7 @@ import {
   useExams,
   useSessions,
 } from "../data/queries.ts";
-import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { Field } from "../ui/Field.tsx";
+import { Button, IconButton } from "../ui/Button.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { shownValue } from "../ui/DateField.tsx";
 import type { MenuIcon } from "../ui/menu.tsx";
@@ -71,7 +68,6 @@ import { EntityIcon } from "../ui/icons.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel, localDay } from "./dates.ts";
-import { fieldError } from "./forms.ts";
 import { AssignmentRows, ExamRows } from "./StudyLists.tsx";
 import { CourseSemesterPicker, ExamStudyBlocks } from "./PlannerScreens.tsx";
 import { CourseProperty } from "./StudyPickers.tsx";
@@ -80,10 +76,6 @@ import { courseStats, inDays } from "./course-stats.ts";
 
 /// The fields of Courses, Exams, Assignments and Decks, as their detail pages show
 /// them on the desktop.
-
-function Padded({ children }: { children: React.ReactNode }) {
-  return <View className="gap-3 p-3">{children}</View>;
-}
 
 /// A fixed set of statuses as the options of a row.
 function statusOptions(statuses: FixedStatus[]) {
@@ -509,73 +501,6 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
         ) : null}
       </DetailsPart>
     </>
-  );
-}
-
-const cardSchema = z.object({
-  front: z.string().trim().min(1, "Write the question"),
-  back: z.string().trim().min(1, "Write the answer"),
-});
-
-export function CardForm({
-  initial,
-  submitLabel,
-  onSubmit,
-  status,
-  onDelete,
-}: {
-  initial: { front: string; back: string };
-  submitLabel: string;
-  onSubmit: (card: { front: string; back: string }) => Promise<void>;
-  status: { isPending: boolean; isSuccess: boolean; isError: boolean };
-  onDelete?: () => void;
-}) {
-  const form = useForm({
-    defaultValues: initial,
-    validators: { onSubmit: cardSchema },
-    onSubmit: async ({ value }) => {
-      await onSubmit({ front: value.front.trim(), back: value.back.trim() });
-      form.reset();
-    },
-  });
-  return (
-    <Padded>
-      <form.Field name="front">
-        {(field) => (
-          <Field
-            label="Front"
-            multiline
-            placeholder="The question"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
-      <form.Field name="back">
-        {(field) => (
-          <Field
-            label="Back"
-            multiline
-            placeholder="The answer"
-            value={field.state.value}
-            onChangeText={field.handleChange}
-            onBlur={field.handleBlur}
-            error={fieldError(field)}
-          />
-        )}
-      </form.Field>
-      <View className="flex-row gap-2">
-        <Button
-          label={submitLabel}
-          status={statusOf(status)}
-          errorLabel="Couldn't save"
-          onPress={() => void form.handleSubmit()}
-        />
-        {onDelete ? <Button label="Delete Card" variant="ghost" onPress={onDelete} /> : null}
-      </View>
-    </Padded>
   );
 }
 

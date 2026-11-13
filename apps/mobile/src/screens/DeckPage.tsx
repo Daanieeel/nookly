@@ -1,16 +1,19 @@
 import {
+  type CardBlock,
   type IndexCard,
   createCard,
   deleteCard,
   setDeckExam,
   studyQueue,
-  updateCard,
+  textFaceBlocks,
+  updateCardFaces,
 } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconCalendarEvent, IconCards, IconClock, IconStack2 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+
+import { useCallback, useRef, useState } from "react";
+import { Pressable, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import { usePreference } from "../data/preferences.ts";
@@ -25,10 +28,50 @@ import { Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
-import { CardForm } from "./StudyDetail.tsx";
+import { CardFaceEditor } from "../editor/CardFaceEditor.tsx";
+import { sameFace } from "../editor/card-face.ts";
 import { ExamProperty } from "./StudyPickers.tsx";
 
-const draftSchema = z.object({ front: z.string(), back: z.string() });
+/// A half written card kept for its deck: each face's blocks.
+const blockSchema = z.object({
+  type: z.string(),
+  content: z.string(),
+  language: z.string().nullable(),
+  filename: z.string().nullable(),
+  attrs: z.record(z.string(), z.string()),
+});
+const draftSchema = z.object({ front: z.array(blockSchema), back: z.array(blockSchema) });
+/// What older versions kept: each face as text.
+const oldDraftSchema = z.object({ front: z.string(), back: z.string() });
+const EMPTY_DRAFT = { front: [], back: [] };
+
+type Side = "front" | "back";
+const SIDES = {
+  front: { title: "Front", label: "Front of the card", placeholder: "The question" },
+  back: { title: "Back", label: "Back of the card", placeholder: "The answer" },
+} as const;
+
+/// A face's blocks as the editor holds them, for a face written as text too.
+function asBlocks(text: string): CardBlock[] {
+  return text.trim() === ""
+    ? []
+    : textFaceBlocks(text).map((b) => ({
+        type: b.type,
+        content: b.content,
+        language: null,
+        filename: null,
+        attrs: b.attrs ?? {},
+      }));
+}
+
+/// A card's face as blocks: the ones it was written with, or its text.
+function faceOf(card: IndexCard, side: Side): CardBlock[] {
+  return (side === "front" ? card.frontBlocks : card.backBlocks) ?? asBlocks(card[side]);
+}
+
+/// Whether a face holds anything: words, or a block that is more than words (a picture).
+const written = (blocks: CardBlock[]) =>
+  blocks.some((b) => b.content.trim() !== "" || b.type !== "paragraph");
 const STATE_LABELS = new Map([
   ["new", "New"],
   ["learning", "Learning"],
@@ -54,40 +97,51 @@ function Figure({ label, value, color }: { label: string; value: number; color: 
   );
 }
 
-/// An index card the size of the desk: the front you write, flipped to the back, then it drops
-/// onto the pile. What is half written is kept for the deck.
+/// An index card the size of the desk: the front you write with the page editor, flipped to
+/// the back, then it drops onto the pile. What is half written is kept for the deck.
 function WriteDesk({ deckId, onDone }: { deckId: string; onDone: () => void }) {
-  const theme = useTheme();
-  const [draft, setDraft] = usePreference(`deck.draft.${deckId}`, draftSchema, {
+  const [old, setOld] = usePreference(`deck.draft.${deckId}`, oldDraftSchema, {
     front: "",
     back: "",
   });
-  const [side, setSide] = useState<"front" | "back">("front");
-  const [written, setWritten] = useState(0);
-  const add = useLocalWrite((db, card: { front: string; back: string }) =>
-    createCard(db, deckId, card.front, card.back),
+  const [draft, setDraft] = usePreference(`deck.cardDraft.${deckId}`, draftSchema, {
+    // A card half written before the editor came along carries on from its text.
+    front: asBlocks(old.front),
+    back: asBlocks(old.back),
+  });
+  const [side, setSide] = useState<Side>("front");
+  const [round, setRound] = useState(0);
+  const [count, setCount] = useState(0);
+  const latest = useRef(draft);
+  latest.current = draft;
+  const add = useLocalWrite((db, card: { front: CardBlock[]; back: CardBlock[] }) =>
+    createCard(db, deckId, { blocks: card.front }, { blocks: card.back }),
   );
-  const ready = draft.front.trim() !== "" && draft.back.trim() !== "";
-  const text = draft[side];
+  const ready = written(draft.front) && written(draft.back);
+  const change = useCallback(
+    (blocks: CardBlock[]) => {
+      const next = { ...latest.current, [side]: blocks };
+      latest.current = next;
+      setDraft(next);
+    },
+    [side, setDraft],
+  );
   return (
     <View className="gap-3">
       <View
-        className={cn(CARD_CLASSES, "aspect-[5/3] justify-center gap-2 p-4")}
+        className={cn(CARD_CLASSES, "min-h-48 gap-2 p-4")}
         accessibilityLabel={`Index card, ${side}`}
       >
         <Text variant="small" tone="muted">
-          {side === "front" ? "Front" : "Back"}
+          {SIDES[side].title}
         </Text>
-        <TextInput
-          accessibilityLabel={side === "front" ? "Front of the card" : "Back of the card"}
-          value={text}
-          multiline
-          autoFocus
-          onChangeText={(value) => setDraft({ ...draft, [side]: value })}
-          placeholder={side === "front" ? "The question" : "The answer"}
-          placeholderTextColor={theme.colors.mutedForeground}
-          className="flex-1 font-heading text-xl text-foreground"
-          textAlignVertical="top"
+        <CardFaceEditor
+          key={`${side}-${round}`}
+          deckId={deckId}
+          label={SIDES[side].label}
+          placeholder={SIDES[side].placeholder}
+          blocks={draft[side]}
+          onChange={change}
         />
       </View>
       <View className="flex-row flex-wrap items-center gap-2">
@@ -102,25 +156,81 @@ function WriteDesk({ deckId, onDone }: { deckId: string; onDone: () => void }) {
           status={statusOf(add)}
           errorLabel="Couldn't add"
           onPress={() =>
-            add.mutate(
-              { front: draft.front.trim(), back: draft.back.trim() },
-              {
-                onSuccess: () => {
-                  setDraft({ front: "", back: "" });
-                  setSide("front");
-                  setWritten((n) => n + 1);
-                },
+            add.mutate(latest.current, {
+              onSuccess: () => {
+                setDraft(EMPTY_DRAFT);
+                setOld({ front: "", back: "" });
+                latest.current = EMPTY_DRAFT;
+                setSide("front");
+                setRound((n) => n + 1);
+                setCount((n) => n + 1);
               },
-            )
+            })
           }
         />
         <Button label="Done" variant="ghost" onPress={onDone} />
       </View>
-      {written > 0 ? (
+      {count > 0 ? (
         <Text variant="small" tone="muted">
-          {written === 1 ? "1 card added" : `${written} cards added`}
+          {count === 1 ? "1 card added" : `${count} cards added`}
         </Text>
       ) : null}
+    </View>
+  );
+}
+
+/// A card opened from its small card: both faces in the page editor. Saving writes only the
+/// faces that changed, so what the desktop wrote on the other stays as it is.
+function CardEditor({
+  card,
+  onSave,
+  onDelete,
+  status,
+}: {
+  card: IndexCard;
+  onSave: (faces: { front?: CardBlock[]; back?: CardBlock[] }) => Promise<void>;
+  onDelete: () => void;
+  status: Parameters<typeof statusOf>[0];
+}) {
+  const [start] = useState(() => ({ front: faceOf(card, "front"), back: faceOf(card, "back") }));
+  const faces = useRef(start);
+  const setFront = useCallback((blocks: CardBlock[]) => {
+    faces.current = { ...faces.current, front: blocks };
+  }, []);
+  const setBack = useCallback((blocks: CardBlock[]) => {
+    faces.current = { ...faces.current, back: blocks };
+  }, []);
+  return (
+    <View className="gap-3">
+      {(["front", "back"] as const).map((side) => (
+        <View key={side} className={cn(CARD_CLASSES, "min-h-32 gap-2 p-4")}>
+          <Text variant="small" tone="muted">
+            {SIDES[side].title}
+          </Text>
+          <CardFaceEditor
+            deckId={card.deckId}
+            label={SIDES[side].label}
+            placeholder={SIDES[side].placeholder}
+            blocks={start[side]}
+            onChange={side === "front" ? setFront : setBack}
+          />
+        </View>
+      ))}
+      <View className="flex-row flex-wrap items-center gap-2">
+        <Button
+          label="Save Card"
+          status={statusOf(status)}
+          errorLabel="Couldn't save"
+          onPress={() => {
+            const { front, back } = faces.current;
+            void onSave({
+              front: sameFace(front, start.front) ? undefined : front,
+              back: sameFace(back, start.back) ? undefined : back,
+            });
+          }}
+        />
+        <Button label="Delete Card" variant="destructive" onPress={onDelete} />
+      </View>
     </View>
   );
 }
@@ -155,8 +265,11 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
   const [mode, setMode] = useState<"overview" | "write">("overview");
   const [editing, setEditing] = useState<string | null>(null);
   const exam = useLocalWrite((db, examId: string | null) => setDeckExam(db, id, examId));
-  const save = useLocalWrite((db, next: { id: string; front: string; back: string }) =>
-    updateCard(db, next.id, next.front, next.back),
+  const save = useLocalWrite((db, next: { id: string; front?: CardBlock[]; back?: CardBlock[] }) =>
+    updateCardFaces(db, next.id, {
+      front: next.front ? { blocks: next.front } : undefined,
+      back: next.back ? { blocks: next.back } : undefined,
+    }),
   );
   const remove = useLocalWrite((db, cardId: string) => deleteCard(db, cardId));
   if (!deck) return null;
@@ -232,13 +345,12 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
             </View>
             {edited ? (
               <Section title="Edit card">
-                <CardForm
+                <CardEditor
                   key={edited.id}
-                  initial={{ front: edited.front, back: edited.back }}
-                  submitLabel="Save Card"
+                  card={edited}
                   status={save}
-                  onSubmit={async (value) => {
-                    await save.mutateAsync({ id: edited.id, ...value });
+                  onSave={async (faces) => {
+                    await save.mutateAsync({ id: edited.id, ...faces });
                     setEditing(null);
                   }}
                   onDelete={() => {

@@ -60,11 +60,14 @@ export function PageDocEditor({
   entityId,
   editable,
   fill,
+  placeholder = "Write something",
 }: {
   doc: Y.Doc;
   awareness: Awareness | null;
   entityId: string;
   editable: boolean;
+  /// What an empty page says (a card's face: "The question").
+  placeholder?: string;
   /// Whether the editor reaches down to the bottom of the screen, so a tap anywhere below
   /// the text starts typing; else it is a region of the page.
   fill: boolean;
@@ -225,7 +228,7 @@ export function PageDocEditor({
         typography={pageTypographyCss(pageFont, pageSize)}
         person={person}
         macros={macros}
-        placeholder="Write something"
+        placeholder={placeholder}
         minHeight={minHeight}
         colors={{
           foreground: theme.colors.foreground,
