@@ -51,22 +51,22 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ### 0. First step
 
-- [ ] The app's backmost background is a deep charcoal instead of full black, on mobile and on desktop (dark mode). Add new tokens where needed; do not edit existing ones in `packages/ui`.
+- [x] (2026-11-13, #111111, D60) The app's backmost background is a deep charcoal instead of full black, on mobile and on desktop (dark mode). Add new tokens where needed; do not edit existing ones in `packages/ui`.
 
 ### 1. Mobile: sidebar
 
-- [ ] (in progress: rows, icons, Space header and bottom bar bigger, uncommitted in `Sidebar.tsx`) Bigger text and icons in the nav sidebar.
-- [ ] Bigger text and icons in the menu the + next to the Space icons opens.
-- [ ] (cause found and fixed with a test, uncommitted: the sidebar snapped back to the Space of the open module page) Switching Spaces works every time; clicking a Space icon always switches.
-- [ ] The overflow (three dot) menu of hidden Spaces shows each Space's icon and colour.
-- [ ] Emoji Space icons are centred, not shifted up and cut off.
-- [ ] The day card at the top: the date a little bigger, the cycling line a little heavier.
-- [ ] A "Nookly" title (Inter Tight, very heavy) as an always visible header at the top, with a native search icon button (magnifier) on the other side (space between). It replaces the "Search" row, which goes. A blur gradient behind it so it reads as a proper header.
-- [ ] Sidebar icons at about 85 to 90% opacity, so they do not look irrelevant.
+- [x] (2026-11-13) Bigger text and icons in the nav sidebar.
+- [x] (2026-11-13, every menu) Bigger text and icons in the menu the + next to the Space icons opens.
+- [x] (2026-11-13, the sidebar snapped back to the open page's Space; test) Switching Spaces works every time; clicking a Space icon always switches.
+- [x] (2026-11-13) The overflow (three dot) menu of hidden Spaces shows each Space's icon and colour.
+- [x] (2026-11-13) Emoji Space icons are centred, not shifted up and cut off.
+- [x] (2026-11-13) The day card at the top: the date a little bigger, the cycling line a little heavier.
+- [x] (2026-11-13) A "Nookly" title (Inter Tight, very heavy) as an always visible header at the top, with a native search icon button (magnifier) on the other side (space between). It replaces the "Search" row, which goes. A blur gradient behind it so it reads as a proper header.
+- [x] (2026-11-13) Sidebar icons at about 85 to 90% opacity, so they do not look irrelevant.
 
 ### 2. Mobile: menus and sheets
 
-- [ ] Items in popovers and menus (the long press sheet on entities and every other menu) get larger text and icons for touch.
+- [x] (2026-11-13, MenuList: body text, 22pt icons, 50pt rows) Items in popovers and menus (the long press sheet on entities and every other menu) get larger text and icons for touch.
 - [ ] The display options sheet gets back grouping and ordering options, and its list and board boxes grow with the larger menu items.
 
 ### 3. Mobile: forms and settings
@@ -102,7 +102,7 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 - [ ] The exam time chip shows AM/PM only where the time format uses it, like the popover already does.
 - [ ] The time popover: much bigger hour and minute fields that feel like a real clock face (Inter), no background, two underlines under hour and minute, as if typing into the popover itself. "Clear time" is a destructive button, "Done" is primary.
-- [ ] Study blocks are removed from the mobile app (the feature no longer exists).
+- [x] (2026-11-13, UI and agenda; rows untouched) Study blocks are removed from the mobile app (the feature no longer exists).
 - [ ] The course page's semester select shows semesters with their metadata (icon etc.) like the desktop.
 - [ ] The assignment due date selector offers "Specific session" as the desktop does.
 - [ ] The due date selector's option boxes are a little bigger.
@@ -120,7 +120,7 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ### 8. Mobile: files
 
-- [ ] (in progress, uncommitted: native module `modules/nookly-file-viewer` with PDFKit and Quick Look, `screens/file-kinds.ts`, tests in `screens/file-viewer.test.tsx`; the screen `screens/FileViewer.tsx` and the route `app/file/[id].tsx` are still to write) A full file viewer for PDFs and other files.
+- [x] (2026-11-13, PDFKit with search and page count, Quick Look, thumbnails; checked in the simulator) A full file viewer for PDFs and other files.
 - [ ] A scan button next to + on the Files page, using `expo-document-scanner` (https://github.com/DineshKachhot/expo-document-scanner). After scanning, a bottom sheet for title, labels, relationships etc., prefilled with sensible defaults (file name etc.). The document uploads in the background while the sheet is open; the sheet only applies the user's edits afterwards.
 
 ### 9. Mobile: app
@@ -147,7 +147,8 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ## Progress log
 
-- 2026-11-13: file refilled from `NOTES.md`. Earlier work (sync, merge, the first mobile rebuild) is in git history and `DECISIONS.md` up to D59.
+- 2026-11-13: file refilled from `NOTES.md`.
+- 2026-11-13: charcoal background (D60); sidebar (sizes, header, Space switching fix, overflow icons, emoji centring, opacity); menus larger; study blocks gone from the phone; file viewer (`modules/nookly-file-viewer`). Simulator dev build: Debug in the scratch `dd-debug` folder, Metro on 8092 with `RCT_jsLocation` set in the app's defaults (no dev client package). Earlier work (sync, merge, the first mobile rebuild) is in git history and `DECISIONS.md` up to D59.
 
 ## Final report
 
