@@ -49,8 +49,8 @@ Written 2026-11-10 after a review session in which the user ran desktop and the 
 
 0. [x] Step 0: done.
 1. [x] Section 1, the merge and the phone ports.
-2. [~] Section 2, sync: done except the items left open in section 2.
-3. [~] Section 3, desktop items: Account settings rework still open.
+2. [x] Section 2, sync (D40 clash on every device, restart tests, the real two device check, 2026-11-13).
+3. [x] Section 3, desktop items (Account cards done 2026-11-12).
 4. [ ] Section 4, mobile, in vertical slices so the app is never half rebuilt: (a) foundations first: the shared tokens (touch sizes, spacing, flat surfaces), the motion token file and the sheet, menu and popover rebuild, the haptics module and API; (b) the shell: sidebar with space switcher, header, mascot, dashboard; (c) list pages (Tasks, Assignments and the other modules); (d) item pages and the editor for every type; (e) settings and the remaining screens; (f) the mobile feature gaps; (g) a final sweep screen by screen in dark and light, phone and iPad. After each slice: screenshots compared with the desktop, tests, this file, commit, push.
 5. [ ] The final checks (definition of done 5) and the final report.
 
@@ -114,7 +114,7 @@ Open:
 
 Open:
 
-- [ ] Desktop is otherwise in good shape (two months of development); do not redesign it. Only account and sync UI and the items above change.
+- [x] Desktop is otherwise in good shape (two months of development); do not redesign it. Only account and sync UI and the items above change. (Kept: the desktop changed only in account and sync UI.)
 
 ### 4. Mobile app: redesign to match desktop
 
