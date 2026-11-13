@@ -509,3 +509,66 @@ describe("a device whose session ended while it was closed", () => {
     expect(relaunched.store.getState().status.error).toBeNull();
   });
 });
+
+describe("a device restarted during its first sync", () => {
+  for (const [phase, when] of [
+    ["sending", "after"],
+    ["checking", "after"],
+    ["checking", "before"],
+  ] as const) {
+    it(`sends an edit made ${when} a restart while ${phase}`, async () => {
+      // Seen once on the phone: an edit stayed pending after a sign in plus a restart while
+      // the first sync was checking with the server.
+      const desktop = makeDevice(DESKTOP);
+      await desktop.sync.signUp(server.baseUrl, { username: "ada", password: PASSWORD });
+      await desktop.sync.settled();
+      const phone = makeDevice(PHONE);
+      for (let i = 1; i <= 120; i++) {
+        addTask(phone, `p${i}`, `Phone task ${i}`);
+        phone.driver.exec("UPDATE entities SET key_number = ? WHERE id = ?", String(i), `p${i}`);
+      }
+      // Closed the moment the first sync reaches the phase.
+      const closed = new Promise<void>((resolve) => {
+        const stop = phone.sync.store.subscribe((state) => {
+          if (state.migration?.phase !== phase) return;
+          stop();
+          if (when === "before") {
+            edit(phone, "UPDATE entities SET title = 'Edited after restart' WHERE id = 'p1'");
+          }
+          phone.sync.stop();
+          resolve();
+        });
+      });
+      await phone.sync.signIn(server.baseUrl, "ada", PASSWORD, { localData: "add" });
+      await closed;
+      const relaunched = new SyncRuntime({
+        driver: phone.driver,
+        device: PHONE,
+        onApplied: () => {},
+        connect: (baseUrl, onSignedOut) =>
+          new ApiClient({ baseUrl, tokens: phone.tokens, onSignedOut }),
+      });
+      const launched: AppDevice = { ...phone, sync: relaunched };
+      devices.push(launched);
+      await relaunched.restore(server.baseUrl);
+      if (when === "after") {
+        edit(launched, "UPDATE entities SET title = 'Edited after restart' WHERE id = 'p1'");
+      }
+      await until(
+        () => title(desktop, "p1") === "Edited after restart",
+        "the edit on the desktop",
+        10_000,
+      );
+      await until(
+        async () => (await phone.driver.rows("SELECT COUNT(*) AS n FROM sync_dirty"))[0].n === 0,
+        "nothing pending on the phone",
+        5_000,
+      );
+      await until(
+        () => relaunched.store.getState().migration?.phase === "done",
+        "the first sync done",
+        10_000,
+      );
+    }, 40_000);
+  }
+});
