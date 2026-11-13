@@ -1,4 +1,5 @@
 import "../global.css";
+import { semanticHex } from "../ui/tokens.ts";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -152,6 +153,12 @@ export default function RootLayout() {
       border: theme.colors.border,
     },
   };
+  // A page of grouped sections has its bar on the same grouped background, as iOS's Settings.
+  const groupedHeader = {
+    headerStyle: {
+      backgroundColor: semanticHex("groupedBackground", theme.dark ? "dark" : "light"),
+    },
+  };
   const stack = (
     <Stack
       screenOptions={{
@@ -181,8 +188,8 @@ export default function RootLayout() {
       <Stack.Screen name="account/forgot" options={{ title: "Reset Password" }} />
       <Stack.Screen name="entity/[id]" options={{ title: "" }} />
       <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
-      <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
-      <Stack.Screen name="settings/[page]" options={{ title: "Settings" }} />
+      <Stack.Screen name="settings/index" options={{ title: "Settings", ...groupedHeader }} />
+      <Stack.Screen name="settings/[page]" options={{ title: "Settings", ...groupedHeader }} />
       <Stack.Screen name="pick/icon" options={SHEET_ROUTE} />
       <Stack.Screen name="new/recipe" options={SHEET_ROUTE} />
       <Stack.Screen name="new/session" options={SHEET_ROUTE} />
