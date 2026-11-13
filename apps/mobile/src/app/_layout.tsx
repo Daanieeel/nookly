@@ -31,6 +31,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { type AppData, AppDataProvider, useAppData } from "../data/context.tsx";
 import { backUpBeforeSync } from "../data/backup.ts";
 import { openLocalDb } from "../data/database.ts";
+import { runOnce } from "../data/run-once.ts";
 import { keys } from "../data/keys.ts";
 import { restoreTheme } from "../data/appearance.ts";
 import { createSync, onboardedStore, serverUrlStore, themeStore } from "../data/sync.ts";
@@ -45,9 +46,13 @@ import { useTheme } from "../ui/theme.ts";
 /// The pages of the sidebar itself: nothing to go back to from them.
 const TOP_LEVEL = /^\/($|calendar|tasks|pinned|search|trash|space\/|module\/)/;
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { networkMode: "always" }, mutations: { networkMode: "always" } },
-});
+const queryClient = runOnce(
+  "query-client",
+  () =>
+    new QueryClient({
+      defaultOptions: { queries: { networkMode: "always" }, mutations: { networkMode: "always" } },
+    }),
+);
 
 /// Opens the phone's database and carries on with the saved sync sign in, if any.
 async function start(): Promise<AppData> {
@@ -108,7 +113,7 @@ export default function RootLayout() {
   const [data, setData] = useState<AppData | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   useEffect(() => {
-    start().then(setData, (error: Error) => setFailure(error.message));
+    runOnce("start", start).then(setData, (error: Error) => setFailure(error.message));
   }, []);
 
   if (failure) {
