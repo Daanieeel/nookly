@@ -2,59 +2,28 @@
 
 > ## ⛔ DO NOT STOP WORKING. UNDER NO CIRCUMSTANCES.
 >
-> **You keep working until every item in "Definition of done" is ticked and the final report is written. There is no other reason to end a turn.**
->
-> None of these is a reason to stop. Each one has its own next step:
+> **Keep working until every item below is ticked and the final report at the end is written. There is no other reason to end a turn.**
 >
 > - **A batch is finished.** Pick the next unticked item.
-> - **You want to report progress or summarise.** Write it in the progress log, commit, push and keep going.
-> - **A server, Metro, the hub or the simulator stopped** (for example at the 2 hour background limit). Restart it, or move to work that does not need it.
-> - **A side request from the user is done** (a bug fix, starting servers). Go straight back to this list.
-> - **Context is filling up.** It compacts on its own, and this file carries you over.
-> - **Something needs a real device, the user's eyes or a decision.** Decide yourself (record it in `DECISIONS.md`), or add it to "Needs the user", and move on.
-> - **The session has been long.** Length does not matter.
->
-> Agents stopped on 2026-11-12 and on 2026-11-13 for exactly these reasons. Every time, that was wrong. Stop only when the user explicitly says to stop for now. Even then, the next instruction to continue means continuing until done.
+> - **You want to report progress.** Write it in the progress log, commit, push, keep going.
+> - **A server, Metro or the simulator stopped.** Restart it, or move to work that does not need it.
+> - **A side request from the user is done.** Go straight back to this list.
+> - **Context is filling up.** It compacts on its own; this file carries you over.
+> - **Something needs a real device, the user's eyes or a decision.** Decide (record it in `DECISIONS.md`) or add it to "Needs the user", and move on.
 
-**This file is a ready to run prompt.** An autonomous coding agent is told "read `IMPLEMENTATION_STATE.md` and get to work", and then reads this file, `AGENTS.md` and `docs/00-index.md` and carries the whole list out from start to finish **without any human help**. The user reviews everything once, at the end. It is also the handover file: keep it current at all times (tick items, record findings, append to the progress log after every meaningful step) so a fresh session can resume after an interruption or a context reset.
+**This file is a ready to run prompt and the handover file.** An agent told "read `IMPLEMENTATION_STATE.md` and get to work" reads this file, `AGENTS.md` and `docs/00-index.md`, then carries the list out from start to finish without human help. Keep it current: tick items, note findings, append to the progress log after every meaningful step.
 
-## Situation
+The items come from the user's `NOTES.md` (2026-11-13). `NOTES.md` is the user's own file: read it, never edit it.
 
-Written 2026-11-10 after a review session in which the user ran desktop and the iOS simulator side by side. Their verdict: the current state is not good. **Sync, the whole point of this branch (a connected product: one account, the same data live on desktop and phone), does not work between devices**, and the mobile app is ugly, hard to use and does not resemble the desktop. The earlier claims of "all phases done and verified" (in older versions of this file, `GAP_ANALYSIS.md`, `PAGES.md`, `DECISIONS.md`) must be treated as unverified. Those files describe intent and past work; trust the running app over them.
+## Rules
 
-## Autonomy contract (read this first, it overrides any habit of asking)
-
-- **NEVER STOP UNTIL EVERYTHING IS DONE. No exceptions, under no circumstances.** The only allowed end of work is the "Definition of done" below, every item ticked and the final report written. Not after a batch of items, not to report progress, not to summarise, not because a session feels long, not because context is filling up (it compacts on its own; this file carries you over), not because a service stopped (restart it), not because a check needs a device (put it on "Needs the user" and move on). Progress goes into the progress log and commits, never into a message that ends the turn. On 2026-11-12 an agent stopped after a batch only to report progress, with nothing blocking it; that was wrong and must not happen again. When a batch is done, pick the next unticked item at once.
-
-- **Do not ask the user anything and do not wait for approval.** Nobody will answer. Work from start to finish in one go: merge, sync, desktop, mobile, polish, final report. Never end a turn with a plan, a question or "shall I continue"; finish the list. If you are about to stop with items left, pick the next unticked item instead.
-- **When something is ambiguous, decide.** Order of authority: what the desktop app does (after the merge) beats `docs/` (`docs/00-index.md`, `05-ui-ux-direction.md`, `06-decisions-log.md`, `07-deferred-scope.md`), which beats your own judgement; the phone deviates from the desktop only where touch demands it. Record every non obvious decision in `DECISIONS.md` (decision, alternatives, why; a flag on the ones the user should double check). Continue.
-- **When something truly cannot be done by you** (a feel that only a real iPhone gives, a paid account, real OAuth keys, a real mail provider): do not block. Build the best version you can verify, stub the rest behind an interface, and put it on the "Needs the user" list in the final report (see the end of this file). Do not claim what you could not verify.
-- **Never pretend.** If a test fails, say so; if something is skipped, say so; do not tick an item that is not working in the running app. The previous "verified" claims were wrong, so "done" means: works in the running apps like a user would use them (screenshots you looked at critically) plus an automated test that would have caught the problem.
-- **Safety, no exceptions:** Nookly is released and user data must never be lost (migration, sync, conflict, crash mid write, failed upload; everything destructive is recoverable). Never run migration or sync code against the user's real Nookly data, only copies and generated fixtures (`NOOKLY_DATA_DIR` scratch folders). Do not touch the user's own processes (ports 3000, 8081, 1420, the simulator "iPhone 17") or `/Applications/Nookly.app`. **Never merge anything into `main`, never push to `main`**, no force push to shared history, no tags, no pull requests, nothing outside this repository except starting and stopping your own dev servers and simulators. Never `git stash drop` or clear a stash (the stash list is shared with other checkouts). The only branch you delete is `mobile-app-and-backend`, in step 0.
-- **Git: you own this branch (`feat/connected-platform`) and may manage it entirely yourself.** Commit after every meaningful step with a clear message that ends with the attribution lines your session gives you; push to `origin` whenever it helps (at least right after step 0 and the merge, after each of sections 1 to 3, and after every group of mobile items; `git push`, it tracks `origin/feat/connected-platform`); merge `main` into it (section 1) and again later if main moved; use fixup, amend or interactive cleanup only on commits that exist nowhere else; fetch, merge and retry if a push is rejected, and if you rewrite history of this branch use `--force-with-lease` and only after checking nobody else pushed. The one hard limit: **nothing from this branch goes into `main`** (no merge, no push, no PR). Committing is part of the job; it is the checkpoint that makes resuming possible.
-- **Project rules (`AGENTS.md`, read it in full):** migrations append only and hashed; tests first for every bug fix or behaviour change (watch the test fail, then change the code); versions are already 1.0.0 (see section 1), no more bumps and never a major above 1, but every user visible change still needs its line in `CHANGELOG.md` under 1.0.0 and, for features, a card in `whats-new.json`; user facing copy has no em or en dashes and no hyphenated sentence structure; never modify existing primitives or tokens in `packages/ui` (add only); every new entity or field goes through the schema layer the CLI generates from; run new tests in isolation while working, the whole set at the end.
-- **Context is limited:** after each meaningful step update the progress log at the bottom, tick items, commit. If your context is compacted or the session restarts, this file tells you where you are. Parallel work is allowed (sub agents for independent investigations such as profiling the slow editor) but you integrate and verify the results yourself.
-
-## Definition of done (all of it, then stop)
-
-0. The old duplicate branch `mobile-app-and-backend` is gone (local and on origin) after step 0 proved nothing was lost.
-1. `main` is merged into the branch, everything from main works on desktop, nothing is lost for a database from released main, and every main feature is ported where it applies (sync and mobile), see section 1.
-2. Sync works for real: desktop and phone in one account see each other's edits live, remote sign out is live, a headless two client test in the repository proves it and the real two device check is recorded, see section 2.
-3. The desktop items of section 3 are done (account settings rework, cloud icon, slow editor).
-4. Every item of section 4 is done and ticked with a before and after screenshot pair you compared with the desktop, and the mobile motion and haptics system exists and is used everywhere, see section 4.
-5. `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test` (with `TEST_DATABASE_URL`) and `cargo test` in `apps/desktop/src-tauri` pass, `bun run duplication` is under 1%, and you ran and read (not silenced) the report only checks: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
-6. `AGENTS.md` and `DECISIONS.md` carry the new rules and decisions, `CHANGELOG.md` and `whats-new.json` describe the real 1.0.0 (rewrite the draft entries), this file has the final report and is current, and everything is committed and pushed.
-
-## Order of work
-
-0. [x] Step 0: done.
-1. [x] Section 1, the merge and the phone ports.
-2. [x] Section 2, sync (D40 clash on every device, restart tests, the real two device check, 2026-11-13).
-3. [x] Section 3, desktop items (Account cards done 2026-11-12).
-4. [ ] Section 4, mobile, in vertical slices so the app is never half rebuilt: (a) foundations first: the shared tokens (touch sizes, spacing, flat surfaces), the motion token file and the sheet, menu and popover rebuild, the haptics module and API; (b) the shell: sidebar with space switcher, header, mascot, dashboard; (c) list pages (Tasks, Assignments and the other modules); (d) item pages and the editor for every type; (e) settings and the remaining screens; (f) the mobile feature gaps; (g) a final sweep screen by screen in dark and light, phone and iPad. After each slice: screenshots compared with the desktop, tests, this file, commit, push.
-5. [ ] The final checks (definition of done 5) and the final report.
-
-How to judge your own UI work without a human: put the desktop screenshot and the phone screenshot side by side (you can read images), list every difference in hierarchy, spacing, typography, colour, iconography, boxes and density, fix them and repeat until you would not be able to tell they are the same product. Be harsh; the user's verdict on the current state is "ugly, useless, a UX nightmare".
+- **Do not ask, do not wait.** When something is ambiguous, decide: what the desktop app does beats `docs/`, which beats your own judgement; the phone deviates from the desktop only where touch demands it. Record non obvious decisions in `DECISIONS.md` and continue.
+- **Never pretend.** Done means it works in the running app (screenshots you looked at critically) plus an automated test that would have caught the problem. If something cannot be verified here (real device feel), build the best version and put it under "Needs the user".
+- **Safety, no exceptions.** Nookly is released and user data must never be lost. Never run migration or sync code against the user's real Nookly data, only copies and fixtures (`NOOKLY_DATA_DIR` scratch folders). Leave the user's own processes alone: ports 3000, 8081, 1420, the simulator "iPhone 17" `45B8BECE-...`, `/Applications/Nookly.app`. **Never merge into `main`, never push to `main`**, no force push to shared history, no tags, no pull requests. Never `git stash drop` or clear a stash. Kill processes by port or task, never `pkill -f` on the app binary.
+- **Git.** Work on `feat/connected-platform`. Commit after every meaningful step, push often (`git push`).
+- **Project rules (`AGENTS.md`).** Migrations append only and hashed; a test first for every fix or behaviour change (watch it fail); versions stay 1.0.0, but every user visible change gets its line in `CHANGELOG.md` under 1.0.0 and features a card in `whats-new.json`; copy has no em or en dashes and no hyphenated sentence structure; never modify primitives or tokens in `packages/ui` (add only); new entities and fields go through the schema layer the CLI generates from; dialogs and menus get an axe test; permanent actions use `ConfirmPermanentDialog`.
+- **Mobile rules (`AGENTS.md`).** The desktop's Tabler icons only, the same icon per concept (`ui/kit/desktop-icons.test.ts`); exactly one sheet implementation (`apps/mobile/src/ui/sheet/`); motion only from `ui/motion.ts`; touch targets of 44pt or more; native iOS feel with Nookly's identity.
+- Run new tests in isolation while working; the whole set at the end.
 
 ## How to run everything (this machine)
 
@@ -78,147 +47,108 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 - Automation (scripts that drive the apps): desktop `NOOKLY_AUTOMATION_PORT=4568` plus `bun tools/e2e/desktop.ts 4568 "<script>"` or `--shot out.png`; mobile `tools/e2e/mobile.ts` (hub; Metro must be started with `EXPO_PUBLIC_AUTOMATION_URL=http://127.0.0.1:4600`); `tools/e2e/page-client.ts` acts as another device on a page. See the comments in those files. These scripts are what produced the old "verified" claims, so they are not proof that a real user gets working sync.
 - Nothing is guaranteed to be running. Start what you need (server, Metro, the desktop on a fixture, a simulator) and stop what you started when you are done.
 
-## Step 0: done (2026-11-11)
+## Items
 
-`mobile-app-and-backend` deleted (was `0b5bd915`, fully contained here). Stashes checked and kept. Work continues on `feat/connected-platform` since 2026-11-13.
+### 0. First step
 
-## TODO
+- [ ] The app's backmost background is a deep charcoal instead of full black, on mobile and on desktop (dark mode). Add new tokens where needed; do not edit existing ones in `packages/ui`.
 
-Done sections are summarised; open items keep their full text.
+### 1. Mobile: sidebar
 
-### 1. Merge main into this branch and port every new feature
+- [ ] (in progress: rows, icons, Space header and bottom bar bigger, uncommitted in `Sidebar.tsx`) Bigger text and icons in the nav sidebar.
+- [ ] Bigger text and icons in the menu the + next to the Space icons opens.
+- [ ] (cause found and fixed with a test, uncommitted: the sidebar snapped back to the Space of the open module page) Switching Spaces works every time; clicking a Space icon always switches.
+- [ ] The overflow (three dot) menu of hidden Spaces shows each Space's icon and colour.
+- [ ] Emoji Space icons are centred, not shifted up and cut off.
+- [ ] The day card at the top: the date a little bigger, the cycling line a little heavier.
+- [ ] A "Nookly" title (Inter Tight, very heavy) as an always visible header at the top, with a native search icon button (magnifier) on the other side (space between). It replaces the "Search" row, which goes. A blur gradient behind it so it reads as a proper header.
+- [ ] Sidebar icons at about 85 to 90% opacity, so they do not look irrelevant.
 
-**Done (2026-11-11/12, D39).** `main` 0.75.0 merged (merge `b34be7ef`, safe point `b3bdc02b`). Versions stay 1.0.0. Sync migrations re added as 51 to 54 after main's 42 to 50; `db::premerge` upgrades pre merge dev databases (checked on a real copy). Desktop uses main's `BlockEditor` with live collaboration; shared code and the phone follow main's data rules.
+### 2. Mobile: menus and sheets
 
-Open:
+- [ ] Items in popovers and menus (the long press sheet on entities and every other menu) get larger text and icons for touch.
+- [ ] The display options sheet gets back grouping and ordering options, and its list and board boxes grow with the larger menu items.
 
-- [x] (2026-11-13: sidebar on SF Symbols, Settings as a grouped list, page font and size in the phone editor, cards written with the page editor as blocks keeping the desktop's faces (D55), Moodle desktop only (D54)) Port the remaining main features to the phone: the sidebar (see section 4), the settings rework style, page font and size in the phone editor, flashcards edited with blocks on the phone. Moodle stays desktop only (record in `DECISIONS.md` if not yet).
+### 3. Mobile: forms and settings
 
-### 2. Sync must actually work
+- [ ] Input fields: no more `[label | input]` rows, which look like placeholders. The label sits above the field in a smaller font; a row may lead with an icon instead, `[(icon) | input]`, so the input stays big.
+- [ ] Settings avoid the `[label | input]` layout too, so long labels are not cut off and content is not squished.
+- [ ] Settings show their setting keys above the labels, as on desktop.
+- [ ] Time zone is the same kind of select as on desktop, not a text field.
+- [ ] Date format and time format switchers show the same flag icons as on desktop.
+- [ ] Theme and file viewer theme switchers get the desktop's icons.
+- [ ] Default code language (editor settings) is the desktop's popover, not a text field.
+- [ ] "Day starts at" uses a port of the desktop's number input component.
+- [ ] Sidebar settings: keep the separate page and the switches, but items are reordered by dragging, not by arrow buttons.
+- [ ] LaTeX settings: adding macros feels like on desktop (with a preview, proper inputs), cut to fit mobile.
+- [ ] Sign in and sign up screens get a real design and hierarchy (creating an account is clearly not the same weight as "Forgot Password", and is phrased better than "Create an Account Instead").
 
-**Done (2026-11-12, D40, D43).** Headless two device test `apps/server/test/two-devices.test.ts` plus a real check on desktop and phone: live edits both ways, live page bodies and cursors, conflicts and the merge editor (D37, D38), offline reconnect, remote sign out. Fixed: skipped older edits, a late 401 turning sync off, a sync left running after a session ended, doubled page documents and bodies (`PageDocs.open`, `claimPageCopies`). Sign out clears the device, sign in asks about local data. Testing trap: desktop scripts reach the runtime through the module URL the app loaded (see section 5), the phone's editor is automation device `phone-editor`.
+### 4. Mobile: lists and boards
 
-Open:
+- [ ] Tapping the status icon of a task or assignment in a list opens the status sheet instead of marking it done.
+- [ ] Board view for tasks and assignments looks like the desktop: items as cards, columns keep their width. Items can be dragged: a long press makes every card wobble (each with its own time offset, like iOS home screen icons), then cards can be dragged between columns.
+- [ ] The "Empty Trash" button stretches across the full width of the page.
 
-- [x] (2026-11-13: every device offers it; the device that saw it hands it to the server, and deciding anywhere settles it everywhere, D40, two new tests in `two-devices.test.ts`) D40 (flagged): a clash shows only on the device that pulled first, unless the server saw both edits. Decide whether every device should offer it.
-- [x] (2026-11-13: not reproduced. Three headless tests in `two-devices.test.ts` restart a device with 120 items of its own the moment its first sync is sending or checking, with the edit made before or after the restart; 15 of 15 runs sent the edit and finished the first sync. They stay as guards; the phone's own lifecycle (backgrounding mid sync) is on "Needs the user") Once, a phone edit stayed pending after a sign in plus restart during the first sync's checking phase; not reproduced in 4 tries. Try again.
-- [x] (2026-11-13, real apps: phone simulator and a desktop debug build on a scratch folder with its first launch sample data, dev server on 3100) Re-run the old definition of done for real (account made on mobile and used on desktop, offline conflict and the merge editor on both apps) and record it.
-  - Account made on the phone (Create Account screen), two tasks added there. The desktop signed in to it choosing "Add to the account": a backup was written first (`pre-sync-backups/`), the phone's tasks landed on the desktop and the desktop's 75 sample items on the phone.
-  - Live edits: a title changed on the phone showed in the desktop's database within 0.5 s, one changed on the desktop on the phone within 0.5 s.
-  - Offline clash: the phone's sync stopped, both changed the same title, the phone came back and pulled the desktop's edit first. Both devices offered the clash (the desktop through the new hand over, D40). Merge editor on both: `docs/todo-screenshots/dod-desktop-clash.png`, `dod-phone-clash.png`. Deciding on the phone ("Keep the Other") set the title on both and cleared the desktop's list live (`dod-desktop-settled.png`).
-  - Found: a hot reload of the phone's `_layout.tsx` leaves the old app setup (its sync and automation poller) running beside the new one; scripts then hit either. Dev only, a cold relaunch clears it (same cause as the "database is locked" item). The phone's Review Changes list still draws its rows in the old style (sweep item).
+### 5. Mobile: page editor
 
-### 3. Desktop
+- [ ] Code blocks get syntax highlighting.
+- [ ] Code blocks get the desktop's header: file title, language select and a copy button.
+- [ ] The slash menu looks like the desktop's (groups, icon in a box, a description) and scrolls through every result, not just the top five.
+- [ ] The formatting toolbar sits above the keyboard, not hidden below it.
+- [ ] A button to dismiss the keyboard.
+- [ ] Toolbar buttons are large enough for touch.
 
-**Done (2026-11-12).** New pages open at once (4 s to under 300 ms; editable in about 120 ms signed in). Cloud sync icon (D41). Account settings as cards (`features/sync/AccountCards.tsx`), the phone's Account page in the same structure.
+### 6. Mobile: item pages and pickers
 
-Open:
+- [ ] The exam time chip shows AM/PM only where the time format uses it, like the popover already does.
+- [ ] The time popover: much bigger hour and minute fields that feel like a real clock face (Inter), no background, two underlines under hour and minute, as if typing into the popover itself. "Clear time" is a destructive button, "Done" is primary.
+- [ ] Study blocks are removed from the mobile app (the feature no longer exists).
+- [ ] The course page's semester select shows semesters with their metadata (icon etc.) like the desktop.
+- [ ] The assignment due date selector offers "Specific session" as the desktop does.
+- [ ] The due date selector's option boxes are a little bigger.
+- [ ] The "Clear due date" button is taller and its x icon is no longer full black.
+- [ ] The calendar creates an entry on a long press, as real calendars do.
+- [ ] A calendar entry's page has a "Move to Trash" button at the bottom.
+- [ ] Bookmark previews load instead of saying "Couldn't reach it".
 
-- [x] Desktop is otherwise in good shape (two months of development); do not redesign it. Only account and sync UI and the items above change. (Kept: the desktop changed only in account and sync UI.)
+### 7. Mobile: Space settings
 
-### 4. Mobile app: redesign to match desktop
+- [ ] No "Position" setting anymore; the Space icons at the bottom of the sidebar are reordered by dragging instead.
+- [ ] Modules are reordered by dragging, as in the sidebar settings page.
+- [ ] The Add Module button moves above the modules and takes the full width.
+- [ ] The icon picker shows all of Nookly's provided icons inline, then a ghost button "Choose Emoji" that opens the sheet with emojis only (no tab switcher). A new component; the universal "Choose an Icon" sheet stays as it is for other entities.
 
-The user's assessment: ugly, not useful, a UX nightmare, and it does not resemble the desktop in UX, UI or style. Treat the mobile app as needing a redesign, screen by screen, with the desktop (after the merge) as the reference, not as polishing. Reopen everything `PAGES.md` and `GAP_ANALYSIS.md` call done. Useful process: for each screen, take a desktop screenshot at a narrow width and a phone screenshot, list the differences, fix, repeat. Mobile rules from `AGENTS.md` still apply (one shared bottom sheet for popovers, selects, pickers, menus and confirmations, never native dialogs; copy the desktop styling exactly but size for touch; shared size and spacing tokens, no per screen tweaks).
+### 8. Mobile: files
 
-**Done (2026-11-12).** Recents gone from the sidebar. Every bar button is native and round like back, through `ui/bar.ts` (D45). Add Block removed, every page uses the real editor (D42). Dashboard like the desktop (faded glue words, quiet `PageTabs`, opens on a tab with content, mascot beside the date, no +). Tasks, Assignments, Notes and Jots lists flat with status icons, one meta line, secondary Filter, Display and Sort. Item pages show properties as chips at a glance for every type (`AtAGlance`). Sidebar like the desktop: mascot card, one Space at a time, switcher at the bottom. Touch sizes drawn through `CONTROL_SIZE` in `ui/touch.ts`. Boxes only where the desktop has them. Editor: no blank line per open, tap under the text types on a free line. Duplicate Spaces were fixture data (D48, flagged). Automation hooks `openSidebar`/`openDetails`. Faded colours fixed with a react-native-css patch (test in `styles.test.ts`). Screenshots in `docs/todo-screenshots/mobile-*`.
+- [ ] (in progress, uncommitted: native module `modules/nookly-file-viewer` with PDFKit and Quick Look, `screens/file-kinds.ts`, tests in `screens/file-viewer.test.tsx`; the screen `screens/FileViewer.tsx` and the route `app/file/[id].tsx` are still to write) A full file viewer for PDFs and other files.
+- [ ] A scan button next to + on the Files page, using `expo-document-scanner` (https://github.com/DineshKachhot/expo-document-scanner). After scanning, a bottom sheet for title, labels, relationships etc., prefilled with sensible defaults (file name etc.). The document uploads in the background while the sheet is open; the sheet only applies the user's edits afterwards.
 
-**Priority (user, 2026-11-12): phones first.** Finish the phone app before the iPad; iPad layouts are the next priority right after.
+### 9. Mobile: app
 
-**Redesign direction (user, 2026-11-12, after seeing how ugly the searchable selects look). This governs every component from here on and supersedes "copy the desktop styling exactly" and the compact menus of D46 (see D50).** In the user's words:
+- [ ] `/Users/daniel/Downloads/splash.png` becomes the splash screen.
 
-> Build all custom components in the redesign so they feel native to iOS rather than like flat, desktop-style widgets: use semantic adaptive colors (PlatformColor / useColorScheme), tinted rounded-square icon badges (SF Symbols in the brief, replaced by the desktop's icons, D57), continuous corner curves, blur/translucency for sheets and bars, and subtle depth between surfaces. Present selects and pickers as bottom sheets (or native form sheets) with a pinned search field, large 44pt+ full-row touch targets, sectioned lists with sticky headers, an icon + title + subtitle layout, and a checkmark for the selected item, instead of desktop-style dropdowns. Add the details that make it feel alive: Reanimated spring animations and layout transitions, instant pressed-state feedback, expo-haptics on selection and toggle events, and interruptible gestures like drag-to-dismiss and swipe-back. Respect safe areas, keyboard avoidance, Dynamic Type and accessibility roles/labels, and include empty, loading and error states for every component. Before building more, extract design tokens (color, spacing, radius, typography, shadow) and a small set of base components, and reuse them everywhere so the whole app stays consistent.
+### 10. Desktop
 
-Work it in this order, and tick each item here as it lands (tests, screenshots in dark and light, commit, push):
+- [ ] The sign in and sign up dialog is redesigned so it invites creating an account and could be sold to real customers (free closed beta of the connected platform). Buttons for Google, Apple, GitHub and Notion with their logos under "or sign in using", disabled, with a tooltip saying they are coming soon.
 
-- [x] (2026-11-13: scope settled in D58: tokens.ts is the one source for iOS values, touch, motion and theme beside it, NativeWind kept for layout; partly, 2026-11-12: `ui/tokens.ts` with semantic iOS colours, Nookly tints from the desktop tokens, spacing, radius with continuous corners, iOS text styles and depth, tested; `touch.ts`, `motion.ts` and `theme.ts` still beside it, the old NativeWind classes still used by most screens) **Tokens first, before any more screens.** One token module in `apps/mobile/src/ui/` for colour (semantic adaptive iOS colours for surfaces, grouped backgrounds, labels, separators and fills via `PlatformColor`, with Nookly's accent and status colours from the desktop tokens on top; light and dark), spacing, radius (continuous curves), typography (Dynamic Type aware sizes mapped to iOS text styles) and shadow or depth levels. Fold the existing `touch.ts`, `motion.ts` and theme values into it or beside it so there is one source. Unit test what can be tested (every token defined for both schemes).
-- [x] (2026-11-13: settings, pickers, forms, account pages and plain lists are on the kit; rows that copy a desktop row keep their layout by design, D58; partly, 2026-11-12: `ui/kit/` has `Label`, `Glyph` (SF Symbol with a Tabler fallback), `IconBadge`, `ListRow`, `GroupedSection` and `SectionHeader`, `SearchField`, `EmptyState`, `LoadingState`, `ErrorState`; screens not migrated yet) **A small set of base components on those tokens**, used everywhere: surface (grouped list section with depth), list row (icon badge, title, subtitle, accessory, pressed state), icon badge (SF Symbol in a tinted rounded square), button, field, sheet, sheet header with a pinned search, section header (sticky), empty, loading and error states. Migrate screens to them; no screen styles its own rows.
-- [x] (2026-11-13, then replaced the same day at the user's request, D57: the phone draws exactly the desktop's Tabler icons, the same icon per thing, no SF Symbols, `expo-symbols` removed, guarded by `ui/kit/desktop-icons.test.ts`. Before that: `ui/kit/symbols.ts` mapped every module to an SF Symbol with its Tabler twin and a tint, D51; `ui/kit/UiIcon.tsx` maps 63 interface icons to SF Symbols and draws 126 of them across the app (chips, bars, rows, buttons); the status marks and the user's own icons stay Tabler, `docs/todo-screenshots/mobile-sf-symbols-dark.png`) **Icons:** add `expo-symbols`; a map from Nookly's interface icons to SF Symbols with a Tabler fallback for Android and for the user's own chosen icons (a Space's icon stays the icon they picked).
-- [x] (2026-11-13: the time pill and the fields are on the kit as iOS form rows, D52; partly, 2026-11-12: every `OptionList` select, choice property, `SelectField` and sort opens the sheet with a pinned search, grouped rows of badge, title, subtitle and detail, a check, sections whose header stays pinned while scrolled, and a No Results state; the compact menu is deleted; the sheet is blurred material with rounded continuous corners (`docs/todo-screenshots/mobile-select-sheet.png`). 2026-11-13: status, label and Space badges tinted with their own colour; item, course and exam pickers with module badges and keys (D51), link search in the sheet; icon picker with a pinned search, colour circles and grids; date sheet as iOS's inline calendar with quick picks as rows; iOS segmented control with a spring thumb. Still: the time picker and the remaining desktop style fields (`SelectField` trigger, `Field`) on the kit) **Selects and pickers rebuilt** (the trigger of this direction): every select, choice property, entity picker, label picker, space, course and exam picker opens the bottom sheet with a pinned search field, sticky section headers where the options have groups, rows of icon badge, title and subtitle (the desktop's details: dates, counts, keys, descriptions), a checkmark on the chosen one, 44pt or taller rows, haptic tick on pick. The compact menu (`ui/sheet/Popover.tsx`) leaves selects; remove it if nothing else needs it. Keep every piece of desktop metadata (the user's earlier rule).
-- [x] (2026-11-13: done as far as a simulator shows; detent drags and the feel of a real finger are under Needs the user; partly, 2026-11-13: sheet is blurred material; tall sheets have medium and large detents with rubber banding (`settleDetent`); grouped pages have their bar on the grouped background; detent drags need a real finger) **Sheets and bars:** blur and translucency (`expo-blur`) for the sheet background and bars, subtle depth between the page and grouped surfaces, drag to dismiss and the back swipe stay interruptible (D47).
-- [x] (2026-11-13: every row, tab, chip, time and colour control without its own feedback now dims under the finger as iOS's do; every switch plays the toggle haptic; tasks, notes, jots, assignments, exams and courses lists fade rows in and out and slide the rest on a spring (`ListMotion`); sheets, menus and drawers were already on interruptible springs, D47) **Alive:** springs and layout transitions on every list and sheet (D47), instant pressed states on every row and control, haptics on selection and toggles (D49 already plays Core Haptics through `ui/haptics.ts`, which goes beyond expo-haptics' presets and covers the brief).
-- [x] (2026-11-13: `ui/kit/kit.test.tsx` covers the base components' roles, names, touch size and empty, loading and error states; it found that the empty and error states' roles were never heard by VoiceOver (on a container that is not an accessibility element), now on their titles with the message read along. Dynamic Type checked at the largest accessibility size: list headers wrap their buttons under the title, rows put their detail under the title, the search field grows (`mobile-largest-text-dark.png`). 2026-11-13: Dashboard, Tasks, Assignments, Settings, Calendar and an item page checked at the largest size; the page editor now grows with the system text size and the view switch shrinks its labels to fit (`mobile-largest-text-editor-dark.png`). Keyboard avoidance with a software keyboard needs a device, under Needs the user) **Every component:** safe areas, keyboard avoidance, Dynamic Type (text grows without clipping), accessibility roles and labels, and an empty, loading and error state, each covered by a test.
-- [x] (2026-11-13: screen by screen on the kit and tokens, then the final sweep on phone and iPad, dark, light and the largest text, compared with the desktop page by page (item pages, icons D57, counts, overdue dates, tab names); see the overall pass below) Then continue the screen by screen redesign (and the final sweep) on these tokens and components, comparing with the desktop for content and hierarchy and with iOS system apps (Settings, Reminders, Notes) for feel.
+### 11. Both
 
-Open, named by the user:
+- [ ] Live sync: when another device types and the word your cursor is in moves, your cursor moves with it, so it seems not to move at all.
+- [ ] The "xyz on iPhone" cursor label no longer disappears at the top when the other device is in the first line of a note.
 
-- [x] (2026-11-13: rows and checkboxes give way or dim under a finger, lists slide on springs, the sidebar and details drawers spring with the release velocity (react-native-drawer-layout); a scripted recording of the drawers was checked locally; the feel needs a real iPhone, under Needs the user; partly, D47: `ui/motion.ts` tokens and tested helpers; the sheet on interruptible springs with velocity and rubber banding; compact menus grow from their trigger; page tabs slide their underline; buttons, icon buttons and chips give way under a finger (`ui/press.ts`). task, sub-task, note and jot rows fade in and out and the rest slide into place (`ui/ListMotion.tsx`). Still to do: detents, press feedback on rows and checkboxes, layout transitions for lists, drawer springs, screen recordings; haptics done, D49) **Move towards a more iOS native feel for our own styled components (motion).** iOS interactives move, morph and animate; ours just appear. Selects, popovers, menus and most other interactive parts show up and vanish instantly and feel clunky. The bottom sheet is the only part with real animation (`ui/sheet/Sheet.tsx`: a fixed duration `withTiming` slide of the panel plus a fading backdrop) and even that feels clunky. Only four files use Reanimated today (`ui/sheet/Sheet.tsx`, `ui/inset-page.tsx`, `screens/period-swipe.ts`, `screens/TimeGrid.tsx`); `react-native-reanimated` 4.5 and `react-native-gesture-handler` are installed. Goal: our custom components behave like iOS system ones, still looking like the desktop app but moving like iOS. **General rule for all mobile motion: copy Apple's iOS animation style.** Custom animations that feel interactive and physical, driven by springs and by the finger rather than by canned timelines. The most important property of great iOS animation is that it is **interruptible and cancellable**: touch a moving sheet, menu or drawer and it stops under the finger at its current position and velocity (nothing jumps or restarts); let go and it **springs** to wherever the gesture points, carrying the release velocity; dragging is always 1 to 1 with the finger with rubber banding at the limits; a tap during an animation reverses it smoothly instead of waiting for it to finish. So: animate with Reanimated springs (`withSpring`, with `velocity` from the gesture) and gesture handler pans, keep animation state in shared values that gestures can take over at any moment, never a fixed duration timeline for anything a user can interrupt, and never block input during an animation. Match iOS spring feel (about 0.3 to 0.5 s response, light overshoot only where iOS overshoots) and put these values in the one shared motion token file. Add this as a rule to the mobile section of `AGENTS.md` and a decision to `DECISIONS.md`, and write tests that interrupt animations (start, interrupt mid way, check it continues from the current value) where the logic is testable. Do it through shared building blocks (one motion token file with the springs, durations and easing, one place per component kind), never per screen tweaks. Concretely:
-  - Sheet: spring based (interruptible, velocity carrying) instead of fixed duration timing; drag to dismiss follows the finger and settles with the release velocity; the backdrop fades with the panel's position; detents (medium and large) with rubber banding at the edges; content and keyboard resize smoothly; a small handle; dismissal by swipe down anywhere on the header or non scrolling content.
-  - Menus, selects and popovers (see the item above about simple selects): scale and fade in from the trigger's anchor point with a spring, the way iOS context menus and pull down menus do, and morph out of the trigger where it makes sense; rows highlight on press with a soft highlight and tracking finger drag across rows; dismiss with a quick fade.
-  - Pressables: a subtle press scale or highlight with a quick spring back on buttons, rows, tabs, chips, and the checkbox (check mark drawn in), toggles and tab changes with animated selection (a sliding indicator, not an instant switch), list changes (add, remove, reorder, expand and collapse of groups, sub-tasks) animated with layout transitions, screen transitions and drawers that follow the finger.
-  - [x] Custom haptics (D49): Core Haptics module `modules/nookly-haptics`, named patterns in `ui/haptics.ts`, wired into picks, tabs, switches, drawers, sheets, swipes, task done and button results, Settings switch under Appearance. Feel needs a real iPhone.
-  - Respect Reduce Motion (swap springs for short fades), keep everything at 60 fps (worklets on the UI thread, no JS driven animation in lists), and test in the simulator (Reduce Motion on and off).
-  - Verify by screen recording on the simulator (`xcrun simctl io <id> recordVideo`) and compare against Apple's own apps (Settings, Notes, Reminders) for timing and feel; keep the recordings in a scratch folder (not in git) and look at frames from them yourself; the final feel on a real device goes on the "Needs the user" list.
-- [x] (2026-11-13: phone in dark and light (`mobile-overall-light.png` and the dark shots), largest text, iPad dashboard, Settings, Account and Tasks (`ipad-*.png`); then every iPad screen in dark and light: Calendar, Assignments, assignment, exam, course and deck pages, Search, Pinned, Notes, Grades, Semesters, Files, Space Settings, Settings, New Task, Tasks (`ipad-study-pages-dark.png`, `ipad-settings-tasks-light.png`). Found and fixed: the Pinned tab named Untitled, an overdue assignment's due date not red, a deck's counts as bare numbers) Overall pass: after the above, review every screen for desktop likeness (typography, spacing, colour, icons, hierarchy), with phone and iPad screenshots in dark and light mode.
+### 12. Final checks and report
 
-Open, named by the user (2026-11-12, late):
+- [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test` (with `TEST_DATABASE_URL`), `cargo test` in `apps/desktop/src-tauri`, `bun run duplication` under 1%; report only checks run and read: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
+- [ ] `CHANGELOG.md` and `whats-new.json` describe the changes; `DECISIONS.md` carries the decisions; the final report below is written; everything committed and pushed.
 
-- [x] (2026-11-13: done as far as a simulator can show; programmatic focus raises no software keyboard even on the iPad simulator, so the toolbar over a real keyboard is under Needs the user; the web view's own bar is hidden (`hideKeyboardAccessoryView`), the app's toolbar carries Hide Keyboard and sits in the page's `KeyboardAvoidingView`; checked without a software keyboard only, the headless simulator cannot show one, so **needs the user** on a device) **Editor actions hide under the keyboard.** The editor toolbar (format buttons, up and down, done check) sits below the keyboard or under iOS's keyboard accessory bar (screenshot from the user: the bar is cut off at the bottom). Anchor it correctly above the keyboard, on top of the accessory bar or replacing it.
+## Needs the user
 
-Open, own findings (2026-11-10):
-
-- [x] (2026-11-13: compared type by type with the desktop's detail views: task (status, labels, start, due, effort, repeat), assignment (status, due, weight, evaluation, grade, course), exam (status, date, time, room, weight, grade, course), course, deck (exam, cards, rated today, next due), calendar entry (date, all day, time, location, repeats), file and bookmark; every item shows Created and Updated in its details; important properties sit on the page as chips at a glance) **Item pages (task, assignment, course and the other types) do not resemble the desktop at all** (user feedback after looking at the list pages and opening entities; checked on the phone 2026-11-10). What the phone shows for a task: native back and two native bar buttons (details, more), a small `TSK-1 · Study · 1 / 14` line with up and down arrows, the title, an "Add Block" button, then a "Sub-tasks" section in a boxed list. An assignment shows only `ASG-1 · Study`, the title and "Add Block": status, due date, course, size, labels, grade and every other property sit behind the details drawer, which a native bar button opens, so the page itself looks empty. Rebuild each item page from the desktop's page (title, properties, body and the details area, what it shows for each type) as a phone layout, with the important properties visible on the page. The desktop item page was not screenshot in this session (the desktop automation click on a row did not open it); capture it first from the desktop with `bun tools/e2e/desktop.ts` (open the item through Quick open or the CLI) and compare type by type.
-- [x] (2026-11-13: decided per feature in D56; backup restore by sign in, files in the system viewer, tables in the editor and the semester setup are on the phone; external calendars, whole series edits and Assignments saved views stay desktop only, flagged) Mobile feature gaps from the old list, lower priority than the redesign but still part of parity. Decide per feature (record in `DECISIONS.md`) whether it ships on the phone or stays desktop only, and build the ones that ship: restoring a backup, external calendars, saved views for Assignments, the PDF paged viewer, series (repeating sessions and calendar entries; the phone only edits one occurrence), editor blocks beyond text, tables and formulas. Verify whether the semester setup wizard is really there (a recent commit adds a five step setup, an older note says it was missing).
-- [x] (2026-11-13: what a script could reach was checked (drawers opened and closed by hooks and recorded, sheets, pickers); the rest is under Needs the user) Never verified by touch (tooling cannot send touches): swiping the sidebar and the details drawer, the back swipe edge, the Swift key commands (`modules/nookly-keys`), the native action sheet of More, sidebar row tap targets. Check what you can in the simulator with the hooks above; list what you could not verify under "Needs the user".
-- [x] (2026-11-13: fixed: the app's root starts once per run (`data/run-once.ts`), so a hot reload reuses the open database, sync, query client and automation; checked by hot reloading `_layout.tsx` twice on the iPad, no error) The red "finalizeAsync / database is locked" LogBox error after Metro hot reloads `_layout.tsx` is a dev artifact (the database is opened again while the old connection has statements); a cold relaunch clears it.
-
-### 5. Process notes for the next agent
-
-- The old state said sync was verified in simulators and desktop debug builds. The user's real use showed otherwise. For sync and UI work, "done" means checked in the running apps like a user would (screenshots saved to `docs/todo-screenshots/` when they prove something), plus an automated test that would have caught it.
-- Start Metro without `CI=1`: with it Metro does not watch files and the phone keeps running old code after an edit. After a change to `packages/shared`, relaunch the phone app (`xcrun simctl terminate` then `openurl`) when in doubt, and check a changed text on screen before trusting a phone check.
-- Desktop scripts: import app modules by the URL the app itself loaded (`performance.getEntriesByType('resource')`, the name ending in `sync-instance.ts` with its `?t=` stamp). A plain `/@fs/...` import after a hot update is a second copy of the module with its own, signed out sync.
-- `two-devices.test.ts` "brings an offline device's edits in on reconnect" failed once while the desktop was compiling beside it and passed 7 of 7 after; its 1.5 s waits are tight on a busy machine.
-- Kill what you start by port (`lsof -iTCP:<port> -sTCP:LISTEN`), never `pkill -f` on the app binary path (that could hit `/Applications/Nookly.app`). If `bun --watch src/index.ts` lingers after stopping the stack, kill that process too.
-- Docs to read and update when the merge lands: `docs/00-index.md`, `docs/05-ui-ux-direction.md`, `docs/06-decisions-log.md`, `DECISIONS.md` (this branch's decisions D1 to D35), `GAP_ANALYSIS.md`, `PAGES.md`. Record new decisions in `DECISIONS.md`.
-- `REPORT.md` (untracked, never commit it) is stale; refresh it only if the user asks.
+(none yet)
 
 ## Progress log
 
-Append newest last: date, what was done, what is next. Earlier entries (2026-11-10 to 2026-11-12) are folded into the section summaries above.
+- 2026-11-13: file refilled from `NOTES.md`. Earlier work (sync, merge, the first mobile rebuild) is in git history and `DECISIONS.md` up to D59.
 
-- 2026-11-12: merge (D39), sync fixed and checked on two devices (D40, D43), desktop editor speed, cloud icon and Account cards, phone redesign pass (Dashboard, lists, item glances, sidebar and mascot, touch sizes, flat lists, bar buttons, editor fixes), motion (D47), compact menus (D46, later superseded by D50), haptics (D49).
-- 2026-11-12/13: redesign direction from the user (D50): tokens, base kit, selects as a blurred sheet with a pinned search, compact menu removed; desktop hidden sidebar got a solid background. Next: the D50 checklist in section 4, from tinted status badges and the remaining pickers on.
-- 2026-11-13: tinted picker badges, module symbols (D51), item, course, exam, icon and date pickers on the kit, iOS segmented control, `ColorChoices`, `Surface`, `IconGrid`; `Swatch` removed. Then: form fields as iOS rows with `FormSection` (D52), time pill, buttons as capsules (D53), chips and property chips as capsules, Settings as a grouped list with tinted badges, sheet detents (medium and large, `settleDetent`, tested). Next: sidebar and list rows on the kit, account pages, press feedback on task checkboxes, then the screen by screen sweep.
+## Final report
 
-- 2026-11-13 (later): cards written with the page editor as blocks (D55), Moodle desktop only (D54), section 1 done. D40 decided and built: a clash only one device saw goes to the server and every device offers it, settled everywhere (two tests). Restart during first sync: three guard tests, not reproduced. Real two device check rerun with an account made on the phone (section 2 done). Sweep: `Row`/`Section` as iOS plain lists, Account, Backup, LaTeX, Shortcuts and Review Changes as grouped pages, calendar views as a segmented control. Fixed a crash: Hermes lacks `toSorted`/`toReversed` (What's New, item links), polyfilled first thing (`src/polyfills.ts`, tested). Next: item pages against the desktop, remaining Tabler interface icons, states and a11y tests, then final checks and release notes.
-- 2026-11-13: item pages against the desktop: assignment gets Evaluation (graded or not) and the desktop's order, exam the desktop's order, every item shows Created and Updated in its details; typed properties use the rows' text. Then, at the user's request, the desktop's icons only (D57): SF Symbols removed, each icon the desktop's for the same thing, status marks drawn as the desktop's SVG, a test guards it. Next: the remaining section 4 items.
-
-## Final report (fill in when everything above is done)
-
-**Status 2026-11-13: every item of sections 0 to 4 is ticked; what only a real device or the user can settle is listed under Needs the user. Final checks run, results below.** This report is current as of commit `e72de9f2`.
-
-### Done per section
-
-- **0 and 1:** old branch removed; main 0.75.0 merged (D39); phone ports: sidebar, Settings, page font and size, cards with blocks (D55); Moodle desktop only (D54).
-- **2, sync:** headless two device tests (`apps/server/test/two-devices.test.ts`, 15 tests); a clash only one device saw now shows on every device and settles everywhere (D40); restart during first sync guarded by three tests; real two device check rerun on 2026-11-13 with an account made on the phone (section 2 notes, `docs/todo-screenshots/dod-*`).
-- **3, desktop:** Account cards, cloud icon, fast new pages.
-- **4, phone:** tokens and kit (`ui/tokens.ts`, `ui/kit/`), selects and pickers as sheets with pinned search, icon and date pickers, segmented control, iOS form rows (D52), capsule buttons (D53), sheet detents, Settings, Account, Backup, LaTeX, Shortcuts and Review Changes as grouped pages, plain list rows on tokens, calendar segmented control, motion (D47) and haptics (D49). A Hermes crash fixed (`src/polyfills.ts`). Item pages compared with the desktop type by type (Evaluation, Created and Updated, rated today, overdue dates). The desktop's icons only, guarded by a test (D57). Pressed feedback, switch haptics and list motion everywhere; the page editor follows the system text size; a hot reload no longer locks the database; phone and iPad passes in dark, light and the largest text. Kit scope settled in D58.
-
-### Checks (2026-11-13, final)
-
-- `bun run lint`, `format:check`, `typecheck`: pass. `bun run duplication`: 0.18 %.
-- `bun run test` with `TEST_DATABASE_URL`: shared 322 of 322, server 104 of 104, mobile 359 of 359. Frontend 3588 of 3590 in the full run (1 expected fail); the one failure is the sidebar's Space swipe timing test (`does not take an uneven glide for a second swipe`) under load from the simulator and the desktop dev build; alone it passes, three times out of three. The desktop was not changed in this stretch.
-- `cargo test`: 1543 passed; `search_stays_within_its_budget_on_20000_entities` misses its time budget under the same load and passes alone in 0.76 s.
-- `coverage`: frontend 3588 of 3590 (1 expected fail; the spellcheck speed test misses its budget under instrumentation, passes alone).
-- `lint:rust:strict`: passes with 3 "function too long" warnings (one of 1539 lines, existing).
-- Report only: `unused` lists tool scripts, some unused exports and unused mobile prosemirror dependencies (`prosemirror-history`, `-tables`, `-transform`); `audit` fails on Rust advisories, among them RUSTSEC-2026-0459 (SQLite bundled by `libsqlite3-sys`, fixed in `rusqlite` 0.41, which needs Rust 1.89) and RUSTSEC-2026-0436, 0385, 0310.
-
-### Needs the user
-
-- Upgrade `rusqlite` to 0.41 for the SQLite advisory (touches the desktop's database layer and the Rust toolchain).
-- Feel on a real iPhone: haptics, springs, sheet detents, swipes (sidebar, details drawer, back edge), pressed dimming under a finger, the keyboard toolbar and keyboard avoidance over a software keyboard, the iPad key commands.
-- Phone icons are now exactly the desktop's (D57); check the judgement calls listed there (Professor, Weight, indent, hide keyboard, no results) and the removed Underline button.
-- The phone's lifecycle during a first sync (backgrounding mid sync).
-- Module tints (D51) and the 1.0.0 release notes; releasing 1.0.0 (no tag was made).
-- OAuth providers with real keys and a real mail provider.
-
-### Fragile or partial
-
-- Two time budget tests (the sidebar swipe glide, the 20000 entity search) fail when the machine is busy and pass alone.
-- Once, an assignment page said "This item isn't on this device." right after the account synced; it opened fine on the next try.
-- The motion clip of the drawers (`motion.mp4`, 6 MB) stayed out of the repository; still frames were checked.
-
-### How to run and a 15 minute check
-
-See "How to run everything" above. Check: sign up on the phone, add a task; sign in on the desktop on a scratch folder with "Add to the account"; edit a title on each and watch the other; stop the phone's network, edit the same title on both, reconnect; open Review Changes on both, decide on one, see the other clear.
-
-Screenshots: `docs/todo-screenshots/`.
+(written at the end)
