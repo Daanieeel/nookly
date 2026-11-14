@@ -6,17 +6,9 @@ import {
   IconLoader2,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useId } from "react";
 import { StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { Button } from "@nookly/ui/components/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
 import { cn } from "@nookly/ui/lib/utils";
 import { MiddleEllipsis } from "#/components/middle-ellipsis.tsx";
 import { useAccountDialog } from "./account-dialog-store.ts";
@@ -104,29 +96,44 @@ export function migrationSummary(m: MigrationState): string {
   return `All ${plural(m.items, "item", "items")}${files} are in your account, checked with the server.`;
 }
 
-/// Progress of the first sync of a device that had data: the backup, the items and
-/// files going up, and the check with the server. It runs in the background either
-/// way; this only shows how far it got.
+/// Progress of the first sync of a device that had data: the backup, the items and files
+/// going up, and the check with the server. A page over the whole window while it runs, so
+/// nothing else is done meanwhile and nothing looks closable; Done or Try Again at the end.
 export function FirstSyncDialog() {
   const open = useAccountDialog((s) => s.firstSyncOpen);
   const setOpen = useAccountDialog((s) => s.setFirstSyncOpen);
   const migration = useSyncState((s) => s.migration);
   const retry = useMutation({ mutationFn: () => syncRuntime.retryFirstSync() });
-  if (!migration) return null;
+  const titleId = useId();
+  const descriptionId = useId();
+  const running = migration !== null && migration.phase !== "done" && migration.phase !== "failed";
+  // Once it starts the page stays up until the end is read, even if it finishes at once.
+  useEffect(() => {
+    if (running && !open) setOpen(true);
+  }, [running, open, setOpen]);
+  if (!migration || !(open || running)) return null;
   const state = steps(migration);
   const done = migration.phase === "done";
   const failed = migration.phase === "failed";
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-md grid-cols-1">
-        <DialogHeader>
-          <DialogTitle>Bringing this device into your account</DialogTitle>
-          <DialogDescription>
-            Everything here goes into your account, and stays here too. You can keep working while
-            it runs.
-          </DialogDescription>
-        </DialogHeader>
-        <ol className="flex min-w-0 flex-col gap-4 py-2">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-background p-6"
+    >
+      <div className="flex w-full max-w-md min-w-0 flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <h1 id={titleId} className="text-xl font-semibold">
+            Bringing this device into your account
+          </h1>
+          <p id={descriptionId} className="text-sm text-muted-foreground">
+            Everything here goes into your account, and stays here too. Nookly is ready again when
+            this is done.
+          </p>
+        </div>
+        <ol className="flex min-w-0 flex-col gap-4">
           <Step
             state={state.backup}
             title={state.backup === "done" ? "Backed up this device" : "Backing up this device"}
@@ -169,29 +176,30 @@ export function FirstSyncDialog() {
             {migration.error}
           </p>
         )}
-        <DialogFooter>
-          {failed && (
-            <Button size="sm" onClick={() => retry.mutate()}>
-              <StatusButtonContent
-                status={statusOf(retry)}
-                label="Try Again"
-                errorLabel="Couldn't start"
-              />
-            </Button>
-          )}
-          {done ? (
-            <Button size="sm" onClick={() => setOpen(false)}>
-              Done
-            </Button>
-          ) : (
-            !failed && (
+        {done || failed ? (
+          <div className="flex justify-end gap-2">
+            {failed && (
               <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>
-                Keep Going in the Background
+                Close
               </Button>
-            )
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            )}
+            {failed && (
+              <Button size="sm" onClick={() => retry.mutate()}>
+                <StatusButtonContent
+                  status={statusOf(retry)}
+                  label="Try Again"
+                  errorLabel="Couldn't start"
+                />
+              </Button>
+            )}
+            {done && (
+              <Button size="sm" autoFocus onClick={() => setOpen(false)}>
+                Done
+              </Button>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }

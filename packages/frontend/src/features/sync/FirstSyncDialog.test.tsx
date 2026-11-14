@@ -45,10 +45,17 @@ describe("the first sync", () => {
     expect(screen.getByText("12 of 37 files")).toBeInTheDocument();
     const bars = screen.getAllByRole("progressbar");
     expect(bars[0]).toHaveAttribute("aria-valuenow", "400");
-    expect(
-      screen.getByRole("button", { name: "Keep Going in the Background" }),
-    ).toBeInTheDocument();
     await expectNoA11yViolations();
+  });
+
+  // A dialog looked closable while nothing else should be done: it is a page of its own now.
+  it("covers the whole window while it runs, with no way to close it", () => {
+    act(() => syncRuntime.store.setState({ migration: BASE }));
+    renderWithProviders(<FirstSyncDialog />);
+    const page = screen.getByRole("dialog", { name: "Bringing this device into your account" });
+    expect(page).toHaveClass("fixed", "inset-0");
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByText(/keep working/)).toBeNull();
   });
 
   it("says when everything is checked and in the account, and that nothing was removed", async () => {

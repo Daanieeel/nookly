@@ -138,7 +138,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 ### 9. Both apps
 
-- [ ] Moving local items into an account shows a full page progress screen instead of a dialog (nothing else can be done meanwhile, and a dialog looks closable).
+- [x] (2026-11-14, desktop and phone: a page over everything while it runs, Done or Try Again at the end; tests) Moving local items into an account shows a full page progress screen instead of a dialog (nothing else can be done meanwhile, and a dialog looks closable).
 
 ### 9b. Rounder corners (asked 2026-11-14)
 

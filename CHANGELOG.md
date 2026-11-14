@@ -9,7 +9,7 @@ All notable changes to Nookly are listed here.
 - Nookly is now on your iPhone and iPad. Sign in with the same account and your Spaces, tasks, pages, study, files and settings are there, with sheets, haptics and gestures that feel at home on iOS.
 - Changes you make on one device show up on your others as you make them, and everything keeps working offline and catches up when you are back online.
 - If you change the same thing on two devices, every device offers both versions side by side, and you keep one, both or a mix. Nothing is lost.
-- When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it, and makes a backup first. Signing out removes the account's data from that device and keeps it in the account.
+- When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it, makes a backup first, and shows how far it got on a page of its own until everything is in. Signing out removes the account's data from that device and keeps it in the account.
 - Settings, Account lists every signed in device, and you can sign one out from another.
 - On your phone, scan paper documents straight into a Space's files, then name, label and link them while they upload.
 - Moodle works on your phone too: sign in on your university's page, then read your courses, open files, and check assignments, grades and forums.
