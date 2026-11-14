@@ -35,6 +35,9 @@ import { TimeGrid, gutterFor } from "./TimeGrid.tsx";
 import { usePeriodSwipe } from "./period-swipe.ts";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 import { BAR_BUTTON } from "../ui/bar.ts";
+import { isFeedItem, toAgendaItems } from "../moodle/calendar.ts";
+import { useMoodleCalendar } from "../moodle/queries.ts";
+import { itemHref } from "./ExternalEventScreen.tsx";
 
 const AGENDA_DAYS = 14;
 /// From this pane width the calendar is the desktop's: day, work week, week and month.
@@ -68,19 +71,38 @@ const KIND_LABELS = {
 export function AgendaRow({ item, color }: { item: AgendaItem; color?: string }) {
   const router = useRouter();
   const colors = useCalendarColors();
+  const external = isFeedItem(item);
   const accent = colors.accent(item.kind, color);
   const time = item.allDay
     ? "All day"
     : [item.startTime, item.endTime].filter(Boolean).join(" to ");
+  const kind = external ? "From Moodle" : KIND_LABELS[item.kind];
   return (
     <Row
       title={item.title || (item.kind === "session" ? "Session" : "Untitled")}
-      subtitle={[KIND_LABELS[item.kind], time, item.location].filter(Boolean).join(", ")}
-      icon={<View className="w-1 self-stretch rounded-full" style={{ backgroundColor: accent }} />}
+      subtitle={[kind, time, item.location].filter(Boolean).join(", ")}
+      icon={
+        <View
+          className="w-1 self-stretch rounded-full"
+          style={
+            external
+              ? { borderWidth: 1, borderStyle: "dashed", borderColor: accent }
+              : { backgroundColor: accent }
+          }
+        />
+      }
       trailing={color ? <SpaceDot color={color} /> : null}
-      onPress={() => router.push(`/entity/${item.id}`)}
+      // SAFETY: `itemHref` gives an entity's page or the calendar event sheet, both routes.
+      onPress={() => router.push(itemHref(item.id) as never)}
     />
   );
+}
+
+/// Nookly's own items with Moodle's deadlines among them, by day and time.
+function withDeadlines(items: AgendaItem[], deadlines: AgendaItem[]): AgendaItem[] {
+  if (deadlines.length === 0) return items;
+  const key = (i: AgendaItem) => `${i.date} ${i.allDay ? "" : (i.startTime ?? "")}`;
+  return [...items, ...deadlines].sort((a, b) => key(a).localeCompare(key(b)));
 }
 
 const onDay = (items: AgendaItem[], day: string) =>
@@ -266,7 +288,13 @@ export function CalendarScreen({
     phoneHours ? before[0] : range.from,
     phoneHours ? after[after.length - 1] : range.to,
   );
-  const items = spaceId ? everything.filter((i) => i.spaceId === spaceId) : everything;
+  const { data: feed } = useMoodleCalendar();
+  const from = phoneHours ? before[0] : range.from;
+  const to = phoneHours ? after[after.length - 1] : range.to;
+  // Moodle's deadlines are on the whole calendar, not a Space's own page.
+  const items = spaceId
+    ? everything.filter((i) => i.spaceId === spaceId)
+    : withDeadlines(everything, feed && from && to ? toAgendaItems(feed.events, from, to) : []);
   const { data: spaces = [] } = useSpaces();
   const { refreshing, onRefresh } = useSyncRefresh();
   const colorOf = (spaceId: string) => spaces.find((s) => s.id === spaceId)?.color;

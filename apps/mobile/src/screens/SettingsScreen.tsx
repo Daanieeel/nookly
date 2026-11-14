@@ -1,6 +1,7 @@
 import { SHARED_SETTINGS, type SharedSettingId } from "@nookly/shared/settings";
 import {
   IconCalendar,
+  IconCalendarUser,
   IconArchive,
   IconMathFunction,
   IconSearch,
@@ -226,12 +227,29 @@ export function SettingsCategoryScreen({ page }: { page: string }) {
           message="There is no such page in Settings."
         />
       )}
+      {known?.id === "calendar" && <CalendarConnectionsLink />}
       {known?.id === "appearance" && (
         <GroupedSection title="This phone" margin={0}>
           <HapticsRow />
         </GroupedSection>
       )}
     </Screen>
+  );
+}
+
+/// Where Moodle's calendar is connected, under the calendar's settings.
+function CalendarConnectionsLink() {
+  const router = useRouter();
+  return (
+    <GroupedSection margin={0} inset={INSET.badge}>
+      <ListRow
+        badge={<IconBadge glyph={IconCalendarUser} tint="blue" />}
+        title="Calendar Connections"
+        subtitle="Show Moodle's deadlines next to your sessions"
+        accessory="chevron"
+        onPress={() => router.push("/settings/calendar-connections")}
+      />
+    </GroupedSection>
   );
 }
 

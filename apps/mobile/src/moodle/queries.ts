@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { type Connection, type Fetched, type MoodleApi, type RemoteFile, fileUrl } from "./api.ts";
+import type { CalendarFeed } from "./calendar.ts";
 import { useMoodleService } from "./service.tsx";
 
 /// The phone's Moodle answers. Nothing retries by itself, as on the desktop: a refused
@@ -79,4 +80,39 @@ export function useMoodleDownload(file: RemoteFile | null | undefined, enabled =
     retry: false,
     staleTime: Infinity,
   });
+}
+
+const CALENDAR_KEY = ["moodle-calendar"] as const;
+
+/// How often the calendar reads Moodle's feed again, as the desktop's overlay.
+const CALENDAR_POLL = 15 * 60_000;
+
+/// Moodle's deadlines for the calendar: what was read last at once, then the feed again
+/// every 15 minutes while the calendar shows.
+export function useMoodleCalendar() {
+  const { calendar } = useMoodleService();
+  const client = useQueryClient();
+  const kept = useQuery({ queryKey: CALENDAR_KEY, queryFn: calendar.load, staleTime: Infinity });
+  useQuery({
+    queryKey: [...CALENDAR_KEY, "sync"],
+    queryFn: async () => {
+      const fresh = await calendar.sync();
+      client.setQueryData(CALENDAR_KEY, fresh);
+      return fresh;
+    },
+    enabled: Boolean(kept.data),
+    refetchInterval: CALENDAR_POLL,
+    staleTime: CALENDAR_POLL,
+    retry: false,
+  });
+  return kept;
+}
+
+/// Sets what the calendar connection is now, after connecting or disconnecting.
+export function useSetMoodleCalendar() {
+  const client = useQueryClient();
+  return useCallback(
+    (feed: CalendarFeed | null) => client.setQueryData(CALENDAR_KEY, feed),
+    [client],
+  );
 }

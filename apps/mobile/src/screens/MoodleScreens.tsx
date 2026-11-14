@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import type { Connection, MoodleCourse } from "../moodle/api.ts";
 import { splitCourses } from "../moodle/format.ts";
+import { signInPath } from "../moodle/intent.ts";
 import { useForgetMoodle, useMoodleConnection, useMoodleCourses } from "../moodle/queries.ts";
 import { type MoodleService, useMoodleService } from "../moodle/service.tsx";
 import { BrandButton, MoodleMark } from "../ui/BrandButton.tsx";
@@ -31,8 +32,13 @@ function ConnectMoodle() {
   const theme = useTheme();
   const service = useMoodleService();
   const [site, setSite] = useState("");
+  const router = useRouter();
   const open = useMutation({
-    mutationFn: async (address: string) => service.open(await service.account.begin(address)),
+    mutationFn: async (address: string) => {
+      const link = await service.signIn(await service.account.begin(address));
+      const finish = link ? signInPath(link) : null;
+      if (finish) router.push(finish);
+    },
   });
   return (
     <View className="gap-5 py-4">
@@ -68,11 +74,6 @@ function ConnectMoodle() {
         errorLabel="Try Again"
         onPress={() => site.trim() && open.mutate(site)}
       />
-      {open.isSuccess ? (
-        <Text variant="small" tone="muted" className="text-center">
-          Sign in on the page that opened. Nookly continues by itself when you are done.
-        </Text>
-      ) : null}
       <View className="flex-row items-start justify-center gap-1.5">
         <IconLock size={13} color={theme.colors.mutedForeground} />
         <Text variant="small" tone="muted" className="flex-1 text-center">

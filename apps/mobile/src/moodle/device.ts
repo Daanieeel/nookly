@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { safeName } from "../data/files.ts";
 import type { AnswerCache } from "./api.ts";
+import type { CalendarStore } from "./calendar.ts";
 
 /// Where Moodle keeps things on this phone, as the desktop does (`moodle-cache/`,
 /// `moodle-files/`): the last answers in the caches folder, which nothing backs up and
@@ -66,5 +67,26 @@ export const deviceDownloads: MoodleDownloads = {
     folder.create({ intermediates: true, idempotent: true });
     const downloaded = await File.downloadFileAsync(signedUrl, file);
     return downloaded.uri;
+  },
+};
+
+/// The calendar's events, kept in the documents folder (the desktop's
+/// `external-calendars.json`) so the calendar shows them offline. The link stays in the
+/// keychain.
+const calendarFile = () => new File(Paths.document, "moodle-calendar.json");
+
+export const deviceCalendarStore: CalendarStore = {
+  async read() {
+    const file = calendarFile();
+    return file.exists ? await file.text() : null;
+  },
+  async write(body) {
+    const file = calendarFile();
+    if (!file.exists) file.create();
+    file.write(body);
+  },
+  async clear() {
+    const file = calendarFile();
+    if (file.exists) file.delete();
   },
 };

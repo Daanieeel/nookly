@@ -217,6 +217,11 @@ export default function RootLayout() {
       <Stack.Screen name="moodle-signin" options={{ title: "Moodle" }} />
       <Stack.Screen name="settings/sidebar" options={{ title: "Sidebar" }} />
       <Stack.Screen
+        name="settings/calendar-connections"
+        options={{ title: "Calendar Connections", ...groupedHeader }}
+      />
+      <Stack.Screen name="calendar-event" options={SHEET_ROUTE} />
+      <Stack.Screen
         name="settings/shortcuts"
         options={{ title: "Keyboard Shortcuts", ...groupedHeader }}
       />

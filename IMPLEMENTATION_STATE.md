@@ -156,19 +156,21 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 The desktop's module is listed in `docs/03-modules/moodle.md` and `packages/frontend/src/features/moodle/`. Each line is one desktop feature the phone must have.
 
-- [ ] Sign in in iOS's own sign in sheet (an auth session, `expo-web-browser`), which offers saved passwords and hands Moodle's redirect straight back; the passport check stays.
-- [ ] Courses: current ones first, then past ones; each with its banner, or its own gradient when it has none; its progress.
-- [ ] Contents: sections with their descriptions; images in Moodle text read as their description; a Moodle "Page" is read in Nookly; forum and assignment rows open that forum or assignment; anything else links to its page on Moodle.
-- [ ] Files: download once and stay on the phone (`moodle-files`), read in Nookly (PDF, picture, video, audio) with their details, anything else handed to another app.
-- [ ] Import a file into the Space: name, labels (course and section suggested, the course one picked, an existing label reused), the matching Nookly course; all or nothing; `origin` `moodle:<address>`; an imported file offers Show in Nookly (one in Trash counts as not imported).
-- [ ] Assignments: due soonest first, undated last; each opens with its description, attachments, submission status, grade and feedback.
-- [ ] Grades: grade, range, percentage, weight and feedback; the course total last.
-- [ ] Announcements and forums: announcements first; discussions; posts with their attachments; initials tiles for people.
-- [ ] Open in Moodle on every page.
-- [ ] The last answers are kept for reading offline and forgotten on sign out; downloaded files stay.
-- [ ] A loading page shows placeholders in its own shape.
-- [ ] Problems in plain words; an expired sign in offers Connect Again.
-- [ ] Moodle deadlines on the calendar from Moodle's calendar export link (Settings, Calendar connections; read only overlay).
+- [x] Sign in in iOS's own sign in sheet (an auth session, `expo-web-browser`), which offers saved passwords and hands Moodle's redirect straight back; the passport check stays.
+- [x] Courses: current ones first, then past ones; each with its banner, or its own gradient when it has none; its progress.
+- [x] Contents: sections with their descriptions; images in Moodle text read as their description; a Moodle "Page" is read in Nookly; forum and assignment rows open that forum or assignment; anything else links to its page on Moodle.
+- [x] Files: download once and stay on the phone (`moodle-files`), read in Nookly (PDF, picture, video, audio) with their details, anything else handed to another app.
+- [x] Import a file into the Space: name, labels (course and section suggested, the course one picked, an existing label reused), the matching Nookly course; all or nothing; `origin` `moodle:<address>`; an imported file offers Show in Nookly (one in Trash counts as not imported).
+- [x] Assignments: due soonest first, undated last; each opens with its description, attachments, submission status, grade and feedback.
+- [x] Grades: grade, range, percentage, weight and feedback; the course total last.
+- [x] Announcements and forums: announcements first; discussions; posts with their attachments; initials tiles for people.
+- [x] Open in Moodle on every page.
+- [x] The last answers are kept for reading offline and forgotten on sign out; downloaded files stay.
+- [x] A loading page shows placeholders in its own shape.
+- [x] Problems in plain words; an expired sign in offers Connect Again.
+- [x] Moodle deadlines on the calendar from Moodle's calendar export link (Settings, Calendar connections; read only overlay).
+
+Done so far (e25434c9): the desktop's pure helpers moved to `packages/shared/src/moodle/` (format, import, errors, path) and both apps use them. Phone: `moodle/api.ts` keeps each answer (`moodle/device.ts`, caches folder) and reads it back offline; `screens/MoodleScreens.tsx` (connect, courses), `MoodleCourse.tsx` (tabs, assignment, forum, discussion, page), `MoodleFile.tsx` (viewer, import sheet), `MoodleParts.tsx` (placeholders, problems, Open in Moodle, course art). Tests: `screens/moodle.test.tsx`. Sign in goes through `expo-web-browser`'s auth session (`service.signIn`, needs a native rebuild). The calendar feed is `moodle/calendar.ts` (link in the keychain, events in `moodle-calendar.json`), connected under Settings, Calendar, Calendar Connections, drawn dashed on the calendar and opened read only (`ExternalEventScreen.tsx`); tests `moodle/calendar.test.ts`, `screens/moodle-calendar.test.tsx`.
 
 ## Needs the user
 

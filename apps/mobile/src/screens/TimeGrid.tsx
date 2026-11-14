@@ -8,6 +8,8 @@ import {
   segmentsForDay,
 } from "@nookly/shared/time-grid";
 import { useRouter } from "expo-router";
+import { isFeedItem } from "../moodle/calendar.ts";
+import { itemHref } from "./ExternalEventScreen.tsx";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
@@ -81,6 +83,18 @@ export interface Neighbours {
 /// all day items on top, the hours below, every item a block where it belongs. Blocks keep
 /// to their column: a title that does not fit is cut, and room numbers and the like appear
 /// only when the block is wide and tall enough to hold them.
+/// An event from Moodle's calendar: dashed and faint beside the solid blocks, so it never
+/// reads as one of Nookly's own, as the desktop draws its overlay.
+const externalLook = (color: string) => ({
+  backgroundColor: withAlpha(color, 0.08),
+  borderWidth: 1,
+  borderLeftWidth: 1,
+  borderStyle: "dashed" as const,
+  borderColor: withAlpha(color, 0.7),
+  borderLeftColor: withAlpha(color, 0.7),
+  opacity: 0.85,
+});
+
 export function TimeGrid({
   days,
   neighbours,
@@ -130,7 +144,8 @@ export function TimeGrid({
     scroll.current?.scrollTo({ y: startY, animated: false });
   }, [startY, days.length]);
 
-  const open = (id: string) => router.push(`/entity/${id}`);
+  // SAFETY: `itemHref` gives an entity's page or the calendar event sheet, both routes.
+  const open = (id: string) => router.push(itemHref(id) as never);
 
   /// Whether any page drawn (this one or one beside it) has all day items, so has the bar.
   const anyAllDay = pages.some((pageDays) =>
@@ -220,6 +235,7 @@ export function TimeGrid({
                         borderColor: withAlpha(color, look.borderAlpha),
                         borderLeftWidth: look.leftBar || look.borderWidth,
                         borderLeftColor: color,
+                        ...(isFeedItem(item) ? externalLook(color) : null),
                       }}
                     >
                       <Text numberOfLines={1} style={{ fontSize: narrow ? 9 : 11, lineHeight: 14 }}>
@@ -311,6 +327,7 @@ export function TimeGrid({
                       borderLeftColor: color,
                       paddingHorizontal: narrow ? 2 : 5,
                       paddingVertical: 2,
+                      ...(isFeedItem(item) ? externalLook(color) : null),
                     }}
                   >
                     <Text

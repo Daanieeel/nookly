@@ -40,7 +40,8 @@
           "enableFullScreenImage_legacy": true,
           "backgroundColor": "#1a1a1a"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": false

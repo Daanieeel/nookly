@@ -5,24 +5,10 @@ import {
   fileWithOrigin,
   getFile,
 } from "@nookly/shared/data";
-import type { ComponentType, ReactNode } from "react";
 import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { View } from "react-native";
-import type {
-  AnswerCache,
-  Http,
-  MoodleAssignment,
-  MoodleCourse,
-  MoodleDiscussion,
-  MoodleForum,
-  MoodleGradeItem,
-  MoodleModule as Module,
-  MoodleSection,
-  RemoteFile,
-} from "../moodle/api.ts";
-import type { MoodleDownloads } from "../moodle/device.ts";
-import { MoodleProvider, moodleService } from "../moodle/service.tsx";
+import { type MoodleAnswers, SITE, connected, fakeMoodle } from "../test/fake-moodle.tsx";
 import { renderScreens, testData } from "../test/render.tsx";
 import type { FileViewer } from "../ui/file-viewer.tsx";
 import { moodleText } from "../moodle/format.ts";
@@ -35,117 +21,6 @@ import {
   MoodlePageScreen,
 } from "./MoodleCourse.tsx";
 import { MoodleFileScreen } from "./MoodleFile.tsx";
-
-const SITE = "https://moodle.uni.edu";
-
-const CONNECTION = {
-  site: { root: SITE },
-  token: "abc123",
-  userId: 7,
-  siteName: "Uni Moodle",
-  fullName: "Ada Lovelace",
-};
-
-type Files = Partial<RemoteFile>[];
-
-/// What Moodle answers when it refuses.
-interface MoodleFailure {
-  exception: string;
-  errorcode: string;
-  message: string;
-}
-
-/// What the fake site answers, by function: Moodle's own shapes, with fields left out.
-interface MoodleAnswers {
-  core_enrol_get_users_courses?:
-    | (Partial<Omit<MoodleCourse, "overviewfiles">> & { overviewfiles?: Files })[]
-    | MoodleFailure;
-  core_course_get_contents?: (Partial<Omit<MoodleSection, "modules">> & {
-    modules: (Partial<Omit<Module, "contents">> & { contents?: Files })[];
-  })[];
-  mod_assign_get_assignments?: {
-    courses: {
-      assignments: (Partial<Omit<MoodleAssignment, "introattachments">> & {
-        introattachments?: Files;
-      })[];
-    }[];
-  };
-  mod_assign_get_submission_status?: object;
-  gradereport_user_get_grade_items?: { usergrades: { gradeitems: Partial<MoodleGradeItem>[] }[] };
-  mod_forum_get_forums_by_courses?: Partial<MoodleForum>[];
-  mod_forum_get_forum_discussions?: {
-    discussions: (Partial<Omit<MoodleDiscussion, "attachments">> & { attachments?: Files })[];
-  };
-  mod_forum_get_discussion_posts?: object;
-}
-
-/// A Moodle site that answers each function with what a test gives it (and its pages by
-/// address), a keychain and a cache in memory, downloads that only record what was fetched,
-/// and a browser that only records what it was asked to open. `online = false` takes the
-/// site out of reach.
-function fakeMoodle(answers: MoodleAnswers = {}, pages: Record<string, string> = {}) {
-  const byFunction = new Map<string, object>(Object.entries(answers));
-  const keys = new Map<string, string>();
-  const kept = new Map<string, string>();
-  const opened: string[] = [];
-  const downloaded: string[] = [];
-  const state = { online: true };
-  const http: Http = async (url, init) => {
-    if (!state.online) throw new TypeError("Network request failed");
-    if (init.method === "GET") {
-      const page = pages[url.split("?")[0] ?? ""];
-      return {
-        ok: page !== undefined,
-        status: page === undefined ? 404 : 200,
-        text: async () => page ?? "",
-      };
-    }
-    const fn = new URLSearchParams(init.body).get("wsfunction") ?? "";
-    return { ok: true, status: 200, text: async () => JSON.stringify(byFunction.get(fn) ?? []) };
-  };
-  const cache: AnswerCache = {
-    get: async (key) => kept.get(key) ?? null,
-    set: async (key, body) => void kept.set(key, body),
-    clear: async () => kept.clear(),
-  };
-  const local = new Map<string, string>();
-  const downloads: MoodleDownloads = {
-    local: (url) => local.get(url) ?? null,
-    fetch: async (url, signed, name) => {
-      downloaded.push(signed);
-      const uri = `file:///moodle-files/${name}`;
-      local.set(url, uri);
-      return uri;
-    },
-  };
-  const service = moodleService({
-    http,
-    keys: {
-      getItemAsync: async (key) => keys.get(key) ?? null,
-      setItemAsync: async (key, value) => void keys.set(key, value),
-      deleteItemAsync: async (key) => void keys.delete(key),
-    },
-    cache,
-    downloads,
-    store: async (uri) => {
-      const name = uri.split("/").pop() ?? "file";
-      return { name, uri: `file:///files/${name}` };
-    },
-    md5: async () => "",
-    uuid: () => "11111111-2222-3333-4444-555555555555",
-    open: async (url) => void opened.push(url),
-  });
-  const wrap = (node: ReactNode) => () => <MoodleProvider service={service}>{node}</MoodleProvider>;
-  const routes = (screens: Record<string, ComponentType>) =>
-    Object.fromEntries(Object.entries(screens).map(([path, Screen]) => [path, wrap(<Screen />)]));
-  return { keys, kept, opened, downloaded, state, wrap, routes };
-}
-
-const connected = (answers: MoodleAnswers = {}, pages: Record<string, string> = {}) => {
-  const moodle = fakeMoodle(answers, pages);
-  moodle.keys.set("moodle.connection", JSON.stringify(CONNECTION));
-  return moodle;
-};
 
 // This build's own viewer, standing in for the native one: what it was asked to show.
 const standIn: FileViewer = {
@@ -200,18 +75,30 @@ const COURSE_CONTENTS: MoodleAnswers = {
 };
 
 describe("Moodle on the phone", () => {
-  it("opens the university's own sign in page for the address typed", async () => {
+  it("signs in on the university's own page, in the system's sign in sheet", async () => {
     const moodle = fakeMoodle();
-    const screen = await renderScreens({ index: moodle.wrap(<MoodleModule />) }, testData());
+    const screen = await renderScreens(
+      moodle.routes({ index: () => <MoodleModule />, "moodle-signin": () => null }),
+      testData(),
+    );
     expect(await screen.findByText("Connect your Moodle")).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText("Moodle address"), "moodle.uni.edu");
     await fireEvent.press(screen.getByRole("button", { name: "Sign In with Moodle" }));
     await waitFor(() =>
-      expect(moodle.opened).toEqual([
+      expect(moodle.sheet.opened).toEqual([
         "https://moodle.uni.edu/admin/tool/mobile/launch.php?service=moodle_mobile_app&passport=11111111222233334444555555555555&urlscheme=nookly",
       ]),
     );
+    expect(moodle.opened).toEqual([]);
     expect(moodle.keys.get("moodle.pending")).toContain('"root":"https://moodle.uni.edu"');
+    // Closing the sheet leaves the page as it was.
+    expect(screen.getPathname()).toBe("/");
+    // Moodle's link back comes straight out of the sheet and finishes the sign in.
+    moodle.sheet.answer = "nookly://token=abc";
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "Sign In with Moodle", busy: false }),
+    );
+    await waitFor(() => expect(screen.getPathname()).toBe("/moodle-signin"));
   });
 
   // As on the desktop: a white button with Moodle's own mark, the same in both themes.
