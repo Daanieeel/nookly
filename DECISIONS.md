@@ -364,3 +364,11 @@ The desktop draws the flags of the date and time formats and of each time zone f
 ## D62. Sign in with other accounts shows before it works
 
 The sign in and sign up screens on both apps show Google, Apple, GitHub and Notion under "or sign in using", disabled, with "coming soon" (a tooltip on the desktop, a line under them on the phone). The marks are Tabler's brand icons, so the phone keeps to the desktop's icons. Nothing is wired to a provider yet: the buttons do nothing until the server supports it. Both screens say the account is part of the free closed beta.
+
+## D63. A scan is one PDF, kept before it is named
+
+The Files page's Scan button (the desktop's camera icon, as Tabler has no scan icon the desktop uses) opens the system's document camera through `expo-document-scanner`. iOS hands back one picture per page, so the phone joins them into one PDF with PDFKit (`pagesToPdf` in `modules/nookly-file-viewer`); Android's ML Kit makes the PDF itself. The File is added to the Space at once, named "Scan" and the day, so sync uploads it while the person fills the sheet; the sheet's name, labels and link are applied on Save, and closing it keeps the defaults. A new name keeps the File's extension (`renameFile`). The button shows only in a build that has the scanner.
+
+## D64. A cursor stays in its word while others type
+
+`@tiptap/y-tiptap` 3.0.10 (and 3.3.0) restores the local cursor from its Yjs relative position after a remote change, then second guesses it: when the text of the cursor's line changed, it treats that as a structural change and, for blocks that carry ids (ours do), puts the cursor back at its old offset. Someone typing earlier in your line moved your cursor through the word. A patch (`patches/@tiptap%2Fy-tiptap@3.0.10.patch`, both apps share the install) keeps the resolved position whenever the item it is anchored on still exists, and leaves the fallback for anchors that were deleted. `apps/mobile/src/editor/cursor-follow.test.ts` pins it. Other people's cursor names go under the caret in a page's first block, where there is no room above.

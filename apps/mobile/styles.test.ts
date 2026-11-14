@@ -48,7 +48,7 @@ describe("the phone's styles", () => {
   it("take colors from the desktop's theme, dark by the system's setting", () => {
     expect(rules("bg-primary")).toContain('"var","primary"');
     const dark = '[["=","prefers-color-scheme","dark"]]';
-    expect(sheet).toContain(`["background",[["#000",${dark}],["#f2f2f2"]]]`);
+    expect(sheet).toContain(`["background",[["#111",${dark}],["#f2f2f2"]]]`);
     expect(sheet).toContain(`["destructive",[["#ff4d8d",${dark}],["#d6336c"]]]`);
   });
 

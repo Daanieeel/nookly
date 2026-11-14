@@ -34,7 +34,7 @@ function scannerInBuild(): boolean {
   }
 }
 
-export const systemScanner: DocumentScanner = {
+const systemScanner: DocumentScanner = {
   get available() {
     return scannerInBuild();
   },

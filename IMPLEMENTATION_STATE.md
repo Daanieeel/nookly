@@ -142,8 +142,8 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ### 12. Final checks and report
 
-- [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test` (with `TEST_DATABASE_URL`), `cargo test` in `apps/desktop/src-tauri`, `bun run duplication` under 1%; report only checks run and read: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
-- [ ] `CHANGELOG.md` and `whats-new.json` describe the changes; `DECISIONS.md` carries the decisions; the final report below is written; everything committed and pushed.
+- [x] (2026-11-14) `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test` (with `TEST_DATABASE_URL`), `cargo test` in `apps/desktop/src-tauri`, `bun run duplication` under 1%; report only checks run and read: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
+- [x] (2026-11-14) `CHANGELOG.md` and `whats-new.json` describe the changes; `DECISIONS.md` carries the decisions; the final report below is written; everything committed and pushed.
 
 ## Needs the user
 
@@ -158,7 +158,20 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 - 2026-11-13: charcoal background (D60); sidebar (sizes, header, Space switching fix, overflow icons, emoji centring, opacity); menus larger; study blocks gone from the phone; file viewer (`modules/nookly-file-viewer`). Simulator dev build: Debug in the scratch `dd-debug` folder, Metro on 8092 with `RCT_jsLocation` set in the app's defaults (no dev client package). Earlier work (sync, merge, the first mobile rebuild) is in git history and `DECISIONS.md` up to D59.
 
 - 2026-11-13: settings (input fields, layout, keys, time zones, flags, theme cards, code languages, Day starts at, sidebar drag, LaTeX macros with previews); sign in and sign up on both apps (D62); assignment status sheet; Empty Trash full width; boards as cards with wobble and drag across columns (`ui/Board.tsx`).
+- 2026-11-13: editor slash menu grouped with icons, code blocks highlighted with a header; time clock face; due date steps; calendar long press to add; bookmarks read error pages; Space settings (module drag, icon grid); merged `main` (0.75.1, 0.75.2).
+- 2026-11-14: document scanner (D63), splash screen, cursors that stay in their word and names under the caret in the first line (D64); final checks.
 
 ## Final report
 
-(written at the end)
+Every item from `NOTES.md` is done, committed and pushed on `feat/connected-platform`. Versions stay at 1.0.0; `CHANGELOG.md` and `whats-new.json` carry the user facing lines; decisions are D60 to D64 in `DECISIONS.md`.
+
+Checks (2026-11-14):
+
+- `bun run lint`, `bun run typecheck`: pass.
+- `bun run format:check`: only `NOTES.md` (the user's file, left untouched).
+- `bun run test` with `TEST_DATABASE_URL`: shared 323, mobile 433 (Jest) and 8 (bun), server 104, frontend all pass alone. In the full parallel run a few frontend timing tests (sidebar swipe glide, settings search, spellcheck speed) time out now and then and pass when run alone.
+- `cargo test`: 1543 pass; `search_stays_within_its_budget_on_20000_entities` missed its 200 ms budget while the JS tests ran in parallel and passes alone.
+- `bun run duplication`: 0.16 %.
+- Report only: `coverage` stopped at the spellcheck timing test under instrumentation, so no totals; `unused` lists older exports and files outside this work (none from it); `audit` fails on Rust advisories in dependencies (RUSTSEC-2026-0436, 0385 and others) that predate this work; `lint:rust:strict` warns about three long functions.
+
+Needs the user: see the section above (drags, scene fix, keyboard toolbar and slash menu, and scanning on a real phone).

@@ -14,7 +14,7 @@ import { nameOf } from "./file-kinds.ts";
 import { LabelsField, LinkTarget } from "./NewScreens.tsx";
 
 /// "Scan 14 Nov 2026": what a scan is called until the person names it.
-export function scanName(day: Date): string {
+function scanName(day: Date): string {
   const date = day.toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
