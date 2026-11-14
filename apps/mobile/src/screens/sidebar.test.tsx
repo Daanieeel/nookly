@@ -1,5 +1,12 @@
-import { createSpace, createTask, createView, markOpened, setPinned } from "@nookly/shared/data";
-import { act, fireEvent } from "expo-router/testing-library";
+import {
+  createSpace,
+  createTask,
+  createView,
+  listSpaces,
+  markOpened,
+  setPinned,
+} from "@nookly/shared/data";
+import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { devHooks } from "../dev/hooks.ts";
 import { Slot } from "expo-router";
 import { Text } from "react-native";
@@ -33,6 +40,18 @@ describe("the sidebar", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Tasks in Home" }));
     expect(close).toHaveBeenCalled();
     expect(screen.getPathname()).toBe(`/module/${home}/tasks`);
+  });
+
+  it("orders the Spaces by dragging their icons at the bottom", async () => {
+    const data = testData();
+    await createSpace(data.db, "Work", "#3b82f6");
+    await createSpace(data.db, "Home", "#22c55e");
+    const screen = await renderScreens({ index: () => <Sidebar close={jest.fn()} /> }, data);
+    const work = await screen.findByLabelText("Work, drag to reorder");
+    await fireEvent(work, "accessibilityAction", { nativeEvent: { actionName: "moveRight" } });
+    await waitFor(async () =>
+      expect((await listSpaces(data.db)).map((s) => s.name)).toEqual(["Home", "Work"]),
+    );
   });
 
   it("switches Space while a module of another Space is open", async () => {

@@ -19,6 +19,7 @@ import { EntityScreen } from "./EntityScreen.tsx";
 import { IconPickerScreen } from "./IconPicker.tsx";
 import { MovePicker } from "./EntityPickers.tsx";
 import { SpaceSettingsScreen } from "./SpaceSettings.tsx";
+import { MODULE_LABELS, type ModuleKey } from "@nookly/shared/modules";
 import { TrashScreen } from "./TrashScreen.tsx";
 
 /// A home screen to come back to, with the screen under test pushed on top of it.
@@ -112,6 +113,28 @@ describe("Space settings", () => {
     await waitFor(async () => expect(await listSpaces(data.db)).toEqual([]));
     // Three sheets come up and go down on the way.
   }, 15_000);
+
+  it("orders its modules by dragging, and has no Position: Spaces move in the sidebar", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    await createTask(data.db, space, "Task");
+    await createPage(data.db, space, "note", "Note");
+    const screen = await openOver(
+      { "space-settings": () => <SpaceSettingsScreen spaceId={space} /> },
+      data,
+      "/space-settings",
+    );
+    const before = await spaceModules(data.db, space);
+    const first = await screen.findByLabelText(
+      `${MODULE_LABELS[before[0] as ModuleKey]}, drag to reorder`,
+    );
+    await fireEvent(first, "accessibilityAction", { nativeEvent: { actionName: "moveDown" } });
+    await waitFor(async () =>
+      expect(await spaceModules(data.db, space)).toEqual([before[1], before[0]]),
+    );
+    expect(screen.queryByText("Position")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Move Space Up" })).toBeNull();
+  });
 });
 
 describe("the icon picker", () => {

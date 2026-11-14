@@ -23,8 +23,10 @@ import { z } from "zod";
 import { type Href, usePathname, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { ReorderList } from "../ui/ReorderList.tsx";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { Space } from "@nookly/shared/data";
+import { type Space, reorderSpaces } from "@nookly/shared/data";
+import { useLocalWrite } from "../data/context.tsx";
 import { SpaceIcon } from "./SpaceIcon.tsx";
 import {
   useDecks,
@@ -440,7 +442,8 @@ function SpaceModules({
 }
 
 /// The row of Space icons at the bottom, as the desktop's `SpaceSwitcher`: up to four, the
-/// last one a button for the rest when there are more. The Space shown is lit up.
+/// last one a button for the rest when there are more. The Space shown is lit up. A rest on
+/// an icon lifts it, to be dragged to another place among them.
 function SpaceSwitcher({
   spaces,
   active,
@@ -453,31 +456,46 @@ function SpaceSwitcher({
   const theme = useTheme();
   const menu = useMenu();
   const { visible, overflow } = spaceRow(spaces, active?.id ?? null);
+  const order = useLocalWrite((db, ids: string[]) => reorderSpaces(db, ids));
+  /// The icons shown in their new order, in the places they held among all the Spaces.
+  const reorder = (keys: string[]) => {
+    const slots = spaces.flatMap((s, i) => (keys.includes(s.id) ? [i] : []));
+    const ids = spaces.map((s) => s.id);
+    slots.forEach((slot, i) => (ids[slot] = keys[i]));
+    order.mutate(ids);
+  };
   return (
     <View className="flex-row items-center">
-      {visible.map((space) => {
-        const selected = space.id === active?.id;
-        return (
-          <Pressable
-            key={space.id}
-            accessibilityRole="button"
-            accessibilityLabel={spaceLabel(space)}
-            accessibilityState={{ selected }}
-            onPress={() => onPick(space)}
-            style={{ width: MIN_TOUCH, height: MIN_TOUCH }}
-            className="items-center justify-center active:opacity-60"
-          >
-            <View
-              className={cn(
-                "size-10 items-center justify-center rounded-md",
-                selected && "bg-sidebar-accent",
-              )}
+      <ReorderList
+        horizontal
+        items={visible}
+        keyOf={(space) => space.id}
+        labelOf={spaceLabel}
+        size={MIN_TOUCH}
+        onReorder={reorder}
+        renderItem={(space) => {
+          const selected = space.id === active?.id;
+          return (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={spaceLabel(space)}
+              accessibilityState={{ selected }}
+              onPress={() => onPick(space)}
+              style={{ width: MIN_TOUCH, height: MIN_TOUCH }}
+              className="items-center justify-center active:opacity-60"
             >
-              <SpaceIcon space={space} size={ROW_ICON} />
-            </View>
-          </Pressable>
-        );
-      })}
+              <View
+                className={cn(
+                  "size-10 items-center justify-center rounded-md",
+                  selected && "bg-sidebar-accent",
+                )}
+              >
+                <SpaceIcon space={space} size={ROW_ICON} />
+              </View>
+            </Pressable>
+          );
+        }}
+      />
       {overflow.length > 0 ? (
         <IconButton
           label="More Spaces"

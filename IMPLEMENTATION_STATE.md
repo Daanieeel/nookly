@@ -113,9 +113,9 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ### 7. Mobile: Space settings
 
-- [ ] No "Position" setting anymore; the Space icons at the bottom of the sidebar are reordered by dragging instead.
-- [ ] Modules are reordered by dragging, as in the sidebar settings page.
-- [ ] The Add Module button moves above the modules and takes the full width.
+- [x] No "Position" setting anymore; the Space icons at the bottom of the sidebar are reordered by dragging instead.
+- [x] Modules are reordered by dragging, as in the sidebar settings page.
+- [x] The Add Module button moves above the modules and takes the full width.
 - [ ] The icon picker shows all of Nookly's provided icons inline, then a ghost button "Choose Emoji" that opens the sheet with emojis only (no tab switcher). A new component; the universal "Choose an Icon" sheet stays as it is for other entities.
 
 ### 8. Mobile: files
