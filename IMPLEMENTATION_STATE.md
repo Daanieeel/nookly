@@ -13,7 +13,7 @@
 
 **This file is a ready to run prompt and the handover file.** An agent told "read `IMPLEMENTATION_STATE.md` and get to work" reads this file, `AGENTS.md` and `docs/00-index.md`, then carries the list out from start to finish without human help. Keep it current: tick items, note findings, append to the progress log after every meaningful step.
 
-The items come from the user's `NOTES.md` (2026-11-13). `NOTES.md` is the user's own file: read it, never edit it.
+The items come from the user's `NOTES.md` (2026-11-14, second round). `NOTES.md` is the user's own file: read it, never edit it.
 
 ## Rules
 
@@ -49,129 +49,106 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ## Items
 
+Reference images are in `.reference-images/` (gitignored, the user's own): `linear-examples/*` (the Linear app), `sidebar-spacer-switcher-bug.jpeg`, `choose-emoji-positioning-bug.png`, `desktop/space switcher blur bug.png`. Look at them before working on the item that names them.
+
+The order below builds shared pieces first (the Linear style sheets), then the screens that use them.
+
 ### 0. First step
 
-- [x] (2026-11-13, #111111, D60) The app's backmost background is a deep charcoal instead of full black, on mobile and on desktop (dark mode). Add new tokens where needed; do not edit existing ones in `packages/ui`.
+- [x] (done in the previous round, D60) The backmost background is a deep charcoal instead of full black on mobile and desktop. Check it still holds after this round's changes.
 
-### 1. Mobile: sidebar
+### 1. Mobile: Linear style foundations (do first, the later items use them)
 
-- [x] (2026-11-13) Bigger text and icons in the nav sidebar.
-- [x] (2026-11-13, every menu) Bigger text and icons in the menu the + next to the Space icons opens.
-- [x] (2026-11-13, the sidebar snapped back to the open page's Space; test) Switching Spaces works every time; clicking a Space icon always switches.
-- [x] (2026-11-13) The overflow (three dot) menu of hidden Spaces shows each Space's icon and colour.
-- [x] (2026-11-13) Emoji Space icons are centred, not shifted up and cut off.
-- [x] (2026-11-13) The day card at the top: the date a little bigger, the cycling line a little heavier.
-- [x] (2026-11-13) A "Nookly" title (Inter Tight, very heavy) as an always visible header at the top, with a native search icon button (magnifier) on the other side (space between). It replaces the "Search" row, which goes. A blur gradient behind it so it reads as a proper header.
-- [x] (2026-11-13) Sidebar icons at about 85 to 90% opacity, so they do not look irrelevant.
+The user allows touching and replacing our phone's sheet and picker components for this (still exactly one sheet implementation, motion from `ui/motion.ts`, Tabler icons). Copy Linear exactly:
 
-### 2. Mobile: menus and sheets
+- [ ] **Floating picker card** (`linear-examples/status-picker.jpeg`, `label-picker.jpeg`, `milestone-picker.jpeg`): a rounded card floating in the middle of the screen over a dimmed backdrop, title top left, a round close button top right, optional pill search field ("Add labels..."), big rows (icon or colour dot, title, checkmark on the right for the chosen one). Sits above the keyboard when the search is focused. This replaces the generic list style bottom sheet for every select and picker (status, priority, labels, Space, course, link target, ...).
+- [ ] **Grouped bottom sheet** (`display-options.jpeg`, `filter-list-sheet.jpeg`): grabber, content as rounded grouped cards with separators, an optional pinned search field with an icon.
+- [ ] **Inline menu** (`display-options-select-open.jpeg`): a value with an up/down chevron opens a blurred floating menu next to it with a checkmark on the chosen option.
+- [ ] **Compose sheet** (`create-new-ticket.jpeg`): full height sheet, round close button top left, a context pill in the middle (the Space), round send button top right (disabled until there is a title), big title field, description below as a full block editor, a horizontally scrolling row of property pills (status, date, labels, ...) above the editor's toolbar on the keyboard.
+- [ ] **Tab switcher** redesign (used on the calendar and elsewhere): fits Nookly's style, not flat; Linear's pill tabs (`display-options.jpeg` top: "Assigned" chip on a raised pill, others plain) are the model.
+- [ ] Record the design in `DECISIONS.md` and add tests (rendering, selection, close, search).
 
-- [x] (2026-11-13, MenuList: body text, 22pt icons, 50pt rows) Items in popovers and menus (the long press sheet on entities and every other menu) get larger text and icons for touch.
-- [x] (2026-11-13, Assignments gains Ordering; Tasks had both; tiles and rows larger) The display options sheet gets back grouping and ordering options, and its list and board boxes grow with the larger menu items.
+### 2. Mobile: sidebar and navigation
 
-### 3. Mobile: forms and settings
+- [ ] The header blur behind "Nookly" and the search button fades out as a gradient, no hard edge at its bottom.
+- [ ] Nav items get a bit more padding on the left only, so they no longer line up with the header box.
+- [ ] Nav and detail sidebar item labels: one font size smaller, one weight heavier; icon size and opacity unchanged; the active nav item's icon is not coloured.
+- [ ] Bug: the Space icons at the bottom of the sidebar are misaligned (`sidebar-spacer-switcher-bug.jpeg`: the icons sit lower than + and the other buttons).
+- [ ] The search (magnifying glass) button in the sidebar header is a native button.
+- [ ] Navigating via nav items keeps Cmd + Left/Right for back and forward, but the swipe from the screen edge no longer navigates back.
 
-- [x] (2026-11-13) Input fields: no more `[label | input]` rows, which look like placeholders. The label sits above the field in a smaller font; a row may lead with an icon instead, `[(icon) | input]`, so the input stays big.
-- [x] (2026-11-13) Settings avoid the `[label | input]` layout too, so long labels are not cut off and content is not squished.
-- [x] (2026-11-13) Settings show their setting keys above the labels, as on desktop.
-- [x] (2026-11-13, flags as emoji, D61) Time zone is the same kind of select as on desktop, not a text field.
-- [x] (2026-11-13) Date format and time format switchers show the same flag icons as on desktop.
-- [x] (2026-11-13, preview cards) Theme and file viewer theme switchers get the desktop's icons.
-- [x] (2026-11-13) Default code language (editor settings) is the desktop's popover, not a text field.
-- [x] (2026-11-13, `ui/NumberInput.tsx`) "Day starts at" uses a port of the desktop's number input component.
-- [x] Sidebar settings: keep the separate page and the switches, but items are reordered by dragging, not by arrow buttons.
-- [x] LaTeX settings: adding macros feels like on desktop (with a preview, proper inputs), cut to fit mobile.
-- [x] Sign in and sign up screens get a real design and hierarchy (creating an account is clearly not the same weight as "Forgot Password", and is phrased better than "Create an Account Instead").
+### 3. Desktop
 
-### 4. Mobile: lists and boards
+- [ ] The blur gradient behind the Space switcher at the bottom of the nav sidebar reaches too far up and covers the last item (`desktop/space switcher blur bug.png`). Make it shorter.
+- [ ] Swap the "Split" button and the sync indicator in the titlebar.
 
-- [x] Tapping the status icon of a task or assignment in a list opens the status sheet instead of marking it done.
-- [x] Board view for tasks and assignments looks like the desktop: items as cards, columns keep their width. Items can be dragged: a long press makes every card wobble (each with its own time offset, like iOS home screen icons), then cards can be dragged between columns.
-- [x] The "Empty Trash" button stretches across the full width of the page.
+### 4. Mobile: markdown editor
 
-### 5. Mobile: page editor
+- [ ] An empty editor showing "Write something" shows a blinking cursor when tapped.
+- [ ] Bug: tap into an empty editor, close the keyboard, tap again: nothing happens until the page is reopened. Tapping must always focus.
+- [ ] Undo and redo buttons work.
+- [ ] Indent and outdent buttons are disabled when they would do nothing.
+- [ ] With a list active, tapping another list type (bullet, ordered, todo) converts the list to that type.
+- [ ] Leaving the page with the keyboard open: the toolbar above the keyboard disappears together with the keyboard, not a moment later floating mid screen.
+- [ ] The hide keyboard button gets a small chevron down on the keyboard icon.
+- [ ] Embedded editors (tasks, assignments, courses, semesters, ...) have no extra margin below them.
+- [ ] Embedded editors sync as reliably as notes and jots (also right after coming back online) and show other devices' cursors.
 
-- [x] Code blocks get syntax highlighting.
-- [x] Code blocks get the desktop's header: file title, language select and a copy button.
-- [x] The slash menu looks like the desktop's (groups, icon in a box, a description) and scrolls through every result, not just the top five.
-- [x] The formatting toolbar sits above the keyboard, not hidden below it.
-- [x] A button to dismiss the keyboard.
-- [x] Toolbar buttons are large enough for touch.
+### 5. Mobile: create sheets in the Linear compose style
 
-### 6. Mobile: item pages and pickers
+- [ ] Quick Jot, Create Task and Create Assignment use the compose sheet (item 1), with a full block editor for the description like the desktop.
+- [ ] New Calendar Entry uses the compose sheet. Today labels overflow or are cut off after two letters and everything is crammed; fix all of it.
+- [ ] New Session and New Semester use the compose sheet.
+- [ ] "Set up semesters" wizard in the Linear style.
+- [ ] Repeat: the phone offers the desktop's full repeat options (not only daily, weekly, monthly) on tasks, and repeat is added to New Session and New Calendar Entry (where the desktop has it).
 
-- [x] The exam time chip shows AM/PM only where the time format uses it, like the popover already does.
-- [x] The time popover: much bigger hour and minute fields that feel like a real clock face (Inter), no background, two underlines under hour and minute, as if typing into the popover itself. "Clear time" is a destructive button, "Done" is primary.
-- [x] (2026-11-13, UI and agenda; rows untouched) Study blocks are removed from the mobile app (the feature no longer exists).
-- [x] The course page's semester select shows semesters with their metadata (icon etc.) like the desktop.
-- [x] The assignment due date selector offers "Specific session" as the desktop does.
-- [x] The due date selector's option boxes are a little bigger.
-- [x] The "Clear due date" button is taller and its x icon is no longer full black.
-- [x] The calendar creates an entry on a long press, as real calendars do.
-- [x] A calendar entry's page has a "Move to Trash" button at the bottom.
-- [x] Bookmark previews load instead of saying "Couldn't reach it".
+### 6. Mobile: list pages
 
-### 7. Mobile: Space settings
+- [ ] Filter and display options on tasks, assignments and the other list pages in the Linear style (`display-options.jpeg`, `filter-list-sheet.jpeg`), keeping our list or board toggle.
+- [ ] Calendar header: keep date and week, no comma, "Week XY" at lower opacity.
+- [ ] Calendar bug: the all day row lacks the vertical day borders.
+- [ ] Semesters list: "Set dates" works when tapped; expanding a semester stays, plus a button that opens the semester directly.
+- [ ] "Set up semesters" is a native header button left of +, not a big button on the page.
+- [ ] Exams timeline: less left padding; the "Today" row spans the full width.
+- [ ] Bookmarks: the "Paste a URL to save it" field is a floating bar at the bottom like the desktop, with its own corner radius following the iPhone's corners, a send button, and properly sized link items.
+- [ ] Bookmarks: display and filter options like the desktop (Linear style), keeping the list or grid toggle.
+- [ ] Jots list: the feather icon is plain black (bug); give it the right colour.
+- [ ] Moodle: the module does something useful on the phone (match the desktop), not only a list of entities.
 
-- [x] No "Position" setting anymore; the Space icons at the bottom of the sidebar are reordered by dragging instead.
-- [x] Modules are reordered by dragging, as in the sidebar settings page.
-- [x] The Add Module button moves above the modules and takes the full width.
-- [x] The icon picker shows all of Nookly's provided icons inline, then a ghost button "Choose Emoji" that opens the sheet with emojis only (no tab switcher). A new component; the universal "Choose an Icon" sheet stays as it is for other entities.
+### 7. Mobile: item pages
 
-### 8. Mobile: files
+- [ ] Task: adding a sub task keeps the field above the keyboard.
+- [ ] Task: the labels badge shows a colour dot per label, abbreviates after 2 labels, and does not grow wide; no commas.
+- [ ] Task: an overdue date's calendar icon and label both use the destructive colour.
+- [ ] Session detail: "Create Jot for this session" and "Create Note for This Session" get icons and full width; the primary one (no jot: jot; jot but no note: note; both exist: both secondary) uses the default (blue) variant, like the desktop.
+- [ ] Recipes list: labels show their colours.
+- [ ] Recipe detail rework: a placeholder for a missing banner like the desktop, a much quieter "Choose Banner", clean ingredient and step adding (inputs not squeezed by save buttons), better spacing in the detail sidebar.
 
-- [x] (2026-11-13, PDFKit with search and page count, Quick Look, thumbnails; checked in the simulator) A full file viewer for PDFs and other files.
-- [x] (2026-11-14, VisionKit pages joined into one PDF with PDFKit; sheet with name, labels and link applied on Save; button checked in the simulator, which has no camera) A scan button next to + on the Files page, using `expo-document-scanner` (https://github.com/DineshKachhot/expo-document-scanner). After scanning, a bottom sheet for title, labels, relationships etc., prefilled with sensible defaults (file name etc.). The document uploads in the background while the sheet is open; the sheet only applies the user's edits afterwards.
+### 8. Mobile: Space settings
 
-### 9. Mobile: app
+- [ ] "Choose Emoji": lower text opacity; the emoji is aligned and not cut off (`choose-emoji-positioning-bug.png`).
+- [ ] Label colours are set in a sheet opened by tapping a label, not inline under every label.
+- [ ] Deleting a Space forever shows the same warning as the desktop.
+- [ ] "Add module to Space" is a sheet (Linear style), not a page, and lists only modules the Space does not have.
 
-- [x] (2026-11-14, full screen, corners filled; checked in the simulator) `/Users/daniel/Downloads/splash.png` becomes the splash screen.
+### 9. Both apps
 
-### 10. Desktop
+- [ ] Moving local items into an account shows a full page progress screen instead of a dialog (nothing else can be done meanwhile, and a dialog looks closable).
 
-- [x] The sign in and sign up dialog is redesigned so it invites creating an account and could be sold to real customers (free closed beta of the connected platform). Buttons for Google, Apple, GitHub and Notion with their logos under "or sign in using", disabled, with a tooltip saying they are coming soon.
+### 10. Final checks and report
 
-### 11. Both
-
-- [x] (2026-11-14, patched y-tiptap: a cursor anchored on living text keeps that anchor; both apps) Live sync: when another device types and the word your cursor is in moves, your cursor moves with it, so it seems not to move at all.
-- [x] (2026-11-14, the name goes under the caret in the first block, phone and desktop) The "xyz on iPhone" cursor label no longer disappears at the top when the other device is in the first line of a note.
-
-### 11b. Merge main (asked 2026-11-13)
-
-- [x] Merge `main` into this branch again and adapt the fixes it brought to this branch's code (the rebuilt mobile screens, sync). Never push to `main`.
-
-### 12. Final checks and report
-
-- [x] (2026-11-14) `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test` (with `TEST_DATABASE_URL`), `cargo test` in `apps/desktop/src-tauri`, `bun run duplication` under 1%; report only checks run and read: `bun run coverage`, `bun run unused`, `bun run audit`, `bun run lint:rust:strict`.
-- [x] (2026-11-14) `CHANGELOG.md` and `whats-new.json` describe the changes; `DECISIONS.md` carries the decisions; the final report below is written; everything committed and pushed.
+- [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
+- [ ] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
+- [ ] Final report below.
 
 ## Needs the user
 
-- On a real phone: the feel of dragging (sidebar settings rows, board cards with the wobble, the board scrolling near its edges). The simulator can't drag with a finger, so the gestures are checked by tests and by screen reader actions only.
-- On a real phone: the iOS 27 scene lifecycle fix (D59).
-- On a real phone: the editor's toolbar riding on the keyboard, and the slash menu (grouped, with icons, scrolling). The simulator here shows no software keyboard to type a slash into; both are covered by tests, and the code block header and colours were checked on screen.
-- On a real phone: scanning a document (the simulator has no camera). The button, the sheet after a scan and saving its name, labels and link are covered by tests; joining the pages into one PDF runs only on a device.
+- Carried over: on a real phone, the feel of dragging; the iOS 27 scene fix (D59); the editor toolbar on the keyboard and the slash menu; scanning a document.
 
 ## Progress log
 
-- 2026-11-13: file refilled from `NOTES.md`.
-- 2026-11-13: charcoal background (D60); sidebar (sizes, header, Space switching fix, overflow icons, emoji centring, opacity); menus larger; study blocks gone from the phone; file viewer (`modules/nookly-file-viewer`). Simulator dev build: Debug in the scratch `dd-debug` folder, Metro on 8092 with `RCT_jsLocation` set in the app's defaults (no dev client package). Earlier work (sync, merge, the first mobile rebuild) is in git history and `DECISIONS.md` up to D59.
-
-- 2026-11-13: settings (input fields, layout, keys, time zones, flags, theme cards, code languages, Day starts at, sidebar drag, LaTeX macros with previews); sign in and sign up on both apps (D62); assignment status sheet; Empty Trash full width; boards as cards with wobble and drag across columns (`ui/Board.tsx`).
-- 2026-11-13: editor slash menu grouped with icons, code blocks highlighted with a header; time clock face; due date steps; calendar long press to add; bookmarks read error pages; Space settings (module drag, icon grid); merged `main` (0.75.1, 0.75.2).
-- 2026-11-14: document scanner (D63), splash screen, cursors that stay in their word and names under the caret in the first line (D64); final checks.
+- 2026-11-14: file refilled from the second round of `NOTES.md`. The previous round (all items done) is in git history up to 750c4f10 and `DECISIONS.md` up to D64.
 
 ## Final report
 
-Every item from `NOTES.md` is done, committed and pushed on `feat/connected-platform`. Versions stay at 1.0.0; `CHANGELOG.md` and `whats-new.json` carry the user facing lines; decisions are D60 to D64 in `DECISIONS.md`.
-
-Checks (2026-11-14):
-
-- `bun run lint`, `bun run typecheck`: pass.
-- `bun run format:check`: only `NOTES.md` (the user's file, left untouched).
-- `bun run test` with `TEST_DATABASE_URL`: shared 323, mobile 433 (Jest) and 8 (bun), server 104, frontend all pass alone. In the full parallel run a few frontend timing tests (sidebar swipe glide, settings search, spellcheck speed) time out now and then and pass when run alone.
-- `cargo test`: 1543 pass; `search_stays_within_its_budget_on_20000_entities` missed its 200 ms budget while the JS tests ran in parallel and passes alone.
-- `bun run duplication`: 0.16 %.
-- Report only: `coverage` stopped at the spellcheck timing test under instrumentation, so no totals; `unused` lists older exports and files outside this work (none from it); `audit` fails on Rust advisories in dependencies (RUSTSEC-2026-0436, 0385 and others) that predate this work; `lint:rust:strict` warns about three long functions.
-
-Needs the user: see the section above (drags, scene fix, keyboard toolbar and slash menu, and scanning on a real phone).
+(not written yet)
