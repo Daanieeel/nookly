@@ -1,4 +1,5 @@
 import type { SqlStatement } from "../sync/sql.ts";
+import { labelColorFor } from "../colors.ts";
 import { type LocalDb, first, iso, optStr, rows, write } from "./db.ts";
 import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } from "./entities.ts";
 import { LABEL_IDS_COLUMN, labelIdsOf } from "./links.ts";
@@ -216,3 +217,82 @@ export const TEXT_EXTENSIONS = new Set([
 ]);
 
 export const isTextFile = (filename: string) => TEXT_EXTENSIONS.has(fileExtension(filename) ?? "");
+
+export interface ImportDetails {
+  /// What the File is stored as on this device.
+  filename: string;
+  localPath: string;
+  /// The name it shows; the stored file's name when left out.
+  title?: string;
+  /// Where it came from (`moodle:<address on the site>`), how a source tells it was imported.
+  origin: string;
+  /// Labels of the Space to put on it.
+  labelIds: string[];
+  /// Labels by name: one the Space has by that name (ignoring case) is reused, a new one made.
+  newLabels: string[];
+  /// Items it is attached to (a course), as `attached-file`.
+  attachTo: string[];
+}
+
+/// The desktop's `import_file_with_details`: a File made named, labelled and attached at once,
+/// so it lands whole or not at all.
+export async function importFileWithDetails(
+  db: LocalDb,
+  spaceId: string,
+  details: ImportDetails,
+): Promise<string> {
+  const { id, statements } = addFileStatements(db, spaceId, details.filename, details.localPath);
+  const title = details.title?.trim();
+  if (title) {
+    statements.push({ sql: "UPDATE entities SET title = ? WHERE id = ?", params: [title, id] });
+  }
+  statements.push({
+    sql: "UPDATE files SET origin = ? WHERE entity_id = ?",
+    params: [details.origin, id],
+  });
+  const labelIds = [...details.labelIds];
+  for (const raw of details.newLabels) {
+    const name = raw.trim();
+    if (!name) throw new Error("Give the label a name.");
+    const existing = await first(
+      db,
+      "SELECT id FROM labels WHERE space_id = ? AND name = ? COLLATE NOCASE",
+      spaceId,
+      name,
+    );
+    if (existing) {
+      labelIds.push(String(existing.id));
+      continue;
+    }
+    const labelId = db.newId();
+    statements.push({
+      sql: "INSERT INTO labels (id, space_id, name, color, created_at) VALUES (?, ?, ?, ?, ?)",
+      params: [labelId, spaceId, name, labelColorFor(name), iso(db)],
+    });
+    labelIds.push(labelId);
+  }
+  for (const labelId of new Set(labelIds)) {
+    statements.push({
+      sql: "INSERT OR IGNORE INTO entity_labels (entity_id, label_id) SELECT ?, id FROM labels WHERE id = ? AND space_id = ?",
+      params: [id, labelId, spaceId],
+    });
+  }
+  for (const owner of details.attachTo) {
+    statements.push({
+      sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, 'attached-file', ?)",
+      params: [db.newId(), owner, id, iso(db)],
+    });
+  }
+  await write(db, statements);
+  return id;
+}
+
+/// The File imported from `origin` and not in the Trash, or null.
+export async function fileWithOrigin(db: LocalDb, origin: string): Promise<string | null> {
+  const row = await first(
+    db,
+    "SELECT e.id FROM files f JOIN entities e ON e.id = f.entity_id WHERE f.origin = ? AND e.deleted_at IS NULL ORDER BY e.created_at DESC",
+    origin,
+  );
+  return row ? String(row.id) : null;
+}

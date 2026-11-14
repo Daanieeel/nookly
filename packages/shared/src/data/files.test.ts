@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { LocalDb } from "./db.ts";
+import { rows } from "./db.ts";
 import { createSpace, trashEntity } from "./entities.ts";
+import { createCourse } from "./study.ts";
+import { createLabel, entityLabels } from "./links.ts";
 import {
   addFile,
   addFileLink,
   detectProvider,
   fileKindOf,
+  fileWithOrigin,
   getFile,
+  importFileWithDetails,
   isDownloading,
   isLinkOnly,
   isTextFile,
@@ -113,6 +118,70 @@ describe("links to files", () => {
       /bookmark/,
     );
     await expect(addFileLink(db, space, "example.com/a.pdf")).rejects.toThrow(/http/);
+    expect(await listFiles(db, space)).toEqual([]);
+  });
+});
+
+describe("a file imported with its details", () => {
+  // The desktop's `import_file_with_details`: a Moodle file lands named, labelled and
+  // attached to its course at once, and remembers where it came from.
+  it("lands named, labelled and attached, with where it came from", async () => {
+    const space = await createSpace(db, "Uni", "#000000");
+    const course = await createCourse(db, space, "Algorithms");
+    const existing = await createLabel(db, space, "ALG");
+    const id = await importFileWithDetails(db, space, {
+      filename: "lecture1.pdf",
+      localPath: "file:///docs/moodle-files/a/lecture1.pdf",
+      title: "Lecture 1.pdf",
+      origin: "moodle:https://moodle.uni.edu/pluginfile.php/1/lecture1.pdf",
+      labelIds: [],
+      newLabels: ["alg", "Week 1"],
+      attachTo: [course],
+    });
+    const file = await getFile(db, id);
+    expect(file?.entity.title).toBe("Lecture 1.pdf");
+    expect(file?.localPath).toBe("file:///docs/moodle-files/a/lecture1.pdf");
+    const labels = await entityLabels(db, id);
+    expect(labels.map((l) => l.name).sort()).toEqual(["ALG", "Week 1"]);
+    expect(labels.find((l) => l.name === "ALG")?.id).toBe(existing);
+    const links = await rows(
+      db,
+      "SELECT from_entity_id, relationship_type FROM relationships WHERE to_entity_id = ?",
+      id,
+    );
+    expect(links).toEqual([{ from_entity_id: course, relationship_type: "attached-file" }]);
+    expect(
+      await fileWithOrigin(db, "moodle:https://moodle.uni.edu/pluginfile.php/1/lecture1.pdf"),
+    ).toBe(id);
+  });
+
+  it("counts a file in the Trash as not imported", async () => {
+    const space = await createSpace(db, "Uni", "#000000");
+    const origin = "moodle:https://moodle.uni.edu/pluginfile.php/2/a.pdf";
+    const id = await importFileWithDetails(db, space, {
+      filename: "a.pdf",
+      localPath: "file:///a.pdf",
+      origin,
+      labelIds: [],
+      newLabels: [],
+      attachTo: [],
+    });
+    await trashEntity(db, id);
+    expect(await fileWithOrigin(db, origin)).toBeNull();
+  });
+
+  it("makes nothing when a part fails", async () => {
+    const space = await createSpace(db, "Uni", "#000000");
+    await expect(
+      importFileWithDetails(db, space, {
+        filename: "a.pdf",
+        localPath: "file:///a.pdf",
+        origin: "moodle:x",
+        labelIds: [],
+        newLabels: ["  "],
+        attachTo: [],
+      }),
+    ).rejects.toThrow();
     expect(await listFiles(db, space)).toEqual([]);
   });
 });
