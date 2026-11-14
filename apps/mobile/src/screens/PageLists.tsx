@@ -128,6 +128,11 @@ function passes(page: PageSummary, display: ListDisplay, now = Date.now()): bool
   );
 }
 
+interface PageListControls {
+  display: ListDisplay;
+  controls: React.ReactNode;
+}
+
 /// Notes' and Jots' header, filters and display, as Tasks has them (D65): the title with
 /// Filter and Display, the filters on as chips, and the desktop's filters (labels, last
 /// edited) and order in Linear's sheets. The search field stays under it.
@@ -135,7 +140,7 @@ function usePageListControls(
   key: string,
   title: string,
   pages: PageSummary[],
-): { display: ListDisplay; controls: React.ReactNode } {
+): PageListControls {
   const [display, setDisplay] = usePreference<ListDisplay>(key, listSchema, LIST_DEFAULT);
   const [panel, setPanel] = useState<ListPanel>(null);
   const labels = [...new Map(pages.flatMap((p) => p.labels).map((l) => [l.id, l])).values()].sort(
