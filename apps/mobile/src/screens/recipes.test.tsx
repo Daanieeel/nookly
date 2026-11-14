@@ -1,5 +1,4 @@
 import {
-  createIngredient,
   createRecipe,
   createSpace,
   getRecipe,
@@ -55,34 +54,58 @@ describe("a recipe", () => {
     const { data, recipe, screen } = await open();
     await choose(screen, "Kind", "Dessert");
     await waitFor(async () => expect((await getRecipe(data.db, recipe))?.kind).toBe("dessert"));
-    const minutes = screen.getAllByLabelText("Minutes")[0];
+    const minutes = screen.getAllByLabelText("Time")[0];
     await fireEvent.changeText(minutes, "40");
     await fireEvent(minutes, "endEditing");
     await waitFor(async () => expect((await getRecipe(data.db, recipe))?.durationMinutes).toBe(40));
   });
 
-  it("adds, edits and removes ingredients and steps", async () => {
+  // As on the desktop: an empty banner is a quiet placeholder with a small camera button.
+  it("shows a placeholder banner with a small button to add one", async () => {
+    const { screen } = await open();
+    expect(await screen.findByLabelText("No banner")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add Banner Image" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Choose Banner" })).toBeNull();
+  });
+
+  it("adds, edits, moves and removes ingredients and steps", async () => {
     const { data, recipe, screen } = await open();
-    await fireEvent.changeText(await screen.findByLabelText("Ingredient"), "2 eggs");
-    await fireEvent.press(screen.getByRole("button", { name: "Add Ingredient" }));
+    const newIngredient = await screen.findByLabelText("New ingredient");
+    // The add button only shows once there is something to add, so it never squeezes the field.
+    expect(screen.queryByRole("button", { name: "Add Ingredient" })).toBeNull();
+    await fireEvent.changeText(newIngredient, "2 eggs");
+    await fireEvent(newIngredient, "submitEditing");
     await waitFor(async () =>
       expect((await listIngredients(data.db, recipe)).map((i) => i.text)).toEqual(["2 eggs"]),
     );
-    const field = await screen.findByLabelText("Text 1");
+    const field = await screen.findByLabelText("Ingredient 1");
     await fireEvent.changeText(field, "3 eggs");
     await fireEvent(field, "endEditing");
     await waitFor(async () =>
       expect((await listIngredients(data.db, recipe))[0].text).toBe("3 eggs"),
     );
-    await fireEvent.changeText(screen.getByLabelText("Step"), "Whisk");
-    await fireEvent.press(screen.getByRole("button", { name: "Add Step" }));
+    await fireEvent.changeText(screen.getByLabelText("New step"), "Whisk");
+    await fireEvent.press(await screen.findByRole("button", { name: "Add Step" }));
     await waitFor(async () =>
       expect((await listSteps(data.db, recipe)).map((s) => s.text)).toEqual(["Whisk"]),
     );
-    await createIngredient(data.db, recipe, "1 cup flour");
-    await fireEvent.press(screen.getAllByRole("button", { name: "Delete" })[0]);
+    await fireEvent.changeText(screen.getByLabelText("New ingredient"), "1 cup flour");
+    await fireEvent(screen.getByLabelText("New ingredient"), "submitEditing");
+    await fireEvent.press(await screen.findByRole("button", { name: "More for Ingredient 2" }));
+    await fireEvent.press(await screen.findByRole("menuitem", { name: "Move Up" }));
     await waitFor(async () =>
-      expect((await listIngredients(data.db, recipe)).map((i) => i.text)).toEqual(["1 cup flour"]),
+      expect((await listIngredients(data.db, recipe)).map((i) => i.text)).toEqual([
+        "1 cup flour",
+        "3 eggs",
+      ]),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Ingredient 1").props.value).toBe("1 cup flour"),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "More for Ingredient 1" }));
+    await fireEvent.press(await screen.findByRole("menuitem", { name: "Delete Ingredient" }));
+    await waitFor(async () =>
+      expect((await listIngredients(data.db, recipe)).map((i) => i.text)).toEqual(["3 eggs"]),
     );
   });
 });

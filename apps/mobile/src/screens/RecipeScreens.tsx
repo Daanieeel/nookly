@@ -20,9 +20,13 @@ import {
 import { useEntityMenu } from "./entity-actions.tsx";
 import { FormSection } from "../ui/kit/Form.tsx";
 import {
-  IconChevronDown,
-  IconChevronUp,
+  IconArrowDown,
+  IconArrowUp,
+  IconCamera,
   IconClock,
+  IconDots,
+  IconPlus,
+  IconTag,
   IconToolsKitchen2,
   IconTrash,
 } from "@tabler/icons-react-native";
@@ -30,11 +34,18 @@ import { CARD_CLASSES } from "@nookly/ui/classes";
 import { File } from "expo-file-system";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Image, Pressable, View } from "react-native";
+import { Image, Pressable, TextInput, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
 import { useRecipe, useRecipeParts, useRecipeTags, useRecipes } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
+import { useMenu } from "../ui/menu.tsx";
+import { PropertyList } from "../ui/Property.tsx";
+import { ChoiceProperty, NumberRow, SheetProperty } from "../ui/property-rows.tsx";
+import { OptionList } from "../ui/sheet/OptionList.tsx";
+import { CORNER, RADIUS } from "../ui/tokens.ts";
+import { useSemantic } from "../ui/kit/scheme.ts";
+import { labelSummary } from "./ComposeForm.tsx";
 import { Badge } from "../ui/Badge.tsx";
 import { RecipeTagChip } from "./RecipeTagChip.tsx";
 import { Grid } from "../ui/Grid.tsx";
@@ -46,7 +57,6 @@ import { DetailsPart, MainPart } from "../ui/parts.tsx";
 import { Empty, ROW_DIVIDER, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { useCloseSheet } from "../ui/sheet/route.tsx";
-import { MultiSelectField, SelectField } from "../ui/SelectField.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
@@ -183,7 +193,10 @@ export function NewRecipeScreen({ spaceId }: { spaceId?: string }) {
 }
 
 /// An ingredient or a step: its text to edit in place, its place in the list, and trash.
+/// One ingredient or step: its number, its text typed in place, and a menu to move or delete
+/// it, so the text has the whole width.
 function Part({
+  noun,
   item,
   index,
   count,
@@ -193,6 +206,7 @@ function Part({
   readOnly,
   extra,
 }: {
+  noun: "Ingredient" | "Step";
   item: RecipeItem;
   index: number;
   count: number;
@@ -203,49 +217,63 @@ function Part({
   extra?: React.ReactNode;
 }) {
   const theme = useTheme();
+  const menu = useMenu();
   const [text, setText] = useState(item.text);
   useEffect(() => setText(item.text), [item.text]);
+  const name = `${noun} ${index + 1}`;
   return (
-    <View className={cn("gap-2 p-3", ROW_DIVIDER)}>
-      <Field
-        label={`Text ${index + 1}`}
-        multiline
-        editable={!readOnly}
-        value={text}
-        onChangeText={setText}
-        onEndEditing={() => text.trim() && text !== item.text && onText(text.trim())}
-      />
-      {extra}
+    <View className={cn("flex-row items-start gap-3 py-2", ROW_DIVIDER)}>
+      <Text tone="muted" className="w-6 pt-2.5 text-center font-medium tabular-nums">
+        {noun === "Step" ? `${index + 1}.` : "•"}
+      </Text>
+      <View className="flex-1 gap-1">
+        <TextInput
+          accessibilityLabel={name}
+          multiline
+          scrollEnabled={false}
+          editable={!readOnly}
+          value={text}
+          onChangeText={setText}
+          onEndEditing={() => text.trim() && text !== item.text && onText(text.trim())}
+          onBlur={() => text.trim() && text !== item.text && onText(text.trim())}
+          className="min-h-11 py-2.5 font-sans text-base text-foreground"
+        />
+        {extra}
+      </View>
       {!readOnly ? (
-        <View className="flex-row items-center justify-end gap-1">
-          <IconButton
-            label="Move Up"
-            icon={<IconChevronUp size={18} color={theme.colors.foreground} />}
-            onPress={() => index > 0 && onMove(index - 1)}
-          />
-          <IconButton
-            label="Move Down"
-            icon={<IconChevronDown size={18} color={theme.colors.foreground} />}
-            onPress={() => index < count - 1 && onMove(index + 1)}
-          />
-          <IconButton
-            label="Delete"
-            icon={<IconTrash size={18} color={theme.colors.destructive} />}
-            onPress={onDelete}
-          />
-        </View>
+        <IconButton
+          label={`More for ${name}`}
+          icon={<IconDots size={18} color={theme.colors.mutedForeground} />}
+          onPress={() =>
+            menu.show(name, [
+              ...(index > 0
+                ? [{ label: "Move Up", icon: IconArrowUp, onPress: () => onMove(index - 1) }]
+                : []),
+              ...(index < count - 1
+                ? [{ label: "Move Down", icon: IconArrowDown, onPress: () => onMove(index + 1) }]
+                : []),
+              { label: `Delete ${noun}`, icon: IconTrash, destructive: true, onPress: onDelete },
+            ])
+          }
+        />
       ) : null}
     </View>
   );
 }
 
+/// A step's minutes, small under its text: a clock and the number.
 function StepDuration({
+  name,
   step,
+  readOnly,
   onChange,
 }: {
+  name: string;
   step: RecipeStep;
+  readOnly: boolean;
   onChange: (value: number | null) => void;
 }) {
+  const theme = useTheme();
   const [text, setText] = useState(
     step.durationMinutes === null ? "" : String(step.durationMinutes),
   );
@@ -253,21 +281,37 @@ function StepDuration({
     () => setText(step.durationMinutes === null ? "" : String(step.durationMinutes)),
     [step.durationMinutes],
   );
+  if (readOnly && step.durationMinutes === null) return null;
   return (
-    <Field
-      label="Minutes"
-      keyboardType="number-pad"
-      value={text}
-      onChangeText={setText}
-      onEndEditing={() => {
-        const value = text.trim() === "" ? null : Number.parseInt(text, 10);
-        if (value === null || (Number.isInteger(value) && value >= 0)) onChange(value);
-      }}
-    />
+    <View className="flex-row items-center gap-1.5">
+      <IconClock size={14} color={theme.colors.mutedForeground} />
+      <TextInput
+        accessibilityLabel={`Minutes for ${name}`}
+        keyboardType="number-pad"
+        editable={!readOnly}
+        placeholder="Minutes"
+        placeholderTextColor={theme.colors.mutedForeground}
+        value={text}
+        onChangeText={setText}
+        onEndEditing={() => {
+          const value = text.trim() === "" ? null : Number.parseInt(text, 10);
+          if (value === null || (Number.isInteger(value) && value >= 0)) onChange(value);
+        }}
+        className="h-8 min-w-16 font-sans text-sm text-muted-foreground"
+      />
+      {text.trim() ? (
+        <Text variant="small" tone="muted">
+          min
+        </Text>
+      ) : null}
+    </View>
   );
 }
 
-function AddLine({ label, onAdd }: { label: string; onAdd: (text: string) => void }) {
+/// The row that adds one more: a plus and a field across the width; its button only shows
+/// once there is something to add, and the return key adds it too.
+function AddLine({ noun, onAdd }: { noun: "Ingredient" | "Step"; onAdd: (text: string) => void }) {
+  const theme = useTheme();
   const [text, setText] = useState("");
   const submit = () => {
     if (text.trim()) {
@@ -276,37 +320,102 @@ function AddLine({ label, onAdd }: { label: string; onAdd: (text: string) => voi
     }
   };
   return (
-    <View className="flex-row items-end gap-2 p-3">
-      <View className="flex-1">
-        <Field
-          label={label}
-          value={text}
-          onChangeText={setText}
-          onSubmitEditing={submit}
-          returnKeyType="done"
-        />
+    <View className="min-h-12 flex-row items-center gap-3">
+      <View className="w-6 items-center">
+        <IconPlus size={18} color={theme.colors.mutedForeground} />
       </View>
-      <Button label={`Add ${label}`} variant="secondary" onPress={submit} />
+      <TextInput
+        accessibilityLabel={`New ${noun.toLowerCase()}`}
+        value={text}
+        onChangeText={setText}
+        onSubmitEditing={submit}
+        submitBehavior="submit"
+        returnKeyType="done"
+        placeholder={noun === "Ingredient" ? "Add an ingredient" : "Add a step"}
+        placeholderTextColor={theme.colors.mutedForeground}
+        className="h-12 flex-1 font-sans text-base text-foreground"
+      />
+      {text.trim() ? (
+        <Button label={`Add ${noun}`} variant="secondary" size="sm" onPress={submit} />
+      ) : null}
     </View>
   );
 }
 
-/// A recipe's own page: kind, time, tags, banner, ingredients and steps.
-export function RecipeDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+/// The banner across the top, as on the desktop: the picture, or a quiet placeholder with
+/// the kitchen icon; a small camera button in its corner adds or changes it.
+function RecipeBanner({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const theme = useTheme();
   const { data: recipe } = useRecipe(id);
-  const { data: catalog = [] } = useRecipeTags();
-  const { data: parts } = useRecipeParts(id);
-  const [duration, setDuration] = useState("");
-  const stored = recipe?.durationMinutes ?? null;
-  useEffect(() => setDuration(stored === null ? "" : String(stored)), [stored]);
-  const kind = useLocalWrite((db, value: string) => setRecipeKind(db, id, value));
-  const time = useLocalWrite((db, value: number | null) => setRecipeDuration(db, id, value));
-  const tags = useLocalWrite((db, ids: string[]) => setRecipeTags(db, id, ids));
-  const banner = useLocalWrite(async (db, _: undefined) => {
+  const pick = useLocalWrite(async (db, _: undefined) => {
     const picked = await File.pickFileAsync({ mimeTypes: "image/*" });
     if (picked.canceled) return;
     await setRecipeBanner(db, id, (await storePicked(picked.result)).uri);
   });
+  const uri = recipe?.bannerPath ?? null;
+  const exists = useBannerExists(uri);
+  const shown = Boolean(uri && exists);
+  const fill = useSemantic("fill");
+  return (
+    <View
+      style={[CORNER, { borderRadius: RADIUS.section, backgroundColor: fill }]}
+      className="h-40 overflow-hidden"
+    >
+      {shown && uri ? (
+        <Image
+          accessibilityLabel="Banner"
+          source={{ uri }}
+          resizeMode="cover"
+          className="size-full"
+        />
+      ) : (
+        <View
+          accessibilityLabel={
+            recipe?.bannerBlob ? "The banner arrives when this phone has synced" : "No banner"
+          }
+          className="size-full items-center justify-center"
+        >
+          <View style={{ opacity: 0.4 }}>
+            <IconToolsKitchen2 size={32} color={theme.colors.mutedForeground} />
+          </View>
+        </View>
+      )}
+      {!readOnly ? (
+        <View className="absolute top-2 right-2">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={shown ? "Change Banner Image" : "Add Banner Image"}
+            onPress={() => pick.mutate(undefined)}
+            hitSlop={8}
+            style={({ pressed }) => [
+              CORNER,
+              {
+                width: 34,
+                height: 34,
+                borderRadius: RADIUS.control,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: pressed ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.4)",
+              },
+            ]}
+          >
+            <IconCamera size={17} color="#ffffff" />
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/// A recipe's own page: banner, ingredients and steps; its kind, time and tags in the details.
+export function RecipeDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const theme = useTheme();
+  const { data: recipe } = useRecipe(id);
+  const { data: catalog = [] } = useRecipeTags();
+  const { data: parts } = useRecipeParts(id);
+  const kind = useLocalWrite((db, value: string) => setRecipeKind(db, id, value));
+  const time = useLocalWrite((db, value: number | null) => setRecipeDuration(db, id, value));
+  const tags = useLocalWrite((db, ids: string[]) => setRecipeTags(db, id, ids));
   const addIngredient = useLocalWrite((db, text: string) => createIngredient(db, id, text));
   const editIngredient = useLocalWrite((db, i: { id: string; text: string }) =>
     updateIngredient(db, i.id, i.text),
@@ -324,130 +433,104 @@ export function RecipeDetail({ id, readOnly }: { id: string; readOnly: boolean }
   );
   const moveSt = useLocalWrite((db, s: { id: string; to: number }) => moveStep(db, s.id, s.to));
   const dropStep = useLocalWrite((db, step: string) => deleteStep(db, step));
-  const bannerUri = recipe?.bannerPath ?? null;
-  const bannerExists = useBannerExists(bannerUri);
   if (!recipe) return null;
+  const muted = theme.colors.mutedForeground;
   const chosen = recipe.tags.map((t) => t.id);
+  const fromSteps = recipe.durationMinutes === null ? minutes(recipe.totalDurationMinutes) : null;
   return (
     <>
       <MainPart>
-        {bannerUri && bannerExists ? (
-          <Image
-            accessibilityLabel="Banner"
-            source={{ uri: bannerUri }}
-            resizeMode="cover"
-            className="h-40 w-full rounded-lg bg-muted"
-          />
-        ) : recipe.bannerBlob ? (
-          <Text tone="muted">
-            The banner is in your account and arrives when this phone has synced.
-          </Text>
-        ) : null}
-        {!readOnly ? (
-          <View className="items-start">
-            <Button
-              label="Choose Banner"
-              variant="ghost"
-              status={statusOf(banner)}
-              errorLabel="Couldn't use it"
-              onPress={() => banner.mutate(undefined)}
-            />
-          </View>
-        ) : null}
+        <RecipeBanner id={id} readOnly={readOnly} />
         <Section title="Ingredients">
-          {parts?.ingredients.length === 0 ? <Empty text="No ingredients yet." /> : null}
+          {readOnly && parts?.ingredients.length === 0 ? (
+            <Empty text="No ingredients yet." />
+          ) : null}
           {parts?.ingredients.map((item, index) => (
-            <View key={item.id}>
-              <Part
-                item={item}
-                index={index}
-                count={parts.ingredients.length}
-                readOnly={readOnly}
-                onText={(text) => editIngredient.mutate({ id: item.id, text })}
-                onMove={(to) => moveIng.mutate({ id: item.id, to })}
-                onDelete={() => dropIngredient.mutate(item.id)}
-              />
-            </View>
+            <Part
+              key={item.id}
+              noun="Ingredient"
+              item={item}
+              index={index}
+              count={parts.ingredients.length}
+              readOnly={readOnly}
+              onText={(text) => editIngredient.mutate({ id: item.id, text })}
+              onMove={(to) => moveIng.mutate({ id: item.id, to })}
+              onDelete={() => dropIngredient.mutate(item.id)}
+            />
           ))}
           {!readOnly ? (
-            <AddLine label="Ingredient" onAdd={(text) => addIngredient.mutate(text)} />
+            <AddLine noun="Ingredient" onAdd={(text) => addIngredient.mutate(text)} />
           ) : null}
         </Section>
         <Section title="Steps">
-          {parts?.steps.length === 0 ? <Empty text="No steps yet." /> : null}
+          {readOnly && parts?.steps.length === 0 ? <Empty text="No steps yet." /> : null}
           {parts?.steps.map((item, index) => (
-            <View key={item.id}>
-              <Part
-                item={item}
-                index={index}
-                count={parts.steps.length}
-                readOnly={readOnly}
-                onText={(text) => editStep.mutate({ id: item.id, patch: { text } })}
-                onMove={(to) => moveSt.mutate({ id: item.id, to })}
-                onDelete={() => dropStep.mutate(item.id)}
-                extra={
-                  <StepDuration
-                    step={item}
-                    onChange={(value) =>
-                      editStep.mutate({ id: item.id, patch: { durationMinutes: value } })
-                    }
-                  />
-                }
-              />
-            </View>
+            <Part
+              key={item.id}
+              noun="Step"
+              item={item}
+              index={index}
+              count={parts.steps.length}
+              readOnly={readOnly}
+              onText={(text) => editStep.mutate({ id: item.id, patch: { text } })}
+              onMove={(to) => moveSt.mutate({ id: item.id, to })}
+              onDelete={() => dropStep.mutate(item.id)}
+              extra={
+                <StepDuration
+                  name={`Step ${index + 1}`}
+                  step={item}
+                  readOnly={readOnly}
+                  onChange={(value) =>
+                    editStep.mutate({ id: item.id, patch: { durationMinutes: value } })
+                  }
+                />
+              }
+            />
           ))}
-          {!readOnly ? <AddLine label="Step" onAdd={(text) => addStep.mutate(text)} /> : null}
+          {!readOnly ? <AddLine noun="Step" onAdd={(text) => addStep.mutate(text)} /> : null}
         </Section>
       </MainPart>
       <DetailsPart>
-        <Section title="Kind">
-          <View className="p-3">
-            <SelectField
-              label="Kind"
-              showLabel={false}
-              disabled={readOnly}
-              value={recipe.kind}
-              options={RECIPE_KINDS.map((value, index) => ({
-                id: value,
-                label: KIND_LABELS[index],
-              }))}
-              onChange={(value) => kind.mutate(value)}
-            />
-          </View>
-        </Section>
-        <Section
-          title={
-            recipe.durationMinutes === null && recipe.totalDurationMinutes !== null
-              ? `Time, ${minutes(recipe.totalDurationMinutes)} from the steps`
-              : "Time"
-          }
-        >
-          <View className="p-3">
-            <Field
-              label="Minutes"
-              keyboardType="number-pad"
-              editable={!readOnly}
-              placeholder="Add up the steps"
-              value={duration}
-              onChangeText={setDuration}
-              onEndEditing={() => {
-                const value = duration.trim() === "" ? null : Number.parseInt(duration, 10);
-                if (value === null || (Number.isInteger(value) && value >= 0)) time.mutate(value);
-              }}
-            />
-          </View>
-        </Section>
-        <Section title="Tags">
-          <View className="p-3">
-            <MultiSelectField
+        <PropertyList>
+          <ChoiceProperty
+            icon={<IconToolsKitchen2 size={20} color={muted} />}
+            label="Kind"
+            value={recipe.kind}
+            readOnly={readOnly}
+            options={RECIPE_KINDS.map((value, index) => ({ id: value, label: KIND_LABELS[index] }))}
+            onChange={(value) => kind.mutate(value)}
+          />
+          <NumberRow
+            icon={<IconClock size={20} color={muted} />}
+            label="Time"
+            value={recipe.durationMinutes}
+            placeholder={fromSteps ? `${fromSteps} from the steps` : "Minutes"}
+            readOnly={readOnly}
+            onSave={(value) => time.mutate(value === null ? null : Math.round(value))}
+          />
+          <SheetProperty
+            icon={<IconTag size={20} color={muted} />}
+            label="Tags"
+            value={
+              labelSummary(catalog.filter((t) => chosen.includes(t.id)).map((t) => t.name)) ??
+              "None"
+            }
+            empty={chosen.length === 0}
+            readOnly={readOnly}
+          >
+            <OptionList
               label="Tags"
-              disabled={readOnly}
+              search
+              searchPlaceholder="Find a tag…"
+              multiple
               values={chosen}
               options={catalog.map((tag) => ({ id: tag.id, label: tag.name }))}
-              onChange={(ids) => tags.mutate(ids)}
+              onToggle={(tagId, on) =>
+                tags.mutate(on ? [...chosen, tagId] : chosen.filter((t) => t !== tagId))
+              }
             />
-          </View>
-        </Section>
+          </SheetProperty>
+        </PropertyList>
       </DetailsPart>
     </>
   );
