@@ -11,6 +11,7 @@ import {
   isLinkOnly,
   isTextFile,
   listFiles,
+  renameFile,
 } from "./files.ts";
 import { testDb } from "./test-db.ts";
 
@@ -33,6 +34,21 @@ describe("files", () => {
     });
     expect(files[1].entity.key).toMatch(/^FIL-/);
     expect(await getFile(db, a)).toMatchObject({ entity: { title: "notes.pdf" } });
+  });
+
+  it("renames a file and keeps its extension, so it still opens as what it is", async () => {
+    const space = await createSpace(db, "S", "#000000");
+    const id = await addFile(db, space, "Scan 14 Nov 2026.pdf", "file:///docs/files/abc-scan.pdf");
+    await renameFile(db, id, "  Lease contract ");
+    expect(await getFile(db, id)).toMatchObject({
+      originalFilename: "Lease contract.pdf",
+      localPath: "file:///docs/files/abc-scan.pdf",
+      entity: { title: "Lease contract.pdf" },
+    });
+    await renameFile(db, id, "Lease.pdf");
+    expect((await getFile(db, id))?.originalFilename).toBe("Lease.pdf");
+    await renameFile(db, id, "   ");
+    expect((await getFile(db, id))?.originalFilename).toBe("Lease.pdf");
   });
 
   it("leaves out trashed files, and files of another Space when asked for one", async () => {

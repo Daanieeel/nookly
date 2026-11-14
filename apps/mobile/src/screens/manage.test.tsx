@@ -125,9 +125,9 @@ describe("Space settings", () => {
       "/space-settings",
     );
     const before = await spaceModules(data.db, space);
-    const first = await screen.findByLabelText(
-      `${MODULE_LABELS[before[0] as ModuleKey]}, drag to reorder`,
-    );
+    // SAFETY: a new Space starts with the default modules, each a known module key.
+    const firstKey = before[0] as ModuleKey;
+    const first = await screen.findByLabelText(`${MODULE_LABELS[firstKey]}, drag to reorder`);
     await fireEvent(first, "accessibilityAction", { nativeEvent: { actionName: "moveDown" } });
     await waitFor(async () =>
       expect(await spaceModules(data.db, space)).toEqual([before[1], before[0]]),

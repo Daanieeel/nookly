@@ -53,7 +53,7 @@ const titled = z.object({ title: z.string().trim().min(1, "Give it a title") });
 
 /// The item a new task links to, one at most: the field shows it; tapped, a search in a
 /// sheet, as the desktop's entity picker.
-function LinkTarget({
+export function LinkTarget({
   value,
   onChange,
 }: {
@@ -117,7 +117,7 @@ function EntitySearch({ onPick }: { onPick: (e: EntityRecord) => void }) {
 
 /// Labels of a Space picked for something new: the field lists them; tapped, the labels in
 /// a sheet to tick.
-function LabelsField({
+export function LabelsField({
   spaceId,
   value,
   onChange,

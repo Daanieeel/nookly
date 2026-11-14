@@ -47,6 +47,11 @@
     white-space: nowrap;
     user-select: none;
   }
+  /* In the page's first block there is no room above the caret, so the name goes under it. */
+  .tiptap-content > :first-child .collaboration-carets__label {
+    top: 100%;
+    border-radius: 0 0.25rem 0.25rem 0.25rem;
+  }
   /* Where a dropped file or block lands in the editor, in the same color as the line shown
      while dragging blocks (`DropIndicator`). */
   .nookly-drop-cursor {

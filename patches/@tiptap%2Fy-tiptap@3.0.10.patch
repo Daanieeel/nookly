@@ -1,0 +1,66 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index d5fd6a2ed2f52041b092e75fe3380156919ca3d1..b4e675be44a5b1ace9d256eea4fc693512723b45 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -627,6 +627,17 @@ const recoverSelectionEndpoint = (newDoc, oldDoc, oldAbs, resolved) => {
+ 	const recovered = findAbsolutePositionAfterStructuralChange(oldDoc, newDoc, oldAbs);
+ 	return recovered !== null ? recovered : resolved;
+ };
++/// Nookly: a relative position anchored on content that still exists resolved exactly, so
++/// typing elsewhere in the same line must not send the cursor back to its old offset.
++const anchoredOnLivingItem = (doc, rel) => {
++	if (rel == null || rel.item == null) return false;
++	try {
++		const item = yjs.getItem(doc.store, rel.item);
++		return item != null && !item.deleted;
++	} catch {
++		return false;
++	}
++};
+ const restoreRelativeSelection = (tr, relSel, binding, oldDoc) => {
+ 	if (relSel !== null && relSel.anchor !== null && relSel.head !== null) {
+ 		if (relSel.type === "all") tr.setSelection(new prosemirror_state.AllSelection(tr.doc));
+@@ -642,8 +653,8 @@ const restoreRelativeSelection = (tr, relSel, binding, oldDoc) => {
+ 			let anchor = relativePositionToAbsolutePosition(binding.doc, binding.type, relSel.anchor, binding.mapping);
+ 			let head = relativePositionToAbsolutePosition(binding.doc, binding.type, relSel.head, binding.mapping);
+ 			if (oldDoc != null) {
+-				if (resolvePositionMigration(binding.type, relSel.anchor) === relSel.anchor) anchor = recoverSelectionEndpoint(tr.doc, oldDoc, relSel.absAnchor, anchor);
+-				if (resolvePositionMigration(binding.type, relSel.head) === relSel.head) head = recoverSelectionEndpoint(tr.doc, oldDoc, relSel.absHead, head);
++				if (resolvePositionMigration(binding.type, relSel.anchor) === relSel.anchor && !anchoredOnLivingItem(binding.doc, relSel.anchor)) anchor = recoverSelectionEndpoint(tr.doc, oldDoc, relSel.absAnchor, anchor);
++				if (resolvePositionMigration(binding.type, relSel.head) === relSel.head && !anchoredOnLivingItem(binding.doc, relSel.head)) head = recoverSelectionEndpoint(tr.doc, oldDoc, relSel.absHead, head);
+ 			}
+ 			if (anchor === null) anchor = head;
+ 			if (head === null) head = anchor;
+diff --git a/dist/index.js b/dist/index.js
+index 50bcfe723ad3dd8b8c24c11d710f5607319fb8a8..25cc5ecca8f1521130db255845e34074f094847e 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -594,6 +594,17 @@ const recoverSelectionEndpoint = (newDoc, oldDoc, oldAbs, resolved) => {
+ 	const recovered = findAbsolutePositionAfterStructuralChange(oldDoc, newDoc, oldAbs);
+ 	return recovered !== null ? recovered : resolved;
+ };
++/// Nookly: a relative position anchored on content that still exists resolved exactly, so
++/// typing elsewhere in the same line must not send the cursor back to its old offset.
++const anchoredOnLivingItem = (doc, rel) => {
++	if (rel == null || rel.item == null) return false;
++	try {
++		const item = Y.getItem(doc.store, rel.item);
++		return item != null && !item.deleted;
++	} catch {
++		return false;
++	}
++};
+ const restoreRelativeSelection = (tr, relSel, binding, oldDoc) => {
+ 	if (relSel !== null && relSel.anchor !== null && relSel.head !== null) {
+ 		if (relSel.type === "all") tr.setSelection(new AllSelection(tr.doc));
+@@ -609,8 +620,8 @@ const restoreRelativeSelection = (tr, relSel, binding, oldDoc) => {
+ 			let anchor = relativePositionToAbsolutePosition(binding.doc, binding.type, relSel.anchor, binding.mapping);
+ 			let head = relativePositionToAbsolutePosition(binding.doc, binding.type, relSel.head, binding.mapping);
+ 			if (oldDoc != null) {
+-				if (resolvePositionMigration(binding.type, relSel.anchor) === relSel.anchor) anchor = recoverSelectionEndpoint(tr.doc, oldDoc, relSel.absAnchor, anchor);
+-				if (resolvePositionMigration(binding.type, relSel.head) === relSel.head) head = recoverSelectionEndpoint(tr.doc, oldDoc, relSel.absHead, head);
++				if (resolvePositionMigration(binding.type, relSel.anchor) === relSel.anchor && !anchoredOnLivingItem(binding.doc, relSel.anchor)) anchor = recoverSelectionEndpoint(tr.doc, oldDoc, relSel.absAnchor, anchor);
++				if (resolvePositionMigration(binding.type, relSel.head) === relSel.head && !anchoredOnLivingItem(binding.doc, relSel.head)) head = recoverSelectionEndpoint(tr.doc, oldDoc, relSel.absHead, head);
+ 			}
+ 			if (anchor === null) anchor = head;
+ 			if (head === null) head = anchor;

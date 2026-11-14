@@ -1,5 +1,5 @@
 import type { SqlStatement } from "../sync/sql.ts";
-import { type LocalDb, first, optStr, rows, write } from "./db.ts";
+import { type LocalDb, first, iso, optStr, rows, write } from "./db.ts";
 import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } from "./entities.ts";
 
 /// A File as the desktop stores it: its contents live on a device at `localPath` (a copy
@@ -56,6 +56,23 @@ export async function addFile(
   const { id, statements } = addFileStatements(db, spaceId, filename, localPath);
   await write(db, statements);
   return id;
+}
+
+/// A new name for a File, as the person typed it. The extension it had is kept, so it still
+/// opens as what it is; a blank name changes nothing.
+export async function renameFile(db: LocalDb, id: string, name: string): Promise<void> {
+  const file = await getFile(db, id);
+  const typed = name.trim();
+  if (!file || typed === "") return;
+  const extension = fileExtension(file.originalFilename ?? file.entity.title);
+  const named = extension && fileExtension(typed) !== extension ? `${typed}.${extension}` : typed;
+  await write(db, [
+    {
+      sql: "UPDATE entities SET title = ?, updated_at = ? WHERE id = ?",
+      params: [named, iso(db), id],
+    },
+    { sql: "UPDATE files SET original_filename = ? WHERE entity_id = ?", params: [named, id] },
+  ]);
 }
 
 /// `addFile` as statements, for an import that makes a File together with what shows it.

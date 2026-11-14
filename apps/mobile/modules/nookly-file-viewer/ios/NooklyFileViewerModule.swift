@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import PDFKit
 import QuickLookThumbnailing
 import UIKit
 
@@ -38,6 +39,28 @@ public class NooklyFileViewerModule: Module {
           promise.resolve(nil)
         }
       }
+    }
+
+    /// Scanned pages (pictures) as one PDF in the caches folder, one page each, in order.
+    /// Reads the pictures only. Rejects when a picture cannot be read.
+    AsyncFunction("pagesToPdf") { (uris: [String]) throws -> String in
+      let document = PDFDocument()
+      for (index, uri) in uris.enumerated() {
+        guard let url = URL(string: uri), let image = UIImage(contentsOfFile: url.path),
+          let page = PDFPage(image: image)
+        else {
+          throw Exception(name: "ScanPage", description: "Page \(index + 1) of the scan could not be read.")
+        }
+        document.insert(page, at: document.pageCount)
+      }
+      let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("scans", isDirectory: true)
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      let out = folder.appendingPathComponent("\(UUID().uuidString).pdf")
+      guard document.write(to: out) else {
+        throw Exception(name: "ScanWrite", description: "The scan could not be saved.")
+      }
+      return out.absoluteString
     }
 
     View(NooklyFileView.self) {

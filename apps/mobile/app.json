@@ -17,7 +17,8 @@
           "UIInterfaceOrientationPortraitUpsideDown",
           "UIInterfaceOrientationLandscapeLeft",
           "UIInterfaceOrientationLandscapeRight"
-        ]
+        ],
+        "NSCameraUsageDescription": "Nookly uses the camera to scan documents into your files."
       }
     },
     "android": {
@@ -30,7 +31,16 @@
       "expo-sqlite",
       "expo-secure-store",
       "expo-font",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "cover",
+          "enableFullScreenImage_legacy": true,
+          "backgroundColor": "#28150d"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

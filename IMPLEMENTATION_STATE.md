@@ -121,11 +121,11 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 ### 8. Mobile: files
 
 - [x] (2026-11-13, PDFKit with search and page count, Quick Look, thumbnails; checked in the simulator) A full file viewer for PDFs and other files.
-- [ ] A scan button next to + on the Files page, using `expo-document-scanner` (https://github.com/DineshKachhot/expo-document-scanner). After scanning, a bottom sheet for title, labels, relationships etc., prefilled with sensible defaults (file name etc.). The document uploads in the background while the sheet is open; the sheet only applies the user's edits afterwards.
+- [x] (2026-11-14, VisionKit pages joined into one PDF with PDFKit; sheet with name, labels and link applied on Save; button checked in the simulator, which has no camera) A scan button next to + on the Files page, using `expo-document-scanner` (https://github.com/DineshKachhot/expo-document-scanner). After scanning, a bottom sheet for title, labels, relationships etc., prefilled with sensible defaults (file name etc.). The document uploads in the background while the sheet is open; the sheet only applies the user's edits afterwards.
 
 ### 9. Mobile: app
 
-- [ ] `/Users/daniel/Downloads/splash.png` becomes the splash screen.
+- [x] (2026-11-14, full screen, corners filled; checked in the simulator) `/Users/daniel/Downloads/splash.png` becomes the splash screen.
 
 ### 10. Desktop
 
@@ -133,8 +133,8 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ### 11. Both
 
-- [ ] Live sync: when another device types and the word your cursor is in moves, your cursor moves with it, so it seems not to move at all.
-- [ ] The "xyz on iPhone" cursor label no longer disappears at the top when the other device is in the first line of a note.
+- [x] (2026-11-14, patched y-tiptap: a cursor anchored on living text keeps that anchor; both apps) Live sync: when another device types and the word your cursor is in moves, your cursor moves with it, so it seems not to move at all.
+- [x] (2026-11-14, the name goes under the caret in the first block, phone and desktop) The "xyz on iPhone" cursor label no longer disappears at the top when the other device is in the first line of a note.
 
 ### 11b. Merge main (asked 2026-11-13)
 
@@ -150,6 +150,7 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 - On a real phone: the feel of dragging (sidebar settings rows, board cards with the wobble, the board scrolling near its edges). The simulator can't drag with a finger, so the gestures are checked by tests and by screen reader actions only.
 - On a real phone: the iOS 27 scene lifecycle fix (D59).
 - On a real phone: the editor's toolbar riding on the keyboard, and the slash menu (grouped, with icons, scrolling). The simulator here shows no software keyboard to type a slash into; both are covered by tests, and the code block header and colours were checked on screen.
+- On a real phone: scanning a document (the simulator has no camera). The button, the sheet after a scan and saving its name, labels and link are covered by tests; joining the pages into one PDF runs only on a device.
 
 ## Progress log
 

@@ -11,6 +11,7 @@ All notable changes to Nookly are listed here.
 - If you change the same thing on two devices, every device offers both versions side by side, and you keep one, both or a mix. Nothing is lost.
 - When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it, and makes a backup first. Signing out removes the account's data from that device and keeps it in the account.
 - Settings, Account lists every signed in device, and you can sign one out from another.
+- On your phone, scan paper documents straight into a Space's files, then name, label and link them while they upload.
 
 ### Changed
 
@@ -22,6 +23,8 @@ All notable changes to Nookly are listed here.
 
 - **The hidden sidebar is readable when it slides in.** Resting the pointer on the left edge shows it on a solid background, no longer see through over the page.
 - **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on.
+- **Your cursor stays in its word** while someone on another device types earlier in the same line.
+- **Names next to other people's cursors stay visible** in the first line of a page.
 
 ## 0.75.2 (2026-11-13)
 

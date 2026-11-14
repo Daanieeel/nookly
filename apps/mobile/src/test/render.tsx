@@ -20,6 +20,7 @@ import { WindowWidthProvider } from "../ui/pane.tsx";
 import { type FileViewer, FileViewerProvider, systemFileViewer } from "../ui/file-viewer.tsx";
 import { PageEditorViewProvider } from "../editor/editor-view.tsx";
 import { MathViewProvider } from "../ui/math/MathPreview.tsx";
+import { type DocumentScanner, ScannerProvider } from "../ui/scanner.tsx";
 import { EditorStandIn } from "./editor-stand-in.tsx";
 
 let ids = 0;
@@ -65,6 +66,7 @@ export function testData(): TestData {
 }
 
 const NoMath = () => null;
+const NoScanner: DocumentScanner = { available: false, scan: async () => null };
 
 /// Renders screens as routes of the app, inside its providers.
 export async function renderScreens(
@@ -82,6 +84,8 @@ export async function renderScreens(
     filePicker?: TextFilePicker;
     /// How files are shown (the native viewer is missing in tests).
     fileViewer?: FileViewer;
+    /// What the document camera hands over (none in tests unless given).
+    scanner?: DocumentScanner;
   } = {},
 ) {
   const queryClient = new QueryClient({
@@ -106,7 +110,11 @@ export async function renderScreens(
                   <FileViewerProvider value={options.fileViewer ?? systemFileViewer}>
                     <PageEditorViewProvider value={EditorStandIn}>
                       {/* No web view to draw formulas in. */}
-                      <MathViewProvider value={NoMath}>{children}</MathViewProvider>
+                      <MathViewProvider value={NoMath}>
+                        <ScannerProvider value={options.scanner ?? NoScanner}>
+                          {children}
+                        </ScannerProvider>
+                      </MathViewProvider>
                     </PageEditorViewProvider>
                   </FileViewerProvider>
                 </FilePickerProvider>

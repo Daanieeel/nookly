@@ -4,6 +4,7 @@ import type { NativeSyntheticEvent, ViewProps } from "react-native";
 
 interface NativeViewer {
   thumbnail(uri: string, name: string, size: number): Promise<string | null>;
+  pagesToPdf(uris: string[]): Promise<string>;
 }
 
 // Missing in a build without the module (Expo Go, tests): the app then offers the file to
@@ -17,6 +18,12 @@ export const fileViewerAvailable = native !== null;
 /// null when the system has none for it.
 export async function fileThumbnail(uri: string, name: string, size: number) {
   return native ? native.thumbnail(uri, name, size) : null;
+}
+
+/// Scanned pages (pictures) as one PDF, a `file://` URI in the caches folder.
+export async function pagesToPdf(uris: string[]): Promise<string> {
+  if (!native) throw new Error("This build cannot make a PDF of a scan.");
+  return native.pagesToPdf(uris);
 }
 
 export interface PageChange {

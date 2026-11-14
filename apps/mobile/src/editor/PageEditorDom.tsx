@@ -1,6 +1,7 @@
 "use dom";
 /// <reference lib="dom" />
 
+import { CARET_CSS, remoteCaret } from "./caret.ts";
 import { highlightCss } from "@nookly/shared/highlight";
 import { SLASH_ICON_PATHS } from "./slash-icons.ts";
 import { VIM_MODE_LABELS, closeVimHelp, vimPlugin, vimState } from "@nookly/shared/vim";
@@ -210,8 +211,7 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 .pm .vim-cursor { background: color-mix(in oklab, var(--fg) 55%, transparent); color: var(--bg); }
 .pm .vim-cursor-empty::before { content: "\\200b"; display: inline-block; width: .6em; background: color-mix(in oklab, var(--fg) 55%, transparent); }
 .vim-status { position: sticky; bottom: 8px; width: fit-content; margin: 8px 0 0 auto; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font: 12px/1.4 ui-monospace, Menlo, monospace; pointer-events: none; }
-.collaboration-cursor__caret, .ProseMirror-yjs-cursor { position: relative; margin-left: -1px; margin-right: -1px; border-left: 2px solid; border-right: 2px solid; word-break: normal; pointer-events: none; }
-.ProseMirror-yjs-cursor > div { position: absolute; top: -1.35em; left: -2px; padding: 1px 5px; border-radius: 4px 4px 4px 0; color: #fff; font: 600 11px/1.3 -apple-system, system-ui, sans-serif; white-space: nowrap; user-select: none; }
+${CARET_CSS}
 `;
 
 export default function PageEditorDom({
@@ -364,18 +364,7 @@ export default function PageEditorDom({
           // First, so its keys win over the editor's own, as on the desktop.
           vimPlugin({ enabled: () => vimRef.current, undo, redo }),
           ySyncPlugin(fragment),
-          yCursorPlugin(awareness.current, {
-            cursorBuilder: (user: { name?: string; color?: string }) => {
-              const caret = document.createElement("span");
-              caret.className = "ProseMirror-yjs-cursor";
-              caret.style.borderColor = user.color ?? "#64748b";
-              const label = document.createElement("div");
-              label.style.background = user.color ?? "#64748b";
-              label.textContent = user.name ?? "Someone";
-              caret.append(label);
-              return caret;
-            },
-          }),
+          yCursorPlugin(awareness.current, { cursorBuilder: remoteCaret }),
           yUndoPlugin(),
           markdownRules,
           typingKeys,

@@ -3,6 +3,7 @@ import { useEntityMenu } from "./entity-actions.tsx";
 import { importDeckFile } from "@nookly/shared/data";
 import { File } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
+import { useState } from "react";
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { useAssignments, useCourses, useDecks, useEntities, useExams } from "../data/queries.ts";
@@ -21,6 +22,7 @@ import { CourseGallery, DeckGrid, ExamTimeline } from "./StudyGalleries.tsx";
 import { GradesScreen } from "./GradesScreen.tsx";
 import { SemesterList } from "./SemesterList.tsx";
 import { RecipeRows } from "./RecipeScreens.tsx";
+import { ScanSheet, useScanDocument } from "./ScanSheet.tsx";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
 import { BAR_BUTTON } from "../ui/bar.ts";
@@ -155,12 +157,22 @@ export function ModuleScreen({ spaceId, module }: { spaceId: string; module: Mod
 function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey }) {
   const router = useRouter();
   const addFiles = useAddFiles(spaceId);
+  const { available: canScan, scan } = useScanDocument(spaceId);
+  const [scanned, setScanned] = useState<string | null>(null);
   const create = CREATE.get(module);
   return (
     <>
       <Stack.Screen options={{ title: MODULE_LABELS[module] }} />
       {module === "files" ? (
         <Stack.Toolbar placement="right">
+          {canScan ? (
+            <Stack.Toolbar.Button
+              icon={TOOLBAR_ICONS.scan}
+              {...BAR_BUTTON}
+              accessibilityLabel="Scan Document"
+              onPress={() => scan.mutate(undefined, { onSuccess: (id) => setScanned(id) })}
+            />
+          ) : null}
           <Stack.Toolbar.Button
             icon={TOOLBAR_ICONS.plus}
             {...BAR_BUTTON}
@@ -195,7 +207,11 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
         ) : module === "bookmarks" ? (
           <BookmarkList spaceId={spaceId} />
         ) : module === "files" ? (
-          <FileRows spaceId={spaceId} />
+          <>
+            {scan.error ? <Text tone="destructive">{scan.error.message}</Text> : null}
+            <FileRows spaceId={spaceId} />
+            <ScanSheet id={scanned} spaceId={spaceId} onClose={() => setScanned(null)} />
+          </>
         ) : module === "recipes" ? (
           <RecipeRows spaceId={spaceId} />
         ) : module === "semesters" ? (
