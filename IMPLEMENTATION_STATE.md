@@ -57,6 +57,10 @@ The order below builds shared pieces first (the Linear style sheets), then the s
 
 - [x] (done in the previous round, D60) The backmost background is a deep charcoal instead of full black on mobile and desktop. Check it still holds after this round's changes.
 
+### 0b. Splash screen (asked 2026-11-14)
+
+- [x] (2026-11-14) The user's new splash (`~/Downloads/splash.png`, flame over "Nookly" on #111111) replaces the old one entirely: `apps/mobile/assets/splash.png` (transparent corners filled with #111111), splash background #111111 in `app.json`. Still to see in the simulator after the next dev client rebuild (the `ios/` folder is generated).
+
 ### 1. Mobile: Linear style foundations (do first, the later items use them)
 
 The user allows touching and replacing our phone's sheet and picker components for this (still exactly one sheet implementation, motion from `ui/motion.ts`, Tabler icons). Copy Linear exactly:
