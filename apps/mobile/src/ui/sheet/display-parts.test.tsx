@@ -62,7 +62,7 @@ describe("the parts of a Display or Filter sheet", () => {
       let node = screen.getByLabelText(label).parent;
       while (node) {
         const style = StyleSheet.flatten(node.props.style ?? {});
-        if (typeof node.type === "string" && style.backgroundColor) return style.backgroundColor;
+        if (style.backgroundColor) return style.backgroundColor;
         node = node.parent;
       }
       return null;
