@@ -1,4 +1,5 @@
 import {
+  attachLabel,
   createLabel,
   createPage,
   createSpace,
@@ -209,5 +210,34 @@ describe("a task's repeat", () => {
     expect(
       (await screen.findAllByRole("button", { name: "Repeat, Every 3 days" })).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+describe("a task's labels at a glance", () => {
+  it("names two labels without commas, then how many more, and says Labels when there are none", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Home", "#3b82f6");
+    const id = await createTask(data.db, space, "Plan the trip", null);
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={id} /> },
+      data,
+      `/entity/${id}`,
+    );
+    // Nothing set: the chip says the property's name, as every other empty one does.
+    expect((await screen.findAllByRole("button", { name: "Labels, None" })).length).toBe(2);
+    expect(screen.getAllByText("Labels").length).toBeGreaterThan(0);
+    screen.unmount();
+    for (const name of ["Travel", "Family", "Summer"]) {
+      await attachLabel(data.db, id, await createLabel(data.db, space, name));
+    }
+    const labelled = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={id} /> },
+      data,
+      `/entity/${id}`,
+    );
+    expect(
+      (await labelled.findAllByRole("button", { name: "Labels, Family  Summer  +1" })).length,
+    ).toBe(2);
+    expect(labelled.queryByText(/,/)).toBeNull();
   });
 });

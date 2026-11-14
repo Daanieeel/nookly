@@ -30,6 +30,7 @@ import { useCloseSheet } from "../ui/sheet/route.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { LabelDots, labelSummary } from "./ComposeForm.tsx";
 import { LabelPicker } from "./EntityPickers.tsx";
 
 /// How an item is tied to others, as the desktop's right sidebar shows it: its links in both
@@ -113,7 +114,11 @@ export function LabelsProperty({ entity, readOnly }: { entity: EntityRecord; rea
     <SheetProperty
       icon={<IconTag size={20} color={theme.colors.mutedForeground} />}
       label="Labels"
-      value={attached.length === 0 ? "None" : attached.map((l) => l.name).join(", ")}
+      value={labelSummary(attached.map((l) => l.name)) ?? "None"}
+      valueIcon={
+        attached.length === 0 ? undefined : <LabelDots colors={attached.map((l) => l.color)} />
+      }
+      empty={attached.length === 0}
       readOnly={readOnly}
     >
       <LabelPicker entityId={entity.id} spaceId={entity.spaceId} />

@@ -20,8 +20,9 @@ import {
   IconX,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Keyboard, TextInput, View } from "react-native";
+import { useReveal } from "../ui/Screen.tsx";
 import { useLocalWrite } from "../data/context.tsx";
 import { useSetting } from "../data/settings.ts";
 import {
@@ -49,6 +50,9 @@ import { TaskRow } from "./TaskRow.tsx";
 import { TaskRepeatPicker, repeatLabel } from "./RepeatPicker.tsx";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
 
+/// The add row's height (`min-h-12`), what must show above the keyboard.
+const ADD_ROW_HEIGHT = 48;
+
 /// A task's sub-tasks, one level deep, with how far along they are.
 function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
   const theme = useTheme();
@@ -57,6 +61,20 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
   const { data: progress } = useSubtaskProgress(id);
   const [title, setTitle] = useState("");
   const add = useLocalWrite((db, text: string) => createSubtask(db, id, text));
+  const field = useRef<View>(null);
+  const reveal = useReveal();
+  const [typing, setTyping] = useState(false);
+  // The keyboard rises over the bottom of the page: once it is up, the page scrolls just
+  // enough to keep the field being typed in above it.
+  useEffect(() => {
+    if (!typing) return;
+    const show = () => {
+      if (field.current && reveal) reveal(field.current, ADD_ROW_HEIGHT);
+    };
+    show();
+    const sub = Keyboard.addListener("keyboardDidShow", show);
+    return () => sub.remove();
+  }, [typing, reveal]);
   const submit = () => {
     const text = title.trim();
     if (text) add.mutate(text, { onSuccess: () => setTitle("") });
@@ -78,13 +96,15 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
         ))}
       </ListGroup>
       {!readOnly ? (
-        <View className="min-h-12 flex-row items-center gap-2 px-4">
+        <View ref={field} collapsable={false} className="min-h-12 flex-row items-center gap-2 px-4">
           <IconPlus size={18} color={theme.colors.mutedForeground} />
           <TextInput
             accessibilityLabel="New sub-task"
             value={title}
             onChangeText={setTitle}
             onSubmitEditing={submit}
+            onFocus={() => setTyping(true)}
+            onBlur={() => setTyping(false)}
             returnKeyType="done"
             placeholder="Add a sub-task"
             placeholderTextColor={theme.colors.mutedForeground}

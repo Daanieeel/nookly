@@ -138,6 +138,24 @@ async function type(label: string, value: string): Promise<boolean> {
   return true;
 }
 
+/// Puts the caret in the input labelled or placeholdered `label`, raising the keyboard.
+async function focus(label: string): Promise<boolean> {
+  const target = await waitFor(() =>
+    find(
+      (_f, props) =>
+        typeof props.onChangeText === "function" &&
+        (props.accessibilityLabel === label || props.placeholder === label),
+    ),
+  );
+  let host: Fiber | null = target;
+  while (host && typeof host.type !== "string") host = host.child;
+  const node = host?.stateNode as { canonical?: { publicInstance?: unknown } } | null | undefined;
+  const input = (node?.canonical?.publicInstance ?? node) as { focus?: () => void } | null;
+  input?.focus?.();
+  await sleep(100);
+  return Boolean(input?.focus);
+}
+
 /// Leaves the field labelled `label` as a person does when done typing (its end editing,
 /// submit or blur handler), which is where most fields save.
 async function finish(label: string): Promise<boolean> {
@@ -198,7 +216,18 @@ export interface AutomationContext {
 /// Starts asking `url` for scripts. `context` is what scripts can reach by name
 /// (the router, the sync runtime, the database).
 export function startAutomation(url: string, device: string, context: AutomationContext) {
-  const helpers = { press, type, finish, sleep, waitFor, screenText, labels, measure, ...context };
+  const helpers = {
+    press,
+    type,
+    focus,
+    finish,
+    sleep,
+    waitFor,
+    screenText,
+    labels,
+    measure,
+    ...context,
+  };
   let stopped = false;
   void (async () => {
     while (!stopped) {

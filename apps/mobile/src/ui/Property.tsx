@@ -44,6 +44,13 @@ function chipIcon(icon: ReactNode): ReactNode {
   return isValidElement<{ size?: number }>(icon) ? cloneElement(icon, { size: 16 }) : icon;
 }
 
+/// The icon in the value's warning colour, so both read as one (a passed due date).
+function tinted(icon: ReactNode, tint: string | undefined): ReactNode {
+  return tint && isValidElement<{ color?: string }>(icon)
+    ? cloneElement(icon, { color: tint })
+    : icon;
+}
+
 /// One property: an icon, its name, its value on the right. With `onPress` it opens its
 /// picker (a sheet).
 export function Property({
@@ -104,7 +111,7 @@ export function Property({
           },
         ]}
       >
-        {valueIcon ?? chipIcon(icon)}
+        {valueIcon ?? tinted(chipIcon(icon), tint)}
         <Label
           type="subheadline"
           weight="500"
@@ -136,7 +143,7 @@ export function Property({
         backgroundColor: pressed && interactive ? pressedFill : undefined,
       })}
     >
-      {icon}
+      {tinted(icon, tint)}
       <Label type="callout" weight="500" style={{ flex: 1 }} numberOfLines={1}>
         {label}
       </Label>
