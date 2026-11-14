@@ -172,6 +172,28 @@ The desktop's module is listed in `docs/03-modules/moodle.md` and `packages/fron
 
 Done so far (e25434c9): the desktop's pure helpers moved to `packages/shared/src/moodle/` (format, import, errors, path) and both apps use them. Phone: `moodle/api.ts` keeps each answer (`moodle/device.ts`, caches folder) and reads it back offline; `screens/MoodleScreens.tsx` (connect, courses), `MoodleCourse.tsx` (tabs, assignment, forum, discussion, page), `MoodleFile.tsx` (viewer, import sheet), `MoodleParts.tsx` (placeholders, problems, Open in Moodle, course art). Tests: `screens/moodle.test.tsx`. Sign in goes through `expo-web-browser`'s auth session (`service.signIn`, needs a native rebuild). The calendar feed is `moodle/calendar.ts` (link in the keychain, events in `moodle-calendar.json`), connected under Settings, Calendar, Calendar Connections, drawn dashed on the calendar and opened read only (`ExternalEventScreen.tsx`); tests `moodle/calendar.test.ts`, `screens/moodle-calendar.test.tsx`.
 
+### 12. Mobile polish, third round of `NOTES.md` (asked 2026-11-14)
+
+Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it before item 2 below.
+
+- [ ] Sidebar header: the blur behind "Nookly" and the search button looks and works right, but it is visibly staggered (the bands of item 2 show as steps). Make the fade smooth.
+- [ ] Notes list empty state (`notes-page-empty-state-bug.png`): it has no horizontal padding. Fix it (check the other list pages' empty states too).
+- [ ] Filter and display option sheets: swap the colours so inputs and options are lighter than the sheet they sit on (now the sheet is a light charcoal and the inputs darker). Inputs are always lighter than their surface, for the right sense of depth.
+- [ ] Filter options open a select popover (the inline menu or the floating picker card of item 1), never a new bottom sheet covering the current one.
+- [ ] New Note sheet in the same style as New Assignment and New Task (the compose sheet).
+- [ ] Bookmarks: the "Paste a URL to save it" bar sits further down, so it fits the iPhone's corner radius.
+- [ ] Display and filter option sheets: native switches are not vertically centred on their labels. Centre them everywhere.
+- [ ] Redesign the New Bookmark sheet (compose style, like New Task).
+- [ ] Semesters list: semesters look squeezed. Give them room.
+- [ ] Semester detail sidebar: the "Open Notes" button goes.
+- [ ] Start and end date pickers with a calendar (e.g. the semester detail sidebar): the inner calendar box gets a larger corner radius, matching the outer one.
+
+### 13. Leftovers from item 11 and the final checks (found 2026-11-14)
+
+- [ ] Moodle on the phone in the running app: the dev client is being rebuilt for `expo-web-browser` (first try failed on a stale gesture handler object; this worktree's DerivedData was cleared and it rebuilds). Then check the course list, a course, a file with import, and Calendar Connections on screen.
+- [ ] `packages/frontend` tests: 5 failures in 4 files in a full run (`data-table.test.tsx`, `BackupSettings.test.tsx`, `ShortcutsTab.test.tsx` and one more). Run each alone; fix any caused by this branch, note any that are load timing only.
+- [ ] Final checks again (lint, format, typecheck, all tests, cargo test, duplication) and a new final report.
+
 ## Needs the user
 
 - On a real phone: the blinking caret on a tap into an empty page, tapping it again after closing the keyboard, and Undo after typing with the keyboard (the simulator here can't tap into a web view or type with keys; the fix is checked by typing through the browser's own input path).
@@ -179,6 +201,8 @@ Done so far (e25434c9): the desktop's pure helpers moved to `packages/shared/src
 - Carried over: on a real phone, the feel of dragging; the iOS 27 scene fix (D59); the editor toolbar on the keyboard and the slash menu; scanning a document.
 
 ## Progress log
+
+- 2026-11-14: item 11 done (Moodle parity on the phone, commits e25434c9 and 30c24399). Items 12 (third round of `NOTES.md`) and 13 (leftovers) added.
 
 - 2026-11-14: file refilled from the second round of `NOTES.md`. The previous round (all items done) is in git history up to 750c4f10 and `DECISIONS.md` up to D64.
 
@@ -188,7 +212,7 @@ Done so far (e25434c9): the desktop's pure helpers moved to `packages/shared/src
 
 ## Final report
 
-Every item above is done. Checks on 2026-11-14:
+(Round two, before items 12 and 13 were added.) Every item up to 11 is done. Checks on 2026-11-14:
 
 - `bun run lint`, `bun run typecheck`, `bun run duplication` (0.17%): pass.
 - `bun run format:check`: only `NOTES.md` is unformatted; it is the user's file and was left alone.
