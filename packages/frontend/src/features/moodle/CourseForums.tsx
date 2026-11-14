@@ -10,7 +10,7 @@ import { useCourseName } from "./CoursePage.tsx";
 import { moodleDate } from "./moodle-format.ts";
 import { SAMPLE_DISCUSSIONS, SAMPLE_FORUMS, SAMPLE_POSTS } from "./moodle-samples.ts";
 import { hasMoodleText } from "./moodle-html.ts";
-import { coursePath, discussionPath, forumPath, moodleWebUrl } from "./moodle-path.ts";
+import { coursePath, discussionPath, forumPath, moodleWebUrl } from "@nookly/shared/moodle/path";
 import {
   useMoodleCourse,
   useMoodleDiscussions,

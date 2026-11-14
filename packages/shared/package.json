@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     "./schema": "./src/schema.ts",
+    "./moodle/*": "./src/moodle/*.ts",
     "./sync": "./src/sync/index.ts",
     "./api": "./src/api/index.ts",
     "./testing": "./src/sync/testing/index.ts",

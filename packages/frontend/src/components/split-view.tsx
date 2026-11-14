@@ -23,7 +23,7 @@ import {
   activeTab,
   clampSplitRatio,
 } from "#/lib/store/tab-groups.ts";
-import { parseMoodlePath } from "#/features/moodle/moodle-path.ts";
+import { parseMoodlePath } from "@nookly/shared/moodle/path";
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";

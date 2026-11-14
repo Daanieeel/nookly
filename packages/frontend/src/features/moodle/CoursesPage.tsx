@@ -8,9 +8,9 @@ import { SignOutButton, SignOutError, useMoodleSignOut } from "./MoodleAccount.t
 import { FrameActions, MoodleFrame, useMoodleNavigate } from "./MoodleFrame.tsx";
 import { MoodleProgress } from "./MoodleProgress.tsx";
 import { MoodleData, MoodleEmpty } from "./MoodleStates.tsx";
-import { firstNameOf } from "./moodle-format.ts";
+import { firstNameOf } from "@nookly/shared/moodle/format";
 import { SAMPLE_COURSES } from "./moodle-samples.ts";
-import { coursePath, moodleWebUrl } from "./moodle-path.ts";
+import { coursePath, moodleWebUrl } from "@nookly/shared/moodle/path";
 import { useMoodleCourses } from "./moodle-queries.ts";
 
 const hasEnded = (c: MoodleCourse, now: number) => c.endDate > 0 && c.endDate < now;

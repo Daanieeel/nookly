@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeMoodleProblem } from "./moodle-errors.ts";
+import { describeMoodleProblem } from "./errors.ts";
 
 describe("describeMoodleProblem", () => {
   it.each([

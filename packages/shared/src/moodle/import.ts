@@ -1,9 +1,13 @@
-import type { MoodleFile } from "#/lib/api/moodle.ts";
+/// A file on the site, as much of it as naming and importing need.
+export interface MoodleFileRef {
+  fileName: string;
+  fileUrl: string;
+}
 
 /// What a file is called to Nookly's importer: where it lives on the site, without the query
 /// that differs between a view and a download link. The same file always gets the same key,
 /// which is how the module tells it was imported.
-export function originOf(file: MoodleFile): string {
+export function originOf(file: MoodleFileRef): string {
   return `moodle:${file.fileUrl.split(/[?#]/)[0]}`;
 }
 
@@ -17,7 +21,7 @@ const withoutExtension = (name: string) => name.slice(0, name.length - extension
 /// Names to offer for the File, best first: what the item is called on Moodle (which reads
 /// better than a file name like `lecture1.pdf`) with the file's extension, then the file's own
 /// name.
-export function suggestTitles(file: MoodleFile, itemName?: string): string[] {
+export function suggestTitles(file: MoodleFileRef, itemName?: string): string[] {
   const own = file.fileName;
   const item = itemName
     ?.replace(/[/\\]+/g, " ")

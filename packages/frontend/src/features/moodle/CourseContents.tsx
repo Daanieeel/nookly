@@ -9,12 +9,19 @@ import { ItemRow, OpenFileButton, useOpenFile } from "./MoodleFiles.tsx";
 import { ImportFileButton, ImportFileDialog, useImportFile } from "./MoodleImport.tsx";
 import { MoodleHtml } from "./MoodleHtml.tsx";
 import { MoodleData, MoodleEmpty } from "./MoodleStates.tsx";
-import { fileFacts, moduleKindLabel, moodleDate } from "./moodle-format.ts";
+import { moduleKindLabel } from "@nookly/shared/moodle/format";
+import { fileFacts, moodleDate } from "./moodle-format.ts";
 import { fileLook, moduleLook } from "./moodle-icons.tsx";
 import { messageOf } from "./moodle-login.ts";
 import { SAMPLE_SECTIONS } from "./moodle-samples.ts";
 import { hasMoodleText } from "./moodle-html.ts";
-import { assignmentPath, coursePath, filePath, forumPath, pagePath } from "./moodle-path.ts";
+import {
+  assignmentPath,
+  coursePath,
+  filePath,
+  forumPath,
+  pagePath,
+} from "@nookly/shared/moodle/path";
 import { useMoodleAssignments, useMoodleContents, useMoodleForums } from "./moodle-queries.ts";
 
 /// Whether a section has anything to show; Moodle sends empty ones.

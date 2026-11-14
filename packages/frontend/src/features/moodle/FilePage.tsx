@@ -27,10 +27,10 @@ import {
 import { useMoodleNavigate } from "./MoodleFrame.tsx";
 import { MoodleEmpty, MoodleError } from "./MoodleStates.tsx";
 import { MoodleWebUrlContext } from "./moodle-context.ts";
-import { fileSize } from "./moodle-format.ts";
+import { fileSize } from "@nookly/shared/moodle/format";
 import { fileLook } from "./moodle-icons.tsx";
 import { messageOf } from "./moodle-login.ts";
-import { coursePath, moodleWebUrl } from "./moodle-path.ts";
+import { coursePath, moodleWebUrl } from "@nookly/shared/moodle/path";
 import { useMoodleContents, useMoodleLocalFile } from "./moodle-queries.ts";
 
 /// A file of a course item, read in Nookly the way a File of the Space is: the file fills the

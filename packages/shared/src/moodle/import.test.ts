@@ -1,15 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { MoodleFile } from "#/lib/api/moodle.ts";
-import { matchCourse, originOf, suggestLabelNames, suggestTitles } from "./moodle-import.ts";
+import type { MoodleFileRef } from "./import.ts";
+import { matchCourse, originOf, suggestLabelNames, suggestTitles } from "./import.ts";
 
-const file = (over: Partial<MoodleFile> = {}): MoodleFile => ({
-  kind: "file",
+const file = (over: Partial<MoodleFileRef> = {}): MoodleFileRef => ({
   fileName: "lecture1.pdf",
-  filePath: "/",
-  fileSize: 10,
   fileUrl: "https://moodle.uni.edu/pluginfile.php/1/mod_resource/content/2/lecture1.pdf",
-  timeModified: 5,
-  mimeType: "application/pdf",
   ...over,
 });
 

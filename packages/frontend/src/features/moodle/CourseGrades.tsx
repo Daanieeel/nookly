@@ -5,7 +5,7 @@ import type { MoodleGradeItem } from "#/lib/api/moodle.ts";
 import { MoodleHtml } from "./MoodleHtml.tsx";
 import { MoodleProgress } from "./MoodleProgress.tsx";
 import { MoodleData, MoodleEmpty } from "./MoodleStates.tsx";
-import { percentOf } from "./moodle-format.ts";
+import { percentOf } from "@nookly/shared/moodle/format";
 import { hasMoodleText } from "./moodle-html.ts";
 import { SAMPLE_GRADES } from "./moodle-samples.ts";
 import { useMoodleGrades } from "./moodle-queries.ts";

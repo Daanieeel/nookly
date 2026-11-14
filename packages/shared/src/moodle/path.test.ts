@@ -8,7 +8,7 @@ import {
   moodleWebUrl,
   pagePath,
   parseMoodlePath,
-} from "./moodle-path.ts";
+} from "./path.ts";
 
 describe("moodle paths", () => {
   it("starts at the course list", () => {
