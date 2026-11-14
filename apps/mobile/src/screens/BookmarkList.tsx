@@ -29,17 +29,10 @@ import { usePreference } from "../data/preferences.ts";
 import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { ListHeader, type ListPanel } from "../ui/ListBar.tsx";
+import { ListControls } from "../ui/ListControls.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
-import {
-  DisplayGroup,
-  FilterField,
-  LayoutTiles,
-  SelectRow,
-  SwitchRow,
-} from "../ui/sheet/DisplayParts.tsx";
-import { RoundButton, Sheet } from "../ui/sheet/Sheet.tsx";
+import { DisplayGroup, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
+import { RoundButton } from "../ui/sheet/Sheet.tsx";
 import { CORNER, DEPTH, SPACE } from "../ui/tokens.ts";
 import { localDay } from "./dates.ts";
 import { labelOption } from "./option-badges.tsx";
@@ -272,7 +265,6 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
     displaySchema,
     DEFAULT,
   );
-  const [panel, setPanel] = useState<ListPanel>(null);
   const used = labels.filter((l) => bookmarks.some((b) => b.labelIds.includes(l.id)));
   const sites = [...new Set(bookmarks.map((b) => hostOf(b.url)))].sort();
   const shown = bookmarks.filter(
@@ -281,87 +273,68 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
       (display.sites.length === 0 || display.sites.includes(hostOf(b.url))),
   );
   const groups = bookmarkGroups(shown, display, labels);
-  const active = [
-    ...display.labels.map((id) => ({
-      key: `label-${id}`,
-      label: labels.find((l) => l.id === id)?.name ?? id,
-      remove: () => setDisplay({ ...display, labels: display.labels.filter((x) => x !== id) }),
-    })),
-    ...display.sites.map((site) => ({
-      key: `site-${site}`,
-      label: site,
-      remove: () => setDisplay({ ...display, sites: display.sites.filter((x) => x !== site) }),
-    })),
-  ];
-  const close = (open: boolean) => !open && setPanel(null);
   return (
     <View className="gap-4">
-      <ListHeader title="Bookmarks" count={bookmarks.length} panel={panel} onPanel={setPanel} />
-      {active.length > 0 ? (
-        <ChipGroup label="Active filters" multiple>
-          {active.map((f) => (
-            <Chip key={f.key} label={`${f.label} ×`} multiple selected onPress={f.remove} />
-          ))}
-        </ChipGroup>
-      ) : null}
-      <Sheet open={panel === "filter"} onOpenChange={close} title="Filter">
-        <DisplayGroup>
-          <FilterField
-            label="Labels"
-            icon={IconTag}
-            values={display.labels}
-            options={used.map(labelOption)}
-            onChange={(next) => setDisplay({ ...display, labels: next })}
-          />
-          <FilterField
-            label="Site"
-            icon={IconWorld}
-            values={display.sites}
-            options={sites.map((site) => ({ id: site, label: site }))}
-            onChange={(next) => setDisplay({ ...display, sites: next })}
-          />
-        </DisplayGroup>
-      </Sheet>
-      <Sheet open={panel === "display"} onOpenChange={close} title="Display">
-        <View className="gap-3">
-          <LayoutTiles
-            tiles={[
-              { id: "grid", label: "Grid", icon: IconLayoutGrid },
-              { id: "list", label: "List", icon: IconList },
-            ]}
-            value={display.layout}
-            onSelect={(layout) => setDisplay({ ...display, layout })}
-          />
-          <DisplayGroup>
-            <SelectRow
-              label="Grouping"
-              value={display.grouping}
-              options={[...GROUPINGS]}
-              onChange={(grouping) => setDisplay({ ...display, grouping })}
+      <ListControls
+        title="Bookmarks"
+        count={bookmarks.length}
+        filters={[
+          {
+            label: "Labels",
+            icon: IconTag,
+            values: display.labels,
+            options: used.map(labelOption),
+            onChange: (next) => setDisplay({ ...display, labels: next }),
+          },
+          {
+            label: "Site",
+            icon: IconWorld,
+            values: display.sites,
+            options: sites.map((site) => ({ id: site, label: site })),
+            onChange: (next) => setDisplay({ ...display, sites: next }),
+          },
+        ]}
+        display={
+          <View className="gap-3">
+            <LayoutTiles
+              tiles={[
+                { id: "grid", label: "Grid", icon: IconLayoutGrid },
+                { id: "list", label: "List", icon: IconList },
+              ]}
+              value={display.layout}
+              onSelect={(layout) => setDisplay({ ...display, layout })}
             />
-            <SelectRow
-              label="Ordering"
-              value={display.ordering}
-              options={[...ORDERINGS]}
-              onChange={(ordering) => setDisplay({ ...display, ordering })}
-            />
-          </DisplayGroup>
-          <DisplayGroup>
-            {display.layout === "grid" ? (
-              <SwitchRow
-                label="Preview images"
-                value={display.showPreviews}
-                onChange={(showPreviews) => setDisplay({ ...display, showPreviews })}
+            <DisplayGroup>
+              <SelectRow
+                label="Grouping"
+                value={display.grouping}
+                options={[...GROUPINGS]}
+                onChange={(grouping) => setDisplay({ ...display, grouping })}
               />
-            ) : null}
-            <SwitchRow
-              label="Descriptions"
-              value={display.showDescriptions}
-              onChange={(showDescriptions) => setDisplay({ ...display, showDescriptions })}
-            />
-          </DisplayGroup>
-        </View>
-      </Sheet>
+              <SelectRow
+                label="Ordering"
+                value={display.ordering}
+                options={[...ORDERINGS]}
+                onChange={(ordering) => setDisplay({ ...display, ordering })}
+              />
+            </DisplayGroup>
+            <DisplayGroup>
+              {display.layout === "grid" ? (
+                <SwitchRow
+                  label="Preview images"
+                  value={display.showPreviews}
+                  onChange={(showPreviews) => setDisplay({ ...display, showPreviews })}
+                />
+              ) : null}
+              <SwitchRow
+                label="Descriptions"
+                value={display.showDescriptions}
+                onChange={(showDescriptions) => setDisplay({ ...display, showDescriptions })}
+              />
+            </DisplayGroup>
+          </View>
+        }
+      />
       {bookmarks.length === 0 ? (
         <Text tone="muted" className="p-4 text-center">
           No bookmarks yet. Paste a URL below to save one.

@@ -8,10 +8,9 @@ import { usePageSummaries } from "../data/queries.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { ListGroup, ListItem } from "../ui/ListMotion.tsx";
-import { FilterField, ListHeader, type ListPanel, Presets } from "../ui/ListBar.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { DisplayGroup, FilterField as LinearFilter, SelectRow } from "../ui/sheet/DisplayParts.tsx";
-import { Sheet } from "../ui/sheet/Sheet.tsx";
+import { FilterField, Presets } from "../ui/ListBar.tsx";
+import { ListControls } from "../ui/ListControls.tsx";
+import { DisplayGroup, SelectRow } from "../ui/sheet/DisplayParts.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { usePreference } from "../data/preferences.ts";
 import { z } from "zod";
@@ -90,7 +89,7 @@ const ORDERS: { id: NoteOrder; label: string }[] = [
 ];
 
 /// The desktop's Last edited filter: rolling windows back from now.
-const EDITED: { id: "today" | "week" | "month"; label: string; days: number }[] = [
+const EDITED: { id: string; label: string; days: number }[] = [
   { id: "today", label: "Past day", days: 1 },
   { id: "week", label: "Past 7 days", days: 7 },
   { id: "month", label: "Past 30 days", days: 30 },
@@ -100,7 +99,7 @@ const listSchema = z.object({
   ordering: z.enum(["edited", "title", "id"]),
   /// Labels and Last edited windows the list is narrowed to; empty means all.
   labels: z.array(z.string()),
-  edited: z.array(z.enum(["today", "week", "month"])),
+  edited: z.array(z.string()),
 });
 type ListDisplay = z.infer<typeof listSchema>;
 const LIST_DEFAULT: ListDisplay = { ordering: "edited", labels: [], edited: [] };
@@ -136,60 +135,32 @@ interface PageListControls {
 /// Notes' and Jots' header, filters and display, as Tasks has them (D65): the title with
 /// Filter and Display, the filters on as chips, and the desktop's filters (labels, last
 /// edited) and order in Linear's sheets. The search field stays under it.
-function usePageListControls(
-  key: string,
-  title: string,
-  pages: PageSummary[],
-): PageListControls {
+function usePageListControls(key: string, title: string, pages: PageSummary[]): PageListControls {
   const [display, setDisplay] = usePreference<ListDisplay>(key, listSchema, LIST_DEFAULT);
-  const [panel, setPanel] = useState<ListPanel>(null);
   const labels = [...new Map(pages.flatMap((p) => p.labels).map((l) => [l.id, l])).values()].sort(
     (a, b) => a.name.localeCompare(b.name),
   );
-  const active = [
-    ...display.labels.map((id) => ({
-      key: `label-${id}`,
-      label: labels.find((l) => l.id === id)?.name ?? id,
-      remove: () => setDisplay({ ...display, labels: display.labels.filter((x) => x !== id) }),
-    })),
-    ...display.edited.map((id) => ({
-      key: `edited-${id}`,
-      label: EDITED.find((e) => e.id === id)?.label ?? id,
-      remove: () => setDisplay({ ...display, edited: display.edited.filter((x) => x !== id) }),
-    })),
-  ];
-  const close = (open: boolean) => !open && setPanel(null);
   const controls = (
-    <>
-      <ListHeader title={title} count={pages.length} panel={panel} onPanel={setPanel} />
-      {active.length > 0 ? (
-        <ChipGroup label="Active filters" multiple>
-          {active.map((f) => (
-            <Chip key={f.key} label={`${f.label} ×`} multiple selected onPress={f.remove} />
-          ))}
-        </ChipGroup>
-      ) : null}
-      <Sheet open={panel === "filter"} onOpenChange={close} title="Filter">
-        <DisplayGroup>
-          {labels.length > 0 ? (
-            <LinearFilter
-              label="Labels"
-              icon={IconTag}
-              values={display.labels}
-              options={labels.map(labelOption)}
-              onChange={(next) => setDisplay({ ...display, labels: next })}
-            />
-          ) : null}
-          <LinearFilter
-            label="Last edited"
-            icon={IconClock}
-            values={display.edited}
-            options={EDITED.map((e) => ({ id: e.id, label: e.label }))}
-            onChange={(next) => setDisplay({ ...display, edited: next })}
-          />
-        </DisplayGroup>
-      </Sheet>
-      <Sheet open={panel === "display"} onOpenChange={close} title="Display">
+    <ListControls
+      title={title}
+      count={pages.length}
+      filters={[
+        {
+          label: "Labels",
+          icon: IconTag,
+          values: display.labels,
+          options: labels.map(labelOption),
+          onChange: (next) => setDisplay({ ...display, labels: next }),
+        },
+        {
+          label: "Last edited",
+          icon: IconClock,
+          values: display.edited,
+          options: EDITED.map((e) => ({ id: e.id, label: e.label })),
+          onChange: (next) => setDisplay({ ...display, edited: next }),
+        },
+      ]}
+      display={
         <DisplayGroup>
           <SelectRow
             label="Ordering"
@@ -198,8 +169,8 @@ function usePageListControls(
             onChange={(ordering) => setDisplay({ ...display, ordering })}
           />
         </DisplayGroup>
-      </Sheet>
-    </>
+      }
+    />
   );
   return { display, controls };
 }
