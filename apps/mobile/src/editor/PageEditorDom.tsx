@@ -162,11 +162,17 @@ const isToolbarId = (id: string): id is ToolbarId => Object.hasOwn(COMMANDS, id)
 /// Room an open menu needs under the page's last line.
 const MENU_ROOM = 372;
 
+/// Below this many points of height the editor is an item's description: no room kept
+/// under its text.
+const COMPACT_BELOW = 100;
+
 const CSS = `
 html, body { margin: 0; height: auto; min-height: 0; background: transparent; -webkit-text-size-adjust: 100%; }
 .root { flex: 1; min-width: 0; font: calc(17px * var(--page-scale, 1))/1.55 var(--page-font, -apple-system, system-ui, "Inter", sans-serif); color: var(--fg); }
 .host { display: flex; flex-direction: column; }
 .pm { flex: 1; outline: none; padding: 0 0 24px; min-height: 120px; word-break: break-word; position: relative; }
+.compact .pm { padding-bottom: 0; min-height: 0; }
+.compact .pm > :last-child { margin-bottom: 0; }
 ${PLACEHOLDER_CSS}
 .pm p { margin: 0 0 .6em; }
 .pm h1 { font-size: 1.7em; line-height: 1.25; margin: 1em 0 .4em; }
@@ -574,7 +580,7 @@ export default function PageEditorDom({
   } as React.CSSProperties;
 
   return (
-    <div className="root" style={vars}>
+    <div className={minHeight < COMPACT_BELOW ? "root compact" : "root"} style={vars}>
       <style>{CSS}</style>
       <style>{typography}</style>
       <style>{highlightCss(".pm", colors.dark)}</style>

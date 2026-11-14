@@ -95,8 +95,8 @@ The user allows touching and replacing our phone's sheet and picker components f
 - [x] (2026-11-14, `list-switch.test.ts`) With a list active, tapping another list type (bullet, ordered, todo) converts the list to that type.
 - [x] (2026-11-14, the toolbar is cleared when the page loses focus, before the editor reports back) Leaving the page with the keyboard open: the toolbar above the keyboard disappears together with the keyboard, not a moment later floating mid screen.
 - [x] (2026-11-14) The hide keyboard button gets a small chevron down on the keyboard icon.
-- [ ] Embedded editors (tasks, assignments, courses, semesters, ...) have no extra margin below them.
-- [ ] Embedded editors sync as reliably as notes and jots (also right after coming back online) and show other devices' cursors.
+- [x] (2026-11-14, a description keeps one line of room, no padding under it; test; on screen) Embedded editors (tasks, assignments, courses, semesters, ...) have no extra margin below them.
+- [x] (2026-11-14, D66: the server keeps live documents for task, sub task, assignment and exam descriptions too; the phone opens them live; course and semester pages now edit the same notes page the desktop does, they edited other blocks before; server test; checked both ways between the simulator and a second client) Embedded editors sync as reliably as notes and jots (also right after coming back online) and show other devices' cursors.
 
 ### 5. Mobile: create sheets in the Linear compose style
 
@@ -123,6 +123,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 - [ ] Task: adding a sub task keeps the field above the keyboard.
 - [ ] Task: the labels badge shows a colour dot per label, abbreviates after 2 labels, and does not grow wide; no commas.
+- [ ] Task: an empty Labels pill reads "None" instead of "Labels" (seen 2026-11-14).
 - [ ] Task: an overdue date's calendar icon and label both use the destructive colour.
 - [ ] Session detail: "Create Jot for this session" and "Create Note for This Session" get icons and full width; the primary one (no jot: jot; jot but no note: note; both exist: both secondary) uses the default (blue) variant, like the desktop.
 - [ ] Recipes list: labels show their colours.

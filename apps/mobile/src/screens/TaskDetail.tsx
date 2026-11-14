@@ -214,7 +214,7 @@ export function TaskItem({ id, readOnly, sub }: { id: string; readOnly: boolean;
         <TaskProperties id={id} readOnly={readOnly} />
       </AtAGlance>
       <MainPart>
-        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <PageEditor entityId={id} readOnly={readOnly} embedded />
         {sub ? null : <Subtasks id={id} readOnly={readOnly} />}
       </MainPart>
       <DetailsPart>

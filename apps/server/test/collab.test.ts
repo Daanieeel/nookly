@@ -156,6 +156,27 @@ describe("page documents", () => {
     await until(() => text(doc)[1] === "Book the night train", "the change to reach the document");
   });
 
+  // The bug: only notes and jots had a document, so a task's or an assignment's
+  // description synced as plain rows, late, and showed nobody else's cursor.
+  it("are kept for the descriptions of tasks, assignments and exams too", async () => {
+    const { token, owner, desktop } = await setup();
+    addPage(desktop, "t1", "Call", ["Ask about Tuesday"], "task", "TSK");
+    addPage(desktop, "a1", "Essay", ["Two pages"], "assignment", "ASG");
+    addPage(desktop, "e1", "Final", ["Chapters 1 to 4"], "exam", "EXM");
+    await syncOnce(desktop);
+    expect(text((await open(token, owner, "t1")).doc)).toEqual(["Ask about Tuesday"]);
+    expect(text((await open(token, owner, "a1")).doc)).toEqual(["Two pages"]);
+    expect(text((await open(token, owner, "e1")).doc)).toEqual(["Chapters 1 to 4"]);
+  });
+
+  it("are not kept for things that have no text of their own", async () => {
+    const { token, owner, desktop } = await setup();
+    addPage(desktop, "b1", "A link", [], "bookmark", "BKM");
+    await syncOnce(desktop);
+    const opened = await open(token, owner, "b1");
+    expect(opened.failed()).not.toBeNull();
+  });
+
   it("are closed to anyone the page isn't shared with", async () => {
     const { owner } = await setup();
     const ben = await verifiedAccount(server, "ben@example.com", PHONE);

@@ -74,7 +74,7 @@ import { dayLabel, localDay } from "./dates.ts";
 import { AssignmentRows, ExamRows } from "./StudyLists.tsx";
 import { CourseSemesterPicker } from "./PlannerScreens.tsx";
 import { CourseProperty } from "./StudyPickers.tsx";
-import { PageEditor } from "./PageEditor.tsx";
+import { OwnNotes, PageEditor } from "./PageEditor.tsx";
 import { courseStats, inDays } from "./course-stats.ts";
 
 /// The fields of Courses, Exams, Assignments and Decks, as their detail pages show
@@ -153,7 +153,7 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
     <>
       <AtAGlance>{properties}</AtAGlance>
       <MainPart>
-        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <OwnNotes kind="course" ownerId={id} readOnly={readOnly} />
         <CourseTiles courseId={id} spaceId={spaceId} />
         <Section
           title="Sessions"
@@ -278,7 +278,7 @@ export function ExamDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
     <>
       <AtAGlance>{properties}</AtAGlance>
       <MainPart>
-        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <PageEditor entityId={id} readOnly={readOnly} embedded />
         <ExamDecks examId={id} spaceId={exam.entity.spaceId} readOnly={readOnly} />
       </MainPart>
       <DetailsPart>{properties}</DetailsPart>
@@ -594,7 +594,7 @@ export function AssignmentDetail({ id, readOnly }: { id: string; readOnly: boole
     <>
       <AtAGlance>{properties}</AtAGlance>
       <MainPart>
-        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <PageEditor entityId={id} readOnly={readOnly} embedded />
       </MainPart>
       <DetailsPart>
         {properties}

@@ -64,7 +64,7 @@ import { CoursePicker } from "./StudyPickers.tsx";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { semesterRange } from "./SemesterList.tsx";
 import { addDays, dayLabel, hourAfter, localDay } from "./dates.ts";
-import { PageEditor } from "./PageEditor.tsx";
+import { OwnNotes } from "./PageEditor.tsx";
 
 /// Sessions, semesters and grades: what a student plans and is graded on.
 
@@ -297,7 +297,7 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
   return (
     <>
       <MainPart>
-        <PageEditor entityId={id} readOnly={readOnly} live={false} />
+        <OwnNotes kind="semester" ownerId={id} readOnly={readOnly} />
         <SemesterStats spaceId={semester.entity.spaceId} courseIds={members} />
         <Section title="Courses">
           {members.length === 0 ? <Empty text="No courses in this semester." /> : null}

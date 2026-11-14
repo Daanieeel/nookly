@@ -28,7 +28,17 @@ interface Context {
 /// The block columns a row of `blocks` has, as stored in `records`.
 type BlockFields = Record<string, string | number | null>;
 
-const PAGE_TYPES = new Set(["note", "jot", "course_notes"]);
+/// What has a live document: pages, and the description of every item that has one (a
+/// task's, an assignment's, an exam's), so every editor syncs and shows cursors the same way.
+const PAGE_TYPES = new Set([
+  "note",
+  "jot",
+  "course_notes",
+  "task",
+  "sub_task",
+  "assignment",
+  "exam",
+]);
 
 /// A document is named `<owner id>:<entity id>`: the same page is the same document
 /// for its owner and for everyone it is shared with.

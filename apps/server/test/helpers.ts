@@ -152,14 +152,23 @@ export function addTask(d: Device, id: string, title: string, key = 1) {
   d.driver.exec("INSERT INTO tasks (entity_id, status_id) VALUES (?, 'todo')", id);
 }
 
-export function addPage(d: Device, id: string, title: string, blocks: string[]) {
+export function addPage(
+  d: Device,
+  id: string,
+  title: string,
+  blocks: string[],
+  type = "note",
+  prefix = "NOT",
+) {
   addSpace(d);
   d.driver.exec(
-    "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES (?, 'space-1', 'note', ?, ?, ?, 'NOT', 1)",
+    "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES (?, 'space-1', ?, ?, ?, ?, ?, 1)",
     id,
+    type,
     title,
     now(),
     now(),
+    prefix,
   );
   blocks.forEach((content, i) => {
     d.driver.exec(

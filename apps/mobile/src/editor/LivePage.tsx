@@ -29,7 +29,16 @@ import { type EditorAction, editorStateSchema } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
 
 /// How tall an item's description is at least: the region a tap starts typing in.
-const DESCRIPTION_HEIGHT = 160;
+/// How tall a page's editor is at least: a page reaches the bottom of the screen; an item's
+/// description is as tall as its text, with a line's room to tap into when empty, and no
+/// blank space under it.
+export const DESCRIPTION_HEIGHT = 48;
+const PAGE_HEIGHT = 160;
+
+export function editorMinHeight(fill: boolean, top: number | null, windowHeight: number) {
+  if (!fill) return DESCRIPTION_HEIGHT;
+  return top === null ? PAGE_HEIGHT : Math.max(PAGE_HEIGHT, windowHeight - top - 120);
+}
 
 /// The marker for updates that came from the web view, so they are not sent back.
 const FROM_EDITOR = "editor";
@@ -100,10 +109,7 @@ export function PageDocEditor({
   const window = useWindowDimensions();
   /// Where the editor starts on the screen, for the room left under it.
   const [top, setTop] = useState<number | null>(null);
-  const minHeight =
-    fill && top !== null
-      ? Math.max(DESCRIPTION_HEIGHT, window.height - top - 120)
-      : DESCRIPTION_HEIGHT;
+  const minHeight = editorMinHeight(fill, top, window.height);
   const router = useRouter();
   const host = useOptionalSheetHost();
   const clipboard = useClipboard();
