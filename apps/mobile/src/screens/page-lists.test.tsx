@@ -5,11 +5,14 @@ import {
   addBlock,
   updateBlock,
   getEntity,
+  attachLabel,
+  createLabel,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { RecordingMenu } from "../test/menu.ts";
 import { renderScreens, testData } from "../test/render.tsx";
-import { choose } from "../test/sheet.ts";
+import { IconFeather } from "@tabler/icons-react-native";
+import { choose, openRow } from "../test/sheet.ts";
 import { JotList, NoteList } from "./PageLists.tsx";
 
 type Node = { parent: Node | null; props: { className?: unknown } };
@@ -24,8 +27,8 @@ function inCard(node: Node | null): boolean {
 
 describe("a Space's Notes", () => {
   // The rows sat in one big rounded box under a row of filled chips; Tasks and Assignments
-  // are flat, with the desktop's quiet controls.
-  it("lies flat and sorts from a secondary Sort button", async () => {
+  // are flat, with the desktop's quiet controls. The order is in Display, as theirs (D65).
+  it("lies flat and orders from Display", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Work", "#3b82f6");
     await createPage(data.db, space, "note", "Banana");
@@ -33,8 +36,8 @@ describe("a Space's Notes", () => {
     const screen = await renderScreens({ index: () => <NoteList spaceId={space} /> }, data);
     const row = await screen.findByRole("button", { name: "Apple" });
     expect(inCard(row)).toBe(false);
-    expect(screen.queryByRole("radio", { name: "Title" })).toBeNull();
-    await choose(screen, "Sort", "Title");
+    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
+    await choose(screen, "Ordering", "Title");
     await waitFor(() =>
       expect(
         screen
@@ -42,7 +45,23 @@ describe("a Space's Notes", () => {
           .map((b) => b.props.accessibilityLabel),
       ).toEqual(["Apple", "Banana"]),
     );
-    expect(screen.getByRole("button", { name: "Sort, Title" })).toBeTruthy();
+  });
+
+  // The desktop's filters: its labels, and when it was last edited.
+  it("narrows to a label from Filter", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const a = await createPage(data.db, space, "note", "Tagged");
+    await createPage(data.db, space, "note", "Plain");
+    await attachLabel(data.db, a, await createLabel(data.db, space, "Ideas"));
+    const screen = await renderScreens({ index: () => <NoteList spaceId={space} /> }, data);
+    expect(await screen.findByRole("button", { name: "Plain" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Labels");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Ideas" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Plain" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Tagged" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Ideas ×" })).toBeTruthy();
   });
 
   it("lists them with a preview and narrows them as you type", async () => {
@@ -126,5 +145,7 @@ describe("a Space's Jots", () => {
     const space = await createSpace(data.db, "Work", "#3b82f6");
     const screen = await renderScreens({ index: () => <JotList spaceId={space} /> }, data);
     expect(await screen.findByText("Nothing captured yet")).toBeTruthy();
+    // Its feather was drawn black, unreadable in dark mode.
+    expect(screen.UNSAFE_getByType(IconFeather).props.color).toBeTruthy();
   });
 });

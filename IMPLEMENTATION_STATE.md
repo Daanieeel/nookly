@@ -116,7 +116,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 - [ ] Exams timeline: less left padding; the "Today" row spans the full width.
 - [x] (2026-11-14, test; on screen) Bookmarks: the "Paste a URL to save it" field is a floating bar at the bottom like the desktop, with its own corner radius following the iPhone's corners, a send button, and properly sized link items.
 - [x] (2026-11-14, labels and site filters, grid or list, grouping, ordering, previews and descriptions; bookmarks now list their labels; tests) Bookmarks: display and filter options like the desktop (Linear style), keeping the list or grid toggle.
-- [ ] Jots list: the feather icon is plain black (bug); give it the right colour.
+- [x] (2026-11-14, test) Jots list: the feather icon is plain black (bug); give it the right colour.
 - [ ] Moodle: the module does something useful on the phone (match the desktop), not only a list of entities.
 
 ### 7. Mobile: item pages

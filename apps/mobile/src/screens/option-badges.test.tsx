@@ -22,7 +22,7 @@ describe("picker badges (D50)", () => {
   });
 
   it("tints a label's badge with the label's colour", () => {
-    const option = labelOption({ id: "l1", spaceId: "s1", name: "Urgent", color: "#ef4444" });
+    const option = labelOption({ id: "l1", name: "Urgent", color: "#ef4444" });
     expect(option).toMatchObject({ id: "l1", label: "Urgent", tint: "#ef4444" });
   });
 

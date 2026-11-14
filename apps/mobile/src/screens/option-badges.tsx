@@ -28,7 +28,7 @@ export function statusOption(status: FixedStatus): Option {
   };
 }
 
-export function labelOption(label: LabelRecord): Option {
+export function labelOption(label: Pick<LabelRecord, "id" | "name" | "color">): Option {
   return {
     id: label.id,
     label: label.name,
