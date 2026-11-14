@@ -33,6 +33,7 @@ import { useReduceMotion } from "../reduce-motion.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
 import { useSemantic } from "../kit/scheme.ts";
+import { InSheet } from "./in-sheet.ts";
 import { CORNER, DEPTH, RADIUS } from "../tokens.ts";
 
 /// The app's one bottom sheet: every picker, menu, confirmation and create form on the
@@ -162,10 +163,7 @@ function PinnedSlot({ store }: { store: PinStore }) {
   return node ? <View className="px-4 pb-2">{node}</View> : null;
 }
 
-/// Lets a page laid out for a screen (`Screen`) know it sits in a sheet, which scrolls
-/// for it.
-const InSheet = createContext(false);
-export const useInSheet = () => useContext(InSheet);
+export { useInSheet } from "./in-sheet.ts";
 
 /// The sheet itself, without a window of its own: the backdrop, the panel and its steps.
 /// `open` going false sends it down; `onClosed` follows once it is out of sight.

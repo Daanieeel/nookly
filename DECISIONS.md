@@ -396,4 +396,4 @@ The user asked for a little more corner radius on both apps and for squircles in
 
 ## D68. What sits on a sheet is lighter than the sheet
 
-A sheet is iOS's thick material, a light charcoal over the dark page. Its option cards used the grouped surface (`#1c1c1e`), darker than the sheet, so they looked sunk in. Anything on a sheet is lighter than the sheet, as depth reads on iOS: the cards and unchosen layout tiles take `sheetCard` (white in light mode, `#38383a` in dark), a token of the phone's own (`ui/tokens.ts`).
+A sheet is iOS's thick material, a light charcoal over the dark page. Its option cards used the grouped surface (`#1c1c1e`), darker than the sheet, so they looked sunk in. Anything on a sheet is lighter than the sheet, as depth reads on iOS: every grouped section, field row and option card on a sheet takes `sheetCard` (white in light mode, `#38383a` in dark), a token of the phone's own (`ui/tokens.ts`), through `useSurface()`; on a page they keep `surface`. The chosen layout tile is raised on that card, the others a quieter fill.

@@ -178,11 +178,11 @@ Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it 
 
 - [ ] Sidebar header: the blur behind "Nookly" and the search button looks and works right, but it is visibly staggered (the bands of item 2 show as steps). Make the fade smooth.
 - [x] (2026-11-14, it is the desktop's page: the empty branch of Notes and Jots skipped the list's `p-6`; tests) Notes list empty state (`notes-page-empty-state-bug.png`): it has no horizontal padding. Fix it (check the other list pages' empty states too).
-- [x] (2026-11-14, `sheetCard`, D68; tests; look on screen once the dev client runs) Filter and display option sheets: swap the colours so inputs and options are lighter than the sheet they sit on (now the sheet is a light charcoal and the inputs darker). Inputs are always lighter than their surface, for the right sense of depth.
+- [x] (2026-11-14, `sheetCard` through `useSurface` for every section, field and option card on a sheet, the chosen layout tile raised, D68; tests; on screen) Filter and display option sheets: swap the colours so inputs and options are lighter than the sheet they sit on (now the sheet is a light charcoal and the inputs darker). Inputs are always lighter than their surface, for the right sense of depth.
 - [x] (2026-11-14, `FilterField` opens the floating picker card; test) Filter options open a select popover (the inline menu or the floating picker card of item 1), never a new bottom sheet covering the current one.
 - [ ] New Note sheet in the same style as New Assignment and New Task (the compose sheet).
 - [ ] Bookmarks: the "Paste a URL to save it" bar sits further down, so it fits the iPhone's corner radius.
-- [ ] Display and filter option sheets: native switches are not vertically centred on their labels. Centre them everywhere.
+- [x] (2026-11-14, iOS 26 drew a bare `Switch` at the top of the row; it sits in a centred box of its own; test; on screen) Display and filter option sheets: native switches are not vertically centred on their labels. Centre them everywhere.
 - [ ] Redesign the New Bookmark sheet (compose style, like New Task).
 - [ ] Semesters list: semesters look squeezed. Give them room.
 - [x] (2026-11-14, test) Semester detail sidebar: the "Open Notes" button goes.
@@ -190,7 +190,7 @@ Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it 
 
 ### 13. Leftovers from item 11 and the final checks (found 2026-11-14)
 
-- [ ] Moodle on the phone in the running app: the dev client is being rebuilt for `expo-web-browser` (first try failed on a stale gesture handler object; this worktree's DerivedData was cleared and it rebuilds). Then check the course list, a course, a file with import, and Calendar Connections on screen.
+- [ ] Moodle on the phone in the running app: the dev client is rebuilt (React Native from source: `RCT_USE_PREBUILT_RNCORE=0 RCT_USE_RN_DEP=0 pod install`, the prebuilt core lacked the debug build the gesture handler links against; never start Metro with `CI=1`, it stops watching files). It was being rebuilt for `expo-web-browser` (first try failed on a stale gesture handler object; this worktree's DerivedData was cleared and it rebuilds). Then check the course list, a course, a file with import, and Calendar Connections on screen.
 - [x] (2026-11-14, all pass alone: load timing) `packages/frontend` tests: 5 failures in 4 files in a full run (`data-table.test.tsx`, `BackupSettings.test.tsx`, `ShortcutsTab.test.tsx` and one more). Run each alone; fix any caused by this branch, note any that are load timing only.
 - [ ] Final checks again (lint, format, typecheck, all tests, cargo test, duplication) and a new final report.
 

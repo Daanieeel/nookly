@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { CORNER, GUTTER, RADIUS, SPACE, TINT } from "../tokens.ts";
 import { GroupedSection } from "./GroupedSection.tsx";
 import { Label } from "./Label.tsx";
-import { useScheme, useSemantic } from "./scheme.ts";
+import { useScheme, useSurface } from "./scheme.ts";
 
 /// Whether a field sits in a `FormSection`, which draws the surface its rows share.
 const InForm = createContext(false);
@@ -33,7 +33,7 @@ export function FormSection({
 /// of the section's rows. An error shows under it in red.
 export function FormRow({ error, children }: { error?: string | null; children: ReactNode }) {
   const inForm = useContext(InForm);
-  const surface = useSemantic("surface");
+  const surface = useSurface();
   const scheme = useScheme();
   const message = error ? (
     <Label

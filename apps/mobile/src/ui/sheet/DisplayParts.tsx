@@ -32,6 +32,7 @@ export function LayoutTiles<T extends string>({
 }) {
   const theme = useTheme();
   const card = useSemantic("sheetCard");
+  const quiet = useSemantic("fill");
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="Layout" className="flex-row gap-2">
       {tiles.map((tile) => {
@@ -43,11 +44,11 @@ export function LayoutTiles<T extends string>({
             accessibilityLabel={tile.label}
             accessibilityState={{ checked: on }}
             onPress={() => onSelect(tile.id)}
-            style={[TOUCH_ROW, on ? null : { backgroundColor: card }]}
+            style={[TOUCH_ROW, { backgroundColor: on ? card : quiet }]}
             className={cn(
               "active:opacity-60",
               "flex-1 items-center justify-center gap-1.5 rounded-2xl border border-transparent py-3",
-              on && "border-foreground/15 bg-accent",
+              on && "border-foreground/20",
             )}
           >
             <tile.icon
@@ -153,15 +154,19 @@ export function SwitchRow({
       <Text className="flex-1" style={BODY}>
         {label}
       </Text>
-      <Switch
-        accessibilityLabel={label}
-        value={value}
-        onValueChange={(next) => {
-          haptic("toggle");
-          onChange(next);
-        }}
-        trackColor={{ true: theme.colors.primary }}
-      />
+      {/* iOS 26 draws a bare switch at the top of a taller row; in a box of its own it
+          centres on its label. */}
+      <View testID="switch-box" style={{ alignSelf: "center" }}>
+        <Switch
+          accessibilityLabel={label}
+          value={value}
+          onValueChange={(next) => {
+            haptic("toggle");
+            onChange(next);
+          }}
+          trackColor={{ true: theme.colors.primary }}
+        />
+      </View>
     </View>
   );
 }

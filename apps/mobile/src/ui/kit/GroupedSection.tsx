@@ -2,7 +2,7 @@ import { Children, Fragment, type ReactNode } from "react";
 import { View, type ViewProps } from "react-native";
 import { BADGE, CORNER, GUTTER, RADIUS, SPACE } from "../tokens.ts";
 import { Label } from "./Label.tsx";
-import { useSemantic } from "./scheme.ts";
+import { useSemantic, useSurface } from "./scheme.ts";
 
 /// Where a row's hairline starts: under its text, past a badge when rows have one.
 export const INSET = { plain: GUTTER, badge: GUTTER + BADGE.size + SPACE.md } as const;
@@ -51,7 +51,7 @@ export function GroupedSection({
   inset?: number;
   children: ReactNode;
 }) {
-  const surface = useSemantic("surface");
+  const surface = useSurface();
   const separator = useSemantic("separator");
   const rows = Children.toArray(children);
   return (
