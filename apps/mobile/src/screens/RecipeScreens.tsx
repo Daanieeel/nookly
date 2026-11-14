@@ -36,6 +36,7 @@ import { storePicked } from "../data/files.ts";
 import { useRecipe, useRecipeParts, useRecipeTags, useRecipes } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Badge } from "../ui/Badge.tsx";
+import { RecipeTagChip } from "./RecipeTagChip.tsx";
 import { Grid } from "../ui/Grid.tsx";
 import { ListTitle } from "../ui/ListBar.tsx";
 import { Field } from "../ui/Field.tsx";
@@ -135,7 +136,7 @@ function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
         {recipe.tags.length > 0 ? (
           <View className="flex-row flex-wrap gap-1">
             {recipe.tags.map((t) => (
-              <Badge key={t.id} label={t.name} size="sm" />
+              <RecipeTagChip key={t.id} tag={t} />
             ))}
           </View>
         ) : null}

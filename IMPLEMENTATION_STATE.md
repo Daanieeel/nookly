@@ -108,7 +108,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 ### 6. Mobile: list pages
 
-- [ ] Filter and display options on tasks, assignments and the other list pages in the Linear style (`display-options.jpeg`, `filter-list-sheet.jpeg`), keeping our list or board toggle.
+- [x] (2026-11-14, `ui/ListControls.tsx` on Bookmarks, Notes, Jots, Files, Trash and Exams with the desktop's fields; Tasks and Assignments had them; Recipes has none on the desktop; tests) Filter and display options on tasks, assignments and the other list pages in the Linear style (`display-options.jpeg`, `filter-list-sheet.jpeg`), keeping our list or board toggle.
 - [ ] Calendar header: keep date and week, no comma, "Week XY" at lower opacity.
 - [ ] Calendar bug: the all day row lacks the vertical day borders.
 - [ ] Semesters list: "Set dates" works when tapped; expanding a semester stays, plus a button that opens the semester directly.
@@ -126,7 +126,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 - [ ] Task: an empty Labels pill reads "None" instead of "Labels" (seen 2026-11-14).
 - [ ] Task: an overdue date's calendar icon and label both use the destructive colour.
 - [ ] Session detail: "Create Jot for this session" and "Create Note for This Session" get icons and full width; the primary one (no jot: jot; jot but no note: note; both exist: both secondary) uses the default (blue) variant, like the desktop.
-- [ ] Recipes list: labels show their colours.
+- [x] (2026-11-14, the desktop's tinted tag chips with their icons; test) Recipes list: labels show their colours.
 - [ ] Recipe detail rework: a placeholder for a missing banner like the desktop, a much quieter "Choose Banner", clean ingredient and step adding (inputs not squeezed by save buttons), better spacing in the detail sidebar.
 
 ### 8. Mobile: Space settings
