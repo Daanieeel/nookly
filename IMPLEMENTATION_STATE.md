@@ -186,7 +186,7 @@ Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it 
 - [ ] Redesign the New Bookmark sheet (compose style, like New Task).
 - [x] (2026-11-14, test; on screen) Semesters list: semesters look squeezed. Give them room. Each row has an icon badge, the title on its own line, and the course count and short dates below, never cut off.
 - [x] (2026-11-14, test) Semester detail sidebar: the "Open Notes" button goes.
-- [ ] Start and end date pickers with a calendar (e.g. the semester detail sidebar): the inner calendar box gets a larger corner radius, matching the outer one.
+- [x] (2026-11-14, every section and surface in a floating card rounds with the card, less its margin: `RADIUS.inCard`; test; on screen) Start and end date pickers with a calendar (e.g. the semester detail sidebar): the inner calendar box gets a larger corner radius, matching the outer one.
 
 ### 13. Leftovers from item 11 and the final checks (found 2026-11-14)
 

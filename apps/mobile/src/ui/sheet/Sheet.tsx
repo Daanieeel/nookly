@@ -33,7 +33,7 @@ import { useReduceMotion } from "../reduce-motion.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
 import { useSemantic } from "../kit/scheme.ts";
-import { InSheet } from "./in-sheet.ts";
+import { InCard, InSheet } from "./in-sheet.ts";
 import { CORNER, DEPTH, RADIUS } from "../tokens.ts";
 
 /// The app's one bottom sheet: every picker, menu, confirmation and create form on the
@@ -56,8 +56,7 @@ export type SheetSize = "content" | "large";
 /// sheet floats over it instead of being pushed as a step.
 export type SheetPresentation = "sheet" | "card";
 
-/// How far a card's corners round, Linear's.
-const CARD_RADIUS = 30;
+const CARD_RADIUS = RADIUS.card;
 
 const NO_INSETS = { top: 0, bottom: 0, left: 0, right: 0 };
 
@@ -348,83 +347,85 @@ function SheetFrame({
           <EdgeContext.Provider value={edges}>
             <ScrollContext.Provider value={scrollY}>
               <InSheet.Provider value>
-                <Animated.View
-                  style={[cardRoom, { paddingTop: insets.top + 12 }]}
-                  className="flex-1 justify-center px-3"
-                >
-                  <Animated.View style={cardBackdrop} className="absolute inset-0 bg-black/60">
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Close"
-                      onPress={onRequestClose}
-                      className="flex-1"
-                    />
-                  </Animated.View>
+                <InCard.Provider value>
                   <Animated.View
-                    accessibilityViewIsModal
-                    style={[
-                      cardStyle,
-                      CORNER,
-                      DEPTH.floating,
-                      { maxHeight: "100%", borderRadius: CARD_RADIUS },
-                    ]}
+                    style={[cardRoom, { paddingTop: insets.top + 12 }]}
+                    className="flex-1 justify-center px-3"
                   >
-                    <BlurView
-                      tint="systemThickMaterial"
-                      intensity={100}
-                      style={[
-                        StyleSheet.absoluteFill,
-                        CORNER,
-                        { borderRadius: CARD_RADIUS, overflow: "hidden" },
-                      ]}
-                    />
-                    <View
-                      pointerEvents="none"
-                      style={[
-                        StyleSheet.absoluteFill,
-                        CORNER,
-                        {
-                          borderRadius: CARD_RADIUS,
-                          borderWidth: StyleSheet.hairlineWidth,
-                        },
-                      ]}
-                      className="border-border"
-                    />
-                    <View className="flex-row items-center gap-1 pb-1 pl-5 pr-3 pt-3">
-                      {pages.length > 0 ? (
-                        <View className="-ml-3">
-                          <IconButton
-                            label="Back"
-                            icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
-                            onPress={handle.back}
-                          />
-                        </View>
-                      ) : null}
-                      <Text
-                        variant="heading"
-                        accessibilityRole="header"
-                        numberOfLines={1}
+                    <Animated.View style={cardBackdrop} className="absolute inset-0 bg-black/60">
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Close"
+                        onPress={onRequestClose}
                         className="flex-1"
-                      >
-                        {shownTitle ?? ""}
-                      </Text>
-                      <RoundButton label="Close" onPress={onRequestClose}>
-                        <IconX size={22} color={theme.colors.foreground} />
-                      </RoundButton>
-                    </View>
-                    <PinnedSlot store={pin} />
-                    <Animated.ScrollView
-                      bounces={false}
-                      keyboardShouldPersistTaps="handled"
-                      scrollEventThrottle={16}
-                      onScroll={onScroll}
-                      style={{ flexGrow: 0, flexShrink: 1 }}
-                      contentContainerClassName="px-2 pb-3"
+                      />
+                    </Animated.View>
+                    <Animated.View
+                      accessibilityViewIsModal
+                      style={[
+                        cardStyle,
+                        CORNER,
+                        DEPTH.floating,
+                        { maxHeight: "100%", borderRadius: CARD_RADIUS },
+                      ]}
                     >
-                      {top ? top.content : children}
-                    </Animated.ScrollView>
+                      <BlurView
+                        tint="systemThickMaterial"
+                        intensity={100}
+                        style={[
+                          StyleSheet.absoluteFill,
+                          CORNER,
+                          { borderRadius: CARD_RADIUS, overflow: "hidden" },
+                        ]}
+                      />
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          StyleSheet.absoluteFill,
+                          CORNER,
+                          {
+                            borderRadius: CARD_RADIUS,
+                            borderWidth: StyleSheet.hairlineWidth,
+                          },
+                        ]}
+                        className="border-border"
+                      />
+                      <View className="flex-row items-center gap-1 pb-1 pl-5 pr-3 pt-3">
+                        {pages.length > 0 ? (
+                          <View className="-ml-3">
+                            <IconButton
+                              label="Back"
+                              icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
+                              onPress={handle.back}
+                            />
+                          </View>
+                        ) : null}
+                        <Text
+                          variant="heading"
+                          accessibilityRole="header"
+                          numberOfLines={1}
+                          className="flex-1"
+                        >
+                          {shownTitle ?? ""}
+                        </Text>
+                        <RoundButton label="Close" onPress={onRequestClose}>
+                          <IconX size={22} color={theme.colors.foreground} />
+                        </RoundButton>
+                      </View>
+                      <PinnedSlot store={pin} />
+                      <Animated.ScrollView
+                        bounces={false}
+                        keyboardShouldPersistTaps="handled"
+                        scrollEventThrottle={16}
+                        onScroll={onScroll}
+                        style={{ flexGrow: 0, flexShrink: 1 }}
+                        contentContainerClassName="px-2 pb-3"
+                      >
+                        {top ? top.content : children}
+                      </Animated.ScrollView>
+                    </Animated.View>
                   </Animated.View>
-                </Animated.View>
+                </InCard.Provider>
               </InSheet.Provider>
             </ScrollContext.Provider>
           </EdgeContext.Provider>
@@ -438,85 +439,93 @@ function SheetFrame({
         <EdgeContext.Provider value={edges}>
           <ScrollContext.Provider value={scrollY}>
             <InSheet.Provider value>
-              <View className="flex-1 justify-end">
-                <Animated.View style={backdrop} className="absolute inset-0 bg-black/50">
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Close"
-                    onPress={onRequestClose}
-                    className="flex-1"
-                  />
-                </Animated.View>
-                <GestureDetector gesture={pan}>
-                  <Animated.View
-                    accessibilityViewIsModal
-                    style={[
-                      panel,
-                      CORNER,
-                      DEPTH.floating,
-                      {
-                        borderTopLeftRadius: RADIUS.sheet,
-                        borderTopRightRadius: RADIUS.sheet,
-                      },
-                    ]}
-                  >
-                    {/* iOS's sheet material: the page shows through, blurred. */}
-                    <BlurView
-                      tint="systemThickMaterial"
-                      intensity={100}
+              <InCard.Provider value={false}>
+                <View className="flex-1 justify-end">
+                  <Animated.View style={backdrop} className="absolute inset-0 bg-black/50">
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Close"
+                      onPress={onRequestClose}
+                      className="flex-1"
+                    />
+                  </Animated.View>
+                  <GestureDetector gesture={pan}>
+                    <Animated.View
+                      accessibilityViewIsModal
                       style={[
-                        StyleSheet.absoluteFill,
+                        panel,
                         CORNER,
+                        DEPTH.floating,
                         {
                           borderTopLeftRadius: RADIUS.sheet,
                           borderTopRightRadius: RADIUS.sheet,
-                          overflow: "hidden",
                         },
                       ]}
-                    />
-                    <View className="items-center pt-2" accessibilityElementsHidden>
-                      <View className="h-1 w-9 rounded-full" style={{ backgroundColor: grabber }} />
-                    </View>
-                    {header && pages.length === 0 ? (
-                      header
-                    ) : shownTitle !== undefined || pages.length > 0 ? (
-                      <View className="flex-row items-center px-2" style={{ minHeight: MIN_TOUCH }}>
-                        <View style={{ width: MIN_TOUCH }}>
-                          {pages.length > 0 ? (
-                            <IconButton
-                              label="Back"
-                              icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
-                              onPress={handle.back}
-                            />
-                          ) : null}
-                        </View>
-                        <Text
-                          variant="heading"
-                          accessibilityRole="header"
-                          numberOfLines={1}
-                          className="flex-1 text-center"
-                        >
-                          {shownTitle ?? ""}
-                        </Text>
-                        <View style={{ width: MIN_TOUCH }} />
+                    >
+                      {/* iOS's sheet material: the page shows through, blurred. */}
+                      <BlurView
+                        tint="systemThickMaterial"
+                        intensity={100}
+                        style={[
+                          StyleSheet.absoluteFill,
+                          CORNER,
+                          {
+                            borderTopLeftRadius: RADIUS.sheet,
+                            borderTopRightRadius: RADIUS.sheet,
+                            overflow: "hidden",
+                          },
+                        ]}
+                      />
+                      <View className="items-center pt-2" accessibilityElementsHidden>
+                        <View
+                          className="h-1 w-9 rounded-full"
+                          style={{ backgroundColor: grabber }}
+                        />
                       </View>
-                    ) : null}
-                    <PinnedSlot store={pin} />
-                    <GestureDetector gesture={scroll}>
-                      <Animated.ScrollView
-                        bounces={false}
-                        keyboardShouldPersistTaps="handled"
-                        scrollEventThrottle={16}
-                        onScroll={onScroll}
-                        contentContainerClassName="gap-4 px-4 pb-4 pt-1"
-                      >
-                        {top ? top.content : children}
-                      </Animated.ScrollView>
-                    </GestureDetector>
-                    {footer && pages.length === 0 ? footer : null}
-                  </Animated.View>
-                </GestureDetector>
-              </View>
+                      {header && pages.length === 0 ? (
+                        header
+                      ) : shownTitle !== undefined || pages.length > 0 ? (
+                        <View
+                          className="flex-row items-center px-2"
+                          style={{ minHeight: MIN_TOUCH }}
+                        >
+                          <View style={{ width: MIN_TOUCH }}>
+                            {pages.length > 0 ? (
+                              <IconButton
+                                label="Back"
+                                icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
+                                onPress={handle.back}
+                              />
+                            ) : null}
+                          </View>
+                          <Text
+                            variant="heading"
+                            accessibilityRole="header"
+                            numberOfLines={1}
+                            className="flex-1 text-center"
+                          >
+                            {shownTitle ?? ""}
+                          </Text>
+                          <View style={{ width: MIN_TOUCH }} />
+                        </View>
+                      ) : null}
+                      <PinnedSlot store={pin} />
+                      <GestureDetector gesture={scroll}>
+                        <Animated.ScrollView
+                          bounces={false}
+                          keyboardShouldPersistTaps="handled"
+                          scrollEventThrottle={16}
+                          onScroll={onScroll}
+                          contentContainerClassName="gap-4 px-4 pb-4 pt-1"
+                        >
+                          {top ? top.content : children}
+                        </Animated.ScrollView>
+                      </GestureDetector>
+                      {footer && pages.length === 0 ? footer : null}
+                    </Animated.View>
+                  </GestureDetector>
+                </View>
+              </InCard.Provider>
             </InSheet.Provider>
           </ScrollContext.Provider>
         </EdgeContext.Provider>

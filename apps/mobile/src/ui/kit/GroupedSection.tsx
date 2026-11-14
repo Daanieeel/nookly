@@ -1,6 +1,7 @@
 import { Children, Fragment, type ReactNode } from "react";
 import { View, type ViewProps } from "react-native";
-import { BADGE, CORNER, GUTTER, RADIUS, SPACE } from "../tokens.ts";
+import { useSectionRadius } from "../sheet/in-sheet.ts";
+import { BADGE, CORNER, GUTTER, SPACE } from "../tokens.ts";
 import { Label } from "./Label.tsx";
 import { useSemantic, useSurface } from "./scheme.ts";
 
@@ -52,16 +53,14 @@ export function GroupedSection({
   children: ReactNode;
 }) {
   const surface = useSurface();
+  const radius = useSectionRadius();
   const separator = useSemantic("separator");
   const rows = Children.toArray(children);
   return (
     <View style={{ marginHorizontal: margin }} onLayout={onLayout}>
       {title ? <SectionHeader title={title} /> : null}
       <View
-        style={[
-          CORNER,
-          { backgroundColor: surface, borderRadius: RADIUS.section, overflow: "hidden" },
-        ]}
+        style={[CORNER, { backgroundColor: surface, borderRadius: radius, overflow: "hidden" }]}
       >
         {rows.map((row, index) => (
           // oxlint-disable-next-line react/no-array-index-key -- rows are positional
