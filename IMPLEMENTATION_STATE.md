@@ -176,7 +176,7 @@ Done so far (e25434c9): the desktop's pure helpers moved to `packages/shared/src
 
 Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it before item 2 below.
 
-- [ ] Sidebar header: the blur behind "Nookly" and the search button looks and works right, but it is visibly staggered (the bands of item 2 show as steps). Make the fade smooth.
+- [x] (2026-11-15, one blur faded by a gradient mask (`MaskedView`, already in the native build) instead of bands; test; on screen) Sidebar header: the blur behind "Nookly" and the search button looks and works right, but it is visibly staggered (the bands of item 2 show as steps). Make the fade smooth.
 - [x] (2026-11-14, it is the desktop's page: the empty branch of Notes and Jots skipped the list's `p-6`; tests) Notes list empty state (`notes-page-empty-state-bug.png`): it has no horizontal padding. Fix it (check the other list pages' empty states too).
 - [x] (2026-11-14, `sheetCard` through `useSurface` for every section, field and option card on a sheet, the chosen layout tile raised, D68; tests; on screen) Filter and display option sheets: swap the colours so inputs and options are lighter than the sheet they sit on (now the sheet is a light charcoal and the inputs darker). Inputs are always lighter than their surface, for the right sense of depth.
 - [x] (2026-11-14, `FilterField` opens the floating picker card; test) Filter options open a select popover (the inline menu or the floating picker card of item 1), never a new bottom sheet covering the current one.

@@ -47,6 +47,7 @@
         "@nookly/frontend": "workspace:*",
         "@nookly/shared": "workspace:*",
         "@nookly/ui": "workspace:*",
+        "@react-native-masked-view/masked-view": "0.3.2",
         "@shikijs/core": "4.5.0",
         "@shikijs/engine-javascript": "4.5.0",
         "@shikijs/langs": "4.5.0",

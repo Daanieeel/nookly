@@ -18,6 +18,16 @@ import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 
 describe("the sidebar", () => {
+  // The blur under "Nookly" faded out in bands of weaker blur, which showed as steps; it is
+  // one blur under a mask that fades it smoothly.
+  it("fades the header's blur smoothly, one blur under a gradient", async () => {
+    const data = testData();
+    await createSpace(data.db, "Work", "#3b82f6");
+    const screen = await renderScreens({ index: () => <Sidebar close={jest.fn()} /> }, data);
+    expect(await screen.findAllByTestId("header-blur")).toHaveLength(1);
+    expect(screen.getByTestId("header-blur-fade")).toBeTruthy();
+  });
+
   it("shows one Space at a time, and the Space switcher at the bottom picks another", async () => {
     const data = testData();
     const work = await createSpace(data.db, "Work", "#3b82f6");

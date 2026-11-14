@@ -45,6 +45,7 @@ import { Glyph } from "../ui/kit/Glyph.tsx";
 import { useSemanticPair } from "../ui/kit/scheme.ts";
 import { type BadgeLook, MODULE_BADGES } from "../ui/kit/badges.ts";
 import { FACE, TYPE, withAlpha } from "../ui/tokens.ts";
+import MaskedView from "@react-native-masked-view/masked-view";
 import { BlurView } from "expo-blur";
 import { GlassButton } from "../ui/GlassButton.tsx";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
@@ -83,47 +84,46 @@ function useSidebarIconColor() {
 /// fades into the list scrolling under it.
 const HEADER_HEIGHT = 52;
 const HEADER_BLUR = 24;
-/// The fade under the header: bands of blur, each a little weaker than the one above.
-const BAND = 3;
-const FADE_BANDS = [0.88, 0.76, 0.64, 0.52, 0.4, 0.28, 0.16, 0.06];
-const HEADER_FADE = BAND * FADE_BANDS.length;
+/// How far under the header its blur fades out.
+const HEADER_FADE = 28;
 
 function SidebarHeader({ top, onSearch }: { top: number; onSearch: () => void }) {
   const theme = useTheme();
   const page = theme.colors.background;
+  const full = top + HEADER_HEIGHT + HEADER_FADE;
+  // Where the blur starts to fade: the header's own bottom.
+  const solid = (top + HEADER_HEIGHT) / full;
   return (
     <View
       pointerEvents="box-none"
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        height: top + HEADER_HEIGHT + HEADER_FADE,
-      }}
+      style={{ position: "absolute", top: 0, left: 0, right: 0, height: full }}
     >
-      {/* The blur fades out at the bottom in thin bands of less and less blur, so the list
-          scrolling under it shows no edge where it starts. */}
-      <BlurView
-        intensity={HEADER_BLUR}
-        tint={theme.dark ? "dark" : "light"}
-        style={{ position: "absolute", top: 0, left: 0, right: 0, height: top + HEADER_HEIGHT }}
-      />
-      {FADE_BANDS.map((strength, band) => (
+      {/* One blur, faded out at the bottom by a gradient mask, so the list scrolling under
+          it shows no edge where it starts (bands of weaker blur showed as steps). */}
+      <MaskedView
+        testID="header-blur-fade"
+        pointerEvents="none"
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: full }}
+        maskElement={
+          <Svg width="100%" height={full}>
+            <Defs>
+              <LinearGradient id="sidebar-header-mask" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#000" stopOpacity={1} />
+                <Stop offset={solid} stopColor="#000" stopOpacity={1} />
+                <Stop offset="1" stopColor="#000" stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#sidebar-header-mask)" />
+          </Svg>
+        }
+      >
         <BlurView
-          key={strength}
-          pointerEvents="none"
-          intensity={HEADER_BLUR * strength}
+          testID="header-blur"
+          intensity={HEADER_BLUR}
           tint={theme.dark ? "dark" : "light"}
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            top: top + HEADER_HEIGHT + band * BAND,
-            height: BAND,
-          }}
+          style={{ flex: 1 }}
         />
-      ))}
+      </MaskedView>
       <Svg
         pointerEvents="none"
         width="100%"
