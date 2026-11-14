@@ -1,5 +1,6 @@
 import {
   addFile,
+  attachLabel,
   createCourse,
   createDeck,
   createLabel,
@@ -12,7 +13,7 @@ import {
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { RecordingClipboard, RecordingMenu } from "../test/menu.ts";
 import { barLabels, pressBarButton, renderScreens, testData } from "../test/render.tsx";
-import { openRow } from "../test/sheet.ts";
+import { choose, openRow } from "../test/sheet.ts";
 import type { DocumentScanner } from "../ui/scanner.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { FileRows } from "./FileScreens.tsx";
@@ -39,6 +40,37 @@ describe("files", () => {
     expect(screen.getByText(/^PDF · /)).toBeTruthy();
     expect(screen.getByRole("button", { name: "slides.pptx" })).toBeTruthy();
     expect(screen.getByText(/^Downloading from your account · /)).toBeTruthy();
+  });
+
+  // The desktop's Filter (kind, labels) and Display (layout, grouping, ordering), D65.
+  it("narrows to a kind and a label, and shows a list ordered by name", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    await addFile(data.db, space, "zebra.pdf", "file:///docs/files/z.pdf");
+    const tagged = await addFile(data.db, space, "apple.pdf", "file:///docs/files/a.pdf");
+    await addFile(data.db, space, "photo.png", "file:///docs/files/p.png");
+    await attachLabel(data.db, tagged, await createLabel(data.db, space, "Exam"));
+    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+    expect(await screen.findByRole("button", { name: "photo.png" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Kind");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "PDF" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "photo.png" })).toBeNull());
+    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: "List" }));
+    await choose(screen, "Ordering", "Name");
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("button", { name: /^(apple|zebra)\.pdf$/ })
+          .map((b) => b.props.accessibilityLabel),
+      ).toEqual(["apple.pdf", "zebra.pdf"]),
+    );
+    await fireEvent.press(screen.getByRole("checkbox", { name: "PDF ×" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Labels");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Exam" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "zebra.pdf" })).toBeNull());
   });
 
   it("adds a link to a file kept elsewhere, and sends a web page to the bookmarks", async () => {

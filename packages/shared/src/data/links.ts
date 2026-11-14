@@ -150,3 +150,12 @@ export async function labelIdsByEntity(
   }
   return found;
 }
+
+/// The labels on each listed item, as a column for a list's query (`e` is its entity), to
+/// filter and group by on the phone as on the desktop. Read back with `labelIdsOf`.
+export const LABEL_IDS_COLUMN =
+  "(SELECT GROUP_CONCAT(el.label_id) FROM entity_labels el WHERE el.entity_id = e.id) AS label_ids";
+
+export function labelIdsOf(row: Record<string, unknown>): string[] {
+  return typeof row.label_ids === "string" && row.label_ids ? row.label_ids.split(",") : [];
+}

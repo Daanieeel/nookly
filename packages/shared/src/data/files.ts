@@ -1,6 +1,7 @@
 import type { SqlStatement } from "../sync/sql.ts";
 import { type LocalDb, first, iso, optStr, rows, write } from "./db.ts";
 import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } from "./entities.ts";
+import { LABEL_IDS_COLUMN, labelIdsOf } from "./links.ts";
 
 /// A File as the desktop stores it: its contents live on a device at `localPath` (a copy
 /// made on that device) and in the account by their hash (`blob`).
@@ -12,9 +13,11 @@ export interface FileRecord {
   originalFilename: string | null;
   sourcePath: string | null;
   blob: string | null;
+  /// The labels on it, to filter by.
+  labelIds: string[];
 }
 
-const FILE_SELECT = `SELECT ${ENTITY_COLUMNS}, f.local_path, f.provider, f.url, f.original_filename, f.source_path, f.blob
+const FILE_SELECT = `SELECT ${ENTITY_COLUMNS}, f.local_path, f.provider, f.url, f.original_filename, f.source_path, f.blob, ${LABEL_IDS_COLUMN}
   FROM entities e JOIN files f ON f.entity_id = e.id`;
 
 function toFile(row: Record<string, string | number | null>): FileRecord {
@@ -26,6 +29,7 @@ function toFile(row: Record<string, string | number | null>): FileRecord {
     originalFilename: optStr(row.original_filename),
     sourcePath: optStr(row.source_path),
     blob: optStr(row.blob),
+    labelIds: labelIdsOf(row),
   };
 }
 
