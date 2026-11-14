@@ -10,12 +10,13 @@ function account(now = () => 1000) {
   const http: Http = async () => ({
     ok: true,
     status: 200,
-    json: async () => ({
-      sitename: "Uni Moodle",
-      fullname: "Ada Lovelace",
-      userid: 7,
-      siteurl: "https://moodle.uni.edu",
-    }),
+    text: async () =>
+      JSON.stringify({
+        sitename: "Uni Moodle",
+        fullname: "Ada Lovelace",
+        userid: 7,
+        siteurl: "https://moodle.uni.edu",
+      }),
   });
   const it = moodleAccount({
     keys: {
@@ -23,7 +24,7 @@ function account(now = () => 1000) {
       setItemAsync: async (key, value) => void keys.set(key, value),
       deleteItemAsync: async (key) => void keys.delete(key),
     },
-    api: moodleApi(http),
+    api: moodleApi(http, { get: async () => null, set: async () => {}, clear: async () => {} }),
     md5,
     uuid: () => "pass-port",
     now,

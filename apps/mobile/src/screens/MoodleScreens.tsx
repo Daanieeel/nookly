@@ -1,105 +1,29 @@
-import {
-  IconBook2,
-  IconClipboardList,
-  IconFile,
-  IconLink,
-  IconLock,
-  IconLogout,
-  IconMessages,
-  IconReportAnalytics,
-  IconSchool,
-  IconSpeakerphone,
-  IconWorld,
-} from "@tabler/icons-react-native";
+import { moodleWebUrl } from "@nookly/shared/moodle/path";
+import { firstNameOf } from "@nookly/shared/moodle/format";
+import { IconLock, IconLogout, IconSchool, IconWorld } from "@tabler/icons-react-native";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import {
-  type Connection,
-  fileUrl,
-  type MoodleAssignment,
-  type MoodleForum,
-  type MoodleModule,
-} from "../moodle/api.ts";
-import {
-  useForgetMoodle,
-  useMoodleAssignments,
-  useMoodleConnection,
-  useMoodleContents,
-  useMoodleCourses,
-  useMoodleDiscussions,
-  useMoodleForums,
-  useMoodleGrades,
-  useMoodlePosts,
-} from "../moodle/queries.ts";
+import type { Connection, MoodleCourse } from "../moodle/api.ts";
+import { splitCourses } from "../moodle/format.ts";
+import { useForgetMoodle, useMoodleConnection, useMoodleCourses } from "../moodle/queries.ts";
 import { type MoodleService, useMoodleService } from "../moodle/service.tsx";
 import { BrandButton, MoodleMark } from "../ui/BrandButton.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
 import { FormSection } from "../ui/kit/Form.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
-import { ListTitle } from "../ui/ListBar.tsx";
-import { PageTabs } from "../ui/PageTabs.tsx";
-import { Empty, Row, Section } from "../ui/Row.tsx";
+import { EmptyState } from "../ui/kit/States.tsx";
+import { Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
-import type { TintName } from "../ui/tokens.ts";
-import { dayLabel, localDay } from "./dates.ts";
+import { CourseArt, MoodleData, OpenInMoodle } from "./MoodleParts.tsx";
 
 /// Moodle on the phone, as on the desktop (`features/moodle`): connect once with the
 /// university's own sign in page, then read the courses, their contents, assignments,
 /// grades and forums without opening the website.
-
-/// Text out of Moodle's HTML (a summary, a forum post), for a line or two.
-export function plainText(html: string): string {
-  return html
-    .replace(/<(br|\/p|\/div|\/li)[^>]*>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-/// A Moodle date (seconds since 1970) as a day, or null for none.
-const dayOf = (seconds: number) => (seconds > 0 ? localDay(new Date(seconds * 1000)) : null);
-
-/// What a module is drawn with, as the desktop's `moodle-icons.tsx`.
-interface ModuleLook {
-  glyph: typeof IconFile;
-  tint: TintName;
-}
-function moduleLook(name: string): ModuleLook {
-  switch (name) {
-    case "assign":
-      return { glyph: IconClipboardList, tint: "purple" };
-    case "forum":
-      return { glyph: IconMessages, tint: "green" };
-    case "page":
-      return { glyph: IconBook2, tint: "blue" };
-    case "url":
-      return { glyph: IconLink, tint: "blue" };
-    default:
-      return { glyph: IconFile, tint: "gray" };
-  }
-}
-
-/// Opens something on the site in the browser; a file with the token, so it opens signed in.
-function openOnSite(
-  service: MoodleService,
-  connection: Connection | null | undefined,
-  url: string,
-  file = false,
-) {
-  const target = file && connection ? (fileUrl(connection, url) ?? url) : url;
-  if (target) void service.open(target);
-}
 
 /// Connecting: the site's address, then its own sign in page in the browser. Moodle sends
 /// the person back to Nookly, which finishes the rest (`app/moodle-signin.tsx`).
@@ -160,58 +84,89 @@ function ConnectMoodle() {
   );
 }
 
-/// What a failed answer says, with the way to try again.
-function Failed({ error, retry }: { error: Error; retry: () => void }) {
+/// The courses of one group, on now or over, each with its colors and progress.
+function CourseGroup({
+  title,
+  courses,
+  spaceId,
+}: {
+  title: string;
+  courses: MoodleCourse[];
+  spaceId: string;
+}) {
+  const router = useRouter();
+  if (courses.length === 0) return null;
   return (
-    <View className="gap-3 py-4">
-      <Text tone="muted" className="text-center">
-        {error.message}
-      </Text>
-      <View className="items-center">
-        <Button label="Try Again" variant="secondary" onPress={retry} />
-      </View>
-    </View>
+    <Section title={title}>
+      {courses.map((course) => (
+        <Row
+          key={course.id}
+          title={course.fullname}
+          subtitle={
+            course.progress == null
+              ? course.shortname
+              : `${course.shortname} · ${Math.round(course.progress)}% done`
+          }
+          icon={<CourseArt course={course} />}
+          onPress={() =>
+            router.push(
+              `/moodle/${course.id}?name=${encodeURIComponent(course.fullname)}&spaceId=${spaceId}`,
+            )
+          }
+        />
+      ))}
+    </Section>
   );
 }
 
-/// The Moodle module: connecting, then the courses of the account.
-export function MoodleModule() {
-  const router = useRouter();
+/// The Moodle module: connecting, then the courses of the account, on now first.
+export function MoodleModule({ spaceId = "" }: { spaceId?: string }) {
   const theme = useTheme();
   const forget = useForgetMoodle();
   const { data: connection, isLoading } = useMoodleConnection();
   const courses = useMoodleCourses();
-  const { account } = useMoodleService();
-  const out = useMutation({ mutationFn: account.disconnect, onSuccess: forget });
+  const service = useMoodleService();
+  const out = useMutation({ mutationFn: service.signOut, onSuccess: forget });
   if (isLoading) return null;
   if (!connection) return <ConnectMoodle />;
-  const shown = (courses.data ?? []).filter((c) => !c.hidden);
+  const firstName = firstNameOf(connection.fullName);
+  const webUrl = moodleWebUrl(connection.site.root, { page: "courses" });
   return (
     <View className="gap-4">
-      <ListTitle title="Moodle" count={shown.length} />
-      <Text tone="muted">{`${connection.fullName || "Signed in"} on ${connection.siteName}`}</Text>
-      {courses.error ? <Failed error={courses.error} retry={() => void courses.refetch()} /> : null}
-      <Section title="Courses">
-        {courses.isSuccess && shown.length === 0 ? <Empty text="No courses on Moodle." /> : null}
-        {shown.map((course) => (
-          <Row
-            key={course.id}
-            title={course.fullname}
-            subtitle={
-              course.progress == null
-                ? course.shortname
-                : `${course.shortname} · ${Math.round(course.progress)}% done`
-            }
-            icon={<IconBadge glyph={IconSchool} tint="blue" />}
-            onPress={() =>
-              router.push(`/moodle/${course.id}?name=${encodeURIComponent(course.fullname)}`)
-            }
-          />
-        ))}
-      </Section>
+      <Text variant="title" accessibilityRole="header" className="px-1">
+        {firstName ? `Welcome back, ${firstName}` : "Moodle"}
+      </Text>
+      <Text tone="muted" className="px-1">
+        {connection.siteName}
+      </Text>
+      <OpenInMoodle url={webUrl} />
+      <MoodleData
+        query={courses}
+        label="Loading your courses"
+        webUrl={webUrl}
+        empty={(all) =>
+          all.every((c) => c.hidden) ? (
+            <EmptyState
+              glyph={IconSchool}
+              title="No courses on Moodle"
+              message="Courses you are enrolled in show up here."
+            />
+          ) : null
+        }
+      >
+        {(all) => {
+          const { current, past } = splitCourses(all);
+          return (
+            <>
+              <CourseGroup title="Now" courses={current} spaceId={spaceId} />
+              <CourseGroup title="Past courses" courses={past} spaceId={spaceId} />
+            </>
+          );
+        }}
+      </MoodleData>
       <View className="items-start">
         <Button
-          label="Disconnect Moodle"
+          label="Sign Out"
           variant="ghost"
           icon={<IconLogout size={16} color={theme.colors.foreground} />}
           status={statusOf(out)}
@@ -219,212 +174,6 @@ export function MoodleModule() {
         />
       </View>
     </View>
-  );
-}
-
-type CourseTab = "contents" | "assignments" | "grades" | "forums";
-
-/// A course on Moodle, with the desktop's tabs.
-export function MoodleCourseScreen({ courseId }: { courseId: number }) {
-  const [tab, setTab] = useState<CourseTab>("contents");
-  return (
-    <Screen>
-      <PageTabs
-        label="Course"
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { id: "contents", label: "Contents" },
-          { id: "assignments", label: "Assignments" },
-          { id: "grades", label: "Grades" },
-          { id: "forums", label: "Forums" },
-        ]}
-      />
-      {tab === "contents" ? <Contents courseId={courseId} /> : null}
-      {tab === "assignments" ? <Assignments courseId={courseId} /> : null}
-      {tab === "grades" ? <Grades courseId={courseId} /> : null}
-      {tab === "forums" ? <Forums courseId={courseId} /> : null}
-    </Screen>
-  );
-}
-
-function ModuleRow({ module }: { module: MoodleModule }) {
-  const service = useMoodleService();
-  const { data: connection } = useMoodleConnection();
-  const look = moduleLook(module.modname);
-  const file = module.contents.find((f) => f.type === "file" && f.fileurl);
-  return (
-    <Row
-      title={module.name}
-      subtitle={file ? file.filename : plainText(module.description).split("\n")[0] || null}
-      icon={<IconBadge glyph={look.glyph} tint={look.tint} />}
-      onPress={
-        file
-          ? () => openOnSite(service, connection, file.fileurl, true)
-          : module.url
-            ? () => openOnSite(service, connection, module.url)
-            : undefined
-      }
-    />
-  );
-}
-
-function Contents({ courseId }: { courseId: number }) {
-  const contents = useMoodleContents(courseId);
-  if (contents.error)
-    return <Failed error={contents.error} retry={() => void contents.refetch()} />;
-  if (contents.isSuccess && contents.data.length === 0)
-    return <Empty text="This course is empty." />;
-  return (
-    <>
-      {(contents.data ?? []).map((section) => (
-        <Section key={section.id} title={section.name || "General"}>
-          {section.summary ? (
-            <Text tone="muted" className="px-1 pb-2">
-              {plainText(section.summary)}
-            </Text>
-          ) : null}
-          {section.modules.length === 0 ? <Empty text="Nothing here yet." /> : null}
-          {section.modules.map((module) => (
-            <ModuleRow key={module.id} module={module} />
-          ))}
-        </Section>
-      ))}
-    </>
-  );
-}
-
-/// "Due Mon, Nov 20", "Was due ...", or when it opens.
-function dueLine(a: MoodleAssignment, today = localDay()): string {
-  const due = dayOf(a.duedate);
-  if (!due) return "No due date";
-  return `${due < today ? "Was due" : "Due"} ${dayLabel(due, today)}`;
-}
-
-function Assignments({ courseId }: { courseId: number }) {
-  const service = useMoodleService();
-  const { data: connection } = useMoodleConnection();
-  const assignments = useMoodleAssignments(courseId);
-  if (assignments.error) {
-    return <Failed error={assignments.error} retry={() => void assignments.refetch()} />;
-  }
-  const sorted = [...(assignments.data ?? [])].sort(
-    (a, b) => (a.duedate || Infinity) - (b.duedate || Infinity),
-  );
-  return (
-    <Section>
-      {assignments.isSuccess && sorted.length === 0 ? <Empty text="No assignments." /> : null}
-      {sorted.map((a) => (
-        <Row
-          key={a.id}
-          title={a.name}
-          subtitle={dueLine(a)}
-          icon={<IconBadge glyph={IconClipboardList} tint="purple" />}
-          onPress={
-            connection
-              ? () =>
-                  openOnSite(
-                    service,
-                    connection,
-                    `${connection.site.root}/mod/assign/view.php?id=${a.cmid}`,
-                  )
-              : undefined
-          }
-        />
-      ))}
-    </Section>
-  );
-}
-
-function Grades({ courseId }: { courseId: number }) {
-  const grades = useMoodleGrades(courseId);
-  if (grades.error) return <Failed error={grades.error} retry={() => void grades.refetch()} />;
-  const items = grades.data ?? [];
-  return (
-    <Section>
-      {grades.isSuccess && items.length === 0 ? <Empty text="No grades yet." /> : null}
-      {items.map((item) => (
-        <Row
-          key={item.id}
-          title={item.itemtype === "course" ? "Course total" : item.itemname || "Grade"}
-          subtitle={item.rangeformatted ? `Out of ${item.rangeformatted}` : null}
-          icon={<IconBadge glyph={IconReportAnalytics} tint="green" />}
-          trailing={
-            <Text className="font-medium">
-              {item.gradeformatted && item.gradeformatted !== "-"
-                ? item.gradeformatted
-                : "No grade"}
-            </Text>
-          }
-        />
-      ))}
-    </Section>
-  );
-}
-
-function ForumSection({ forum }: { forum: MoodleForum }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(forum.type === "news");
-  const discussions = useMoodleDiscussions(forum.id, open);
-  return (
-    <Section title={forum.name}>
-      {!open ? (
-        <Row
-          title={`${forum.numdiscussions} ${forum.numdiscussions === 1 ? "discussion" : "discussions"}`}
-          icon={<IconBadge glyph={IconMessages} tint="green" />}
-          onPress={() => setOpen(true)}
-        />
-      ) : null}
-      {discussions.error ? (
-        <Failed error={discussions.error} retry={() => void discussions.refetch()} />
-      ) : null}
-      {open && discussions.isSuccess && discussions.data.length === 0 ? (
-        <Empty text="No discussions yet." />
-      ) : null}
-      {(discussions.data ?? []).map((d) => (
-        <Row
-          key={d.discussion}
-          title={d.name || d.subject}
-          subtitle={`${d.userfullname} · ${dayLabel(dayOf(d.timemodified) ?? localDay())}`}
-          icon={<IconBadge glyph={IconSpeakerphone} tint="green" />}
-          onPress={() =>
-            router.push(`/moodle/discussion/${d.discussion}?name=${encodeURIComponent(d.name)}`)
-          }
-        />
-      ))}
-    </Section>
-  );
-}
-
-function Forums({ courseId }: { courseId: number }) {
-  const forums = useMoodleForums(courseId);
-  if (forums.error) return <Failed error={forums.error} retry={() => void forums.refetch()} />;
-  if (forums.isSuccess && forums.data.length === 0) return <Empty text="No forums." />;
-  return (
-    <>
-      {(forums.data ?? []).map((forum) => (
-        <ForumSection key={forum.id} forum={forum} />
-      ))}
-    </>
-  );
-}
-
-/// A forum discussion: its posts, oldest first.
-export function MoodleDiscussionScreen({ discussionId }: { discussionId: number }) {
-  const posts = useMoodlePosts(discussionId);
-  return (
-    <Screen>
-      {posts.error ? <Failed error={posts.error} retry={() => void posts.refetch()} /> : null}
-      {(posts.data ?? []).map((post) => (
-        <View key={post.id} className="gap-1 border-b border-border/60 pb-4">
-          <Text className="font-semibold">{post.subject}</Text>
-          <Text variant="small" tone="muted">
-            {`${post.author.fullname} · ${dayLabel(dayOf(post.timecreated) ?? localDay())}`}
-          </Text>
-          <Text selectable>{plainText(post.message)}</Text>
-        </View>
-      ))}
-    </Screen>
   );
 }
 

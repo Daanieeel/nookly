@@ -226,7 +226,7 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
         ) : module === "semesters" ? (
           <SemesterList spaceId={spaceId} />
         ) : module === "moodle" ? (
-          <MoodleModule />
+          <MoodleModule spaceId={spaceId} />
         ) : STUDY.includes(module) ? (
           <>
             <StudyList spaceId={spaceId} module={module} />

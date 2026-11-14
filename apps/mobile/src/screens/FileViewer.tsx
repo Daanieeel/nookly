@@ -1,4 +1,4 @@
-import { type FileRecord, fileKindOf } from "@nookly/shared/data";
+import { fileKindOf } from "@nookly/shared/data";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { File } from "expo-file-system";
@@ -16,7 +16,7 @@ import { SearchField } from "../ui/kit/SearchField.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
-import { KIND_ICONS, nameOf, pathOf, viewerFor } from "./file-kinds.ts";
+import { KIND_ICONS, nameOf, pathOf, type ViewerKind, viewerFor } from "./file-kinds.ts";
 
 /// Hands the stored file to other apps (Files, Mail, Books), the system's share sheet.
 async function shareFile(path: string) {
@@ -87,10 +87,19 @@ function PdfSearch({
   );
 }
 
-function Viewer({ file }: { file: FileRecord }) {
-  const name = nameOf(file);
-  const path = pathOf(file);
-  const kind = viewerFor(file);
+/// A file on this phone shown full screen, with Search for a PDF and Share in the bar.
+/// `path` is null while the file is not here yet, which `missing` explains.
+export function FileContents({
+  name,
+  path,
+  kind,
+  missing,
+}: {
+  name: string;
+  path: string | null;
+  kind: ViewerKind;
+  missing: string;
+}) {
   const { available, View: FileView } = useFileViewer();
   const viewer = useRef<FileViewHandle>(null);
   const [searching, setSearching] = useState(false);
@@ -129,11 +138,7 @@ function Viewer({ file }: { file: FileRecord }) {
         <EmptyState
           glyph={KIND_ICONS[fileKindOf(name)]}
           title={path ? "Open it in another app" : "Not on this phone yet"}
-          message={
-            path
-              ? "This phone cannot show this kind of file itself."
-              : "The contents arrive when this phone has synced."
-          }
+          message={path ? "This phone cannot show this kind of file itself." : missing}
           action={path ? { label: "Open In…", onPress: () => void shareFile(path) } : undefined}
         />
       ) : kind === "text" ? (
@@ -179,5 +184,12 @@ export function FileViewerScreen({ id }: { id: string }) {
   const { data: file, isPending } = useFile(id);
   if (isPending) return <LoadingState />;
   if (!file) return <EmptyState title="This file is gone" />;
-  return <Viewer file={file} />;
+  return (
+    <FileContents
+      name={nameOf(file)}
+      path={pathOf(file)}
+      kind={viewerFor(file)}
+      missing="The contents arrive when this phone has synced."
+    />
+  );
 }

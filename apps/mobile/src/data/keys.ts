@@ -32,6 +32,7 @@ export const keys = {
   recipeTags: ["local", "recipe-tags"] as const,
   files: (spaceId: string | null) => ["local", "files", spaceId] as const,
   file: (id: string) => ["local", "file", id] as const,
+  fileWithOrigin: (origin: string) => ["local", "file-origin", origin] as const,
   subtasks: (id: string) => ["local", "subtasks", id] as const,
   progress: (id: string) => ["local", "subtask-progress", id] as const,
   blocks: (entityId: string) => ["local", "blocks", entityId] as const,

@@ -57,7 +57,11 @@ export type ViewerKind = "pdf" | "text" | "system" | "none";
 
 export function viewerFor(file: FileRecord): ViewerKind {
   if (isLinkOnly(file) || isDownloading(file) || !pathOf(file)) return "none";
-  const name = nameOf(file);
+  return viewerForName(nameOf(file));
+}
+
+/// How the viewer shows a file on this phone called `name`.
+export function viewerForName(name: string): ViewerKind {
   if (isTextFile(name)) return "text";
   return fileKindOf(name) === "pdf" ? "pdf" : "system";
 }
