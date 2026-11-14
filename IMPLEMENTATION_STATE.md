@@ -142,6 +142,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 ### 9b. Rounder corners (asked 2026-11-14)
 
 - [ ] Mobile: a little more corner radius across the app (controls, fields, sections, cards, sheets, rows), not necessarily fully round. Through the phone's tokens (`ui/tokens.ts` `RADIUS`, the classes the phone uses), never per screen.
+- [ ] Squircles, not plain rounding, on both apps, kept subtle (asked 2026-11-14: "not too strong or overwhelming"). Phone: `borderCurve: "continuous"` (`CORNER`) on every rounded surface, checked app wide. Desktop: CSS `corner-shape` with a gentle `superellipse(...)` where the web view supports it, plain `border-radius` as the fallback; check what the Tauri web view (WebKit on macOS) draws.
 - [ ] Desktop: the same goal. The radii come from the design tokens in `packages/ui`; the user asked for this directly, which overrides the "never modify tokens" rule for this change only (record it in `DECISIONS.md`). Check dialogs, popovers, buttons, inputs, cards and the sidebar in the running desktop.
 
 ### 10. Final checks and report
