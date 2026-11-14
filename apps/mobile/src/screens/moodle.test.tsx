@@ -77,6 +77,15 @@ describe("Moodle on the phone", () => {
     expect(moodle.keys.get("moodle.pending")).toContain('"root":"https://moodle.uni.edu"');
   });
 
+  // As on the desktop: a white button with Moodle's own mark, the same in both themes.
+  it("signs in with a Moodle branded button", async () => {
+    const moodle = fakeMoodle();
+    const screen = await renderScreens({ index: moodle.wrap(<MoodleModule />) }, testData());
+    const button = await screen.findByRole("button", { name: "Sign In with Moodle" });
+    expect(button).toHaveStyle({ backgroundColor: "#ffffff", borderColor: "#e2e2e2" });
+    expect(screen.getByTestId("moodle-mark", { includeHiddenElements: true })).toBeTruthy();
+  });
+
   it("lists the courses once connected, leaving out hidden ones", async () => {
     const moodle = connected({
       core_enrol_get_users_courses: [

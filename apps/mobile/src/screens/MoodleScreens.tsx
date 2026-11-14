@@ -34,6 +34,7 @@ import {
   useMoodlePosts,
 } from "../moodle/queries.ts";
 import { type MoodleService, useMoodleService } from "../moodle/service.tsx";
+import { BrandButton, MoodleMark } from "../ui/BrandButton.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
 import { FormSection } from "../ui/kit/Form.tsx";
@@ -136,9 +137,9 @@ function ConnectMoodle() {
         />
       </FormSection>
       {open.error ? <Text tone="destructive">{open.error.message}</Text> : null}
-      <Button
+      <BrandButton
         label="Sign In with Moodle"
-        size="lg"
+        mark={<MoodleMark />}
         status={statusOf(open)}
         errorLabel="Try Again"
         onPress={() => site.trim() && open.mutate(site)}
