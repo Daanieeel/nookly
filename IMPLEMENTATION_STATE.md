@@ -177,7 +177,7 @@ Done so far (e25434c9): the desktop's pure helpers moved to `packages/shared/src
 Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it before item 2 below.
 
 - [ ] Sidebar header: the blur behind "Nookly" and the search button looks and works right, but it is visibly staggered (the bands of item 2 show as steps). Make the fade smooth.
-- [ ] Notes list empty state (`notes-page-empty-state-bug.png`): it has no horizontal padding. Fix it (check the other list pages' empty states too).
+- [x] (2026-11-14, it is the desktop's page: the empty branch of Notes and Jots skipped the list's `p-6`; tests) Notes list empty state (`notes-page-empty-state-bug.png`): it has no horizontal padding. Fix it (check the other list pages' empty states too).
 - [ ] Filter and display option sheets: swap the colours so inputs and options are lighter than the sheet they sit on (now the sheet is a light charcoal and the inputs darker). Inputs are always lighter than their surface, for the right sense of depth.
 - [ ] Filter options open a select popover (the inline menu or the floating picker card of item 1), never a new bottom sheet covering the current one.
 - [ ] New Note sheet in the same style as New Assignment and New Task (the compose sheet).
@@ -191,7 +191,7 @@ Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it 
 ### 13. Leftovers from item 11 and the final checks (found 2026-11-14)
 
 - [ ] Moodle on the phone in the running app: the dev client is being rebuilt for `expo-web-browser` (first try failed on a stale gesture handler object; this worktree's DerivedData was cleared and it rebuilds). Then check the course list, a course, a file with import, and Calendar Connections on screen.
-- [ ] `packages/frontend` tests: 5 failures in 4 files in a full run (`data-table.test.tsx`, `BackupSettings.test.tsx`, `ShortcutsTab.test.tsx` and one more). Run each alone; fix any caused by this branch, note any that are load timing only.
+- [x] (2026-11-14, all pass alone: load timing) `packages/frontend` tests: 5 failures in 4 files in a full run (`data-table.test.tsx`, `BackupSettings.test.tsx`, `ShortcutsTab.test.tsx` and one more). Run each alone; fix any caused by this branch, note any that are load timing only.
 - [ ] Final checks again (lint, format, typecheck, all tests, cargo test, duplication) and a new final report.
 
 ## Needs the user

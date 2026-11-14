@@ -27,6 +27,7 @@ All notable changes to Nookly are listed here.
 - **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on.
 - **Your cursor stays in its word** while someone on another device types earlier in the same line.
 - **Names next to other people's cursors stay visible** in the first line of a page.
+- **An empty Notes or Jots page has room around it** instead of touching the edges.
 
 ## 0.75.2 (2026-11-13)
 
