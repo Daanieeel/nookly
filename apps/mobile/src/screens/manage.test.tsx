@@ -1,11 +1,13 @@
 import { openRow } from "../test/sheet.ts";
 import {
+  createLabel,
   createPage,
   createSpace,
   createSubtask,
   createTask,
   getEntity,
   getTask,
+  listLabels,
   listSpaces,
   listSubtasks,
   spaceModules,
@@ -86,6 +88,29 @@ describe("a task's effort and sub-tasks", () => {
 });
 
 describe("Space settings", () => {
+  // Every label used to draw all the colours under it; now a tap opens one label's sheet.
+  it("edits a label in its own sheet", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const label = await createLabel(data.db, space, "Urgent");
+    const screen = await openOver(
+      { "space-settings": () => <SpaceSettingsScreen spaceId={space} /> },
+      data,
+      "/space-settings",
+    );
+    expect(await screen.findByRole("button", { name: "Urgent" })).toBeTruthy();
+    expect(screen.queryByLabelText("Color of Urgent")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Urgent" }));
+    const name = await screen.findByLabelText("Name of Urgent");
+    await fireEvent.changeText(name, "Soon");
+    await fireEvent(name, "endEditing");
+    await waitFor(async () =>
+      expect((await listLabels(data.db, space)).map((l) => l.name)).toEqual(["Soon"]),
+    );
+    expect(screen.getByLabelText("Color of Urgent")).toBeTruthy();
+    expect(label).toBeTruthy();
+  });
+
   it("renames, removes a module with a choice, adds one back, and deletes only after asking", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Work", "#3b82f6");
@@ -104,12 +129,27 @@ describe("Space settings", () => {
     await answer(screen, "Remove Tasks?", "Hide");
     await waitFor(async () => expect(await spaceModules(data.db, space)).toEqual(["notes"]));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Remove Tasks" })).toBeNull());
+    // A sheet of only the modules the Space does not have yet.
     await fireEvent.press(await screen.findByRole("button", { name: "Add Module" }));
-    await fireEvent.press(await screen.findByRole("menuitem", { name: "Tasks" }));
+    expect(await screen.findByRole("radio", { name: /^Tasks/ })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /^Notes/ })).toBeNull();
+    await fireEvent.press(screen.getByRole("radio", { name: /^Tasks/ }));
     await waitFor(async () => expect(await spaceModules(data.db, space)).toContain("tasks"));
+    // As on the desktop: what goes, how much, and the Space's name typed before it can go.
     await fireEvent.press(screen.getByRole("button", { name: "Delete Space" }));
+    expect(await screen.findByText('Delete "Office"?')).toBeTruthy();
+    expect(
+      screen.getByText(
+        "This permanently deletes the Space and everything in it, across all its modules. This cannot be undone; nothing goes to Trash.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("2 Items")).toBeTruthy();
+    const sure = () => screen.getAllByRole("button", { name: "Delete Space" }).at(-1)!;
+    expect(sure().props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.changeText(screen.getByLabelText("Type Office to confirm"), "office ");
+    expect(sure().props.accessibilityState).toMatchObject({ disabled: false });
     expect((await listSpaces(data.db)).length).toBe(1);
-    await answer(screen, 'Delete "Office" forever?', "Delete Forever");
+    await fireEvent.press(sure());
     await waitFor(async () => expect(await listSpaces(data.db)).toEqual([]));
     // Three sheets come up and go down on the way.
   }, 15_000);

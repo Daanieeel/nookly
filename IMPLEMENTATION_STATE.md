@@ -131,10 +131,10 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 ### 8. Mobile: Space settings
 
-- [ ] "Choose Emoji": lower text opacity; the emoji is aligned and not cut off (`choose-emoji-positioning-bug.png`).
-- [ ] Label colours are set in a sheet opened by tapping a label, not inline under every label.
-- [ ] Deleting a Space forever shows the same warning as the desktop.
-- [ ] "Add module to Space" is a sheet (Linear style), not a page, and lists only modules the Space does not have.
+- [x] (2026-11-14, muted text, the emoji drawn at its natural height) "Choose Emoji": lower text opacity; the emoji is aligned and not cut off (`choose-emoji-positioning-bug.png`).
+- [x] (2026-11-14, a row with a colour dot opens the label's sheet: name, colours, delete; test) Label colours are set in a sheet opened by tapping a label, not inline under every label.
+- [x] (2026-11-14, the desktop's words, the item count and the name typed first; test) Deleting a Space forever shows the same warning as the desktop.
+- [x] (2026-11-14, a card sheet with search listing only missing modules; test) "Add module to Space" is a sheet (Linear style), not a page, and lists only modules the Space does not have.
 
 ### 9. Both apps
 

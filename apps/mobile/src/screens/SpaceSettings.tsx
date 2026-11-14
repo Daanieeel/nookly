@@ -3,6 +3,7 @@ import {
   addSpaceModule,
   deleteLabel,
   deleteSpace,
+  listEntities,
   removeSpaceModule,
   reorderSpaceModules,
   updateLabel,
@@ -15,17 +16,20 @@ import {
   isModuleKey,
   removalGroup,
 } from "@nookly/shared/modules";
-import { IconTrash, IconLayoutGridAdd } from "@tabler/icons-react-native";
+import { IconChevronRight, IconLayoutGridAdd, IconTrash } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import { useLocalWrite } from "../data/context.tsx";
+import { useDb, useLocalWrite } from "../data/context.tsx";
 import { useLabels, useSpaceModules, useSpaces } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { cn } from "../ui/classes.ts";
-import { Empty, ROW_DIVIDER, Section } from "../ui/Row.tsx";
+import { Empty, ROW_DIVIDER, Row, Section } from "../ui/Row.tsx";
+import { FormSection } from "../ui/kit/Form.tsx";
+import { OptionList } from "../ui/sheet/OptionList.tsx";
+import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -60,9 +64,12 @@ function Swatches({
   );
 }
 
-/// One label of the Space: its name, its color, and deleting it.
+/// One label of the Space: its colour and name; a tap opens its sheet to rename it, change
+/// its colour or delete it, so a long list of labels stays a list.
 function LabelRow({ id, name, color }: { id: string; name: string; color: string }) {
+  const theme = useTheme();
   const menu = useMenu();
+  const [open, setOpen] = useState(false);
   const [text, setText] = useState(name);
   useEffect(() => setText(name), [name]);
   const update = useLocalWrite((db, patch: { name?: string; color?: string; icon?: string }) =>
@@ -70,35 +77,50 @@ function LabelRow({ id, name, color }: { id: string; name: string; color: string
   );
   const remove = useLocalWrite((db) => deleteLabel(db, id));
   return (
-    <View className={cn("gap-3 p-4", ROW_DIVIDER)}>
-      <Field
-        label={`Label ${name}`}
-        value={text}
-        onChangeText={setText}
-        onEndEditing={() => {
-          if (text.trim() && text !== name) update.mutate({ name: text });
-        }}
-        error={update.error?.message}
+    <>
+      <Row
+        title={name}
+        icon={<View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: color }} />}
+        trailing={<IconChevronRight size={18} color={theme.colors.mutedForeground} />}
+        accessibilityHint="Rename it, change its colour or delete it"
+        onPress={() => setOpen(true)}
       />
-      <Swatches
-        label={`Color of ${name}`}
-        value={color}
-        onPick={(c) => update.mutate({ color: c })}
-      />
-      <Button
-        label="Delete Label"
-        variant="ghost"
-        onPress={() =>
-          menu.confirm({
-            title: "Delete this label?",
-            description: `"${name}" comes off every item that has it.`,
-            actions: [
-              { label: "Delete", destructive: true, onPress: () => remove.mutate(undefined) },
-            ],
-          })
-        }
-      />
-    </View>
+      <Sheet open={open} onOpenChange={setOpen} title={name} presentation="card">
+        <View className="gap-5">
+          <FormSection>
+            <Field
+              label={`Name of ${name}`}
+              value={text}
+              onChangeText={setText}
+              onEndEditing={() => {
+                if (text.trim() && text !== name) update.mutate({ name: text });
+              }}
+              error={update.error?.message}
+            />
+          </FormSection>
+          <Swatches
+            label={`Color of ${name}`}
+            value={color}
+            onPick={(c) => update.mutate({ color: c })}
+          />
+          <Button
+            label="Delete Label"
+            variant="ghost"
+            icon={<IconTrash size={18} color={theme.colors.destructive} />}
+            onPress={() => {
+              setOpen(false);
+              menu.confirm({
+                title: "Delete this label?",
+                description: `"${name}" comes off every item that has it.`,
+                actions: [
+                  { label: "Delete", destructive: true, onPress: () => remove.mutate(undefined) },
+                ],
+              });
+            }}
+          />
+        </View>
+      </Sheet>
+    </>
   );
 }
 
@@ -124,6 +146,8 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
     removeSpaceModule(db, spaceId, input.key, input.trash),
   );
   const destroy = useLocalWrite((db) => deleteSpace(db, spaceId));
+  const [adding, setAdding] = useState(false);
+  const db = useDb();
   if (!space) return null;
   const shown = modules.filter(isModuleKey);
   const more = ADDABLE.filter((key) => !shown.includes(key));
@@ -179,18 +203,27 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
             variant="secondary"
             size="lg"
             icon={<IconLayoutGridAdd size={18} color={theme.colors.foreground} />}
-            onPress={() =>
-              menu.show(
-                "Add Module",
-                more.map((key) => ({
-                  label: MODULE_LABELS[key],
-                  icon: MODULE_ICONS[key],
-                  onPress: () => add.mutate(key),
-                })),
-              )
-            }
+            onPress={() => setAdding(true)}
           />
         ) : null}
+        <Sheet open={adding} onOpenChange={setAdding} title="Add Module" presentation="card">
+          <OptionList
+            label="Modules"
+            search
+            searchPlaceholder="Find a module…"
+            value={null}
+            options={more.map((key) => ({
+              id: key,
+              label: MODULE_LABELS[key],
+              glyph: MODULE_ICONS[key],
+              tint: space.color,
+            }))}
+            onChange={(key) => {
+              setAdding(false);
+              add.mutate(key);
+            }}
+          />
+        </Sheet>
         <Section title="Modules">
           {shown.length === 0 ? <Empty text="No modules yet." /> : null}
           <ReorderList
@@ -240,20 +273,25 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
               variant="destructive"
               status={statusOf(destroy)}
               errorLabel="Couldn't delete"
-              onPress={() =>
+              onPress={async () => {
+                // Counted when asked, so it is what goes now.
+                const count = (await listEntities(db, { spaceId })).length;
                 menu.confirm({
-                  title: `Delete "${space.name}" forever?`,
-                  description: "Everything in it goes, on every device. This can't be undone.",
+                  title: `Delete "${space.name}"?`,
+                  description:
+                    "This permanently deletes the Space and everything in it, across all its modules. This cannot be undone; nothing goes to Trash.",
+                  stats: [{ value: count, label: count === 1 ? "Item" : "Items" }],
+                  phrase: space.name,
                   actions: [
                     {
-                      label: "Delete Forever",
+                      label: "Delete Space",
                       destructive: true,
                       onPress: () =>
                         destroy.mutate(undefined, { onSuccess: () => router.dismissAll() }),
                     },
                   ],
-                })
-              }
+                });
+              }}
             />
           </View>
         </Section>

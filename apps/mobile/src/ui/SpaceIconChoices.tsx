@@ -1,8 +1,8 @@
 import { ICON_LIBRARY_NAMES, iconLibraryValue } from "@nookly/shared/icons";
 import { IconMoodSmile } from "@tabler/icons-react-native";
-import { View } from "react-native";
+import { Text as NativeText, View } from "react-native";
 import { Button } from "./Button.tsx";
-import { ICON_LIBRARY, IconValue } from "./icons.tsx";
+import { ICON_LIBRARY } from "./icons.tsx";
 import { IconGrid } from "./kit/IconGrid.tsx";
 import { Surface } from "./kit/Surface.tsx";
 import { useTheme } from "./theme.ts";
@@ -41,12 +41,19 @@ export function SpaceIconChoices({
         />
         <Button
           label="Choose Emoji"
-          variant="ghost"
+          variant="muted"
           icon={
             emoji ? (
-              <IconValue value={emoji} size={18} fallback={color} />
+              <View
+                accessibilityElementsHidden
+                style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center" }}
+              >
+                <NativeText allowFontScaling={false} style={{ fontSize: 18 }}>
+                  {emoji}
+                </NativeText>
+              </View>
             ) : (
-              <IconMoodSmile size={18} color={theme.colors.foreground} />
+              <IconMoodSmile size={18} color={theme.colors.mutedForeground} />
             )
           }
           onPress={onChooseEmoji}
