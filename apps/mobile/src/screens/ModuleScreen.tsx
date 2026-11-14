@@ -14,7 +14,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
-import { BookmarkList } from "./BookmarkList.tsx";
+import { BookmarkList, BookmarkPasteBar } from "./BookmarkList.tsx";
 import { CalendarScreen } from "./CalendarScreen.tsx";
 import { FileRows, useAddFiles } from "./FileScreens.tsx";
 import { JotList, NoteList } from "./PageLists.tsx";
@@ -224,6 +224,7 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
           <EntityList spaceId={spaceId} module={module} />
         )}
       </Screen>
+      {module === "bookmarks" ? <BookmarkPasteBar spaceId={spaceId} /> : null}
     </>
   );
 }

@@ -4,6 +4,7 @@ import { MemoryServer } from "../sync/testing/memory-server.ts";
 import { NodeSqliteDriver } from "../sync/testing/node-driver.ts";
 import { agenda, createCalendarEntry, updateCalendarEntry } from "./calendar.ts";
 import { createBookmark, listBookmarks, titleFromUrl, updateBookmark } from "./bookmarks.ts";
+import { attachLabel, createLabel } from "./links.ts";
 import type { LocalDb } from "./db.ts";
 import {
   createSpace,
@@ -235,6 +236,22 @@ describe("bookmarks", () => {
       ["example.com/article", "Long read"],
     ]);
     expect(titleFromUrl("http://a.b")).toBe("a.b");
+  });
+
+  // The phone filters and groups them by label, as the desktop does.
+  it("list the labels on them", async () => {
+    const space = await createSpace(db, "Reading", "yellow");
+    const id = await createBookmark(db, space, "https://example.com/a");
+    await createBookmark(db, space, "https://example.com/b");
+    const later = await createLabel(db, space, "Later");
+    await attachLabel(db, id, later);
+    const listed = await listBookmarks(db, space);
+    expect(listed.map((b) => [b.url, b.labelIds])).toEqual(
+      expect.arrayContaining([
+        ["https://example.com/a", [later]],
+        ["https://example.com/b", []],
+      ]),
+    );
   });
 });
 

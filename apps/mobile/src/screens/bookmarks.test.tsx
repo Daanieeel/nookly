@@ -1,7 +1,25 @@
-import { createBookmark, createSpace, getBookmarkDetails, getEntity } from "@nookly/shared/data";
+import {
+  attachLabel,
+  createBookmark,
+  createLabel,
+  createSpace,
+  getBookmarkDetails,
+  getEntity,
+} from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
-import { BookmarkList } from "./BookmarkList.tsx";
+import { choose, openRow } from "../test/sheet.ts";
+import { BookmarkList, BookmarkPasteBar } from "./BookmarkList.tsx";
+
+/// The page as the module shows it: the list, and the paste bar floating under it.
+function Bookmarks({ space }: { space: string }) {
+  return (
+    <>
+      <BookmarkList spaceId={space} />
+      <BookmarkPasteBar spaceId={space} />
+    </>
+  );
+}
 import { EntityScreen } from "./EntityScreen.tsx";
 
 const PAGE = `<head><title>Kubernetes Deployments</title>
@@ -65,7 +83,7 @@ describe("a Space's bookmarks", () => {
     const space = await createSpace(data.db, "Web", "#3b82f6");
     await createBookmark(data.db, space, "https://example.com/a", "Example A");
     const fake = serve(PAGE);
-    const screen = await renderScreens({ index: () => <BookmarkList spaceId={space} /> }, data);
+    const screen = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
     expect(await screen.findByRole("link", { name: "Example A" })).toBeTruthy();
     expect(screen.getByText(/^example\.com · /)).toBeTruthy();
     const field = screen.getByLabelText("Paste a URL to save it");
@@ -74,5 +92,28 @@ describe("a Space's bookmarks", () => {
     await waitFor(() => expect(fake).toHaveBeenCalled());
     expect(await screen.findByRole("link", { name: "Kubernetes Deployments" })).toBeTruthy();
     fake.mockRestore();
+  });
+
+  // The desktop's Filter and Display, in Linear's sheets (D65).
+  it("narrows to a label, and shows as a list grouped by site", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Web", "#3b82f6");
+    const a = await createBookmark(data.db, space, "https://example.com/a", "Example A");
+    await createBookmark(data.db, space, "https://other.org/b", "Other B");
+    const later = await createLabel(data.db, space, "Later");
+    await attachLabel(data.db, a, later);
+    const screen = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
+    expect(await screen.findByRole("link", { name: "Other B" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Labels");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Later" }));
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Other B" })).toBeNull());
+    expect(screen.getByRole("link", { name: "Example A" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Later ×" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: "List" }));
+    await choose(screen, "Grouping", "Site");
+    expect(await screen.findByRole("header", { name: "other.org" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "example.com" })).toBeTruthy();
   });
 });
