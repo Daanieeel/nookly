@@ -207,6 +207,9 @@ export default function RootLayout() {
       <Stack.Screen name="new/semester-setup" options={SHEET_ROUTE} />
       <Stack.Screen name="new/jot" options={SHEET_ROUTE} />
       <Stack.Screen name="assignments" options={{ title: "Assignments" }} />
+      <Stack.Screen name="moodle/[courseId]" options={{ title: "Course" }} />
+      <Stack.Screen name="moodle/discussion/[id]" options={{ title: "Discussion" }} />
+      <Stack.Screen name="moodle-signin" options={{ title: "Moodle" }} />
       <Stack.Screen name="settings/sidebar" options={{ title: "Sidebar" }} />
       <Stack.Screen
         name="settings/shortcuts"

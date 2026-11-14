@@ -12,6 +12,7 @@ All notable changes to Nookly are listed here.
 - When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it, and makes a backup first. Signing out removes the account's data from that device and keeps it in the account.
 - Settings, Account lists every signed in device, and you can sign one out from another.
 - On your phone, scan paper documents straight into a Space's files, then name, label and link them while they upload.
+- Moodle works on your phone too: sign in on your university's page, then read your courses, open files, and check assignments, grades and forums.
 
 ### Changed
 

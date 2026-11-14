@@ -10,6 +10,7 @@ import { useAssignments, useCourses, useDecks, useEntities, useExams } from "../
 import { Button, statusOf } from "../ui/Button.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
+import { MoodleModule } from "./MoodleScreens.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
@@ -224,6 +225,8 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
           <RecipeRows spaceId={spaceId} />
         ) : module === "semesters" ? (
           <SemesterList spaceId={spaceId} />
+        ) : module === "moodle" ? (
+          <MoodleModule />
         ) : STUDY.includes(module) ? (
           <>
             <StudyList spaceId={spaceId} module={module} />
