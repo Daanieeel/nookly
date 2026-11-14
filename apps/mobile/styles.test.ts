@@ -41,8 +41,10 @@ describe("the phone's styles", () => {
   it("size things as the desktop does", () => {
     expect(rules("h-9")).toContain('"height":36');
     expect(rules("text-sm")).toContain('"fontSize":14');
-    expect(rules("rounded-md")).toContain('"borderRadius":8');
-    expect(rules("rounded-xl")).toContain('"borderRadius":14');
+    // D67: a step rounder than before, as continuous curves.
+    expect(rules("rounded-md")).toContain('"borderRadius":10');
+    expect(rules("rounded-xl")).toContain('"borderRadius":16');
+    expect(rules("rounded-xl")).toContain('"borderCurve":"continuous"');
   });
 
   it("take colors from the desktop's theme, dark by the system's setting", () => {
