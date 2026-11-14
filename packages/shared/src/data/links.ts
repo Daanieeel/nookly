@@ -1,5 +1,6 @@
 import { labelColorFor } from "../colors.ts";
-import { type LocalDb, first, iso, rows, str, write } from "./db.ts";
+import type { Row } from "../schema.ts";
+import { type LocalDb, first, iso, optStr, rows, str, write } from "./db.ts";
 import { ENTITY_COLUMNS, type EntityRecord, toEntity } from "./entities.ts";
 
 /// Related items and labels, the two ways an item points past itself, written as the
@@ -156,6 +157,6 @@ export async function labelIdsByEntity(
 export const LABEL_IDS_COLUMN =
   "(SELECT GROUP_CONCAT(el.label_id) FROM entity_labels el WHERE el.entity_id = e.id) AS label_ids";
 
-export function labelIdsOf(row: Record<string, unknown>): string[] {
-  return typeof row.label_ids === "string" && row.label_ids ? row.label_ids.split(",") : [];
+export function labelIdsOf(row: Row): string[] {
+  return optStr(row.label_ids)?.split(",") ?? [];
 }
