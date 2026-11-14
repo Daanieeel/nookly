@@ -29,6 +29,8 @@ import {
   IconPlus,
   IconCalendarWeek,
   IconSchool,
+  IconFeather,
+  IconNotes,
 } from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -654,12 +656,31 @@ function AddCourse({
   );
 }
 
+/// Which page is the next to write, drawn as the main button: the Jot first, then the Note.
+export function primarySessionPage(hasJot: boolean, hasNote: boolean): "jot" | "note" | null {
+  if (!hasJot) return "jot";
+  return hasNote ? null : "note";
+}
+
 /// The Jot and the Note written for this session: each opens, or is made on the spot.
 function SessionPages({ sessionId, readOnly }: { sessionId: string; readOnly: boolean }) {
+  const { data: jot } = useSessionPage(sessionId, "jot");
+  const { data: note } = useSessionPage(sessionId, "note");
+  const primary = primarySessionPage(Boolean(jot), Boolean(note));
   return (
     <View className="gap-3">
-      <SessionPageCard sessionId={sessionId} kind="jot" readOnly={readOnly} />
-      <SessionPageCard sessionId={sessionId} kind="note" readOnly={readOnly} />
+      <SessionPageCard
+        sessionId={sessionId}
+        kind="jot"
+        readOnly={readOnly}
+        primary={primary === "jot"}
+      />
+      <SessionPageCard
+        sessionId={sessionId}
+        kind="note"
+        readOnly={readOnly}
+        primary={primary === "note"}
+      />
     </View>
   );
 }
@@ -668,12 +689,15 @@ function SessionPageCard({
   sessionId,
   kind,
   readOnly,
+  primary,
 }: {
   sessionId: string;
   kind: "jot" | "note";
   readOnly: boolean;
+  primary: boolean;
 }) {
   const router = useRouter();
+  const theme = useTheme();
   const { data: page } = useSessionPage(sessionId, kind);
   const make = useLocalWrite((db, _: undefined) => createSessionPage(db, sessionId, kind));
   const noun = kind === "jot" ? "Jot" : "Note";
@@ -691,10 +715,23 @@ function SessionPageCard({
   }
   if (readOnly) return null;
   return (
-    <View className="items-start">
+    <View>
       <Button
         label={`Create ${noun} for This Session`}
-        variant="secondary"
+        variant={primary ? "default" : "secondary"}
+        icon={
+          kind === "jot" ? (
+            <IconFeather
+              size={18}
+              color={primary ? theme.colors.primaryForeground : theme.colors.foreground}
+            />
+          ) : (
+            <IconNotes
+              size={18}
+              color={primary ? theme.colors.primaryForeground : theme.colors.foreground}
+            />
+          )
+        }
         status={statusOf(make)}
         errorLabel="Couldn't create it"
         onPress={() => make.mutate(undefined, { onSuccess: (id) => router.push(`/entity/${id}`) })}

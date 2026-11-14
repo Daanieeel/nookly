@@ -18,7 +18,7 @@ import { barLabels, renderScreens, testData } from "../test/render.tsx";
 import { ModuleScreen } from "./ModuleScreen.tsx";
 import { choose, openRow, pickDay, pickDayInSheet } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
-import { NewSemesterScreen, NewSessionScreen } from "./PlannerScreens.tsx";
+import { NewSemesterScreen, NewSessionScreen, primarySessionPage } from "./PlannerScreens.tsx";
 import { dayLabel } from "./dates.ts";
 import { SemesterList } from "./SemesterList.tsx";
 
@@ -157,6 +157,14 @@ describe("a session's pages", () => {
       await screen.findByRole("button", { name: /^Algorithms, 2026-10-21, JOT-/ }),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Create Note for This Session" })).toBeTruthy();
+  });
+
+  // As on the desktop: the next page to write is the blue one.
+  it("makes the Jot the main button first, then the Note, then neither", () => {
+    expect(primarySessionPage(false, false)).toBe("jot");
+    expect(primarySessionPage(true, false)).toBe("note");
+    expect(primarySessionPage(true, true)).toBeNull();
+    expect(primarySessionPage(false, true)).toBe("jot");
   });
 });
 

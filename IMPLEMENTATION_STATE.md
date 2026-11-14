@@ -125,7 +125,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 - [x] (2026-11-14, dots and "A  B  +n"; test) Task: the labels badge shows a colour dot per label, abbreviates after 2 labels, and does not grow wide; no commas.
 - [x] (2026-11-14, empty reads "Labels" faded like every other empty pill; test) Task: an empty Labels pill reads "None" instead of "Labels" (seen 2026-11-14).
 - [x] (2026-11-14, a warning value tints its icon the same red, in Property; test) Task: an overdue date's calendar icon and label both use the destructive colour.
-- [ ] Session detail: "Create Jot for this session" and "Create Note for This Session" get icons and full width; the primary one (no jot: jot; jot but no note: note; both exist: both secondary) uses the default (blue) variant, like the desktop.
+- [x] (2026-11-14, icons, full width, the next page to write in blue; test) Session detail: "Create Jot for this session" and "Create Note for This Session" get icons and full width; the primary one (no jot: jot; jot but no note: note; both exist: both secondary) uses the default (blue) variant, like the desktop.
 - [x] (2026-11-14, the desktop's tinted tag chips with their icons; test) Recipes list: labels show their colours.
 - [ ] Recipe detail rework: a placeholder for a missing banner like the desktop, a much quieter "Choose Banner", clean ingredient and step adding (inputs not squeezed by save buttons), better spacing in the detail sidebar.
 
