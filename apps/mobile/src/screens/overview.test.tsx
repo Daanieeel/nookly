@@ -1,4 +1,5 @@
 import {
+  listBlocks,
   createAssignment,
   createCourse,
   createDeck,
@@ -196,6 +197,11 @@ describe("quick jot", () => {
       const [jot] = await listUnrefinedJots(data.db, { spaceId: space });
       expect(jot.entity.title).toBe("Call the plumber");
       expect(jot.preview).toBe("Call the plumber before Friday");
+      // Only what was written: a stray empty line sat above it.
+      expect((await listBlocks(data.db, jot.entity.id)).map((b) => b.content)).toEqual([
+        "Call the plumber",
+        "before Friday",
+      ]);
     });
     expect(await screen.findByText("Home screen")).toBeTruthy();
   });

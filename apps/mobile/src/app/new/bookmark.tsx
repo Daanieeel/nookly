@@ -7,4 +7,4 @@ function NewBookmark() {
   return <NewBookmarkScreen spaceId={spaceId} />;
 }
 
-export default sheetRoute("New Bookmark", NewBookmark);
+export default sheetRoute("New Bookmark", NewBookmark, "large");

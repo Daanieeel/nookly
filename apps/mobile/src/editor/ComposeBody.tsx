@@ -1,5 +1,5 @@
 import { pageBlocks } from "@nookly/shared/blocks";
-import { type LocalDb, saveRowsPage } from "@nookly/shared/data";
+import { type LocalDb, openRowsPage, saveRowsPage } from "@nookly/shared/data";
 import { useCallback, useEffect, useState } from "react";
 import * as Y from "yjs";
 import { PageDocEditor } from "./LivePage.tsx";
@@ -27,9 +27,11 @@ export function hasText(doc: Y.Doc): boolean {
   return pageBlocks(doc).some((block) => block.content.trim() !== "");
 }
 
-/// Writes the body as the new item's blocks.
+/// Writes the body as the new item's blocks, in place of the empty line a new page starts
+/// with (it showed as a stray empty line above the text).
 export async function saveComposeBody(db: LocalDb, entityId: string, doc: Y.Doc) {
-  await saveRowsPage(db, entityId, doc, new Map());
+  const { snapshot } = await openRowsPage(db, entityId);
+  await saveRowsPage(db, entityId, doc, snapshot);
 }
 
 export function ComposeBody({ doc, placeholder }: { doc: Y.Doc; placeholder: string }) {

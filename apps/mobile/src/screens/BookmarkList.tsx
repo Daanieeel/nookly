@@ -381,15 +381,9 @@ export function BookmarkPasteBar({ spaceId }: { spaceId: string }) {
   const theme = useTheme();
   const keyboard = useAnimatedKeyboard();
   const [url, setUrl] = useState("");
-  // The page is read after the bookmark is saved; offline it is read when the bookmark is
-  // opened.
-  const read = useLocalWrite(async (db, input: { id: string; link: string }) =>
-    setBookmarkMetadata(db, input.id, await fetchPageMetadata(input.link)),
-  );
+  const read = useReadBookmarkPage();
   const save = useLocalWrite(async (db, address: string) => {
-    const link = /^[a-z]+:\/\//i.test(address.trim())
-      ? address.trim()
-      : `https://${address.trim()}`;
+    const link = bookmarkLink(address);
     return { id: await createBookmark(db, spaceId, link), link };
   });
   const submit = () =>
@@ -440,6 +434,20 @@ export function BookmarkPasteBar({ spaceId }: { spaceId: string }) {
         </RoundButton>
       </View>
     </Animated.View>
+  );
+}
+
+/// A typed address as a link: `https://` in front when it has no scheme of its own.
+export function bookmarkLink(address: string): string {
+  const trimmed = address.trim();
+  return /^[a-z]+:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+/// Reads a new bookmark's page after it is saved, for its title, picture and description;
+/// offline it is read when the bookmark is opened.
+export function useReadBookmarkPage() {
+  return useLocalWrite(async (db, input: { id: string; link: string }) =>
+    setBookmarkMetadata(db, input.id, await fetchPageMetadata(input.link)),
   );
 }
 

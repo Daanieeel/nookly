@@ -1,6 +1,6 @@
 import { IconArrowUp, IconX } from "@tabler/icons-react-native";
 import { type ComponentType, type ReactNode, type RefObject, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Pressable, ScrollView, TextInput, type TextInputProps, View } from "react-native";
 import { useSemantic, useSemanticPair } from "../kit/scheme.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
@@ -57,6 +57,7 @@ export function ComposeTitle({
   onSubmit,
   autoFocus = true,
   ref,
+  input,
 }: {
   label: string;
   value: string;
@@ -65,6 +66,8 @@ export function ComposeTitle({
   onSubmit?: () => void;
   autoFocus?: boolean;
   ref?: RefObject<TextInput | null>;
+  /// How the keyboard types it, when it is not words (an address).
+  input?: TitleInput;
 }) {
   const text = useSemantic("label");
   const muted = useSemanticPair("tertiaryLabel");
@@ -82,6 +85,7 @@ export function ComposeTitle({
       returnKeyType="next"
       onSubmitEditing={onSubmit}
       maxFontSizeMultiplier={1.6}
+      {...input}
       style={{
         fontFamily: FACE["700"],
         fontSize: TYPE.title2.fontSize,
@@ -92,6 +96,8 @@ export function ComposeTitle({
     />
   );
 }
+
+export type TitleInput = Pick<TextInputProps, "keyboardType" | "autoCapitalize" | "autoCorrect">;
 
 /// A short line under the title with its icon (where an entry is).
 export function ComposeLine({

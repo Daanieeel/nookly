@@ -24,6 +24,7 @@ import {
   ComposeTitle,
   PillSelect,
   PillSheet,
+  type TitleInput,
 } from "../ui/sheet/Compose.tsx";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { useCloseSheet } from "../ui/sheet/route.tsx";
@@ -53,6 +54,8 @@ export function ComposeForm({
   link,
   after,
   pills,
+  titleInput,
+  body: plainBody,
 }: {
   spaceId: string | null;
   /// Left out when the Space is fixed (made from inside a Space's page).
@@ -68,6 +71,11 @@ export function ComposeForm({
   /// Runs with the new item's id once it is made (open it, say so).
   after?: (id: string) => void;
   pills: ReactNode;
+  /// How the keyboard types the title, when it is not words (a bookmark's address).
+  titleInput?: TitleInput;
+  /// A plain text body in place of the page editor, for something whose description is
+  /// text rather than a page (a bookmark's note). Its `create` writes it.
+  body?: ReactNode;
 }) {
   const close = useCloseSheet();
   const { data: spaces = [] } = useSpaces();
@@ -76,7 +84,7 @@ export function ComposeForm({
   const write = useLocalWrite(async (db, name: string) => {
     if (!spaceId) throw new Error("Make a Space first.");
     const id = await create(db, spaceId, name);
-    await saveComposeBody(db, id, body.doc);
+    if (!plainBody) await saveComposeBody(db, id, body.doc);
     if (link) await relate(db, id, link.id);
     return id;
   });
@@ -116,14 +124,17 @@ export function ComposeForm({
         value={title}
         onChangeText={setTitle}
         placeholder={titlePlaceholder}
+        input={titleInput}
       />
-      <ComposeBody doc={body.doc} placeholder={descriptionPlaceholder} />
+      {plainBody ?? <ComposeBody doc={body.doc} placeholder={descriptionPlaceholder} />}
       {write.error ? (
         <Text tone="destructive" variant="small">
           {write.error.message}
         </Text>
       ) : null}
-      <ComposeFooter toolbar={<EditorToolbar inline />}>{pills}</ComposeFooter>
+      <ComposeFooter toolbar={plainBody ? undefined : <EditorToolbar inline />}>
+        {pills}
+      </ComposeFooter>
     </View>
   );
 }

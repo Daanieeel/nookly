@@ -14,12 +14,14 @@ import {
   createSpace,
   createTask,
   type EntityRecord,
+  attachLabel,
+  updateBookmark,
 } from "@nookly/shared/data";
 import type { LocalDb } from "@nookly/shared/data";
 import { IconMapPin, IconX } from "@tabler/icons-react-native";
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
@@ -42,6 +44,7 @@ import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
 import { RepeatPill } from "./RepeatPicker.tsx";
+import { bookmarkLink, useReadBookmarkPage } from "./BookmarkList.tsx";
 import {
   ComposeFooter,
   ComposeHeader,
@@ -192,105 +195,91 @@ export function NewTaskScreen({
   );
 }
 
-/// New page or jot: straight into its page, title first.
+/// New Note or Jot, as Linear's compose sheet (D65): its title, its text in the page
+/// editor, and labels of its Space and an item to link it to as pills; then straight into
+/// its page.
 export function NewPageScreen({ spaceId, type }: { spaceId?: string; type: "note" | "jot" }) {
   const router = useRouter();
-  const close = useCloseSheet();
   const [space, setSpace] = useTargetSpace(spaceId);
-  const create = useLocalWrite((db, title: string) => {
-    if (!space) throw new Error("Pick a Space");
-    return createPage(db, space, type, title);
-  });
-  const form = useForm({
-    defaultValues: { title: "" },
-    onSubmit: async ({ value }) => {
-      const id = await create.mutateAsync(value.title.trim());
-      close(() => router.push(`/entity/${id}`));
-    },
-  });
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [link, setLink] = useState<EntityRecord | null>(null);
+  const noun = type === "jot" ? "Jot" : "Note";
   return (
-    <Screen>
-      <FormSection>
-        <SpacePicker value={space} onChange={setSpace} />
-        <form.Field name="title">
-          {(field) => (
-            <Field
-              label="Title"
-              autoFocus
-              placeholder={type === "jot" ? "A quick thought" : "Untitled"}
-              value={field.state.value}
-              onChangeText={field.handleChange}
-              onSubmitEditing={() => void form.handleSubmit()}
-            />
-          )}
-        </form.Field>
-      </FormSection>
-      <Button
-        label={type === "jot" ? "New Jot" : "New Page"}
-        status={statusOf(create)}
-        errorLabel="Couldn't create"
-        onPress={() => void form.handleSubmit()}
-      />
-    </Screen>
+    <ComposeForm
+      spaceId={space}
+      onSpaceChange={(id) => {
+        setSpace(id);
+        setChosen([]);
+      }}
+      sendLabel={`Create ${noun}`}
+      titleLabel={`${noun} title`}
+      titlePlaceholder={type === "jot" ? "A quick thought" : "Untitled"}
+      descriptionPlaceholder="Write something…"
+      create={async (db, at, title) => {
+        const id = await createPage(db, at, type, title);
+        for (const label of chosen) await attachLabel(db, id, label);
+        return id;
+      }}
+      link={link}
+      after={(id) => router.push(`/entity/${id}`)}
+      pills={
+        <>
+          {space ? <LabelsPill spaceId={space} value={chosen} onChange={setChosen} /> : null}
+          <LinkPill value={link} onChange={setLink} />
+        </>
+      }
+    />
   );
 }
 
-const bookmarkSchema = z.object({ url: z.url("Paste a web address"), title: z.string().max(300) });
-
-/// New Bookmark: it starts from an address.
+/// New Bookmark, as Linear's compose sheet (D65): its address as the title, a note, and
+/// labels and a link as pills. Its page is read once it is saved, for its title.
 export function NewBookmarkScreen({ spaceId }: { spaceId?: string }) {
-  const close = useCloseSheet();
   const [space, setSpace] = useTargetSpace(spaceId);
-  const create = useLocalWrite((db, input: z.infer<typeof bookmarkSchema>) => {
-    if (!space) throw new Error("Pick a Space");
-    return createBookmark(db, space, input.url, input.title);
-  });
-  const form = useForm({
-    defaultValues: { url: "", title: "" },
-    validators: { onChange: bookmarkSchema, onSubmit: bookmarkSchema },
-    onSubmit: async ({ value }) => {
-      await create.mutateAsync(value);
-      close();
-    },
-  });
+  const [note, setNote] = useState("");
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [link, setLink] = useState<EntityRecord | null>(null);
+  const read = useReadBookmarkPage();
+  // The link just saved, for its page to be read once the sheet closes.
+  const saved = useRef<string | null>(null);
   return (
-    <Screen>
-      <FormSection>
-        <SpacePicker value={space} onChange={setSpace} />
-        <form.Field name="url">
-          {(field) => (
-            <Field
-              label="Address"
-              required
-              autoFocus
-              autoCapitalize="none"
-              keyboardType="url"
-              placeholder="https://"
-              value={field.state.value}
-              onChangeText={field.handleChange}
-              onBlur={field.handleBlur}
-              error={fieldError(field)}
-            />
-          )}
-        </form.Field>
-        <form.Field name="title">
-          {(field) => (
-            <Field
-              label="Title"
-              placeholder="Taken from the address when empty"
-              value={field.state.value}
-              onChangeText={field.handleChange}
-            />
-          )}
-        </form.Field>
-      </FormSection>
-      <Button
-        label="Add Bookmark"
-        status={statusOf(create)}
-        errorLabel="Couldn't add it"
-        onPress={() => void form.handleSubmit()}
-      />
-    </Screen>
+    <ComposeForm
+      spaceId={space}
+      onSpaceChange={(id) => {
+        setSpace(id);
+        setChosen([]);
+      }}
+      sendLabel="Save Bookmark"
+      titleLabel="Address"
+      titlePlaceholder="Paste a URL"
+      titleInput={{ keyboardType: "url", autoCapitalize: "none", autoCorrect: false }}
+      body={
+        <ComposeText
+          label="Add a note…"
+          value={note}
+          onChangeText={setNote}
+          placeholder="Add a note…"
+        />
+      }
+      create={async (db, at, address) => {
+        const url = bookmarkLink(address);
+        saved.current = url;
+        const id = await createBookmark(db, at, url);
+        if (note.trim()) await updateBookmark(db, id, url, note.trim());
+        for (const label of chosen) await attachLabel(db, id, label);
+        return id;
+      }}
+      link={link}
+      after={(id) => {
+        if (saved.current) read.mutate({ id, link: saved.current });
+      }}
+      pills={
+        <>
+          {space ? <LabelsPill spaceId={space} value={chosen} onChange={setChosen} /> : null}
+          <LinkPill value={link} onChange={setLink} />
+        </>
+      }
+    />
   );
 }
 

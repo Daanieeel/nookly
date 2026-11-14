@@ -7,4 +7,4 @@ function NewPage() {
   return <NewPageScreen spaceId={spaceId} type={type === "jot" ? "jot" : "note"} />;
 }
 
-export default sheetRoute("New Page", NewPage);
+export default sheetRoute("New Page", NewPage, "large");
