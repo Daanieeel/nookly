@@ -23,6 +23,7 @@ import Animated, { useAnimatedKeyboard, useAnimatedStyle } from "react-native-re
 import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { useTheme } from "../ui/theme.ts";
+import { CORNER } from "../ui/tokens.ts";
 import { TOOLBAR, type ToolbarId } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
@@ -51,7 +52,9 @@ export const TOOLBAR_HEIGHT = 57;
 /// Formatting for the page being typed in, riding on top of the keyboard. It lives over the
 /// whole window, not in the page, so the page's own frame (the inset card, the drawer) can
 /// never leave it under the keyboard. It shows only while an editor has the keyboard.
-export function EditorToolbar() {
+/// `inline` draws it where it stands instead: in a sheet (a compose form), which sits over
+/// the window's own toolbar and already rides on the keyboard.
+export function EditorToolbar({ inline = false }: { inline?: boolean }) {
   const theme = useTheme();
   const { focused, on, off = {}, run } = useToolbar();
   const keyboard = useAnimatedKeyboard();
@@ -61,9 +64,14 @@ export function EditorToolbar() {
   if (!focused || !run) return null;
   return (
     <Animated.View
-      className="flex-row border-t border-border bg-background"
+      className={cn(
+        "flex-row",
+        inline
+          ? "mx-4 mb-2 overflow-hidden rounded-full bg-muted"
+          : "border-t border-border bg-background",
+      )}
       accessibilityRole="toolbar"
-      style={[{ position: "absolute", left: 0, right: 0, bottom: 0 }, ride]}
+      style={inline ? CORNER : [{ position: "absolute", left: 0, right: 0, bottom: 0 }, ride]}
     >
       <ScrollView
         className="flex-1"

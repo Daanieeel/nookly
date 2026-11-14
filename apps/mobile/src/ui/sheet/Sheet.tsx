@@ -141,16 +141,20 @@ function usePinned(store: PinStore | undefined, children: ReactNode) {
   useEffect(() => () => store?.set(null), [store]);
 }
 
-/// Draws `children` in place of the sheet's title row, kept current.
+/// Draws `children` in place of the sheet's title row, kept current; outside a sheet, where
+/// it stands.
 export function SheetHeader({ children }: { children: ReactNode }) {
-  usePinned(useContext(EdgeContext)?.header, children);
-  return null;
+  const edges = useContext(EdgeContext);
+  usePinned(edges?.header, children);
+  return edges ? null : <>{children}</>;
 }
 
-/// Pins `children` to the bottom of the sheet, above the keyboard, kept current.
+/// Pins `children` to the bottom of the sheet, above the keyboard, kept current; outside a
+/// sheet, where it stands.
 export function SheetFooter({ children }: { children: ReactNode }) {
-  usePinned(useContext(EdgeContext)?.footer, children);
-  return null;
+  const edges = useContext(EdgeContext);
+  usePinned(edges?.footer, children);
+  return edges ? null : <>{children}</>;
 }
 
 function PinnedSlot({ store }: { store: PinStore }) {

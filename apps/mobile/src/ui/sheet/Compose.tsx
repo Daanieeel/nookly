@@ -93,22 +93,33 @@ export function ComposeTitle({
   );
 }
 
-/// The row of property pills under the body, pinned on the keyboard; scrolls sideways.
-export function ComposePills({ children }: { children: ReactNode }) {
+/// The bottom of a compose sheet, pinned on the keyboard: the row of property pills (it
+/// scrolls sideways), and under it the editor's formatting bar on a rounded pill while the
+/// body has the keyboard.
+export function ComposeFooter({
+  children,
+  toolbar,
+}: {
+  children?: ReactNode;
+  toolbar?: ReactNode;
+}) {
   return (
     <SheetFooter>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          gap: SPACE.sm,
-          paddingHorizontal: SPACE.lg,
-          paddingVertical: SPACE.sm,
-        }}
-      >
-        {children}
-      </ScrollView>
+      {children ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{
+            gap: SPACE.sm,
+            paddingHorizontal: SPACE.lg,
+            paddingVertical: SPACE.sm,
+          }}
+        >
+          {children}
+        </ScrollView>
+      ) : null}
+      {toolbar}
     </SheetFooter>
   );
 }

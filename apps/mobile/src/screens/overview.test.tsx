@@ -188,7 +188,7 @@ describe("quick jot", () => {
     );
     await act(() => router.push("/new/jot"));
     await fireEvent.changeText(
-      await screen.findByLabelText("Jot"),
+      await screen.findByLabelText("Jot something down"),
       "Call the plumber\nbefore Friday",
     );
     await fireEvent.press(screen.getByRole("button", { name: "Save Jot" }));
@@ -200,7 +200,8 @@ describe("quick jot", () => {
     expect(await screen.findByText("Home screen")).toBeTruthy();
   });
 
-  it("says what is missing", async () => {
+  // D65: Linear's send button lights up once there is something to send.
+  it("can be sent only once something is written", async () => {
     const data = testData();
     await createSpace(data.db, "Home", "#22c55e");
     const screen = await renderScreens(
@@ -210,8 +211,14 @@ describe("quick jot", () => {
     await act(() => router.push("/new/jot"));
     // The Spaces have to be there before there is a place to save to.
     await screen.findByRole("button", { name: "Space, Home" });
-    await fireEvent.press(await screen.findByRole("button", { name: "Save Jot" }));
-    expect(await screen.findByText("Write something first.")).toBeTruthy();
+    const send = await screen.findByRole("button", { name: "Save Jot" });
+    expect(send.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.changeText(screen.getByLabelText("Jot something down"), "Milk");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Save Jot" }).props.accessibilityState,
+      ).toMatchObject({ disabled: false }),
+    );
   });
 });
 
