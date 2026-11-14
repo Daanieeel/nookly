@@ -15,7 +15,7 @@ const BODY = { fontSize: TYPE.body.fontSize, lineHeight: TYPE.body.lineHeight };
 /// Linear's grouped rows: a little taller than a finger.
 const ROW = { minHeight: 52 };
 import { type Option, OptionList } from "./OptionList.tsx";
-import { useSheet } from "./Sheet.tsx";
+import { Sheet } from "./Sheet.tsx";
 
 /// The pieces of the desktop's Display and Filter popovers (`display-menu.tsx`,
 /// `filter-menu.tsx`), for the sheets that stand in for them.
@@ -167,7 +167,7 @@ export function SwitchRow({
 }
 
 /// A field of the Filter sheet (Status, Labels, Course): its name and how many are on;
-/// tapped, its options to tick, which stay open for more.
+/// tapped, its options to tick on a card, which stays open for more.
 export function FilterField<T extends string>({
   label,
   icon,
@@ -182,7 +182,7 @@ export function FilterField<T extends string>({
   values: T[];
   onChange: (values: T[]) => void;
 }) {
-  const sheet = useSheet();
+  const [open, setOpen] = useState(false);
   const shown =
     values.length === 0
       ? "Any"
@@ -190,24 +190,18 @@ export function FilterField<T extends string>({
         ? (options.find((o) => o.id === values[0])?.label ?? "1")
         : `${values.length} chosen`;
   return (
-    <NextRow
-      label={label}
-      icon={icon}
-      value={shown}
-      onPress={() =>
-        sheet?.push({
-          title: label,
-          content: (
-            <FilterOptions label={label} options={options} values={values} onChange={onChange} />
-          ),
-        })
-      }
-    />
+    <>
+      <NextRow label={label} icon={icon} value={shown} onPress={() => setOpen(true)} />
+      {/* A card over the Filter sheet, as a select opens, not a step covering it. */}
+      <Sheet open={open} onOpenChange={setOpen} title={label} presentation="card">
+        <FilterOptions label={label} options={options} values={values} onChange={onChange} />
+      </Sheet>
+    </>
   );
 }
 
-/// A pushed step keeps the values it opened with unless it is told the new ones, so the
-/// list holds its own as it is ticked.
+/// The card keeps the values it opened with unless it is told the new ones, so the list
+/// holds its own as it is ticked.
 function FilterOptions<T extends string>({
   label,
   options,

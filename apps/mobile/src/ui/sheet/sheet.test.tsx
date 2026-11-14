@@ -7,6 +7,7 @@ import { ChoiceProperty } from "../property-rows.tsx";
 import { SelectField } from "../SelectField.tsx";
 import { MIN_TOUCH, gapBetween, touchSlop } from "../touch.ts";
 import { MenuList, SEPARATOR, menuGroups } from "./MenuList.tsx";
+import { FilterField } from "./DisplayParts.tsx";
 import { OptionList } from "./OptionList.tsx";
 import { Sheet, useSheet } from "./Sheet.tsx";
 
@@ -160,6 +161,32 @@ describe("a field inside a sheet", () => {
     await settle();
     expect(screen.queryByRole("header", { name: "Letter" })).toBeNull();
     expect(screen.getByText("New Task")).toBeTruthy();
+  });
+});
+
+describe("a filter field in the Filter sheet", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  // Its options float as a card over the Filter sheet, as a select does, instead of a new
+  // step covering it; the card stays open while several are ticked.
+  it("opens its options as a card over the sheet, and ticks several", async () => {
+    function Filter() {
+      const [values, setValues] = useState<string[]>([]);
+      return (
+        <Sheet open onOpenChange={() => {}} title="Filter">
+          <FilterField label="Status" options={OPTIONS} values={values} onChange={setValues} />
+        </Sheet>
+      );
+    }
+    const screen = render(<Filter />);
+    fireEvent.press(screen.getByRole("button", { name: "Status, Any" }));
+    expect(await screen.findByRole("header", { name: "Status" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+    fireEvent.press(screen.getByRole("checkbox", { name: "Alpha" }));
+    fireEvent.press(screen.getByRole("checkbox", { name: "Beta" }));
+    expect(await screen.findByRole("button", { name: "Status, 2 chosen" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Status" })).toBeTruthy();
   });
 });
 
