@@ -100,7 +100,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 ### 5. Mobile: create sheets in the Linear compose style
 
-- [ ] Quick Jot, Create Task and Create Assignment use the compose sheet (item 1), with a full block editor for the description like the desktop.
+- [x] (2026-11-14, `screens/ComposeForm.tsx` shared by New Task, Assignment and Exam; tests; checked in the simulator) Quick Jot, Create Task and Create Assignment use the compose sheet (item 1), with a full block editor for the description like the desktop.
 - [ ] New Calendar Entry uses the compose sheet. Today labels overflow or are cut off after two letters and everything is crammed; fix all of it.
 - [ ] New Session and New Semester use the compose sheet.
 - [ ] "Set up semesters" wizard in the Linear style.

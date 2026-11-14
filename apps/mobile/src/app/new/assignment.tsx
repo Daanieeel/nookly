@@ -7,4 +7,4 @@ function NewAssignment() {
   return <NewAssignmentScreen spaceId={spaceId} courseId={courseId} />;
 }
 
-export default sheetRoute("New Assignment", NewAssignment);
+export default sheetRoute("New Assignment", NewAssignment, "large");

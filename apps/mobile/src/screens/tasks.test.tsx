@@ -11,10 +11,12 @@ import {
   setTaskDates,
   setTaskStatus,
   getTask,
+  listBlocks,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
 import { choose, openRow } from "../test/sheet.ts";
+import { labelSummary } from "./ComposeForm.tsx";
 import { addDays, localDay } from "./dates.ts";
 import { NewTaskScreen } from "./NewScreens.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
@@ -94,27 +96,38 @@ describe("the tasks list", () => {
 });
 
 describe("a new task", () => {
-  it("starts in the status chosen, with labels of its Space and a link to an item found by search", async () => {
+  // D65: made in Linear's compose sheet, the properties as pills along the bottom.
+  it("starts in the status chosen, with labels of its Space, a link to an item found by search and a description", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Work", "#3b82f6");
     const label = await createLabel(data.db, space, "Urgent");
     const page = await createPage(data.db, space, "note", "Meeting notes");
     const screen = await renderScreens({ index: () => <NewTaskScreen spaceId={space} /> }, data);
-    await fireEvent.changeText(await screen.findByLabelText("Title"), "Prepare agenda");
+    await fireEvent.changeText(await screen.findByLabelText("Task title"), "Prepare agenda");
+    await fireEvent.changeText(screen.getByLabelText("Description…"), "Three points");
     await choose(screen, "Status", "In Progress");
     await openRow(screen, "Labels");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Urgent" }));
     await openRow(screen, "Link to");
     await fireEvent.changeText(await screen.findByLabelText("Search Items"), "Meeting");
     await fireEvent.press(await screen.findByRole("radio", { name: "Meeting notes" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Create" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Create Task" }));
     await waitFor(async () => {
       const [task] = await listTasks(data.db, space);
       expect(task).toMatchObject({ statusId: "in_progress" });
       expect(task.entity.title).toBe("Prepare agenda");
       expect((await entityLabels(data.db, task.entity.id)).map((l) => l.id)).toEqual([label]);
       expect((await relatedItems(data.db, task.entity.id)).map((r) => r.entity.id)).toEqual([page]);
+      expect((await listBlocks(data.db, task.entity.id)).map((b) => b.content)).toEqual([
+        "Three points",
+      ]);
     });
+  });
+
+  it("shows picked labels as their names, two then how many more", () => {
+    expect(labelSummary([])).toBeNull();
+    expect(labelSummary(["Urgent", "Home"])).toBe("Urgent  Home");
+    expect(labelSummary(["Urgent", "Home", "Work", "Later"])).toBe("Urgent  Home  +2");
   });
 });
 

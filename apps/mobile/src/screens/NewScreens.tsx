@@ -1,4 +1,4 @@
-import { entityOption, labelOption, statusOption } from "./option-badges.tsx";
+import { labelOption, statusOption } from "./option-badges.tsx";
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
   createAssignment,
@@ -10,7 +10,6 @@ import {
   createPage,
   createSpace,
   createTask,
-  relate,
   type EntityRecord,
 } from "@nookly/shared/data";
 import type { LocalDb } from "@nookly/shared/data";
@@ -21,7 +20,7 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
-import { useLabels, useRecents, useSearch, useSpaces, useStatuses } from "../data/queries.ts";
+import { useLabels, useSpaces, useStatuses } from "../data/queries.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
 import { FormSection } from "../ui/kit/Form.tsx";
@@ -29,18 +28,26 @@ import { Glyph } from "../ui/kit/Glyph.tsx";
 import { useSemanticPair } from "../ui/kit/scheme.ts";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Screen } from "../ui/Screen.tsx";
-import { SelectField, SheetTrigger } from "../ui/SelectField.tsx";
+import { SheetTrigger } from "../ui/SelectField.tsx";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { useCloseSheet } from "../ui/sheet/route.tsx";
 import { Text } from "../ui/Text.tsx";
-import { DateField } from "../ui/DateField.tsx";
 import { CalendarEntryForm } from "./CalendarEntryForm.tsx";
-import { CoursePicker, ExamPicker } from "./StudyPickers.tsx";
+import { ExamPicker } from "./StudyPickers.tsx";
 import { hourAfter, localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
+import { PillSelect } from "../ui/sheet/Compose.tsx";
+import {
+  ComposeForm,
+  CoursePill,
+  DayPill,
+  EntitySearch,
+  LabelsPill,
+  LinkPill,
+} from "./ComposeForm.tsx";
 
 /// The Space to make something in: the one asked for, else the first.
 export function useTargetSpace(asked?: string) {
@@ -91,30 +98,6 @@ export function LinkTarget({
   );
 }
 
-/// Finds an item by its title, key or text, Recents first: the desktop's entity picker.
-function EntitySearch({ onPick }: { onPick: (e: EntityRecord) => void }) {
-  const [query, setQuery] = useState("");
-  const { data: results = [] } = useSearch(query);
-  const { data: recent = [] } = useRecents();
-  const shown = query.trim() ? results.slice(0, 30) : recent;
-  return (
-    <OptionList
-      label="Items"
-      searchPlaceholder="Titles, keys like TSK-14, page text"
-      onQueryChange={setQuery}
-      options={shown.map((e) => ({
-        ...entityOption(e),
-        section: query.trim() ? undefined : "Recent",
-      }))}
-      value={null}
-      onChange={(id) => {
-        const e = shown.find((x) => x.id === id);
-        if (e) onPick(e);
-      }}
-    />
-  );
-}
-
 /// Labels of a Space picked for something new: the field lists them; tapped, the labels in
 /// a sheet to tick.
 export function LabelsField({
@@ -151,9 +134,9 @@ export function LabelsField({
   );
 }
 
-/// New Task: a title first, like the desktop's quick create, with the status, a day,
-/// labels of its Space and an item to link it to when they are wanted. More lands in
-/// its detail.
+/// New Task, as Linear's new issue (D65): its title, a description in the page editor,
+/// and the status, a day, labels of its Space and an item to link it to as pills. More
+/// lands in its detail.
 export function NewTaskScreen({
   spaceId,
   statusId: first,
@@ -161,81 +144,38 @@ export function NewTaskScreen({
   spaceId?: string;
   statusId?: string;
 }) {
-  const close = useCloseSheet();
   const [space, setSpace] = useTargetSpace(spaceId);
   const { data: statuses = [] } = useStatuses();
   const [statusId, setStatusId] = useState(first ?? "backlog");
   const [due, setDue] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
   const [link, setLink] = useState<EntityRecord | null>(null);
-  const create = useLocalWrite(async (db, title: string) => {
-    if (!space) throw new Error("Pick a Space");
-    const id = await createTask(db, space, title, due, { statusId, labelIds: chosen });
-    if (link) await relate(db, id, link.id);
-    return id;
-  });
-  const form = useForm({
-    defaultValues: { title: "" },
-    validators: { onChange: titled, onSubmit: titled },
-    onSubmit: async ({ value }) => {
-      await create.mutateAsync(value.title.trim());
-      form.reset();
-      setLink(null);
-      setChosen([]);
-    },
-  });
   return (
-    <Screen>
-      <FormSection>
-        <form.Field name="title">
-          {(field) => (
-            <Field
-              label="Title"
-              required
-              autoFocus
-              placeholder="Call the dentist"
-              value={field.state.value}
-              onChangeText={field.handleChange}
-              onBlur={field.handleBlur}
-              returnKeyType="done"
-              onSubmitEditing={() => void form.handleSubmit()}
-              error={fieldError(field)}
-            />
-          )}
-        </form.Field>
-      </FormSection>
-      <FormSection>
-        <SpacePicker
-          value={space}
-          onChange={(id) => {
-            setSpace(id);
-            setChosen([]);
-          }}
-        />
-        <SelectField
-          label="Status"
-          value={statusId}
-          onChange={setStatusId}
-          options={statuses.map(statusOption)}
-        />
-        <DateField label="Due date" value={due} onChange={setDue} />
-        {space ? <LabelsField spaceId={space} value={chosen} onChange={setChosen} /> : null}
-        <LinkTarget value={link} onChange={setLink} />
-      </FormSection>
-      <View className="flex-row gap-2">
-        <Button
-          label="Create"
-          status={statusOf(create)}
-          successLabel="Created"
-          errorLabel="Couldn't create"
-          onPress={() => void form.handleSubmit()}
-        />
-        <Button label="Done" variant="ghost" onPress={() => close()} />
-      </View>
-      <Text variant="small" tone="muted">
-        Make one after another; the sheet stays open.
-      </Text>
-    </Screen>
+    <ComposeForm
+      spaceId={space}
+      onSpaceChange={(id) => {
+        setSpace(id);
+        setChosen([]);
+      }}
+      sendLabel="Create Task"
+      titleLabel="Task title"
+      titlePlaceholder="Call the dentist"
+      create={(db, at, title) => createTask(db, at, title, due, { statusId, labelIds: chosen })}
+      link={link}
+      pills={
+        <>
+          <PillSelect
+            label="Status"
+            value={statusId}
+            options={statuses.map(statusOption)}
+            onChange={setStatusId}
+          />
+          <DayPill label="Due date" value={due} onChange={setDue} />
+          {space ? <LabelsPill spaceId={space} value={chosen} onChange={setChosen} /> : null}
+          <LinkPill value={link} onChange={setLink} />
+        </>
+      }
+    />
   );
 }
 
@@ -502,59 +442,73 @@ export function NewCourseScreen({ spaceId }: { spaceId?: string }) {
   );
 }
 
-/// An exam or assignment belongs to exactly one Course, picked here.
-function CourseAndDay({
-  space,
-  course,
-  setCourse,
-  day,
-  setDay,
+/// A new exam or assignment, as Linear's compose sheet (D65): its title, a description,
+/// and its Course (it belongs to exactly one) and day as pills; then straight into its page.
+function NewCourseItem({
+  spaceId,
+  courseId,
+  noun,
+  titlePlaceholder,
   dayLabel,
+  create,
 }: {
-  space: string;
-  course: string | null;
-  setCourse: (id: string) => void;
-  day: string | null;
-  setDay: (day: string | null) => void;
+  spaceId?: string;
+  courseId?: string;
+  noun: "Exam" | "Assignment";
+  titlePlaceholder: string;
   dayLabel: string;
+  create: (
+    db: LocalDb,
+    space: string,
+    title: string,
+    course: string,
+    day: string | null,
+  ) => Promise<string>;
 }) {
-  return (
-    <View className="gap-3">
-      <Text variant="label" tone="muted">
-        Course
-      </Text>
-      <CoursePicker spaceId={space} value={course} onChange={setCourse} />
-      <DateField label={dayLabel} value={day} onChange={setDay} />
-    </View>
-  );
-}
-
-const needsCourse = (course: string | null) => {
-  if (!course) throw new Error("Pick its Course.");
-  return course;
-};
-
-export function NewExamScreen({ spaceId, courseId }: { spaceId?: string; courseId?: string }) {
+  const router = useRouter();
+  const [space, setSpace] = useTargetSpace(spaceId);
   const [course, setCourse] = useState<string | null>(courseId ?? null);
   const [day, setDay] = useState<string | null>(null);
   return (
-    <NewStudyItem
+    <ComposeForm
+      spaceId={space}
+      onSpaceChange={
+        spaceId
+          ? undefined
+          : (id) => {
+              setSpace(id);
+              setCourse(null);
+            }
+      }
+      sendLabel={`Create ${noun}`}
+      titleLabel={`${noun} title`}
+      titlePlaceholder={titlePlaceholder}
+      ready={course !== null}
+      create={(db, at, title) => {
+        if (!course) throw new Error("Pick its Course.");
+        return create(db, at, title, course, day);
+      }}
+      after={(id) => router.push(`/entity/${id}`)}
+      pills={
+        <>
+          {space ? <CoursePill spaceId={space} value={course} onChange={setCourse} /> : null}
+          <DayPill label={dayLabel} value={day} onChange={setDay} />
+        </>
+      }
+    />
+  );
+}
+
+export function NewExamScreen({ spaceId, courseId }: { spaceId?: string; courseId?: string }) {
+  return (
+    <NewCourseItem
       spaceId={spaceId}
-      placeholder="Final exam"
-      submitLabel="Create Exam"
-      create={(db, space, title) => createExam(db, space, title, needsCourse(course), day)}
-    >
-      {(space) => (
-        <CourseAndDay
-          space={space}
-          course={course}
-          setCourse={setCourse}
-          day={day}
-          setDay={setDay}
-          dayLabel="Day"
-        />
-      )}
-    </NewStudyItem>
+      courseId={courseId}
+      noun="Exam"
+      titlePlaceholder="Final exam"
+      dayLabel="Day"
+      create={createExam}
+    />
   );
 }
 
@@ -565,26 +519,15 @@ export function NewAssignmentScreen({
   spaceId?: string;
   courseId?: string;
 }) {
-  const [course, setCourse] = useState<string | null>(courseId ?? null);
-  const [day, setDay] = useState<string | null>(null);
   return (
-    <NewStudyItem
+    <NewCourseItem
       spaceId={spaceId}
-      placeholder="Problem sheet 3"
-      submitLabel="Create Assignment"
-      create={(db, space, title) => createAssignment(db, space, title, needsCourse(course), day)}
-    >
-      {(space) => (
-        <CourseAndDay
-          space={space}
-          course={course}
-          setCourse={setCourse}
-          day={day}
-          setDay={setDay}
-          dayLabel="Due date"
-        />
-      )}
-    </NewStudyItem>
+      courseId={courseId}
+      noun="Assignment"
+      titlePlaceholder="Problem sheet 3"
+      dayLabel="Due date"
+      create={createAssignment}
+    />
   );
 }
 

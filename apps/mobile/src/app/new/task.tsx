@@ -7,4 +7,4 @@ function NewTask() {
   return <NewTaskScreen spaceId={spaceId} statusId={statusId} />;
 }
 
-export default sheetRoute("New Task", NewTask);
+export default sheetRoute("New Task", NewTask, "large");

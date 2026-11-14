@@ -95,11 +95,13 @@ describe("an exam", () => {
       },
       data,
     );
-    await fireEvent.changeText(await screen.findByLabelText("Title"), "Midterm");
-    await fireEvent.press(screen.getByRole("button", { name: "Create Exam" }));
-    expect(await screen.findByText("Pick its Course.")).toBeTruthy();
+    await fireEvent.changeText(await screen.findByLabelText("Exam title"), "Midterm");
+    // Without its Course there is nothing to send.
+    expect(
+      screen.getByRole("button", { name: "Create Exam" }).props.accessibilityState,
+    ).toMatchObject({ disabled: true });
     await choose(screen, "Course", "Algorithms");
-    await fireEvent.press(screen.getByRole("button", { name: /Create Exam|Couldn't create/ }));
+    await fireEvent.press(screen.getByRole("button", { name: "Create Exam" }));
     await waitFor(async () =>
       expect((await listExams(data.db, { courseId: course })).map((e) => e.entity.title)).toEqual([
         "Midterm",

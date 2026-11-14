@@ -7,4 +7,4 @@ function NewExam() {
   return <NewExamScreen spaceId={spaceId} courseId={courseId} />;
 }
 
-export default sheetRoute("New Exam", NewExam);
+export default sheetRoute("New Exam", NewExam, "large");

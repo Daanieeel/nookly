@@ -110,7 +110,10 @@ export function ComposeFooter({
           horizontal
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          // A sideways list takes the room it is given; the pills keep their own height.
+          style={{ flexGrow: 0 }}
           contentContainerStyle={{
+            alignItems: "center",
             gap: SPACE.sm,
             paddingHorizontal: SPACE.lg,
             paddingVertical: SPACE.sm,

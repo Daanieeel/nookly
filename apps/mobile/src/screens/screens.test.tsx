@@ -51,17 +51,22 @@ describe("the Tasks tab", () => {
 });
 
 describe("making a task", () => {
-  it("asks for a title, then creates one after another", async () => {
+  // D65: Linear's send button lights up once there is a title, and sending closes it.
+  it("can be sent once it has a title", async () => {
     const { data } = await seeded();
     const screen = await renderScreens({ index: () => <NewTaskScreen /> }, data);
-    await fireEvent.press(await screen.findByRole("button", { name: "Create" }));
-    expect(await screen.findByText("Give it a title")).toBeTruthy();
-    await fireEvent.changeText(screen.getByLabelText("Title"), "Call the dentist");
-    await fireEvent.press(screen.getByRole("button", { name: "Create" }));
+    const send = await screen.findByRole("button", { name: "Create Task" });
+    expect(send.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.changeText(screen.getByLabelText("Task title"), "Call the dentist");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Create Task" }).props.accessibilityState,
+      ).toMatchObject({ disabled: false }),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Create Task" }));
     await waitFor(async () =>
       expect((await listTasks(data.db)).map((t) => t.entity.title)).toEqual(["Call the dentist"]),
     );
-    await waitFor(() => expect(screen.getByLabelText("Title").props.value).toBe(""));
   });
 });
 
