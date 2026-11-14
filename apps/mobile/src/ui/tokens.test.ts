@@ -41,6 +41,15 @@ describe("design tokens", () => {
     expect(parseInt(CHARCOAL.slice(1, 3), 16)).toBeLessThan(parseInt(card.slice(1, 3), 16));
   });
 
+  // A sheet is iOS's thick material, about #252525 over the dark page: what sits on it (a
+  // group of options, a field) is lighter, so it reads as raised, never sunk in.
+  it("draw what sits on a sheet lighter than the sheet", () => {
+    const red = (hex: string) => parseInt(hex.slice(1, 3), 16);
+    expect(red(SEMANTIC.sheetCard.dark)).toBeGreaterThan(0x25 + 8);
+    expect(red(SEMANTIC.sheetCard.dark)).toBeGreaterThan(red(SEMANTIC.surface.dark));
+    expect(SEMANTIC.sheetCard.light).toBe("#ffffff");
+  });
+
   it("tint a colour for a badge's background", () => {
     expect(withAlpha("#0070f3", 0.14)).toBe("#0070f324");
     expect(withAlpha("#0070f3", 2)).toBe("#0070f3ff");

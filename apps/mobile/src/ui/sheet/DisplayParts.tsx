@@ -31,6 +31,7 @@ export function LayoutTiles<T extends string>({
   onSelect: (id: T) => void;
 }) {
   const theme = useTheme();
+  const card = useSemantic("sheetCard");
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="Layout" className="flex-row gap-2">
       {tiles.map((tile) => {
@@ -42,11 +43,11 @@ export function LayoutTiles<T extends string>({
             accessibilityLabel={tile.label}
             accessibilityState={{ checked: on }}
             onPress={() => onSelect(tile.id)}
-            style={TOUCH_ROW}
+            style={[TOUCH_ROW, on ? null : { backgroundColor: card }]}
             className={cn(
               "active:opacity-60",
               "flex-1 items-center justify-center gap-1.5 rounded-2xl border border-transparent py-3",
-              on ? "border-foreground/15 bg-accent" : "bg-muted/60",
+              on && "border-foreground/15 bg-accent",
             )}
           >
             <tile.icon
@@ -77,11 +78,14 @@ export function SelectRow<T extends string>(props: {
 /// Linear's grouped card in a sheet: its rows on one rounded surface with hairlines
 /// between them.
 export function DisplayGroup({ children }: { children: ReactNode }) {
-  const surface = useSemantic("surface");
+  const surface = useSemantic("sheetCard");
   const separator = useSemantic("separator");
   const rows = Children.toArray(children).filter(Boolean);
   return (
-    <View style={[CORNER, { backgroundColor: surface, borderRadius: 20, overflow: "hidden" }]}>
+    <View
+      testID="display-group"
+      style={[CORNER, { backgroundColor: surface, borderRadius: 20, overflow: "hidden" }]}
+    >
       {rows.map((row, index) => (
         // oxlint-disable-next-line react/no-array-index-key -- rows are positional
         <View key={index}>

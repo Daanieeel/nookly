@@ -40,6 +40,14 @@ export const SEMANTIC = {
   },
   /// A grouped section, a sheet's list, a card: one step up from the page.
   surface: { ios: "secondarySystemGroupedBackground", light: "#ffffff", dark: "#1c1c1e" },
+  /// A card of options on a sheet (Display, Filter): lighter than the sheet's material in
+  /// both schemes, so it reads as raised.
+  sheetCard: {
+    ios: "secondarySystemGroupedBackground",
+    light: "#ffffff",
+    dark: "#38383a",
+    ownDark: true,
+  },
   /// Something on a surface: a field, a search bar, a raised card.
   surfaceRaised: { ios: "tertiarySystemGroupedBackground", light: "#f2f2f7", dark: "#2c2c2e" },
   label: { ios: "label", light: "#000000", dark: "#ffffff" },

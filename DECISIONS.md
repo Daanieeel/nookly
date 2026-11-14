@@ -393,3 +393,7 @@ The user asked for a little more corner radius on both apps and for squircles in
 - **Radii:** the shared tokens (`packages/ui/src/theme.css`) go up a step: `sm` 7, `md` 10, `lg` 12, `xl` 16, the inset 6. The phone's own (`ui/tokens.ts` `RADIUS`): badge 8, control 12, section 14, sheet 20. Pills and circles stay as they are.
 - **Phone:** every rounded surface takes iOS's continuous curve. Styled ones through `CORNER`, class ones through `corner-shape: squircle` on the `rounded` classes in `global.css`, which NativeWind turns into `borderCurve: "continuous"`.
 - **Desktop:** `corner-shape: superellipse(1.6)` on rounded elements, a gentle squircle between round (1) and the full squircle (2), only where the web view supports it. WebKit on macOS does not yet, so the Mac app draws plain rounding with the larger radii until it does.
+
+## D68. What sits on a sheet is lighter than the sheet
+
+A sheet is iOS's thick material, a light charcoal over the dark page. Its option cards used the grouped surface (`#1c1c1e`), darker than the sheet, so they looked sunk in. Anything on a sheet is lighter than the sheet, as depth reads on iOS: the cards and unchosen layout tiles take `sheetCard` (white in light mode, `#38383a` in dark), a token of the phone's own (`ui/tokens.ts`).
