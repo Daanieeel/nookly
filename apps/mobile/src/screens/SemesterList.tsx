@@ -26,6 +26,7 @@ import { useMenu } from "../ui/menu.tsx";
 import { Sheet, useSheet } from "../ui/sheet/Sheet.tsx";
 import { DateField } from "../ui/DateField.tsx";
 import { FormSection } from "../ui/kit/Form.tsx";
+import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
@@ -33,6 +34,25 @@ import { dayLabel } from "./dates.ts";
 /// When a semester runs, as its list and the course page's picker say it.
 export const semesterRange = (s: SemesterRecord) =>
   s.startDate && s.endDate ? `${dayLabel(s.startDate)} to ${dayLabel(s.endDate)}` : null;
+
+const shortDay = (day: string, year: boolean) =>
+  new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: year ? "numeric" : undefined,
+  });
+
+/// When a semester runs, short for its row: "Oct 15 to Feb 15, 2027", the year only where it
+/// is not this one.
+export function semesterSpan(
+  s: Pick<SemesterRecord, "startDate" | "endDate">,
+  thisYear = new Date().getFullYear(),
+) {
+  if (!s.startDate || !s.endDate) return null;
+  const other = (day: string) => Number(day.slice(0, 4)) !== thisYear;
+  const ends = other(s.endDate);
+  return `${shortDay(s.startDate, other(s.startDate) && !ends)} to ${shortDay(s.endDate, ends)}`;
+}
 
 /// A new name typed in the menu's sheet, as the desktop renames a semester in place.
 function RenameForm({ current, onSave }: { current: string; onSave: (name: string) => void }) {
@@ -89,32 +109,39 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
         semester.isCurrent && "border-primary",
       )}
     >
-      <View className="min-h-14 flex-row items-center gap-2 pl-3 pr-1">
+      <View className="min-h-16 flex-row items-center gap-1 py-1 pl-4 pr-1.5">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={name}
           accessibilityState={{ expanded: open }}
           onPress={() => setOpen((o) => !o)}
-          className="flex-1 flex-row items-center gap-2 py-2 active:opacity-60"
+          className="flex-1 flex-row items-center gap-3 py-2.5 active:opacity-60"
         >
-          <Chevron size={16} color={muted} />
-          <IconCalendarStats size={16} color={muted} />
-          <View className="flex-1 gap-0.5">
-            <View className="flex-row flex-wrap items-center gap-2">
+          <IconBadge glyph={IconCalendarStats} tint={semester.isCurrent ? "green" : "blue"} />
+          <View className="flex-1 gap-1">
+            <View className="flex-row items-center gap-2">
               <Text variant="small" tone="muted">
                 {semester.entity.key}
               </Text>
-              <Text numberOfLines={1} className="font-semibold">
+              <Text numberOfLines={1} className="shrink font-semibold">
                 {name}
               </Text>
               {semester.isCurrent ? <Badge label="Current" variant="positive" size="sm" /> : null}
             </View>
-            <Text variant="small" tone="muted">
-              {`${mine.length} ${mine.length === 1 ? "course" : "courses"} · ${semesterRange(semester) ?? ""}`}
-            </Text>
+            <View className="flex-row flex-wrap gap-x-2">
+              <Text variant="small" tone="muted">
+                {`${mine.length} ${mine.length === 1 ? "course" : "courses"}`}
+              </Text>
+              {semesterSpan(semester) ? (
+                <Text variant="small" tone="muted">
+                  {semesterSpan(semester)}
+                </Text>
+              ) : null}
+            </View>
           </View>
+          <Chevron size={16} color={muted} />
         </Pressable>
-        {semesterRange(semester) ? null : (
+        {semesterSpan(semester) ? null : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Set dates of ${name}`}
@@ -226,7 +253,7 @@ export function SemesterList({ spaceId }: { spaceId: string }) {
     );
   }
   return (
-    <View className="gap-2">
+    <View className="gap-3">
       {semesters.map((s) => (
         <SemesterRow key={s.entity.id} semester={s} />
       ))}

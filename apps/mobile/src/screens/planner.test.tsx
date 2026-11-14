@@ -20,7 +20,7 @@ import { choose, openRow, pickDay, pickDayInSheet } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewSemesterScreen, NewSessionScreen, primarySessionPage } from "./PlannerScreens.tsx";
 import { dayLabel } from "./dates.ts";
-import { SemesterList } from "./SemesterList.tsx";
+import { SemesterList, semesterSpan } from "./SemesterList.tsx";
 
 async function seeded() {
   const data = testData();
@@ -182,8 +182,9 @@ describe("semesters", () => {
     await setCourseSemester(data.db, course, ws);
     const rows = await renderScreens({ index: () => <SemesterList spaceId={space} /> }, data);
     expect(await rows.findByText("Current")).toBeTruthy();
+    expect(await rows.findByText("1 course")).toBeTruthy();
     expect(
-      await rows.findByText(`1 course · ${dayLabel("2025-10-15")} to ${dayLabel("2026-02-15")}`),
+      rows.getByText(semesterSpan({ startDate: "2025-10-15", endDate: "2026-02-15" }) ?? ""),
     ).toBeTruthy();
     await fireEvent.press(rows.getByRole("button", { name: "WS 25/26" }));
     expect(await rows.findByRole("button", { name: /^Algorithms, CRS-/ })).toBeTruthy();
@@ -233,6 +234,16 @@ describe("semesters", () => {
         startDate: "2026-10-15",
         endDate: "2027-02-15",
       }),
+    );
+    // Short dates beside its courses, whole, never cut off (it was squeezed).
+    expect(
+      await screen.findByText(
+        semesterSpan({ startDate: "2026-10-15", endDate: "2027-02-15" }) ?? "",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("0 courses")).toBeTruthy();
+    expect(semesterSpan({ startDate: "2026-10-15", endDate: "2027-02-15" }, 2026)).toBe(
+      "Oct 15 to Feb 15, 2027",
     );
     await fireEvent.press(screen.getByRole("button", { name: "Open WS 26/27" }));
     expect(await screen.findByText("Opened")).toBeTruthy();

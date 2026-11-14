@@ -184,7 +184,7 @@ Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it 
 - [ ] Bookmarks: the "Paste a URL to save it" bar sits further down, so it fits the iPhone's corner radius.
 - [x] (2026-11-14, iOS 26 drew a bare `Switch` at the top of the row; it sits in a centred box of its own; test; on screen) Display and filter option sheets: native switches are not vertically centred on their labels. Centre them everywhere.
 - [ ] Redesign the New Bookmark sheet (compose style, like New Task).
-- [ ] Semesters list: semesters look squeezed. Give them room.
+- [x] (2026-11-14, test; on screen) Semesters list: semesters look squeezed. Give them room. Each row has an icon badge, the title on its own line, and the course count and short dates below, never cut off.
 - [x] (2026-11-14, test) Semester detail sidebar: the "Open Notes" button goes.
 - [ ] Start and end date pickers with a calendar (e.g. the semester detail sidebar): the inner calendar box gets a larger corner radius, matching the outer one.
 
