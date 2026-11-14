@@ -159,7 +159,8 @@ describe("the calendar on a phone", () => {
     await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
     const chip = await screen.findByRole("button", { name: "Conference, all day" });
     const classes = (node: { props: { className?: string } }) => String(node.props.className ?? "");
-    const cells = screen.getAllByTestId("all-day-day");
+    // The pages before and after are drawn too, for the swipe; this page is the middle one.
+    const cells = screen.getAllByTestId("all-day-day").slice(3, 6);
     expect(cells).toHaveLength(3);
     // Each day is closed on the left, the last on the right too.
     expect(cells.every((cell) => classes(cell).includes("border-l"))).toBe(true);
@@ -168,6 +169,27 @@ describe("the calendar on a phone", () => {
     // borders reach the bottom of the bar.
     expect(cells.every((cell) => /\bpb-/.test(classes(cell)))).toBe(true);
     expect(chip).toBeTruthy();
+  });
+
+  // The pages either side share the bar: an all day item on the next page made it tall
+  // on this one too, where no cells were drawn, so the day borders broke off.
+  it("keeps the day borders in the bar when only a page beside it has all day items", async () => {
+    const { data, today } = await planned();
+    await createCalendarEntry(data.db, (await listSpacesFor(data))[0], {
+      title: "Trip",
+      date: addDays(today, 4),
+      startTime: null,
+      endTime: null,
+      allDay: true,
+      location: "",
+    });
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: PHONE,
+    });
+    await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
+    await screen.findByRole("button", { name: "Trip, all day" });
+    // Three pages of three days: every day has its cell under its name.
+    expect(screen.getAllByTestId("all-day-day")).toHaveLength(9);
   });
 
   it("spreads the view tabs over the full width, each taking an equal share", async () => {
@@ -202,9 +224,11 @@ describe("the calendar on a phone", () => {
       return isoWeek(new Date(y, m - 1, d));
     };
     const title = (from: string) =>
-      `${periodTitle(from, addDays(from, 2))}, Week ${week(addDays(from, 1))}`;
+      `${periodTitle(from, addDays(from, 2))} Week ${week(addDays(from, 1))}`;
     const today = localDay();
     expect(headerTitle(screen)).toBe(title(today));
+    // The week sits after the dates without a comma, quieter, as its own text.
+    expect(screen.getByText(`Week ${week(addDays(today, 1))}`)).toBeTruthy();
     // A swipe to the left brings the next three days, to the right the ones before: the page slides out and the next one in.
     const swipe = (translationX: number) => {
       act(() => fireGestureHandler(getByGestureTestId("calendar-swipe"), [{ translationX }]));
@@ -265,7 +289,7 @@ describe("the calendar on a phone", () => {
     expect(screen.getByRole("button", { name: "Lecture 1, 11:00 to 12:30" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Final, 09:00" })).toBeTruthy();
     // The page's bar says which days.
-    expect(headerTitle(screen)).toMatch(/ to .*, Week \d+$/);
+    expect(headerTitle(screen)).toMatch(/ to .* Week \d+$/);
   });
 
   it("draws its lines in a solid color of their own, not the border's faded, which goes black in dark", async () => {

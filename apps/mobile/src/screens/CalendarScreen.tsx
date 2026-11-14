@@ -28,7 +28,8 @@ import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
 import { useSidebarEdgeOnly } from "../shell/panes.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { addDays, dayLabel, localDay, periodHeader } from "./dates.ts";
+import { addDays, dayLabel, localDay, periodHeader, periodParts } from "./dates.ts";
+import { Label } from "../ui/kit/Label.tsx";
 import { useCalendarColors } from "./calendar-colors.ts";
 import { TimeGrid, gutterFor } from "./TimeGrid.tsx";
 import { usePeriodSwipe } from "./period-swipe.ts";
@@ -311,10 +312,16 @@ export function CalendarScreen({
       ) : null}
     </>
   );
+  const shownDays = view === "agenda" ? [today] : range.days;
   const header = (
     <>
       {wide ? null : (
-        <Stack.Screen options={{ title: periodHeader(view === "agenda" ? [today] : range.days) }} />
+        <Stack.Screen
+          options={{
+            title: periodHeader(shownDays),
+            headerTitle: () => <PeriodTitle days={shownDays} />,
+          }}
+        />
       )}
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
@@ -378,5 +385,20 @@ export function CalendarScreen({
         )}
       </Screen>
     </>
+  );
+}
+
+/// The bar's title: the dates, then the week quieter, as the desktop's header reads.
+function PeriodTitle({ days }: { days: string[] }) {
+  const { dates, week } = periodParts(days);
+  return (
+    <View className="flex-row items-baseline gap-1.5">
+      <Label type="headline" weight="600">
+        {dates}
+      </Label>
+      <Label type="headline" weight="500" color="tertiaryLabel">
+        {week}
+      </Label>
+    </View>
   );
 }

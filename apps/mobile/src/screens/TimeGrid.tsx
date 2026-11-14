@@ -132,6 +132,11 @@ export function TimeGrid({
 
   const open = (id: string) => router.push(`/entity/${id}`);
 
+  /// Whether any page drawn (this one or one beside it) has all day items, so has the bar.
+  const anyAllDay = pages.some((pageDays) =>
+    pageDays.some((day) => segmentsForDay(items, day).allDay.length > 0),
+  );
+
   /// The day names of a page, and its all day items under them.
   const renderHeader = (pageDays: string[]) => {
     const content = pageDays.map((day) => ({ day, ...segmentsForDay(items, day) }));
@@ -183,15 +188,18 @@ export function TimeGrid({
             );
           })}
         </View>
-        {rows > 0 ? (
-          <View className="flex-row">
+        {/* Drawn on every page, empty or not: a page beside this one with all day items
+            makes the bar tall here too, and the day borders carry on through it. */}
+        {anyAllDay ? (
+          <View className="flex-row flex-1">
             {content.map(({ day, allDay }, index) => (
               <View
                 key={day}
                 testID="all-day-day"
                 style={{ width: column, borderColor: colors.gridline }}
                 className={cn(
-                  "gap-0.5 border-l px-px pb-1",
+                  "gap-0.5 border-l px-px",
+                  rows > 0 && "pb-1",
                   index === content.length - 1 && "border-r",
                 )}
               >

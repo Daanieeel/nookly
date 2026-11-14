@@ -54,23 +54,31 @@ export function periodTitle(first: string, last: string): string {
     return new Date(y, m - 1, d);
   };
   if (first === last) {
-    return date(first).toLocaleDateString(undefined, {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    });
+    // "Sat Nov 14": the header reads without commas.
+    return date(first)
+      .toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })
+      .replace(/,/g, "");
   }
   const short = (day: string) =>
     date(day).toLocaleDateString(undefined, { day: "numeric", month: "short" });
   return `${short(first)} to ${short(last)}`;
 }
 
-/// A calendar view's header: its dates and its week (that of the middle day, so a week
-/// that starts on a Sunday still reads as the ISO week most of it falls in).
-export function periodHeader(days: string[]): string {
+/// A calendar view's header in its two parts: its dates, and its week (that of the middle
+/// day, so a week that starts on a Sunday still reads as the ISO week most of it falls in).
+export function periodParts(days: string[]): { dates: string; week: string } {
   const middle = days[Math.floor(days.length / 2)];
   const [y, m, d] = middle.split("-").map(Number);
-  return `${periodTitle(days[0], days[days.length - 1])}, Week ${isoWeek(new Date(y, m - 1, d))}`;
+  return {
+    dates: periodTitle(days[0], days[days.length - 1]),
+    week: `Week ${isoWeek(new Date(y, m - 1, d))}`,
+  };
+}
+
+/// The header as one line, for the back button and a screen reader: "Nov 14 to Nov 16 Week 46".
+export function periodHeader(days: string[]): string {
+  const { dates, week } = periodParts(days);
+  return `${dates} ${week}`;
 }
 
 /// `minutes` after `HH:mm`, kept within the day.
