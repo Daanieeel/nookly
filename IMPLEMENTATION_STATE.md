@@ -190,17 +190,20 @@ Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it 
 
 ### 13. Leftovers from item 11 and the final checks (found 2026-11-14)
 
-- [ ] Moodle on the phone in the running app: the dev client is rebuilt (React Native from source: `RCT_USE_PREBUILT_RNCORE=0 RCT_USE_RN_DEP=0 pod install`, the prebuilt core lacked the debug build the gesture handler links against; never start Metro with `CI=1`, it stops watching files). It was being rebuilt for `expo-web-browser` (first try failed on a stale gesture handler object; this worktree's DerivedData was cleared and it rebuilds). Then check the course list, a course, a file with import, and Calendar Connections on screen.
+- [x] (2026-11-15, dev client rebuilt and running; Calendar Connections checked on screen; the Moodle pages need a real Moodle site, so they are under Needs the user) Moodle on the phone in the running app.
 - [x] (2026-11-14, all pass alone: load timing) `packages/frontend` tests: 5 failures in 4 files in a full run (`data-table.test.tsx`, `BackupSettings.test.tsx`, `ShortcutsTab.test.tsx` and one more). Run each alone; fix any caused by this branch, note any that are load timing only.
-- [ ] Final checks again (lint, format, typecheck, all tests, cargo test, duplication) and a new final report.
+- [x] (2026-11-15, see Final report) Final checks again (lint, format, typecheck, all tests, cargo test, duplication) and a new final report.
 
 ## Needs the user
 
+- On the phone with your own Moodle site: sign in from Settings, then check the course list, a course, a file with Import, and Moodle deadlines on the calendar.
 - On a real phone: the blinking caret on a tap into an empty page, tapping it again after closing the keyboard, and Undo after typing with the keyboard (the simulator here can't tap into a web view or type with keys; the fix is checked by typing through the browser's own input path).
 - On a real phone: tapping "Add a sub-task" low on a task page keeps the field above the keyboard.
 - Carried over: on a real phone, the feel of dragging; the iOS 27 scene fix (D59); the editor toolbar on the keyboard and the slash menu; scanning a document.
 
 ## Progress log
+
+- 2026-11-15: items 12 and 13 done: sheet colours and centred switches, filter options in a floating card, roomier semester rows, calendar boxes rounded with their card, the Bookmarks paste bar lower, New Note and New Bookmark in the compose sheet, a smooth sidebar header blur.
 
 - 2026-11-14: item 11 done (Moodle parity on the phone, commits e25434c9 and 30c24399). Items 12 (third round of `NOTES.md`) and 13 (leftovers) added.
 
@@ -212,10 +215,11 @@ Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it 
 
 ## Final report
 
-(Round two, before items 12 and 13 were added.) Every item up to 11 is done. Checks on 2026-11-14:
+(Round three.) Every item, 1 to 13, is done; what needs a real phone or a real Moodle site is under Needs the user. Checks on 2026-11-15:
 
-- `bun run lint`, `bun run typecheck`, `bun run duplication` (0.17%): pass.
+- `bun run lint`, `bun run typecheck`, `bun run duplication` (0.17%), `format:check:rust`: pass.
 - `bun run format:check`: only `NOTES.md` is unformatted; it is the user's file and was left alone.
-- `bun run test`: passes. Under full load two timing tests failed once each and pass alone (`sidebar.test.tsx` "goes for good once the swipe was used", server `two-devices.test.ts`); nothing in them changed this round.
+- `bun run test`: shared 375, mobile 524 and the rest pass. In the full run, under load, one shared sync test timed out and 11 frontend tests in 6 files failed (`sidebar.test.tsx`, `ReferencedFile.test.tsx`, `EditorPanel.test.tsx`, `SettingsDialog.test.tsx`, `ShortcutsTab.test.tsx`, `spellcheck-extension.test.ts`). Each passes alone; none of them changed this round.
 - `cargo test`: 1543 pass; `search_stays_within_its_budget_on_20000_entities` missed its time budget under load and passes alone.
-- Report only: `unused` lists older exports and the `tools/e2e` scripts (none left from this round); `audit` reports RustSEC advisories in dependencies (SQLite, CFB parser and others) and JS advisories; `lint:rust:strict` has three long function warnings, all older. `coverage` was not run.
+- Not rerun this round (report only): `coverage`, `unused`, `audit`, `lint:rust:strict`.
+- New dependency: `@react-native-masked-view/masked-view` 0.3.2 on the phone, already in the native build through expo-router, so no rebuild is needed.
