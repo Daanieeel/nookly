@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { useState } from "react";
 import { type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { Button, IconButton } from "../Button.tsx";
@@ -113,7 +113,18 @@ const MANY = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Thet
 );
 
 describe("a field inside a sheet", () => {
-  it("opens a long list of choices as a step of the same sheet, and goes back to the form on a pick", async () => {
+  // The card goes once its spring has settled: run its clock on instead of waiting, which
+  // is slow on a busy machine.
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+  const settle = () =>
+    act(async () => {
+      jest.advanceTimersByTime(2000);
+    });
+
+  // D65: Linear's pickers. The choices float over the form as a card with a title and a
+  // round close button; the form stays where it is under them.
+  it("opens its choices as a card floating over the form, which closes on a pick", async () => {
     function Form() {
       const [value, setValue] = useState<string | null>(null);
       return (
@@ -124,18 +135,18 @@ describe("a field inside a sheet", () => {
     }
     const screen = render(<Form />);
     fireEvent.press(screen.getByRole("button", { name: "Letter, Choose…" }));
-    // The form steps aside for the choices; there is one sheet with a way back.
-    expect(await screen.findByRole("button", { name: "Back" })).toBeTruthy();
-    expect(screen.queryByText("New Task")).toBeNull();
+    expect(await screen.findByRole("header", { name: "Letter" })).toBeTruthy();
+    expect(screen.getByText("New Task")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
     fireEvent.press(screen.getByRole("radio", { name: "Beta" }));
     expect(await screen.findByRole("button", { name: "Letter, Beta" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+    await settle();
+    expect(screen.queryByRole("header", { name: "Letter" })).toBeNull();
   });
 
-  // D50: a few choices (priority, size, status) open the same way, never a dropdown.
-  it("opens a few choices as a step of the same sheet too", async () => {
+  it("closes the card with its round button and keeps the value", async () => {
     function Form() {
-      const [value, setValue] = useState<string | null>(null);
+      const [value, setValue] = useState<string | null>("a");
       return (
         <Sheet open onOpenChange={() => {}} title="New Task">
           <SelectField label="Letter" value={value} options={OPTIONS} onChange={setValue} />
@@ -143,10 +154,12 @@ describe("a field inside a sheet", () => {
       );
     }
     const screen = render(<Form />);
-    fireEvent.press(screen.getByRole("button", { name: "Letter, Choose…" }));
-    expect(await screen.findByRole("button", { name: "Back" })).toBeTruthy();
-    fireEvent.press(screen.getByRole("radio", { name: "Beta" }));
-    expect(await screen.findByRole("button", { name: "Letter, Beta" })).toBeTruthy();
+    fireEvent.press(screen.getByRole("button", { name: /^Letter, / }));
+    expect(await screen.findByRole("header", { name: "Letter" })).toBeTruthy();
+    fireEvent.press(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
+    await settle();
+    expect(screen.queryByRole("header", { name: "Letter" })).toBeNull();
+    expect(screen.getByText("New Task")).toBeTruthy();
   });
 });
 
@@ -281,8 +294,8 @@ describe("a select", () => {
   it("groups choices under their section's header", async () => {
     const screen = render(<Field />);
     fireEvent.press(screen.getByRole("button", { name: "Status, Alpha" }));
-    expect(await screen.findByRole("header", { name: "OPEN" })).toBeTruthy();
-    expect(screen.getByRole("header", { name: "CLOSED" })).toBeTruthy();
+    expect(await screen.findByRole("header", { name: "Open" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Closed" })).toBeTruthy();
   });
 
   it("says when nothing matches the search", async () => {

@@ -110,7 +110,8 @@ describe("scanning a document", () => {
     await fireEvent.changeText(name, "Lease contract");
     await openRow(screen, "Labels");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Contracts" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+    // The labels float over the sheet as a card; its round button closes it.
+    await fireEvent.press(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
     await openRow(screen, "Link to");
     await fireEvent.changeText(await screen.findByLabelText("Search Items"), "Moving");
     await fireEvent.press(await screen.findByRole("radio", { name: "Moving house" }));

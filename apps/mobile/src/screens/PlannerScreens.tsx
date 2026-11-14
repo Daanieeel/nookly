@@ -574,7 +574,7 @@ function AddCourse({
         icon={<IconPlus size={16} color={theme.colors.foreground} />}
         onPress={() => setOpen(true)}
       />
-      <Sheet open={open} onOpenChange={setOpen} title="Add Course">
+      <Sheet open={open} onOpenChange={setOpen} title="Add Course" presentation="card">
         <OptionList
           label="Courses without a semester"
           search

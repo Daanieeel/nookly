@@ -65,12 +65,12 @@ The order below builds shared pieces first (the Linear style sheets), then the s
 
 The user allows touching and replacing our phone's sheet and picker components for this (still exactly one sheet implementation, motion from `ui/motion.ts`, Tabler icons). Copy Linear exactly:
 
-- [ ] **Floating picker card** (`linear-examples/status-picker.jpeg`, `label-picker.jpeg`, `milestone-picker.jpeg`): a rounded card floating in the middle of the screen over a dimmed backdrop, title top left, a round close button top right, optional pill search field ("Add labels..."), big rows (icon or colour dot, title, checkmark on the right for the chosen one). Sits above the keyboard when the search is focused. This replaces the generic list style bottom sheet for every select and picker (status, priority, labels, Space, course, link target, ...).
-- [ ] **Grouped bottom sheet** (`display-options.jpeg`, `filter-list-sheet.jpeg`): grabber, content as rounded grouped cards with separators, an optional pinned search field with an icon.
-- [ ] **Inline menu** (`display-options-select-open.jpeg`): a value with an up/down chevron opens a blurred floating menu next to it with a checkmark on the chosen option.
-- [ ] **Compose sheet** (`create-new-ticket.jpeg`): full height sheet, round close button top left, a context pill in the middle (the Space), round send button top right (disabled until there is a title), big title field, description below as a full block editor, a horizontally scrolling row of property pills (status, date, labels, ...) above the editor's toolbar on the keyboard.
-- [ ] **Tab switcher** redesign (used on the calendar and elsewhere): fits Nookly's style, not flat; Linear's pill tabs (`display-options.jpeg` top: "Assigned" chip on a raised pill, others plain) are the model.
-- [ ] Record the design in `DECISIONS.md` and add tests (rendering, selection, close, search).
+- [x] (2026-11-14, D65, checked on screen) **Floating picker card** (`linear-examples/status-picker.jpeg`, `label-picker.jpeg`, `milestone-picker.jpeg`): a rounded card floating in the middle of the screen over a dimmed backdrop, title top left, a round close button top right, optional pill search field ("Add labels..."), big rows (icon or colour dot, title, checkmark on the right for the chosen one). Sits above the keyboard when the search is focused. This replaces the generic list style bottom sheet for every select and picker (status, priority, labels, Space, course, link target, ...).
+- [x] (2026-11-14, `DisplayGroup`, checked on screen) **Grouped bottom sheet** (`display-options.jpeg`, `filter-list-sheet.jpeg`): grabber, content as rounded grouped cards with separators, an optional pinned search field with an icon.
+- [x] (2026-11-14, `InlineSelect`, checked on screen) **Inline menu** (`display-options-select-open.jpeg`): a value with an up/down chevron opens a blurred floating menu next to it with a checkmark on the chosen option.
+- [x] (2026-11-14, `ui/sheet/Compose.tsx` pieces plus `SheetHeader` and `SheetFooter`; used by item 5) **Compose sheet** (`create-new-ticket.jpeg`): full height sheet, round close button top left, a context pill in the middle (the Space), round send button top right (disabled until there is a title), big title field, description below as a full block editor, a horizontally scrolling row of property pills (status, date, labels, ...) above the editor's toolbar on the keyboard.
+- [x] (2026-11-14, `Segmented` as pills; look again on the calendar in item 6) **Tab switcher** redesign (used on the calendar and elsewhere): fits Nookly's style, not flat; Linear's pill tabs (`display-options.jpeg` top: "Assigned" chip on a raised pill, others plain) are the model.
+- [x] (D65; `inline-menu.test.tsx`, card tests in `sheet.test.tsx`) Record the design in `DECISIONS.md` and add tests (rendering, selection, close, search).
 
 ### 2. Mobile: sidebar and navigation
 
@@ -152,6 +152,8 @@ The user allows touching and replacing our phone's sheet and picker components f
 ## Progress log
 
 - 2026-11-14: file refilled from the second round of `NOTES.md`. The previous round (all items done) is in git history up to 750c4f10 and `DECISIONS.md` up to D64.
+
+- 2026-11-14: item 1 (Linear foundations, D65). Also fixed a red error screen when leaving a page before its editor had loaded (`editor/handle.ts`). The repo formats with `node_modules/.bin/oxfmt <files>`; never prettier.
 
 ## Final report
 

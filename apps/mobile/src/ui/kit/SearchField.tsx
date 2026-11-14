@@ -5,9 +5,10 @@ import { MIN_TOUCH, touchSlop } from "../touch.ts";
 import { Glyph } from "./Glyph.tsx";
 import { useSemantic, useSemanticPair } from "./scheme.ts";
 
-const HEIGHT = 36;
+/// Linear's search pill: a finger tall, fully round.
+const HEIGHT = 44;
 
-/// iOS's search field: a filled rounded bar with a magnifier, and a clear button once
+/// Linear's search field: a filled pill with a magnifier, and a clear button once
 /// something is typed. Sits pinned above the list it searches.
 export function SearchField({
   label,
@@ -34,16 +35,16 @@ export function SearchField({
         CORNER,
         {
           minHeight: HEIGHT,
-          borderRadius: RADIUS.control,
+          borderRadius: RADIUS.pill,
           backgroundColor: fill,
           flexDirection: "row",
           alignItems: "center",
-          paddingLeft: SPACE.sm,
-          gap: SPACE.xs + 2,
+          paddingLeft: SPACE.md,
+          gap: SPACE.sm,
         },
       ]}
     >
-      <Glyph icon={IconSearch} size={16} color={muted.hex} />
+      <Glyph icon={IconSearch} size={20} color={muted.hex} />
       <TextInput
         accessibilityLabel={label}
         value={value}

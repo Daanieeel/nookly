@@ -90,7 +90,7 @@ export function RelatedSection({ entity, readOnly }: { entity: EntityRecord; rea
       >
         {others.length === 0 ? <Empty text="Nothing linked yet." /> : others.map(linkRow)}
       </Section>
-      <Sheet open={linking} onOpenChange={setLinking} title="Relate to…" size="large">
+      <Sheet open={linking} onOpenChange={setLinking} title="Relate to…" presentation="card">
         <LinkPicker entityId={entity.id} />
       </Sheet>
       {attached.length > 0 ? <Section title="Attachments">{attached.map(linkRow)}</Section> : null}

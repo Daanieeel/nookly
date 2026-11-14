@@ -55,7 +55,11 @@ async function typeTime(screen: Screen, label: string, time: string) {
 }
 
 /// Opens the field or row named `label` and picks `option` among its choices.
+/// A picker's choices are radios; a display option's (Linear's inline menu) are menu items.
 export async function choose(screen: Screen, label: string, option: string) {
   await openRow(screen, label);
-  await fireEvent.press(await screen.findByRole("radio", { name: option }));
+  const found = await screen.findAllByRole(/^(radio|menuitem)$/, {
+    name: option,
+  });
+  await fireEvent.press(found.at(-1)!);
 }

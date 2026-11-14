@@ -23,6 +23,7 @@ import { useOptionalSheetHost } from "../ui/sheet/SheetHost.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { type AwarenessChanges, type Origin, fromBase64, toBase64 } from "./bridge.ts";
 import type { EditorHandle } from "./PageEditorDom.tsx";
+import { runOn } from "./handle.ts";
 import { usePageEditorView } from "./editor-view.tsx";
 import { type EditorAction, editorStateSchema } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
@@ -138,7 +139,7 @@ export function PageDocEditor({
   useFocusEffect(
     useCallback(
       () => () => {
-        handle.current?.run("done");
+        runOn(handle.current, "done");
       },
       [],
     ),
@@ -174,7 +175,7 @@ export function PageDocEditor({
   const onState = useCallback(
     async (json: string) => {
       const state = editorStateSchema.parse(JSON.parse(json));
-      toolbar.set(state, (id: EditorAction) => handle.current?.run(id));
+      toolbar.set(state, (id: EditorAction) => runOn(handle.current, id));
       setVimHelp(state.vimHelp ?? false);
     },
     // `toolbar.set` is stable.

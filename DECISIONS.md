@@ -372,3 +372,12 @@ The Files page's Scan button (the desktop's camera icon, as Tabler has no scan i
 ## D64. A cursor stays in its word while others type
 
 `@tiptap/y-tiptap` 3.0.10 (and 3.3.0) restores the local cursor from its Yjs relative position after a remote change, then second guesses it: when the text of the cursor's line changed, it treats that as a structural change and, for blocks that carry ids (ours do), puts the cursor back at its old offset. Someone typing earlier in your line moved your cursor through the word. A patch (`patches/@tiptap%2Fy-tiptap@3.0.10.patch`, both apps share the install) keeps the resolved position whenever the item it is anchored on still exists, and leaves the fallback for anchors that were deleted. `apps/mobile/src/editor/cursor-follow.test.ts` pins it. Other people's cursor names go under the caret in a page's first block, where there is no room above.
+
+## D65. The phone's sheets and pickers copy Linear
+
+The user asked for Linear's sheets and pickers, exactly, and allowed changing the phone's own components for it. It is still the one sheet (`ui/sheet/Sheet.tsx`), with a second way to show:
+
+- **Pickers are floating cards** (`presentation="card"`): a rounded card in the middle of the screen over the page dimmed, the title top left, a round close button top right, an optional pill search, and big plain rows (the option's icon or colour dot, the title, a check on the right for the chosen one), no tinted badges. A card opened from inside a sheet (a create form's labels) floats over it instead of being pushed as a step. This replaces the iOS grouped picker rows of D50 for pickers.
+- **Display and filter options** sit in grouped rounded cards (`DisplayGroup`). A choice there (Grouping, Ordering) is Linear's inline menu (`InlineSelect`): the value with up and down chevrons, and a blurred menu growing out of it with a check before the chosen one.
+- **Create forms** use the compose layout (`ui/sheet/Compose.tsx`): round close top left, the Space as a pill in the middle, a round send button top right lit once there is a title, a big title, the body, and the properties as pills riding on the keyboard. Content fills the sheet's header and footer through `SheetHeader` and `SheetFooter`.
+- **Search fields** are pills, and **segmented tabs** are Linear's pills: a quiet track, the chosen one raised with a hairline edge.

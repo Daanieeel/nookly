@@ -1,6 +1,6 @@
 import { labelOption, statusOption } from "./option-badges.tsx";
 import { createView, setTaskStatus } from "@nookly/shared/data";
-import { IconLayoutKanban, IconList } from "@tabler/icons-react-native";
+import { IconCircleDot, IconLayoutKanban, IconList, IconTag } from "@tabler/icons-react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -22,7 +22,13 @@ import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
 import { Empty } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
-import { FilterField, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
+import {
+  DisplayGroup,
+  FilterField,
+  LayoutTiles,
+  SelectRow,
+  SwitchRow,
+} from "../ui/sheet/DisplayParts.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
@@ -74,7 +80,7 @@ function DisplayPanel({
         value={display.layout}
         onSelect={(layout) => onChange({ ...display, layout })}
       />
-      <View>
+      <DisplayGroup>
         <SelectRow
           label="Grouping"
           value={display.grouping}
@@ -92,7 +98,7 @@ function DisplayPanel({
           value={display.showFinished}
           onChange={(showFinished) => onChange({ ...display, showFinished })}
         />
-      </View>
+      </DisplayGroup>
       <View className="flex-row items-end gap-2 border-t border-border pt-3">
         <View className="flex-1">
           <Field label="View name" placeholder="Open work" value={name} onChangeText={setName} />
@@ -123,9 +129,10 @@ function FilterPanel({
   const { data: labels = [] } = useAllLabels();
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
   return (
-    <View>
+    <DisplayGroup>
       <FilterField
         label="Status"
+        icon={IconCircleDot}
         values={display.statuses}
         options={statuses.map(statusOption)}
         onChange={(next) => onChange({ ...display, statuses: next })}
@@ -133,12 +140,13 @@ function FilterPanel({
       {shownLabels.length > 0 ? (
         <FilterField
           label="Labels"
+          icon={IconTag}
           values={display.labels}
           options={shownLabels.map(labelOption)}
           onChange={(next) => onChange({ ...display, labels: next })}
         />
       ) : null}
-    </View>
+    </DisplayGroup>
   );
 }
 

@@ -32,11 +32,14 @@ describe("a setting", () => {
     const screen = await row("general.timezone");
     await fireEvent.press(await screen.findByRole("button", { name: /^Time zone, / }));
     await fireEvent.changeText(await screen.findByLabelText("Search Time zone"), "Berlin");
-    const berlin = await screen.findByRole("radio", { name: /^Europe\/Berlin/ });
-    expect(screen.getByText("🇩🇪")).toBeTruthy();
+    const berlin = await screen.findByRole("radio", {
+      name: /^Europe\/Berlin/,
+    });
+    expect(screen.getAllByText("🇩🇪").length).toBeGreaterThan(0);
     await fireEvent.press(berlin);
     expect(phoneSettings.get("general.timezone")).toBe("Europe/Berlin");
-  });
+    // Every zone on Earth is listed: slow to draw on a busy machine.
+  }, 15_000);
 
   it("names the date and time formats as the desktop does, with their flags", async () => {
     const screen = await row("general.dateFormat");

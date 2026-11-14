@@ -144,7 +144,7 @@ export function SelectField<Id extends string>({
           onPress={() => setOpen(true)}
         />
       )}
-      <Sheet open={open} onOpenChange={setOpen} title={label}>
+      <Sheet open={open} onOpenChange={setOpen} title={label} presentation="card">
         {list}
       </Sheet>
     </>
@@ -179,7 +179,7 @@ export function MultiSelectField<Id extends string>({
         disabled={disabled}
         onPress={() => setOpen(true)}
       />
-      <Sheet open={open} onOpenChange={setOpen} title={label}>
+      <Sheet open={open} onOpenChange={setOpen} title={label} presentation="card">
         <OptionList
           label={label}
           multiple

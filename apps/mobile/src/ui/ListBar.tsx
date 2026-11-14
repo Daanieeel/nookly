@@ -134,7 +134,7 @@ export function SortButton<Id extends string>({
         icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
         onPress={() => setOpen(true)}
       />
-      <Sheet open={open} onOpenChange={setOpen} title="Sort">
+      <Sheet open={open} onOpenChange={setOpen} title="Sort" presentation="card">
         <OptionList label="Sort" options={options} value={value} onChange={onChange} />
       </Sheet>
     </View>

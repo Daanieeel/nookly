@@ -1,4 +1,4 @@
-import { IconChevronLeft } from "@tabler/icons-react-native";
+import { IconChevronLeft, IconX } from "@tabler/icons-react-native";
 import {
   type ReactNode,
   createContext,
@@ -48,6 +48,15 @@ import { CORNER, DEPTH, RADIUS } from "../tokens.ts";
 const settleTime = (still: boolean) => (still ? FADE.out : SPRING.sheet.duration);
 
 export type SheetSize = "content" | "large";
+
+/// How it shows: `sheet` comes up from the bottom (forms, menus, display options);
+/// `card` floats in the middle of the screen, as Linear's pickers do (D65): a title, a
+/// round close button and big rows, over the page dimmed. A card opened from inside a
+/// sheet floats over it instead of being pushed as a step.
+export type SheetPresentation = "sheet" | "card";
+
+/// How far a card's corners round, Linear's.
+const CARD_RADIUS = 30;
 
 const NO_INSETS = { top: 0, bottom: 0, left: 0, right: 0 };
 
@@ -118,6 +127,32 @@ export function SheetPinned({ children }: { children: ReactNode }) {
   return pin ? null : <>{children}</>;
 }
 
+/// What a sheet's content puts in place of the title row (a compose form's close, context
+/// and send buttons) and under its list, riding on the keyboard (its property pills).
+const EdgeContext = createContext<{
+  header: PinStore;
+  footer: PinStore;
+} | null>(null);
+
+function usePinned(store: PinStore | undefined, children: ReactNode) {
+  useEffect(() => {
+    store?.set(children);
+  });
+  useEffect(() => () => store?.set(null), [store]);
+}
+
+/// Draws `children` in place of the sheet's title row, kept current.
+export function SheetHeader({ children }: { children: ReactNode }) {
+  usePinned(useContext(EdgeContext)?.header, children);
+  return null;
+}
+
+/// Pins `children` to the bottom of the sheet, above the keyboard, kept current.
+export function SheetFooter({ children }: { children: ReactNode }) {
+  usePinned(useContext(EdgeContext)?.footer, children);
+  return null;
+}
+
 function PinnedSlot({ store }: { store: PinStore }) {
   const node = useSyncExternalStore(store.subscribe, store.get);
   return node ? <View className="px-4 pb-2">{node}</View> : null;
@@ -134,6 +169,7 @@ function SheetFrame({
   open,
   title,
   size = "content",
+  presentation = "sheet",
   onRequestClose,
   onClosed,
   children,
@@ -141,6 +177,7 @@ function SheetFrame({
   open: boolean;
   title?: string;
   size?: SheetSize;
+  presentation?: SheetPresentation;
   /// The person asked it to go: a swipe, the backdrop, the system's back.
   onRequestClose: () => void;
   onClosed: () => void;
@@ -160,6 +197,11 @@ function SheetFrame({
   const still = useReduceMotion();
   const scrollY = useSharedValue(0);
   const pin = useMemo(makePinStore, []);
+  const headerPin = useMemo(makePinStore, []);
+  const footerPin = useMemo(makePinStore, []);
+  const edges = useMemo(() => ({ header: headerPin, footer: footerPin }), [headerPin, footerPin]);
+  const header = useSyncExternalStore(headerPin.subscribe, headerPin.get);
+  const footer = useSyncExternalStore(footerPin.subscribe, footerPin.get);
   const grabber = useSemantic("tertiaryLabel");
   const [pages, setPages] = useState<SheetPage[]>([]);
   const pagesNow = useRef(pages);
@@ -178,9 +220,17 @@ function SheetFrame({
     if (open) setPages([]);
   }, [open]);
 
+  /// A card's way in: 0 gone, 1 shown.
+  const shown = useSharedValue(0);
+  const card = presentation === "card";
+
   useEffect(() => {
     const to = open ? 0 : window.height;
     target.value = to;
+    // A card grows in from its middle and fades, as a menu does, or only fades.
+    shown.value = still
+      ? withTiming(open ? 1 : 0, { duration: open ? FADE.in : FADE.out })
+      : withSpring(open ? 1 : 0, SPRING.menu);
     // A spring from wherever it is, carrying the finger's speed; under Reduce Motion a
     // short slide that reads as a fade with the backdrop.
     offset.value = still
@@ -196,7 +246,7 @@ function SheetFrame({
       then?.();
     }, settleTime(still));
     return () => clearTimeout(timer);
-  }, [open, offset, target, release, still, window.height]);
+  }, [open, offset, target, release, still, window.height, shown]);
 
   const handle = useMemo<SheetHandle>(
     () => ({
@@ -279,89 +329,239 @@ function SheetFrame({
     opacity: 1 - offset.value / window.height,
   }));
 
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: shown.value,
+    transform: [{ scale: 0.94 + 0.06 * shown.value }],
+  }));
+  const cardBackdrop = useAnimatedStyle(() => ({ opacity: shown.value }));
+  const cardRoom = useAnimatedStyle(() => ({
+    paddingBottom: Math.max(bottomInset, keyboard.height.value) + 12,
+  }));
+
   const shownTitle = top ? top.title : title;
-  return (
-    <SheetContext.Provider value={handle}>
-      <PinContext.Provider value={pin}>
-        <ScrollContext.Provider value={scrollY}>
-          <InSheet.Provider value>
-            <View className="flex-1 justify-end">
-              <Animated.View style={backdrop} className="absolute inset-0 bg-black/50">
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close"
-                  onPress={onRequestClose}
-                  className="flex-1"
-                />
-              </Animated.View>
-              <GestureDetector gesture={pan}>
+  if (card) {
+    return (
+      <SheetContext.Provider value={handle}>
+        <PinContext.Provider value={pin}>
+          <EdgeContext.Provider value={edges}>
+            <ScrollContext.Provider value={scrollY}>
+              <InSheet.Provider value>
                 <Animated.View
-                  accessibilityViewIsModal
-                  style={[
-                    panel,
-                    CORNER,
-                    DEPTH.floating,
-                    { borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet },
-                  ]}
+                  style={[cardRoom, { paddingTop: insets.top + 12 }]}
+                  className="flex-1 justify-center px-3"
                 >
-                  {/* iOS's sheet material: the page shows through, blurred. */}
-                  <BlurView
-                    tint="systemThickMaterial"
-                    intensity={100}
+                  <Animated.View style={cardBackdrop} className="absolute inset-0 bg-black/60">
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Close"
+                      onPress={onRequestClose}
+                      className="flex-1"
+                    />
+                  </Animated.View>
+                  <Animated.View
+                    accessibilityViewIsModal
                     style={[
-                      StyleSheet.absoluteFill,
+                      cardStyle,
                       CORNER,
-                      {
-                        borderTopLeftRadius: RADIUS.sheet,
-                        borderTopRightRadius: RADIUS.sheet,
-                        overflow: "hidden",
-                      },
+                      DEPTH.floating,
+                      { maxHeight: "100%", borderRadius: CARD_RADIUS },
                     ]}
-                  />
-                  <View className="items-center pt-2" accessibilityElementsHidden>
-                    <View className="h-1 w-9 rounded-full" style={{ backgroundColor: grabber }} />
-                  </View>
-                  {shownTitle !== undefined || pages.length > 0 ? (
-                    <View className="flex-row items-center px-2" style={{ minHeight: MIN_TOUCH }}>
-                      <View style={{ width: MIN_TOUCH }}>
-                        {pages.length > 0 ? (
+                  >
+                    <BlurView
+                      tint="systemThickMaterial"
+                      intensity={100}
+                      style={[
+                        StyleSheet.absoluteFill,
+                        CORNER,
+                        { borderRadius: CARD_RADIUS, overflow: "hidden" },
+                      ]}
+                    />
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        StyleSheet.absoluteFill,
+                        CORNER,
+                        {
+                          borderRadius: CARD_RADIUS,
+                          borderWidth: StyleSheet.hairlineWidth,
+                        },
+                      ]}
+                      className="border-border"
+                    />
+                    <View className="flex-row items-center gap-1 pb-1 pl-5 pr-3 pt-3">
+                      {pages.length > 0 ? (
+                        <View className="-ml-3">
                           <IconButton
                             label="Back"
                             icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
                             onPress={handle.back}
                           />
-                        ) : null}
-                      </View>
+                        </View>
+                      ) : null}
                       <Text
                         variant="heading"
                         accessibilityRole="header"
                         numberOfLines={1}
-                        className="flex-1 text-center"
+                        className="flex-1"
                       >
                         {shownTitle ?? ""}
                       </Text>
-                      <View style={{ width: MIN_TOUCH }} />
+                      <RoundButton label="Close" onPress={onRequestClose}>
+                        <IconX size={22} color={theme.colors.foreground} />
+                      </RoundButton>
                     </View>
-                  ) : null}
-                  <PinnedSlot store={pin} />
-                  <GestureDetector gesture={scroll}>
+                    <PinnedSlot store={pin} />
                     <Animated.ScrollView
                       bounces={false}
                       keyboardShouldPersistTaps="handled"
                       scrollEventThrottle={16}
                       onScroll={onScroll}
-                      contentContainerClassName="gap-4 px-4 pb-4 pt-1"
+                      style={{ flexGrow: 0, flexShrink: 1 }}
+                      contentContainerClassName="px-2 pb-3"
                     >
                       {top ? top.content : children}
                     </Animated.ScrollView>
-                  </GestureDetector>
+                  </Animated.View>
                 </Animated.View>
-              </GestureDetector>
-            </View>
-          </InSheet.Provider>
-        </ScrollContext.Provider>
+              </InSheet.Provider>
+            </ScrollContext.Provider>
+          </EdgeContext.Provider>
+        </PinContext.Provider>
+      </SheetContext.Provider>
+    );
+  }
+  return (
+    <SheetContext.Provider value={handle}>
+      <PinContext.Provider value={pin}>
+        <EdgeContext.Provider value={edges}>
+          <ScrollContext.Provider value={scrollY}>
+            <InSheet.Provider value>
+              <View className="flex-1 justify-end">
+                <Animated.View style={backdrop} className="absolute inset-0 bg-black/50">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close"
+                    onPress={onRequestClose}
+                    className="flex-1"
+                  />
+                </Animated.View>
+                <GestureDetector gesture={pan}>
+                  <Animated.View
+                    accessibilityViewIsModal
+                    style={[
+                      panel,
+                      CORNER,
+                      DEPTH.floating,
+                      {
+                        borderTopLeftRadius: RADIUS.sheet,
+                        borderTopRightRadius: RADIUS.sheet,
+                      },
+                    ]}
+                  >
+                    {/* iOS's sheet material: the page shows through, blurred. */}
+                    <BlurView
+                      tint="systemThickMaterial"
+                      intensity={100}
+                      style={[
+                        StyleSheet.absoluteFill,
+                        CORNER,
+                        {
+                          borderTopLeftRadius: RADIUS.sheet,
+                          borderTopRightRadius: RADIUS.sheet,
+                          overflow: "hidden",
+                        },
+                      ]}
+                    />
+                    <View className="items-center pt-2" accessibilityElementsHidden>
+                      <View className="h-1 w-9 rounded-full" style={{ backgroundColor: grabber }} />
+                    </View>
+                    {header && pages.length === 0 ? (
+                      header
+                    ) : shownTitle !== undefined || pages.length > 0 ? (
+                      <View className="flex-row items-center px-2" style={{ minHeight: MIN_TOUCH }}>
+                        <View style={{ width: MIN_TOUCH }}>
+                          {pages.length > 0 ? (
+                            <IconButton
+                              label="Back"
+                              icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
+                              onPress={handle.back}
+                            />
+                          ) : null}
+                        </View>
+                        <Text
+                          variant="heading"
+                          accessibilityRole="header"
+                          numberOfLines={1}
+                          className="flex-1 text-center"
+                        >
+                          {shownTitle ?? ""}
+                        </Text>
+                        <View style={{ width: MIN_TOUCH }} />
+                      </View>
+                    ) : null}
+                    <PinnedSlot store={pin} />
+                    <GestureDetector gesture={scroll}>
+                      <Animated.ScrollView
+                        bounces={false}
+                        keyboardShouldPersistTaps="handled"
+                        scrollEventThrottle={16}
+                        onScroll={onScroll}
+                        contentContainerClassName="gap-4 px-4 pb-4 pt-1"
+                      >
+                        {top ? top.content : children}
+                      </Animated.ScrollView>
+                    </GestureDetector>
+                    {footer && pages.length === 0 ? footer : null}
+                  </Animated.View>
+                </GestureDetector>
+              </View>
+            </InSheet.Provider>
+          </ScrollContext.Provider>
+        </EdgeContext.Provider>
       </PinContext.Provider>
     </SheetContext.Provider>
+  );
+}
+
+/// Linear's round button in a sheet's or card's corners (close, send): a filled circle a
+/// finger tall.
+export function RoundButton({
+  label,
+  onPress,
+  disabled,
+  tone = "plain",
+  children,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  /// `primary` fills it with the accent (a send that is ready).
+  tone?: "plain" | "primary";
+  children: ReactNode;
+}) {
+  const fill = useSemantic("fill");
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          width: MIN_TOUCH,
+          height: MIN_TOUCH,
+          borderRadius: MIN_TOUCH / 2,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: tone === "primary" && !disabled ? theme.colors.primary : fill,
+          opacity: disabled ? 0.45 : pressed ? 0.6 : 1,
+        },
+      ]}
+    >
+      {children}
+    </Pressable>
   );
 }
 
@@ -415,15 +615,19 @@ export function Sheet({
   onOpenChange,
   title,
   size,
+  presentation,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
   size?: SheetSize;
+  presentation?: SheetPresentation;
   children: ReactNode;
 }) {
-  const parent = useSheet();
+  // A card floats over the sheet it is opened from, in a window of its own.
+  const outer = useSheet();
+  const parent = presentation === "card" ? null : outer;
   const live = useLive(children);
   const opened = useRef(false);
   useEffect(() => {
@@ -444,7 +648,13 @@ export function Sheet({
   }, [open, parent]);
   if (parent) return null;
   return (
-    <WindowSheet open={open} onOpenChange={onOpenChange} title={title} size={size}>
+    <WindowSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      size={size}
+      presentation={presentation}
+    >
       {children}
     </WindowSheet>
   );
@@ -456,12 +666,14 @@ function WindowSheet({
   onOpenChange,
   title,
   size,
+  presentation,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
   size?: SheetSize;
+  presentation?: SheetPresentation;
   children: ReactNode;
 }) {
   // Stays up after `open` turns false, until it has gone down.
@@ -485,6 +697,7 @@ function WindowSheet({
           open={open}
           title={title}
           size={size}
+          presentation={presentation}
           onRequestClose={requestClose}
           onClosed={() => setMounted(false)}
         >

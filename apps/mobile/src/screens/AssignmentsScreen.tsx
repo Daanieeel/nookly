@@ -3,7 +3,7 @@ import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { type AssignmentRecord, updateAssignment } from "@nookly/shared/data";
-import { IconLayoutKanban, IconList } from "@tabler/icons-react-native";
+import { IconCircleDot, IconLayoutKanban, IconList, IconSchool } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -17,7 +17,7 @@ import { cn } from "../ui/classes.ts";
 import { ListHeader } from "../ui/ListBar.tsx";
 import { ROW_DIVIDER } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
-import { FilterField, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
+import { DisplayGroup, FilterField, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import {
@@ -215,9 +215,10 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
           onOpenChange={(open) => !open && setPanel(null)}
           title="Filter"
         >
-          <View>
+          <DisplayGroup>
             <FilterField
               label="Course"
+              icon={IconSchool}
               values={display.courses}
               options={courses.map((c) => ({
                 id: c.entity.id,
@@ -227,11 +228,12 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
             />
             <FilterField
               label="Status"
+              icon={IconCircleDot}
               values={display.statuses}
               options={ASSIGNMENT_STATUSES.map(statusOption)}
               onChange={(next) => setDisplay({ ...display, statuses: next })}
             />
-          </View>
+          </DisplayGroup>
         </Sheet>
         <Sheet
           open={panel === "display"}
@@ -247,20 +249,22 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
               value={display.layout}
               onSelect={(layout) => setDisplay({ ...display, layout })}
             />
-            {display.layout === "list" ? (
+            <DisplayGroup>
+              {display.layout === "list" ? (
+                <SelectRow
+                  label="Grouping"
+                  value={display.grouping}
+                  options={[...ASSIGNMENT_GROUPINGS]}
+                  onChange={(grouping) => setDisplay({ ...display, grouping })}
+                />
+              ) : null}
               <SelectRow
-                label="Grouping"
-                value={display.grouping}
-                options={[...ASSIGNMENT_GROUPINGS]}
-                onChange={(grouping) => setDisplay({ ...display, grouping })}
+                label="Ordering"
+                value={display.ordering}
+                options={[...ASSIGNMENT_ORDERINGS]}
+                onChange={(ordering) => setDisplay({ ...display, ordering })}
               />
-            ) : null}
-            <SelectRow
-              label="Ordering"
-              value={display.ordering}
-              options={[...ASSIGNMENT_ORDERINGS]}
-              onChange={(ordering) => setDisplay({ ...display, ordering })}
-            />
+            </DisplayGroup>
           </View>
         </Sheet>
         {all.length === 0 ? (

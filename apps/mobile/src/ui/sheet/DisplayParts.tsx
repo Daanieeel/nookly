@@ -1,15 +1,19 @@
 import { haptic } from "../haptics.ts";
 import { IconChevronRight } from "@tabler/icons-react-native";
-import { type ComponentType, useState } from "react";
-import { Pressable, Switch, View } from "react-native";
+import { Children, type ComponentType, type ReactNode, useState } from "react";
+import { Pressable, StyleSheet, Switch, View } from "react-native";
 import { cn } from "../classes.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
-import { TYPE } from "../tokens.ts";
+import { CORNER, TYPE } from "../tokens.ts";
+import { useSemantic } from "../kit/scheme.ts";
+import { InlineSelect } from "./InlineMenu.tsx";
 import { TOUCH_ROW } from "../touch.ts";
 
 /// Rows and tiles at the size of the sheet's menu items.
 const BODY = { fontSize: TYPE.body.fontSize, lineHeight: TYPE.body.lineHeight };
+/// Linear's grouped rows: a little taller than a finger.
+const ROW = { minHeight: 52 };
 import { type Option, OptionList } from "./OptionList.tsx";
 import { useSheet } from "./Sheet.tsx";
 
@@ -41,8 +45,8 @@ export function LayoutTiles<T extends string>({
             style={TOUCH_ROW}
             className={cn(
               "active:opacity-60",
-              "flex-1 items-center justify-center gap-1.5 rounded-lg border border-border py-3",
-              on && "border-foreground/20 bg-accent",
+              "flex-1 items-center justify-center gap-1.5 rounded-2xl border border-transparent py-3",
+              on ? "border-foreground/15 bg-accent" : "bg-muted/60",
             )}
           >
             <tile.icon
@@ -59,81 +63,72 @@ export function LayoutTiles<T extends string>({
   );
 }
 
-/// A row with a name and its value on the right: tapped, it shows its choices as the next
-/// step of the sheet.
-export function SelectRow<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
+/// A row with a name and its value on the right: tapped, its choices grow out of the value
+/// as Linear's menu does.
+export function SelectRow<T extends string>(props: {
   label: string;
   value: T;
   options: Option<T>[];
   onChange: (id: T) => void;
 }) {
-  const sheet = useSheet();
-  const current = options.find((o) => o.id === value);
-  return (
-    <NextRow
-      label={label}
-      value={current?.label ?? ""}
-      onPress={() =>
-        sheet?.push({
-          title: label,
-          content: (
-            <StepOptions label={label} value={value} options={options} onChange={onChange} />
-          ),
-        })
-      }
-    />
-  );
+  return <InlineSelect {...props} />;
 }
 
-/// The choices of a `SelectRow`: picking one goes back to the step before.
-function StepOptions<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: Option<T>[];
-  onChange: (id: T) => void;
-}) {
-  const sheet = useSheet();
+/// Linear's grouped card in a sheet: its rows on one rounded surface with hairlines
+/// between them.
+export function DisplayGroup({ children }: { children: ReactNode }) {
+  const surface = useSemantic("surface");
+  const separator = useSemantic("separator");
+  const rows = Children.toArray(children).filter(Boolean);
   return (
-    <View className="-mt-1">
-      <OptionList
-        label={label}
-        value={value}
-        options={options}
-        onChange={onChange}
-        afterPick={() => sheet?.back()}
-      />
+    <View style={[CORNER, { backgroundColor: surface, borderRadius: 20, overflow: "hidden" }]}>
+      {rows.map((row, index) => (
+        // oxlint-disable-next-line react/no-array-index-key -- rows are positional
+        <View key={index}>
+          {index > 0 ? (
+            <View
+              style={{
+                height: StyleSheet.hairlineWidth,
+                backgroundColor: separator,
+              }}
+            />
+          ) : null}
+          {row}
+        </View>
+      ))}
     </View>
   );
 }
 
 /// A row that opens a further step: a name, what is set, a chevron.
-function NextRow({ label, value, onPress }: { label: string; value: string; onPress: () => void }) {
+function NextRow({
+  label,
+  value,
+  icon: Icon,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  icon?: ComponentType<{ size?: number; color?: string }>;
+  onPress: () => void;
+}) {
   const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${label}, ${value}`}
       onPress={onPress}
-      style={TOUCH_ROW}
-      className="-mx-2 flex-row items-center gap-3 rounded-md px-2 active:bg-accent"
+      style={ROW}
+      className="flex-row items-center gap-3 px-4 active:bg-accent"
     >
-      <Text tone="muted" className="flex-1" style={BODY}>
+      {Icon ? <Icon size={22} color={theme.colors.foreground} /> : null}
+      <Text className="flex-1" style={BODY}>
         {label}
       </Text>
-      <Text numberOfLines={1} style={[BODY, { maxWidth: "55%" }]}>
+      <Text numberOfLines={1} tone="muted" style={[BODY, { maxWidth: "50%" }]}>
         {value}
       </Text>
-      <IconChevronRight size={20} color={theme.colors.mutedForeground} />
+      <IconChevronRight size={18} color={theme.colors.mutedForeground} />
     </Pressable>
   );
 }
@@ -150,8 +145,8 @@ export function SwitchRow({
 }) {
   const theme = useTheme();
   return (
-    <View style={TOUCH_ROW} className="flex-row items-center gap-3">
-      <Text tone="muted" className="flex-1" style={BODY}>
+    <View style={ROW} className="flex-row items-center gap-3 px-4">
+      <Text className="flex-1" style={BODY}>
         {label}
       </Text>
       <Switch
@@ -171,11 +166,14 @@ export function SwitchRow({
 /// tapped, its options to tick, which stay open for more.
 export function FilterField<T extends string>({
   label,
+  icon,
   options,
   values,
   onChange,
 }: {
   label: string;
+  /// The desktop's icon for the field, as Linear's filter list draws one per row.
+  icon?: ComponentType<{ size?: number; color?: string }>;
   options: Option<T>[];
   values: T[];
   onChange: (values: T[]) => void;
@@ -190,6 +188,7 @@ export function FilterField<T extends string>({
   return (
     <NextRow
       label={label}
+      icon={icon}
       value={shown}
       onPress={() =>
         sheet?.push({

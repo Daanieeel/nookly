@@ -1,15 +1,17 @@
-import { IconSearch, IconPlus } from "@tabler/icons-react-native";
+import { IconCheck, IconPlus, IconSearch } from "@tabler/icons-react-native";
 import { type ReactNode, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { runOnJS, useAnimatedReaction, useSharedValue } from "react-native-reanimated";
 import { haptic } from "../haptics.ts";
 import type { GlyphIcon } from "../kit/Glyph.tsx";
-import { GroupedSection, INSET, SectionHeader } from "../kit/GroupedSection.tsx";
-import { IconBadge } from "../kit/IconBadge.tsx";
-import { ListRow } from "../kit/ListRow.tsx";
+import { SectionHeader } from "../kit/GroupedSection.tsx";
+import { Glyph } from "../kit/Glyph.tsx";
+import { useScheme } from "../kit/scheme.ts";
+import { Text } from "../Text.tsx";
+import { useTheme } from "../theme.ts";
 import { SearchField } from "../kit/SearchField.tsx";
 import { EmptyState } from "../kit/States.tsx";
-import type { TintName } from "../tokens.ts";
+import { CORNER, TYPE, type TintName, tint as tintOf } from "../tokens.ts";
 import { SheetPinned, useSheet, useSheetScroll } from "./Sheet.tsx";
 
 /// One choice in a list: what it is called, its icon, and the desktop's details.
@@ -53,13 +55,86 @@ export function groupOptions<Id extends string>(options: Option<Id>[]): Group<Id
   return groups;
 }
 
-function badgeOf(option: Option): ReactNode {
-  if (option.glyph) {
-    return <IconBadge glyph={option.glyph} tint={option.tint} />;
-  }
-  if (option.icon) return <IconBadge icon={option.icon} tint={option.tint ?? "gray"} />;
-  return undefined;
+/// What a row starts with: the option's own mark, or the desktop's icon in its tint,
+/// drawn plain as Linear does, no badge behind it.
+function LeadingIcon({ option }: { option: Option }) {
+  const scheme = useScheme();
+  const theme = useTheme();
+  if (option.icon) return <View style={LEAD}>{option.icon}</View>;
+  if (!option.glyph) return null;
+  const color = option.tint ? tintOf(option.tint, scheme) : theme.colors.mutedForeground;
+  return (
+    <View style={LEAD}>
+      <Glyph icon={option.glyph} size={22} color={color} />
+    </View>
+  );
 }
+
+const LEAD = {
+  width: 24,
+  alignItems: "center",
+  justifyContent: "center",
+} as const;
+
+/// One choice as Linear's pickers draw it: a big row with its icon, the title in body
+/// text, a muted subtitle or detail, and a plain check on the right for the chosen one.
+function PickerRow({
+  option,
+  selected,
+  role,
+  onPress,
+  accessibilityLabel,
+}: {
+  option: Option;
+  selected: boolean;
+  role: "radio" | "checkbox" | "button";
+  onPress: () => void;
+  accessibilityLabel?: string;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole={role}
+      accessibilityLabel={
+        accessibilityLabel ??
+        [option.label, option.subtitle, option.detail].filter(Boolean).join(", ")
+      }
+      accessibilityState={role === "button" ? undefined : { checked: selected, selected }}
+      onPress={onPress}
+      style={[CORNER, { minHeight: ROW_HEIGHT }]}
+      className="flex-row items-center gap-3.5 rounded-xl px-3 active:bg-accent"
+    >
+      <LeadingIcon option={option} />
+      <View className="flex-1 py-2">
+        <Text numberOfLines={1} style={BODY}>
+          {option.label}
+        </Text>
+        {option.subtitle ? (
+          <Text numberOfLines={1} tone="muted" className="text-sm">
+            {option.subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {option.detail ? (
+        <Text numberOfLines={1} tone="muted" className="text-sm">
+          {option.detail}
+        </Text>
+      ) : null}
+      {role === "button" ? null : (
+        <View style={{ width: 22 }}>
+          {selected ? <IconCheck size={20} color={theme.colors.foreground} /> : null}
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+/// From how many choices a list gets its search field.
+const SEARCH_FROM = 7;
+
+/// Linear's rows: a finger and a bit tall.
+const ROW_HEIGHT = 50;
+const BODY = { fontSize: TYPE.body.fontSize, lineHeight: TYPE.body.lineHeight };
 
 /// The desktop's option list (the `Command` list in a select or a property popover) as
 /// iOS draws a picker (D50): a search pinned above the list, the choices in grouped
@@ -73,7 +148,8 @@ export function OptionList<Id extends string>(
     options: Option<Id>[];
     searchPlaceholder?: string;
     onCreate?: (name: string) => void;
-    /// `false` leaves the search out (a list that is only ever two or three long and fixed).
+    /// Whether it has a search field; by default only a list longer than 7, or one that
+    /// makes new choices or searches elsewhere.
     search?: boolean;
     /// Searches elsewhere (the item search): gets each query, and `options` are then shown
     /// as given, not filtered here.
@@ -112,7 +188,9 @@ export function OptionList<Id extends string>(
   const creating = onCreate !== undefined && words !== "" && !exact;
   const chosen = (id: Id) => (props.multiple ? props.values.includes(id) : props.value === id);
   const groups = groupOptions(shown);
-  const inset = options.some((o) => o.icon || o.glyph) ? INSET.badge : INSET.plain;
+  // Linear searches a long list or one that grows (labels); a handful (a status) has none.
+  const searchable =
+    props.search ?? (options.length > SEARCH_FROM || !!onCreate || !!props.onQueryChange);
   const current = useStuckSection(groups.length);
 
   const pick = (option: Option<Id>) => {
@@ -134,7 +212,7 @@ export function OptionList<Id extends string>(
 
   return (
     <View onLayout={current.onRootLayout}>
-      {props.search === false ? null : (
+      {!searchable ? null : (
         <SheetPinned>
           <SearchField
             label={`Search ${label}`}
@@ -153,41 +231,47 @@ export function OptionList<Id extends string>(
       <View
         accessibilityRole={props.multiple ? undefined : "radiogroup"}
         accessibilityLabel={label}
-        style={{ gap: 8 }}
       >
         {groups.map((group, index) => (
-          <GroupedSection
+          <View
             // oxlint-disable-next-line react/no-array-index-key -- groups are positional
             key={`${group.title ?? ""}-${index}`}
-            title={group.title}
-            inset={inset}
-            margin={0}
             onLayout={(event) => current.onSectionLayout(index, event.nativeEvent.layout.y)}
           >
+            {group.title ? (
+              <Text
+                accessibilityRole="header"
+                tone="muted"
+                className="px-3 pb-1 pt-3 text-sm font-medium"
+              >
+                {group.title}
+              </Text>
+            ) : index > 0 ? (
+              <View className="mx-3 my-1 h-px bg-border" />
+            ) : null}
             {group.options.map((option) => (
-              <ListRow
+              <PickerRow
                 key={option.id}
-                accessibilityRole={props.multiple ? "checkbox" : "radio"}
-                badge={badgeOf(option)}
-                title={option.label}
-                subtitle={option.subtitle}
-                detail={option.detail}
-                accessory="check"
+                option={option}
+                role={props.multiple ? "checkbox" : "radio"}
                 selected={chosen(option.id)}
                 onPress={() => pick(option)}
               />
             ))}
-          </GroupedSection>
+          </View>
         ))}
         {creating ? (
-          <GroupedSection margin={0} inset={INSET.badge}>
-            <ListRow
-              badge={<IconBadge glyph={IconPlus} tint="blue" />}
-              title={`Create "${query.trim()}"`}
-              accessibilityLabel={`Create ${query.trim()}`}
-              onPress={create}
-            />
-          </GroupedSection>
+          <PickerRow
+            option={{
+              id: "create",
+              label: `Create "${query.trim()}"`,
+              glyph: IconPlus,
+            }}
+            role="button"
+            accessibilityLabel={`Create ${query.trim()}`}
+            selected={false}
+            onPress={create}
+          />
         ) : null}
         {shown.length === 0 && !creating ? (
           <EmptyState

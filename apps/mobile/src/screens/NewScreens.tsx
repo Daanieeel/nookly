@@ -84,7 +84,7 @@ export function LinkTarget({
           ) : undefined
         }
       />
-      <Sheet open={open} onOpenChange={setOpen} title="Link to" size="large">
+      <Sheet open={open} onOpenChange={setOpen} title="Link to" presentation="card">
         <EntitySearch onPick={onChange} />
       </Sheet>
     </>
@@ -138,7 +138,7 @@ export function LabelsField({
         placeholder="None"
         onPress={() => setOpen(true)}
       />
-      <Sheet open={open} onOpenChange={setOpen} title="Labels">
+      <Sheet open={open} onOpenChange={setOpen} title="Labels" presentation="card">
         <OptionList
           label="Labels"
           multiple

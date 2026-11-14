@@ -84,7 +84,7 @@ export function DateField({
         onPress={() => setOpen(true)}
         trailing={clear ?? undefined}
       />
-      <Sheet open={open} onOpenChange={setOpen} title={label}>
+      <Sheet open={open} onOpenChange={setOpen} title={label} presentation="card">
         <DayPicker
           label={label}
           value={value}

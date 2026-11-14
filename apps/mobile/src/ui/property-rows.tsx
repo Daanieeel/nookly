@@ -55,7 +55,7 @@ export function SheetProperty({
         disabled={readOnly}
         onPress={() => setOpen(true)}
       />
-      <Sheet open={open} onOpenChange={setOpen} title={label} size={size}>
+      <Sheet open={open} onOpenChange={setOpen} title={label} size={size} presentation="card">
         {children}
       </Sheet>
     </>
