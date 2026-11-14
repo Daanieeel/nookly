@@ -1,4 +1,4 @@
-import { labelOption, statusOption } from "./option-badges.tsx";
+import { labelOption, spaceOption, statusOption } from "./option-badges.tsx";
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
   createAssignment,
@@ -13,7 +13,7 @@ import {
   type EntityRecord,
 } from "@nookly/shared/data";
 import type { LocalDb } from "@nookly/shared/data";
-import { IconX } from "@tabler/icons-react-native";
+import { IconMapPin, IconX } from "@tabler/icons-react-native";
 import { useForm } from "@tanstack/react-form";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -33,13 +33,21 @@ import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { useCloseSheet } from "../ui/sheet/route.tsx";
 import { Text } from "../ui/Text.tsx";
-import { CalendarEntryForm } from "./CalendarEntryForm.tsx";
 import { ExamPicker } from "./StudyPickers.tsx";
 import { hourAfter, localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
-import { PillSelect } from "../ui/sheet/Compose.tsx";
+import {
+  ComposeFooter,
+  ComposeHeader,
+  ComposeLine,
+  ComposeText,
+  ComposeTitle,
+  Pill,
+  PillSelect,
+} from "../ui/sheet/Compose.tsx";
+import { haptic } from "../ui/haptics.ts";
 import {
   ComposeForm,
   CoursePill,
@@ -47,6 +55,7 @@ import {
   EntitySearch,
   LabelsPill,
   LinkPill,
+  TimePill,
 } from "./ComposeForm.tsx";
 
 /// The Space to make something in: the one asked for, else the first.
@@ -281,8 +290,8 @@ export function NewBookmarkScreen({ spaceId }: { spaceId?: string }) {
   );
 }
 
-/// New Calendar entry: the day comes first, today by default.
-/// A new calendar entry: today at nine, or the day and time a finger rested on the hours.
+/// New Calendar entry, as Linear's compose sheet (D65): its title, where and a
+/// description, then the day, the times or All day and a last day as pills.
 export function NewEntryScreen({
   spaceId,
   date,
@@ -293,32 +302,106 @@ export function NewEntryScreen({
   start?: string;
 }) {
   const close = useCloseSheet();
+  const { data: spaces = [] } = useSpaces();
   const [space, setSpace] = useTargetSpace(spaceId);
-  const create = useLocalWrite((db, input: Parameters<typeof createCalendarEntry>[2]) => {
-    if (!space) throw new Error("Pick a Space");
-    return createCalendarEntry(db, space, input);
+  const [title, setTitle] = useState("");
+  const [where, setWhere] = useState("");
+  const [description, setDescription] = useState("");
+  const [day, setDay] = useState(date ?? localDay());
+  const [lastDay, setLastDay] = useState<string | null>(null);
+  const [allDay, setAllDay] = useState(false);
+  const [starts, setStarts] = useState<string | null>(start ?? "09:00");
+  const [ends, setEnds] = useState<string | null>(hourAfter(start ?? "09:00"));
+  const problem = entryProblem({ day, lastDay, allDay, starts, ends });
+  const create = useLocalWrite((db, name: string) => {
+    if (!space) throw new Error("Make a Space first.");
+    return createCalendarEntry(db, space, {
+      title: name,
+      date: day,
+      endDate: lastDay,
+      startTime: allDay ? null : starts,
+      endTime: allDay ? null : ends,
+      allDay,
+      location: where.trim() || null,
+      description: description.trim() || null,
+    });
   });
+  const canSend = title.trim() !== "" && space !== null && !problem && !create.isPending;
   return (
-    <Screen>
-      <FormSection>
-        <SpacePicker value={space} onChange={setSpace} />
-        <CalendarEntryForm
-          initial={{
-            title: "",
-            date: date ?? localDay(),
-            startTime: start ?? "09:00",
-            endTime: hourAfter(start ?? "09:00"),
-            allDay: false,
-            location: null,
+    <View className="gap-1">
+      <ComposeHeader
+        sendLabel="Add to Calendar"
+        canSend={canSend}
+        onSend={() => create.mutate(title.trim(), { onSuccess: () => close() })}
+        context={
+          <PillSelect
+            label="Space"
+            value={space}
+            options={spaces.map(spaceOption)}
+            onChange={setSpace}
+          />
+        }
+      />
+      <ComposeTitle
+        label="Entry title"
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Dentist"
+      />
+      <ComposeLine
+        label="Where"
+        icon={IconMapPin}
+        value={where}
+        onChangeText={setWhere}
+        placeholder="Add a place"
+      />
+      <ComposeText
+        label="Description"
+        value={description}
+        onChangeText={setDescription}
+        placeholder="Description…"
+      />
+      {problem || create.error ? (
+        <Text tone="destructive" variant="small">
+          {problem ?? create.error?.message}
+        </Text>
+      ) : null}
+      <ComposeFooter>
+        <DayPill label="Day" value={day} clearable={false} onChange={(d) => d && setDay(d)} />
+        <Pill
+          label="All day"
+          value={null}
+          checked={allDay}
+          onPress={() => {
+            haptic("toggle");
+            setAllDay(!allDay);
           }}
-          showTitle
-          submitLabel="Add to Calendar"
-          status={create}
-          onSubmit={(input) => void create.mutateAsync(input).then(() => close())}
         />
-      </FormSection>
-    </Screen>
+        {allDay ? null : (
+          <>
+            <TimePill label="Starts" value={starts} onChange={setStarts} />
+            <TimePill label="Ends" value={ends} onChange={setEnds} />
+          </>
+        )}
+        <DayPill label="Last day" value={lastDay} onChange={setLastDay} />
+      </ComposeFooter>
+    </View>
   );
+}
+
+/// What keeps an entry from being saved: a last day before the first, an end before the
+/// start. Null when it is fine.
+export function entryProblem(v: {
+  day: string;
+  lastDay: string | null;
+  allDay: boolean;
+  starts: string | null;
+  ends: string | null;
+}): string | null {
+  if (v.lastDay && v.lastDay < v.day) return "Ends on or after the first day";
+  if (!v.allDay && v.starts && v.ends && v.ends <= v.starts && !v.lastDay)
+    return "Ends after it starts";
+  return null;
 }
 
 const spaceSchema = z.object({ name: z.string().trim().min(1, "Name it").max(60) });

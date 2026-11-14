@@ -1,6 +1,12 @@
 import type { EntityRecord, LocalDb } from "@nookly/shared/data";
 import { relate } from "@nookly/shared/data";
-import { IconCalendarEvent, IconLink, IconSchool, IconTag } from "@tabler/icons-react-native";
+import {
+  IconCalendarEvent,
+  IconClock,
+  IconLink,
+  IconSchool,
+  IconTag,
+} from "@tabler/icons-react-native";
 import { type ReactNode, useState } from "react";
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
@@ -9,6 +15,8 @@ import { ComposeBody, saveComposeBody, useComposeDoc } from "../editor/ComposeBo
 import { EditorToolbar } from "../editor/EditorToolbar.tsx";
 import { shownValue } from "../ui/DateField.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
+import { TimePicker } from "../ui/property-rows.tsx";
+import { clockText, useTwelveHour } from "../ui/TimeInput.tsx";
 import { DayPicker } from "../ui/sheet/DayPicker.tsx";
 import {
   ComposeFooter,
@@ -125,10 +133,12 @@ export function DayPill({
   label,
   value,
   onChange,
+  clearable = true,
 }: {
   label: string;
   value: string | null;
   onChange: (day: string | null) => void;
+  clearable?: boolean;
 }) {
   const theme = useTheme();
   return (
@@ -141,6 +151,7 @@ export function DayPill({
         label={label}
         value={value}
         onChange={onChange}
+        clearable={clearable}
         quick={[{ label: "Today", value: localDay() }]}
       />
     </PillSheet>
@@ -287,5 +298,28 @@ export function EntitySearch({ onPick }: { onPick: (e: EntityRecord) => void }) 
         if (e) onPick(e);
       }}
     />
+  );
+}
+
+/// A time of day as a pill: typed in a card, on the clock in use.
+export function TimePill({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (time: string | null) => void;
+}) {
+  const theme = useTheme();
+  const twelve = useTwelveHour();
+  return (
+    <PillSheet
+      label={label}
+      icon={<IconClock size={PILL_ICON} color={theme.colors.mutedForeground} />}
+      value={value ? clockText(value, twelve) : null}
+    >
+      <TimePicker label={label} value={value} onChange={onChange} />
+    </PillSheet>
   );
 }

@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import {
+  agenda,
   createCalendarEntry,
   createCourse,
   createExam,
@@ -20,6 +21,7 @@ import { addDays, isoWeek, localDay, periodTitle } from "./dates.ts";
 import { CalendarScreen } from "./CalendarScreen.tsx";
 import { HOUR_PX } from "./TimeGrid.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
+import { NewEntryScreen, entryProblem } from "./NewScreens.tsx";
 
 /// Everything the calendar draws, over the next days from today.
 async function planned() {
@@ -406,5 +408,70 @@ describe("a calendar entry's page", () => {
     const [trash] = await screen.findAllByRole("button", { name: "Move to Trash" });
     await fireEvent.press(trash);
     await waitFor(async () => expect((await getEntity(data.db, entry))?.deletedAt).toBeTruthy());
+  });
+});
+
+describe("a new calendar entry", () => {
+  // D65: Linear's compose sheet; the day, times and place are pills along the bottom.
+  it("is made with its day, times, place and description from the compose sheet", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Home", "#3b82f6");
+    const day = addDays(localDay(), 2);
+    const screen = await renderScreens(
+      { index: () => <NewEntryScreen spaceId={space} date={day} start="14:30" /> },
+      data,
+    );
+    const send = await screen.findByRole("button", { name: "Add to Calendar" });
+    expect(send.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.changeText(screen.getByLabelText("Entry title"), "Dentist");
+    await fireEvent.changeText(screen.getByLabelText("Where"), "Main Street");
+    await fireEvent.changeText(screen.getByLabelText("Description"), "Bring the card");
+    expect(screen.getByRole("button", { name: /^Starts, / })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Ends, / })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Add to Calendar" }));
+    await waitFor(async () => {
+      const [entry] = (await agenda(data.db, day, day)).filter((i) => i.kind === "calendar_entry");
+      expect(entry).toMatchObject({
+        title: "Dentist",
+        date: day,
+        startTime: "14:30",
+        endTime: "15:30",
+        allDay: false,
+        location: "Main Street",
+        description: "Bring the card",
+      });
+    });
+  });
+
+  it("can't be sent ending before it starts or on a day before its first", () => {
+    const base = {
+      day: "2026-11-20",
+      lastDay: null,
+      allDay: false,
+      starts: "10:00",
+      ends: "11:00",
+    };
+    expect(entryProblem(base)).toBeNull();
+    expect(entryProblem({ ...base, ends: "09:00" })).toBe("Ends after it starts");
+    expect(entryProblem({ ...base, ends: "09:00", allDay: true })).toBeNull();
+    expect(entryProblem({ ...base, lastDay: "2026-11-19" })).toBe("Ends on or after the first day");
+  });
+
+  it("drops its times when it lasts all day", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Home", "#3b82f6");
+    const day = localDay();
+    const screen = await renderScreens(
+      { index: () => <NewEntryScreen spaceId={space} date={day} /> },
+      data,
+    );
+    await fireEvent.changeText(await screen.findByLabelText("Entry title"), "Holiday");
+    await fireEvent.press(screen.getByRole("switch", { name: "All day" }));
+    expect(screen.queryByRole("button", { name: /^Starts, / })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Add to Calendar" }));
+    await waitFor(async () => {
+      const [entry] = (await agenda(data.db, day, day)).filter((i) => i.kind === "calendar_entry");
+      expect(entry).toMatchObject({ title: "Holiday", allDay: true, startTime: null });
+    });
   });
 });

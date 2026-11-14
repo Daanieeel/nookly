@@ -1,5 +1,5 @@
 import { IconArrowUp, IconX } from "@tabler/icons-react-native";
-import { type ReactNode, type RefObject, useState } from "react";
+import { type ComponentType, type ReactNode, type RefObject, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSemantic, useSemanticPair } from "../kit/scheme.ts";
 import { Text } from "../Text.tsx";
@@ -93,6 +93,85 @@ export function ComposeTitle({
   );
 }
 
+/// A short line under the title with its icon (where an entry is).
+export function ComposeLine({
+  label,
+  icon: Icon,
+  value,
+  onChangeText,
+  placeholder,
+}: {
+  label: string;
+  icon: ComponentType<{ size?: number; color?: string }>;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+}) {
+  const text = useSemantic("label");
+  const muted = useSemanticPair("tertiaryLabel");
+  const theme = useTheme();
+  return (
+    <View
+      style={{ flexDirection: "row", alignItems: "center", gap: SPACE.sm, minHeight: MIN_TOUCH }}
+    >
+      <Icon size={18} color={theme.colors.mutedForeground} />
+      <TextInput
+        accessibilityLabel={label}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={muted.color}
+        returnKeyType="next"
+        maxFontSizeMultiplier={1.6}
+        style={{
+          flex: 1,
+          fontFamily: FACE["400"],
+          fontSize: TYPE.body.fontSize,
+          color: text,
+          paddingVertical: SPACE.xs,
+        }}
+      />
+    </View>
+  );
+}
+
+/// The body as plain text, for something whose description is a line of text rather than
+/// a page (a Calendar entry).
+export function ComposeText({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+}) {
+  const text = useSemantic("label");
+  const muted = useSemanticPair("tertiaryLabel");
+  return (
+    <TextInput
+      accessibilityLabel={label}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={muted.color}
+      multiline
+      textAlignVertical="top"
+      maxFontSizeMultiplier={1.6}
+      style={{
+        minHeight: 120,
+        fontFamily: FACE["400"],
+        fontSize: TYPE.body.fontSize,
+        lineHeight: TYPE.body.lineHeight,
+        color: text,
+        paddingVertical: SPACE.xs,
+      }}
+    />
+  );
+}
+
 /// The bottom of a compose sheet, pinned on the keyboard: the row of property pills (it
 /// scrolls sideways), and under it the editor's formatting bar on a rounded pill while the
 /// body has the keyboard.
@@ -134,18 +213,24 @@ export function Pill({
   icon,
   value,
   onPress,
+  checked,
 }: {
   label: string;
   icon?: ReactNode;
   /// What is set, or null for nothing yet.
   value: string | null;
   onPress: () => void;
+  /// A switch rather than a value (All day): read out as one, tinted while on.
+  checked?: boolean;
 }) {
   const fill = useSemantic("fill");
+  const theme = useTheme();
+  const toggle = checked !== undefined;
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${label}, ${value ?? "None"}`}
+      accessibilityRole={toggle ? "switch" : "button"}
+      accessibilityLabel={toggle ? label : `${label}, ${value ?? "None"}`}
+      accessibilityState={toggle ? { checked } : undefined}
       onPress={onPress}
       style={({ pressed }) => [
         CORNER,
@@ -156,13 +241,17 @@ export function Pill({
           flexDirection: "row",
           alignItems: "center",
           gap: SPACE.sm,
-          backgroundColor: fill,
+          backgroundColor: checked ? `${theme.colors.primary}2e` : fill,
           opacity: pressed ? 0.6 : 1,
         },
       ]}
     >
       {icon}
-      <Text numberOfLines={1} tone={value === null ? "muted" : "default"} style={{ maxWidth: 180 }}>
+      <Text
+        numberOfLines={1}
+        tone={value === null && !checked ? "muted" : "default"}
+        style={[{ maxWidth: 180 }, checked ? { color: theme.colors.primary } : null]}
+      >
         {value ?? label}
       </Text>
     </Pressable>

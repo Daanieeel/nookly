@@ -112,7 +112,7 @@ export function ChoiceProperty<Id extends string>({
 }
 
 /// A time of day typed in a sheet, as the desktop's time field, with Clear and Done.
-function TimePicker({
+export function TimePicker({
   label,
   value,
   onChange,

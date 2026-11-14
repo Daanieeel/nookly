@@ -11,4 +11,4 @@ function NewEntry() {
   return <NewEntryScreen spaceId={spaceId} date={date} start={start} />;
 }
 
-export default sheetRoute("New Calendar Entry", NewEntry);
+export default sheetRoute("New Calendar Entry", NewEntry, "large");
