@@ -37,7 +37,7 @@ import { LabelsProperty } from "./RelatedSection.tsx";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
-import { ChoiceProperty, DayProperty } from "../ui/property-rows.tsx";
+import { ChoiceProperty, DayProperty, SheetProperty } from "../ui/property-rows.tsx";
 import { Section } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -46,14 +46,8 @@ import { orderTasks } from "./task-view.ts";
 import { ListGroup } from "../ui/ListMotion.tsx";
 import { PageEditor } from "./PageEditor.tsx";
 import { TaskRow } from "./TaskRow.tsx";
+import { TaskRepeatPicker, repeatLabel } from "./RepeatPicker.tsx";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
-
-const REPEATS: { label: string; rule: RepeatRule | null }[] = [
-  { label: "Never", rule: null },
-  { label: "Daily", rule: { every: 1, unit: "day" } },
-  { label: "Weekly", rule: { every: 1, unit: "week" } },
-  { label: "Monthly", rule: { every: 1, unit: "month" } },
-];
 
 /// A task's sub-tasks, one level deep, with how far along they are.
 function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
@@ -133,8 +127,6 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
   const muted = theme.colors.mutedForeground;
   const finished = (statuses.find((s) => s.id === task.statusId)?.doneness ?? 0) >= 100;
   const late = !finished && task.dueDate !== null && task.dueDate.slice(0, 10) < localDay();
-  const repeatId =
-    REPEATS.find((r) => JSON.stringify(r.rule) === JSON.stringify(task.repeat))?.label ?? "Custom";
   return (
     <PropertyList>
       <ChoiceProperty
@@ -192,15 +184,15 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
         emptyId="none"
         onChange={(value) => effort.mutate(value === "none" ? null : Number(value))}
       />
-      <ChoiceProperty
+      <SheetProperty
         icon={<IconRepeat size={20} color={muted} />}
         label="Repeat"
-        value={repeatId}
+        value={repeatLabel(task.repeat)}
+        empty={task.repeat === null}
         readOnly={readOnly}
-        options={REPEATS.map((r) => ({ id: r.label, label: r.label }))}
-        emptyId="Never"
-        onChange={(label) => repeat.mutate(REPEATS.find((r) => r.label === label)?.rule ?? null)}
-      />
+      >
+        <TaskRepeatPicker value={task.repeat} onChange={(rule) => repeat.mutate(rule)} />
+      </SheetProperty>
     </PropertyList>
   );
 }

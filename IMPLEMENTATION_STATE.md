@@ -104,7 +104,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 - [x] (2026-11-14, the side by side fields are gone: day, times, All day and last day are pills; test; on screen) New Calendar Entry uses the compose sheet. Today labels overflow or are cut off after two letters and everything is crammed; fix all of it.
 - [x] (2026-11-14, tests; on screen) New Session and New Semester use the compose sheet.
 - [x] (2026-11-14, one question a step, a progress bar, Back, Continue pinned; test; on screen) "Set up semesters" wizard in the Linear style.
-- [ ] Repeat: the phone offers the desktop's full repeat options (not only daily, weekly, monthly) on tasks, and repeat is added to New Session and New Calendar Entry (where the desktop has it).
+- [x] (2026-11-14, `shared/data/repeat.ts` makes series the way the desktop does: a weekly session or any repeating entry is a template with its occurrences and recorded slots; tests in shared and on the phone) Repeat: the phone offers the desktop's full repeat options (not only daily, weekly, monthly) on tasks, and repeat is added to New Session and New Calendar Entry (where the desktop has it).
 
 ### 6. Mobile: list pages
 

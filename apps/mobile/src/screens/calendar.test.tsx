@@ -22,6 +22,7 @@ import { CalendarScreen } from "./CalendarScreen.tsx";
 import { HOUR_PX } from "./TimeGrid.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
 import { NewEntryScreen, entryProblem } from "./NewScreens.tsx";
+import { openRow } from "../test/sheet.ts";
 
 /// Everything the calendar draws, over the next days from today.
 async function planned() {
@@ -455,6 +456,32 @@ describe("a new calendar entry", () => {
     expect(entryProblem({ ...base, ends: "09:00" })).toBe("Ends after it starts");
     expect(entryProblem({ ...base, ends: "09:00", allDay: true })).toBeNull();
     expect(entryProblem({ ...base, lastDay: "2026-11-19" })).toBe("Ends on or after the first day");
+  });
+
+  it("repeats weekly for a few weeks, as a series like the desktop's", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Home", "#3b82f6");
+    const day = localDay();
+    const screen = await renderScreens(
+      { index: () => <NewEntryScreen spaceId={space} date={day} start="18:00" /> },
+      data,
+    );
+    await fireEvent.changeText(await screen.findByLabelText("Entry title"), "Gym");
+    await openRow(screen, "Repeat");
+    await fireEvent.press(await screen.findByRole("radio", { name: "Weekly" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "For a while" }));
+    await fireEvent.changeText(screen.getByLabelText("How long"), "3");
+    await fireEvent(screen.getByLabelText("How long"), "endEditing");
+    await fireEvent.press(screen.getByRole("radio", { name: "weeks" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Done" }));
+    expect(await screen.findByRole("button", { name: "Repeat, Weekly for 3 weeks" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Add to Calendar" }));
+    await waitFor(async () => {
+      const entries = (await agenda(data.db, day, addDays(day, 30))).filter(
+        (i) => i.kind === "calendar_entry",
+      );
+      expect(entries.map((e) => e.date)).toEqual([day, addDays(day, 7), addDays(day, 14)]);
+    });
   });
 
   it("drops its times when it lasts all day", async () => {

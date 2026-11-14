@@ -15,7 +15,7 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
-import { choose, openRow } from "../test/sheet.ts";
+import { choose, openRow, pickDayInSheet } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewSemesterScreen, NewSessionScreen } from "./PlannerScreens.tsx";
 import { dayLabel } from "./dates.ts";
@@ -78,6 +78,33 @@ describe("a session", () => {
         [],
       );
       expect(rows).toEqual([{ title: "Tutorial", course }]);
+    });
+  });
+});
+
+describe("a weekly session", () => {
+  it("is made as a series for the weeks picked", async () => {
+    const { data, space, course } = await seeded();
+    const screen = await renderScreens(
+      {
+        index: () => <NewSessionScreen spaceId={space} courseId={course} date="2026-11-18" />,
+        "entity/[id]": () => <Text>Opened</Text>,
+      },
+      data,
+    );
+    await openRow(screen, "Repeat");
+    await fireEvent.press(await screen.findByRole("radio", { name: "Weekly" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Until a day" }));
+    await pickDayInSheet(screen, "2026-12-02");
+    await fireEvent.press(screen.getByRole("button", { name: "Done" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Create Session" }));
+    await waitFor(async () => {
+      const made = await data.driver.query(
+        "SELECT date, template_id FROM sessions ORDER BY date",
+        [],
+      );
+      expect(made.map((s) => s.date)).toEqual(["2026-11-18", "2026-11-25", "2026-12-02"]);
+      expect(new Set(made.map((s) => s.template_id)).size).toBe(1);
     });
   });
 });

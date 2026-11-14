@@ -18,6 +18,7 @@ import { renderScreens, testData } from "../test/render.tsx";
 import { choose, openRow } from "../test/sheet.ts";
 import { labelSummary } from "./ComposeForm.tsx";
 import { addDays, localDay } from "./dates.ts";
+import { EntityScreen } from "./EntityScreen.tsx";
 import { NewTaskScreen } from "./NewScreens.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
 
@@ -183,5 +184,30 @@ describe("a task's status circle", () => {
     await fireEvent.press(circle);
     await fireEvent.press(await screen.findByRole("radio", { name: "Done" }));
     await waitFor(async () => expect((await getTask(data.db, late))?.statusId).toBe("done"));
+  });
+});
+
+describe("a task's repeat", () => {
+  // The desktop's choices: daily, weekly, monthly, every few days, or not at all.
+  it("repeats every few days, as on the desktop", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Home", "#3b82f6");
+    const id = await createTask(data.db, space, "Water the plants", null);
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={id} /> },
+      data,
+      `/entity/${id}`,
+    );
+    await openRow(screen, "Repeat");
+    expect(await screen.findByRole("radio", { name: "Does not repeat" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Increase Days" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Repeat every 3 days" }));
+    await waitFor(async () =>
+      expect((await getTask(data.db, id))?.repeat).toEqual({ every: 3, unit: "day" }),
+    );
+    // At a glance and in the details.
+    expect(
+      (await screen.findAllByRole("button", { name: "Repeat, Every 3 days" })).length,
+    ).toBeGreaterThan(0);
   });
 });

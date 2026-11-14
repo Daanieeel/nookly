@@ -3,7 +3,10 @@ import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
   createAssignment,
   createBookmark,
-  createCalendarEntry,
+  createCalendarEntrySeries,
+  DEFAULT_REPEAT,
+  repeatProblem,
+  type RepeatPlan,
   createCourse,
   createDeck,
   createExam,
@@ -38,6 +41,7 @@ import { hourAfter, localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
+import { RepeatPill } from "./RepeatPicker.tsx";
 import {
   ComposeFooter,
   ComposeHeader,
@@ -312,19 +316,27 @@ export function NewEntryScreen({
   const [allDay, setAllDay] = useState(false);
   const [starts, setStarts] = useState<string | null>(start ?? "09:00");
   const [ends, setEnds] = useState<string | null>(hourAfter(start ?? "09:00"));
-  const problem = entryProblem({ day, lastDay, allDay, starts, ends });
+  const [repeat, setRepeat] = useState<RepeatPlan>(DEFAULT_REPEAT);
+  const problem =
+    entryProblem({ day, lastDay, allDay, starts, ends }) ??
+    (lastDay ? null : repeatProblem(day, repeat));
   const create = useLocalWrite((db, name: string) => {
     if (!space) throw new Error("Make a Space first.");
-    return createCalendarEntry(db, space, {
-      title: name,
-      date: day,
-      endDate: lastDay,
-      startTime: allDay ? null : starts,
-      endTime: allDay ? null : ends,
-      allDay,
-      location: where.trim() || null,
-      description: description.trim() || null,
-    });
+    return createCalendarEntrySeries(
+      db,
+      space,
+      {
+        title: name,
+        date: day,
+        endDate: lastDay,
+        startTime: allDay ? null : starts,
+        endTime: allDay ? null : ends,
+        allDay,
+        location: where.trim() || null,
+        description: description.trim() || null,
+      },
+      repeat,
+    );
   });
   const canSend = title.trim() !== "" && space !== null && !problem && !create.isPending;
   return (
@@ -383,6 +395,8 @@ export function NewEntryScreen({
             <TimePill label="Ends" value={ends} onChange={setEnds} />
           </>
         )}
+        {/* An entry over several days never repeats, as on the desktop. */}
+        {lastDay ? null : <RepeatPill value={repeat} onChange={setRepeat} />}
         <DayPill label="Last day" value={lastDay} onChange={setLastDay} />
       </ComposeFooter>
     </View>

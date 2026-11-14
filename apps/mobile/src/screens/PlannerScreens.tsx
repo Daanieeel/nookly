@@ -9,7 +9,10 @@ import {
 import { useEntityMenu } from "./entity-actions.tsx";
 import {
   createCourse,
-  createOneOffSession,
+  createSessionSeries,
+  DEFAULT_REPEAT,
+  repeatProblem,
+  type RepeatPlan,
   createSessionPage,
   createSemester,
   courseSemester,
@@ -64,6 +67,7 @@ import {
 } from "../ui/sheet/Compose.tsx";
 import { CoursePill, DayPill, TimePill } from "./ComposeForm.tsx";
 import { spaceOption } from "./option-badges.tsx";
+import { RepeatPill } from "./RepeatPicker.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { semesterRange } from "./SemesterList.tsx";
 import { addDays, dayLabel, hourAfter, localDay } from "./dates.ts";
@@ -222,19 +226,26 @@ export function NewSessionScreen({
   const [start, setStart] = useState(from ?? "10:00");
   const [end, setEnd] = useState(from ? hourAfter(from, 90) : "11:30");
   const [where, setWhere] = useState("");
-  const create = useLocalWrite((db, _: undefined) => {
+  const [repeat, setRepeat] = useState<RepeatPlan>(DEFAULT_REPEAT);
+  const create = useLocalWrite(async (db, _: undefined) => {
     if (!space) throw new Error("Make a Space first.");
     if (!course) throw new Error("Pick a course for the session.");
-    return createOneOffSession(db, space, {
-      title: title.trim(),
-      courseId: course,
-      date,
-      startTime: start,
-      endTime: end,
-      location: where.trim() || null,
-    });
+    const [first] = await createSessionSeries(
+      db,
+      space,
+      {
+        title: title.trim(),
+        courseId: course,
+        date,
+        startTime: start,
+        endTime: end,
+        location: where.trim() || null,
+      },
+      repeat,
+    );
+    return first;
   });
-  const problem = end <= start ? "Ends after it starts" : null;
+  const problem = end <= start ? "Ends after it starts" : repeatProblem(date, repeat);
   const canSend = space !== null && course !== null && !problem && !create.isPending;
   return (
     <View className="gap-1">
@@ -283,6 +294,7 @@ export function NewSessionScreen({
         <DayPill label="Day" value={date} clearable={false} onChange={(d) => d && setDate(d)} />
         <TimePill label="Starts" value={start} onChange={(t) => t && setStart(t)} />
         <TimePill label="Ends" value={end} onChange={(t) => t && setEnd(t)} />
+        <RepeatPill value={repeat} onChange={setRepeat} />
       </ComposeFooter>
     </View>
   );
