@@ -64,9 +64,14 @@ export function periodTitle(first: string, last: string): string {
   return `${short(first)} to ${short(last)}`;
 }
 
+export interface PeriodParts {
+  dates: string;
+  week: string;
+}
+
 /// A calendar view's header in its two parts: its dates, and its week (that of the middle
 /// day, so a week that starts on a Sunday still reads as the ISO week most of it falls in).
-export function periodParts(days: string[]): { dates: string; week: string } {
+export function periodParts(days: string[]): PeriodParts {
   const middle = days[Math.floor(days.length / 2)];
   const [y, m, d] = middle.split("-").map(Number);
   return {
