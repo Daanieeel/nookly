@@ -181,7 +181,7 @@ Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it 
 - [x] (2026-11-14, `sheetCard` through `useSurface` for every section, field and option card on a sheet, the chosen layout tile raised, D68; tests; on screen) Filter and display option sheets: swap the colours so inputs and options are lighter than the sheet they sit on (now the sheet is a light charcoal and the inputs darker). Inputs are always lighter than their surface, for the right sense of depth.
 - [x] (2026-11-14, `FilterField` opens the floating picker card; test) Filter options open a select popover (the inline menu or the floating picker card of item 1), never a new bottom sheet covering the current one.
 - [ ] New Note sheet in the same style as New Assignment and New Task (the compose sheet).
-- [ ] Bookmarks: the "Paste a URL to save it" bar sits further down, so it fits the iPhone's corner radius.
+- [x] (2026-11-14, as far from the bottom as from the sides, over the home indicator as Safari's bar; test; on screen) Bookmarks: the "Paste a URL to save it" bar sits further down, so it fits the iPhone's corner radius.
 - [x] (2026-11-14, iOS 26 drew a bare `Switch` at the top of the row; it sits in a centred box of its own; test; on screen) Display and filter option sheets: native switches are not vertically centred on their labels. Centre them everywhere.
 - [ ] Redesign the New Bookmark sheet (compose style, like New Task).
 - [x] (2026-11-14, test; on screen) Semesters list: semesters look squeezed. Give them room. Each row has an icon badge, the title on its own line, and the course count and short dates below, never cut off.

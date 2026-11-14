@@ -20,7 +20,6 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Image, Linking, Pressable, TextInput, View } from "react-native";
 import Animated, { useAnimatedKeyboard, useAnimatedStyle } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 import { fetchPageMetadata } from "../data/bookmark-fetch.ts";
 import { useLocalWrite } from "../data/context.tsx";
@@ -380,7 +379,6 @@ const PASTE_BAR_ROOM = 72;
 /// description once there is a connection.
 export function BookmarkPasteBar({ spaceId }: { spaceId: string }) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const keyboard = useAnimatedKeyboard();
   const [url, setUrl] = useState("");
   // The page is read after the bookmark is saved; offline it is read when the bookmark is
@@ -402,7 +400,7 @@ export function BookmarkPasteBar({ spaceId }: { spaceId: string }) {
         read.mutate(made);
       },
     });
-  const bottom = Math.max(insets.bottom, SPACE.md);
+  const bottom = PASTE_BAR_BOTTOM;
   const lift = useAnimatedStyle(() => ({
     transform: [{ translateY: -Math.max(0, keyboard.height.value - bottom + SPACE.md) }],
   }));
@@ -447,3 +445,7 @@ export function BookmarkPasteBar({ spaceId }: { spaceId: string }) {
 
 /// Near the phone's own corner radius, less the bar's inset from the screen's edge.
 const PASTE_BAR_RADIUS = 28;
+
+/// As far from the bottom as from the sides, over the home indicator as Safari's bar sits,
+/// so its round ends follow the screen's corners.
+export const PASTE_BAR_BOTTOM = SPACE.md;
