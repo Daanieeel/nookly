@@ -55,7 +55,7 @@ describe("a session", () => {
     await waitFor(async () => expect((await getSession(data.db, id))?.cancelled).toBe(false));
   });
 
-  it("is made one off, for a course picked, and says what is missing", async () => {
+  it("is made one off, for a course picked, which it needs first", async () => {
     const { data, space, course } = await seeded();
     const screen = await renderScreens(
       {
@@ -66,11 +66,12 @@ describe("a session", () => {
       data,
     );
     await act(() => router.push("/new/session"));
-    await fireEvent.press(await screen.findByRole("button", { name: "New Session" }));
-    expect(await screen.findByText("Pick a course for the session.")).toBeTruthy();
+    // D65: without its course there is nothing to send.
+    const send = await screen.findByRole("button", { name: "Create Session" });
+    expect(send.props.accessibilityState).toMatchObject({ disabled: true });
     await choose(screen, "Course", "Algorithms");
-    await fireEvent.changeText(screen.getByLabelText("Title"), "Tutorial");
-    await fireEvent.press(screen.getByRole("button", { name: "Couldn't create" }));
+    await fireEvent.changeText(screen.getByLabelText("Session title"), "Tutorial");
+    await fireEvent.press(screen.getByRole("button", { name: "Create Session" }));
     await waitFor(async () => {
       const rows = await data.driver.query(
         "SELECT e.title, r.to_entity_id AS course FROM sessions s JOIN entities e ON e.id = s.entity_id JOIN relationships r ON r.from_entity_id = e.id",
@@ -203,8 +204,8 @@ describe("semesters", () => {
     await act(() => router.push("/new/semester"));
     await choose(screen, "Typical dates for", "Germany");
     await choose(screen, "Term", "Summer");
-    await fireEvent.press(screen.getByRole("radio", { name: "2027" }));
-    await fireEvent.press(screen.getByRole("button", { name: "New Semester" }));
+    await choose(screen, "Year", "2027");
+    await fireEvent.press(screen.getByRole("button", { name: "Create Semester" }));
     await waitFor(async () => {
       const [row] = await data.driver.query(
         "SELECT e.title, s.term_type, s.year, s.start_date, s.end_date FROM semesters s JOIN entities e ON e.id = s.entity_id",

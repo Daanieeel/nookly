@@ -12,4 +12,4 @@ function Route() {
   return <NewSessionScreen spaceId={spaceId} courseId={courseId} date={date} start={start} />;
 }
 
-export default sheetRoute("New Session", Route);
+export default sheetRoute("New Session", Route, "large");

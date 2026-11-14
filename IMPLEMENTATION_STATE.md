@@ -102,7 +102,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 - [x] (2026-11-14, `screens/ComposeForm.tsx` shared by New Task, Assignment and Exam; tests; checked in the simulator) Quick Jot, Create Task and Create Assignment use the compose sheet (item 1), with a full block editor for the description like the desktop.
 - [x] (2026-11-14, the side by side fields are gone: day, times, All day and last day are pills; test; on screen) New Calendar Entry uses the compose sheet. Today labels overflow or are cut off after two letters and everything is crammed; fix all of it.
-- [ ] New Session and New Semester use the compose sheet.
+- [x] (2026-11-14, tests; on screen) New Session and New Semester use the compose sheet.
 - [ ] "Set up semesters" wizard in the Linear style.
 - [ ] Repeat: the phone offers the desktop's full repeat options (not only daily, weekly, monthly) on tasks, and repeat is added to New Session and New Calendar Entry (where the desktop has it).
 

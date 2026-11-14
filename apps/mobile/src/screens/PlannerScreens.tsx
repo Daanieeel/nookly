@@ -7,7 +7,6 @@ import {
   resolveTermDates,
 } from "@nookly/shared/academic";
 import { useEntityMenu } from "./entity-actions.tsx";
-import { FormSection } from "../ui/kit/Form.tsx";
 import {
   createCourse,
   createOneOffSession,
@@ -26,6 +25,7 @@ import {
   IconMapPin,
   IconPlus,
   IconCalendarWeek,
+  IconSchool,
 } from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -45,23 +45,26 @@ import {
   useSpaces,
 } from "../data/queries.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { DateField } from "../ui/DateField.tsx";
 import { Field } from "../ui/Field.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty, TextRow } from "../ui/property-rows.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
-import { Screen } from "../ui/Screen.tsx";
 import { useCloseSheet } from "../ui/sheet/route.tsx";
-import { SelectField } from "../ui/SelectField.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { Text } from "../ui/Text.tsx";
+import {
+  ComposeFooter,
+  ComposeHeader,
+  ComposeLine,
+  ComposeTitle,
+  PillSelect,
+} from "../ui/sheet/Compose.tsx";
+import { CoursePill, DayPill, TimePill } from "./ComposeForm.tsx";
+import { spaceOption } from "./option-badges.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { CoursePicker } from "./StudyPickers.tsx";
-import { SpacePicker } from "./SpacePicker.tsx";
 import { semesterRange } from "./SemesterList.tsx";
 import { addDays, dayLabel, hourAfter, localDay } from "./dates.ts";
 import { OwnNotes } from "./PageEditor.tsx";
@@ -194,7 +197,8 @@ function SessionNotes({
   );
 }
 
-/// New Session: one session of a course. A weekly series is made on the computer.
+/// New Session, as Linear's compose sheet (D65): its title and where, then its course,
+/// day and times as pills. A weekly series is made on the computer.
 export function NewSessionScreen({
   spaceId,
   courseId,
@@ -219,7 +223,7 @@ export function NewSessionScreen({
   const [end, setEnd] = useState(from ? hourAfter(from, 90) : "11:30");
   const [where, setWhere] = useState("");
   const create = useLocalWrite((db, _: undefined) => {
-    if (!space) throw new Error("Pick a Space");
+    if (!space) throw new Error("Make a Space first.");
     if (!course) throw new Error("Pick a course for the session.");
     return createOneOffSession(db, space, {
       title: title.trim(),
@@ -230,45 +234,57 @@ export function NewSessionScreen({
       location: where.trim() || null,
     });
   });
-  const submit = () =>
-    create.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
+  const problem = end <= start ? "Ends after it starts" : null;
+  const canSend = space !== null && course !== null && !problem && !create.isPending;
   return (
-    <Screen>
-      <FormSection>
-        <SpacePicker
-          value={space}
-          onChange={(id) => {
-            setChosen(id);
-            setCourse(null);
-          }}
-        />
-        {space ? <CoursePicker spaceId={space} value={course} onChange={setCourse} /> : null}
-        <Field label="Title" placeholder="Lecture 1" value={title} onChangeText={setTitle} />
-        <DateField label="Day" clearable={false} value={date} onChange={(d) => d && setDate(d)} />
-        <DateField
-          label="Starts"
-          mode="time"
-          clearable={false}
-          value={start}
-          onChange={(t) => t && setStart(t)}
-        />
-        <DateField
-          label="Ends"
-          mode="time"
-          clearable={false}
-          value={end}
-          onChange={(t) => t && setEnd(t)}
-        />
-        <Field label="Where" placeholder="Room 5" value={where} onChangeText={setWhere} />
-        {create.error ? <Text tone="destructive">{create.error.message}</Text> : null}
-      </FormSection>
-      <Button
-        label="New Session"
-        status={statusOf(create)}
-        errorLabel="Couldn't create"
-        onPress={submit}
+    <View className="gap-1">
+      <ComposeHeader
+        sendLabel="Create Session"
+        canSend={canSend}
+        onSend={() =>
+          create.mutate(undefined, {
+            onSuccess: (id) => close(() => router.push(`/entity/${id}`)),
+          })
+        }
+        context={
+          spaceId ? null : (
+            <PillSelect
+              label="Space"
+              value={space}
+              options={spaces.map(spaceOption)}
+              onChange={(id) => {
+                setChosen(id);
+                setCourse(null);
+              }}
+            />
+          )
+        }
       />
-    </Screen>
+      <ComposeTitle
+        label="Session title"
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Lecture 1"
+      />
+      <ComposeLine
+        label="Where"
+        icon={IconMapPin}
+        value={where}
+        onChangeText={setWhere}
+        placeholder="Add a place"
+      />
+      {problem || create.error ? (
+        <Text tone="destructive" variant="small">
+          {problem ?? create.error?.message}
+        </Text>
+      ) : null}
+      <ComposeFooter>
+        {space ? <CoursePill spaceId={space} value={course} onChange={setCourse} /> : null}
+        <DayPill label="Day" value={date} clearable={false} onChange={(d) => d && setDate(d)} />
+        <TimePill label="Starts" value={start} onChange={(t) => t && setStart(t)} />
+        <TimePill label="Ends" value={end} onChange={(t) => t && setEnd(t)} />
+      </ComposeFooter>
+    </View>
   );
 }
 
@@ -422,7 +438,8 @@ export function CourseSemesterPicker({
   );
 }
 
-/// New Semester: a term system and region give the title and dates, which can be changed.
+/// New Semester, as Linear's compose sheet (D65): the term system, term, year and the
+/// region's typical dates as pills give its title and dates; the title can be changed.
 export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
   const router = useRouter();
   const close = useCloseSheet();
@@ -434,30 +451,67 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
   const [termKey, setTermKey] = useState<string | null>(null);
   const [year, setYear] = useState<number | null>(null);
   const [region, setRegion] = useState<string | null>(null);
+  const [named, setNamed] = useState<string | null>(null);
   const def = ACADEMIC_SYSTEMS[system];
   const term = def.terms.find((t) => t.key === (termKey ?? guess.term.key)) ?? guess.term;
   const theYear = year ?? guess.year;
   const regions = REGION_TERM_DATES.filter((r) => r.system === system);
   const window = regions.find((r) => r.key === region)?.windows[term.key];
   const dates = window ? resolveTermDates(window, theYear) : null;
+  const title = named ?? def.formatTitle(term, theYear);
+  const muted = useTheme().colors.mutedForeground;
   const create = useLocalWrite((db, _: undefined) => {
-    if (!space) throw new Error("Pick a Space");
+    if (!space) throw new Error("Make a Space first.");
     return createSemester(db, space, {
-      title: def.formatTitle(term, theYear),
+      title: title.trim(),
       termType: term.key,
       year: theYear,
       startDate: dates?.startDate ?? null,
       endDate: dates?.endDate ?? null,
     });
   });
-  const submit = () =>
-    create.mutate(undefined, { onSuccess: (id) => close(() => router.push(`/entity/${id}`)) });
   return (
-    <Screen>
-      <FormSection>
-        <SpacePicker value={space} onChange={setChosen} />
-        <SelectField
+    <View className="gap-1">
+      <ComposeHeader
+        sendLabel="Create Semester"
+        canSend={space !== null && title.trim() !== "" && !create.isPending}
+        onSend={() =>
+          create.mutate(undefined, {
+            onSuccess: (id) => close(() => router.push(`/entity/${id}`)),
+          })
+        }
+        context={
+          spaceId ? null : (
+            <PillSelect
+              label="Space"
+              value={space}
+              options={spaces.map(spaceOption)}
+              onChange={setChosen}
+            />
+          )
+        }
+      />
+      <ComposeTitle
+        label="Semester title"
+        value={title}
+        onChangeText={setNamed}
+        placeholder="Winter 2026/27"
+        autoFocus={false}
+      />
+      <Text tone="muted">
+        {dates
+          ? `${dayLabel(dates.startDate)} to ${dayLabel(dates.endDate)}`
+          : "No dates yet; pick where to take typical dates from."}
+      </Text>
+      {create.error ? (
+        <Text tone="destructive" variant="small">
+          {create.error.message}
+        </Text>
+      ) : null}
+      <ComposeFooter>
+        <PillSelect
           label="Term system"
+          icon={<IconSchool size={18} color={muted} />}
           value={system}
           options={ACADEMIC_SYSTEM_KEYS.map((key) => ({
             id: key,
@@ -469,39 +523,35 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
             setRegion(null);
           }}
         />
-        <SelectField
+        <PillSelect
           label="Term"
+          icon={<IconCalendarWeek size={18} color={muted} />}
           value={term.key}
           options={def.terms.map((t) => ({ id: t.key, label: t.label }))}
           onChange={setTermKey}
         />
-        <ChipGroup label="Year">
-          {[theYear - 1, theYear, theYear + 1].map((y) => (
-            <Chip key={y} label={String(y)} selected={y === theYear} onPress={() => setYear(y)} />
-          ))}
-        </ChipGroup>
-        <SelectField
+        <PillSelect
+          label="Year"
+          icon={<IconCalendarEvent size={18} color={muted} />}
+          value={String(theYear)}
+          options={[guess.year - 1, guess.year, guess.year + 1].map((y) => ({
+            id: String(y),
+            label: String(y),
+          }))}
+          onChange={(y) => setYear(Number(y))}
+        />
+        <PillSelect
           label="Typical dates for"
-          value={region ?? "none"}
+          icon={<IconMapPin size={18} color={muted} />}
+          value={region}
           options={[
             { id: "none", label: "No dates" },
             ...regions.map((r) => ({ id: r.key, label: r.label })),
           ]}
           onChange={(key) => setRegion(key === "none" ? null : key)}
         />
-      </FormSection>
-      <Text tone="muted">
-        {def.formatTitle(term, theYear)}
-        {dates ? `, ${dayLabel(dates.startDate)} to ${dayLabel(dates.endDate)}` : ""}
-      </Text>
-      {create.error ? <Text tone="destructive">{create.error.message}</Text> : null}
-      <Button
-        label="New Semester"
-        status={statusOf(create)}
-        errorLabel="Couldn't create"
-        onPress={submit}
-      />
-    </Screen>
+      </ComposeFooter>
+    </View>
   );
 }
 
