@@ -139,6 +139,11 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 - [ ] Moving local items into an account shows a full page progress screen instead of a dialog (nothing else can be done meanwhile, and a dialog looks closable).
 
+### 9b. Rounder corners (asked 2026-11-14)
+
+- [ ] Mobile: a little more corner radius across the app (controls, fields, sections, cards, sheets, rows), not necessarily fully round. Through the phone's tokens (`ui/tokens.ts` `RADIUS`, the classes the phone uses), never per screen.
+- [ ] Desktop: the same goal. The radii come from the design tokens in `packages/ui`; the user asked for this directly, which overrides the "never modify tokens" rule for this change only (record it in `DECISIONS.md`). Check dialogs, popovers, buttons, inputs, cards and the sidebar in the running desktop.
+
 ### 10. Final checks and report
 
 - [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
