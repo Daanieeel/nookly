@@ -27,7 +27,7 @@ export interface Confirmation {
 }
 
 /// Whether `typed` is the phrase, ignoring case and spaces around it, as on the desktop.
-export function matchesPhrase(typed: string, phrase: string): boolean {
+function matchesPhrase(typed: string, phrase: string): boolean {
   return typed.trim().toLowerCase() === phrase.trim().toLowerCase();
 }
 

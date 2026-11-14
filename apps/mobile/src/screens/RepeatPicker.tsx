@@ -27,7 +27,7 @@ const CADENCES: { id: Cadence; label: string }[] = [
 const UNITS = ["days", "weeks", "months", "years"] as const;
 
 /// "Weekly for 16 weeks", "Daily until Mar 20", or null when it does not repeat.
-export function repeatPlanLabel(plan: RepeatPlan): string | null {
+function repeatPlanLabel(plan: RepeatPlan): string | null {
   const cadence = CADENCES.find((c) => c.id === plan.cadence)?.label ?? "";
   if (plan.cadence === "none") return null;
   if (plan.endMode === "until") {

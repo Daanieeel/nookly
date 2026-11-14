@@ -7,7 +7,7 @@ import { useMoodleService } from "./service.tsx";
 /// sign in or a function the site doesn't allow won't change by asking again.
 const options = { retry: false, staleTime: 60_000 } as const;
 
-export const MOODLE_KEY = ["moodle"] as const;
+const MOODLE_KEY = ["moodle"] as const;
 
 export function useMoodleConnection() {
   const { account } = useMoodleService();

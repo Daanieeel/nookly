@@ -20,7 +20,7 @@ const remoteFile = z.object({
 export type RemoteFile = z.infer<typeof remoteFile>;
 const files = z.array(remoteFile).catch([]);
 
-export const siteInfoSchema = z.object({
+const siteInfoSchema = z.object({
   sitename: text,
   fullname: text,
   userid: int,
@@ -103,7 +103,6 @@ const discussionSchema = z.object({
   numreplies: int,
   pinned: z.boolean().catch(false),
 });
-export type MoodleDiscussion = z.infer<typeof discussionSchema>;
 
 const postSchema = z.object({
   id: int,
@@ -113,10 +112,9 @@ const postSchema = z.object({
   author: z.object({ fullname: text }).catch({ fullname: "" }),
   timecreated: int,
 });
-export type MoodlePost = z.infer<typeof postSchema>;
 
 /// Why a call failed: the sign in is gone (connect again), or anything else.
-export class MoodleError extends Error {
+class MoodleError extends Error {
   constructor(
     message: string,
     readonly signInNeeded = false,
@@ -167,7 +165,7 @@ export type Http = (
 ) => Promise<Pick<Response, "ok" | "status" | "json">>;
 
 /// Calls one function and reads its answer with `schema`.
-export async function call<T>(
+async function call<T>(
   http: Http,
   site: Site,
   token: string,

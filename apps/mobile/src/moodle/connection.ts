@@ -9,7 +9,7 @@ const CONNECTION = "moodle.connection";
 const PENDING = "moodle.pending";
 /// How long a sign in started here waits for Moodle to send the person back.
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-export const SCHEME = "nookly";
+const SCHEME = "nookly";
 
 /// Where the sign in is kept: the keychain, or a faithful stand in for tests.
 export interface KeyStore {
