@@ -7,7 +7,10 @@ import { Text } from "../ui/Text.tsx";
 import { useLocalWrite } from "../data/context.tsx";
 import { useEntities, useSpaces } from "../data/queries.ts";
 import { EntityIcon } from "../ui/icons.tsx";
-import { FilterField, ListTitle } from "../ui/ListBar.tsx";
+import { FilterField } from "../ui/ListBar.tsx";
+import { ListControls } from "../ui/ListControls.tsx";
+import { IconCategory, IconFolder } from "@tabler/icons-react-native";
+import { spaceOption } from "./option-badges.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { Screen } from "../ui/Screen.tsx";
@@ -25,12 +28,20 @@ export function TrashScreen() {
   const { data: trashed = [] } = useEntities(null, [], true);
   const { data: spaces = [] } = useSpaces();
   const [query, setQuery] = useState("");
+  const [types, setTypes] = useState<string[]>([]);
+  const [inSpaces, setInSpaces] = useState<string[]>([]);
   const spaceName = (id: string) => spaces.find((s) => s.id === id)?.name ?? "";
-  const shown = trashed.filter((e) =>
-    `${e.title} ${e.key} ${typeLabel(e.type)} ${spaceName(e.spaceId)}`
-      .toLowerCase()
-      .includes(query.trim().toLowerCase()),
+  const shown = trashed.filter(
+    (e) =>
+      `${e.title} ${e.key} ${typeLabel(e.type)} ${spaceName(e.spaceId)}`
+        .toLowerCase()
+        .includes(query.trim().toLowerCase()) &&
+      (types.length === 0 || types.includes(e.type)) &&
+      (inSpaces.length === 0 || inSpaces.includes(e.spaceId)),
   );
+  // As the desktop: a filter shows only when there is more than one thing to pick.
+  const presentTypes = [...new Set(trashed.map((e) => e.type))];
+  const presentSpaces = spaces.filter((s) => trashed.some((e) => e.spaceId === s.id));
   const restore = useLocalWrite((db, id: string) => restoreEntity(db, id));
   const forever = useLocalWrite((db, id: string) => deleteForever(db, id));
   const empty = useLocalWrite((db) => emptyTrash(db));
@@ -42,7 +53,29 @@ export function TrashScreen() {
     });
   return (
     <Screen>
-      <ListTitle title="Trash" count={trashed.length} />
+      <ListControls
+        title="Trash"
+        count={trashed.length}
+        filters={[
+          {
+            label: "Type",
+            icon: IconCategory,
+            values: types,
+            options:
+              presentTypes.length > 1
+                ? presentTypes.map((type) => ({ id: type, label: typeLabel(type) }))
+                : [],
+            onChange: setTypes,
+          },
+          {
+            label: "Space",
+            icon: IconFolder,
+            values: inSpaces,
+            options: presentSpaces.length > 1 ? presentSpaces.map(spaceOption) : [],
+            onChange: setInSpaces,
+          },
+        ]}
+      />
       <Text tone="muted">
         Deleted items stay here until you restore them. Nothing is purged automatically.
       </Text>

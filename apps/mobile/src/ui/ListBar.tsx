@@ -59,11 +59,14 @@ export function ListHeader({
   count,
   panel,
   onPanel,
+  display = true,
 }: {
   title: string;
   count: number;
   panel: ListPanel;
   onPanel: (next: ListPanel) => void;
+  /// Whether the page has display options; without, only Filter shows.
+  display?: boolean;
 }) {
   const theme = useTheme();
   const toggle = (which: Exclude<ListPanel, null>) => onPanel(panel === which ? null : which);
@@ -80,13 +83,15 @@ export function ListHeader({
         icon={<IconFilter size={16} color={theme.colors.foreground} />}
         onPress={() => toggle("filter")}
       />
-      <Button
-        label="Display"
-        variant="secondary"
-        size="sm"
-        icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
-        onPress={() => toggle("display")}
-      />
+      {display ? (
+        <Button
+          label="Display"
+          variant="secondary"
+          size="sm"
+          icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
+          onPress={() => toggle("display")}
+        />
+      ) : null}
     </View>
   );
 }

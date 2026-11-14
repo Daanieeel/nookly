@@ -27,7 +27,8 @@ export function ListControls({
   title: string;
   count: number;
   filters: ListFilter[];
-  display: ReactNode;
+  /// What the Display sheet holds; a page without display options leaves it out.
+  display?: ReactNode;
 }) {
   const [panel, setPanel] = useState<ListPanel>(null);
   const close = (open: boolean) => !open && setPanel(null);
@@ -40,7 +41,13 @@ export function ListControls({
   );
   return (
     <>
-      <ListHeader title={title} count={count} panel={panel} onPanel={setPanel} />
+      <ListHeader
+        title={title}
+        count={count}
+        panel={panel}
+        onPanel={setPanel}
+        display={display !== undefined}
+      />
       {active.length > 0 ? (
         <ChipGroup label="Active filters" multiple>
           {active.map((f) => (
