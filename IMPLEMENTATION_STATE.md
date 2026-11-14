@@ -122,7 +122,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 ### 7. Mobile: item pages
 
 - [x] (2026-11-14, the page scrolls the field above the keyboard once it is up; the simulator shows no keyboard, so a real phone check is under Needs the user) Task: adding a sub task keeps the field above the keyboard.
-- [x] (2026-11-14, dots and "A  B  +n"; test) Task: the labels badge shows a colour dot per label, abbreviates after 2 labels, and does not grow wide; no commas.
+- [x] (2026-11-14, dots and "A B +n"; test) Task: the labels badge shows a colour dot per label, abbreviates after 2 labels, and does not grow wide; no commas.
 - [x] (2026-11-14, empty reads "Labels" faded like every other empty pill; test) Task: an empty Labels pill reads "None" instead of "Labels" (seen 2026-11-14).
 - [x] (2026-11-14, a warning value tints its icon the same red, in Property; test) Task: an overdue date's calendar icon and label both use the destructive colour.
 - [x] (2026-11-14, icons, full width, the next page to write in blue; test) Session detail: "Create Jot for this session" and "Create Note for This Session" get icons and full width; the primary one (no jot: jot; jot but no note: note; both exist: both secondary) uses the default (blue) variant, like the desktop.
@@ -142,9 +142,9 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 ### 9b. Rounder corners (asked 2026-11-14)
 
-- [ ] Mobile: a little more corner radius across the app (controls, fields, sections, cards, sheets, rows), not necessarily fully round. Through the phone's tokens (`ui/tokens.ts` `RADIUS`, the classes the phone uses), never per screen.
-- [ ] Squircles, not plain rounding, on both apps, kept subtle (asked 2026-11-14: "not too strong or overwhelming"). Phone: `borderCurve: "continuous"` (`CORNER`) on every rounded surface, checked app wide. Desktop: CSS `corner-shape` with a gentle `superellipse(...)` where the web view supports it, plain `border-radius` as the fallback; check what the Tauri web view (WebKit on macOS) draws.
-- [ ] Desktop: the same goal. The radii come from the design tokens in `packages/ui`; the user asked for this directly, which overrides the "never modify tokens" rule for this change only (record it in `DECISIONS.md`). Check dialogs, popovers, buttons, inputs, cards and the sidebar in the running desktop.
+- [x] (2026-11-14, RADIUS badge 8, control 12, section 14, sheet 20, and the shared rounded classes a step up; checked in the app) Mobile: a little more corner radius across the app (controls, fields, sections, cards, sheets, rows), not necessarily fully round. Through the phone's tokens (`ui/tokens.ts` `RADIUS`, the classes the phone uses), never per screen.
+- [x] (2026-11-14, phone: `corner-shape: squircle` on the rounded classes, which NativeWind turns into the continuous curve, checked on the running app; desktop: `superellipse(1.6)` where supported, WebKit on macOS falls back to plain rounding; D67) Squircles, not plain rounding, on both apps, kept subtle (asked 2026-11-14: "not too strong or overwhelming"). Phone: `borderCurve: "continuous"` (`CORNER`) on every rounded surface, checked app wide. Desktop: CSS `corner-shape` with a gentle `superellipse(...)` where the web view supports it, plain `border-radius` as the fallback; check what the Tauri web view (WebKit on macOS) draws.
+- [x] (2026-11-14, shared radius tokens a step up, D67; the desktop app on 1420 was left alone, so its look is checked by the user) Desktop: the same goal. The radii come from the design tokens in `packages/ui`; the user asked for this directly, which overrides the "never modify tokens" rule for this change only (record it in `DECISIONS.md`). Check dialogs, popovers, buttons, inputs, cards and the sidebar in the running desktop.
 
 ### 10. Final checks and report
 

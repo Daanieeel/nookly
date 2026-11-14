@@ -16,6 +16,16 @@
 @source "../../../packages/ui/src/components/badge.tsx";
 @source "../../../packages/frontend/src/classes.ts";
 
+/* Rounded things take iOS's continuous curve (a squircle), as `CORNER` gives styled ones (D67). */
+.rounded,
+.rounded-sm,
+.rounded-md,
+.rounded-lg,
+.rounded-xl,
+.rounded-2xl {
+  corner-shape: squircle;
+}
+
 /* Inter as the phone loads it: one family per weight, so a weight class picks its face. */
 .font-sans {
   font-family: Inter_400Regular;

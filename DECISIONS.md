@@ -385,3 +385,11 @@ The user asked for Linear's sheets and pickers, exactly, and allowed changing th
 ## D66. Every description is a live document
 
 Only notes, jots and course notes had a live document on the server, so the description of a task, an assignment or an exam was saved as rows: it reached other devices late and showed nobody's cursor. The server now keeps a live document for `task`, `sub_task`, `assignment` and `exam` too (`apps/server/src/collab/service.ts`), and both apps open it (the desktop's `BlockEditor` already asked for one; the phone's `PageEditor` now always does). The phone's course and semester pages edited the course's or semester's own blocks while the desktop edits their notes page (`course_notes`, the semester's note); the phone now shows that notes page, made on first view as the desktop does. The phone app is not released yet, so no one has text in the old place.
+
+## D67. Rounder corners, as gentle squircles
+
+The user asked for a little more corner radius on both apps and for squircles instead of plain rounding, kept subtle ("not too strong or overwhelming"). That request overrides the rule never to change the tokens in `packages/ui`, for this change only.
+
+- **Radii:** the shared tokens (`packages/ui/src/theme.css`) go up a step: `sm` 7, `md` 10, `lg` 12, `xl` 16, the inset 6. The phone's own (`ui/tokens.ts` `RADIUS`): badge 8, control 12, section 14, sheet 20. Pills and circles stay as they are.
+- **Phone:** every rounded surface takes iOS's continuous curve. Styled ones through `CORNER`, class ones through `corner-shape: squircle` on the `rounded` classes in `global.css`, which NativeWind turns into `borderCurve: "continuous"`.
+- **Desktop:** `corner-shape: superellipse(1.6)` on rounded elements, a gentle squircle between round (1) and the full squircle (2), only where the web view supports it. WebKit on macOS does not yet, so the Mac app draws plain rounding with the larger radii until it does.

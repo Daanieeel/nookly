@@ -126,13 +126,13 @@ export const GUTTER = SPACE.lg;
 /// Corner radii. Every rounded thing also takes `CORNER`, iOS's continuous curve.
 export const RADIUS = {
   /// An icon badge, as in Settings.
-  badge: 7,
+  badge: 8,
   /// A button, a field, a search bar, a pressed row.
-  control: 10,
+  control: 12,
   /// A grouped section or a card.
-  section: 12,
+  section: 14,
   /// A sheet's top corners.
-  sheet: 16,
+  sheet: 20,
   pill: 999,
 } as const;
 

@@ -1178,3 +1178,11 @@
   padding: 0;
   font-size: 0.875rem;
 }
+
+/* Rounded corners as gentle squircles where the web view draws them; plain rounding elsewhere
+   (D67). A pill or a circle stays round. */
+@supports (corner-shape: superellipse(1.6)) {
+  [class*="rounded"]:not([class*="rounded-full"]) {
+    corner-shape: superellipse(1.6);
+  }
+}

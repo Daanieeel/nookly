@@ -23,12 +23,7 @@ import * as Sharing from "expo-sharing";
 import { useState } from "react";
 import { Image, Linking, Pressable, TextInput, View } from "react-native";
 import { CARD_CLASSES } from "@nookly/ui/classes";
-import {
-  IconArrowUp,
-  IconLayoutGrid,
-  IconList,
-  IconTag,
-} from "@tabler/icons-react-native";
+import { IconArrowUp, IconLayoutGrid, IconList, IconTag } from "@tabler/icons-react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
 import { useFile, useFiles, useLabels } from "../data/queries.ts";
