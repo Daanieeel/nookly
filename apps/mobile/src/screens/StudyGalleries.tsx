@@ -3,7 +3,11 @@ import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconCalendarStats, IconPlayerPlayFilled, IconSchool } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Pressable, View } from "react-native";
+import { ListControls } from "../ui/ListControls.tsx";
+import { Empty } from "../ui/Row.tsx";
+import { courseOption } from "./option-badges.tsx";
 import {
   useAssignments,
   useCourseSemesters,
@@ -157,8 +161,10 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
   const router = useRouter();
   const theme = useTheme();
   const today = localDay();
-  const { data: exams = [] } = useExams({ spaceId });
+  const { data: all = [] } = useExams({ spaceId });
   const { data: courses = [] } = useCourses(spaceId);
+  const [picked, setPicked] = useState<string[]>([]);
+  const exams = all.filter((e) => picked.length === 0 || picked.includes(e.courseId ?? ""));
   const courseName = (id: string | null) => courses.find((c) => c.entity.id === id)?.entity.title;
   const dated = exams
     .filter((e) => e.examDate !== null)
@@ -167,7 +173,7 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
   const ahead = dated.filter((e) => (e.examDate ?? "") >= today);
   const undated = exams.filter((e) => e.examDate === null);
   const next = ahead.find((e) => e.status !== "done") ?? ahead[0];
-  if (exams.length === 0) {
+  if (all.length === 0) {
     return (
       <View className="p-8">
         <Text tone="muted" className="text-center">
@@ -177,8 +183,23 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
     );
   }
   const open = (e: ExamRecord) => router.push(`/entity/${e.entity.id}`);
+  const used = courses.filter((c) => all.some((e) => e.courseId === c.entity.id));
   return (
     <View className="gap-3">
+      <ListControls
+        title="Exams"
+        count={all.length}
+        filters={[
+          {
+            label: "Course",
+            icon: IconSchool,
+            values: picked,
+            options: used.map((c) => courseOption(c)),
+            onChange: setPicked,
+          },
+        ]}
+      />
+      {exams.length === 0 ? <Empty text="No exams match these filters." /> : null}
       {past.map((e) => (
         <TimelineNode key={e.entity.id} day={e.examDate} dim>
           <Pressable
@@ -194,10 +215,10 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
           </Pressable>
         </TimelineNode>
       ))}
+      {/* Across the whole width, not only the cards' column. */}
       <View className="flex-row items-center gap-3">
-        <View style={{ width: 64 }} />
         <View className="h-px flex-1 bg-primary" />
-        <Text variant="small" className="text-primary font-medium">
+        <Text variant="small" accessibilityRole="header" className="text-primary font-medium">
           Today
         </Text>
         <View className="h-px flex-1 bg-primary" />
@@ -273,6 +294,9 @@ function daysBetween(from: string, to: string): number {
   return Math.round((b - a) / 86_400_000);
 }
 
+/// The date column: room for "12 Nov" and its weekday, no more.
+const DAY_COLUMN = 48;
+
 /// One point of the timeline: its date on the left, a node on the line, the card at the right.
 function TimelineNode({
   day,
@@ -286,7 +310,7 @@ function TimelineNode({
   const date = day ? new Date(`${day}T00:00:00`) : null;
   return (
     <View className={cn("flex-row gap-3", dim && "opacity-60")}>
-      <View style={{ width: 64 }} className="items-end pt-3">
+      <View testID="exam-day" style={{ width: DAY_COLUMN }} className="items-start pt-3">
         <Text variant="small" className="font-medium">
           {date ? date.toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "No day"}
         </Text>

@@ -9,7 +9,8 @@ import {
   setCourseSemester,
   setCurrentSemester,
 } from "@nookly/shared/data";
-import { fireEvent } from "expo-router/testing-library";
+import { fireEvent, waitFor } from "expo-router/testing-library";
+import { openRow } from "../test/sheet.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { addDays, localDay } from "./dates.ts";
 import { CourseGallery, DeckGrid, ExamTimeline } from "./StudyGalleries.tsx";
@@ -50,6 +51,26 @@ describe("the Exams timeline", () => {
     expect(screen.getByText("Today")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Quiz" })).toBeTruthy();
     expect(screen.getByText("Completed")).toBeTruthy();
+  });
+
+  // The desktop's Course filter (D65); a narrower date column, and Today across the width.
+  it("narrows to a course, with Today across the whole width", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const algo = await createCourse(data.db, space, "Algorithms");
+    const stats = await createCourse(data.db, space, "Statistics");
+    await createExam(data.db, space, "Algo final", algo, addDays(localDay(), 12));
+    await createExam(data.db, space, "Stats final", stats, addDays(localDay(), 20));
+    const screen = await renderScreens({ index: () => <ExamTimeline spaceId={space} /> }, data);
+    expect(await screen.findByRole("button", { name: "Stats final" })).toBeTruthy();
+    // The marker reads as a heading; nothing holds a date column's room before it.
+    expect(screen.getByRole("header", { name: "Today" })).toBeTruthy();
+    expect(screen.getAllByTestId("exam-day")[0].props.style).toMatchObject({ width: 48 });
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Course");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Algorithms" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Stats final" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Algo final" })).toBeTruthy();
   });
 });
 
