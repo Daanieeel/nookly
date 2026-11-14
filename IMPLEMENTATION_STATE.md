@@ -152,6 +152,24 @@ The user allows touching and replacing our phone's sheet and picker components f
 - [x] (2026-11-14) `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
 - [x] Final report below.
 
+### 11. Moodle on the phone does everything the desktop's does (asked 2026-11-14)
+
+The desktop's module is listed in `docs/03-modules/moodle.md` and `packages/frontend/src/features/moodle/`. Each line is one desktop feature the phone must have.
+
+- [ ] Sign in in iOS's own sign in sheet (an auth session, `expo-web-browser`), which offers saved passwords and hands Moodle's redirect straight back; the passport check stays.
+- [ ] Courses: current ones first, then past ones; each with its banner, or its own gradient when it has none; its progress.
+- [ ] Contents: sections with their descriptions; images in Moodle text read as their description; a Moodle "Page" is read in Nookly; forum and assignment rows open that forum or assignment; anything else links to its page on Moodle.
+- [ ] Files: download once and stay on the phone (`moodle-files`), read in Nookly (PDF, picture, video, audio) with their details, anything else handed to another app.
+- [ ] Import a file into the Space: name, labels (course and section suggested, the course one picked, an existing label reused), the matching Nookly course; all or nothing; `origin` `moodle:<address>`; an imported file offers Show in Nookly (one in Trash counts as not imported).
+- [ ] Assignments: due soonest first, undated last; each opens with its description, attachments, submission status, grade and feedback.
+- [ ] Grades: grade, range, percentage, weight and feedback; the course total last.
+- [ ] Announcements and forums: announcements first; discussions; posts with their attachments; initials tiles for people.
+- [ ] Open in Moodle on every page.
+- [ ] The last answers are kept for reading offline and forgotten on sign out; downloaded files stay.
+- [ ] A loading page shows placeholders in its own shape.
+- [ ] Problems in plain words; an expired sign in offers Connect Again.
+- [ ] Moodle deadlines on the calendar from Moodle's calendar export link (Settings, Calendar connections; read only overlay).
+
 ## Needs the user
 
 - On a real phone: the blinking caret on a tap into an empty page, tapping it again after closing the keyboard, and Undo after typing with the keyboard (the simulator here can't tap into a web view or type with keys; the fix is checked by typing through the browser's own input path).
