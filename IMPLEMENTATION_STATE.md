@@ -185,7 +185,7 @@ Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it 
 - [ ] Display and filter option sheets: native switches are not vertically centred on their labels. Centre them everywhere.
 - [ ] Redesign the New Bookmark sheet (compose style, like New Task).
 - [ ] Semesters list: semesters look squeezed. Give them room.
-- [ ] Semester detail sidebar: the "Open Notes" button goes.
+- [x] (2026-11-14, test) Semester detail sidebar: the "Open Notes" button goes.
 - [ ] Start and end date pickers with a calendar (e.g. the semester detail sidebar): the inner calendar box gets a larger corner radius, matching the outer one.
 
 ### 13. Leftovers from item 11 and the final checks (found 2026-11-14)

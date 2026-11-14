@@ -259,6 +259,8 @@ describe("semesters", () => {
           )[0].k,
       }),
     ).toBeTruthy();
+    // The semester's page is its notes already: no button opens them again.
+    expect(screen.queryByRole("button", { name: "Open Notes" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Make Current" }));
     await waitFor(async () => expect((await getSemester(data.db, ws))?.isCurrent).toBe(true));
   });

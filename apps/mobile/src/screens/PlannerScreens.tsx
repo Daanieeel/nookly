@@ -16,7 +16,6 @@ import {
   createSessionPage,
   createSemester,
   courseSemester,
-  getOrCreateSemesterNotes,
   overrideSession,
   setCourseSemester,
   setCurrentSemester,
@@ -322,7 +321,6 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
   const current = useLocalWrite((db, _: undefined) =>
     setCurrentSemester(db, semester?.entity.spaceId ?? "", id),
   );
-  const notes = useLocalWrite((db, _: undefined) => getOrCreateSemesterNotes(db, id));
   if (!semester) return null;
   return (
     <>
@@ -381,15 +379,6 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
               status={statusOf(current)}
               errorLabel="Couldn't change it"
               onPress={() => current.mutate(undefined)}
-            />
-            <Button
-              label="Open Notes"
-              variant="ghost"
-              status={statusOf(notes)}
-              errorLabel="Couldn't open them"
-              onPress={() =>
-                notes.mutate(undefined, { onSuccess: (note) => router.push(`/entity/${note}`) })
-              }
             />
           </View>
         ) : null}
