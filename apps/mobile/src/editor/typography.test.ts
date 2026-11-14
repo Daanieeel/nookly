@@ -1,5 +1,6 @@
 import { PAGE_FONTS } from "@nookly/shared/page-typography";
-import { PLACEHOLDER_CSS, pageTypographyCss, placeholderStyle } from "./typography.ts";
+import { pageSchema } from "./schema.ts";
+import { PLACEHOLDER_CSS, isEmptyPage, pageTypographyCss } from "./typography.ts";
 
 describe("a page's font and size on the phone", () => {
   it("leaves the phone's own font at the default size", () => {
@@ -19,24 +20,19 @@ describe("a page's font and size on the phone", () => {
 });
 
 describe("an empty page's placeholder", () => {
-  // Bug: the empty paragraph read `attr(data-placeholder)` of itself, but the text was on the
-  // editor's root, so an empty page or description showed no hint at all.
-  it("is a CSS string the empty paragraph shows", () => {
-    expect(placeholderStyle("Write something")).toBe('--placeholder: "Write something";');
+  // The bug: the placeholder was a `::before` on the page's empty line, inside the text
+  // being edited. WebKit then drew no caret on a tap and dropped what was typed, so an
+  // empty page seemed not to take a tap. It now sits over the editor, outside the text.
+  it("is drawn outside the editable text", () => {
+    expect(PLACEHOLDER_CSS).not.toContain("::before");
+    expect(PLACEHOLDER_CSS).toContain("pointer-events: none");
   });
 
-  it("keeps quotes and backslashes in the text from breaking out of the string", () => {
-    expect(placeholderStyle('Say "hi" \\ bye')).toBe('--placeholder: "Say \\"hi\\" \\\\ bye";');
-  });
-});
-
-describe("an empty page's caret", () => {
-  // The bug: tapping an empty page showed no blinking caret. WebKit hides the caret of an
-  // empty line whose placeholder is taken out of the flow (`position: absolute`); floated
-  // with no height, the placeholder leaves the caret where it is, at the line's start.
-  it("shows the placeholder without hiding the caret", () => {
-    expect(PLACEHOLDER_CSS).toContain("float: left");
-    expect(PLACEHOLDER_CSS).toContain("height: 0");
-    expect(PLACEHOLDER_CSS).not.toContain("position: absolute");
+  it("shows only on a page with nothing in it", () => {
+    const { doc, paragraph, heading } = pageSchema.nodes;
+    expect(isEmptyPage(doc.create(null, paragraph.create()))).toBe(true);
+    expect(isEmptyPage(doc.create(null, paragraph.create(null, pageSchema.text("x"))))).toBe(false);
+    expect(isEmptyPage(doc.create(null, heading.create({ level: 1 })))).toBe(false);
+    expect(isEmptyPage(doc.create(null, [paragraph.create(), paragraph.create()]))).toBe(false);
   });
 });

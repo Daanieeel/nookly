@@ -60,7 +60,7 @@ import {
 } from "./commands.ts";
 import { loadGate } from "./load-gate.ts";
 import { pageSchema } from "./schema.ts";
-import { PLACEHOLDER_CSS, placeholderStyle } from "./typography.ts";
+import { PLACEHOLDER_CSS, isEmptyPage } from "./typography.ts";
 
 /// The toolbar's buttons that would do nothing in `state`.
 function idleButtons(state: EditorState) {
@@ -164,7 +164,7 @@ const MENU_ROOM = 372;
 
 const CSS = `
 html, body { margin: 0; height: auto; min-height: 0; background: transparent; -webkit-text-size-adjust: 100%; }
-.root { font: calc(17px * var(--page-scale, 1))/1.55 var(--page-font, -apple-system, system-ui, "Inter", sans-serif); color: var(--fg); }
+.root { flex: 1; min-width: 0; font: calc(17px * var(--page-scale, 1))/1.55 var(--page-font, -apple-system, system-ui, "Inter", sans-serif); color: var(--fg); }
 .host { display: flex; flex-direction: column; }
 .pm { flex: 1; outline: none; padding: 0 0 24px; min-height: 120px; word-break: break-word; position: relative; }
 ${PLACEHOLDER_CSS}
@@ -261,6 +261,8 @@ export default function PageEditorDom({
   const [found, setFound] = useState<{ id: string; title: string; key: string }[]>([]);
   /// What the Vim indicator shows: the mode and what is half typed; empty with Vim off.
   const [vimLabel, setVimLabel] = useState("");
+  /// Whether the page is empty, so its placeholder shows over it.
+  const [empty, setEmpty] = useState(false);
 
   /// Whether the phone's copy of the page has arrived; the editor binds only then.
   const [loaded, setLoaded] = useState(false);
@@ -334,6 +336,7 @@ export default function PageEditorDom({
           ? `${VIM_MODE_LABELS[keys.mode]}${keys.operator || keys.count ? ` ${keys.count}${keys.operator}` : ""}`
           : "",
       );
+      setEmpty(isEmptyPage(e.state.doc));
       const state: PhoneEditorState = {
         focused: focused.current,
         vimHelp: vimRef.current && keys.help,
@@ -401,8 +404,6 @@ export default function PageEditorDom({
       },
       attributes: {
         class: "pm",
-        "data-placeholder": placeholder,
-        style: placeholderStyle(placeholder),
         spellcheck: "true",
       },
       editable: () => editableRef.current,
@@ -455,6 +456,7 @@ export default function PageEditorDom({
       },
     });
     view.current = editor;
+    setEmpty(isEmptyPage(editor.state.doc));
     const focusIn = () => {
       focused.current = true;
       report(editor);
@@ -578,11 +580,18 @@ export default function PageEditorDom({
       <style>{highlightCss(".pm", colors.dark)}</style>
       {/* The web view is as tall as the page: room under the caret for an open menu, so it
           is never cut off at the page's end. */}
-      <div
-        ref={host}
-        className="host"
-        style={{ minHeight, paddingBottom: menu || mathEdit ? MENU_ROOM : 0 }}
-      />
+      <div className="editor-frame">
+        <div
+          ref={host}
+          className="host"
+          style={{ minHeight, paddingBottom: menu || mathEdit ? MENU_ROOM : 0 }}
+        />
+        {empty ? (
+          <div className="placeholder" aria-hidden>
+            {placeholder}
+          </div>
+        ) : null}
+      </div>
       {vimLabel ? (
         <p role="status" aria-label="Vim mode" className="vim-status">
           {vimLabel}

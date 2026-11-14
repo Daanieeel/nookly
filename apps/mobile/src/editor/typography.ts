@@ -1,3 +1,4 @@
+import type { Node } from "prosemirror-model";
 import { PAGE_FONTS, type PageFont, pageScale } from "@nookly/shared/page-typography";
 
 /// The most the page grows with the system's text size, as far as the app's own text does
@@ -14,13 +15,15 @@ export function pageTypographyCss(font: PageFont, size: number, fontScale = 1): 
   return `:root { ${vars.filter(Boolean).join(" ")} }`;
 }
 
-/// What an empty page says, as the CSS variable its empty paragraph shows (`content:
-/// var(--placeholder)`), the text escaped so it stays one CSS string.
-export function placeholderStyle(text: string): string {
-  return `--placeholder: "${text.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}";`;
+/// Whether a page holds nothing yet: one empty paragraph. It then shows its placeholder.
+export function isEmptyPage(doc: Node): boolean {
+  const first = doc.firstChild;
+  return doc.childCount === 1 && first?.type.name === "paragraph" && first.content.size === 0;
 }
 
-/// An empty page's placeholder ("Write something"), drawn before its one empty line. Floated
-/// with no height rather than taken out of the flow, so WebKit still draws the caret there.
+/// An empty page's placeholder ("Write something"): drawn over the editor, not in it. A
+/// placeholder inside the editable text (a `::before` on its empty line) kept WebKit from
+/// showing the caret there and from taking typed text, so tapping an empty page seemed to do
+/// nothing.
 export const PLACEHOLDER_CSS =
-  ".pm > p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before { content: var(--placeholder); color: var(--muted); float: left; height: 0; white-space: nowrap; pointer-events: none; }";
+  ".editor-frame { position: relative; display: flex; flex-direction: column; align-self: stretch; width: 100%; } .placeholder { position: absolute; top: 0; left: 0; right: 0; color: var(--muted); white-space: nowrap; overflow: hidden; pointer-events: none; }";

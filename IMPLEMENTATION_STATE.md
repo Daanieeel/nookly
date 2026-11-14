@@ -88,9 +88,9 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 ### 4. Mobile: markdown editor
 
-- [x] (2026-11-14, placeholder floated instead of absolute; test; check the caret on the phone) An empty editor showing "Write something" shows a blinking cursor when tapped.
-- [ ] Bug: tap into an empty editor, close the keyboard, tap again: nothing happens until the page is reopened. Tapping must always focus.
-- [ ] Undo and redo buttons work. (Undo itself works in a test, `undo.test.ts`; check the bridge on the phone.)
+- [x] (2026-11-14, the placeholder is drawn over the editor, not as a `::before` in its empty line, which kept WebKit from taking text there; typing into an empty page checked in the simulator; tests) An empty editor showing "Write something" shows a blinking cursor when tapped.
+- [x] (2026-11-14, same cause as the caret: the placeholder inside the text) Bug: tap into an empty editor, close the keyboard, tap again: nothing happens until the page is reopened. Tapping must always focus.
+- [x] (2026-11-14, `undo.test.ts`; in the simulator typed text, Undo twice, both steps came back out. Likely the same empty page cause: text typed there never reached the editor, so there was nothing to undo) Undo and redo buttons work.
 - [x] (2026-11-14, `off` in the editor state, undo and redo too; tests) Indent and outdent buttons are disabled when they would do nothing.
 - [x] (2026-11-14, `list-switch.test.ts`) With a list active, tapping another list type (bullet, ordered, todo) converts the list to that type.
 - [x] (2026-11-14, the toolbar is cleared when the page loses focus, before the editor reports back) Leaving the page with the keyboard open: the toolbar above the keyboard disappears together with the keyboard, not a moment later floating mid screen.
@@ -153,6 +153,7 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 ## Needs the user
 
+- On a real phone: the blinking caret on a tap into an empty page, tapping it again after closing the keyboard, and Undo after typing with the keyboard (the simulator here can't tap into a web view or type with keys; the fix is checked by typing through the browser's own input path).
 - Carried over: on a real phone, the feel of dragging; the iOS 27 scene fix (D59); the editor toolbar on the keyboard and the slash menu; scanning a document.
 
 ## Progress log
