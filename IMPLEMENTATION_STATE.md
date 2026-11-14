@@ -111,8 +111,8 @@ The user allows touching and replacing our phone's sheet and picker components f
 - [x] (2026-11-14, `ui/ListControls.tsx` on Bookmarks, Notes, Jots, Files, Trash and Exams with the desktop's fields; Tasks and Assignments had them; Recipes has none on the desktop; tests) Filter and display options on tasks, assignments and the other list pages in the Linear style (`display-options.jpeg`, `filter-list-sheet.jpeg`), keeping our list or board toggle.
 - [x] (2026-11-14, test; on screen) Calendar header: keep date and week, no comma, "Week XY" at lower opacity.
 - [x] (2026-11-14, an all day item on the page beside made the bar tall on a page that drew no cells; every page now draws them; test; on screen) Calendar bug: the all day row lacks the vertical day borders.
-- [ ] Semesters list: "Set dates" works when tapped; expanding a semester stays, plus a button that opens the semester directly.
-- [ ] "Set up semesters" is a native header button left of +, not a big button on the page.
+- [x] (2026-11-14, test; on screen) Semesters list: "Set dates" works when tapped; expanding a semester stays, plus a button that opens the semester directly.
+- [x] (2026-11-14, the desktop's wand, `assets/toolbar/wand.png` drawn from Tabler; test; on screen) "Set up semesters" is a native header button left of +, not a big button on the page.
 - [x] (2026-11-14, test; on screen) Exams timeline: less left padding; the "Today" row spans the full width.
 - [x] (2026-11-14, test; on screen) Bookmarks: the "Paste a URL to save it" field is a floating bar at the bottom like the desktop, with its own corner radius following the iPhone's corners, a send button, and properly sized link items.
 - [x] (2026-11-14, labels and site filters, grid or list, grouping, ordering, previews and descriptions; bookmarks now list their labels; tests) Bookmarks: display and filter options like the desktop (Linear style), keeping the list or grid toggle.

@@ -1,4 +1,4 @@
-import { renameEntity, setCurrentSemester, trashEntity } from "@nookly/shared/data";
+import { renameEntity, setCurrentSemester, trashEntity, updateSemester } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
@@ -23,7 +23,9 @@ import { Button, IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Field } from "../ui/Field.tsx";
 import { useMenu } from "../ui/menu.tsx";
-import { useSheet } from "../ui/sheet/Sheet.tsx";
+import { Sheet, useSheet } from "../ui/sheet/Sheet.tsx";
+import { DateField } from "../ui/DateField.tsx";
+import { FormSection } from "../ui/kit/Form.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
@@ -73,6 +75,10 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
     setCurrentSemester(db, semester.entity.spaceId, semester.entity.id),
   );
   const trash = useLocalWrite((db) => trashEntity(db, semester.entity.id));
+  const dates = useLocalWrite((db, patch: { startDate?: string; endDate?: string }) =>
+    updateSemester(db, semester.entity.id, patch),
+  );
+  const [dating, setDating] = useState(false);
   const Chevron = open ? IconChevronDown : IconChevronRight;
   const name = semester.entity.title || "Untitled";
   return (
@@ -104,10 +110,28 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
               {semester.isCurrent ? <Badge label="Current" variant="positive" size="sm" /> : null}
             </View>
             <Text variant="small" tone="muted">
-              {`${mine.length} ${mine.length === 1 ? "course" : "courses"} · ${semesterRange(semester) ?? "Set dates"}`}
+              {`${mine.length} ${mine.length === 1 ? "course" : "courses"} · ${semesterRange(semester) ?? ""}`}
             </Text>
           </View>
         </Pressable>
+        {semesterRange(semester) ? null : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Set dates of ${name}`}
+            onPress={() => setDating(true)}
+            hitSlop={8}
+            className="min-h-11 justify-center px-2 active:opacity-60"
+          >
+            <Text variant="small" tone="primary" className="font-medium">
+              Set dates
+            </Text>
+          </Pressable>
+        )}
+        <IconButton
+          label={`Open ${name}`}
+          icon={<IconArrowUpRight size={20} color={muted} />}
+          onPress={() => router.push(`/entity/${semester.entity.id}`)}
+        />
         <IconButton
           label={`Options for ${name}`}
           icon={<IconDots size={20} color={muted} />}
@@ -140,6 +164,22 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
           }
         />
       </View>
+      <Sheet open={dating} onOpenChange={setDating} title="Dates" presentation="card">
+        <FormSection>
+          <DateField
+            label="Starts"
+            clearable={false}
+            value={semester.startDate}
+            onChange={(startDate) => startDate && dates.mutate({ startDate })}
+          />
+          <DateField
+            label="Ends"
+            clearable={false}
+            value={semester.endDate}
+            onChange={(endDate) => endDate && dates.mutate({ endDate })}
+          />
+        </FormSection>
+      </Sheet>
       {open ? (
         <View className="border-t border-border/60">
           {mine.length === 0 ? (
@@ -175,30 +215,18 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
 /// badge, how many courses and its dates, with a menu to open it, rename it, flag it as the
 /// current one or trash it; open, it lists its courses.
 export function SemesterList({ spaceId }: { spaceId: string }) {
-  const router = useRouter();
   const { data: semesters = [] } = useSemesters(spaceId);
-  const setup = (
-    <View className="items-start">
-      <Button
-        label="Set Up Semesters"
-        variant="secondary"
-        onPress={() => router.push(`/new/semester-setup?spaceId=${spaceId}`)}
-      />
-    </View>
-  );
   if (semesters.length === 0) {
     return (
       <View className="p-8">
         <Text tone="muted" className="text-center">
-          No semesters yet. Tap + to add one.
+          No semesters yet. Tap + to add one, or the wand to set up a run of them.
         </Text>
-        <View className="items-center pt-3">{setup}</View>
       </View>
     );
   }
   return (
     <View className="gap-2">
-      {setup}
       {semesters.map((s) => (
         <SemesterRow key={s.entity.id} semester={s} />
       ))}

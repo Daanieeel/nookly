@@ -182,6 +182,14 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
         </Stack.Toolbar>
       ) : create ? (
         <Stack.Toolbar placement="right">
+          {module === "semesters" ? (
+            <Stack.Toolbar.Button
+              icon={TOOLBAR_ICONS.wand}
+              {...BAR_BUTTON}
+              accessibilityLabel="Set Up Semesters"
+              onPress={() => router.push(`/new/semester-setup?spaceId=${spaceId}`)}
+            />
+          ) : null}
           <Stack.Toolbar.Button
             icon={TOOLBAR_ICONS.plus}
             {...BAR_BUTTON}

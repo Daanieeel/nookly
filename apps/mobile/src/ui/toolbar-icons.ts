@@ -7,6 +7,7 @@ import settings from "../../assets/toolbar/settings.png";
 import plus from "../../assets/toolbar/plus.png";
 import search from "../../assets/toolbar/search.png";
 import share from "../../assets/toolbar/share.png";
+import wand from "../../assets/toolbar/wand.png";
 
 /// The desktop's Tabler icons for the system's bar buttons (`Stack.Toolbar.Button`), which
 /// take an image and tint it like their own. Drawn from
@@ -21,4 +22,5 @@ export const TOOLBAR_ICONS = {
   settings,
   showDetails: expand,
   hideDetails: collapse,
+  wand,
 };

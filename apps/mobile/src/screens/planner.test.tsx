@@ -14,8 +14,9 @@ import {
 import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
-import { renderScreens, testData } from "../test/render.tsx";
-import { choose, openRow, pickDayInSheet } from "../test/sheet.ts";
+import { barLabels, renderScreens, testData } from "../test/render.tsx";
+import { ModuleScreen } from "./ModuleScreen.tsx";
+import { choose, openRow, pickDay, pickDayInSheet } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewSemesterScreen, NewSessionScreen } from "./PlannerScreens.tsx";
 import { dayLabel } from "./dates.ts";
@@ -191,6 +192,42 @@ describe("semesters", () => {
     expect(screen.getAllByText("Current").length).toBeGreaterThan(0);
     await fireEvent.press(await screen.findByRole("radio", { name: "WS 25/26" }));
     await waitFor(async () => expect(await courseSemester(data.db, course)).toBe(ws));
+  });
+
+  // "Set dates" did nothing when tapped; each row also opens its semester directly, and
+  // the setup sits in the bar beside +, not as a big button on the page.
+  it("sets its dates from the row, opens it, and offers the setup in the bar", async () => {
+    const { data, space } = await seeded();
+    const ws = await createSemester(data.db, space, { title: "WS 26/27" });
+    const screen = await renderScreens(
+      {
+        "module/[spaceId]/[module]": () => <ModuleScreen spaceId={space} module="semesters" />,
+        "entity/[id]": () => <Text>Opened</Text>,
+        "new/semester-setup": () => <Text>Setup</Text>,
+      },
+      data,
+      `/module/${space}/semesters`,
+    );
+    expect(await screen.findByRole("button", { name: "WS 26/27" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Set Up Semesters" })).toBeNull();
+    expect(barLabels(screen)).toEqual(
+      expect.arrayContaining(["Set Up Semesters", "New in Semesters"]),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Set dates of WS 26/27" }));
+    await pickDay(screen, "Starts", "2026-10-15");
+    // The first calendar goes away before the second opens.
+    await waitFor(() =>
+      expect(screen.queryAllByRole("button", { name: "Next Month" })).toEqual([]),
+    );
+    await pickDay(screen, "Ends", "2027-02-15");
+    await waitFor(async () =>
+      expect(await getSemester(data.db, ws)).toMatchObject({
+        startDate: "2026-10-15",
+        endDate: "2027-02-15",
+      }),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Open WS 26/27" }));
+    expect(await screen.findByText("Opened")).toBeTruthy();
   });
 
   it("makes one the current semester and shows the courses in it", async () => {
