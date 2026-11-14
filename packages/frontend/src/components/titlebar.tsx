@@ -386,8 +386,8 @@ export function Titlebar() {
           Search
           <ShortcutKbd name="search" />
         </Button>
-        <SplitButton />
         <SyncStatusButton />
+        <SplitButton />
         <ImportButton />
         <SettingsButton />
       </div>

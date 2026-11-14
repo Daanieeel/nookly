@@ -31,6 +31,9 @@ export type EditorAction = ToolbarId | "done";
 export const editorStateSchema = z.object({
   focused: z.boolean(),
   on: z.partialRecord(z.string(), z.boolean()),
+  /// The toolbar's buttons that would do nothing now (indent the first item, undo with
+  /// nothing done), drawn disabled.
+  off: z.partialRecord(z.string(), z.boolean()).optional(),
   vimHelp: z.boolean().optional(),
 });
 

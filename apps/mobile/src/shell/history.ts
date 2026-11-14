@@ -48,3 +48,8 @@ export class NavHistory {
 
 /// The window's one history.
 export const history = new NavHistory();
+
+/// The top level pages the sidebar opens (Dashboard, Tasks, a module) are places, not steps:
+/// going between them is not undone by a swipe from the screen's edge, only by Go Back
+/// (Cmd [ or the titlebar), which reads `history`.
+export const TOP_LEVEL_SCREEN = { gestureEnabled: false } as const;

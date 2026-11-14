@@ -127,7 +127,7 @@ function Item({
         }}
         style={[
           { flexDirection: horizontal ? "column" : "row", alignItems: "center" },
-          horizontal ? { width: size } : { minHeight: size },
+          horizontal ? { width: size, height: size } : { minHeight: size },
           style,
         ]}
       >

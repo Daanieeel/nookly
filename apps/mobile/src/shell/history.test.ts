@@ -1,4 +1,4 @@
-import { NavHistory } from "./history.ts";
+import { NavHistory, TOP_LEVEL_SCREEN } from "./history.ts";
 
 describe("back and forward", () => {
   it("goes back and forward through the pages you opened", () => {
@@ -52,5 +52,15 @@ describe("back and forward", () => {
     h.visit("/");
     expect(h.back()).toBeNull();
     expect(h.forward()).toBeNull();
+  });
+});
+
+describe("the pages the sidebar opens", () => {
+  it("are not left with a swipe from the screen's edge; Go Back still works", () => {
+    expect(TOP_LEVEL_SCREEN.gestureEnabled).toBe(false);
+    const h = new NavHistory();
+    h.visit("/tasks");
+    h.visit("/calendar");
+    expect(h.back()).toBe("/tasks");
   });
 });

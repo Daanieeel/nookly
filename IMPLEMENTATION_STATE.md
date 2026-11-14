@@ -59,7 +59,7 @@ The order below builds shared pieces first (the Linear style sheets), then the s
 
 ### 0b. Splash screen (asked 2026-11-14)
 
-- [x] (2026-11-14) The user's new splash (`~/Downloads/splash.png`, flame over "Nookly" on #111111) replaces the old one entirely: `apps/mobile/assets/splash.png` (transparent corners filled with #111111), splash background #111111 in `app.json`. Still to see in the simulator after the next dev client rebuild (the `ios/` folder is generated).
+- [x] (2026-11-14, seen in the simulator after the rebuild) The user's new splash (`~/Downloads/splash.png`, flame over "Nookly" on #111111) replaces the old one entirely: `apps/mobile/assets/splash.png` (transparent corners filled with #111111), splash background #111111 in `app.json`. Still to see in the simulator after the next dev client rebuild (the `ios/` folder is generated).
 
 ### 1. Mobile: Linear style foundations (do first, the later items use them)
 
@@ -74,27 +74,27 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 ### 2. Mobile: sidebar and navigation
 
-- [ ] The header blur behind "Nookly" and the search button fades out as a gradient, no hard edge at its bottom.
-- [ ] Nav items get a bit more padding on the left only, so they no longer line up with the header box.
-- [ ] Nav and detail sidebar item labels: one font size smaller, one weight heavier; icon size and opacity unchanged; the active nav item's icon is not coloured.
-- [ ] Bug: the Space icons at the bottom of the sidebar are misaligned (`sidebar-spacer-switcher-bug.jpeg`: the icons sit lower than + and the other buttons).
-- [ ] The search (magnifying glass) button in the sidebar header is a native button.
-- [ ] Navigating via nav items keeps Cmd + Left/Right for back and forward, but the swipe from the screen edge no longer navigates back.
+- [x] (2026-11-14, bands of weaker blur under it, on screen) The header blur behind "Nookly" and the search button fades out as a gradient, no hard edge at its bottom.
+- [x] (2026-11-14, on screen) Nav items get a bit more padding on the left only, so they no longer line up with the header box.
+- [x] (2026-11-14, callout size, 500/600 weight; details rows too; on screen) Nav and detail sidebar item labels: one font size smaller, one weight heavier; icon size and opacity unchanged; the active nav item's icon is not coloured.
+- [x] (2026-11-14, each icon box had no height; test; measured on screen) Bug: the Space icons at the bottom of the sidebar are misaligned (`sidebar-spacer-switcher-bug.jpeg`: the icons sit lower than + and the other buttons).
+- [x] (2026-11-14, `GlassButton` on `expo-glass-effect`, dev client rebuilt) The search (magnifying glass) button in the sidebar header is a native button.
+- [x] (2026-11-14, `TOP_LEVEL_SCREEN` gestureEnabled false on the top level stack; test) Navigating via nav items keeps Cmd + Left/Right for back and forward, but the swipe from the screen edge no longer navigates back.
 
 ### 3. Desktop
 
-- [ ] The blur gradient behind the Space switcher at the bottom of the nav sidebar reaches too far up and covers the last item (`desktop/space switcher blur bug.png`). Make it shorter.
-- [ ] Swap the "Split" button and the sync indicator in the titlebar.
+- [x] (2026-11-14, `-top-3` instead of `-top-10`; test; not yet looked at in the running desktop) The blur gradient behind the Space switcher at the bottom of the nav sidebar reaches too far up and covers the last item (`desktop/space switcher blur bug.png`). Make it shorter.
+- [x] (2026-11-14, test) Swap the "Split" button and the sync indicator in the titlebar.
 
 ### 4. Mobile: markdown editor
 
-- [ ] An empty editor showing "Write something" shows a blinking cursor when tapped.
+- [x] (2026-11-14, placeholder floated instead of absolute; test; check the caret on the phone) An empty editor showing "Write something" shows a blinking cursor when tapped.
 - [ ] Bug: tap into an empty editor, close the keyboard, tap again: nothing happens until the page is reopened. Tapping must always focus.
-- [ ] Undo and redo buttons work.
-- [ ] Indent and outdent buttons are disabled when they would do nothing.
-- [ ] With a list active, tapping another list type (bullet, ordered, todo) converts the list to that type.
-- [ ] Leaving the page with the keyboard open: the toolbar above the keyboard disappears together with the keyboard, not a moment later floating mid screen.
-- [ ] The hide keyboard button gets a small chevron down on the keyboard icon.
+- [ ] Undo and redo buttons work. (Undo itself works in a test, `undo.test.ts`; check the bridge on the phone.)
+- [x] (2026-11-14, `off` in the editor state, undo and redo too; tests) Indent and outdent buttons are disabled when they would do nothing.
+- [x] (2026-11-14, `list-switch.test.ts`) With a list active, tapping another list type (bullet, ordered, todo) converts the list to that type.
+- [x] (2026-11-14, the toolbar is cleared when the page loses focus, before the editor reports back) Leaving the page with the keyboard open: the toolbar above the keyboard disappears together with the keyboard, not a moment later floating mid screen.
+- [x] (2026-11-14) The hide keyboard button gets a small chevron down on the keyboard icon.
 - [ ] Embedded editors (tasks, assignments, courses, semesters, ...) have no extra margin below them.
 - [ ] Embedded editors sync as reliably as notes and jots (also right after coming back online) and show other devices' cursors.
 

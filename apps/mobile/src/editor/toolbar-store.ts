@@ -12,7 +12,8 @@ interface ToolbarStore extends EditorState {
 export const useToolbar = create<ToolbarStore>((set) => ({
   focused: false,
   on: {},
+  off: {},
   run: null,
   set: (state, run) => set({ ...state, run }),
-  clear: () => set({ focused: false, on: {}, run: null }),
+  clear: () => set({ focused: false, on: {}, off: {}, run: null }),
 }));

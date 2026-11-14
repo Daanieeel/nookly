@@ -19,3 +19,8 @@ export function pageTypographyCss(font: PageFont, size: number, fontScale = 1): 
 export function placeholderStyle(text: string): string {
   return `--placeholder: "${text.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}";`;
 }
+
+/// An empty page's placeholder ("Write something"), drawn before its one empty line. Floated
+/// with no height rather than taken out of the flow, so WebKit still draws the caret there.
+export const PLACEHOLDER_CSS =
+  ".pm > p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before { content: var(--placeholder); color: var(--muted); float: left; height: 0; white-space: nowrap; pointer-events: none; }";

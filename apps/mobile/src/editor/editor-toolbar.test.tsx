@@ -22,4 +22,19 @@ describe("the editor's toolbar", () => {
     expect(style.width).toBeGreaterThanOrEqual(44);
     expect(style.height).toBeGreaterThanOrEqual(44);
   });
+
+  it("draws a button that would do nothing as disabled (indent the first item)", async () => {
+    const run = jest.fn();
+    const screen = await renderScreens({ index: () => <EditorToolbar /> }, testData());
+    act(() =>
+      useToolbar.getState().set({ focused: true, on: {}, off: { indent: true, undo: true } }, run),
+    );
+    const indent = await screen.findByRole("button", { name: "Indent" });
+    expect(indent.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.press(indent);
+    expect(run).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Outdent" }).props.accessibilityState).toMatchObject({
+      disabled: false,
+    });
+  });
 });

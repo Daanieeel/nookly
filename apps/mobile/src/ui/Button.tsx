@@ -194,17 +194,22 @@ export function IconButton({
   icon,
   onPress,
   size = "icon",
+  disabled = false,
 }: {
   label: string;
   icon: React.ReactNode;
   onPress: () => void;
   size?: "icon" | "iconSm";
+  /// Drawn faded and not pressable, for an action that would do nothing now.
+  disabled?: boolean;
 }) {
   const press = usePressScale();
   return (
     <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       hitSlop={slopFor(size)}
       onPress={onPress}
       onPressIn={press.onPressIn}
@@ -213,6 +218,7 @@ export function IconButton({
       style={[
         drawnAt(size),
         { alignItems: "center", justifyContent: "center", borderRadius: RADIUS.pill },
+        disabled && { opacity: 0.35 },
         press.style,
       ]}
     >

@@ -139,6 +139,8 @@ export function PageDocEditor({
   useFocusEffect(
     useCallback(
       () => () => {
+        // The toolbar goes with the keyboard at once, not when the editor reports back.
+        toolbar.clear();
         runOn(handle.current, "done");
       },
       [],

@@ -2,6 +2,7 @@ import {
   IconArrowBackUp,
   IconArrowForwardUp,
   IconBold,
+  IconChevronDown,
   IconCode,
   IconH1,
   IconH2,
@@ -52,7 +53,7 @@ export const TOOLBAR_HEIGHT = 57;
 /// never leave it under the keyboard. It shows only while an editor has the keyboard.
 export function EditorToolbar() {
   const theme = useTheme();
-  const { focused, on, run } = useToolbar();
+  const { focused, on, off = {}, run } = useToolbar();
   const keyboard = useAnimatedKeyboard();
   const ride = useAnimatedStyle(() => ({
     transform: [{ translateY: -keyboard.height.value }],
@@ -83,6 +84,7 @@ export function EditorToolbar() {
                       color={on[id] ? theme.colors.primary : theme.colors.foreground}
                     />
                   }
+                  disabled={off[id]}
                   onPress={() => run(id)}
                 />
               </View>
@@ -93,7 +95,15 @@ export function EditorToolbar() {
       <View className="justify-center border-l border-border px-1">
         <IconButton
           label="Hide Keyboard"
-          icon={<IconKeyboard size={22} color={theme.colors.foreground} />}
+          icon={
+            // A keyboard with a chevron under it: the keyboard goes down.
+            <View style={{ width: 24, height: 26, alignItems: "center" }}>
+              <IconKeyboard size={22} color={theme.colors.foreground} />
+              <View style={{ position: "absolute", bottom: -4 }}>
+                <IconChevronDown size={12} strokeWidth={3} color={theme.colors.foreground} />
+              </View>
+            </View>
+          }
           onPress={() => run("done")}
         />
       </View>

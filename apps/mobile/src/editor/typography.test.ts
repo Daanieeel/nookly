@@ -1,5 +1,5 @@
 import { PAGE_FONTS } from "@nookly/shared/page-typography";
-import { pageTypographyCss, placeholderStyle } from "./typography.ts";
+import { PLACEHOLDER_CSS, pageTypographyCss, placeholderStyle } from "./typography.ts";
 
 describe("a page's font and size on the phone", () => {
   it("leaves the phone's own font at the default size", () => {
@@ -27,5 +27,16 @@ describe("an empty page's placeholder", () => {
 
   it("keeps quotes and backslashes in the text from breaking out of the string", () => {
     expect(placeholderStyle('Say "hi" \\ bye')).toBe('--placeholder: "Say \\"hi\\" \\\\ bye";');
+  });
+});
+
+describe("an empty page's caret", () => {
+  // The bug: tapping an empty page showed no blinking caret. WebKit hides the caret of an
+  // empty line whose placeholder is taken out of the flow (`position: absolute`); floated
+  // with no height, the placeholder leaves the caret where it is, at the line's start.
+  it("shows the placeholder without hiding the caret", () => {
+    expect(PLACEHOLDER_CSS).toContain("float: left");
+    expect(PLACEHOLDER_CSS).toContain("height: 0");
+    expect(PLACEHOLDER_CSS).not.toContain("position: absolute");
   });
 });

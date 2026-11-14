@@ -4,6 +4,7 @@ import { useSidebarDrawer } from "../../shell/SidebarDrawer.tsx";
 import { useTheme } from "../../ui/theme.ts";
 import { barButton } from "../../ui/bar.ts";
 import { TOOLBAR_ICONS } from "../../ui/toolbar-icons.ts";
+import { TOP_LEVEL_SCREEN } from "../../shell/history.ts";
 
 /// The app's top level pages. The sidebar is the root layout's drawer around the whole
 /// stack, so it opens from any page; here is its menu button, except on a tablet where
@@ -15,6 +16,7 @@ export default function TopLevelLayout() {
   return (
     <Stack
       screenOptions={{
+        ...TOP_LEVEL_SCREEN,
         contentStyle: { backgroundColor: theme.colors.page },
         headerStyle: { backgroundColor: theme.colors.page },
         headerShadowVisible: false,

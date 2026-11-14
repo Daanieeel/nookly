@@ -16,6 +16,7 @@ import {
   yCursorPlugin,
   ySyncPlugin,
   yUndoPlugin,
+  yUndoPluginKey,
 } from "@tiptap/y-tiptap";
 import { useDOMImperativeHandle } from "expo/dom";
 import type { DOMProps } from "expo/dom";
@@ -59,7 +60,18 @@ import {
 } from "./commands.ts";
 import { loadGate } from "./load-gate.ts";
 import { pageSchema } from "./schema.ts";
-import { placeholderStyle } from "./typography.ts";
+import { PLACEHOLDER_CSS, placeholderStyle } from "./typography.ts";
+
+/// The toolbar's buttons that would do nothing in `state`.
+function idleButtons(state: EditorState) {
+  const history = yUndoPluginKey.getState(state);
+  return {
+    indent: !indent(state),
+    outdent: !outdent(state),
+    undo: !history?.hasUndoOps,
+    redo: !history?.hasRedoOps,
+  };
+}
 
 const undo: Command = (state) => Boolean(yUndo(state));
 const redo: Command = (state) => Boolean(yRedo(state));
@@ -155,7 +167,7 @@ html, body { margin: 0; height: auto; min-height: 0; background: transparent; -w
 .root { font: calc(17px * var(--page-scale, 1))/1.55 var(--page-font, -apple-system, system-ui, "Inter", sans-serif); color: var(--fg); }
 .host { display: flex; flex-direction: column; }
 .pm { flex: 1; outline: none; padding: 0 0 24px; min-height: 120px; word-break: break-word; position: relative; }
-.pm > p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before { content: var(--placeholder); color: var(--muted); position: absolute; white-space: nowrap; pointer-events: none; }
+${PLACEHOLDER_CSS}
 .pm p { margin: 0 0 .6em; }
 .pm h1 { font-size: 1.7em; line-height: 1.25; margin: 1em 0 .4em; }
 .pm h2 { font-size: 1.4em; line-height: 1.3; margin: .9em 0 .4em; }
@@ -338,6 +350,7 @@ export default function PageEditorDom({
           tasks: a.tasks,
           quote: a.quote,
         },
+        off: idleButtons(e.state),
       };
       void onState(JSON.stringify(state));
       if (focused.current) {

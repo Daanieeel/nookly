@@ -106,12 +106,51 @@ export function toggleHeading(level: number): Command {
   };
 }
 
-/// Wraps the block in a list of `list`, or takes it out when it is in one already.
+const LISTS = new Set(["bulletList", "orderedList", "taskList"]);
+
+/// The list the cursor is in, nearest first, and where it starts.
+function listAround(state: EditorState): { node: Node; pos: number } | null {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    if (LISTS.has(node.type.name)) return { node, pos: $from.before(depth) };
+  }
+  return null;
+}
+
+/// Wraps the block in a list of `list`, takes it out when it is in that kind already, or
+/// turns the list it is in into this kind (bullets into numbers, into tasks), items, text
+/// and cursor kept.
 function toggleList(list: typeof nodes.bulletList, item: typeof nodes.listItem): Command {
-  return (state, dispatch) =>
-    inside(state, list.name)
-      ? liftListItem(item)(state, dispatch)
-      : wrapInList(list)(state, dispatch);
+  return (state, dispatch) => {
+    const around = listAround(state);
+    if (!around) return wrapInList(list)(state, dispatch);
+    if (around.node.type === list) return liftListItem(item)(state, dispatch);
+    if (dispatch) {
+      const items: Node[] = [];
+      around.node.forEach((child) =>
+        items.push(
+          child.type === item
+            ? child
+            : item.create(
+                item === nodes.taskItem ? { checked: false } : null,
+                child.content,
+                child.marks,
+              ),
+        ),
+      );
+      const { from, to } = state.selection;
+      const tr = state.tr.replaceWith(
+        around.pos,
+        around.pos + around.node.nodeSize,
+        list.create(around.node.attrs, items),
+      );
+      // The items wrap their text the same way, so the text keeps its place.
+      tr.setSelection(TextSelection.create(tr.doc, from, to));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
 }
 
 export const toggleBullets = toggleList(nodes.bulletList, nodes.listItem);

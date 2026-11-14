@@ -42,14 +42,17 @@ import { tasksFor } from "./dashboard-model.ts";
 import { isoWeek, localDay } from "./dates.ts";
 import { IconButton } from "../ui/Button.tsx";
 import { Glyph } from "../ui/kit/Glyph.tsx";
-import { useScheme, useSemanticPair } from "../ui/kit/scheme.ts";
+import { useSemanticPair } from "../ui/kit/scheme.ts";
 import { type BadgeLook, MODULE_BADGES } from "../ui/kit/badges.ts";
-import { TINT, TYPE, withAlpha } from "../ui/tokens.ts";
+import { FACE, TYPE, withAlpha } from "../ui/tokens.ts";
 import { BlurView } from "expo-blur";
+import { GlassButton } from "../ui/GlassButton.tsx";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 /// The sidebar's rows read at the size of iOS's own sidebars: body text, and icons to match.
 const ROW_ICON = 22;
+/// A row's name: a step under body text, a step heavier, so it reads firmly at a glance.
+const ROW_TEXT = { fontSize: TYPE.callout.fontSize, lineHeight: TYPE.callout.lineHeight };
 const SMALL_TEXT = { fontSize: TYPE.footnote.fontSize, lineHeight: TYPE.footnote.lineHeight };
 import { Mascot } from "../ui/Mascot.tsx";
 import { useMenu } from "../ui/menu.tsx";
@@ -79,7 +82,11 @@ function useSidebarIconColor() {
 /// Nookly's name over the sidebar, always in view, with Search beside it, on a blur that
 /// fades into the list scrolling under it.
 const HEADER_HEIGHT = 52;
-const HEADER_FADE = 20;
+const HEADER_BLUR = 24;
+/// The fade under the header: bands of blur, each a little weaker than the one above.
+const BAND = 3;
+const FADE_BANDS = [0.88, 0.76, 0.64, 0.52, 0.4, 0.28, 0.16, 0.06];
+const HEADER_FADE = BAND * FADE_BANDS.length;
 
 function SidebarHeader({ top, onSearch }: { top: number; onSearch: () => void }) {
   const theme = useTheme();
@@ -87,13 +94,36 @@ function SidebarHeader({ top, onSearch }: { top: number; onSearch: () => void })
   return (
     <View
       pointerEvents="box-none"
-      style={{ position: "absolute", top: 0, left: 0, right: 0, height: top + HEADER_HEIGHT }}
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        height: top + HEADER_HEIGHT + HEADER_FADE,
+      }}
     >
+      {/* The blur fades out at the bottom in thin bands of less and less blur, so the list
+          scrolling under it shows no edge where it starts. */}
       <BlurView
-        intensity={24}
+        intensity={HEADER_BLUR}
         tint={theme.dark ? "dark" : "light"}
-        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: top + HEADER_HEIGHT }}
       />
+      {FADE_BANDS.map((strength, band) => (
+        <BlurView
+          key={strength}
+          pointerEvents="none"
+          intensity={HEADER_BLUR * strength}
+          tint={theme.dark ? "dark" : "light"}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: top + HEADER_HEIGHT + band * BAND,
+            height: BAND,
+          }}
+        />
+      ))}
       <Svg
         pointerEvents="none"
         width="100%"
@@ -132,24 +162,20 @@ function SidebarHeader({ top, onSearch }: { top: number; onSearch: () => void })
         >
           Nookly
         </Text>
-        <IconButton
-          label="Search"
-          icon={<IconSearch size={ROW_ICON} color={theme.colors.foreground} />}
-          onPress={onSearch}
-        />
+        <GlassButton label="Search" onPress={onSearch}>
+          <IconSearch size={ROW_ICON} color={theme.colors.foreground} />
+        </GlassButton>
       </View>
     </View>
   );
 }
 
-/// A row's icon in the sidebar: muted, in the accent on the page shown now.
-function SideIcon({ look, active = false }: { look: Pick<BadgeLook, "glyph">; active?: boolean }) {
-  const scheme = useScheme();
+/// A row's icon in the sidebar: muted, the same on the page shown now (the row lights up).
+function SideIcon({ look }: { look: Pick<BadgeLook, "glyph">; active?: boolean }) {
   const color = useSidebarIconColor();
-  const accent = TINT.blue[scheme];
   return (
     <View style={{ width: 28, alignItems: "center" }}>
-      <Glyph icon={look.glyph} size={ROW_ICON} color={active ? accent : color} />
+      <Glyph icon={look.glyph} size={ROW_ICON} color={color} />
     </View>
   );
 }
@@ -190,7 +216,7 @@ function NavRow({
       onPress={onPress}
       onLongPress={onLongPress}
       style={TOUCH_ROW}
-      className={cn(box, "h-auto min-h-11 gap-3 py-2", indent > 0 && "pl-9")}
+      className={cn(box, "h-auto min-h-11 gap-3 py-2 pl-4", indent > 0 && "pl-11")}
     >
       {icon}
       <View className="flex-1" pointerEvents="none">
@@ -198,7 +224,8 @@ function NavRow({
           numberOfLines={1}
           className={text}
           style={[
-            { fontSize: TYPE.body.fontSize, lineHeight: TYPE.body.lineHeight },
+            ROW_TEXT,
+            { fontFamily: FACE[active ? "600" : "500"] },
             active ? { color: theme.colors.foreground } : undefined,
           ]}
         >

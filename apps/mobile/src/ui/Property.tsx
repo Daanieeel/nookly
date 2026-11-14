@@ -137,11 +137,18 @@ export function Property({
       })}
     >
       {icon}
-      <Label style={{ flex: 1 }} numberOfLines={1}>
+      <Label type="callout" weight="500" style={{ flex: 1 }} numberOfLines={1}>
         {label}
       </Label>
       {valueIcon}
-      <Label color="secondaryLabel" tint={tint} numberOfLines={1} style={{ maxWidth: "55%" }}>
+      <Label
+        type="callout"
+        weight="500"
+        color="secondaryLabel"
+        tint={tint}
+        numberOfLines={1}
+        style={{ maxWidth: "55%" }}
+      >
         {value}
       </Label>
       {interactive ? <Glyph icon={IconSelector} size={13} color={muted.hex} /> : null}
