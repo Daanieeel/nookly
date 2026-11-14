@@ -148,9 +148,9 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 ### 10. Final checks and report
 
-- [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
-- [ ] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
-- [ ] Final report below.
+- [x] (2026-11-14, see the final report) `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
+- [x] (2026-11-14) `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
+- [x] Final report below.
 
 ## Needs the user
 
@@ -162,8 +162,16 @@ The user allows touching and replacing our phone's sheet and picker components f
 
 - 2026-11-14: file refilled from the second round of `NOTES.md`. The previous round (all items done) is in git history up to 750c4f10 and `DECISIONS.md` up to D64.
 
+- 2026-11-14: items 2 to 10 done: Moodle on the phone (browser sign in to the university's page, courses, contents, assignments, grades, forums), task and session pages, recipe page, Space settings, the full page progress of the first sync on both apps, rounder squircle corners (D67), the new splash screen.
+
 - 2026-11-14: item 1 (Linear foundations, D65). Also fixed a red error screen when leaving a page before its editor had loaded (`editor/handle.ts`). The repo formats with `node_modules/.bin/oxfmt <files>`; never prettier.
 
 ## Final report
 
-(not written yet)
+Every item above is done. Checks on 2026-11-14:
+
+- `bun run lint`, `bun run typecheck`, `bun run duplication` (0.17%): pass.
+- `bun run format:check`: only `NOTES.md` is unformatted; it is the user's file and was left alone.
+- `bun run test`: passes. Under full load two timing tests failed once each and pass alone (`sidebar.test.tsx` "goes for good once the swipe was used", server `two-devices.test.ts`); nothing in them changed this round.
+- `cargo test`: 1543 pass; `search_stays_within_its_budget_on_20000_entities` missed its time budget under load and passes alone.
+- Report only: `unused` lists older exports and the `tools/e2e` scripts (none left from this round); `audit` reports RustSEC advisories in dependencies (SQLite, CFB parser and others) and JS advisories; `lint:rust:strict` has three long function warnings, all older. `coverage` was not run.

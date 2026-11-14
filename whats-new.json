@@ -35,6 +35,7 @@
         "Improved": [
           "Settings, Account shows each signed in device, and you can sign one out from another.",
           "The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.",
+          "Corners are a little rounder and softer across the app.",
           "New pages open at once.",
           "A backup is made before a device first sends its things to your account.",
           "On your phone, scan paper documents straight into a Space's files and name, label and link them while they upload.",
