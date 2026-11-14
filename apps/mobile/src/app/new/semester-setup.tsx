@@ -7,4 +7,4 @@ function SetupSemesters() {
   return <SetupSemestersScreen spaceId={spaceId} />;
 }
 
-export default sheetRoute("Set Up Semesters", SetupSemesters);
+export default sheetRoute("Set Up Semesters", SetupSemesters, "large");

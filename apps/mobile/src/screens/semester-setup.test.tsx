@@ -1,7 +1,6 @@
 import { createSpace, listSemesters } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
-import { choose } from "../test/sheet.ts";
 import { SetupSemestersScreen } from "./SetupSemestersScreen.tsx";
 
 describe("the semester setup", () => {
@@ -12,18 +11,26 @@ describe("the semester setup", () => {
       { index: () => <SetupSemestersScreen spaceId={space} /> },
       data,
     );
-    expect(await screen.findByText("Step 1 of 5: Grading system")).toBeTruthy();
+    // D65: one question a step, its choices in a list, Continue pinned at the bottom.
+    expect(await screen.findByLabelText("Step 1 of 5")).toBeTruthy();
+    expect(screen.getByText("Which term system does your school use?")).toBeTruthy();
     await fireEvent.press(screen.getByRole("radio", { name: "Fall / Spring / Summer" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Next" }));
-    expect(await screen.findByText("Step 2 of 5: Region")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Next" }));
-    await choose(screen, "Current term", "Fall");
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("Where do you study?")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("Which term is it now?")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "Fall" }));
     await fireEvent.press(screen.getByRole("radio", { name: "2026" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Next" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     await fireEvent.press(screen.getByRole("radio", { name: "3" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Next" }));
-    expect(await screen.findByText("Step 5 of 5: Review")).toBeTruthy();
-    expect(screen.getByText("Fall 2026 (current)")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByLabelText("Step 5 of 5")).toBeTruthy();
+    expect(screen.getByText("Fall 2026")).toBeTruthy();
+    expect(screen.getByText("Current")).toBeTruthy();
+    // Back goes a step back.
+    await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByLabelText("Step 4 of 5")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     await fireEvent.press(screen.getByRole("button", { name: "Create Semesters" }));
     await waitFor(async () => {
       const made = await listSemesters(data.db, space);
