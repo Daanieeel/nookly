@@ -137,6 +137,38 @@ describe("Space settings", () => {
   });
 });
 
+describe("a Space's icon", () => {
+  it("is picked from Nookly's icons right in its settings", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const screen = await openOver(
+      { "space-settings": () => <SpaceSettingsScreen spaceId={space} /> },
+      data,
+      "/space-settings",
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Rocket" }));
+    await waitFor(async () => expect((await listSpaces(data.db))[0].icon).toBe("icon:Rocket"));
+  });
+
+  it("is an emoji from a sheet of emoji alone, opened by Choose Emoji", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const screen = await openOver(
+      {
+        "space-settings": () => <SpaceSettingsScreen spaceId={space} />,
+        "pick/icon": () => <IconPickerScreen />,
+      },
+      data,
+      "/space-settings",
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Choose Emoji" }));
+    expect(await screen.findByLabelText("Search emoji")).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "Icons" })).toBeNull();
+    await fireEvent.press((await screen.findAllByRole("button", { name: "grinning face" }))[0]);
+    await waitFor(async () => expect((await listSpaces(data.db))[0].icon).toBe("😀"));
+  });
+});
+
 describe("the icon picker", () => {
   async function pickerFor(data: ReturnType<typeof testData>, page: string) {
     return openOver(

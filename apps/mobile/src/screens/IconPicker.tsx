@@ -33,12 +33,18 @@ const EMOJI_SHOWN = 320;
 export function IconPickerScreen() {
   const close = useCloseSheet();
   const theme = useTheme();
-  const { kind, id } = useLocalSearchParams<{ kind: "entity" | "space"; id: string }>();
+  const { kind, id, only } = useLocalSearchParams<{
+    kind: "entity" | "space";
+    id: string;
+    /// `emoji`: the emoji alone, without the choice of kind (a Space's settings show the
+    /// icons themselves).
+    only?: "emoji";
+  }>();
   const { data: entity } = useEntity(kind === "entity" ? id : "");
   const { data: spaces = [] } = useSpaces();
   const current = kind === "space" ? spaces.find((s) => s.id === id)?.icon : entity?.icon;
   const [tab, setTab] = useState<"icons" | "emoji">(
-    current && !isIconLibraryValue(current) ? "emoji" : "icons",
+    only === "emoji" || (current && !isIconLibraryValue(current)) ? "emoji" : "icons",
   );
   const [color, setColor] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -66,18 +72,20 @@ export function IconPickerScreen() {
     <Screen>
       <SheetPinned>
         <View style={{ gap: SPACE.sm }}>
-          <Segmented
-            label="Kind of icon"
-            value={tab}
-            options={[
-              { value: "icons", label: "Icons" },
-              { value: "emoji", label: "Emoji" },
-            ]}
-            onChange={(next) => {
-              setTab(next);
-              setQuery("");
-            }}
-          />
+          {only === "emoji" ? null : (
+            <Segmented
+              label="Kind of icon"
+              value={tab}
+              options={[
+                { value: "icons", label: "Icons" },
+                { value: "emoji", label: "Emoji" },
+              ]}
+              onChange={(next) => {
+                setTab(next);
+                setQuery("");
+              }}
+            />
+          )}
           <SearchField
             label={tab === "icons" ? "Search icons" : "Search emoji"}
             value={query}

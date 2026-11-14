@@ -23,15 +23,16 @@ import { useLocalWrite } from "../data/context.tsx";
 import { useLabels, useSpaceModules, useSpaces } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
-import { IconValue, MODULE_ICONS } from "../ui/icons.tsx";
+import { MODULE_ICONS } from "../ui/icons.tsx";
 import { cn } from "../ui/classes.ts";
-import { Empty, ROW_DIVIDER, Row, Section } from "../ui/Row.tsx";
+import { Empty, ROW_DIVIDER, Section } from "../ui/Row.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
 import { ReorderList } from "../ui/ReorderList.tsx";
+import { SpaceIconChoices } from "../ui/SpaceIconChoices.tsx";
 import { TYPE } from "../ui/tokens.ts";
 
 /// A module's row height, which a drag moves by.
@@ -64,7 +65,7 @@ function LabelRow({ id, name, color }: { id: string; name: string; color: string
   const menu = useMenu();
   const [text, setText] = useState(name);
   useEffect(() => setText(name), [name]);
-  const update = useLocalWrite((db, patch: { name?: string; color?: string }) =>
+  const update = useLocalWrite((db, patch: { name?: string; color?: string; icon?: string }) =>
     updateLabel(db, id, patch),
   );
   const remove = useLocalWrite((db) => deleteLabel(db, id));
@@ -114,7 +115,7 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
   const space = spaces.find((s) => s.id === spaceId);
   const [name, setName] = useState(space?.name ?? "");
   useEffect(() => setName(space?.name ?? ""), [space?.name]);
-  const update = useLocalWrite((db, patch: { name?: string; color?: string }) =>
+  const update = useLocalWrite((db, patch: { name?: string; color?: string; icon?: string }) =>
     updateSpace(db, spaceId, patch),
   );
   const reorder = useLocalWrite((db, keys: string[]) => reorderSpaceModules(db, spaceId, keys));
@@ -161,16 +162,17 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
             onPick={(color) => update.mutate({ color })}
           />
         </View>
-        <Section>
-          <Row
-            title="Icon"
-            icon={space.icon ? <IconValue value={space.icon} fallback={space.color} /> : undefined}
-            subtitle={space.icon ? undefined : "Folder"}
-            onPress={() =>
-              router.push({ pathname: "/pick/icon", params: { kind: "space", id: spaceId } })
-            }
-          />
-        </Section>
+        <SpaceIconChoices
+          value={space.icon}
+          color={space.color}
+          onPick={(icon) => update.mutate({ icon })}
+          onChooseEmoji={() =>
+            router.push({
+              pathname: "/pick/icon",
+              params: { kind: "space", id: spaceId, only: "emoji" },
+            })
+          }
+        />
         {more.length > 0 ? (
           <Button
             label="Add Module"
