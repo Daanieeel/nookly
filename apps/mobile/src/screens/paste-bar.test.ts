@@ -1,5 +1,5 @@
 import { RADIUS, SPACE } from "../ui/tokens.ts";
-import { PASTE_BAR_BOTTOM, PASTE_BAR_HEIGHT, PASTE_BAR_RADIUS } from "./BookmarkList.tsx";
+import { PASTE_BAR_BOTTOM, PASTE_BAR_HEIGHT, PASTE_BAR_RADIUS } from "../ui/FloatingField.tsx";
 
 // The paste bar first sat high above the home indicator, then right down at the screen's
 // corners, where the user found it too low. It sits a little higher than its side margin.

@@ -18,7 +18,7 @@ import { barLabels, pressBarButton, renderScreens, testData } from "../test/rend
 import { choose, openRow } from "../test/sheet.ts";
 import type { DocumentScanner } from "../ui/scanner.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
-import { FileRows } from "./FileScreens.tsx";
+import { FilePasteBar, FileRows } from "./FileScreens.tsx";
 import { ModuleScreen } from "./ModuleScreen.tsx";
 
 describe("files", () => {
@@ -175,8 +175,21 @@ describe("files", () => {
   it("adds a link to a file kept elsewhere, and sends a web page to the bookmarks", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
-    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
-    const field = await screen.findByLabelText("Paste a link");
+    const screen = await renderScreens(
+      {
+        index: () => (
+          <>
+            <FileRows spaceId={space} />
+            <FilePasteBar spaceId={space} />
+          </>
+        ),
+      },
+      data,
+    );
+    // The bar floats as on Bookmarks; files come from the + in the bar at the top.
+    expect(await screen.findByTestId("floating-field")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Choose Files" })).toBeNull();
+    const field = screen.getByLabelText("Paste a link to add it");
     await fireEvent.changeText(field, "https://example.com/blog/post");
     await fireEvent(field, "submitEditing");
     expect(await screen.findByText(/web page/)).toBeTruthy();

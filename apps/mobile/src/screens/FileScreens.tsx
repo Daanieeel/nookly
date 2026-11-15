@@ -23,14 +23,14 @@ import { useQuery } from "@tanstack/react-query";
 import { File } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { type ReactNode, useState } from "react";
-import { Image, Linking, Pressable, TextInput, View } from "react-native";
-import { CARD_CLASSES } from "@nookly/ui/classes";
-import { IconArrowUp, IconLayoutGrid, IconList, IconTag } from "@tabler/icons-react-native";
+import { Image, Linking, Pressable, View } from "react-native";
+import { IconLayoutGrid, IconList, IconTag } from "@tabler/icons-react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
 import { useFile, useFiles, useLabels, useViews } from "../data/queries.ts";
 import { UNLABELLED, labelShelf } from "@nookly/shared/label-shelf";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
+import { FloatingField, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
 import { Field } from "../ui/Field.tsx";
 import { Presets } from "../ui/ListBar.tsx";
 import {
@@ -42,8 +42,7 @@ import {
   fileDisplaySchema,
   fileViewConfig,
 } from "./file-view.ts";
-import { Button, IconButton, statusOf } from "../ui/Button.tsx";
-import { cn } from "../ui/classes.ts";
+import { Button, statusOf } from "../ui/Button.tsx";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
 import { useEntityFilters } from "../ui/entity-filters.tsx";
@@ -190,48 +189,21 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
   );
 }
 
-/// What stays under the grid: a link or a file, to add to the Space.
-function AddBar({ spaceId }: { spaceId: string }) {
-  const theme = useTheme();
-  const addFiles = useAddFiles(spaceId);
+/// The bar to paste a link to a file kept elsewhere, floating at the bottom of the Files page
+/// as on Bookmarks; files themselves come from the + at the top.
+export function FilePasteBar({ spaceId }: { spaceId: string }) {
   const [link, setLink] = useState("");
   const addLink = useLocalWrite((db, url: string) => addFileLink(db, spaceId, url));
   const submit = () => link.trim() && addLink.mutate(link, { onSuccess: () => setLink("") });
   return (
-    <View className={cn(CARD_CLASSES, "gap-2 p-3")}>
-      <View className="flex-row items-center gap-2">
-        <IconLink size={18} color={theme.colors.mutedForeground} />
-        <TextInput
-          accessibilityLabel="Paste a link"
-          value={link}
-          onChangeText={setLink}
-          onSubmitEditing={submit}
-          placeholder="Paste a link"
-          placeholderTextColor={theme.colors.mutedForeground}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          returnKeyType="done"
-          className="h-10 flex-1 font-sans text-sm text-foreground"
-        />
-        {link.trim() ? (
-          <IconButton
-            label="Add Link"
-            icon={<IconArrowUp size={20} color={theme.colors.foreground} />}
-            onPress={submit}
-          />
-        ) : null}
-        <Text tone="muted">or</Text>
-        <Button
-          label="Choose Files"
-          variant="secondary"
-          size="sm"
-          status={statusOf(addFiles)}
-          onPress={() => addFiles.mutate(undefined)}
-        />
-      </View>
-      {addLink.error ? <Text tone="destructive">{addLink.error.message}</Text> : null}
-    </View>
+    <FloatingField
+      label="Paste a link to add it"
+      sendLabel="Add Link"
+      value={link}
+      onChangeText={setLink}
+      onSubmit={submit}
+      error={addLink.error?.message}
+    />
   );
 }
 
@@ -336,7 +308,7 @@ function Shelf({
 }
 
 /// A Space's files as tiles or a list, filtered by kind and label, grouped and ordered as
-/// on the desktop, with a bar under them to add a link or choose files.
+/// on the desktop; the bar to paste a link floats over its end (`FilePasteBar`).
 export function FileRows({ spaceId }: { spaceId: string }) {
   const { data: files = [] } = useFiles(spaceId);
   const { data: labels = [] } = useLabels(spaceId);
@@ -429,7 +401,7 @@ export function FileRows({ spaceId }: { spaceId: string }) {
       ) : null}
       {files.length === 0 ? (
         <Text tone="muted" className="p-4 text-center">
-          No files yet. Paste a link or choose files below.
+          No files yet. Tap + to add some, or paste a link below.
         </Text>
       ) : groups.length === 0 ? (
         <Empty text="No files match these filters." />
@@ -448,7 +420,8 @@ export function FileRows({ spaceId }: { spaceId: string }) {
           </Section>
         ))
       )}
-      <AddBar spaceId={spaceId} />
+      {/* Room for the paste bar floating over the end of the list. */}
+      <View style={{ height: PASTE_BAR_ROOM }} />
     </View>
   );
 }

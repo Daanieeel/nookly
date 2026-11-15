@@ -13,7 +13,7 @@ import { Text } from "../ui/Text.tsx";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
 import { BookmarkList, BookmarkPasteBar } from "./BookmarkList.tsx";
 import { CalendarScreen } from "./CalendarScreen.tsx";
-import { FileRows, useAddFiles } from "./FileScreens.tsx";
+import { FilePasteBar, FileRows, useAddFiles } from "./FileScreens.tsx";
 import { JotList, NoteList } from "./PageLists.tsx";
 import { CourseGallery, DeckGrid, ExamTimeline } from "./StudyGalleries.tsx";
 import { GradesScreen } from "./GradesScreen.tsx";
@@ -204,6 +204,7 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
         )}
       </Screen>
       {module === "bookmarks" ? <BookmarkPasteBar spaceId={spaceId} /> : null}
+      {module === "files" ? <FilePasteBar spaceId={spaceId} /> : null}
     </>
   );
 }

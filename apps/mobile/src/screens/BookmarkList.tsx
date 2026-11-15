@@ -8,7 +8,6 @@ import {
 import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
-  IconArrowUp,
   IconBookmark,
   IconInfoCircle,
   IconLayoutGrid,
@@ -19,8 +18,7 @@ import {
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Image, Linking, Pressable, TextInput, View } from "react-native";
-import Animated, { useAnimatedKeyboard, useAnimatedStyle } from "react-native-reanimated";
+import { Image, Linking, Pressable, View } from "react-native";
 import { z } from "zod";
 import { fetchPageMetadata } from "../data/bookmark-fetch.ts";
 import { useLocalWrite } from "../data/context.tsx";
@@ -37,8 +35,7 @@ import {
 } from "../ui/entity-filters.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
-import { RoundButton } from "../ui/sheet/Sheet.tsx";
-import { CORNER, DEPTH, RADIUS, SPACE } from "../ui/tokens.ts";
+import { FloatingField, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
 import { localDay } from "./dates.ts";
 import { labelOption } from "./option-badges.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -384,14 +381,10 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
   );
 }
 
-const PASTE_BAR_ROOM = 72;
-
 /// The bar to paste a URL, floating at the bottom of the bookmarks like the desktop's, its
 /// corners following the phone's. Saving reads the page for its title, icon, picture and
 /// description once there is a connection.
 export function BookmarkPasteBar({ spaceId }: { spaceId: string }) {
-  const theme = useTheme();
-  const keyboard = useAnimatedKeyboard();
   const [url, setUrl] = useState("");
   const read = useReadBookmarkPage();
   const save = useLocalWrite(async (db, address: string) => {
@@ -406,54 +399,15 @@ export function BookmarkPasteBar({ spaceId }: { spaceId: string }) {
         read.mutate(made);
       },
     });
-  const bottom = PASTE_BAR_BOTTOM;
-  const lift = useAnimatedStyle(() => ({
-    transform: [{ translateY: -Math.max(0, keyboard.height.value - bottom + SPACE.md) }],
-  }));
   return (
-    <Animated.View
-      pointerEvents="box-none"
-      style={[{ position: "absolute", left: SPACE.md, right: SPACE.md, bottom }, lift]}
-    >
-      {save.error ? (
-        <Text tone="destructive" variant="small" className="mb-1 px-2">
-          {save.error.message}
-        </Text>
-      ) : null}
-      <View
-        className="flex-row items-center gap-2 border border-border bg-card pl-4"
-        style={[
-          CORNER,
-          {
-            minHeight: PASTE_BAR_HEIGHT,
-            paddingRight: PASTE_BAR_INSET,
-            borderRadius: PASTE_BAR_RADIUS,
-            ...DEPTH.floating,
-          },
-        ]}
-      >
-        <IconLink size={18} color={theme.colors.mutedForeground} />
-        <TextInput
-          accessibilityLabel="Paste a URL to save it"
-          value={url}
-          onChangeText={setUrl}
-          onSubmitEditing={submit}
-          placeholder="Paste a URL to save it"
-          placeholderTextColor={theme.colors.mutedForeground}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          returnKeyType="send"
-          className="h-11 flex-1 font-sans text-base text-foreground"
-        />
-        <RoundButton label="Save Bookmark" tone="primary" disabled={!url.trim()} onPress={submit}>
-          <IconArrowUp
-            size={22}
-            color={url.trim() ? theme.colors.primaryForeground : theme.colors.mutedForeground}
-          />
-        </RoundButton>
-      </View>
-    </Animated.View>
+    <FloatingField
+      label="Paste a URL to save it"
+      sendLabel="Save Bookmark"
+      value={url}
+      onChangeText={setUrl}
+      onSubmit={submit}
+      error={save.error?.message}
+    />
   );
 }
 
@@ -470,16 +424,3 @@ export function useReadBookmarkPage() {
     setBookmarkMetadata(db, input.id, await fetchPageMetadata(input.link)),
   );
 }
-
-export const PASTE_BAR_HEIGHT = 56;
-
-/// How far the Save button sits inside the bar, on its right and above and below it.
-const PASTE_BAR_INSET = 6;
-
-/// A squircle with the regular corners, not a pill: the Save button's corners plus its inset,
-/// so the two curves run side by side.
-export const PASTE_BAR_RADIUS = RADIUS.control + PASTE_BAR_INSET;
-
-/// A little higher above the bottom than it is from the sides, over the home indicator as
-/// Safari's bar sits: right at the corners it looked too low.
-export const PASTE_BAR_BOTTOM = SPACE.xl;
