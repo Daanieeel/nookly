@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import {
   createCourse,
   createEntityStatements,
@@ -189,8 +190,16 @@ describe("semesters", () => {
     expect(
       rows.getByText(semesterSpan({ startDate: "2025-10-15", endDate: "2026-02-15" }) ?? ""),
     ).toBeTruthy();
-    await fireEvent.press(rows.getByRole("button", { name: "WS 25/26" }));
-    expect(await rows.findByRole("button", { name: /^Algorithms, CRS-/ })).toBeTruthy();
+    // The Current badge sits on the card's bottom edge, centred (the user's notes).
+    const badge = rows.getByTestId("current-badge");
+    expect(StyleSheet.flatten(badge.props.style)).toMatchObject({
+      position: "absolute",
+      alignSelf: "center",
+    });
+    // No chevron and no expanding: the card is the way in.
+    expect(
+      rows.getByRole("button", { name: "WS 25/26" }).props.accessibilityState?.expanded,
+    ).toBeUndefined();
     const screen = await renderScreens(
       { "entity/[id]": () => <EntityScreen id={course} /> },
       data,
@@ -251,7 +260,9 @@ describe("semesters", () => {
     expect(semesterSpan({ startDate: "2026-10-15", endDate: "2027-02-15" }, 2026)).toBe(
       "Oct 15 to Feb 15, 2027",
     );
-    await fireEvent.press(screen.getByRole("button", { name: "Open WS 26/27" }));
+    // A tap on the semester opens it; no separate Open button.
+    expect(screen.queryByRole("button", { name: "Open WS 26/27" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "WS 26/27" }));
     expect(await screen.findByText("Opened")).toBeTruthy();
   });
 

@@ -2,15 +2,11 @@ import { renameEntity, setCurrentSemester, trashEntity, updateSemester } from "@
 import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
-  IconArrowUpRight,
   IconCalendarEvent,
   IconCalendarStats,
-  IconChevronDown,
-  IconChevronRight,
   IconDots,
   IconFlag,
   IconPencil,
-  IconSchool,
   IconTrash,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
@@ -31,6 +27,7 @@ import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
+import { CORNER, RADIUS, SPACE } from "../ui/tokens.ts";
 
 /// When a semester runs, as its list and the course page's picker say it.
 export const semesterRange = (s: SemesterRecord) =>
@@ -85,7 +82,6 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
   const theme = useTheme();
   const present = useMenu();
   const muted = theme.colors.mutedForeground;
-  const [open, setOpen] = useState(false);
   const { data: courses = [] } = useCourses(semester.entity.spaceId);
   const { data: inSemester = new Map<string, string>() } = useCourseSemesters(
     semester.entity.spaceId,
@@ -100,90 +96,95 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
     updateSemester(db, semester.entity.id, patch),
   );
   const [dating, setDating] = useState(false);
-  const Chevron = open ? IconChevronDown : IconChevronRight;
   const name = semester.entity.title || "Untitled";
+  const open = () => router.push(`/entity/${semester.entity.id}`);
   return (
-    <View
-      className={cn(
-        CARD_CLASSES,
-        "gap-0 overflow-hidden py-0",
-        semester.isCurrent && "border-primary",
-      )}
-    >
-      <View className="min-h-16 flex-row items-center gap-1 py-1 pl-4 pr-1.5">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={name}
-          accessibilityState={{ expanded: open }}
-          onPress={() => setOpen((o) => !o)}
-          className="flex-1 flex-row items-center gap-3 py-2.5 active:opacity-60"
-        >
-          <IconBadge glyph={IconCalendarStats} tint="blue" />
-          <View className="flex-1 gap-1">
-            <View className="flex-row items-center gap-2">
-              <Text variant="small" tone="muted">
-                {semester.entity.key}
-              </Text>
-              <Text numberOfLines={1} className="shrink font-semibold">
-                {name}
-              </Text>
-              {semester.isCurrent ? <Badge label="Current" variant="primary" size="sm" /> : null}
-            </View>
-            <View className="flex-row flex-wrap gap-x-2">
-              <Text variant="small" tone="muted">
-                {`${mine.length} ${mine.length === 1 ? "course" : "courses"}`}
-              </Text>
-              {semesterSpan(semester) ? (
+    // Room under a current semester for its badge, which hangs over the card's edge.
+    <View style={{ marginBottom: semester.isCurrent ? SPACE.sm : 0 }}>
+      <View className={cn(CARD_CLASSES, "gap-0 py-0", semester.isCurrent && "border-primary")}>
+        <View className="min-h-16 flex-row items-center gap-1 py-1 pl-4 pr-1.5">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={name}
+            onPress={open}
+            onLongPress={() => entityMenu(semester.entity)}
+            className="flex-1 flex-row items-center gap-3 py-2.5 active:opacity-60"
+          >
+            <IconBadge glyph={IconCalendarStats} tint="blue" />
+            <View className="flex-1 gap-1">
+              <View className="flex-row items-center gap-2">
                 <Text variant="small" tone="muted">
-                  {semesterSpan(semester)}
+                  {semester.entity.key}
                 </Text>
-              ) : null}
+                <Text numberOfLines={1} className="shrink font-semibold">
+                  {name}
+                </Text>
+              </View>
+              <View className="flex-row flex-wrap gap-x-2">
+                <Text variant="small" tone="muted">
+                  {`${mine.length} ${mine.length === 1 ? "course" : "courses"}`}
+                </Text>
+                {semesterSpan(semester) ? (
+                  <Text variant="small" tone="muted">
+                    {semesterSpan(semester)}
+                  </Text>
+                ) : null}
+              </View>
             </View>
-          </View>
-          <Chevron size={16} color={muted} />
-        </Pressable>
-        <IconButton
-          label={`Open ${name}`}
-          icon={<IconArrowUpRight size={20} color={muted} />}
-          onPress={() => router.push(`/entity/${semester.entity.id}`)}
-        />
-        <IconButton
-          label={`Options for ${name}`}
-          icon={<IconDots size={20} color={muted} />}
-          onPress={() =>
-            present.show(name, [
-              semester.isCurrent
-                ? { label: "Current Semester", icon: IconFlag, disabled: true }
-                : {
-                    label: "Flag as Current",
-                    icon: IconFlag,
-                    onPress: () => current.mutate(undefined),
-                  },
-              {
-                label: "Open",
-                icon: IconArrowUpRight,
-                onPress: () => router.push(`/entity/${semester.entity.id}`),
-              },
-              {
-                label: "Set Dates",
-                icon: IconCalendarEvent,
-                onPress: () => setDating(true),
-              },
-              {
-                label: "Rename",
-                icon: IconPencil,
-                page: () => <RenameForm current={name} onSave={(next) => rename.mutate(next)} />,
-              },
-              {
-                label: "Move to Trash",
-                icon: IconTrash,
-                destructive: true,
-                onPress: () => trash.mutate(undefined),
-              },
-            ])
-          }
-        />
+          </Pressable>
+          <IconButton
+            label={`Options for ${name}`}
+            icon={<IconDots size={20} color={muted} />}
+            onPress={() =>
+              present.show(name, [
+                semester.isCurrent
+                  ? { label: "Current Semester", icon: IconFlag, disabled: true }
+                  : {
+                      label: "Flag as Current",
+                      icon: IconFlag,
+                      onPress: () => current.mutate(undefined),
+                    },
+                {
+                  label: "Set Dates",
+                  icon: IconCalendarEvent,
+                  onPress: () => setDating(true),
+                },
+                {
+                  label: "Rename",
+                  icon: IconPencil,
+                  page: () => <RenameForm current={name} onSave={(next) => rename.mutate(next)} />,
+                },
+                {
+                  label: "Move to Trash",
+                  icon: IconTrash,
+                  destructive: true,
+                  onPress: () => trash.mutate(undefined),
+                },
+              ])
+            }
+          />
+        </View>
       </View>
+      {semester.isCurrent ? (
+        // Centred on the card's bottom edge, over its border.
+        <View
+          testID="current-badge"
+          pointerEvents="none"
+          style={[
+            CORNER,
+            {
+              position: "absolute",
+              alignSelf: "center",
+              bottom: -BADGE_OVERHANG,
+              // The badge's tint is see through: on the page's colour the border stops at it.
+              backgroundColor: theme.colors.background,
+              borderRadius: RADIUS.badge,
+            },
+          ]}
+        >
+          <Badge label="Current" variant="primary" size="sm" />
+        </View>
+      ) : null}
       <Sheet open={dating} onOpenChange={setDating} title="Dates" presentation="card">
         <FormSection>
           <DateField
@@ -200,40 +201,16 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
           />
         </FormSection>
       </Sheet>
-      {open ? (
-        <View className="border-t border-border/60">
-          {mine.length === 0 ? (
-            <Text tone="muted" className="p-4">
-              No courses in this semester.
-            </Text>
-          ) : null}
-          {mine.map((c) => (
-            <Pressable
-              key={c.entity.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${c.entity.title || "Untitled"}, ${c.entity.key}`}
-              onPress={() => router.push(`/entity/${c.entity.id}`)}
-              onLongPress={() => entityMenu(c.entity)}
-              className="min-h-11 flex-row items-center gap-3 px-4 active:bg-accent/40"
-            >
-              <IconSchool size={16} color={muted} />
-              <Text numberOfLines={1} className="flex-1">
-                {c.entity.title || "Untitled"}
-              </Text>
-              <Text variant="small" tone="muted">
-                {c.entity.key}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }
 
-/// A Space's Semesters, one expandable row each as on the desktop: its key, name, a Current
-/// badge, how many courses and its dates, with a menu to open it, rename it, flag it as the
-/// current one or trash it; open, it lists its courses.
+/// Half the small badge's height: how far it hangs below the card it sits on.
+const BADGE_OVERHANG = 10;
+
+/// A Space's Semesters, one card each: its key, name, how many courses and its dates, a
+/// Current badge on the current one's bottom edge, and a menu to flag it as current, set its
+/// dates, rename it or trash it. A tap opens it.
 export function SemesterList({ spaceId }: { spaceId: string }) {
   const { data: semesters = [] } = useSemesters(spaceId);
   if (semesters.length === 0) {
