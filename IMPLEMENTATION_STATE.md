@@ -60,7 +60,7 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 - [x] (2026-11-15, 12 under the close button as above and beside it; test; on screen) Dialogs (the centred floating card): the space below the close button equals its space to the right and top.
 - [x] (2026-11-15, `ui/row-edge.tsx`: a page's gutter as context, rows reach out by it and pad back in, dividers stay as wide as the content; Row, tasks, notes, jots, assignments, bookmarks; tests; measured on screen, 0 to 402) List rows (tasks, notes, jots, every item list): the side padding moves from the list container into each row, so the pressed colour and swipe actions run from screen edge to edge.
 - [x] (2026-11-15, `SwipeRow` rebuilt on a pan: follows the finger, the action's colour fills from the screen edge with its icon and name, rests open past half the button, acts past 55% of the row with a haptic at that point, a side without an action rubber bands, a touch stops it, Reduce Motion fades; `SWIPE`, `swipeDrag`, `settleSwipe` in `motion.ts`; tests; the feel needs a real finger, see Needs the user) Swipe actions on rows feel like iOS Mail: actions revealed from outside the screen edge, full swipe to act, spring motion from `ui/motion.ts`, haptics.
-- [ ] Sidebar drag gesture: works on every page, from anywhere in the right 90% of the screen; only the leftmost 10% is for going back. Follows the finger, carries its speed on release.
+- [x] (2026-11-15, D70: the drawer wraps every route; back keeps the leftmost tenth, the sidebar takes the other nine tenths, the calendar's edge is that tenth too; test; the feel needs a real finger) Sidebar drag gesture: works on every page, from anywhere in the right 90% of the screen; only the leftmost 10% is for going back. Follows the finger, carries its speed on release.
 - [ ] Speed: navigation and view changes (filters, display options, sidebar nav) are slow. Measure, find the causes, fix them.
 
 ### 2. Mobile: sidebar
@@ -101,6 +101,7 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 ## Needs the user
 
 - On the phone with your own Moodle site: sign in from Settings, then check the course list, a course, a file with Import, and Moodle deadlines on the calendar.
+- On a real phone: opening the sidebar with a swipe anywhere right of the leftmost tenth, and back from that tenth.
 - On a real phone: the feel of swiping a task row (open on the button, full swipe to act, the haptic at the point).
 - On a real phone: the editor caret and Undo after typing with the keyboard; "Add a sub-task" low on a task page staying above the keyboard; the feel of dragging; the editor toolbar on the keyboard and the slash menu; scanning a document.
 

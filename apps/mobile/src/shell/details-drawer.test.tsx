@@ -1,3 +1,4 @@
+import { Dimensions } from "react-native";
 import { act } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
 import type { ReactTestInstance } from "react-test-renderer";
@@ -68,7 +69,7 @@ interface PanConfig {
   activeOffsetXEnd?: number;
   failOffsetXStart?: number;
   failOffsetXEnd?: number;
-  hitSlop?: { left?: number };
+  hitSlop?: { left?: number; width?: number };
 }
 
 function panConfig(id: string): PanConfig {
@@ -193,8 +194,11 @@ describe("the details of an item on a phone", () => {
     expect(sidebar.activeOffsetXEnd).toBe(16);
     expect(sidebar.activeOffsetXStart).toBe(-10_000);
     expect(sidebar.failOffsetXStart).toBe(-16);
-    // The first points of a page you can go back from stay with the system's back swipe.
-    expect(sidebar.hitSlop?.left).toBe(-24);
+    // The leftmost tenth of a page you can go back from stays with the system's back
+    // swipe; the other nine tenths open the sidebar (the user's notes).
+    const { width } = Dimensions.get("window");
+    expect(sidebar.hitSlop?.left).toBe(-Math.round(width * 0.1));
+    expect(sidebar.hitSlop?.width).toBe(width - Math.round(width * 0.1));
     const details = panConfig("details-swipe");
     // The details the other way around.
     expect(details.activeOffsetXStart).toBe(-16);

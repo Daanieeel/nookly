@@ -401,3 +401,7 @@ A sheet is iOS's thick material, a light charcoal over the dark page. Its option
 ## D69. A text field is a raised box
 
 The user found the phone's text field flat: an iOS form row, its name above the text on a plain fill. A field on its own is now a box like the desktop's input: the surface one step up (lighter than a sheet, D68), a hairline edge, a little depth, the name small above it. Focused, the edge and the name take the accent with a soft glow (the desktop's focus ring); an error turns the edge red with the message under it. A `FormSection` holding one field leaves the surface to it, since most forms have one field in a section; sections of several rows (a sign in form, settings) stay iOS grouped rows, whose name takes the accent while focused.
+
+## D70. Nine tenths of the screen open the sidebar
+
+A swipe to the right opens the sidebar from anywhere except the leftmost tenth of a page you can go back from, which stays with iOS's own back swipe (its native edge recognizer, left as it is: iOS 26's full screen back would fight the sidebar for every swipe). A page that swipes sideways itself (the calendar's days) opens the sidebar from that same tenth. A row with its own swipe (a task: Done to the right) keeps the swipe that starts on it, as in Mail; the sidebar opens from anywhere else, and from the header button.

@@ -13,18 +13,18 @@ import { haptic } from "../ui/haptics.ts";
 const SidebarHandle = createContext<{ open(): void; close(): void } | null>(null);
 export const useSidebarDrawer = () => useContext(SidebarHandle);
 
-/// How much of the screen's left edge stays with the system's swipe back, on a page you
-/// can go back from.
-export const BACK_EDGE = 24;
+/// How much of the screen's width, from its left edge, stays with the system's swipe back
+/// on a page you can go back from; the rest opens the sidebar.
+export const BACK_EDGE = 0.1;
 
-/// How wide the left edge is where the sidebar opens from, on a page that swipes sideways
-/// itself.
-const OPEN_EDGE = 28;
+/// How much of the width, from the left edge, opens the sidebar on a page that swipes
+/// sideways itself (the calendar's days): the same tenth the back swipe keeps elsewhere.
+const OPEN_EDGE = 0.1;
 
 /// Like Claude's: the sidebar waits behind the whole app, and the page, whatever it is and
 /// with its own bar, slides aside to show it, its corners rounded. A swipe to the right
-/// anywhere opens it, except at the very edge of a page you can go back from, where the
-/// system takes it as "back". Swiping the other way is left to the page (its details),
+/// anywhere opens it, except on the leftmost tenth of a page you can go back from, where
+/// the system takes it as "back", and on a row with its own swipe (a task: Done). Swiping the other way is left to the page (its details),
 /// and while those are out the sidebar waits: from there a swipe goes back to the page.
 export function SidebarDrawer(props: SidebarDrawerProps) {
   return (
@@ -59,7 +59,7 @@ function SidebarDrawerBody({ enabled, edgeBack, children }: SidebarDrawerProps) 
     devHooks.closeSidebar = handle.close;
   }, [handle]);
   const drawerWidth = Math.min(width * 0.82, 340);
-  const inset = edgeBack ? BACK_EDGE : 0;
+  const inset = edgeBack ? Math.round(width * BACK_EDGE) : 0;
   // Closed, only a drag to the right is the drawer's; the page's own drawer on the right
   // takes the drag to the left.
   const configure = useCallback(
@@ -75,7 +75,7 @@ function SidebarDrawerBody({ enabled, edgeBack, children }: SidebarDrawerProps) 
         // A negative slop moves the edge in: the back swipe keeps the first points.
         .hitSlop({
           left: open ? 0 : -inset,
-          width: open ? undefined : edgeOnly ? OPEN_EDGE : width - inset,
+          width: open ? undefined : edgeOnly ? Math.round(width * OPEN_EDGE) : width - inset,
         })
         .withTestId("sidebar-swipe"),
     [open, inset, width, edgeOnly],
