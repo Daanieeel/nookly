@@ -23,7 +23,7 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
-import { TabletShell } from "../shell/TabletShell.tsx";
+import { TabletShell, tabletScreen } from "../shell/TabletShell.tsx";
 import { useNavigationTheme } from "../shell/navigation-theme.ts";
 
 import { SidebarBesideProvider, useIsTablet } from "../ui/pane.tsx";
@@ -74,7 +74,10 @@ async function start(): Promise<AppData> {
       router,
       // The data functions, to set a scene from a script.
       data: await import("@nookly/shared/data"),
-      tabs: (await import("../shell/tabs-store.ts")).tabActions,
+      // The tablet's tabs and groups (`workspace.open(path)`, `workspaceState()`).
+      workspace: (await import("../shell/workspace-store.ts")).workspace,
+      workspaceState: async () =>
+        (await import("../shell/workspace-store.ts")).useWorkspace.getState().ws,
       // Actions outside the React tree, like the native bar's buttons (`hooks.openSidebar()`).
       hooks: (await import("../dev/hooks.ts")).devHooks,
       // This device's settings, to turn one on for a check (`settings.setJson(id, value)`).
@@ -102,15 +105,14 @@ function FirstRun() {
   return null;
 }
 
-/// What changes with the page shown: the sidebar beside the page on a tablet (not over
-/// signing in), or the drawer, which needs to know whether the page can go back. Kept
-/// apart from the layout so a page change re-renders only this, and not the whole app
-/// with it: the stack it holds is the same element from one page to the next.
+/// The shell for the window (D83): the tablet's, which draws its pages itself, or the
+/// phone's drawer, which needs to know whether the page can go back. Kept apart from the
+/// layout so a page change re-renders only this, and not the whole app with it: the stack
+/// it holds is the same element from one page to the next.
 function AppShell({ stack }: { stack: ReactNode }) {
   const pathname = usePathname();
-  const beside = useIsTablet() && !/^\/(welcome|account)/.test(pathname);
-  return beside ? (
-    <TabletShell>{stack}</TabletShell>
+  return useIsTablet() ? (
+    <TabletShell stack={stack} />
   ) : (
     <SidebarBesideProvider value={false}>
       <SidebarDrawer
@@ -121,6 +123,14 @@ function AppShell({ stack }: { stack: ReactNode }) {
       </SidebarDrawer>
     </SidebarBesideProvider>
   );
+}
+
+/// A page that is not a tab on a tablet (signing in) shows as a card over the window, as
+/// the desktop's account dialog.
+function overWindow(tablet: boolean) {
+  return tablet
+    ? ({ presentation: "formSheet", headerShown: true, animation: "default" } as const)
+    : {};
 }
 
 export default function RootLayout() {
@@ -178,18 +188,30 @@ export default function RootLayout() {
   };
   const stack = (
     <Stack
+      // A tablet draws its pages in its own tabs (`TabletShell`): here they are empty, and
+      // the stack only shows what goes over the window.
+      screenLayout={tablet ? tabletScreen : undefined}
       screenOptions={{
         headerLargeTitle: false,
         headerShadowVisible: false,
         // The arrow alone: the screen behind has no title worth naming.
         headerBackButtonDisplayMode: "minimal",
+        // A tablet's page routes are empty (`tabletScreen`): nothing to show or slide in.
+        ...(tablet
+          ? {
+              headerShown: false,
+              animation: "none",
+              gestureEnabled: false,
+              contentStyle: { backgroundColor: "transparent" },
+            }
+          : {}),
       }}
     >
       <Stack.Screen
         name="(drawer)"
         options={{
           headerShown: false,
-          contentStyle: { backgroundColor: theme.colors.background },
+          contentStyle: { backgroundColor: tablet ? "transparent" : theme.colors.background },
         }}
       />
       <Stack.Screen
@@ -200,9 +222,15 @@ export default function RootLayout() {
           gestureEnabled: false,
         }}
       />
-      <Stack.Screen name="account/sign-in" options={{ title: "Sign In" }} />
-      <Stack.Screen name="account/sign-up" options={{ title: "Create Account" }} />
-      <Stack.Screen name="account/forgot" options={{ title: "Reset Password" }} />
+      <Stack.Screen name="account/sign-in" options={{ title: "Sign In", ...overWindow(tablet) }} />
+      <Stack.Screen
+        name="account/sign-up"
+        options={{ title: "Create Account", ...overWindow(tablet) }}
+      />
+      <Stack.Screen
+        name="account/forgot"
+        options={{ title: "Reset Password", ...overWindow(tablet) }}
+      />
       <Stack.Screen name="entity/[id]" options={{ title: "", ...pageBar(tablet) }} />
       <Stack.Screen name="file/[id]" options={{ title: "", ...pageBar(tablet) }} />
       <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
@@ -224,7 +252,7 @@ export default function RootLayout() {
       <Stack.Screen name="moodle/discussion/[id]" options={{ title: "Discussion" }} />
       <Stack.Screen name="moodle/page/[cmid]" options={{ title: "Page" }} />
       <Stack.Screen name="moodle/file" options={{ title: "File" }} />
-      <Stack.Screen name="moodle-signin" options={{ title: "Moodle" }} />
+      <Stack.Screen name="moodle-signin" options={{ title: "Moodle", ...overWindow(tablet) }} />
       <Stack.Screen name="settings/sidebar" options={{ title: "Sidebar" }} />
       <Stack.Screen
         name="settings/calendar-connections"

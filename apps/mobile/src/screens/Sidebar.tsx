@@ -69,7 +69,7 @@ import { DEFAULT_TOP, type TopId, topSchema, visibleTop } from "./sidebar-top.ts
 import { usePreference } from "../data/preferences.ts";
 
 /// The top rows' icons, the desktop's own.
-const TOP_ICONS = {
+export const TOP_ICONS = {
   dashboard: { glyph: IconLayoutDashboard },
   calendar: { glyph: IconCalendarWeek },
   tasks: { glyph: IconChecklist },
@@ -79,7 +79,7 @@ const TOP_ICONS = {
 } satisfies Record<TopId, Pick<BadgeLook, "glyph">>;
 
 /// The sidebar's icons: the label colour, a little faded, so they read without shouting.
-function useSidebarIconColor() {
+export function useSidebarIconColor() {
   return withAlpha(useSemanticPair("label").hex, 0.85);
 }
 
@@ -297,7 +297,7 @@ function TasksRow({
 }
 
 /// The small figure beside a module: the next exam's day, how many decks.
-function ModuleMeta({ spaceId, module }: { spaceId: string; module: string }) {
+export function ModuleMeta({ spaceId, module }: { spaceId: string; module: string }) {
   const { data: exams = [] } = useExams({ spaceId });
   const { data: decks = [] } = useDecks(spaceId);
   const today = localDay();
@@ -326,7 +326,7 @@ function ModuleMeta({ spaceId, module }: { spaceId: string; module: string }) {
 /// The card at the top of the sidebar, like the desktop's: the mascot, today's date and
 /// week, and one line about what waits, changing every few seconds; tapping it opens the
 /// matching list.
-function DayCard({ go }: { go: (href: Href) => void }) {
+export function DayCard({ go }: { go: (href: Href) => void }) {
   const inView = usePanes()?.sidebarOpen ?? true;
   const theme = useTheme();
   const { data: tasks = [] } = useTasks(null);
@@ -395,7 +395,7 @@ function DayCard({ go }: { go: (href: Href) => void }) {
   );
 }
 
-const spaceLabel = (space: Space) =>
+export const spaceLabel = (space: Space) =>
   isSharedSpace(space.id) ? `${space.name}, Shared with you` : space.name;
 
 /// The Space shown: its icon and name over its modules, as the desktop shows one Space at
@@ -480,7 +480,7 @@ function SpaceModules({
 /// The row of Space icons at the bottom, as the desktop's `SpaceSwitcher`: up to four, the
 /// last one a button for the rest when there are more. The Space shown is lit up. A rest on
 /// an icon lifts it, to be dragged to another place among them.
-function SpaceSwitcher({
+export function SpaceSwitcher({
   spaces,
   active,
   onPick,
@@ -549,7 +549,7 @@ function SpaceSwitcher({
   );
 }
 
-const SPACE_SHOWN = z.string().nullable();
+export const SPACE_SHOWN = z.string().nullable();
 
 /// The app's navigation, as a sidebar that slides the page aside, mirroring the desktop's:
 /// the mascot's card, Search and the overviews across every Space, then one Space at a time

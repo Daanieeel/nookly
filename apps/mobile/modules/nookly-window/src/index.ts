@@ -8,6 +8,9 @@ interface NativeWindow {
 // Missing in a build without the module (tests, Android).
 const native = requireOptionalNativeModule<NativeWindow>("NooklyWindow");
 
+/// Whether this build has the module (and its views).
+export const windowModuleAvailable = native !== null;
+
 /// The room iPadOS keeps at the window's top left for its window controls, past the safe
 /// area; zero when they do not show.
 export function windowControlsInset(): { left: number; top: number } {

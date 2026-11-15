@@ -1,57 +1,6 @@
-/// The pages opened so far, so a wide screen can offer back and forward like a browser
-/// (the router only knows how to go back). Pages are the router's paths; sheets
-/// (`/new/...`, `/pick/...`) are not places to return to and are left out.
-export class NavHistory {
-  private entries: string[] = [];
-  private index = -1;
-  /// Set by `back` and `forward`: the router will report the page they lead to, and that
-  /// is not a new visit.
-  private expected: string | null = null;
-
-  /// The router shows `path` now.
-  visit(path: string): void {
-    if (/^\/(new|pick)\//.test(path)) return;
-    if (this.expected === path) {
-      this.expected = null;
-      return;
-    }
-    this.expected = null;
-    if (this.entries[this.index] === path) return;
-    this.entries = [...this.entries.slice(0, this.index + 1), path];
-    this.index = this.entries.length - 1;
-  }
-
-  canGoBack(): boolean {
-    return this.index > 0;
-  }
-
-  canGoForward(): boolean {
-    return this.index < this.entries.length - 1;
-  }
-
-  /// Steps back; the path to show, or null at the start.
-  back(): string | null {
-    if (!this.canGoBack()) return null;
-    this.index -= 1;
-    this.expected = this.entries[this.index] ?? null;
-    return this.expected;
-  }
-
-  /// Steps forward; the path to show, or null at the end.
-  forward(): string | null {
-    if (!this.canGoForward()) return null;
-    this.index += 1;
-    this.expected = this.entries[this.index] ?? null;
-    return this.expected;
-  }
-}
-
-/// The window's one history.
-export const history = new NavHistory();
-
 /// The top level pages the sidebar opens (Dashboard, Tasks, a module) are places, not steps:
-/// going between them is not undone by a swipe from the screen's edge, only by Go Back
-/// (Cmd [ or the titlebar), which reads `history`.
+/// going between them is not undone by a swipe from the screen's edge on a phone. (A
+/// tablet's tabs have their own Back and Forward, `workspace.ts`.)
 export const TOP_LEVEL_SCREEN = { gestureEnabled: false } as const;
 
 /// Whether a page has the system's bar: a phone's, never a tablet's, whose titlebar goes back

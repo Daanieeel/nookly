@@ -54,3 +54,26 @@ describe("Intl.DisplayNames", () => {
     expect(names.of("DE")).toBeUndefined();
   });
 });
+
+/// The tab groups shared with the desktop (`tab-groups.ts`) name a new group with
+/// `crypto.randomUUID`, which Hermes lacks.
+describe("crypto.randomUUID", () => {
+  const saved = globalThis.crypto;
+  afterEach(() =>
+    Object.defineProperty(globalThis, "crypto", { value: saved, configurable: true }),
+  );
+
+  it("is added where the engine has none, as a version 4 UUID", () => {
+    Object.defineProperty(globalThis, "crypto", { value: undefined, configurable: true });
+    // The system's random source, as `expo-crypto` reaches it on a device.
+    jest.doMock("expo-crypto", () => ({
+      randomUUID: () => jest.requireActual("node:crypto").randomUUID(),
+    }));
+    jest.isolateModules(() => {
+      require("./polyfills.ts");
+    });
+    const id = globalThis.crypto.randomUUID();
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(globalThis.crypto.randomUUID()).not.toBe(id);
+  });
+});

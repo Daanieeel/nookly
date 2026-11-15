@@ -1,11 +1,12 @@
 import type { View } from "./nav.ts";
 
-/// A tab: one view with its own Back and Forward history.
-export interface Tab {
+/// A tab: one view with its own Back and Forward history. `V` is what a page is: the
+/// desktop's `View`, the iPad's route path.
+export interface Tab<V = View> {
   id: string;
-  view: View;
-  backStack: View[];
-  forwardStack: View[];
+  view: V;
+  backStack: V[];
+  forwardStack: V[];
   pinned: boolean;
 }
 
@@ -14,19 +15,26 @@ export function makeTab(view: View, pinned = false): Tab {
 }
 
 /// Pinned tabs always sit first, in their own order.
-export function pinnedFirst(tabs: Tab[]): Tab[] {
+export function pinnedFirst<T extends { pinned: boolean }>(tabs: T[]): T[] {
   return [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)];
 }
 
 /// The tab to show once `closedId` goes: the one that takes its place on the right,
 /// else the one on its left.
-export function tabAfterClose(tabs: Tab[], closedId: string): Tab | undefined {
+export function tabAfterClose<T extends { id: string }>(
+  tabs: T[],
+  closedId: string,
+): T | undefined {
   const index = tabs.findIndex((t) => t.id === closedId);
   return tabs[index + 1] ?? tabs[index - 1];
 }
 
 /// Moves a tab to `toIndex`, keeping pinned tabs first.
-export function moveTab(tabs: Tab[], id: string, toIndex: number): Tab[] {
+export function moveTab<T extends { id: string; pinned: boolean }>(
+  tabs: T[],
+  id: string,
+  toIndex: number,
+): T[] {
   const from = tabs.findIndex((t) => t.id === id);
   if (from === -1) return tabs;
   const next = [...tabs];

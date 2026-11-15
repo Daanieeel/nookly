@@ -4,7 +4,6 @@ import { Text } from "react-native";
 import { barLabels, renderScreens, testData } from "../test/render.tsx";
 import { CalendarScreen } from "../screens/CalendarScreen.tsx";
 import { TasksScreen } from "../screens/TasksScreen.tsx";
-import { pageBar } from "./history.ts";
 import { SettingsScreen } from "../screens/SettingsScreen.tsx";
 
 /// An iPad wide, as the tablet shell lays it out.
@@ -45,15 +44,6 @@ describe("a page's actions on a tablet", () => {
     await screen.findByText("Tasks");
     expect(barLabels(screen)).toContain("New Task");
     expect(screen.queryByText("New Task")).toBeNull();
-  });
-});
-
-// A tablet's titlebar goes back and forward, so a page's own bar would hold only a second
-// back arrow: an item's page has none there, as on the desktop.
-describe("the system bar on a tablet", () => {
-  it("is left out of top level pages and items, and kept on a phone", () => {
-    expect(pageBar(true)).toEqual({ headerShown: false });
-    expect(pageBar(false)).toEqual({ headerShown: true });
   });
 });
 

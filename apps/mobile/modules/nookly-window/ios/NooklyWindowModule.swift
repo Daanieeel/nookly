@@ -15,6 +15,16 @@ public class NooklyWindowModule: Module {
   public func definition() -> ModuleDefinition {
     Name("NooklyWindow")
 
+    View(NooklySecondaryClickView.self) {
+      Name("NooklySecondaryClickView")
+      Events("onSecondaryClick")
+    }
+
+    View(NooklyFileDropView.self) {
+      Name("NooklyFileDropView")
+      Events("onFilesDropped", "onDropActive")
+    }
+
     /// The room iPadOS 26 and later keep at the window's top left for its close, minimise and
     /// resize controls, past the safe area: what a titlebar leaves free while they show
     /// (zero when the app fills the screen, or before iPadOS 26).

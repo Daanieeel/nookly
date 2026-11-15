@@ -13,6 +13,7 @@ export interface KeyShortcut {
 interface NativeKeys {
   setShortcuts(items: { id: string; input: string; modifiers: string[]; title: string }[]): void;
   emit(id: string): void;
+  setMenus(items: { title: string; ids: string[] }[]): void;
   addListener(
     event: "onShortcut",
     listener: (event: { id: string }) => void,
@@ -32,6 +33,12 @@ export function setShortcuts(items: KeyShortcut[]): void {
   native?.setShortcuts(
     items.map(({ id, key, modifiers, title }) => ({ id, input: key, modifiers, title })),
   );
+}
+
+/// The app's menus in the iPadOS menu bar, each listing shortcuts given to `setShortcuts`
+/// by id. "File", "Edit", "View" and "Window" join the system's menus of that name.
+export function setMenus(items: { title: string; ids: string[] }[]): void {
+  native?.setMenus(items);
 }
 
 /// Calls `listener` with the id of a shortcut when it is pressed. Returns how to stop.

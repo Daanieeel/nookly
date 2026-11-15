@@ -21,7 +21,8 @@ import { cn } from "../ui/classes.ts";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import type { PaletteCommand } from "./commands.ts";
-import { history } from "./history.ts";
+import { focusedTab } from "./workspace.ts";
+import { useWorkspace } from "./workspace-store.ts";
 import { SHORTCUTS, shortcutLabel } from "./shortcuts.ts";
 import { useShell } from "./store.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "../ui/touch.ts";
@@ -64,6 +65,8 @@ export function Titlebar({
               ? IconCloudCheck
               : IconCloud;
   const line = syncLine(signedIn, status);
+  const canGoBack = useWorkspace((s) => focusedTab(s.ws).backStack.length > 0);
+  const canGoForward = useWorkspace((s) => focusedTab(s.ws).forwardStack.length > 0);
   return (
     <View
       className="flex-row items-center gap-1 border-b border-border bg-background px-2"
@@ -80,14 +83,14 @@ export function Titlebar({
         }
         onPress={() => onAction("toggleSidebar")}
       />
-      <View className={cn(!history.canGoBack() && "opacity-40")}>
+      <View className={cn(!canGoBack && "opacity-40")}>
         <IconButton
           label="Go Back"
           icon={<IconChevronLeft size={20} color={muted} />}
           onPress={() => onAction("back")}
         />
       </View>
-      <View className={cn(!history.canGoForward() && "opacity-40")}>
+      <View className={cn(!canGoForward && "opacity-40")}>
         <IconButton
           label="Go Forward"
           icon={<IconChevronRight size={20} color={muted} />}

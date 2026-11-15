@@ -1,49 +1,50 @@
+import type { View } from "./nav.ts";
 import { type Tab, moveTab, pinnedFirst, tabAfterClose } from "./tab-model.ts";
 
 /// Side by side tab groups, like a code editor's split view. Pure: the store in
 /// `nav.ts` materializes the groups, runs one of these and shows the result.
 
 /// A group of tabs with its own active one. At most two exist, left then right.
-export interface TabGroup {
+export interface TabGroup<V = View> {
   id: string;
-  tabs: Tab[];
+  tabs: Tab<V>[];
   activeTabId: string;
 }
 
 /// Every group, in order, and the one shortcuts, the sidebar and new tabs act on.
-export interface TabLayout {
-  groups: TabGroup[];
+export interface TabLayout<V = View> {
+  groups: TabGroup<V>[];
   focusedGroupId: string;
 }
 
 export const MAX_GROUPS = 2;
 
-export function makeGroup(tabs: Tab[], activeTabId = tabs[0].id): TabGroup {
+export function makeGroup<V>(tabs: Tab<V>[], activeTabId = tabs[0].id): TabGroup<V> {
   return { id: crypto.randomUUID(), tabs, activeTabId };
 }
 
-export function focusedGroup(layout: TabLayout): TabGroup {
+export function focusedGroup<V>(layout: TabLayout<V>): TabGroup<V> {
   return layout.groups.find((g) => g.id === layout.focusedGroupId) ?? layout.groups[0];
 }
 
-export function groupOfTab(layout: TabLayout, tabId: string): TabGroup | undefined {
+export function groupOfTab<V>(layout: TabLayout<V>, tabId: string): TabGroup<V> | undefined {
   return layout.groups.find((g) => g.tabs.some((t) => t.id === tabId));
 }
 
-export function findTab(layout: TabLayout, tabId: string): Tab | undefined {
+export function findTab<V>(layout: TabLayout<V>, tabId: string): Tab<V> | undefined {
   return groupOfTab(layout, tabId)?.tabs.find((t) => t.id === tabId);
 }
 
-export function activeTab(group: TabGroup): Tab {
+export function activeTab<V>(group: TabGroup<V>): Tab<V> {
   return group.tabs.find((t) => t.id === group.activeTabId) ?? group.tabs[0];
 }
 
-function replaceGroup(layout: TabLayout, group: TabGroup): TabLayout {
+function replaceGroup<V>(layout: TabLayout<V>, group: TabGroup<V>): TabLayout<V> {
   return { ...layout, groups: layout.groups.map((g) => (g.id === group.id ? group : g)) };
 }
 
 /// Drops groups left without tabs. Focus moves to a neighbour when its group goes.
-function pruneEmpty(layout: TabLayout): TabLayout {
+function pruneEmpty<V>(layout: TabLayout<V>): TabLayout<V> {
   const groups = layout.groups.filter((g) => g.tabs.length > 0);
   if (groups.length === layout.groups.length) return layout;
   const focusedGroupId = groups.some((g) => g.id === layout.focusedGroupId)
@@ -52,7 +53,7 @@ function pruneEmpty(layout: TabLayout): TabLayout {
   return { groups, focusedGroupId };
 }
 
-export function focusGroup(layout: TabLayout, groupId: string): TabLayout {
+export function focusGroup<V>(layout: TabLayout<V>, groupId: string): TabLayout<V> {
   if (groupId === layout.focusedGroupId || !layout.groups.some((g) => g.id === groupId)) {
     return layout;
   }
@@ -60,14 +61,14 @@ export function focusGroup(layout: TabLayout, groupId: string): TabLayout {
 }
 
 /// Shows `tabId` in its group and focuses that group.
-export function activateTab(layout: TabLayout, tabId: string): TabLayout {
+export function activateTab<V>(layout: TabLayout<V>, tabId: string): TabLayout<V> {
   const group = groupOfTab(layout, tabId);
   if (!group) return layout;
   return { ...replaceGroup(layout, { ...group, activeTabId: tabId }), focusedGroupId: group.id };
 }
 
 /// Adds `tab` to the focused group, at the end.
-export function addTab(layout: TabLayout, tab: Tab, activate: boolean): TabLayout {
+export function addTab<V>(layout: TabLayout<V>, tab: Tab<V>, activate: boolean): TabLayout<V> {
   const group = focusedGroup(layout);
   return replaceGroup(layout, {
     ...group,
@@ -77,7 +78,7 @@ export function addTab(layout: TabLayout, tab: Tab, activate: boolean): TabLayou
 }
 
 /// Steps through the focused group's tabs, wrapping around.
-export function cycleTab(layout: TabLayout, step: 1 | -1): TabLayout {
+export function cycleTab<V>(layout: TabLayout<V>, step: 1 | -1): TabLayout<V> {
   const group = focusedGroup(layout);
   if (group.tabs.length < 2) return layout;
   const index = group.tabs.findIndex((t) => t.id === group.activeTabId);
@@ -87,7 +88,11 @@ export function cycleTab(layout: TabLayout, step: 1 | -1): TabLayout {
 
 /// Closes a tab. The last tab of a group closes the group; the last tab of all
 /// leaves `fresh` behind, a Dashboard tab.
-export function closeTab(layout: TabLayout, tabId: string, fresh: () => Tab): TabLayout {
+export function closeTab<V>(
+  layout: TabLayout<V>,
+  tabId: string,
+  fresh: () => Tab<V>,
+): TabLayout<V> {
   const group = groupOfTab(layout, tabId);
   if (!group) return layout;
   if (group.tabs.length === 1 && layout.groups.length === 1) {
@@ -103,14 +108,14 @@ export function closeTab(layout: TabLayout, tabId: string, fresh: () => Tab): Ta
 }
 
 /// Closes every tab of `tabId`'s group except it and the pinned ones, and shows it.
-export function closeOtherTabs(layout: TabLayout, tabId: string): TabLayout {
+export function closeOtherTabs<V>(layout: TabLayout<V>, tabId: string): TabLayout<V> {
   const group = groupOfTab(layout, tabId);
   if (!group) return layout;
   const tabs = group.tabs.filter((t) => t.id === tabId || t.pinned);
   return replaceGroup(layout, { ...group, tabs, activeTabId: tabId });
 }
 
-export function pinTab(layout: TabLayout, tabId: string, pinned: boolean): TabLayout {
+export function pinTab<V>(layout: TabLayout<V>, tabId: string, pinned: boolean): TabLayout<V> {
   const group = groupOfTab(layout, tabId);
   if (!group) return layout;
   const tabs = pinnedFirst(group.tabs.map((t) => (t.id === tabId ? { ...t, pinned } : t)));
@@ -118,7 +123,7 @@ export function pinTab(layout: TabLayout, tabId: string, pinned: boolean): TabLa
 }
 
 /// Moves a tab within its own group.
-export function reorderTab(layout: TabLayout, tabId: string, toIndex: number): TabLayout {
+export function reorderTab<V>(layout: TabLayout<V>, tabId: string, toIndex: number): TabLayout<V> {
   const group = groupOfTab(layout, tabId);
   if (!group) return layout;
   return replaceGroup(layout, { ...group, tabs: moveTab(group.tabs, tabId, toIndex) });
@@ -130,12 +135,12 @@ export type GroupTarget = { groupId: string } | "new-right";
 /// Moves a tab into another group (or a new one on the right), at `toIndex` or the
 /// end, then shows and focuses it. A group left empty closes. Moving the only tab
 /// there is into a new group would change nothing, so it is ignored.
-export function moveTabToGroup(
-  layout: TabLayout,
+export function moveTabToGroup<V>(
+  layout: TabLayout<V>,
   tabId: string,
   target: GroupTarget,
   toIndex?: number,
-): TabLayout {
+): TabLayout<V> {
   const source = groupOfTab(layout, tabId);
   if (!source) return layout;
   const tab = source.tabs.find((t) => t.id === tabId);
@@ -183,7 +188,7 @@ export function moveTabToGroup(
 /// Opens `copy` (a copy of a tab, with a new id) in the group on the right of
 /// `tabId`'s group, creating it when there is none, and focuses it. A tab already in
 /// the rightmost of two groups has nowhere to go.
-export function splitRight(layout: TabLayout, tabId: string, copy: Tab): TabLayout {
+export function splitRight<V>(layout: TabLayout<V>, tabId: string, copy: Tab<V>): TabLayout<V> {
   const source = groupOfTab(layout, tabId);
   if (!source) return layout;
   const index = layout.groups.findIndex((g) => g.id === source.id);
@@ -200,7 +205,7 @@ export function splitRight(layout: TabLayout, tabId: string, copy: Tab): TabLayo
 }
 
 /// Whether Split Right has somewhere to put `tabId`.
-export function canSplitRight(layout: TabLayout, tabId: string): boolean {
+export function canSplitRight<V>(layout: TabLayout<V>, tabId: string): boolean {
   const source = groupOfTab(layout, tabId);
   if (!source) return false;
   return layout.groups.length < MAX_GROUPS || layout.groups.at(-1)?.id !== source.id;
@@ -209,7 +214,7 @@ export function canSplitRight(layout: TabLayout, tabId: string): boolean {
 /// Opens `copy` (a copy of a tab, with a new id) in the group on the left of
 /// `tabId`'s group, creating it when there is none, and focuses it. A tab already in
 /// the leftmost of two groups has nowhere to go.
-export function splitLeft(layout: TabLayout, tabId: string, copy: Tab): TabLayout {
+export function splitLeft<V>(layout: TabLayout<V>, tabId: string, copy: Tab<V>): TabLayout<V> {
   const source = groupOfTab(layout, tabId);
   if (!source) return layout;
   const index = layout.groups.findIndex((g) => g.id === source.id);
@@ -226,14 +231,18 @@ export function splitLeft(layout: TabLayout, tabId: string, copy: Tab): TabLayou
 }
 
 /// Whether Split Left has somewhere to put `tabId`.
-export function canSplitLeft(layout: TabLayout, tabId: string): boolean {
+export function canSplitLeft<V>(layout: TabLayout<V>, tabId: string): boolean {
   const source = groupOfTab(layout, tabId);
   if (!source) return false;
   return layout.groups.length < MAX_GROUPS || layout.groups[0].id !== source.id;
 }
 
 /// Replaces a tab, wherever it is, with `update(tab)`.
-export function updateTab(layout: TabLayout, tabId: string, update: (tab: Tab) => Tab): TabLayout {
+export function updateTab<V>(
+  layout: TabLayout<V>,
+  tabId: string,
+  update: (tab: Tab<V>) => Tab<V>,
+): TabLayout<V> {
   const group = groupOfTab(layout, tabId);
   if (!group) return layout;
   return replaceGroup(layout, {

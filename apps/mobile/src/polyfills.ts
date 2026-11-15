@@ -52,4 +52,23 @@ if (!("DisplayNames" in Intl)) {
   });
 }
 
+// The tab groups shared with the desktop name a new group with `crypto.randomUUID`, which
+// Hermes lacks; the system's random source makes one (`expo-crypto`).
+if (typeof globalThis.crypto?.randomUUID !== "function") {
+  // oxlint-disable-next-line typescript/no-require-imports -- loaded only where missing
+  const { randomUUID } = require("expo-crypto") as typeof import("expo-crypto");
+  const crypto = globalThis.crypto ?? {};
+  Object.defineProperty(crypto, "randomUUID", {
+    value: randomUUID,
+    writable: true,
+    configurable: true,
+    enumerable: false,
+  });
+  Object.defineProperty(globalThis, "crypto", {
+    value: crypto,
+    configurable: true,
+    writable: true,
+  });
+}
+
 export {};

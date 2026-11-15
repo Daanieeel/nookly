@@ -11,7 +11,65 @@ struct Shortcut: Record {
   @Field var title: String
 }
 
+/// One of the app's menus in the iPadOS menu bar: `title` ("File", "Go") and the ids of
+/// the shortcuts it lists, in order.
+struct ShortcutMenu: Record {
+  @Field var title: String
+  @Field var ids: [String]
+}
+
 private var commands: [UIKeyCommand] = []
+private var menus: [ShortcutMenu] = []
+private var menusInstalled = false
+
+/// The system's own menus a menu of ours joins, by title; others go before Window.
+private let standardMenus: [String: UIMenu.Identifier] = [
+  "File": .file, "Edit": .edit, "View": .view, "Window": .window,
+]
+
+private func copyCommand(_ command: UIKeyCommand) -> UIKeyCommand {
+  UIKeyCommand(
+    title: command.title,
+    image: nil,
+    action: command.action ?? action,
+    input: command.input ?? "",
+    modifierFlags: command.modifierFlags,
+    propertyList: command.propertyList
+  )
+}
+
+/// Teaches the app delegate to fill the iPadOS menu bar (pulled down from the top of the
+/// screen, or listed while Command is held) with our menus.
+private func installMenus() {
+  if menusInstalled { return }
+  guard let delegate = UIApplication.shared.delegate else { return }
+  menusInstalled = true
+  let build: @convention(block) (AnyObject, UIMenuBuilder) -> Void = { _, builder in
+    guard builder.system == .main else { return }
+    for menu in menus {
+      let children: [UIMenuElement] = menu.ids.compactMap { id in
+        commands.first { ($0.propertyList as? String) == id }.map(copyCommand)
+      }
+      if children.isEmpty { continue }
+      if let standard = standardMenus[menu.title] {
+        builder.insertChild(
+          UIMenu(title: "", options: .displayInline, children: children), atEndOfMenu: standard)
+      } else {
+        builder.insertSibling(
+          UIMenu(
+            title: menu.title, identifier: UIMenu.Identifier("app.nookly.menu.\(menu.title)"),
+            children: children),
+          beforeMenu: .window)
+      }
+    }
+  }
+  class_addMethod(
+    type(of: delegate),
+    #selector(UIResponder.buildMenu(with:)),
+    imp_implementationWithBlock(build),
+    "v@:@"
+  )
+}
 private var installed = false
 private weak var receiver: NooklyKeysModule?
 private let action = Selector(("nooklyShortcut:"))
@@ -70,6 +128,15 @@ public class NooklyKeysModule: Module {
           modifierFlags: flags(item.modifiers),
           propertyList: item.id
         )
+      }
+    }
+
+    /// The menus of the iPadOS menu bar, from the shortcuts given to `setShortcuts`.
+    Function("setMenus") { (items: [ShortcutMenu]) in
+      menus = items
+      DispatchQueue.main.async {
+        installMenus()
+        UIMenuSystem.main.setNeedsRebuild()
       }
     }
 
