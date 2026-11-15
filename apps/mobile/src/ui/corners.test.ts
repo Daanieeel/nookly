@@ -24,7 +24,7 @@ const ROUND_ON_DESKTOP: [file: string, line: string][] = [
   ["ui/sheet/Sheet.tsx", "h-1 w-9 rounded-full"],
   ["screens/CalendarScreen.tsx", "w-1 self-stretch rounded-full"],
   ["screens/GradesScreen.tsx", "h-2 flex-row gap-0.5 overflow-hidden rounded-full"],
-  ["screens/TimeGrid.tsx", "h-6 min-w-6 items-center justify-center rounded-full"],
+  ["screens/TimeGrid.tsx", "h-8 min-w-8 items-center justify-center rounded-full"],
   // Beside the system's own round bar buttons, which the app can't reshape.
   ["ui/GlassButton.tsx", "borderRadius: MIN_TOUCH / 2"],
 ];
