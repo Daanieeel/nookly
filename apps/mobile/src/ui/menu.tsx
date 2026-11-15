@@ -8,8 +8,14 @@ export type { Confirmation } from "./sheet/Confirm.tsx";
 
 /// How a menu of actions and a confirmation are shown: in the app's sheet (`SheetHost`). A
 /// test supplies its own to read and choose actions without a screen.
+/// `card` shows the menu as a dialog in the middle of the screen (D65's floating card)
+/// rather than a sheet from the bottom.
+export interface MenuOptions {
+  presentation?: "sheet" | "card";
+}
+
 export interface MenuPresenter {
-  show(title: string | undefined, entries: MenuEntry[]): void;
+  show(title: string | undefined, entries: MenuEntry[], options?: MenuOptions): void;
   confirm(confirmation: Confirmation): void;
 }
 

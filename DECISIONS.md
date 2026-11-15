@@ -405,3 +405,7 @@ The user found the phone's text field flat: an iOS form row, its name above the 
 ## D70. Nine tenths of the screen open the sidebar
 
 A swipe to the right opens the sidebar from anywhere except the leftmost tenth of a page you can go back from, which stays with iOS's own back swipe (its native edge recognizer, left as it is: iOS 26's full screen back would fight the sidebar for every swipe). A page that swipes sideways itself (the calendar's days) opens the sidebar from that same tenth. A row with its own swipe (a task: Done to the right) keeps the swipe that starts on it, as in Mail; the sidebar opens from anywhere else, and from the header button.
+
+## D71. The sidebar's menus are dialogs; Spaces move in by dragging across a line
+
+The + at the bottom of the sidebar, the dots on the Space shown and the dots for the Spaces that do not fit open as dialogs in the middle of the screen (the floating card of D65, through `menu.show(..., { presentation: "card" })`), not sheets from the bottom. The Spaces dialog has a search and lists every Space in its order: the first three are the ones the sidebar shows, a line stays put under them, and dragging a Space across the line (its grip, or a screen reader's Move Up) moves it into the sidebar or out. It reorders the same stored order the switcher's icons do, so it syncs and the desktop's switcher follows.

@@ -117,17 +117,52 @@ describe("the sidebar", () => {
     expect(screen.queryByRole("button", { name: "Tasks in Work" })).toBeNull();
   });
 
-  it("lists the Spaces that do not fit with their icons and colours", async () => {
+  // The user's notes: the Spaces that do not fit open in a dialog with a search, every
+  // Space in order, and a Space dragged above the line shows in the sidebar.
+  it("lists every Space in a dialog with a search, and moves one into the sidebar", async () => {
     const data = testData();
     const names = ["Work", "Home", "Uni", "Club", "Band", "Gym"];
     for (const name of names) await createSpace(data.db, name, "#3b82f6");
+    const screen = await renderScreens({ index: () => <Sidebar close={jest.fn()} /> }, data);
+    expect(screen.queryByRole("button", { name: "Gym" })).toBeNull();
+    await fireEvent.press(await screen.findByRole("button", { name: "More Spaces" }));
+    expect(await screen.findByLabelText("Search Spaces")).toBeTruthy();
+    expect(screen.getByText("IN THE SIDEBAR")).toBeTruthy();
+    // A screen reader moves Gym up past the line, as a finger drags it.
+    for (const place of [4, 3, 2]) {
+      await fireEvent(screen.getByLabelText("Gym, drag to reorder"), "accessibilityAction", {
+        nativeEvent: { actionName: "moveUp" },
+      });
+      await waitFor(async () =>
+        expect((await listSpaces(data.db)).map((s) => s.name).indexOf("Gym")).toBe(place),
+      );
+      // The dialog's rows are the last six (the switcher's icons come first).
+      await waitFor(() =>
+        expect(
+          screen.getAllByLabelText(/drag to reorder/).slice(-6)[place].props.accessibilityLabel,
+        ).toBe("Gym, drag to reorder"),
+      );
+    }
+    // Searching narrows the list; a tap picks that Space.
+    await fireEvent.changeText(screen.getByLabelText("Search Spaces"), "clu");
+    await fireEvent.press(await screen.findByRole("button", { name: "Club" }));
+    expect(await screen.findByRole("header", { name: "Club" })).toBeTruthy();
+  });
+
+  it("opens New and a Space's menu as dialogs, its dots a finger's size", async () => {
+    const data = testData();
+    await createSpace(data.db, "Work", "#3b82f6");
     const menu = new RecordingMenu();
     const screen = await renderScreens({ index: () => <Sidebar close={jest.fn()} /> }, data, "/", {
       menu,
     });
-    await fireEvent.press(await screen.findByRole("button", { name: "More Spaces" }));
-    expect(menu.items().length).toBeGreaterThan(0);
-    for (const item of menu.items()) expect(item.leading).toBeTruthy();
+    await fireEvent.press(await screen.findByRole("button", { name: "New" }));
+    expect(menu.presentation).toBe("card");
+    const dots = await screen.findByRole("button", { name: "Work Menu" });
+    expect(StyleSheet.flatten(dots.props.style).width).toBeGreaterThanOrEqual(44);
+    await fireEvent.press(dots);
+    expect(menu.presentation).toBe("card");
+    expect(menu.labels()).toEqual(["Add Module", "Space Settings"]);
   });
 
   it("has Nookly's name as its header, with Search as a button beside it", async () => {

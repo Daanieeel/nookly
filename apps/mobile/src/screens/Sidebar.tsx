@@ -57,6 +57,8 @@ const ROW_TEXT = { fontSize: TYPE.callout.fontSize, lineHeight: TYPE.callout.lin
 const SMALL_TEXT = { fontSize: TYPE.footnote.fontSize, lineHeight: TYPE.footnote.lineHeight };
 import { Mascot } from "../ui/Mascot.tsx";
 import { useMenu } from "../ui/menu.tsx";
+import { useOptionalSheetHost } from "../ui/sheet/SheetHost.tsx";
+import { SpacesDialog } from "./SpacesDialog.tsx";
 import { usePanes } from "../shell/panes.tsx";
 import { MIN_TOUCH, TOUCH_ROW } from "../ui/touch.ts";
 import { Text } from "../ui/Text.tsx";
@@ -427,21 +429,24 @@ function SpaceModules({
         </Text>
         <IconButton
           label={`${space.name} Menu`}
-          size="iconSm"
-          icon={<IconDots size={16} color={muted} />}
+          icon={<IconDots size={20} color={muted} />}
           onPress={() =>
-            menu.show(space.name, [
-              {
-                label: "Add Module",
-                icon: IconLayoutGridAdd,
-                onPress: () => push(`/space/${space.id}`),
-              },
-              {
-                label: "Space Settings",
-                icon: IconSettings,
-                onPress: () => push(`/space-settings/${space.id}`),
-              },
-            ])
+            menu.show(
+              space.name,
+              [
+                {
+                  label: "Add Module",
+                  icon: IconLayoutGridAdd,
+                  onPress: () => push(`/space/${space.id}`),
+                },
+                {
+                  label: "Space Settings",
+                  icon: IconSettings,
+                  onPress: () => push(`/space-settings/${space.id}`),
+                },
+              ],
+              { presentation: "card" },
+            )
           }
         />
       </View>
@@ -484,7 +489,7 @@ function SpaceSwitcher({
   onPick: (space: Space) => void;
 }) {
   const theme = useTheme();
-  const menu = useMenu();
+  const host = useOptionalSheetHost();
   const { visible, overflow } = spaceRow(spaces, active?.id ?? null);
   const order = useLocalWrite((db, ids: string[]) => reorderSpaces(db, ids));
   /// The icons shown in their new order, in the places they held among all the Spaces.
@@ -531,15 +536,11 @@ function SpaceSwitcher({
           label="More Spaces"
           icon={<IconDots size={ROW_ICON} color={theme.colors.mutedForeground} />}
           onPress={() =>
-            menu.show(
-              "Spaces",
-              overflow.map((space) => ({
-                label: space.name,
-                leading: <SpaceIcon space={space} size={ROW_ICON} />,
-                checked: space.id === active?.id,
-                onPress: () => onPick(space),
-              })),
-            )
+            host?.present({
+              title: "Spaces",
+              presentation: "card",
+              content: <SpacesDialog activeId={active?.id ?? null} onPick={onPick} />,
+            })
           }
         />
       ) : null}
@@ -627,18 +628,22 @@ export const Sidebar = memo(function Sidebar({ close }: { close: () => void }) {
           label="New"
           icon={<IconPlus size={ROW_ICON} color={muted} />}
           onPress={() =>
-            menu.show(undefined, [
-              { label: "New Space", icon: IconFolderPlus, onPress: () => push("/new/space") },
-              ...(shown
-                ? [
-                    {
-                      label: `Add Module to ${shown.name}`,
-                      icon: IconLayoutGridAdd,
-                      onPress: () => push(`/space/${shown.id}`),
-                    },
-                  ]
-                : []),
-            ])
+            menu.show(
+              "New",
+              [
+                { label: "New Space", icon: IconFolderPlus, onPress: () => push("/new/space") },
+                ...(shown
+                  ? [
+                      {
+                        label: `Add Module to ${shown.name}`,
+                        icon: IconLayoutGridAdd,
+                        onPress: () => push(`/space/${shown.id}`),
+                      },
+                    ]
+                  : []),
+              ],
+              { presentation: "card" },
+            )
           }
         />
         <View className="flex-1">

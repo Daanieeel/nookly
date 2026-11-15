@@ -66,10 +66,10 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 ### 2. Mobile: sidebar
 
 - [x] (2026-11-15, the blur ends where the list starts, its fade inside the header's lower edge; test; on screen) The header blur behind "Nookly" and the search button reaches too far down: unscrolled, it must not touch the Blobatar box at the top.
-- [ ] The + at the bottom left opens a dialog (the centred card) instead of a bottom sheet.
-- [ ] The three dots showing the hidden Spaces open a dialog with a search bar.
-- [ ] Spaces can be dragged from that hidden Spaces dialog into the three shown in the sidebar (and back).
-- [ ] The three dot button on a Space (Add Module, Space Settings) is bigger, and opens a dialog instead of a bottom sheet.
+- [x] (2026-11-15, D71; test; on screen) The + at the bottom left opens a dialog (the centred card) instead of a bottom sheet.
+- [x] (2026-11-15, D71, `SpacesDialog`; test; on screen) The three dots showing the hidden Spaces open a dialog with a search bar.
+- [x] (2026-11-15, D71: every Space in order with a fixed line under the first three, dragged across it; test; on screen) Spaces can be dragged from that hidden Spaces dialog into the three shown in the sidebar (and back).
+- [x] (2026-11-15, a full touch target with a 20pt icon, a dialog; test; on screen) The three dot button on a Space (Add Module, Space Settings) is bigger, and opens a dialog instead of a bottom sheet.
 
 ### 3. Mobile: list pages and modules
 

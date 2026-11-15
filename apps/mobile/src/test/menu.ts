@@ -1,4 +1,4 @@
-import type { Confirmation, MenuEntry, MenuItem, MenuPresenter } from "../ui/menu.tsx";
+import type { Confirmation, MenuEntry, MenuItem, MenuOptions, MenuPresenter } from "../ui/menu.tsx";
 
 /// A menu that shows nothing and remembers what it was asked to show (a menu or a
 /// confirmation), so a test can read the actions offered and choose one.
@@ -7,8 +7,12 @@ export class RecordingMenu implements MenuPresenter {
   /// The title of the confirmation asked last.
   asked: string | null = null;
 
-  show(_title: string | undefined, entries: MenuEntry[]) {
+  /// How the menu shown last was presented: `card` for a dialog in the middle.
+  presentation: string = "sheet";
+
+  show(_title: string | undefined, entries: MenuEntry[], options?: MenuOptions) {
     this.asked = null;
+    this.presentation = options?.presentation ?? "sheet";
     this.shown = entries.flatMap((entry) => (entry === "separator" ? [] : [entry]));
   }
 
