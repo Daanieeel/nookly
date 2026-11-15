@@ -493,3 +493,17 @@ Every page is laid out for portrait and landscape and for any window size iPadOS
 The simulators on the build machine run apps as iPadOS windows that only the device's turn changes, and there is no Simulator window to turn them; the system ignores an app's own request to rotate (`requestGeometryUpdate`) while it supports multitasking. So the checks lay the app out at the size of the window wanted instead: a development only hook (`hooks.window(width, height)`, `ui/window-override.ts`) makes the app read that size and draws it scaled into the top left of the screen. `tools/e2e/tablet-shots.ts` shoots a page that way at every window the plan names (13-inch and 11-inch in both orientations, the mini in portrait, Slide Over). It is not set in any build a person uses. What it cannot show (the real safe areas of a turned iPad, the system's own animation of a turn) is checked on a real iPad by the user.
 
 The window controls of an iPadOS 26 window are read natively (`modules/nookly-window`, the margins layout region with corner adaptation, less the plain margins) and are zero while the app fills the screen, as on the simulators here; their room in the titlebar is checked on a real iPad.
+
+## D85. A pointer on an iPad: hover, secondary click and the pointer's lift
+
+A trackpad or mouse on an iPad gets the desktop's pointer habits where React Native and the system allow, and never anything only a pointer can reach:
+
+- **Hover** comes from React Native Gesture Handler's hover gesture (`Gesture.Hover()`), which iOS drives from the pointer; rows, tabs and buttons show the desktop's hover highlight from it. Its `effect(HoverEffect.LIFT)` gives a round button the system's pointer lift, and `HIGHLIGHT` a row the system's highlight.
+- **Secondary click** (a right click, or a two finger click on the trackpad) is a native view, `SecondaryClick` in `modules/nookly-window`: a tap recogniser that only a secondary button starts, reporting where it was. It opens the same context menu a long press opens, as a popover at the pointer. React Native has no secondary click of its own on iOS.
+- Long press stays the way to every context menu, so nothing needs a pointer.
+
+## D86. Dragging on an iPad
+
+Inside the app, drags are React Native Gesture Handler gestures: a long press that lifts what is held (`LIFT_DELAY`, `LIFT_SCALE`, `SPRING.lift` in `ui/motion.ts`) and a pan that carries it, as the phone already reorders rows. Tabs, Space icons in the sidebar's bottom row, sidebar rows and task cards across board columns use it, and a tab or row dropped on the right edge of the page splits.
+
+Files dragged in from another app (Files, Mail, Safari) land through a native drop view, `FileDrop` in `modules/nookly-window` (`UIDropInteraction`): each file is copied into the app's temporary folder and handed to the page under it, the Files page taking them as an import. Dragging something out of Nookly into another app (a file, an item's link) needs a native drag source for each kind of item and is deferred.

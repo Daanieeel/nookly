@@ -24,6 +24,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
 import { TabletShell, tabletScreen } from "../shell/TabletShell.tsx";
+import { useHandOver } from "../shell/hand-over.ts";
 import { useNavigationTheme } from "../shell/navigation-theme.ts";
 
 import { SidebarBesideProvider, useIsTablet } from "../ui/pane.tsx";
@@ -111,7 +112,9 @@ function FirstRun() {
 /// it holds is the same element from one page to the next.
 function AppShell({ stack }: { stack: ReactNode }) {
   const pathname = usePathname();
-  return useIsTablet() ? (
+  const tablet = useIsTablet();
+  useHandOver(tablet, pathname);
+  return tablet ? (
     <TabletShell stack={stack} />
   ) : (
     <SidebarBesideProvider value={false}>
@@ -125,8 +128,6 @@ function AppShell({ stack }: { stack: ReactNode }) {
   );
 }
 
-/// A page that is not a tab on a tablet (signing in) shows as a card over the window, as
-/// the desktop's account dialog.
 /// How the stack shows its screens on a phone.
 const PHONE_SCREEN = {
   headerLargeTitle: false,
@@ -144,6 +145,8 @@ const TABLET_SCREEN = {
   contentStyle: { backgroundColor: "transparent" },
 } as const;
 
+/// A page that is not a tab on a tablet (signing in) shows as a card over the window, as
+/// the desktop's account dialog.
 function overWindow(tablet: boolean) {
   return tablet
     ? ({ presentation: "formSheet", headerShown: true, animation: "default" } as const)
