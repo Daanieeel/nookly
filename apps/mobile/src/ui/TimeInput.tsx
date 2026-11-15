@@ -53,7 +53,7 @@ export function TimeInput({
   const primary = useTheme().colors.primary;
   const fill = useSemantic("fill");
   const text = useSemantic("label");
-  const placeholder = useSemantic("tertiaryLabel");
+  const placeholder = useSemantic("placeholder");
   const twelve = useTwelveHour();
   const { hour, minute } = parse(value);
   const shownHour = (h: number | null) =>

@@ -3,7 +3,8 @@ import { StyleSheet } from "react-native";
 import { MIN_TOUCH } from "../touch.ts";
 import { GroupedSection } from "./GroupedSection.tsx";
 import { ListRow } from "./ListRow.tsx";
-import { SearchField } from "./SearchField.tsx";
+import { SEARCH_HEIGHT, SearchField } from "./SearchField.tsx";
+import { semantic, semanticHex } from "../tokens.ts";
 import { EmptyState, ErrorState, LoadingState } from "./States.tsx";
 
 /// The base components every screen is built from: what a screen reader hears of them,
@@ -89,6 +90,21 @@ describe("the base components", () => {
     );
     expect(style.height).toBeUndefined();
     expect(style.alignSelf).toBe("stretch");
+  });
+
+  // The global search's bar felt cramped, and its placeholder and magnifier were see through:
+  // the magnifier's handle showed the circle behind it. Taller, and drawn in a solid grey.
+  it("the search field is roomy and draws its placeholder and icon solid", () => {
+    const screen = render(<SearchField label="Search" value="" onChangeText={() => {}} />);
+    expect(screen.getByTestId("search-field")).toHaveStyle({ minHeight: SEARCH_HEIGHT });
+    expect(SEARCH_HEIGHT).toBeGreaterThan(MIN_TOUCH);
+    const input = screen.getByLabelText("Search");
+    expect(input.props.placeholderTextColor).toEqual(semantic("secondaryLabelSolid", "light"));
+    expect(screen.getByTestId("search-icon").props.stroke).toBe(
+      semanticHex("secondaryLabelSolid", "light"),
+    );
+    // Padding inside the input pushed the placeholder below the magnifier's middle.
+    expect(StyleSheet.flatten(input.props.style).paddingVertical).toBe(0);
   });
 
   it("an empty state is a summary with its action", () => {

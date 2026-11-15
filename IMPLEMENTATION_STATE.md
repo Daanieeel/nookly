@@ -55,9 +55,9 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 - [x] (2026-11-15, one `CARD_INSET` of 12 round the card; its corners 24, so the close button's 12 run alongside; tests; on screen) Dialogs (the centred card): with squircles now, the corners of the X button and of the dialog no longer match. Use the right math for two nested corner radii and the padding between them.
 - [x] (2026-11-15, rows, search bar, lone fields and sections all start `CARD_INSET` in, the title where the rows' content starts; New, Relate to and Due date checked; tests; on screen) Dialog padding: in the "New" dialog (the + at the bottom left of the sidebar) the two items do not line up with the X button and the "New" title. Same problem in many other dialogs; fix it for all of them in the shared dialog.
-- [ ] The global search's search bar is too small: give it more height so it feels spacious, and apply the same to every other use of that input.
-- [ ] In that input the icon and the placeholder are not vertically centred to each other: the placeholder sits too low.
-- [ ] Placeholders and their icons get no lowered opacity; use a muted colour instead, so lower SVG layers do not shine through the icon (the magnifying glass's handle).
+- [x] (2026-11-15, 50pt for every search field, the one component; test; on screen) The global search's search bar is too small: give it more height so it feels spacious, and apply the same to every other use of that input.
+- [x] (2026-11-15, the input's own padding pushed it down; cap height and icon now share their middle, measured; test) In that input the icon and the placeholder are not vertically centred to each other: the placeholder sits too low.
+- [x] (2026-11-15, the search's icon and placeholder in solid grey, every field's placeholder in a new solid `placeholder` colour; tests; on screen) Placeholders and their icons get no lowered opacity; use a muted colour instead, so lower SVG layers do not shine through the icon (the magnifying glass's handle).
 - [ ] Many selected filters overcrowd the page (`.reference-images/mobile/filter-overcrowding.png`). Show active filters like the desktop's filter chips, with their parts ("any of", "is not" and so on); each chip may be full width, one below the other.
 - [ ] Swipe actions on every list of items (not only tasks), each type with its own sensible actions; rework their look so they feel native (consider a public package). Tasks get a more useful action than "Done". Rule for every type: swiping right to left always ends in Trash, the rightmost action, active on a long drag; a second action may sit beside it.
 
@@ -88,7 +88,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ## Progress log
 
-- 2026-11-15: dialog corners and padding done.
+- 2026-11-15: dialog corners and padding done; search field height, centring and solid placeholders done.
 - 2026-11-15: file refilled from the fifth round of `NOTES.md`. The fourth round (all done, final report included) is in git history up to 2821cbac and `DECISIONS.md` up to D74.
 
 ## Final report

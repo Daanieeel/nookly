@@ -1,7 +1,7 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
 import { Field } from "./Field.tsx";
-import { TINT } from "./tokens.ts";
+import { TINT, semantic, semanticHex } from "./tokens.ts";
 import { FormSection } from "./kit/Form.tsx";
 import { DayProperty, TextRow } from "./property-rows.tsx";
 import { renderScreens, testData } from "../test/render.tsx";
@@ -20,6 +20,18 @@ function nameAbove(screen: ReturnType<typeof render>, name: string, input: strin
 }
 
 describe("a text field", () => {
+  // A placeholder drawn in a see through grey let what is behind it show through; it is a
+  // solid muted grey, as on the search field.
+  it("draws its placeholder in a solid grey", () => {
+    const screen = render(
+      <Field label="Title" placeholder="Name" value="" onChangeText={() => {}} />,
+    );
+    expect(screen.getByLabelText("Title").props.placeholderTextColor).toEqual(
+      semantic("placeholder", "light"),
+    );
+    expect(semanticHex("placeholder", "dark")).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
   it("has its name small above it", () => {
     const screen = render(<Field label="Title" value="" onChangeText={() => {}} />);
     nameAbove(screen, "Title", "Title");

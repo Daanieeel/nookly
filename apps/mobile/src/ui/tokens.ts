@@ -56,6 +56,8 @@ export const SEMANTIC = {
   /// The same two, solid, for a text field: iOS draws a field's colour's transparency twice.
   secondaryLabelSolid: { ios: "systemGray", light: "#8e8e93", dark: "#8e8e93" },
   tertiaryLabelSolid: { ios: "systemGray3", light: "#c7c7cc", dark: "#48484a" },
+  /// What a field shows before anything is typed: a solid muted grey, never see through.
+  placeholder: { ios: "systemGray2", light: "#aeaeb2", dark: "#636366" },
   separator: { ios: "separator", light: "#3c3c434a", dark: "#54545899" },
   /// A field's or a search bar's fill.
   fill: { ios: "tertiarySystemFill", light: "#7676801f", dark: "#7676803d" },

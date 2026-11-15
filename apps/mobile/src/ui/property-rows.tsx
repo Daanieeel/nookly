@@ -225,7 +225,7 @@ function InputRow({
   // Solid greys: a text field draws a colour's transparency twice, which reads fainter
   // than the values beside it.
   const valueColor = useSemanticPair("secondaryLabelSolid").color;
-  const placeholderColor = useSemanticPair("tertiaryLabelSolid").color;
+  const placeholderColor = useSemanticPair("placeholder").color;
   const { fontWeight, ...size } = TYPE.body;
   const field = useRef<TextInput>(null);
   return (

@@ -45,7 +45,7 @@ export function Field({
   icon?: ReactNode;
 }) {
   const text = useSemantic("label");
-  const muted = useSemantic("tertiaryLabel");
+  const muted = useSemantic("placeholder");
   const edge = useSemantic("separator");
   const surface = useSurface();
   const scheme = useScheme();

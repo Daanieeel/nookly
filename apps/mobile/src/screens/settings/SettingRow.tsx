@@ -61,7 +61,7 @@ function TextControl({
   const [error, setError] = useState<string | undefined>();
   const fill = useSemantic("fill");
   const text = useSemantic("label");
-  const muted = useSemantic("tertiaryLabel");
+  const muted = useSemantic("placeholder");
   useEffect(() => setDraft(stored), [stored]);
   const commit = () => {
     if (draft === stored) return;

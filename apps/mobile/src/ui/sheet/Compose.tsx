@@ -70,7 +70,7 @@ export function ComposeTitle({
   input?: TitleInput;
 }) {
   const text = useSemantic("label");
-  const muted = useSemanticPair("tertiaryLabel");
+  const muted = useSemanticPair("placeholder");
   return (
     <TextInput
       ref={ref}
@@ -114,7 +114,7 @@ export function ComposeLine({
   placeholder: string;
 }) {
   const text = useSemantic("label");
-  const muted = useSemanticPair("tertiaryLabel");
+  const muted = useSemanticPair("placeholder");
   const theme = useTheme();
   return (
     <View
@@ -155,7 +155,7 @@ export function ComposeText({
   placeholder: string;
 }) {
   const text = useSemantic("label");
-  const muted = useSemanticPair("tertiaryLabel");
+  const muted = useSemanticPair("placeholder");
   return (
     <TextInput
       accessibilityLabel={label}

@@ -5,10 +5,11 @@ import { MIN_TOUCH, touchSlop } from "../touch.ts";
 import { Glyph } from "./Glyph.tsx";
 import { useSemantic, useSemanticPair } from "./scheme.ts";
 
-/// Linear's search pill: a finger tall, fully round.
-const HEIGHT = 44;
+/// Roomier than a finger: the bar people type into first on a page.
+export const SEARCH_HEIGHT = 50;
+const HEIGHT = SEARCH_HEIGHT;
 
-/// Linear's search field: a filled pill with a magnifier, and a clear button once
+/// Linear's search field: a filled squircle with a magnifier, and a clear button once
 /// something is typed. Sits pinned above the list it searches.
 export function SearchField({
   label,
@@ -27,7 +28,9 @@ export function SearchField({
   autoFocus?: boolean;
 }) {
   const fill = useSemantic("fill");
-  const muted = useSemanticPair("secondaryLabel");
+  // Solid, never see through: a translucent grey shows the magnifier's circle through its
+  // handle where the two strokes cross.
+  const muted = useSemanticPair("secondaryLabelSolid");
   const text = useSemantic("label");
   return (
     <View
@@ -45,7 +48,7 @@ export function SearchField({
         },
       ]}
     >
-      <Glyph icon={IconSearch} size={20} color={muted.hex} />
+      <IconSearch testID="search-icon" size={20} color={muted.hex} />
       <TextInput
         accessibilityLabel={label}
         value={value}
@@ -63,7 +66,7 @@ export function SearchField({
         style={{
           flex: 1,
           minHeight: HEIGHT,
-          paddingVertical: SPACE.xs,
+          paddingVertical: 0,
           fontFamily: FACE["400"],
           fontSize: TYPE.body.fontSize,
           color: text,
