@@ -49,25 +49,25 @@ export function screenCornerRadius({ width, height }: { width: number; height: n
   return SCREEN_CORNERS[key as keyof typeof SCREEN_CORNERS];
 }
 
-/// The bar's corners for a screen whose corners are `screen` points round: its bottom corners
-/// run alongside the screen's at the bar's margin, its top corners are the regular ones, and
-/// the send button sits `inset` inside it with corners nested in the bar's.
+/// The bar's corners for a screen whose corners are `screen` points round: all four run
+/// alongside the screen's at the bar's margin, up to a full pill, and the send button sits
+/// `inset` inside it with corners nested in the bar's (a circle in a pill). A phone with square
+/// corners gets the regular ones.
 export function pasteBarCorners(screen: number) {
   const height = 68;
-  const top = 16;
   const inset = 8;
-  const bottom = screen > 0 ? Math.min(screen - PASTE_BAR_MARGIN, height - top) : top;
+  const round = screen > 0 ? Math.min(screen - PASTE_BAR_MARGIN, height / 2) : 16;
   return {
     height,
-    top,
-    bottom,
-    button: { size: height - 2 * inset, inset, top: top - inset, bottom: bottom - inset },
+    top: round,
+    bottom: round,
+    button: { size: height - 2 * inset, inset, top: round - inset, bottom: round - inset },
   };
 }
 
-/// A link pasted into a bar floating at the bottom of a page (Bookmarks, Files). At rest it
-/// sits snug in the screen's own corners; the keyboard lifts it away from them, its corners
-/// relaxing to the regular ones and its shadow deepening so it stands out over the page.
+/// A link pasted into a bar floating at the bottom of a page (Bookmarks, Files): a pill snug in
+/// the screen's own corners. The keyboard lifts it, its shadow deepening while it is typed in
+/// so it stands out over the page.
 export function FloatingField({
   label,
   value,
@@ -91,28 +91,19 @@ export function FloatingField({
   const corners = pasteBarCorners(screenCornerRadius(useWindowDimensions()));
   const keyboard = useAnimatedKeyboard();
   const [focused, setFocused] = useState(false);
-  // 0 at rest in the corners, 1 once the keyboard has lifted it clear of them.
-  const lifted = useDerivedValue(() => Math.min(1, keyboard.height.value / 80));
   const glow = useDerivedValue(() =>
     still
       ? withTiming(focused ? 1 : 0, { duration: FADE.in })
       : withSpring(focused ? 1 : 0, SPRING.menu),
   );
   const bar = useAnimatedStyle(() => {
-    const bottom = interpolate(lifted.value, [0, 1], [corners.bottom, corners.top]);
     return {
       transform: [
         { translateY: -Math.max(0, keyboard.height.value - PASTE_BAR_MARGIN + SPACE.sm) },
       ],
-      borderBottomLeftRadius: bottom,
-      borderBottomRightRadius: bottom,
       shadowOpacity: interpolate(glow.value, [0, 1], [DEPTH.floating.shadowOpacity, 0.32]),
       shadowRadius: interpolate(glow.value, [0, 1], [DEPTH.floating.shadowRadius, 32]),
     };
-  });
-  const button = useAnimatedStyle(() => {
-    const bottom = interpolate(lifted.value, [0, 1], [corners.button.bottom, corners.button.top]);
-    return { borderBottomRightRadius: bottom };
   });
   const ready = value.trim().length > 0;
   return (
@@ -141,8 +132,7 @@ export function FloatingField({
           {
             height: corners.height,
             paddingRight: corners.button.inset,
-            borderTopLeftRadius: corners.top,
-            borderTopRightRadius: corners.top,
+            borderRadius: corners.top,
           },
           bar,
         ]}
@@ -163,18 +153,15 @@ export function FloatingField({
           returnKeyType="send"
           style={[lineInput("callout"), { minHeight: 44, flex: 1, color: theme.colors.foreground }]}
         />
-        <Animated.View
+        <View
           style={[
             CORNER,
             {
               width: corners.button.size,
               height: corners.button.size,
               overflow: "hidden",
-              borderTopLeftRadius: corners.button.top,
-              borderTopRightRadius: corners.button.top,
-              borderBottomLeftRadius: corners.button.top,
+              borderRadius: corners.button.top,
             },
-            button,
           ]}
         >
           <Pressable
@@ -198,7 +185,7 @@ export function FloatingField({
               />
             </View>
           </Pressable>
-        </Animated.View>
+        </View>
       </Animated.View>
     </Animated.View>
   );

@@ -90,7 +90,7 @@ Mobile:
 - [x] (2026-11-15, Assignments now uses the shared list controls: its filters as Tasks' chips, and the Filter and Display sheets keep their open state to themselves, so opening one no longer redraws the whole page; tests; on screen) Assignments: active filters show as the same chips as on Tasks (with their "is any of" parts) instead of hiding in the filter menu. The Filter and Display sheets open and close slowly; make them quick.
 - [x] (2026-11-15, each switch built the other layout from nothing and redrew the page twice; now both stay built once shown (the hidden one out of sight), what they show is worked out once for both, and the tile answers before the swap; a flip went from 300 to 800 ms to about 160 ms in the debug build, React's own part of it 25 ms; test; measured on screen; how it feels in a release build under Needs the user) Tasks: switching between list and board takes a second or more; make it instant.
 - [ ] Save View leaves the Display sheet. Once the user changes the filters or display options of a view (or a base page), a floating bar at the bottom offers the desktop's three choices: Discard, Save as View, Save. Only pages with views offer Save as View; the others show Discard and Save. Every page with filters or display options. Same floating bar as on Bookmarks and Files.
-- [ ] The floating bars (Bookmarks, Files, the new save bar): their top corners take the same radius as the bottom ones, a full pill following the screen's curve.
+- [x] (2026-11-15, all four corners follow the screen's curve 8pt in, up to a full pill (34 on today's phones), the send button a circle nested in it; the save bar uses the same; test; on screen) The floating bars (Bookmarks, Files, the new save bar): their top corners take the same radius as the bottom ones, a full pill following the screen's curve.
 - [ ] File viewer details: with a long label chosen, the "Labels" name of the select trigger gets cut short. Never cut the field's name, only the label names.
 - [ ] Bookmarks list: the (i) button is bigger and a secondary button, easier to hit and to recognise.
 - [ ] Relationship picker: the list under the search bar and "kind of link" only shows items valid for the chosen kind of link.
@@ -129,7 +129,7 @@ Both:
 
 - On a real phone (a release build): switching Tasks between list and board feels instant.
 - On a real phone: typing in a bookmark's Note (or any field low on a page) keeps it above the keyboard.
-- On a real phone: the paste bars (Bookmarks, Files) lifted by the keyboard: corners relaxing as they rise, the deeper shadow while typing.
+- On a real phone: the paste bars (Bookmarks, Files) lifted by the keyboard, with the deeper shadow while typing.
 - On a real phone: typing a time with the keyboard (hour over the one shown, then the minute).
 
 - On the phone with your own Moodle site: sign in from Settings, then check the course list, a course, a file with Import, and Moodle deadlines on the calendar.

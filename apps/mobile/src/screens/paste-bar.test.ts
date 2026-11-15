@@ -15,13 +15,17 @@ describe("the paste bar", () => {
     expect(screenCornerRadius({ width: 375, height: 667 })).toBe(0);
   });
 
-  it("sits 8 points in, its bottom corners following the screen's", () => {
+  // Round at the top as at the bottom: a full pill following the screen's curve, as the
+  // user asked once the bottom corners matched the phone's.
+  it("sits 8 points in, a pill whose corners follow the screen's", () => {
     expect(PASTE_BAR_MARGIN).toBe(8);
+    const tight = pasteBarCorners(39);
+    expect(tight.bottom).toBe(39 - PASTE_BAR_MARGIN);
+    expect(tight.top).toBe(tight.bottom);
+    // A rounder screen than the bar is tall: a full pill, never more.
     const corners = pasteBarCorners(55);
-    expect(corners.bottom).toBe(55 - PASTE_BAR_MARGIN);
-    // The top keeps the regular corners, never a pill.
-    expect(corners.top).toBeLessThan(corners.height / 2);
-    expect(corners.top + corners.bottom).toBeLessThanOrEqual(corners.height);
+    expect(corners.top).toBe(corners.height / 2);
+    expect(corners.bottom).toBe(corners.height / 2);
   });
 
   it("nests the send button's corners in the bar's", () => {
@@ -35,6 +39,8 @@ describe("the paste bar", () => {
   it("never asks for corners larger than the bar, whatever the screen", () => {
     const corners = pasteBarCorners(90);
     expect(corners.top + corners.bottom).toBeLessThanOrEqual(corners.height);
+    // The send button nested in a pill is a circle.
+    expect(corners.button.top).toBe(corners.button.size / 2);
   });
 
   it("keeps regular corners all round on a phone with square corners", () => {
