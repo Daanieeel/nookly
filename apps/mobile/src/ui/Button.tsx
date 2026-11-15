@@ -188,22 +188,26 @@ export function Button({
 }
 
 /// The desktop's icon button: `ghost`, `icon` sized, named for screen readers (the
-/// phone's stand in for a tooltip).
+/// phone's stand in for a tooltip). `secondary` draws it on a gray circle, for one that has
+/// to be found and hit at a glance.
 export function IconButton({
   label,
   icon,
   onPress,
   size = "icon",
+  variant = "ghost",
   disabled = false,
 }: {
   label: string;
   icon: React.ReactNode;
   onPress: () => void;
   size?: "icon" | "iconSm";
+  variant?: "ghost" | "secondary";
   /// Drawn faded and not pressable, for an action that would do nothing now.
   disabled?: boolean;
 }) {
   const press = usePressScale();
+  const fill = useLook("secondary").fill;
   return (
     <AnimatedPressable
       accessibilityRole="button"
@@ -219,6 +223,10 @@ export function IconButton({
         drawnAt(size),
         CORNER,
         { alignItems: "center", justifyContent: "center", borderRadius: RADIUS.control },
+        variant === "secondary" && {
+          backgroundColor: fill,
+          borderRadius: CONTROL_SIZE[size] / 2,
+        },
         disabled && { opacity: 0.35 },
         press.style,
       ]}

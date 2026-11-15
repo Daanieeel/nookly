@@ -1,3 +1,4 @@
+import { useSemantic } from "../ui/kit/scheme.ts";
 import { SaveBar } from "../ui/SaveBar.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
@@ -136,7 +137,7 @@ function BookmarkCard({
 }) {
   const entityMenu = useEntityMenu();
   const router = useRouter();
-  const theme = useTheme();
+  const label = useSemantic("label");
   const added = new Date(bookmark.entity.createdAt).toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
@@ -177,7 +178,8 @@ function BookmarkCard({
       <View className="absolute right-1 top-1">
         <IconButton
           label={`Details of ${bookmark.entity.title}`}
-          icon={<IconInfoCircle size={20} color={theme.colors.mutedForeground} />}
+          icon={<IconInfoCircle size={22} color={label} />}
+          variant="secondary"
           onPress={() => router.push(`/entity/${bookmark.entity.id}`)}
         />
       </View>
@@ -293,6 +295,7 @@ function BookmarkRow({
   const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
+  const label = useSemantic("label");
   const edge = useRowEdge({ inSwipeRow: true });
   const clipboard = useClipboard();
   return (
@@ -336,7 +339,8 @@ function BookmarkRow({
         </Pressable>
         <IconButton
           label={`Details of ${bookmark.entity.title}`}
-          icon={<IconInfoCircle size={20} color={theme.colors.mutedForeground} />}
+          icon={<IconInfoCircle size={22} color={label} />}
+          variant="secondary"
           onPress={() => router.push(`/entity/${bookmark.entity.id}`)}
         />
       </View>

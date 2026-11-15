@@ -144,20 +144,31 @@ export function Property({
       })}
     >
       {tinted(icon, tint)}
-      <Label type="callout" weight="500" style={{ flex: 1 }} numberOfLines={1}>
+      {/* The name keeps its width; a long value is the one cut short. */}
+      <Label type="callout" weight="500" style={{ flexShrink: 0 }} numberOfLines={1}>
         {label}
       </Label>
-      {valueIcon}
-      <Label
-        type="callout"
-        weight="500"
-        color="secondaryLabel"
-        tint={tint}
-        numberOfLines={1}
-        style={{ maxWidth: "55%" }}
+      <View
+        style={{
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: SPACE.md,
+        }}
       >
-        {value}
-      </Label>
+        {valueIcon}
+        <Label
+          type="callout"
+          weight="500"
+          color="secondaryLabel"
+          tint={tint}
+          numberOfLines={1}
+          style={{ flexShrink: 1 }}
+        >
+          {value}
+        </Label>
+      </View>
       {interactive ? <Glyph icon={IconSelector} size={13} color={muted.hex} /> : null}
     </Pressable>
   );
