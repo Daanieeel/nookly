@@ -27,18 +27,22 @@ import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx
 import { TasksScreen } from "./TasksScreen.tsx";
 
 /// What "+" makes in a module, where the phone can make it.
-const CREATE = new Map<ModuleKey, (spaceId: string) => string>([
-  ["notes", (spaceId) => `/new/page?spaceId=${spaceId}&type=note`],
-  ["jots", (spaceId) => `/new/page?spaceId=${spaceId}&type=jot`],
-  ["bookmarks", (spaceId) => `/new/bookmark?spaceId=${spaceId}`],
-  ["calendar", (spaceId) => `/new/entry?spaceId=${spaceId}`],
-  ["courses", (spaceId) => `/new/course?spaceId=${spaceId}`],
-  ["exams", (spaceId) => `/new/exam?spaceId=${spaceId}`],
-  ["assignments", (spaceId) => `/new/assignment?spaceId=${spaceId}`],
-  ["decks", (spaceId) => `/new/deck?spaceId=${spaceId}`],
-  ["recipes", (spaceId) => `/new/recipe?spaceId=${spaceId}`],
-  ["sessions", (spaceId) => `/new/session?spaceId=${spaceId}`],
-  ["semesters", (spaceId) => `/new/semester?spaceId=${spaceId}`],
+/// Each module's New button: what it makes, and where its form is.
+const CREATE = new Map<ModuleKey, { label: string; href: (spaceId: string) => string }>([
+  ["notes", { label: "New Note", href: (spaceId) => `/new/page?spaceId=${spaceId}&type=note` }],
+  ["jots", { label: "New Jot", href: (spaceId) => `/new/page?spaceId=${spaceId}&type=jot` }],
+  ["bookmarks", { label: "New Bookmark", href: (spaceId) => `/new/bookmark?spaceId=${spaceId}` }],
+  ["calendar", { label: "New Calendar Entry", href: (spaceId) => `/new/entry?spaceId=${spaceId}` }],
+  ["courses", { label: "New Course", href: (spaceId) => `/new/course?spaceId=${spaceId}` }],
+  ["exams", { label: "New Exam", href: (spaceId) => `/new/exam?spaceId=${spaceId}` }],
+  [
+    "assignments",
+    { label: "New Assignment", href: (spaceId) => `/new/assignment?spaceId=${spaceId}` },
+  ],
+  ["decks", { label: "New Deck", href: (spaceId) => `/new/deck?spaceId=${spaceId}` }],
+  ["recipes", { label: "New Recipe", href: (spaceId) => `/new/recipe?spaceId=${spaceId}` }],
+  ["sessions", { label: "New Session", href: (spaceId) => `/new/session?spaceId=${spaceId}` }],
+  ["semesters", { label: "New Semester", href: (spaceId) => `/new/semester?spaceId=${spaceId}` }],
 ]);
 
 /// Modules whose items the phone lists with their own fields.
@@ -170,10 +174,10 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
                 ]
               : []),
             {
-              label: `New in ${MODULE_LABELS[module]}`,
+              label: create.label,
               icon: IconPlus,
               toolbarIcon: TOOLBAR_ICONS.plus,
-              onPress: () => router.push(create(spaceId)),
+              onPress: () => router.push(create.href(spaceId)),
               primary: true,
             },
           ]

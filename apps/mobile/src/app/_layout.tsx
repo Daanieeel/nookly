@@ -205,7 +205,10 @@ export default function RootLayout() {
       <Stack.Screen name="entity/[id]" options={{ title: "", ...pageBar(tablet) }} />
       <Stack.Screen name="file/[id]" options={{ title: "", ...pageBar(tablet) }} />
       <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
-      <Stack.Screen name="settings/index" options={{ title: "Settings", ...groupedHeader }} />
+      <Stack.Screen
+        name="settings/index"
+        options={{ title: "Settings", ...groupedHeader, ...pageBar(tablet) }}
+      />
       <Stack.Screen name="settings/[page]" options={{ title: "Settings", ...groupedHeader }} />
       <Stack.Screen name="pick/icon" options={SHEET_ROUTE} />
       <Stack.Screen name="new/recipe" options={SHEET_ROUTE} />

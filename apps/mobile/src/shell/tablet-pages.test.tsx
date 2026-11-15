@@ -5,6 +5,7 @@ import { barLabels, renderScreens, testData } from "../test/render.tsx";
 import { CalendarScreen } from "../screens/CalendarScreen.tsx";
 import { TasksScreen } from "../screens/TasksScreen.tsx";
 import { pageBar } from "./history.ts";
+import { SettingsScreen } from "../screens/SettingsScreen.tsx";
 
 /// An iPad wide, as the tablet shell lays it out.
 const IPAD = { width: 1100 };
@@ -53,5 +54,39 @@ describe("the system bar on a tablet", () => {
   it("is left out of top level pages and items, and kept on a phone", () => {
     expect(pageBar(true)).toEqual({ headerShown: false });
     expect(pageBar(false)).toEqual({ headerShown: true });
+  });
+});
+
+// The desktop's Settings lists its sections beside the one shown; a tablet does the same
+// instead of pushing a page for each section, as a phone does.
+describe("Settings on a tablet", () => {
+  it("shows the picked section beside the list of sections", async () => {
+    const screen = await renderScreens(
+      {
+        index: () => <SettingsScreen />,
+        "settings/[page]": () => <Text>Pushed a page</Text>,
+      },
+      testData(),
+      "/",
+      IPAD,
+    );
+    // General is shown to begin with.
+    expect(await screen.findByRole("header", { name: "General" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: /^Appearance/ }));
+    expect(await screen.findByRole("header", { name: "Appearance" })).toBeTruthy();
+    expect(screen.getAllByRole("radio", { name: "Dark" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Pushed a page")).toBeNull();
+  });
+
+  it("pushes each section as its own page on a phone", async () => {
+    const screen = await renderScreens(
+      {
+        index: () => <SettingsScreen />,
+        "settings/[page]": () => <Text>Pushed a page</Text>,
+      },
+      testData(),
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: /^Appearance/ }));
+    expect(await screen.findByText("Pushed a page")).toBeTruthy();
   });
 });

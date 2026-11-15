@@ -474,4 +474,6 @@ Above the files, only the labels picked show, as chips to take off one by one, w
 
 The tablet is the desktop made for touch, not a bigger phone. Its titlebar already goes back and forward and its tabs name the page, so the system's bar over each page only repeated them with a back arrow, a centred title and round buttons. On a tablet the top level pages and an item's page have no bar. A page's actions (New Task, Add Files, Scan Document, New Assignment, Space Settings) are labelled buttons at the end of its header row after Filter and Display, the main one filled, as the desktop's "New task" and "Choose files". A page without a list header shows them at its top right, and the Calendar puts its New button beside its views. One component (`PageActions`) declares them for both: on a phone they stay round buttons in the bar.
 
-Beside the page, the sidebar also drops its "Nookly" title and its Search button (the titlebar has Search) and starts with the mascot's card, as the desktop's does.
+Beside the page, the sidebar also drops its "Nookly" title and its Search button (the titlebar has Search) and starts with the mascot's card, as the desktop's does. A module's New button names what it makes (New Note, New Semester), as the desktop's does, on the phone too.
+
+Settings on a tablet is the desktop's: its categories listed on the left, the one picked shown beside them. Pages of their own (the account, Sidebar, Keyboard Shortcuts, What's New) still open as a page.

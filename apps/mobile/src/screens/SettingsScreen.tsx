@@ -16,6 +16,9 @@ import {
 } from "@tabler/icons-react-native";
 import { version } from "../../package.json";
 import { useRouter } from "expo-router";
+import { View } from "react-native";
+import { useIsTablet } from "../ui/pane.tsx";
+import { Text } from "../ui/Text.tsx";
 import { useState } from "react";
 import { useSyncState } from "../data/context.tsx";
 import { GroupedSection, INSET } from "../ui/kit/GroupedSection.tsx";
@@ -49,6 +52,8 @@ interface NavLink {
   badge: BadgeLook;
   /// Where it goes; About has nowhere to go and only says the version.
   href?: string;
+  /// A category of settings, which a tablet shows beside the list instead of going there.
+  page?: SettingsPage;
 }
 
 const pageLink = (id: SettingsPage): NavLink => {
@@ -58,6 +63,7 @@ const pageLink = (id: SettingsPage): NavLink => {
     subtitle: page?.subtitle ?? "",
     badge: PAGE_BADGES[id],
     href: `/settings/${id}`,
+    page: id,
   };
 };
 
@@ -137,9 +143,14 @@ export function searchSettings(query: string): SharedSettingId[] {
 /// Settings lays them out.
 export function SettingsScreen() {
   const router = useRouter();
+  const tablet = useIsTablet();
   const [query, setQuery] = useState("");
+  // On a tablet, the category shown beside the list, as the desktop's Settings.
+  const [picked, setPicked] = useState<SettingsPage>("general");
   const found = query.trim() ? searchSettings(query) : [];
-  return (
+  const beside = (link: NavLink): link is NavLink & { page: SettingsPage } =>
+    tablet && link.page !== undefined;
+  const list = (
     <Screen grouped>
       <SearchField label="Search settings" value={query} onChangeText={setQuery} />
       {query.trim() ? (
@@ -168,10 +179,15 @@ export function SettingsScreen() {
                   badge={<IconBadge glyph={link.badge.glyph} tint={link.badge.tint} />}
                   title={link.title}
                   subtitle={link.subtitle}
-                  accessory={link.href ? "chevron" : "none"}
+                  accessory={beside(link) ? "check" : link.href ? "chevron" : "none"}
+                  selected={beside(link) ? link.page === picked : undefined}
                   onPress={
-                    // SAFETY: every `href` in NAV_GROUPS is a route under `src/app/settings`.
-                    link.href ? () => router.push(link.href as never) : undefined
+                    beside(link)
+                      ? () => setPicked(link.page)
+                      : link.href
+                        ? // SAFETY: every `href` in NAV_GROUPS is a route under `src/app/settings`.
+                          () => router.push(link.href as never)
+                        : undefined
                   }
                 />
               ))}
@@ -181,7 +197,24 @@ export function SettingsScreen() {
       )}
     </Screen>
   );
+  if (!tablet) return list;
+  return (
+    <View className="flex-1 flex-row">
+      <View style={{ width: SETTINGS_LIST_WIDTH }}>{list}</View>
+      <View className="flex-1 border-l border-border">
+        <View className="px-4 pt-4">
+          <Text variant="title" accessibilityRole="header">
+            {settingsTitle(picked)}
+          </Text>
+        </View>
+        <SettingsCategoryScreen page={picked} />
+      </View>
+    </View>
+  );
 }
+
+/// How wide a tablet's list of settings categories is, beside the category shown.
+const SETTINGS_LIST_WIDTH = 340;
 
 /// One category's settings, in the desktop's words, under a small heading per section.
 export function SettingsCategoryScreen({ page }: { page: string }) {
