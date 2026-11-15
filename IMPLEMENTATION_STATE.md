@@ -88,7 +88,7 @@ Mobile:
 - [x] (2026-11-15, the tap worked but with half the choices picked (3 of the 6 due buckets, 2 of 4 ages) the swapped half read "is any of" again, so it looked dead; an even split now reads the way it was last turned; test; on screen) Cross Space Tasks page: the "is any of" (or similar) part of a filter chip cannot be tapped for the preset "Due date" and "Created" filters (maybe ones synced from the desktop). Works on other pages.
 - [x] (2026-11-15, one `ListEmpty` for every filtered list (Tasks, Assignments, Notes, Jots, Files, Bookmarks, Courses, Exams, Decks, Recipes, Trash): the module's icon and a title when there is nothing yet, "No Matches" with a Clear Filters button when filters hide everything; tests; on screen) Nicer empty states everywhere: Assignments says only "Nothing matches these filters." Give it a proper empty state with a Clear Filters button under it.
 - [x] (2026-11-15, Assignments now uses the shared list controls: its filters as Tasks' chips, and the Filter and Display sheets keep their open state to themselves, so opening one no longer redraws the whole page; tests; on screen) Assignments: active filters show as the same chips as on Tasks (with their "is any of" parts) instead of hiding in the filter menu. The Filter and Display sheets open and close slowly; make them quick.
-- [ ] Tasks: switching between list and board takes a second or more; make it instant.
+- [x] (2026-11-15, each switch built the other layout from nothing and redrew the page twice; now both stay built once shown (the hidden one out of sight), what they show is worked out once for both, and the tile answers before the swap; a flip went from 300 to 800 ms to about 160 ms in the debug build, React's own part of it 25 ms; test; measured on screen; how it feels in a release build under Needs the user) Tasks: switching between list and board takes a second or more; make it instant.
 - [ ] Save View leaves the Display sheet. Once the user changes the filters or display options of a view (or a base page), a floating bar at the bottom offers the desktop's three choices: Discard, Save as View, Save. Only pages with views offer Save as View; the others show Discard and Save. Every page with filters or display options. Same floating bar as on Bookmarks and Files.
 - [ ] The floating bars (Bookmarks, Files, the new save bar): their top corners take the same radius as the bottom ones, a full pill following the screen's curve.
 - [ ] File viewer details: with a long label chosen, the "Labels" name of the select trigger gets cut short. Never cut the field's name, only the label names.
@@ -127,6 +127,7 @@ Both:
 
 ## Needs the user
 
+- On a real phone (a release build): switching Tasks between list and board feels instant.
 - On a real phone: typing in a bookmark's Note (or any field low on a page) keeps it above the keyboard.
 - On a real phone: the paste bars (Bookmarks, Files) lifted by the keyboard: corners relaxing as they rise, the deeper shadow while typing.
 - On a real phone: typing a time with the keyboard (hour over the one shown, then the minute).

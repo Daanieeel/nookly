@@ -73,7 +73,10 @@ describe("the tasks list", () => {
     await fireEvent.press(screen.getByRole("checkbox", { name: "Done" }));
     await fireEvent.press(screen.getByRole("button", { name: "Display" }));
     await fireEvent(await screen.findByLabelText("Show finished"), "valueChange", false);
-    expect(await screen.findByText("Nothing matches these filters.")).toBeTruthy();
+    expect(
+      await screen.findByRole("summary", { name: "No Matches. Nothing matches these filters." }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear Filters" })).toBeTruthy();
   });
 
   // The desktop's other task filters (D73), in the Filter sheet and as chips.
@@ -108,6 +111,20 @@ describe("the tasks list", () => {
     expect(await screen.findByLabelText("Todo column")).toBeTruthy();
     expect(screen.getByLabelText("Backlog column")).toBeTruthy();
     expect(screen.getByRole("button", { name: "New Task in Todo" })).toBeTruthy();
+  });
+
+  // Switching between list and board took a second: each switch built the other layout
+  // from nothing. Once shown, a layout stays built behind the other, so going back is instant.
+  it("keeps the list and the board built once shown, switching between them", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Display" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Board" }));
+    expect(await screen.findByLabelText("Todo column")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "List" }));
+    await waitFor(() => expect(screen.queryByLabelText("Todo column")).toBeNull());
+    expect(screen.getByLabelText("Todo column", { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId("tasks-list")).toBeTruthy();
   });
 
   it("shows tasks on the board as cards, moved to another column like a drag", async () => {

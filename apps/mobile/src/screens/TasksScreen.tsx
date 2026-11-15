@@ -16,7 +16,7 @@ import {
   IconTag,
 } from "@tabler/icons-react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { usePreference } from "../data/preferences.ts";
@@ -228,13 +228,22 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
   const [note, setNote] = useState<string | null>(null);
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
   const weekStart = useWeekStart();
-  const groups = groupTasks(tasks, display, {
-    statuses,
-    labels: shownLabels,
-    labelIdsOf: (id) => labelMap?.get(id) ?? [],
-    spaces,
-    weekStart,
-  });
+  // What the list and the board show depends on everything but which of them is shown, so a
+  // switch between them builds nothing again (see `built` below).
+  const shapeKey = JSON.stringify({ ...display, layout: null });
+  const groups = useMemo(
+    () =>
+      groupTasks(tasks, display, {
+        statuses,
+        labels: shownLabels,
+        labelIdsOf: (id) => labelMap?.get(id) ?? [],
+        spaces,
+        weekStart,
+      }),
+    // `display` is read through `shapeKey`, its layout left out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tasks, shapeKey, statuses, labels, labelMap, spaces, weekStart, spaceId],
+  );
   const spaceOf = (task: (typeof tasks)[number]) =>
     spaceId ? undefined : spaces.find((s) => s.id === task.entity.spaceId);
   const labelsOf = (task: (typeof tasks)[number]) =>
@@ -247,10 +256,18 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
     );
   const finishedGroup = (status: string) =>
     (statuses.find((s) => s.id === status)?.doneness ?? 0) >= 100;
-  const board = display.layout === "board";
+  // The layout shown follows the one picked a beat later, so the tile answers the finger at
+  // once; each layout stays built once shown, behind the other, so switching back is instant.
+  const layout = useDeferredValue(display.layout);
+  const board = layout === "board";
+  const [built, setBuilt] = useState<TaskDisplay["layout"][]>([layout]);
+  if (!built.includes(layout)) setBuilt([...built, layout]);
+  const hiddenUnless = (on: boolean) => (on ? undefined : { display: "none" as const });
   const moveTo = useLocalWrite((db, move: { id: string; statusId: string }) =>
     setTaskStatus(db, move.id, move.statusId),
   );
+  const move = useRef(moveTo);
+  move.current = moveTo;
   const openView = (id: string) => {
     setView(id);
     if (id === "all") {
@@ -290,6 +307,102 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
       />
     );
   };
+  const boardBlock = useMemo(
+    () =>
+      built.includes("board") ? (
+        <Board
+          columns={(display.grouping === "status"
+            ? // Every status a card can go to, empty ones too, as the desktop's board.
+              statuses
+                .filter(
+                  (s) =>
+                    (display.statuses.length === 0 || display.statuses.includes(s.id)) &&
+                    (display.showFinished || s.doneness < 100),
+                )
+                .map((s) => ({
+                  id: s.id,
+                  title: s.name,
+                  tasks: groups.find((g) => g.id === s.id)?.tasks ?? [],
+                }))
+            : groups
+          ).map((group) => ({
+            id: group.id,
+            title: group.title,
+            icon:
+              display.grouping === "status" ? (
+                <StatusIcon status={statuses.find((s) => s.id === group.id)} size={16} />
+              ) : undefined,
+            items: group.tasks,
+            footer:
+              display.grouping === "status" ? (
+                <View className="items-start">
+                  <Button
+                    label={`New Task in ${group.title}`}
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => newTask(group.id)}
+                  />
+                </View>
+              ) : undefined,
+          }))}
+          keyOf={(task) => task.entity.id}
+          labelOf={(task) => task.entity.title || "Untitled"}
+          onOpen={(task) => router.push(`/entity/${task.entity.id}`)}
+          onMove={
+            display.grouping === "status"
+              ? (task, statusId) => move.current.mutate({ id: task.entity.id, statusId })
+              : undefined
+          }
+          renderCard={(task) => {
+            const space = spaceOf(task);
+            return (
+              <TaskCard
+                task={task}
+                statuses={statuses}
+                spaceColor={space?.color}
+                spaceName={space?.name}
+                labels={labelsOf(task)}
+              />
+            );
+          }}
+        />
+      ) : null,
+    // Built from the same things as `groups`; `display` read through `shapeKey`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [built, groups, shapeKey, statuses, labels, labelMap, spaces],
+  );
+  const listBlock = useMemo(
+    () =>
+      built.includes("list") ? (
+        <>
+          {groups.map((group) => {
+            const shown =
+              display.grouping === "status" && finishedGroup(group.id)
+                ? group.tasks.slice(0, FINISHED_SHOWN)
+                : group.tasks;
+            return (
+              <Band
+                key={group.id}
+                icon={null}
+                title={group.title}
+                count={group.tasks.length}
+                initiallyOpen={
+                  !(display.grouping === "status" && finishedGroup(group.id)) && group.id !== "done"
+                }
+              >
+                <View>
+                  {shown.map((task) => (
+                    <View key={task.entity.id}>{row(task)}</View>
+                  ))}
+                </View>
+              </Band>
+            );
+          })}
+        </>
+      ) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [built, groups, shapeKey, statuses, labels, labelMap, spaces],
+  );
   return (
     <>
       <Stack.Toolbar placement="right">
@@ -340,88 +453,10 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
           nothingYet={{ title: "No Tasks", message: "Tap + to add one." }}
           onClear={() => setDisplay({ ...display, ...NO_TASK_FILTERS })}
         />
-        {board ? (
-          <Board
-            columns={(display.grouping === "status"
-              ? // Every status a card can go to, empty ones too, as the desktop's board.
-                statuses
-                  .filter(
-                    (s) =>
-                      (display.statuses.length === 0 || display.statuses.includes(s.id)) &&
-                      (display.showFinished || s.doneness < 100),
-                  )
-                  .map((s) => ({
-                    id: s.id,
-                    title: s.name,
-                    tasks: groups.find((g) => g.id === s.id)?.tasks ?? [],
-                  }))
-              : groups
-            ).map((group) => ({
-              id: group.id,
-              title: group.title,
-              icon:
-                display.grouping === "status" ? (
-                  <StatusIcon status={statuses.find((s) => s.id === group.id)} size={16} />
-                ) : undefined,
-              items: group.tasks,
-              footer:
-                display.grouping === "status" ? (
-                  <View className="items-start">
-                    <Button
-                      label={`New Task in ${group.title}`}
-                      variant="ghost"
-                      size="sm"
-                      onPress={() => newTask(group.id)}
-                    />
-                  </View>
-                ) : undefined,
-            }))}
-            keyOf={(task) => task.entity.id}
-            labelOf={(task) => task.entity.title || "Untitled"}
-            onOpen={(task) => router.push(`/entity/${task.entity.id}`)}
-            onMove={
-              display.grouping === "status"
-                ? (task, statusId) => moveTo.mutate({ id: task.entity.id, statusId })
-                : undefined
-            }
-            renderCard={(task) => {
-              const space = spaceOf(task);
-              return (
-                <TaskCard
-                  task={task}
-                  statuses={statuses}
-                  spaceColor={space?.color}
-                  spaceName={space?.name}
-                  labels={labelsOf(task)}
-                />
-              );
-            }}
-          />
-        ) : (
-          groups.map((group) => {
-            const shown =
-              display.grouping === "status" && finishedGroup(group.id)
-                ? group.tasks.slice(0, FINISHED_SHOWN)
-                : group.tasks;
-            return (
-              <Band
-                key={group.id}
-                icon={null}
-                title={group.title}
-                count={group.tasks.length}
-                initiallyOpen={
-                  !(display.grouping === "status" && finishedGroup(group.id)) && group.id !== "done"
-                }
-              >
-                <View>
-                  {shown.map((task) => (
-                    <View key={task.entity.id}>{row(task)}</View>
-                  ))}
-                </View>
-              </Band>
-            );
-          })
-        )}
+        <View style={hiddenUnless(board)}>{boardBlock}</View>
+        <View testID="tasks-list" className="gap-5" style={hiddenUnless(!board)}>
+          {listBlock}
+        </View>
       </Screen>
     </>
   );
