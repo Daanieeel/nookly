@@ -13,7 +13,7 @@
 
 **This file is a ready to run prompt and the handover file.** An agent told "read `IMPLEMENTATION_STATE.md` and get to work" reads this file, `AGENTS.md` and `docs/00-index.md`, then carries the list out from start to finish without human help. Keep it current: tick items, note findings, append to the progress log after every meaningful step.
 
-The items come from the user's `NOTES.md` (2026-11-15, fourth round). `NOTES.md` is the user's own file: read it, never edit it.
+The items come from the user's `NOTES.md` (2026-11-15, fifth round). `NOTES.md` is the user's own file: read it, never edit it.
 
 ## Rules
 
@@ -49,54 +49,34 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ## Items
 
-Order: shared pieces first (the input field, the centred dialog, list rows and gestures), then the screens that use them, then the features both apps share.
+Order: shared pieces first (dialog corners and padding, the search field, filter chips, swipe rows), then the screens that use them. Everything here is the phone; NOTES.md has nothing new for the desktop this round.
 
 ### 1. Mobile: shared pieces
 
-- [x] (2026-11-15, D69: a raised box with a hairline edge, accent edge, name and glow while focused; tests; on screen) Redesign the regular text input field. It looks flat and plain now; give it Nookly's style (depth, the squircle radius, a clear focus state), through `ui/` only, used everywhere.
-- [x] (2026-11-15, the clear button asked for a percent of a height the row lacked; test; on screen) Bug: the round search bars (e.g. in the relationship picker) double their height once you start typing.
-- [x] (2026-11-15, a field on its own in a card rounds with the card; test; on screen) The relationship picker's "kind of link" select trigger below the search bar is not rounded. Round it.
-- [x] (2026-11-15, `FilterField` is the round `SearchField` on Notes, Jots and Trash, and the global search too; test) The "Filter notes" search bar on the Notes list gets the regular round search bar design (check every list page's search bar).
-- [x] (2026-11-15, 12 under the close button as above and beside it; test; on screen) Dialogs (the centred floating card): the space below the close button equals its space to the right and top.
-- [x] (2026-11-15, `ui/row-edge.tsx`: a page's gutter as context, rows reach out by it and pad back in, dividers stay as wide as the content; Row, tasks, notes, jots, assignments, bookmarks; tests; measured on screen, 0 to 402) List rows (tasks, notes, jots, every item list): the side padding moves from the list container into each row, so the pressed colour and swipe actions run from screen edge to edge.
-- [x] (2026-11-15, `SwipeRow` rebuilt on a pan: follows the finger, the action's colour fills from the screen edge with its icon and name, rests open past half the button, acts past 55% of the row with a haptic at that point, a side without an action rubber bands, a touch stops it, Reduce Motion fades; `SWIPE`, `swipeDrag`, `settleSwipe` in `motion.ts`; tests; the feel needs a real finger, see Needs the user) Swipe actions on rows feel like iOS Mail: actions revealed from outside the screen edge, full swipe to act, spring motion from `ui/motion.ts`, haptics.
-- [x] (2026-11-15, D70: the drawer wraps every route; back keeps the leftmost tenth, the sidebar takes the other nine tenths, the calendar's edge is that tenth too; test; the feel needs a real finger) Sidebar drag gesture: works on every page, from anywhere in the right 90% of the screen; only the leftmost 10% is for going back. Follows the finger, carries its speed on release.
-- [x] (2026-11-15, measured in the dev build by the longest frame after a change: about 400ms per page change and per grouping change. Fixed: a preference change re-rendered every list that remembers anything and re-read the store on every render (now kept in memory, per key); the navigation theme was rebuilt on every page change, re-rendering every screen (memoised, the path read in a small `AppShell`); the sidebar rendered on every commit (memo) and closed only after the new page was built (now closes first); every row built its hidden swipe buttons (now on the first swipe); long lists build their first 24 rows with the page, the rest over the next frames (Notes 540 to 660ms became about 430ms). Tests for each. The rest is the cost of building a page in a dev build; release feel under Needs the user) Speed: navigation and view changes (filters, display options, sidebar nav) are slow. Measure, find the causes, fix them.
+- [ ] Dialogs (the centred card): with squircles now, the corners of the X button and of the dialog no longer match. Use the right math for two nested corner radii and the padding between them.
+- [ ] Dialog padding: in the "New" dialog (the + at the bottom left of the sidebar) the two items do not line up with the X button and the "New" title. Same problem in many other dialogs; fix it for all of them in the shared dialog.
+- [ ] The global search's search bar is too small: give it more height so it feels spacious, and apply the same to every other use of that input.
+- [ ] In that input the icon and the placeholder are not vertically centred to each other: the placeholder sits too low.
+- [ ] Placeholders and their icons get no lowered opacity; use a muted colour instead, so lower SVG layers do not shine through the icon (the magnifying glass's handle).
+- [ ] Many selected filters overcrowd the page (`.reference-images/mobile/filter-overcrowding.png`). Show active filters like the desktop's filter chips, with their parts ("any of", "is not" and so on); each chip may be full width, one below the other.
+- [ ] Swipe actions on every list of items (not only tasks), each type with its own sensible actions; rework their look so they feel native (consider a public package). Tasks get a more useful action than "Done". Rule for every type: swiping right to left always ends in Trash, the rightmost action, active on a long drag; a second action may sit beside it.
 
-### 2. Mobile: sidebar
+### 2. Mobile: screens
 
-- [x] (2026-11-15, the blur ends where the list starts, its fade inside the header's lower edge; test; on screen) The header blur behind "Nookly" and the search button reaches too far down: unscrolled, it must not touch the Blobatar box at the top.
-- [x] (2026-11-15, D71; test; on screen) The + at the bottom left opens a dialog (the centred card) instead of a bottom sheet.
-- [x] (2026-11-15, D71, `SpacesDialog`; test; on screen) The three dots showing the hidden Spaces open a dialog with a search bar.
-- [x] (2026-11-15, D71: every Space in order with a fixed line under the first three, dragged across it; test; on screen) Spaces can be dragged from that hidden Spaces dialog into the three shown in the sidebar (and back).
-- [x] (2026-11-15, a full touch target with a 20pt icon, a dialog; test; on screen) The three dot button on a Space (Add Module, Space Settings) is bigger, and opens a dialog instead of a bottom sheet.
+- [ ] Hidden Spaces dialog: remove the "Drag a Space above the line to show in the sidebar." notice.
+- [ ] Semesters list: still crammed. The "Current" badge moves to the bottom centre of the box, overlaid on its border; no chevron and no "Open" button, the semester opens on tap; no expand or collapse.
+- [ ] Inside a semester, "Add Course" is full width.
+- [ ] The + on the Semesters page opens its sheet over the whole screen although there is nothing to type at length: the sheet takes only the height it needs.
+- [ ] Files: "Paste a link or Choose Files" becomes a floating bar like on Bookmarks, without the "Choose Files" part (the + at the top right does that); make sure that + adds several files at once.
+- [ ] Bookmarks, the "Site" filter: a search bar, each site with its favicon, and the address with only its important part highlighted ("https://www." muted, "google.com" full).
+- [ ] Bookmark details page: prettier and more useful; "Refresh Details" must not wrap to a new line in its success state (layout shift).
+- [ ] Bookmark previews still do not work.
 
-### 3. Mobile: list pages and modules
+### 3. Final checks and report
 
-- [x] (2026-11-15, Set Dates in the row's menu, the badge and the Current label in the primary blue; tests; on screen) Semesters list: less crammed. "Set dates" moves into the row's three dot menu. The logo and the "Current" badge use the regular blue, not green.
-- [x] (2026-11-15, walked every flow in the simulator against the desktop. Fixed: studying had no way out but finishing (now the desktop's session: Back to Deck, counts by kind with the current one marked, a progress bar, Undo in the corner, the ratings in their colours, All caught up at the end); faces with pictures, formulas or code showed as bare text (now the page editor, read only); a card was deleted without asking (now a confirmation); its editor opened at the top of the page (now a sheet); "Write cards 0" and two write buttons on an empty deck; "Nothing waiting" while a card waited; New Deck's stray "Prepares for" line; the Decks page had no title, a bare import button and a grey line for an empty page. Tests; on screen) Decks: they are very buggy. Go through every deck flow (list, create, edit cards, study, results) against the desktop and fix all of it.
-- [x] (2026-11-15, the system's picture of an image, PDF, video or Office file in the grid and the list, as the desktop's `hasThumbnail`; found and fixed D72 on the way: files stored under an earlier app folder looked missing; tests; on screen) Files list: thumbnails for files that have them on the desktop.
-- [x] Bookmarks: the floating paste bar moves up a little.
-- [x] Bookmarks: the filter options sheet is empty (bug). Fill it.
-- [x] (2026-11-15, the type tabs as chips, Space and Labels in the Filter sheet, as `in:` and `#`; tests; on screen) Global search gets the same filter options as the desktop's Cmd+K search.
-
-### 4. Mobile: Moodle
-
-- [x] (2026-11-15, the desktop's external link and logout icons in the bar on every Moodle page; tests; on screen with a stand in site) Sign out and "Open in Moodle" are icon buttons in the page header.
-- [x] (2026-11-15, full width and primary, Open in Moodle beside Search and Share in the bar; tests; on screen) An open Moodle file: "Import to Nookly" is full width at the bottom (Open in Moodle is in the header now).
-- [x] (2026-11-15, the compose sheet every create uses: Close, the name big, Labels and Course as pills, Import as the send button; tests; on screen) The "Import to Nookly" sheet looks like the other Nookly sheets, not iOS's plain form fields.
-
-### 5. Both apps
-
-- [x] (2026-11-15, D73: Pinned, Created and Updated everywhere and each list's own details on both apps, Tasks Views keep every filter across apps and their labels now read the same on both; tests; on screen) Many more filter options on every list page (desktop and phone): every property a list's items have can be filtered on.
-- [x] (2026-11-15, a bare key prefix lists its items newest first after what contains it, in the desktop search and the phone; tests; phone on screen, desktop by its search tests) Search (Cmd+K and the phone's search): typing an entity id like "TSK-" or "TSK" first shows results that contain it or match it fuzzily, then lists the tasks.
-- [x] (2026-11-15, D74: a label shelf on both apps that narrows label by label with counts, a quiet Unlabelled chip with one hint line, grouping by Label, Files Views saved and opened on both apps with the shelf in them, an Unlabelled View preset on the desktop; tests; phone on screen, desktop by its tests) Files: a lasting way to browse and find files by their labels (desktop and phone, synced), and a quiet nudge to label files that have none. Decide the design in `DECISIONS.md` first.
-
-### 6. Final checks and report
-
-- [x] (2026-11-15, see Final report) `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
-- [x] (2026-11-15) `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
-- [x] (2026-11-15) Final report below.
+- [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
+- [ ] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
+- [ ] Final report below.
 
 ## Needs the user
 
@@ -108,26 +88,8 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 
 ## Progress log
 
-- 2026-11-15: asked outside NOTES.md: every fully rounded phone control (buttons, chips, property pills, search fields, segmented controls, sheet buttons, compose pills, calendar days, the editor's inline toolbar) is now a squircle with the regular corners; round only where the desktop is round too (dots, swatches, grabber, thin bars, today in the week) and the glass button beside iOS's own bar buttons. `ui/corners.test.ts` keeps it so.
-- 2026-11-15: every item done (sections 1 to 6), final report written.
-- 2026-11-15: file refilled from the fourth round of `NOTES.md`. The previous rounds (all items done) are in git history up to 61d46e9d and `DECISIONS.md` up to D68.
+- 2026-11-15: file refilled from the fifth round of `NOTES.md`. The fourth round (all done, final report included) is in git history up to 2821cbac and `DECISIONS.md` up to D74.
 
 ## Final report
 
-Every item of this round is done; decisions D69 to D74 are in `DECISIONS.md`.
-
-Checks on the final tree:
-
-- `bun run lint`, `bun run typecheck`: clean.
-- `bun run format:check`: clean except `NOTES.md`, which is yours and left untouched.
-- `bun run duplication`: 0.14%.
-- `bun run test`: passes. The phone's search filter test was split in three, since one long flow ran past Jest's 5 second limit while every suite ran at once.
-- `cargo test`: 1546 pass, 1 fails: `db::search::tests::search_stays_within_its_budget_on_20000_entities`. It takes 19 ms alone and about 240 ms only while the whole suite runs, and failed the same way on 2026-11-14, before this round's search change. It looks like the machine being busy (the simulator, Metro and parallel tests), not a slower search; worth a look on CI.
-- On the way, Views written through the CLI now accept the filters the apps save (pinned, completed, effort), which the CLI refused.
-
-Report only:
-
-- `coverage`: stops on `spellcheck-extension.test.ts` "stays quick on a long page" (3238 ms against 1500 under coverage instrumentation); untouched this round.
-- `unused`: this round's leftovers removed; the remaining 51 exports and 15 types were there before.
-- `audit`: Rust advisories (RUSTSEC-2024-0370, 2024-0436, 2026-0192, 0310, 0346 to 0349) in dependencies; no change this round.
-- `lint:rust:strict`: 3 "too many lines" warnings, as before.
+(Written at the end.)
