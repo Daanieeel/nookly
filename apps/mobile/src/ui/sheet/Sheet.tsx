@@ -34,7 +34,7 @@ import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
 import { useSemantic } from "../kit/scheme.ts";
 import { InCard, InSheet } from "./in-sheet.ts";
-import { CORNER, DEPTH, RADIUS } from "../tokens.ts";
+import { CORNER, DEPTH, RADIUS, SPACE } from "../tokens.ts";
 
 /// The app's one bottom sheet: every picker, menu, confirmation and create form on the
 /// phone opens in it, in place of the desktop's popovers, menus and dialogs. It comes up
@@ -390,7 +390,17 @@ function SheetFrame({
                         ]}
                         className="border-border"
                       />
-                      <View className="flex-row items-center gap-1 pb-1 pl-5 pr-3 pt-3">
+                      <View
+                        testID="card-header"
+                        className="flex-row items-center gap-1"
+                        // As much room under the close button as above and beside it.
+                        style={{
+                          paddingLeft: SPACE.xl,
+                          paddingTop: SPACE.md,
+                          paddingRight: SPACE.md,
+                          paddingBottom: SPACE.md,
+                        }}
+                      >
                         {pages.length > 0 ? (
                           <View className="-ml-3">
                             <IconButton

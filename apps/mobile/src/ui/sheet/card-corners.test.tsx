@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import { Surface } from "../kit/Surface.tsx";
 import { RADIUS } from "../tokens.ts";
 import { Sheet } from "./Sheet.tsx";
@@ -44,5 +44,20 @@ describe("a surface's corners", () => {
       </Surface>,
     );
     expect(screen.getByTestId("surface")).toHaveStyle({ borderRadius: RADIUS.section });
+  });
+});
+
+// The room under a dialog's close button was a third of the room above and beside it.
+describe("a floating card's header", () => {
+  it("has as much room under the close button as above and beside it", async () => {
+    render(
+      <Sheet open onOpenChange={() => {}} title="Relate to…" presentation="card">
+        <Text>Body</Text>
+      </Sheet>,
+    );
+    const header = StyleSheet.flatten((await screen.findByTestId("card-header")).props.style);
+    expect(header.paddingTop).toBeGreaterThan(0);
+    expect(header.paddingBottom).toBe(header.paddingTop);
+    expect(header.paddingRight).toBe(header.paddingTop);
   });
 });
