@@ -81,7 +81,7 @@ pub(super) fn top_level_help() -> Value {
             "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] \
                        [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
             "settings": "nookly cli settings <list|get|set|reset> ...  (the app's settings: theme, date and time format, calendar lengths, editor, backups, shortcuts. `list` shows each one's value, default and the values it takes; the running app picks a change up within a few seconds)",
-            "space": "nookly cli space <list|create|update|delete|reorder> ...",
+            "space": "nookly cli space <list|create|update|delete|reorder|modules|add-module|remove-module|reorder-modules> ...",
             "label": "nookly cli label <list|get|create|update|delete|attach|detach> ...  (attach/detach take several \
                       label ids; get <id> is the reverse lookup, every entity carrying that label)",
             "remote": "nookly cli <moodle_course|moodle_section|moodle_file|moodle_assignment|moodle_grade|moodle_forum|moodle_discussion|moodle_post> \
@@ -498,6 +498,7 @@ freeform tags, siloed per Space (the same label name in two Spaces is two separa
 
 ```
 nookly cli space <list|create|update|delete|reorder> ...   # space delete is PERMANENT, no Trash
+nookly cli space <modules|add-module|remove-module|reorder-modules> ...  # the Space's sidebar modules
 nookly cli label <list|get|create|update|delete|attach|detach> ...
 ```
 

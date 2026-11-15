@@ -110,6 +110,8 @@ Desktop:
   - Investigated, not fixed yet. Layout is full width (a week lays out all 7 columns, the briefing text is cut mid word instead of wrapping) but painting stops at a fixed x inside the page's scroll area; parts outside it (the table footer) draw fully. In image 4 the details panel's own content stops at about the rail's width. That reads as WebKit keeping a stale clip on a layer after the page or the details panel changes width (the panel switches rail and full width through `@3xl` container queries on the page's `@container` scroll root). An offscreen WKWebView harness redraws from scratch and cannot show it, and a second desktop build would open the user's real data.
   - Needs the user: what happened just before (window resized or full screen, sidebar or details panel toggled, a split opened or closed, waking from sleep), and does it go away on its own after scrolling or switching tabs?
 - [ ] CLI coverage for every feature and setting: an agent can set up and use Nookly entirely as a person can through the app. Sensitive ones (sign in) reachable but redacted.
+  - Done: `settings list|get|set|reset` (the app reloads `settings.json` before each save and every 2s, so nothing is saved over), `backup now|list` (restore stays in the app), `sync status` (no session ever shown, the keychain is never read so no password prompt), Space modules (`space modules|add-module|remove-module|reorder-modules`).
+  - Left out on purpose: emptying Trash and deleting forever (the CLI never deletes permanently), restoring a backup, signing in to sync, Moodle, Google or iCloud (they need the person). Still open: external calendar connections (read only status and events), the Files view builder (see Both).
 
 Both:
 

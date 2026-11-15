@@ -73,7 +73,7 @@ pub fn reorder_spaces(conn: &Connection, ordered_ids: Vec<String>) -> AppResult<
     Ok(())
 }
 
-fn get_space(conn: &Connection, id: &str) -> AppResult<Space> {
+pub fn get_space(conn: &Connection, id: &str) -> AppResult<Space> {
     conn.query_row(
         "SELECT * FROM spaces WHERE id = ?1",
         params![id],

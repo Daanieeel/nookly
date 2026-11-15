@@ -13,6 +13,7 @@ pub(super) const BOOL_FLAGS: &[&str] = &[
     "dry-run",
     "regex",
     "case-sensitive",
+    "trash-content",
 ];
 
 pub(super) struct Args {
