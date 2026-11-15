@@ -65,8 +65,8 @@ export function CoursesPage({
         <header className="relative isolate flex flex-wrap items-center gap-x-4 gap-y-3 overflow-hidden rounded-2xl border border-border bg-card p-5 pt-16">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
             <div className="absolute -top-24 -left-10 size-64 rounded-full bg-brand-moodle/20 blur-3xl" />
-            <div className="absolute -top-20 -right-12 size-72 rounded-full border border-border/60" />
-            <div className="absolute -top-32 -right-24 size-96 rounded-full border border-border/40" />
+            <div className="absolute -top-20 -right-12 size-72 rounded-4xl border border-border/60" />
+            <div className="absolute -top-32 -right-24 size-96 rounded-4xl border border-border/40" />
           </div>
           <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border bg-background shadow-xs">
             <MoodleIcon className="size-8" />

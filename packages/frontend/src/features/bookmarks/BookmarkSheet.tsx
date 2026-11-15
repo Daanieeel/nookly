@@ -334,7 +334,7 @@ function ComparePreviewsDialog({
                   </div>
                 )}
                 {effective === option.key && (
-                  <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground">
                     <IconCheck size={12} />
                   </span>
                 )}
@@ -415,7 +415,7 @@ function LabelsField({ bookmark }: { bookmark: Bookmark }) {
         )}
         {attached.length > 0 ? (
           attached.map((label) => (
-            <LabelChip key={label.id} label={label} className="rounded-full border-foreground/10" />
+            <LabelChip key={label.id} label={label} className="rounded-md border-foreground/10" />
           ))
         ) : (
           <span className="flex items-center gap-2 text-muted-foreground">

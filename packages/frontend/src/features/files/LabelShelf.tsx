@@ -5,7 +5,7 @@ import type { FileEntity, Label } from "#/lib/api/types.ts";
 import { cn } from "@nookly/ui/lib/utils";
 
 const CHIP =
-  "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+  "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
 /// The label shelf atop Files (D74): the labels picked, then the labels the files shown
 /// also carry with how many files each holds, then, quietly, the files with no label.

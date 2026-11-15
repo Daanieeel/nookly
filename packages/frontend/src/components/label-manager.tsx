@@ -333,7 +333,7 @@ function LabelRow({ label, labels }: { label: Label; labels: Label[] }) {
               aria-pressed={label.color === color}
               onClick={() => update.mutate({ color })}
               className={cn(
-                "flex size-6 cursor-pointer items-center justify-center rounded-full hover:bg-accent",
+                "flex size-6 cursor-pointer items-center justify-center rounded-md hover:bg-accent",
                 label.color === color && "ring-2 ring-ring",
               )}
             >

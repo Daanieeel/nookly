@@ -320,7 +320,7 @@ function SessionDone({
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-12 text-center"
     >
-      <div className="flex size-10 items-center justify-center rounded-full bg-positive/10 text-positive">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-positive/10 text-positive">
         <IconConfetti size={20} />
       </div>
       <div className="flex flex-col gap-1">

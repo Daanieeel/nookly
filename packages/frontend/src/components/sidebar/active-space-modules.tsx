@@ -149,7 +149,7 @@ export function SpaceHeader({
           <button
             type="button"
             aria-label={`${space.name} settings`}
-            className="flex size-5 items-center justify-center rounded-md text-sidebar-foreground opacity-0 group-focus-within/space-header:opacity-100 group-hover/space-header:opacity-100 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[state=open]:opacity-100 [&>svg]:size-3.5"
+            className="flex size-5 items-center justify-center rounded-sm text-sidebar-foreground opacity-0 group-focus-within/space-header:opacity-100 group-hover/space-header:opacity-100 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[state=open]:opacity-100 [&>svg]:size-3.5"
           >
             <IconDotsVertical />
           </button>

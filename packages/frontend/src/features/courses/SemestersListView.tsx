@@ -594,13 +594,13 @@ function CourseChips({ courses }: { courses: Entity[] }) {
         <span
           key={course.id}
           title={`${course.key} ${displayTitle(course)}`}
-          className="flex size-5 items-center justify-center rounded-full border border-card bg-muted text-muted-foreground"
+          className="flex size-5 items-center justify-center rounded-sm border border-card bg-muted text-muted-foreground"
         >
           <EntityIcon entity={course} size={11} />
         </span>
       ))}
       {courses.length > shown.length && (
-        <span className="flex size-5 items-center justify-center rounded-full border border-card bg-muted text-xs text-muted-foreground">
+        <span className="flex size-5 items-center justify-center rounded-sm border border-card bg-muted text-xs text-muted-foreground">
           +{courses.length - shown.length}
         </span>
       )}

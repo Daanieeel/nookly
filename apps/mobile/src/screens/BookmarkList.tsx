@@ -38,7 +38,7 @@ import {
 import { Empty, Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
 import { RoundButton } from "../ui/sheet/Sheet.tsx";
-import { CORNER, DEPTH, SPACE } from "../ui/tokens.ts";
+import { CORNER, DEPTH, RADIUS, SPACE } from "../ui/tokens.ts";
 import { localDay } from "./dates.ts";
 import { labelOption } from "./option-badges.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -421,8 +421,16 @@ export function BookmarkPasteBar({ spaceId }: { spaceId: string }) {
         </Text>
       ) : null}
       <View
-        className="flex-row items-center gap-2 border border-border bg-card pl-4 pr-1.5"
-        style={[CORNER, { minHeight: 56, borderRadius: PASTE_BAR_RADIUS, ...DEPTH.floating }]}
+        className="flex-row items-center gap-2 border border-border bg-card pl-4"
+        style={[
+          CORNER,
+          {
+            minHeight: PASTE_BAR_HEIGHT,
+            paddingRight: PASTE_BAR_INSET,
+            borderRadius: PASTE_BAR_RADIUS,
+            ...DEPTH.floating,
+          },
+        ]}
       >
         <IconLink size={18} color={theme.colors.mutedForeground} />
         <TextInput
@@ -463,8 +471,14 @@ export function useReadBookmarkPage() {
   );
 }
 
-/// Near the phone's own corner radius, less the bar's inset from the screen's edge.
-const PASTE_BAR_RADIUS = 28;
+export const PASTE_BAR_HEIGHT = 56;
+
+/// How far the Save button sits inside the bar, on its right and above and below it.
+const PASTE_BAR_INSET = 6;
+
+/// A squircle with the regular corners, not a pill: the Save button's corners plus its inset,
+/// so the two curves run side by side.
+export const PASTE_BAR_RADIUS = RADIUS.control + PASTE_BAR_INSET;
 
 /// A little higher above the bottom than it is from the sides, over the home indicator as
 /// Safari's bar sits: right at the corners it looked too low.

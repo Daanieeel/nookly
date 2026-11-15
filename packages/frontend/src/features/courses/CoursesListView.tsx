@@ -644,7 +644,7 @@ function CoursePlaceholderCard({
       <GalleryCardBanner color="var(--muted-foreground)" />
       <GalleryCardBody>
         <div className="flex items-center gap-2">
-          <div className="size-4 shrink-0 rounded-full bg-muted-foreground/30" />
+          <div className="size-4 shrink-0 rounded-sm bg-muted-foreground/30" />
           <div className={`h-3.5 ${titleWidth} rounded bg-muted-foreground/30`} />
         </div>
         {stats > 0 && (
@@ -660,7 +660,7 @@ function CoursePlaceholderCard({
         {chips > 0 && (
           <div className="flex gap-1">
             {Array.from({ length: chips }).map((_, i) => (
-              <div key={i} className="h-4 w-14 rounded-full bg-muted-foreground/20" />
+              <div key={i} className="h-4 w-14 rounded-sm bg-muted-foreground/20" />
             ))}
           </div>
         )}
@@ -684,7 +684,7 @@ function RelatedChip({
   });
   if (!entity) return null;
   return (
-    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
       {icon}
       <span className="truncate">
         {prefix ? `${prefix} ` : ""}

@@ -118,7 +118,7 @@ export function MoodleError({
         <span
           aria-hidden="true"
           className={cn(
-            "absolute -right-2 -bottom-2 flex size-6 items-center justify-center rounded-full border-2 border-background",
+            "absolute -right-2 -bottom-2 flex size-6 items-center justify-center rounded-md border-2 border-background",
             look.caution ? "bg-caution text-background" : "bg-destructive text-background",
           )}
         >

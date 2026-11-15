@@ -252,7 +252,7 @@ export function QuickCreateTask({
                         <LabelChip
                           key={l.id}
                           label={l}
-                          className="h-6 rounded-full border-foreground/10"
+                          className="h-6 rounded-md border-foreground/10"
                         />
                       ))
                     ) : (

@@ -67,7 +67,7 @@ function CardIcon({ icon: Icon, tone }: { icon: TablerIcon; tone: Tone }) {
     <span
       aria-hidden
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center rounded-full",
+        "flex size-9 shrink-0 items-center justify-center rounded-lg",
         BADGE_TONES[tone],
       )}
     >

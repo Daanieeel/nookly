@@ -475,7 +475,7 @@ function ResultRow({
       </span>
       <EntityKey entityKey={entity.key} />
       {space && (
-        <span className="flex max-w-36 shrink-0 items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        <span className="flex max-w-36 shrink-0 items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
           <SpaceGlyph space={space} size={12} />
           <span className="truncate">{space.name}</span>
         </span>
@@ -491,7 +491,7 @@ function FilterChip({ chip, onRemove }: { chip: SearchChip; onRemove: () => void
       onClick={onRemove}
       // Keep the typing focus in the box.
       onMouseDown={(e) => e.preventDefault()}
-      className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground hover:bg-secondary/70"
+      className="flex items-center gap-1 rounded-md bg-secondary px-2.5 py-1 text-xs text-secondary-foreground hover:bg-secondary/70"
     >
       {chipText(chip)}
       <IconX size={12} aria-hidden="true" />
@@ -518,7 +518,7 @@ function TypeTabs({ index, onChange }: { index: number; onChange: (index: number
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onChange(i)}
           className={cn(
-            "shrink-0 rounded-full px-2.5 py-1 text-xs",
+            "shrink-0 rounded-md px-2.5 py-1 text-xs",
             i === index
               ? "bg-accent text-accent-foreground"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",

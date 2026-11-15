@@ -373,7 +373,7 @@ function LabelChips({ labels }: { labels: Label[] }) {
   return (
     <span className="flex min-w-0 items-center gap-1">
       {shown.map((label) => (
-        <LabelChip key={label.id} label={label} className="rounded-full border-foreground/10" />
+        <LabelChip key={label.id} label={label} className="rounded-md border-foreground/10" />
       ))}
       {extra > 0 && <span className="text-xs text-muted-foreground">+{extra}</span>}
     </span>

@@ -101,7 +101,7 @@ export function TextColorBar({ editor }: { editor: Editor | null }) {
             type="button"
             aria-label="Remove color"
             onClick={() => editor.commands.unsetTextColor()}
-            className="flex size-5 items-center justify-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <IconCircleOff size={16} />
           </button>

@@ -42,6 +42,7 @@ import { PageTabs } from "../ui/PageTabs.tsx";
 import { Row, ROW_DIVIDER, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
+import { CORNER, RADIUS } from "../ui/tokens.ts";
 import { FileRow, MoodleBar, MoodleData } from "./MoodleParts.tsx";
 import { type MoodleFileTarget, fileRoute } from "./MoodleFile.tsx";
 
@@ -594,9 +595,10 @@ function Initials({ name }: { name: string }) {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={{
+        ...CORNER,
         width: 32,
         height: 32,
-        borderRadius: 16,
+        borderRadius: RADIUS.badge,
         backgroundColor: fill,
         alignItems: "center",
         justifyContent: "center",

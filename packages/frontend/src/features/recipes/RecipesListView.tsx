@@ -153,7 +153,7 @@ function RecipeCard({ recipe, onOpen }: { recipe: Recipe; onOpen: () => void }) 
           <EntityKey entityKey={entity.key} className="ml-auto" />
         </span>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="rounded-full border border-border bg-muted px-2 py-0.5 capitalize">
+          <span className="rounded-md border border-border bg-muted px-2 py-0.5 capitalize">
             {RECIPE_KIND_LABELS[recipe.kind]}
           </span>
           {duration != null && (
@@ -206,11 +206,11 @@ function RecipePlaceholderCard({ titleWidth }: { titleWidth: string }) {
       <GalleryCardImageBanner />
       <GalleryCardBody>
         <div className="flex items-center gap-2">
-          <div className="size-4 shrink-0 rounded-full bg-muted-foreground/30" />
+          <div className="size-4 shrink-0 rounded-sm bg-muted-foreground/30" />
           <div className={`h-3.5 ${titleWidth} rounded bg-muted-foreground/30`} />
         </div>
         <div className="flex items-center gap-2">
-          <div className="h-4 w-16 rounded-full bg-muted-foreground/20" />
+          <div className="h-4 w-16 rounded-sm bg-muted-foreground/20" />
           <div className="h-3 w-10 rounded bg-muted-foreground/20" />
         </div>
       </GalleryCardBody>

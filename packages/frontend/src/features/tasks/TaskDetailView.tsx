@@ -597,7 +597,7 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
           >
             {attached.length > 0 ? (
               attached.map((l) => (
-                <LabelChip key={l.id} label={l} className="rounded-full border-foreground/10" />
+                <LabelChip key={l.id} label={l} className="rounded-md border-foreground/10" />
               ))
             ) : (
               <span className="text-muted-foreground">Add label</span>

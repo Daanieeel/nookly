@@ -36,7 +36,7 @@ export function EmptyState({
         className,
       )}
     >
-      <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
         <Icon size={18} />
       </div>
       <div className="flex flex-col gap-1">

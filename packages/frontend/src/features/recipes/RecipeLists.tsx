@@ -185,7 +185,7 @@ function BulletRow({
             {...attributes}
             {...listeners}
             aria-label="Drag to reorder ingredient"
-            className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-accent active:cursor-grabbing"
+            className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-accent active:cursor-grabbing"
           >
             <IconGripVertical size={12} />
           </button>
@@ -206,7 +206,7 @@ function BulletRow({
             type="button"
             onClick={onRemove}
             aria-label="Remove ingredient"
-            className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+            className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
           >
             <IconX size={12} />
           </button>
@@ -505,7 +505,7 @@ function StepNumber({ index, muted = false }: { index: number; muted?: boolean }
   return (
     <span
       className={cn(
-        "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs tabular-nums",
+        "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-xs tabular-nums",
         muted ? "bg-muted/50 text-muted-foreground/60" : "bg-muted text-muted-foreground",
       )}
     >

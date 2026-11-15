@@ -72,7 +72,7 @@ export function BackupStatusCard() {
           <span
             aria-hidden
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-full",
+              "flex size-9 shrink-0 items-center justify-center rounded-lg",
               error
                 ? "bg-destructive/10 text-destructive"
                 : created

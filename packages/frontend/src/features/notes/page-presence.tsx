@@ -56,7 +56,7 @@ export function PresenceBar({ present }: { present: Present[] }) {
           <TooltipTrigger asChild>
             <span
               aria-label={person.name}
-              className="flex size-6 items-center justify-center rounded-full border-2 border-background bg-(--presence) text-xs font-semibold text-white uppercase"
+              className="flex size-6 items-center justify-center rounded-md border-2 border-background bg-(--presence) text-xs font-semibold text-white uppercase"
               // SAFETY: `--presence` only ever receives a hex color from `caretColor`.
               style={{ "--presence": person.color } as React.CSSProperties}
             >
