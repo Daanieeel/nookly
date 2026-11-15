@@ -26,7 +26,7 @@ import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
-import { usePaneWidth } from "../ui/pane.tsx";
+import { usePageWidth } from "../ui/pane.tsx";
 import { useSidebarEdgeOnly } from "../shell/panes.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { addDays, dayLabel, localDay, periodHeader, periodParts } from "./dates.ts";
@@ -264,7 +264,7 @@ export function CalendarScreen({
   const router = useRouter();
   const menu = useMenu();
   const today = localDay();
-  const width = usePaneWidth();
+  const width = usePageWidth();
   const wide = width >= WIDE;
   const available = wide ? WIDE_VIEWS : PHONE_VIEWS;
   const [stored, setStored] = usePreference("calendar.view", viewSchema, wide ? "week" : "agenda");

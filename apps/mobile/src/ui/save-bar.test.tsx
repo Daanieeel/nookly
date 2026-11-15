@@ -40,7 +40,7 @@ describe("the save bar", () => {
   it("is a pill in the screen's corners, like the paste bars", () => {
     render(<SaveBar dirty onDiscard={() => {}} onSave={() => {}} />);
     const bar = StyleSheet.flatten(screen.getByTestId("save-bar").props.style);
-    const corners = pasteBarCorners(screenCornerRadius({ width: 750, height: 1334 }));
+    const corners = pasteBarCorners(screenCornerRadius({ width: 402, height: 874 }));
     expect(bar.borderRadius).toBe(corners.top);
     expect(bar.height).toBe(corners.height);
   });

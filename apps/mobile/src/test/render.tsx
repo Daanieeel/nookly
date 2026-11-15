@@ -16,7 +16,7 @@ import { MenuProvider, type MenuPresenter } from "../ui/menu.tsx";
 import { SheetHost } from "../ui/sheet/SheetHost.tsx";
 import { ClipboardProvider, type ClipboardWriter, systemClipboard } from "../ui/clipboard.tsx";
 import { FilePickerProvider, type TextFilePicker, systemFilePicker } from "../ui/file-picker.tsx";
-import { WindowWidthProvider } from "../ui/pane.tsx";
+import { WindowSizeProvider } from "../ui/pane.tsx";
 import { type FileViewer, FileViewerProvider, systemFileViewer } from "../ui/file-viewer.tsx";
 import { PageEditorViewProvider } from "../editor/editor-view.tsx";
 import { MathViewProvider } from "../ui/math/MathPreview.tsx";
@@ -77,6 +77,9 @@ export async function renderScreens(
   options: {
     /// A window width other than the test renderer's (a phone's).
     width?: number;
+    /// The window's height with `width`; by default an iPad's in the orientation the width
+    /// reads as (landscape past 1000).
+    height?: number;
     /// Where the "more" menus of items go.
     menu?: MenuPresenter;
     /// Where copied text goes.
@@ -105,7 +108,16 @@ export async function renderScreens(
           onboarded: data.onboarded,
         }}
       >
-        <WindowWidthProvider value={options.width ?? null}>
+        <WindowSizeProvider
+          value={
+            options.width
+              ? {
+                  width: options.width,
+                  height: options.height ?? (options.width > 1000 ? 1032 : 1194),
+                }
+              : null
+          }
+        >
           <SheetHost>
             <MenuProvider value={options.menu ?? null}>
               <ClipboardProvider value={options.clipboard ?? systemClipboard}>
@@ -126,7 +138,7 @@ export async function renderScreens(
               </ClipboardProvider>
             </MenuProvider>
           </SheetHost>
-        </WindowWidthProvider>
+        </WindowSizeProvider>
       </AppDataProvider>
     </QueryClientProvider>
   );

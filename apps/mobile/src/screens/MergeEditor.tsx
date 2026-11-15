@@ -14,7 +14,7 @@ import { ListRow } from "../ui/kit/ListRow.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { cn } from "../ui/classes.ts";
-import { usePaneWidth } from "../ui/pane.tsx";
+import { usePageWidth } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
 
 /// The width from which the two versions sit side by side; below it they stack.
@@ -247,7 +247,7 @@ function SplitView({ view }: { view: ConflictView }) {
 function Detail({ view, onDone }: { view: ConflictView; onDone: () => void }) {
   const theme = useTheme();
   const { sync } = useAppData();
-  const width = usePaneWidth();
+  const width = usePageWidth();
   const [combined, setCombined] = useState<string | null>(null);
   useEffect(() => setCombined(null), [view.id]);
   const decide = useMutation({
@@ -352,7 +352,7 @@ export function useConflictViews() {
 export function MergeEditor() {
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const width = usePaneWidth();
+  const width = usePageWidth();
   const { data: views = [], isFetched } = useConflictViews();
   const [pick, setPick] = useState<string | null>(null);
   const wide = width >= SIDE_BY_SIDE + 300;

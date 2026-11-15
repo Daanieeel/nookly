@@ -57,10 +57,15 @@ async function planned() {
   return { data, today };
 }
 
+/// An iPad's window in portrait: the desktop's calendar.
+const IPAD = 834;
+
 describe("the calendar", () => {
   it("shows an agenda of sessions, entries and exams with what each is", async () => {
     const { data } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: IPAD,
+    });
     await fireEvent.press(await screen.findByRole("radio", { name: "Agenda" }));
     expect(
       await screen.findByRole("button", { name: "Dentist, 09:00 to 10:00, Main Street" }),
@@ -73,7 +78,9 @@ describe("the calendar", () => {
 
   it("shows one day, and moves to the next with the exam on it", async () => {
     const { data } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: IPAD,
+    });
     await fireEvent.press(await screen.findByRole("radio", { name: "Day" }));
     expect(await screen.findByRole("button", { name: /^Dentist/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Final/ })).toBeNull();
@@ -95,6 +102,8 @@ describe("the calendar", () => {
         },
       },
       data,
+      "/",
+      { width: IPAD },
     );
     await fireEvent.press(await screen.findByRole("radio", { name: "Day" }));
     const [column] = await screen.findAllByLabelText(`Hours of ${today}, hold to add an entry`);
@@ -107,7 +116,9 @@ describe("the calendar", () => {
 
   it("shows a week with every day of it", async () => {
     const { data } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: IPAD,
+    });
     await fireEvent.press(await screen.findByRole("radio", { name: "Week" }));
     expect(await screen.findByRole("button", { name: /^Dentist/ })).toBeTruthy();
     expect(screen.getByRole("header", { name: / to / })).toBeTruthy();
@@ -116,7 +127,9 @@ describe("the calendar", () => {
 
   it("shows a month as a grid, marks the busy days and lists the day picked", async () => {
     const { data, today } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: IPAD,
+    });
     await fireEvent.press(await screen.findByRole("radio", { name: "Month" }));
     const cell = await screen.findByRole("button", { name: "Today, 2 items" });
     expect(cell).toBeTruthy();
@@ -393,7 +406,9 @@ describe("the calendar on a phone", () => {
 describe("the calendar's colors", () => {
   it("draw each kind of item as the desktop does, in its Space's color", async () => {
     const { data } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data);
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: IPAD,
+    });
     await fireEvent.press(await screen.findByRole("radio", { name: "Day" }));
     const style = async (name: RegExp) =>
       ReactNative.StyleSheet.flatten((await screen.findByRole("button", { name })).props.style);

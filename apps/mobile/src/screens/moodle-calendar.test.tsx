@@ -58,6 +58,9 @@ describe("Moodle deadlines on the calendar", () => {
         "calendar-event": () => <ExternalEventScreen id="moodle:9@moodle.uni.edu" />,
       }),
       testData(),
+      "/",
+      // An iPad's window, where the calendar has its desktop views.
+      { width: 834 },
     );
     await fireEvent.press(await screen.findByRole("radio", { name: "Agenda" }));
     const row = await screen.findByRole("button", { name: "Sheet 1 is due, From Moodle, 12:00" });

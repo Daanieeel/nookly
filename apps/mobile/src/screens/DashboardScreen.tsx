@@ -14,7 +14,7 @@ import {
 } from "../data/queries.ts";
 import { useSetting } from "../data/settings.ts";
 import { Screen } from "../ui/Screen.tsx";
-import { usePaneWidth } from "../ui/pane.tsx";
+import { usePageWidth } from "../ui/pane.tsx";
 import { ASSIGNMENT_DONE } from "./AssignmentsScreen.tsx";
 import { DashboardGreeting, useOpenTarget } from "./DashboardBriefing.tsx";
 import { HomeScreen } from "./HomeScreen.tsx";
@@ -153,7 +153,7 @@ export type Dashboard = ReturnType<typeof useDashboard>;
 /// and today's hours beside them. On a phone a Home of shortcuts (`HomeScreen`).
 export function DashboardScreen() {
   const d = useDashboard();
-  const wide = usePaneWidth() >= WIDE_DASHBOARD;
+  const wide = usePageWidth() >= WIDE_DASHBOARD;
   return wide ? <DesktopDashboard d={d} /> : <HomeScreen d={d} />;
 }
 
