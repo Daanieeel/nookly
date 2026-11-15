@@ -1,9 +1,12 @@
+import { MODULE_ICONS } from "../ui/icons.tsx";
+import { ListEmpty } from "../ui/ListEmpty.tsx";
+import { EmptyState } from "../ui/kit/States.tsx";
 import type { PageSummary } from "@nookly/shared/data";
 import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { useStaged } from "../ui/staged.ts";
 import { DATE_WINDOW_OPTIONS, withinWindows } from "../ui/filter-windows.ts";
 import { notePreviewText } from "@nookly/frontend/lib/note-preview";
-import { IconClock, IconFeather, IconLink, IconSchool, IconTag } from "@tabler/icons-react-native";
+import { IconClock, IconLink, IconSchool, IconTag } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -19,7 +22,6 @@ import {
   useEntityFilters,
 } from "../ui/entity-filters.tsx";
 import { DisplayGroup, SelectRow } from "../ui/sheet/DisplayParts.tsx";
-import { useTheme } from "../ui/theme.ts";
 import { usePreference } from "../data/preferences.ts";
 import { z } from "zod";
 import { labelOption } from "./option-badges.tsx";
@@ -154,6 +156,9 @@ interface PageListControls {
   controls: React.ReactNode;
   /// Whether a page passes every filter picked.
   keep: (page: PageSummary) => boolean;
+  /// Whether any filter is on, and turning them all off.
+  filtered: boolean;
+  clear: () => void;
 }
 
 /// Notes' and Jots' header, filters and display, as Tasks has them (D65): the title with
@@ -215,14 +220,24 @@ function usePageListControls(key: string, title: string, pages: PageSummary[]): 
       }
     />
   );
-  return { display, controls, keep: (page) => passes(page, display, own.passes) };
+  const filtered =
+    display.courses.length + display.labels.length + display.edited.length > 0 ||
+    own.fields.some((f) => f.values.length > 0);
+  return {
+    display,
+    controls,
+    keep: (page) => passes(page, display, own.passes),
+    filtered,
+    clear: () =>
+      setDisplay({ ...display, courses: [], labels: [], edited: [], ...ENTITY_FILTERS_NONE }),
+  };
 }
 
 /// A Space's Notes: a table of its pages with a filter and the order of your choice.
 export function NoteList({ spaceId }: { spaceId: string }) {
   const { data: pages = [] } = usePageSummaries(spaceId, "note");
   const [query, setQuery] = useState("");
-  const { display, controls, keep } = usePageListControls(
+  const { display, controls, keep, clear } = usePageListControls(
     `notes.display.${spaceId}`,
     "Notes",
     pages,
@@ -234,11 +249,16 @@ export function NoteList({ spaceId }: { spaceId: string }) {
       {controls}
       <FilterField label="Filter notes" value={query} onChange={setQuery} />
       <View>
-        {shown.length === 0 ? (
-          <Text tone="muted" className="px-1 py-4">
-            {pages.length === 0 ? "No notes yet. Tap + to write one." : "No notes match."}
-          </Text>
-        ) : null}
+        <ListEmpty
+          glyph={MODULE_ICONS.notes}
+          total={pages.length}
+          shown={shown.length}
+          nothingYet={{ title: "No Notes", message: "Tap + to write one." }}
+          onClear={() => {
+            clear();
+            setQuery("");
+          }}
+        />
         <ListGroup>
           {staged.map((page) => (
             <ListItem key={page.entity.id}>
@@ -265,11 +285,14 @@ type JotPreset = "unrefined" | "refined" | "week" | "all";
 /// A Space's Jots, quick captures waiting to be refined into notes, with the desktop's
 /// presets: unrefined, refined, this week and all.
 export function JotList({ spaceId }: { spaceId: string }) {
-  const theme = useTheme();
   const { data: jots = [] } = usePageSummaries(spaceId, "jot");
   const [preset, setPreset] = useState<JotPreset>("unrefined");
   const [query, setQuery] = useState("");
-  const { display, controls, keep } = usePageListControls(`jots.display.${spaceId}`, "Jots", jots);
+  const { display, controls, keep, filtered, clear } = usePageListControls(
+    `jots.display.${spaceId}`,
+    "Jots",
+    jots,
+  );
   const weekAgo = addDays(localDay(), -7);
   const inPreset = {
     unrefined: (j) => j.refinedInto === null,
@@ -298,20 +321,27 @@ export function JotList({ spaceId }: { spaceId: string }) {
       />
       <FilterField label="Filter jots" value={query} onChange={setQuery} />
       {jots.length === 0 ? (
-        <View className="items-center gap-2 p-8">
-          <IconFeather size={28} color={theme.colors.mutedForeground} />
-          <Text className="font-medium">Nothing captured yet</Text>
-          <Text tone="muted" className="text-center">
-            Tap + to jot something down. Refine it into a note when you are ready.
-          </Text>
-        </View>
+        <EmptyState
+          glyph={MODULE_ICONS.jots}
+          title="Nothing Captured Yet"
+          message="Tap + to jot something down. Refine it into a note when you are ready."
+        />
       ) : (
         <View>
-          {shown.length === 0 ? (
-            <Text tone="muted" className="px-1 py-4">
-              No jots here.
-            </Text>
-          ) : null}
+          {shown.length === 0 && !filtered && query.trim() === "" ? (
+            <EmptyState glyph={MODULE_ICONS.jots} title="No Jots Here" />
+          ) : (
+            <ListEmpty
+              glyph={MODULE_ICONS.jots}
+              total={jots.length}
+              shown={shown.length}
+              nothingYet={{ title: "Nothing Captured Yet" }}
+              onClear={() => {
+                clear();
+                setQuery("");
+              }}
+            />
+          )}
           <ListGroup>
             {staged.map((jot) => (
               <ListItem key={jot.entity.id}>

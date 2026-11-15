@@ -183,7 +183,7 @@ describe("a Space's Jots", () => {
     const data = testData();
     const space = await createSpace(data.db, "Work", "#3b82f6");
     const screen = await renderScreens({ index: () => <JotList spaceId={space} /> }, data);
-    expect(await screen.findByText("Nothing captured yet")).toBeTruthy();
+    expect(await screen.findByText("Nothing Captured Yet")).toBeTruthy();
     // Its feather was drawn black, unreadable in dark mode.
     expect(screen.UNSAFE_getByType(IconFeather).props.color).toBeTruthy();
   });

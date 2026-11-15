@@ -1,3 +1,6 @@
+import { ListEmpty } from "../ui/ListEmpty.tsx";
+import { MODULE_ICONS } from "../ui/icons.tsx";
+import { ENTITY_FILTERS_NONE } from "../ui/entity-filters.tsx";
 import { useRowEdge } from "../ui/row-edge.tsx";
 import {
   type FileKindId,
@@ -48,7 +51,7 @@ import { Button, statusOf } from "../ui/Button.tsx";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
 import { useEntityFilters } from "../ui/entity-filters.tsx";
-import { Empty, Section } from "../ui/Row.tsx";
+import { Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
 import { usePreference } from "../data/preferences.ts";
 import { labelOption } from "./option-badges.tsx";
@@ -405,27 +408,30 @@ export function FileRows({ spaceId }: { spaceId: string }) {
           {note}
         </Text>
       ) : null}
-      {files.length === 0 ? (
-        <Text tone="muted" className="p-4 text-center">
-          No files yet. Tap + to add some, or paste a link below.
-        </Text>
-      ) : groups.length === 0 ? (
-        <Empty text="No files match these filters." />
-      ) : (
-        groups.map((group) => (
-          <Section key={group.title || "all"} title={group.title || undefined}>
-            {display.layout === "grid" ? (
-              <Grid min={140} max={6}>
-                {group.items.map((file) => (
-                  <FileTile key={file.entity.id} file={file} />
-                ))}
-              </Grid>
-            ) : (
-              group.items.map((file) => <FileTile key={file.entity.id} file={file} row />)
-            )}
-          </Section>
-        ))
-      )}
+      <ListEmpty
+        glyph={MODULE_ICONS.files}
+        total={files.length}
+        shown={groups.length}
+        nothingYet={{ title: "No Files", message: "Tap + to add some, or paste a link below." }}
+        onClear={() =>
+          setDisplay({ ...display, kinds: [], labels: [], shelf: [], ...ENTITY_FILTERS_NONE })
+        }
+      />
+      {groups.length === 0
+        ? null
+        : groups.map((group) => (
+            <Section key={group.title || "all"} title={group.title || undefined}>
+              {display.layout === "grid" ? (
+                <Grid min={140} max={6}>
+                  {group.items.map((file) => (
+                    <FileTile key={file.entity.id} file={file} />
+                  ))}
+                </Grid>
+              ) : (
+                group.items.map((file) => <FileTile key={file.entity.id} file={file} row />)
+              )}
+            </Section>
+          ))}
       {/* Room for the paste bar floating over the end of the list. */}
       <View style={{ height: PASTE_BAR_ROOM }} />
     </View>

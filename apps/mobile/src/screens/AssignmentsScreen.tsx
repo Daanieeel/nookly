@@ -9,13 +9,13 @@ import {
   IconCalendarCheck,
   IconCalendarEvent,
   IconCircleDot,
+  IconClipboardList,
   IconLayoutKanban,
   IconList,
   IconSchool,
   IconStar,
 } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
-import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
@@ -24,10 +24,10 @@ import { useAssignments, useCourses, useSpaces } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { cn } from "../ui/classes.ts";
-import { ListHeader } from "../ui/ListBar.tsx";
+import { type ListFilter, ListControls } from "../ui/ListControls.tsx";
+import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { Screen } from "../ui/Screen.tsx";
-import { DisplayGroup, FilterField, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
-import { Sheet } from "../ui/sheet/Sheet.tsx";
+import { DisplayGroup, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
 import { Text } from "../ui/Text.tsx";
 import {
   ASSIGNMENT_GROUPINGS,
@@ -203,7 +203,6 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
     displaySchema,
     DEFAULT,
   );
-  const [panel, setPanel] = useState<"filter" | "display" | null>(null);
   const courseName = (id: string | null) => courses.find((c) => c.entity.id === id)?.entity.title;
   const spaceOf = (id: string) => spaces.find((s) => s.id === id);
   const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
@@ -217,6 +216,44 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
       picks(display.evaluated, a.evaluatedAt ? ageBucket(a.evaluatedAt, own.weekStart) : "none") &&
       own.passes(a.entity),
   );
+  const filters: ListFilter[] = [
+    {
+      label: "Course",
+      icon: IconSchool,
+      values: display.courses,
+      options: courses.map((c) => ({ id: c.entity.id, label: c.entity.title || "Untitled" })),
+      onChange: (next) => setDisplay({ ...display, courses: next }),
+    },
+    {
+      label: "Status",
+      icon: IconCircleDot,
+      values: display.statuses,
+      options: ASSIGNMENT_STATUSES.map(statusOption),
+      onChange: (next) => setDisplay({ ...display, statuses: next }),
+    },
+    {
+      label: "Due date",
+      icon: IconCalendarEvent,
+      values: display.due,
+      options: DEADLINE_BUCKETS.map((b) => ({ id: b.id, label: b.title })),
+      onChange: (next) => setDisplay({ ...display, due: next }),
+    },
+    {
+      label: "Grade",
+      icon: IconStar,
+      values: display.grades,
+      options: GRADE_OPTIONS,
+      onChange: (next) => setDisplay({ ...display, grades: next }),
+    },
+    {
+      label: "Evaluated at",
+      icon: IconCalendarCheck,
+      values: display.evaluated,
+      options: EVALUATED_OPTIONS,
+      onChange: (next) => setDisplay({ ...display, evaluated: next }),
+    },
+    ...own.fields,
+  ];
   const grouping = display.layout === "board" ? "status" : display.grouping;
   const groups: AssignmentGroup[] = groupAssignments(
     shown,
@@ -254,101 +291,56 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
         }}
       />
       <Screen wide={display.layout === "board"}>
-        <ListHeader title="Assignments" count={all.length} panel={panel} onPanel={setPanel} />
-        <Sheet
-          open={panel === "filter"}
-          onOpenChange={(open) => !open && setPanel(null)}
-          title="Filter"
-        >
-          <DisplayGroup>
-            <FilterField
-              label="Course"
-              icon={IconSchool}
-              values={display.courses}
-              options={courses.map((c) => ({
-                id: c.entity.id,
-                label: c.entity.title || "Untitled",
-              }))}
-              onChange={(next) => setDisplay({ ...display, courses: next })}
-            />
-            <FilterField
-              label="Status"
-              icon={IconCircleDot}
-              values={display.statuses}
-              options={ASSIGNMENT_STATUSES.map(statusOption)}
-              onChange={(next) => setDisplay({ ...display, statuses: next })}
-            />
-            <FilterField
-              label="Due date"
-              icon={IconCalendarEvent}
-              values={display.due}
-              options={DEADLINE_BUCKETS.map((b) => ({ id: b.id, label: b.title }))}
-              onChange={(next) => setDisplay({ ...display, due: next })}
-            />
-            <FilterField
-              label="Grade"
-              icon={IconStar}
-              values={display.grades}
-              options={GRADE_OPTIONS}
-              onChange={(next) => setDisplay({ ...display, grades: next })}
-            />
-            <FilterField
-              label="Evaluated at"
-              icon={IconCalendarCheck}
-              values={display.evaluated}
-              options={EVALUATED_OPTIONS}
-              onChange={(next) => setDisplay({ ...display, evaluated: next })}
-            />
-            {own.fields.map((field) => (
-              <FilterField
-                key={field.label}
-                label={field.label}
-                icon={field.icon}
-                values={field.values}
-                options={field.options}
-                onChange={field.onChange}
+        <ListControls
+          title="Assignments"
+          count={all.length}
+          filters={filters}
+          display={
+            <View className="gap-3">
+              <LayoutTiles
+                tiles={[
+                  { id: "list", label: "List", icon: IconList },
+                  { id: "board", label: "Board", icon: IconLayoutKanban },
+                ]}
+                value={display.layout}
+                onSelect={(layout) => setDisplay({ ...display, layout })}
               />
-            ))}
-          </DisplayGroup>
-        </Sheet>
-        <Sheet
-          open={panel === "display"}
-          onOpenChange={(open) => !open && setPanel(null)}
-          title="Display"
-        >
-          <View className="gap-3">
-            <LayoutTiles
-              tiles={[
-                { id: "list", label: "List", icon: IconList },
-                { id: "board", label: "Board", icon: IconLayoutKanban },
-              ]}
-              value={display.layout}
-              onSelect={(layout) => setDisplay({ ...display, layout })}
-            />
-            <DisplayGroup>
-              {display.layout === "list" ? (
+              <DisplayGroup>
+                {display.layout === "list" ? (
+                  <SelectRow
+                    label="Grouping"
+                    value={display.grouping}
+                    options={[...ASSIGNMENT_GROUPINGS]}
+                    onChange={(grouping) => setDisplay({ ...display, grouping })}
+                  />
+                ) : null}
                 <SelectRow
-                  label="Grouping"
-                  value={display.grouping}
-                  options={[...ASSIGNMENT_GROUPINGS]}
-                  onChange={(grouping) => setDisplay({ ...display, grouping })}
+                  label="Ordering"
+                  value={display.ordering}
+                  options={[...ASSIGNMENT_ORDERINGS]}
+                  onChange={(ordering) => setDisplay({ ...display, ordering })}
                 />
-              ) : null}
-              <SelectRow
-                label="Ordering"
-                value={display.ordering}
-                options={[...ASSIGNMENT_ORDERINGS]}
-                onChange={(ordering) => setDisplay({ ...display, ordering })}
-              />
-            </DisplayGroup>
-          </View>
-        </Sheet>
-        {all.length === 0 ? (
-          <Text tone="muted">No assignments yet. Add them to a course.</Text>
-        ) : null}
-        {all.length > 0 && groups.length === 0 ? (
-          <Text tone="muted">Nothing matches these filters.</Text>
-        ) : null}
+              </DisplayGroup>
+            </View>
+          }
+        />
+        <ListEmpty
+          glyph={IconClipboardList}
+          total={all.length}
+          shown={shown.length}
+          nothingYet={{ title: "No Assignments", message: "Add them to a course." }}
+          onClear={() =>
+            setDisplay({
+              ...display,
+              courses: [],
+              statuses: [],
+              due: [],
+              grades: [],
+              evaluated: [],
+              ...ENTITY_FILTERS_NONE,
+            })
+          }
+        />
         {display.layout === "board" ? (
           <Board
             // Every status a card can go to, empty ones too, as the desktop's board.

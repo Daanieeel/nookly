@@ -15,7 +15,7 @@ import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { barLabels, renderScreens, testData } from "../test/render.tsx";
 import { choose, openRow } from "../test/sheet.ts";
-import { readPreference } from "../data/preferences.ts";
+import { readPreference, writePreference } from "../data/preferences.ts";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
@@ -101,6 +101,35 @@ describe("the dashboard", () => {
 });
 
 describe("the assignments overview", () => {
+  // Its filters hid in the Filter sheet and an empty result said only "Nothing matches these
+  // filters.": the filters that are on show as Tasks' chips, and the empty list offers to
+  // clear them.
+  it("shows its filters as chips and offers to clear them when they hide everything", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    await createAssignment(data.db, space, "Sheet 3", course, addDays(localDay(), 3));
+    writePreference("assignments.display.all", {
+      layout: "list",
+      grouping: "due",
+      ordering: "auto",
+      courses: [],
+      statuses: ["evaluated"],
+      due: [],
+      grades: [],
+      evaluated: [],
+      pinned: [],
+      created: [],
+      updated: [],
+    });
+    const screen = await renderScreens({ index: () => <AssignmentsScreen /> }, data);
+    expect(await screen.findByTestId("filter-chip")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove Status Filter" })).toBeTruthy();
+    await fireEvent.press(await screen.findByRole("button", { name: "Clear Filters" }));
+    expect(await screen.findByRole("button", { name: /^Sheet 3,/ })).toBeTruthy();
+    expect(screen.queryByTestId("filter-chip")).toBeNull();
+  });
+
   it("sorts assignments of every Space by when they are due, with handed in ones apart", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");

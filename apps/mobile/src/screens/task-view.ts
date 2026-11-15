@@ -46,6 +46,19 @@ export const displaySchema = z.object({
 });
 export type TaskDisplay = z.infer<typeof displaySchema>;
 
+/// Every filter of the Tasks page off, for Clear Filters.
+export const NO_TASK_FILTERS = {
+  statuses: [],
+  labels: [],
+  due: [],
+  start: [],
+  created: [],
+  updated: [],
+  completed: [],
+  effort: [],
+  pinned: [],
+} satisfies Partial<TaskDisplay>;
+
 export const DEFAULT_DISPLAY: TaskDisplay = {
   layout: "list",
   grouping: "status",

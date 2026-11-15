@@ -1,3 +1,4 @@
+import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { deleteForever, emptyTrash, restoreEntity } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { useRouter } from "expo-router";
@@ -12,7 +13,7 @@ import { ListControls } from "../ui/ListControls.tsx";
 import { AGE_OPTIONS, ageBucket, useWeekStart } from "../ui/entity-filters.tsx";
 import { IconCategory, IconFolder, IconTrash } from "@tabler/icons-react-native";
 import { spaceOption } from "./option-badges.tsx";
-import { Empty, Row, Section } from "../ui/Row.tsx";
+import { Row, Section } from "../ui/Row.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { SwipeRow } from "../ui/SwipeRow.tsx";
@@ -122,8 +123,18 @@ export function TrashScreen() {
         </View>
       ) : null}
       <Section>
-        {trashed.length === 0 ? <Empty text="Trash is empty." /> : null}
-        {trashed.length > 0 && shown.length === 0 ? <Empty text="Nothing matches." /> : null}
+        <ListEmpty
+          glyph={IconTrash}
+          total={trashed.length}
+          shown={shown.length}
+          nothingYet={{ title: "Trash Is Empty" }}
+          onClear={() => {
+            setQuery("");
+            setTypes([]);
+            setInSpaces([]);
+            setDeleted([]);
+          }}
+        />
         {staged.map((entity) => (
           <View key={entity.id}>
             <SwipeRow

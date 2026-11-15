@@ -1,3 +1,5 @@
+import { ListEmpty } from "../ui/ListEmpty.tsx";
+import { MODULE_ICONS } from "../ui/icons.tsx";
 import { useRowEdge } from "../ui/row-edge.tsx";
 import {
   type BookmarkDetails,
@@ -40,7 +42,7 @@ import {
   ENTITY_FILTER_PICKS,
   useEntityFilters,
 } from "../ui/entity-filters.tsx";
-import { Empty, Section } from "../ui/Row.tsx";
+import { Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
 import { FloatingField, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
 import { localDay } from "./dates.ts";
@@ -425,38 +427,39 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
           </View>
         }
       />
-      {bookmarks.length === 0 ? (
-        <Text tone="muted" className="p-4 text-center">
-          No bookmarks yet. Paste a URL below to save one.
-        </Text>
-      ) : groups.length === 0 ? (
-        <Empty text="No bookmarks match these filters." />
-      ) : (
-        groups.map((group) => (
-          <Section key={group.id} title={group.title ?? undefined}>
-            {display.layout === "grid" ? (
-              <Grid min={280} max={3}>
-                {group.items.map((b) => (
-                  <BookmarkCard
+      <ListEmpty
+        glyph={MODULE_ICONS.bookmarks}
+        total={bookmarks.length}
+        shown={groups.length}
+        nothingYet={{ title: "No Bookmarks", message: "Paste a URL below to save one." }}
+        onClear={() => setDisplay({ ...display, labels: [], sites: [], ...ENTITY_FILTERS_NONE })}
+      />
+      {groups.length === 0
+        ? null
+        : groups.map((group) => (
+            <Section key={group.id} title={group.title ?? undefined}>
+              {display.layout === "grid" ? (
+                <Grid min={280} max={3}>
+                  {group.items.map((b) => (
+                    <BookmarkCard
+                      key={b.entity.id}
+                      bookmark={b}
+                      preview={display.showPreviews}
+                      description={display.showDescriptions}
+                    />
+                  ))}
+                </Grid>
+              ) : (
+                group.items.map((b) => (
+                  <BookmarkRow
                     key={b.entity.id}
                     bookmark={b}
-                    preview={display.showPreviews}
                     description={display.showDescriptions}
                   />
-                ))}
-              </Grid>
-            ) : (
-              group.items.map((b) => (
-                <BookmarkRow
-                  key={b.entity.id}
-                  bookmark={b}
-                  description={display.showDescriptions}
-                />
-              ))
-            )}
-          </Section>
-        ))
-      )}
+                ))
+              )}
+            </Section>
+          ))}
       {/* Room for the paste bar floating over the end of the list. */}
       <View style={{ height: PASTE_BAR_ROOM }} />
     </View>

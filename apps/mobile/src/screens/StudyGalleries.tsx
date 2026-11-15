@@ -1,3 +1,6 @@
+import { ListEmpty } from "../ui/ListEmpty.tsx";
+import { MODULE_ICONS } from "../ui/icons.tsx";
+import { EmptyState } from "../ui/kit/States.tsx";
 import {
   type CourseRecord,
   type DeckRecord,
@@ -8,7 +11,6 @@ import {
 import { File } from "expo-file-system";
 import { useLocalWrite } from "../data/context.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
-import { EmptyState } from "../ui/kit/States.tsx";
 import { CORNER, RADIUS } from "../ui/tokens.ts";
 import { ListTitle } from "../ui/ListBar.tsx";
 import { useEntityMenu } from "./entity-actions.tsx";
@@ -26,7 +28,6 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { ListControls } from "../ui/ListControls.tsx";
-import { Empty } from "../ui/Row.tsx";
 import { courseOption, statusOption } from "./option-badges.tsx";
 import { EXAM_STATUSES } from "@nookly/shared/colors";
 import { ENTITY_FILTERS_NONE, useEntityFilters } from "../ui/entity-filters.tsx";
@@ -152,12 +153,7 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
   if (loose.length > 0) bands.push({ semester: null, courses: loose });
   if (all.length === 0) {
     return (
-      <View className="items-center gap-2 p-8">
-        <IconSchool size={28} color={theme.colors.mutedForeground} />
-        <Text tone="muted" className="text-center">
-          No courses yet. Tap + to add one.
-        </Text>
-      </View>
+      <EmptyState glyph={MODULE_ICONS.courses} title="No Courses" message="Tap + to add one." />
     );
   }
   const grouped = semesters.length > 0;
@@ -180,7 +176,16 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
           ...own.fields,
         ]}
       />
-      {shown.length === 0 ? <Empty text="No courses match these filters." /> : null}
+      <ListEmpty
+        glyph={MODULE_ICONS.courses}
+        total={all.length}
+        shown={shown.length}
+        nothingYet={{ title: "No Courses" }}
+        onClear={() => {
+          setSemesterPicks([]);
+          setEntity(ENTITY_FILTERS_NONE);
+        }}
+      />
       {bands.map((band) => {
         const cards = (
           <Grid min={260} max={3}>
@@ -251,13 +256,7 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
   const undated = exams.filter((e) => e.examDate === null);
   const next = ahead.find((e) => e.status !== "done") ?? ahead[0];
   if (all.length === 0) {
-    return (
-      <View className="p-8">
-        <Text tone="muted" className="text-center">
-          No exams yet. Tap + to add one.
-        </Text>
-      </View>
-    );
+    return <EmptyState glyph={MODULE_ICONS.exams} title="No Exams" message="Tap + to add one." />;
   }
   const open = (e: ExamRecord) => router.push(`/entity/${e.entity.id}`);
   const used = courses.filter((c) => all.some((e) => e.courseId === c.entity.id));
@@ -291,7 +290,18 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
           ...own.fields,
         ]}
       />
-      {exams.length === 0 ? <Empty text="No exams match these filters." /> : null}
+      <ListEmpty
+        glyph={MODULE_ICONS.exams}
+        total={all.length}
+        shown={exams.length}
+        nothingYet={{ title: "No Exams" }}
+        onClear={() => {
+          setPicked([]);
+          setWhen([]);
+          setStatuses([]);
+          setEntity(ENTITY_FILTERS_NONE);
+        }}
+      />
       {past.map((e) => (
         <TimelineNode key={e.entity.id} day={e.examDate} dim>
           <Pressable
@@ -598,7 +608,17 @@ export function DeckGrid({ spaceId }: { spaceId: string }) {
       <View className="flex-row justify-end">
         <ImportDeckButton spaceId={spaceId} />
       </View>
-      {shown.length === 0 ? <Empty text="No decks match these filters." /> : null}
+      <ListEmpty
+        glyph={MODULE_ICONS.decks}
+        total={decks.length}
+        shown={shown.length}
+        nothingYet={{ title: "No Decks", message: "Tap + to make one, or import a deck." }}
+        onClear={() => {
+          setExamPicks([]);
+          setStudy([]);
+          setEntity(ENTITY_FILTERS_NONE);
+        }}
+      />
       {section("Ready to study", ready)}
       {section("All caught up", caught)}
     </View>

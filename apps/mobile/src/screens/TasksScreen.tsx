@@ -1,3 +1,5 @@
+import { ListEmpty } from "../ui/ListEmpty.tsx";
+import { MODULE_ICONS } from "../ui/icons.tsx";
 import { labelOption, statusOption } from "./option-badges.tsx";
 import { createView, setTaskStatus } from "@nookly/shared/data";
 import {
@@ -33,7 +35,6 @@ import { ActiveFilters } from "../ui/ActiveFilters.tsx";
 import type { ListFilter } from "../ui/ListControls.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
 import { Field } from "../ui/Field.tsx";
-import { Empty } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import {
   DisplayGroup,
@@ -59,6 +60,7 @@ import {
   displaySchema,
   groupTasks,
   viewConfigFromDisplay,
+  NO_TASK_FILTERS,
 } from "./task-view.ts";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 import { useSetting } from "../data/settings.ts";
@@ -331,10 +333,13 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
             {note}
           </Text>
         ) : null}
-        {tasks.length === 0 ? <Text tone="muted">No tasks yet. Tap + to add one.</Text> : null}
-        {tasks.length > 0 && groups.length === 0 ? (
-          <Empty text="Nothing matches these filters." />
-        ) : null}
+        <ListEmpty
+          glyph={MODULE_ICONS.tasks}
+          total={tasks.length}
+          shown={groups.length}
+          nothingYet={{ title: "No Tasks", message: "Tap + to add one." }}
+          onClear={() => setDisplay({ ...display, ...NO_TASK_FILTERS })}
+        />
         {board ? (
           <Board
             columns={(display.grouping === "status"

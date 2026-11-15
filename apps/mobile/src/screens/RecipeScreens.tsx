@@ -1,3 +1,6 @@
+import { ListEmpty } from "../ui/ListEmpty.tsx";
+import { MODULE_ICONS } from "../ui/icons.tsx";
+import { EmptyState } from "../ui/kit/States.tsx";
 import { livePath } from "../data/reroot.ts";
 import { lineInput } from "../ui/kit/line-input.ts";
 import {
@@ -79,7 +82,6 @@ const minutes = (total: number | null) =>
 
 /// A Space's recipes: their kind, how long they take, their tags.
 export function RecipeRows({ spaceId }: { spaceId: string }) {
-  const theme = useTheme();
   const { data: recipes = [] } = useRecipes(spaceId);
   const [kinds, setKinds] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
@@ -98,12 +100,11 @@ export function RecipeRows({ spaceId }: { spaceId: string }) {
   );
   if (recipes.length === 0) {
     return (
-      <View className="items-center gap-2 p-8">
-        <IconToolsKitchen2 size={28} color={theme.colors.mutedForeground} />
-        <Text tone="muted" className="text-center">
-          No recipes yet. Add a recipe to start tracking its ingredients and steps.
-        </Text>
-      </View>
+      <EmptyState
+        glyph={MODULE_ICONS.recipes}
+        title="No Recipes"
+        message="Add a recipe to start tracking its ingredients and steps."
+      />
     );
   }
   return (
@@ -136,7 +137,18 @@ export function RecipeRows({ spaceId }: { spaceId: string }) {
           ...own.fields,
         ]}
       />
-      {shown.length === 0 ? <Empty text="No recipes match these filters." /> : null}
+      <ListEmpty
+        glyph={MODULE_ICONS.recipes}
+        total={recipes.length}
+        shown={shown.length}
+        nothingYet={{ title: "No Recipes" }}
+        onClear={() => {
+          setKinds([]);
+          setTags([]);
+          setTimes([]);
+          setEntity(ENTITY_FILTERS_NONE);
+        }}
+      />
       <Grid min={240} max={4}>
         {shown.map((recipe) => (
           <RecipeCard key={recipe.entity.id} recipe={recipe} />
