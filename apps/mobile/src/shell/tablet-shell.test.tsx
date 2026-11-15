@@ -1,11 +1,11 @@
 import { createPage, createSpace } from "@nookly/shared/data";
 import { Stack, router } from "expo-router";
-import { act, fireEvent, waitFor } from "expo-router/testing-library";
+import { act, fireEvent, waitFor, within } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
 import { resetRouterFollower } from "./follow-router.ts";
 import { TabletShell, tabletScreen } from "./TabletShell.tsx";
 import { newWorkspace } from "./workspace.ts";
-import { useWorkspace } from "./workspace-store.ts";
+import { useWorkspace, workspace } from "./workspace-store.ts";
 
 let n = 0;
 const ids = () => `t-${++n}`;
@@ -16,6 +16,7 @@ const ROUTES = {
   index: () => null,
   tasks: () => null,
   calendar: () => null,
+  trash: () => null,
   "entity/[id]": () => null,
   "module/[spaceId]/[module]": () => null,
   "new/task": () => null,
@@ -89,5 +90,39 @@ describe("the tablet's window", () => {
     expect(screen.queryByRole("tablist")).toBeNull();
     act(() => router.navigate("/calendar"));
     await waitFor(() => expect(groups()).toEqual([["/calendar"]]));
+  });
+
+  it("names where the tab is in the titlebar's crumbs, the last alone in a medium window", async () => {
+    const screen = await setup(LANDSCAPE);
+    act(() => workspace.open(`/entity/${screen.note}`));
+    const crumbs = () => within(screen.getByTestId("crumbs"));
+    expect(await crumbs().findByText("Work")).toBeTruthy();
+    expect(crumbs().getByRole("link", { name: "Notes" })).toBeTruthy();
+    // The note's own crumb, after its Space and module.
+    expect(crumbs().getByText("Meeting notes")).toBeTruthy();
+    // An item has its details toggle; the search field opens the palette.
+    expect(screen.getByRole("button", { name: /Details$/ })).toBeTruthy();
+    expect(screen.getByRole("search", { name: "Search" })).toBeTruthy();
+  });
+
+  it("keeps a medium window's titlebar to the last crumb and a search button", async () => {
+    const screen = await setup(MINI);
+    act(() => router.navigate(`/module/${screen.space}/notes`));
+    await waitFor(() => expect(groups()).toEqual([[`/module/${screen.space}/notes`]]));
+    const crumbs = within(screen.getByTestId("crumbs"));
+    expect(await crumbs.findByText("Notes")).toBeTruthy();
+    expect(crumbs.queryByText("Work")).toBeNull();
+    expect(screen.getByRole("button", { name: "Search" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Details$/ })).toBeNull();
+  });
+
+  it("splits from the titlebar's split button", async () => {
+    const screen = await setup(LANDSCAPE);
+    act(() => router.navigate("/trash"));
+    await waitFor(() => expect(groups()).toEqual([["/trash"]]));
+    await fireEvent.press(screen.getByRole("button", { name: "Split" }));
+    expect(await screen.findByText("Split Left")).toBeTruthy();
+    await fireEvent.press(screen.getByText("Split Right"));
+    await waitFor(() => expect(groups()).toEqual([["/trash"], ["/trash"]]));
   });
 });

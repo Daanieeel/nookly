@@ -19,14 +19,14 @@ import { PageGroupView } from "./PageGroup.tsx";
 import { ShortcutHost } from "./ShortcutHost.tsx";
 import { SplitProvider } from "./split-context.ts";
 import { TabStrip } from "./TabStrip.tsx";
-import { Titlebar } from "./Titlebar.tsx";
+import { TITLEBAR_HEIGHT, Titlebar } from "./Titlebar.tsx";
+import { useWindowControlsInset } from "./window-controls.ts";
 import { useShellActions } from "./actions.ts";
 import { matchPage, parseRouteParams, pathOf } from "./pages.tsx";
 import { type Workspace, activePath, focusedTab, visibleGroups } from "./workspace.ts";
 import { useWorkspace, workspace } from "./workspace-store.ts";
 
 /// The titlebar's height under the status bar.
-const TITLEBAR_HEIGHT = 44;
 
 /// The room between the sidebar, the page cards and the window's edges, the desktop's.
 const GAP = 12;
@@ -96,6 +96,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
   const focusedGroup = ws.layout.groups.find((g) => g.id === ws.layout.focusedGroupId);
   const showTabBar = !split && ((focusedGroup?.tabs.length ?? 0) > 1 || twoGroups);
   const ratio = ws.splitRatio;
+  const controls = useWindowControlsInset();
   return (
     <SidebarBesideProvider value={beside}>
       <SplitProvider value={{ show: (path) => workspace.open(path, "right") }}>
@@ -109,6 +110,9 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
               onAction={onAction}
               sidebarCollapsed={overlaid ? !overlay : collapsed}
               top={insets.top}
+              compact={windowClass === "medium"}
+              // The window controls sit over the titlebar's start while the window shows them.
+              leading={controls.top < TITLEBAR_HEIGHT + insets.top ? controls.left : 0}
             />
             {showTabBar && focusedGroup ? <TabStrip groupId={focusedGroup.id} /> : null}
             <View

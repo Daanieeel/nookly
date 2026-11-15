@@ -18,6 +18,7 @@ export interface PaletteCommand {
     | "nextTab"
     | "previousTab"
     | "splitRight"
+    | "splitLeft"
     | "closeSplit";
   /// Other words someone might type.
   keywords: string[];

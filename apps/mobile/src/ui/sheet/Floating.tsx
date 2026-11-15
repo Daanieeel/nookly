@@ -353,33 +353,32 @@ export function PopoverFrame({
   return (
     <View className="flex-1">
       <Outside dim={false} onPress={onRequestClose} shown={shown} />
-      {placed ? (
-        <Animated.View
-          testID="sheet-popover"
-          accessibilityViewIsModal
-          onAccessibilityEscape={onRequestClose}
-          accessibilityLabel={title}
-          onLayout={(event) => setHeight(Math.round(event.nativeEvent.layout.height))}
-          style={[
-            grow,
-            CORNER,
-            DEPTH.floating,
-            {
-              position: "absolute",
-              left: placed.left,
-              top: placed.top,
-              width,
-              maxHeight: placed.maxHeight,
-              borderRadius: SURFACE_RADIUS,
-              transformOrigin: below ? "top left" : "bottom left",
-              // Unseen until its height is known and it is placed for it.
-              opacity: height ? undefined : 0,
-            },
-          ]}
-        >
-          {children}
-        </Animated.View>
-      ) : null}
+      {/* Drawn, unseen, while its anchor is measured, so its height is known when placed. */}
+      <Animated.View
+        testID="sheet-popover"
+        accessibilityViewIsModal
+        onAccessibilityEscape={onRequestClose}
+        accessibilityLabel={title}
+        onLayout={(event) => setHeight(Math.round(event.nativeEvent.layout.height))}
+        style={[
+          grow,
+          CORNER,
+          DEPTH.floating,
+          {
+            position: "absolute",
+            left: placed?.left ?? 0,
+            top: placed?.top ?? 0,
+            width,
+            maxHeight: placed?.maxHeight ?? window.height,
+            borderRadius: SURFACE_RADIUS,
+            transformOrigin: below ? "top left" : "bottom left",
+            // Unseen until it is placed for its height.
+            opacity: placed && height ? undefined : 0,
+          },
+        ]}
+      >
+        {children}
+      </Animated.View>
     </View>
   );
 }

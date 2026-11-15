@@ -38,6 +38,9 @@ export function useShellActions(toggleSidebar?: () => void): (action: AppAction)
       case "splitRight":
         workspace.splitRight();
         break;
+      case "splitLeft":
+        workspace.splitLeft();
+        break;
       case "nextTab":
         workspace.cycle(1);
         break;
