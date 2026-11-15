@@ -131,6 +131,10 @@ export const SPACE = {
 /// The room between a page's edge and its content.
 export const GUTTER = SPACE.lg;
 
+/// How far a floating card's content (its close button, its rows, its search bar) sits from
+/// its edge, all round.
+export const CARD_INSET = 12;
+
 /// Corner radii. Every rounded thing also takes `CORNER`, iOS's continuous curve.
 export const RADIUS = {
   /// An icon badge, as in Settings.
@@ -141,11 +145,11 @@ export const RADIUS = {
   section: 14,
   /// A sheet's top corners.
   sheet: 20,
-  /// A floating card's corners, Linear's (a picker over the page).
-  card: 30,
-  /// A section or surface inside a floating card: the card's corners less its margin, so
-  /// the two curves run side by side.
-  inCard: 22,
+  /// A floating card's corners (a picker or a dialog over the page): what sits in its
+  /// corners, `CARD_INSET` in, keeps the control's corners, so the two curves run alongside.
+  card: 12 + CARD_INSET,
+  /// A section or surface inside a floating card: the card's corners less its inset.
+  inCard: 12,
 } as const;
 
 export const CORNER: ViewStyle = { borderCurve: "continuous" };

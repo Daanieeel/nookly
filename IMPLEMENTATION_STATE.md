@@ -53,8 +53,8 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ### 1. Mobile: shared pieces
 
-- [ ] Dialogs (the centred card): with squircles now, the corners of the X button and of the dialog no longer match. Use the right math for two nested corner radii and the padding between them.
-- [ ] Dialog padding: in the "New" dialog (the + at the bottom left of the sidebar) the two items do not line up with the X button and the "New" title. Same problem in many other dialogs; fix it for all of them in the shared dialog.
+- [x] (2026-11-15, one `CARD_INSET` of 12 round the card; its corners 24, so the close button's 12 run alongside; tests; on screen) Dialogs (the centred card): with squircles now, the corners of the X button and of the dialog no longer match. Use the right math for two nested corner radii and the padding between them.
+- [x] (2026-11-15, rows, search bar, lone fields and sections all start `CARD_INSET` in, the title where the rows' content starts; New, Relate to and Due date checked; tests; on screen) Dialog padding: in the "New" dialog (the + at the bottom left of the sidebar) the two items do not line up with the X button and the "New" title. Same problem in many other dialogs; fix it for all of them in the shared dialog.
 - [ ] The global search's search bar is too small: give it more height so it feels spacious, and apply the same to every other use of that input.
 - [ ] In that input the icon and the placeholder are not vertically centred to each other: the placeholder sits too low.
 - [ ] Placeholders and their icons get no lowered opacity; use a muted colour instead, so lower SVG layers do not shine through the icon (the magnifying glass's handle).
@@ -88,6 +88,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ## Progress log
 
+- 2026-11-15: dialog corners and padding done.
 - 2026-11-15: file refilled from the fifth round of `NOTES.md`. The fourth round (all done, final report included) is in git history up to 2821cbac and `DECISIONS.md` up to D74.
 
 ## Final report

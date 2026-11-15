@@ -1,5 +1,5 @@
 import { IconCheck, IconPlus, IconSearch } from "@tabler/icons-react-native";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useContext, useState } from "react";
 import { Pressable, View } from "react-native";
 import { runOnJS, useAnimatedReaction, useSharedValue } from "react-native-reanimated";
 import { haptic } from "../haptics.ts";
@@ -11,7 +11,8 @@ import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
 import { SearchField } from "../kit/SearchField.tsx";
 import { EmptyState } from "../kit/States.tsx";
-import { CORNER, TYPE, type TintName, tint as tintOf } from "../tokens.ts";
+import { CARD_INSET, CORNER, SPACE, TYPE, type TintName, tint as tintOf } from "../tokens.ts";
+import { InCard } from "./in-sheet.ts";
 import { SheetPinned, useSheet, useSheetScroll } from "./Sheet.tsx";
 
 /// One choice in a list: what it is called, its icon, and the desktop's details.
@@ -170,6 +171,7 @@ export function OptionList<Id extends string>(
 ) {
   const { label, options, searchPlaceholder = "Search", onCreate } = props;
   const sheet = useSheet();
+  const inCard = useContext(InCard);
   const [query, setQuery] = useState("");
   const words = query.trim().toLowerCase();
   const search = (next: string) => {
@@ -222,7 +224,7 @@ export function OptionList<Id extends string>(
             onSubmit={onCreate ? create : undefined}
           />
           {stuck ? (
-            <View style={{ marginHorizontal: -16 }}>
+            <View style={{ marginHorizontal: inCard ? -CARD_INSET : -SPACE.lg }}>
               <SectionHeader title={stuck} sticky />
             </View>
           ) : null}

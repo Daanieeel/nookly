@@ -1,11 +1,12 @@
 import { IconCheck, IconChevronRight } from "@tabler/icons-react-native";
-import { type ComponentType, Fragment, type ReactNode } from "react";
+import { type ComponentType, Fragment, type ReactNode, useContext } from "react";
 import { Pressable, View } from "react-native";
 import { cn } from "../classes.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
 import { TYPE } from "../tokens.ts";
 import { TOUCH_ROW } from "../touch.ts";
+import { InCard } from "./in-sheet.ts";
 
 /// Menu items at the size of iOS's own menus: body text and icons to match.
 const ICON = 22;
@@ -55,8 +56,11 @@ export function menuGroups(entries: MenuEntry[]): MenuItem[][] {
 export function MenuList({ entries }: { entries: MenuEntry[] }) {
   const sheet = useSheet();
   const theme = useTheme();
+  // A sheet pads its content 16pt and its rows reach out to 8pt; a card's content already
+  // sits `CARD_INSET` in, where its rows start.
+  const inCard = useContext(InCard);
   return (
-    <View accessibilityRole="menu" className="-mx-2">
+    <View accessibilityRole="menu" className={inCard ? undefined : "-mx-2"}>
       {menuGroups(entries).map((group, index) => (
         <Fragment key={group.map((item) => item.label).join("|")}>
           {index > 0 ? <View className="mx-1 my-1 h-px bg-border" /> : null}

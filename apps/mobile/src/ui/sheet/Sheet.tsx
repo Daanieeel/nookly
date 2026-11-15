@@ -34,7 +34,7 @@ import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
 import { useSemantic } from "../kit/scheme.ts";
 import { InCard, InSheet } from "./in-sheet.ts";
-import { CORNER, DEPTH, RADIUS, SPACE } from "../tokens.ts";
+import { CARD_INSET, CORNER, DEPTH, RADIUS, SPACE } from "../tokens.ts";
 
 /// The app's one bottom sheet: every picker, menu, confirmation and create form on the
 /// phone opens in it, in place of the desktop's popovers, menus and dialogs. It comes up
@@ -157,9 +157,11 @@ export function SheetFooter({ children }: { children: ReactNode }) {
   return edges ? null : <>{children}</>;
 }
 
-function PinnedSlot({ store }: { store: PinStore }) {
+function PinnedSlot({ store, inset = SPACE.lg }: { store: PinStore; inset?: number }) {
   const node = useSyncExternalStore(store.subscribe, store.get);
-  return node ? <View className="px-4 pb-2">{node}</View> : null;
+  return node ? (
+    <View style={{ paddingHorizontal: inset, paddingBottom: SPACE.sm }}>{node}</View>
+  ) : null;
 }
 
 export { useInSheet } from "./in-sheet.ts";
@@ -394,11 +396,13 @@ function SheetFrame({
                         testID="card-header"
                         className="flex-row items-center gap-1"
                         // As much room under the close button as above and beside it.
+                        // The title starts where the rows' content does: their pressed
+                        // shapes start `CARD_INSET` in and pad 12pt.
                         style={{
-                          paddingLeft: SPACE.xl,
-                          paddingTop: SPACE.md,
-                          paddingRight: SPACE.md,
-                          paddingBottom: SPACE.md,
+                          paddingLeft: CARD_INSET + SPACE.md,
+                          paddingTop: CARD_INSET,
+                          paddingRight: CARD_INSET,
+                          paddingBottom: CARD_INSET,
                         }}
                       >
                         {pages.length > 0 ? (
@@ -422,14 +426,18 @@ function SheetFrame({
                           <IconX size={22} color={theme.colors.foreground} />
                         </RoundButton>
                       </View>
-                      <PinnedSlot store={pin} />
+                      <PinnedSlot store={pin} inset={CARD_INSET} />
                       <Animated.ScrollView
+                        testID="card-body"
                         bounces={false}
                         keyboardShouldPersistTaps="handled"
                         scrollEventThrottle={16}
                         onScroll={onScroll}
                         style={{ flexGrow: 0, flexShrink: 1 }}
-                        contentContainerClassName="px-2 pb-3"
+                        contentContainerStyle={{
+                          paddingHorizontal: CARD_INSET,
+                          paddingBottom: CARD_INSET,
+                        }}
                       >
                         {top ? top.content : children}
                       </Animated.ScrollView>
