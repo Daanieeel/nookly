@@ -42,7 +42,7 @@ import { PageTabs } from "../ui/PageTabs.tsx";
 import { Row, ROW_DIVIDER, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
-import { FileRow, MoodleData, OpenInMoodle } from "./MoodleParts.tsx";
+import { FileRow, MoodleBar, MoodleData } from "./MoodleParts.tsx";
 import { type MoodleFileTarget, fileRoute } from "./MoodleFile.tsx";
 
 /// A course on Moodle and what is in it, as the desktop's `CoursePage`, `CourseContents`,
@@ -87,7 +87,7 @@ export function MoodleCourseScreen({ courseId, spaceId }: { courseId: number; sp
   return (
     <Screen>
       <PageTabs label="Course" value={tab} onChange={setTab} tabs={[...COURSE_TABS]} />
-      <OpenInMoodle url={webUrl} />
+      <MoodleBar url={webUrl} />
       {tab === "contents" ? (
         <Contents courseId={courseId} spaceId={spaceId} webUrl={webUrl} />
       ) : null}
@@ -467,7 +467,7 @@ export function MoodleAssignmentScreen({
   );
   return (
     <Screen>
-      <OpenInMoodle url={webUrl} />
+      <MoodleBar url={webUrl} />
       <MoodleData
         query={assignments}
         label="Loading the assignment"
@@ -539,7 +539,7 @@ export function MoodleForumScreen({
   const webUrl = useWebUrl({ page: "forum", courseId, forumId }, forum?.cmid || undefined);
   return (
     <Screen>
-      <OpenInMoodle url={webUrl} />
+      <MoodleBar url={webUrl} />
       {forum ? <MoodleText html={forum.intro} muted /> : null}
       <MoodleData
         query={discussions}
@@ -620,7 +620,7 @@ export function MoodleDiscussionScreen({
   const webUrl = useWebUrl({ page: "discussion", courseId, forumId: 0, discussionId });
   return (
     <Screen>
-      <OpenInMoodle url={webUrl} />
+      <MoodleBar url={webUrl} />
       <MoodleData query={posts} label="Loading the posts" webUrl={webUrl} rows={3}>
         {(all) =>
           all.map((post) => (
@@ -664,7 +664,7 @@ export function MoodlePageScreen({ courseId, cmid }: { courseId: number; cmid: n
   return (
     <Screen>
       {module ? <Stack.Screen options={{ title: module.name }} /> : null}
-      <OpenInMoodle url={webUrl} />
+      <MoodleBar url={webUrl} />
       {contents.error || (contents.data && !html) ? (
         <MoodleData
           query={contents}

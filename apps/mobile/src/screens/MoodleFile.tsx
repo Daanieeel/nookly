@@ -7,7 +7,7 @@ import {
   suggestTitles,
 } from "@nookly/shared/moodle/import";
 import { moodleWebUrl } from "@nookly/shared/moodle/path";
-import { IconFileImport, IconTag, IconX } from "@tabler/icons-react-native";
+import { IconFileImport, IconSchool, IconTag, IconX } from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
@@ -24,19 +24,25 @@ import {
   useMoodleDownload,
 } from "../moodle/queries.ts";
 import { useMoodleService } from "../moodle/service.tsx";
-import { Button, statusOf } from "../ui/Button.tsx";
+import { Button } from "../ui/Button.tsx";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { Field } from "../ui/Field.tsx";
-import { FormSection } from "../ui/kit/Form.tsx";
 import { EmptyState, LoadingState } from "../ui/kit/States.tsx";
-import { SelectField, SheetTrigger } from "../ui/SelectField.tsx";
+import {
+  ComposeFooter,
+  ComposeHeader,
+  ComposeTitle,
+  PillSelect,
+  PillSheet,
+} from "../ui/sheet/Compose.tsx";
 import { type Option, OptionList } from "../ui/sheet/OptionList.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
+import { barButton } from "../ui/bar.ts";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { useTheme } from "../ui/theme.ts";
 import { FileContents } from "./FileViewer.tsx";
 import { viewerForName } from "./file-kinds.ts";
-import { OpenInMoodle } from "./MoodleParts.tsx";
+import { MoodleBar } from "./MoodleParts.tsx";
 import { courseOption, labelOption } from "./option-badges.tsx";
 
 /// A file of the site read in Nookly, as the desktop's `FilePage` and `MoodleImport`:
@@ -122,6 +128,7 @@ export function MoodleFileScreen({
 }) {
   const router = useRouter();
   const theme = useTheme();
+  const service = useMoodleService();
   const { data: connection } = useMoodleConnection();
   const course = useMoodleCourses().data?.data.find((c) => c.id === courseId);
   const { context, contents } = useFileContext(courseId, { cmid, index, file: given });
@@ -148,6 +155,7 @@ export function MoodleFileScreen({
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ title: context.title }} />
+      {download.error ? <MoodleBar url={webUrl} /> : null}
       {download.error ? (
         <EmptyState
           title="Nookly couldn't get this file"
@@ -160,6 +168,17 @@ export function MoodleFileScreen({
           path={download.data ?? null}
           kind={viewerForName(file.filename)}
           missing="Getting the file from Moodle…"
+          actions={
+            webUrl
+              ? [
+                  barButton({
+                    label: "Open in Moodle",
+                    icon: TOOLBAR_ICONS.openExternal,
+                    onPress: () => void service.open(webUrl),
+                  }),
+                ]
+              : []
+          }
         />
       )}
       <View className="gap-2 border-t border-border px-4 pt-3 pb-8">
@@ -172,26 +191,27 @@ export function MoodleFileScreen({
             .filter(Boolean)
             .join(" · ")}
         </Text>
-        <View className="flex-row flex-wrap items-center gap-2">
+        {/* Open in Moodle is in the bar, so the one action here takes the full width. */}
+        <View testID="import-bar">
           {existing ? (
             <Button
               label="Show in Nookly"
               variant="secondary"
+              size="lg"
               onPress={() => router.push(`/entity/${existing}`)}
             />
           ) : spaceId && download.data ? (
             <Button
               label="Import to Nookly"
-              variant="secondary"
-              icon={<IconFileImport size={16} color={theme.colors.foreground} />}
+              size="lg"
+              icon={<IconFileImport size={18} color={theme.colors.primaryForeground} />}
               onPress={() => setImporting(true)}
             />
           ) : null}
-          <OpenInMoodle url={webUrl} />
         </View>
       </View>
       {spaceId && download.data ? (
-        <Sheet open={importing} onOpenChange={setImporting} title="Import to Nookly">
+        <Sheet open={importing} onOpenChange={setImporting} title="Import to Nookly" size="large">
           {importing ? (
             <ImportForm
               spaceId={spaceId}
@@ -228,6 +248,7 @@ function ImportForm({
   onDone: () => void;
 }) {
   const service = useMoodleService();
+  const theme = useTheme();
   const { data: labels = [] } = useLabels(spaceId);
   const { data: courses = [] } = useCourses(spaceId);
   const fileRef = { fileName: context.file.filename, fileUrl: context.file.fileurl };
@@ -251,7 +272,6 @@ function ImportForm({
     : undefined;
   const [courseId, setCourseId] = useState<string | null>(null);
   const attachTo = courseId ?? matched?.id ?? NO_COURSE;
-  const [choosing, setChoosing] = useState(false);
   const drafts = [...new Set([...suggested, ...typed])].filter((n) => !existingFor(n));
   const options: Option[] = [
     ...labels.map(labelOption),
@@ -272,11 +292,27 @@ function ImportForm({
     });
   });
   const others = titles.filter((t) => t !== title);
+  const canSend = title.trim() !== "" && !save.isPending;
+  const muted = theme.colors.mutedForeground;
   return (
-    <View className="gap-4">
-      <FormSection>
-        <Field label="Name" value={title} onChangeText={setTitle} returnKeyType="done" />
-      </FormSection>
+    <View className="gap-1">
+      <ComposeHeader
+        sendLabel="Import"
+        canSend={canSend}
+        onSend={() => save.mutate(undefined, { onSuccess: onDone })}
+        context={
+          <Text variant="small" tone="muted" numberOfLines={1}>
+            From Moodle
+          </Text>
+        }
+      />
+      <ComposeTitle
+        label="Name"
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Name"
+        autoFocus={false}
+      />
       {others.length > 0 ? (
         <ChipGroup label="Other names" scroll>
           {others.map((t) => (
@@ -284,14 +320,17 @@ function ImportForm({
           ))}
         </ChipGroup>
       ) : null}
-      <FormSection>
-        <SheetTrigger
+      {save.error ? (
+        <Text tone="destructive" variant="small">
+          {save.error.message}
+        </Text>
+      ) : null}
+      <ComposeFooter>
+        <PillSheet
           label="Labels"
-          text={picked.length > 0 ? picked.map(nameOf).join(", ") : null}
-          placeholder="None"
-          onPress={() => setChoosing(true)}
-        />
-        <Sheet open={choosing} onOpenChange={setChoosing} title="Labels" presentation="card">
+          icon={<IconTag size={18} color={muted} />}
+          value={picked.length > 0 ? picked.map(nameOf).join(", ") : null}
+        >
           <OptionList
             label="Labels"
             multiple
@@ -306,9 +345,10 @@ function ImportForm({
               setPicked((all) => (on ? [...all, id] : all.filter((x) => x !== id)))
             }
           />
-        </Sheet>
-        <SelectField
+        </PillSheet>
+        <PillSelect
           label="Course"
+          icon={<IconSchool size={18} color={muted} />}
           value={attachTo}
           onChange={setCourseId}
           options={[
@@ -316,15 +356,7 @@ function ImportForm({
             ...courses.map(courseOption),
           ]}
         />
-      </FormSection>
-      {save.error ? <Text tone="destructive">{save.error.message}</Text> : null}
-      <Button
-        label="Import"
-        size="lg"
-        disabled={!title.trim()}
-        status={statusOf(save)}
-        onPress={() => save.mutate(undefined, { onSuccess: onDone })}
-      />
+      </ComposeFooter>
     </View>
   );
 }

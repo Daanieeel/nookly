@@ -82,9 +82,9 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 
 ### 4. Mobile: Moodle
 
-- [ ] Sign out and "Open in Moodle" are icon buttons in the page header.
-- [ ] An open Moodle file: "Import to Nookly" is full width at the bottom (Open in Moodle is in the header now).
-- [ ] The "Import to Nookly" sheet looks like the other Nookly sheets, not iOS's plain form fields.
+- [x] (2026-11-15, the desktop's external link and logout icons in the bar on every Moodle page; tests; on screen with a stand in site) Sign out and "Open in Moodle" are icon buttons in the page header.
+- [x] (2026-11-15, full width and primary, Open in Moodle beside Search and Share in the bar; tests; on screen) An open Moodle file: "Import to Nookly" is full width at the bottom (Open in Moodle is in the header now).
+- [x] (2026-11-15, the compose sheet every create uses: Close, the name big, Labels and Course as pills, Import as the send button; tests; on screen) The "Import to Nookly" sheet looks like the other Nookly sheets, not iOS's plain form fields.
 
 ### 5. Both apps
 

@@ -9,7 +9,7 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { View } from "react-native";
 import { type MoodleAnswers, SITE, connected, fakeMoodle } from "../test/fake-moodle.tsx";
-import { renderScreens, testData } from "../test/render.tsx";
+import { pressBarButton, renderScreens, testData } from "../test/render.tsx";
 import type { FileViewer } from "../ui/file-viewer.tsx";
 import { moodleText } from "../moodle/format.ts";
 import { MoodleModule } from "./MoodleScreens.tsx";
@@ -135,15 +135,15 @@ describe("Moodle on the phone", () => {
   it("opens every page of the module on the Moodle website too", async () => {
     const moodle = connected(COURSE_CONTENTS);
     const screen = await renderScreens({ index: moodle.wrap(<MoodleModule />) }, testData());
-    await fireEvent.press(await screen.findByRole("button", { name: "Open in Moodle" }));
+    await pressBarButton(screen, "Open in Moodle");
     expect(moodle.opened).toEqual([`${SITE}/my/courses.php`]);
     const course = await renderScreens(
       { index: moodle.wrap(<MoodleCourseScreen courseId={1} spaceId="s" />) },
       testData(),
     );
-    await fireEvent.press(await course.findByRole("button", { name: "Open in Moodle" }));
+    await pressBarButton(course, "Open in Moodle");
     await fireEvent.press(course.getByRole("tab", { name: "Grades" }));
-    await fireEvent.press(course.getByRole("button", { name: "Open in Moodle" }));
+    await pressBarButton(course, "Open in Moodle");
     expect(moodle.opened.slice(1)).toEqual([
       `${SITE}/course/view.php?id=1`,
       `${SITE}/grade/report/user/index.php?id=1`,
@@ -194,7 +194,7 @@ describe("Moodle on the phone", () => {
     const screen = await renderScreens({ index: moodle.wrap(<MoodleModule />) }, testData());
     expect(await screen.findByText("Algorithms")).toBeTruthy();
     expect(moodle.kept.size).toBeGreaterThan(0);
-    await fireEvent.press(screen.getByRole("button", { name: "Sign Out" }));
+    await pressBarButton(screen, "Sign Out");
     expect(await screen.findByText("Connect your Moodle")).toBeTruthy();
     expect(moodle.keys.has("moodle.connection")).toBe(false);
     expect(moodle.kept.size).toBe(0);
@@ -255,7 +255,7 @@ describe("Moodle on the phone", () => {
     expect(
       await screen.findByText("Hello [a diagram] world\n\n• One", { exact: false }),
     ).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Open in Moodle" }));
+    await pressBarButton(screen, "Open in Moodle");
     expect(moodle.opened).toEqual([`${SITE}/mod/page/view.php?id=103`]);
   });
 
@@ -295,7 +295,7 @@ describe("Moodle on the phone", () => {
     expect(screen.getByText("9.00 / 10.00")).toBeTruthy();
     expect(screen.getByText("Well done")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^sheet1\.pdf, PDF/ })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Open in Moodle" }));
+    await pressBarButton(screen, "Open in Moodle");
     expect(moodle.opened).toEqual([`${SITE}/mod/assign/view.php?id=101`]);
   });
 
@@ -385,7 +385,7 @@ describe("Moodle on the phone", () => {
     expect(await discussion.findByText("It is on Friday.")).toBeTruthy();
     expect(discussion.getByText("GH", { includeHiddenElements: true })).toBeTruthy();
     expect(discussion.getByRole("button", { name: /^room\.pdf, PDF/ })).toBeTruthy();
-    await fireEvent.press(discussion.getByRole("button", { name: "Open in Moodle" }));
+    await pressBarButton(discussion, "Open in Moodle");
     expect(moodle.opened).toEqual([`${SITE}/mod/forum/discuss.php?d=30`]);
   });
 
@@ -401,7 +401,10 @@ describe("Moodle on the phone", () => {
     expect(moodle.downloaded).toEqual([
       `${SITE}/webservice/pluginfile.php/1/mod_resource/content/2/lecture1.pdf?forcedownload=1&token=abc123`,
     ]);
-    await fireEvent.press(screen.getByRole("button", { name: "Open in Moodle" }));
+    // Open in Moodle is in the bar, so Import has the bottom to itself.
+    expect(screen.queryByRole("button", { name: "Open in Moodle" })).toBeNull();
+    expect(screen.getByTestId("import-bar")).toBeTruthy();
+    await pressBarButton(screen, "Open in Moodle");
     expect(moodle.opened).toEqual([`${SITE}/mod/resource/view.php?id=100`]);
   });
 
@@ -421,6 +424,9 @@ describe("Moodle on the phone", () => {
     );
     await fireEvent.press(await screen.findByRole("button", { name: "Import to Nookly" }));
     expect(await screen.findByDisplayValue("Lecture 1.pdf")).toBeTruthy();
+    // Nookly's compose sheet, as every create sheet: close, the name big, the rest as pills.
+    expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+    expect(screen.queryAllByTestId("form-row")).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Labels, ALG, Week 1" })).toBeTruthy();
     expect(await screen.findByRole("button", { name: "Course, Algorithms" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Import" }));

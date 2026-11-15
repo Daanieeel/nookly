@@ -87,18 +87,21 @@ function PdfSearch({
   );
 }
 
-/// A file on this phone shown full screen, with Search for a PDF and Share in the bar.
-/// `path` is null while the file is not here yet, which `missing` explains.
+/// A file on this phone shown full screen, with Search for a PDF and Share in the bar, and
+/// any `actions` of the page after them. `path` is null while the file is not here yet,
+/// which `missing` explains.
 export function FileContents({
   name,
   path,
   kind,
   missing,
+  actions = [],
 }: {
   name: string;
   path: string | null;
   kind: ViewerKind;
   missing: string;
+  actions?: ReturnType<typeof barButton>[];
 }) {
   const { available, View: FileView } = useFileViewer();
   const viewer = useRef<FileViewHandle>(null);
@@ -130,6 +133,7 @@ export function FileContents({
           }),
         ]
       : []),
+    ...actions,
   ];
   return (
     <View className="flex-1 bg-background">

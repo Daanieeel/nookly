@@ -15,6 +15,9 @@ import { type Fetched, fileUrl, type MoodleCourse, type RemoteFile } from "../mo
 import { fileFacts, fileLook } from "../moodle/format.ts";
 import { useForgetMoodle, useMoodleConnection } from "../moodle/queries.ts";
 import { useMoodleService } from "../moodle/service.tsx";
+import { Stack } from "expo-router";
+import { BAR_BUTTON } from "../ui/bar.ts";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import type { GlyphIcon } from "../ui/kit/Glyph.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
@@ -42,6 +45,33 @@ export function OpenInMoodle({ url }: { url: string | null }) {
         onPress={() => void service.open(url)}
       />
     </View>
+  );
+}
+
+/// A Moodle page's bar buttons: the same page on the Moodle website and, on the module's own
+/// page, Sign Out. Icons, as the desktop's header has them.
+export function MoodleBar({ url, onSignOut }: { url: string | null; onSignOut?: () => void }) {
+  const service = useMoodleService();
+  if (!url && !onSignOut) return null;
+  return (
+    <Stack.Toolbar placement="right">
+      {url ? (
+        <Stack.Toolbar.Button
+          icon={TOOLBAR_ICONS.openExternal}
+          {...BAR_BUTTON}
+          accessibilityLabel="Open in Moodle"
+          onPress={() => void service.open(url)}
+        />
+      ) : null}
+      {onSignOut ? (
+        <Stack.Toolbar.Button
+          icon={TOOLBAR_ICONS.signOut}
+          {...BAR_BUTTON}
+          accessibilityLabel="Sign Out"
+          onPress={onSignOut}
+        />
+      ) : null}
+    </Stack.Toolbar>
   );
 }
 

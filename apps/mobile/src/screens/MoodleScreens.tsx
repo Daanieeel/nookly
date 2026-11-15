@@ -1,6 +1,6 @@
 import { moodleWebUrl } from "@nookly/shared/moodle/path";
 import { firstNameOf } from "@nookly/shared/moodle/format";
-import { IconLock, IconLogout, IconSchool, IconWorld } from "@tabler/icons-react-native";
+import { IconLock, IconSchool, IconWorld } from "@tabler/icons-react-native";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -20,7 +20,7 @@ import { Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { CourseArt, MoodleData, OpenInMoodle } from "./MoodleParts.tsx";
+import { CourseArt, MoodleBar, MoodleData } from "./MoodleParts.tsx";
 
 /// Moodle on the phone, as on the desktop (`features/moodle`): connect once with the
 /// university's own sign in page, then read the courses, their contents, assignments,
@@ -122,7 +122,6 @@ function CourseGroup({
 
 /// The Moodle module: connecting, then the courses of the account, on now first.
 export function MoodleModule({ spaceId = "" }: { spaceId?: string }) {
-  const theme = useTheme();
   const forget = useForgetMoodle();
   const { data: connection, isLoading } = useMoodleConnection();
   const courses = useMoodleCourses();
@@ -140,7 +139,7 @@ export function MoodleModule({ spaceId = "" }: { spaceId?: string }) {
       <Text tone="muted" className="px-1">
         {connection.siteName}
       </Text>
-      <OpenInMoodle url={webUrl} />
+      <MoodleBar url={webUrl} onSignOut={() => out.mutate()} />
       <MoodleData
         query={courses}
         label="Loading your courses"
@@ -165,15 +164,7 @@ export function MoodleModule({ spaceId = "" }: { spaceId?: string }) {
           );
         }}
       </MoodleData>
-      <View className="items-start">
-        <Button
-          label="Sign Out"
-          variant="ghost"
-          icon={<IconLogout size={16} color={theme.colors.foreground} />}
-          status={statusOf(out)}
-          onPress={() => out.mutate()}
-        />
-      </View>
+      {out.error ? <Text tone="destructive">Couldn't sign out, try again.</Text> : null}
     </View>
   );
 }
