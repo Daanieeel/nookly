@@ -13,7 +13,7 @@
 
 **This file is a ready to run prompt and the handover file.** An agent told "read `IMPLEMENTATION_STATE.md` and get to work" reads this file, `AGENTS.md` and `docs/00-index.md`, then carries the list out from start to finish without human help. Keep it current: tick items, note findings, append to the progress log after every meaningful step.
 
-The items come from the user's `NOTES.md` (2026-11-14, second round). `NOTES.md` is the user's own file: read it, never edit it.
+The items come from the user's `NOTES.md` (2026-11-15, fourth round). `NOTES.md` is the user's own file: read it, never edit it.
 
 ## Rules
 
@@ -49,177 +49,64 @@ cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 
 
 ## Items
 
-Reference images are in `.reference-images/` (gitignored, the user's own): `linear-examples/*` (the Linear app), `sidebar-spacer-switcher-bug.jpeg`, `choose-emoji-positioning-bug.png`, `desktop/space switcher blur bug.png`. Look at them before working on the item that names them.
+Order: shared pieces first (the input field, the centred dialog, list rows and gestures), then the screens that use them, then the features both apps share.
 
-The order below builds shared pieces first (the Linear style sheets), then the screens that use them.
+### 1. Mobile: shared pieces
 
-### 0. First step
+- [ ] Redesign the regular text input field. It looks flat and plain now; give it Nookly's style (depth, the squircle radius, a clear focus state), through `ui/` only, used everywhere.
+- [ ] Bug: the round search bars (e.g. in the relationship picker) double their height once you start typing.
+- [ ] The relationship picker's "kind of link" select trigger below the search bar is not rounded. Round it.
+- [ ] The "Filter notes" search bar on the Notes list gets the regular round search bar design (check every list page's search bar).
+- [ ] Dialogs (the centred floating card): the space below the close button equals its space to the right and top.
+- [ ] List rows (tasks, notes, jots, every item list): the side padding moves from the list container into each row, so the pressed colour and swipe actions run from screen edge to edge.
+- [ ] Swipe actions on rows feel like iOS Mail: actions revealed from outside the screen edge, full swipe to act, spring motion from `ui/motion.ts`, haptics.
+- [ ] Sidebar drag gesture: works on every page, from anywhere in the right 90% of the screen; only the leftmost 10% is for going back. Follows the finger, carries its speed on release.
+- [ ] Speed: navigation and view changes (filters, display options, sidebar nav) are slow. Measure, find the causes, fix them.
 
-- [x] (done in the previous round, D60) The backmost background is a deep charcoal instead of full black on mobile and desktop. Check it still holds after this round's changes.
+### 2. Mobile: sidebar
 
-### 0b. Splash screen (asked 2026-11-14)
+- [ ] The header blur behind "Nookly" and the search button reaches too far down: unscrolled, it must not touch the Blobatar box at the top.
+- [ ] The + at the bottom left opens a dialog (the centred card) instead of a bottom sheet.
+- [ ] The three dots showing the hidden Spaces open a dialog with a search bar.
+- [ ] Spaces can be dragged from that hidden Spaces dialog into the three shown in the sidebar (and back).
+- [ ] The three dot button on a Space (Add Module, Space Settings) is bigger, and opens a dialog instead of a bottom sheet.
 
-- [x] (2026-11-14, seen in the simulator after the rebuild) The user's new splash (`~/Downloads/splash.png`, flame over "Nookly" on #111111) replaces the old one entirely: `apps/mobile/assets/splash.png` (transparent corners filled with #111111), splash background #111111 in `app.json`. Still to see in the simulator after the next dev client rebuild (the `ios/` folder is generated).
+### 3. Mobile: list pages and modules
 
-### 1. Mobile: Linear style foundations (do first, the later items use them)
+- [ ] Semesters list: less crammed. "Set dates" moves into the row's three dot menu. The logo and the "Current" badge use the regular blue, not green.
+- [ ] Decks: they are very buggy. Go through every deck flow (list, create, edit cards, study, results) against the desktop and fix all of it.
+- [ ] Files list: thumbnails for files that have them on the desktop.
+- [ ] Bookmarks: the floating paste bar moves up a little.
+- [ ] Bookmarks: the filter options sheet is empty (bug). Fill it.
+- [ ] Global search gets the same filter options as the desktop's Cmd+K search.
 
-The user allows touching and replacing our phone's sheet and picker components for this (still exactly one sheet implementation, motion from `ui/motion.ts`, Tabler icons). Copy Linear exactly:
+### 4. Mobile: Moodle
 
-- [x] (2026-11-14, D65, checked on screen) **Floating picker card** (`linear-examples/status-picker.jpeg`, `label-picker.jpeg`, `milestone-picker.jpeg`): a rounded card floating in the middle of the screen over a dimmed backdrop, title top left, a round close button top right, optional pill search field ("Add labels..."), big rows (icon or colour dot, title, checkmark on the right for the chosen one). Sits above the keyboard when the search is focused. This replaces the generic list style bottom sheet for every select and picker (status, priority, labels, Space, course, link target, ...).
-- [x] (2026-11-14, `DisplayGroup`, checked on screen) **Grouped bottom sheet** (`display-options.jpeg`, `filter-list-sheet.jpeg`): grabber, content as rounded grouped cards with separators, an optional pinned search field with an icon.
-- [x] (2026-11-14, `InlineSelect`, checked on screen) **Inline menu** (`display-options-select-open.jpeg`): a value with an up/down chevron opens a blurred floating menu next to it with a checkmark on the chosen option.
-- [x] (2026-11-14, `ui/sheet/Compose.tsx` pieces plus `SheetHeader` and `SheetFooter`; used by item 5) **Compose sheet** (`create-new-ticket.jpeg`): full height sheet, round close button top left, a context pill in the middle (the Space), round send button top right (disabled until there is a title), big title field, description below as a full block editor, a horizontally scrolling row of property pills (status, date, labels, ...) above the editor's toolbar on the keyboard.
-- [x] (2026-11-14, `Segmented` as pills; look again on the calendar in item 6) **Tab switcher** redesign (used on the calendar and elsewhere): fits Nookly's style, not flat; Linear's pill tabs (`display-options.jpeg` top: "Assigned" chip on a raised pill, others plain) are the model.
-- [x] (D65; `inline-menu.test.tsx`, card tests in `sheet.test.tsx`) Record the design in `DECISIONS.md` and add tests (rendering, selection, close, search).
+- [ ] Sign out and "Open in Moodle" are icon buttons in the page header.
+- [ ] An open Moodle file: "Import to Nookly" is full width at the bottom (Open in Moodle is in the header now).
+- [ ] The "Import to Nookly" sheet looks like the other Nookly sheets, not iOS's plain form fields.
 
-### 2. Mobile: sidebar and navigation
+### 5. Both apps
 
-- [x] (2026-11-14, bands of weaker blur under it, on screen) The header blur behind "Nookly" and the search button fades out as a gradient, no hard edge at its bottom.
-- [x] (2026-11-14, on screen) Nav items get a bit more padding on the left only, so they no longer line up with the header box.
-- [x] (2026-11-14, callout size, 500/600 weight; details rows too; on screen) Nav and detail sidebar item labels: one font size smaller, one weight heavier; icon size and opacity unchanged; the active nav item's icon is not coloured.
-- [x] (2026-11-14, each icon box had no height; test; measured on screen) Bug: the Space icons at the bottom of the sidebar are misaligned (`sidebar-spacer-switcher-bug.jpeg`: the icons sit lower than + and the other buttons).
-- [x] (2026-11-14, `GlassButton` on `expo-glass-effect`, dev client rebuilt) The search (magnifying glass) button in the sidebar header is a native button.
-- [x] (2026-11-14, `TOP_LEVEL_SCREEN` gestureEnabled false on the top level stack; test) Navigating via nav items keeps Cmd + Left/Right for back and forward, but the swipe from the screen edge no longer navigates back.
+- [ ] Many more filter options on every list page (desktop and phone): every property a list's items have can be filtered on.
+- [ ] Search (Cmd+K and the phone's search): typing an entity id like "TSK-" or "TSK" first shows results that contain it or match it fuzzily, then lists the tasks.
+- [ ] Files: a lasting way to browse and find files by their labels (desktop and phone, synced), and a quiet nudge to label files that have none. Decide the design in `DECISIONS.md` first.
 
-### 3. Desktop
+### 6. Final checks and report
 
-- [x] (2026-11-14, `-top-3` instead of `-top-10`; test; not yet looked at in the running desktop) The blur gradient behind the Space switcher at the bottom of the nav sidebar reaches too far up and covers the last item (`desktop/space switcher blur bug.png`). Make it shorter.
-- [x] (2026-11-14, test) Swap the "Split" button and the sync indicator in the titlebar.
-
-### 4. Mobile: markdown editor
-
-- [x] (2026-11-14, the placeholder is drawn over the editor, not as a `::before` in its empty line, which kept WebKit from taking text there; typing into an empty page checked in the simulator; tests) An empty editor showing "Write something" shows a blinking cursor when tapped.
-- [x] (2026-11-14, same cause as the caret: the placeholder inside the text) Bug: tap into an empty editor, close the keyboard, tap again: nothing happens until the page is reopened. Tapping must always focus.
-- [x] (2026-11-14, `undo.test.ts`; in the simulator typed text, Undo twice, both steps came back out. Likely the same empty page cause: text typed there never reached the editor, so there was nothing to undo) Undo and redo buttons work.
-- [x] (2026-11-14, `off` in the editor state, undo and redo too; tests) Indent and outdent buttons are disabled when they would do nothing.
-- [x] (2026-11-14, `list-switch.test.ts`) With a list active, tapping another list type (bullet, ordered, todo) converts the list to that type.
-- [x] (2026-11-14, the toolbar is cleared when the page loses focus, before the editor reports back) Leaving the page with the keyboard open: the toolbar above the keyboard disappears together with the keyboard, not a moment later floating mid screen.
-- [x] (2026-11-14) The hide keyboard button gets a small chevron down on the keyboard icon.
-- [x] (2026-11-14, a description keeps one line of room, no padding under it; test; on screen) Embedded editors (tasks, assignments, courses, semesters, ...) have no extra margin below them.
-- [x] (2026-11-14, D66: the server keeps live documents for task, sub task, assignment and exam descriptions too; the phone opens them live; course and semester pages now edit the same notes page the desktop does, they edited other blocks before; server test; checked both ways between the simulator and a second client) Embedded editors sync as reliably as notes and jots (also right after coming back online) and show other devices' cursors.
-
-### 5. Mobile: create sheets in the Linear compose style
-
-- [x] (2026-11-14, `screens/ComposeForm.tsx` shared by New Task, Assignment and Exam; tests; checked in the simulator) Quick Jot, Create Task and Create Assignment use the compose sheet (item 1), with a full block editor for the description like the desktop.
-- [x] (2026-11-14, the side by side fields are gone: day, times, All day and last day are pills; test; on screen) New Calendar Entry uses the compose sheet. Today labels overflow or are cut off after two letters and everything is crammed; fix all of it.
-- [x] (2026-11-14, tests; on screen) New Session and New Semester use the compose sheet.
-- [x] (2026-11-14, one question a step, a progress bar, Back, Continue pinned; test; on screen) "Set up semesters" wizard in the Linear style.
-- [x] (2026-11-14, `shared/data/repeat.ts` makes series the way the desktop does: a weekly session or any repeating entry is a template with its occurrences and recorded slots; tests in shared and on the phone) Repeat: the phone offers the desktop's full repeat options (not only daily, weekly, monthly) on tasks, and repeat is added to New Session and New Calendar Entry (where the desktop has it).
-
-### 6. Mobile: list pages
-
-- [x] (2026-11-14, `ui/ListControls.tsx` on Bookmarks, Notes, Jots, Files, Trash and Exams with the desktop's fields; Tasks and Assignments had them; Recipes has none on the desktop; tests) Filter and display options on tasks, assignments and the other list pages in the Linear style (`display-options.jpeg`, `filter-list-sheet.jpeg`), keeping our list or board toggle.
-- [x] (2026-11-14, test; on screen) Calendar header: keep date and week, no comma, "Week XY" at lower opacity.
-- [x] (2026-11-14, an all day item on the page beside made the bar tall on a page that drew no cells; every page now draws them; test; on screen) Calendar bug: the all day row lacks the vertical day borders.
-- [x] (2026-11-14, test; on screen) Semesters list: "Set dates" works when tapped; expanding a semester stays, plus a button that opens the semester directly.
-- [x] (2026-11-14, the desktop's wand, `assets/toolbar/wand.png` drawn from Tabler; test; on screen) "Set up semesters" is a native header button left of +, not a big button on the page.
-- [x] (2026-11-14, test; on screen) Exams timeline: less left padding; the "Today" row spans the full width.
-- [x] (2026-11-14, test; on screen) Bookmarks: the "Paste a URL to save it" field is a floating bar at the bottom like the desktop, with its own corner radius following the iPhone's corners, a send button, and properly sized link items.
-- [x] (2026-11-14, labels and site filters, grid or list, grouping, ordering, previews and descriptions; bookmarks now list their labels; tests) Bookmarks: display and filter options like the desktop (Linear style), keeping the list or grid toggle.
-- [x] (2026-11-14, test) Jots list: the feather icon is plain black (bug); give it the right colour.
-- [x] Moodle: the module does something useful on the phone (match the desktop), not only a list of entities.
-
-### 7. Mobile: item pages
-
-- [x] (2026-11-14, the page scrolls the field above the keyboard once it is up; the simulator shows no keyboard, so a real phone check is under Needs the user) Task: adding a sub task keeps the field above the keyboard.
-- [x] (2026-11-14, dots and "A B +n"; test) Task: the labels badge shows a colour dot per label, abbreviates after 2 labels, and does not grow wide; no commas.
-- [x] (2026-11-14, empty reads "Labels" faded like every other empty pill; test) Task: an empty Labels pill reads "None" instead of "Labels" (seen 2026-11-14).
-- [x] (2026-11-14, a warning value tints its icon the same red, in Property; test) Task: an overdue date's calendar icon and label both use the destructive colour.
-- [x] (2026-11-14, icons, full width, the next page to write in blue; test) Session detail: "Create Jot for this session" and "Create Note for This Session" get icons and full width; the primary one (no jot: jot; jot but no note: note; both exist: both secondary) uses the default (blue) variant, like the desktop.
-- [x] (2026-11-14, the desktop's tinted tag chips with their icons; test) Recipes list: labels show their colours.
-- [x] (2026-11-14, desktop banner placeholder with a small camera button, numbered rows typed in place with a menu, add rows across the width, details as property rows; test) Recipe detail rework: a placeholder for a missing banner like the desktop, a much quieter "Choose Banner", clean ingredient and step adding (inputs not squeezed by save buttons), better spacing in the detail sidebar.
-
-### 8. Mobile: Space settings
-
-- [x] (2026-11-14, muted text, the emoji drawn at its natural height) "Choose Emoji": lower text opacity; the emoji is aligned and not cut off (`choose-emoji-positioning-bug.png`).
-- [x] (2026-11-14, a row with a colour dot opens the label's sheet: name, colours, delete; test) Label colours are set in a sheet opened by tapping a label, not inline under every label.
-- [x] (2026-11-14, the desktop's words, the item count and the name typed first; test) Deleting a Space forever shows the same warning as the desktop.
-- [x] (2026-11-14, a card sheet with search listing only missing modules; test) "Add module to Space" is a sheet (Linear style), not a page, and lists only modules the Space does not have.
-
-### 9. Both apps
-
-- [x] (2026-11-14, desktop and phone: a page over everything while it runs, Done or Try Again at the end; tests) Moving local items into an account shows a full page progress screen instead of a dialog (nothing else can be done meanwhile, and a dialog looks closable).
-
-### 9b. Rounder corners (asked 2026-11-14)
-
-- [x] (2026-11-14, RADIUS badge 8, control 12, section 14, sheet 20, and the shared rounded classes a step up; checked in the app) Mobile: a little more corner radius across the app (controls, fields, sections, cards, sheets, rows), not necessarily fully round. Through the phone's tokens (`ui/tokens.ts` `RADIUS`, the classes the phone uses), never per screen.
-- [x] (2026-11-14, phone: `corner-shape: squircle` on the rounded classes, which NativeWind turns into the continuous curve, checked on the running app; desktop: `superellipse(1.6)` where supported, WebKit on macOS falls back to plain rounding; D67) Squircles, not plain rounding, on both apps, kept subtle (asked 2026-11-14: "not too strong or overwhelming"). Phone: `borderCurve: "continuous"` (`CORNER`) on every rounded surface, checked app wide. Desktop: CSS `corner-shape` with a gentle `superellipse(...)` where the web view supports it, plain `border-radius` as the fallback; check what the Tauri web view (WebKit on macOS) draws.
-- [x] (2026-11-14, shared radius tokens a step up, D67; the desktop app on 1420 was left alone, so its look is checked by the user) Desktop: the same goal. The radii come from the design tokens in `packages/ui`; the user asked for this directly, which overrides the "never modify tokens" rule for this change only (record it in `DECISIONS.md`). Check dialogs, popovers, buttons, inputs, cards and the sidebar in the running desktop.
-
-### 10. Final checks and report
-
-- [x] (2026-11-14, see the final report) `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
-- [x] (2026-11-14) `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
-- [x] Final report below.
-
-### 11. Moodle on the phone does everything the desktop's does (asked 2026-11-14)
-
-The desktop's module is listed in `docs/03-modules/moodle.md` and `packages/frontend/src/features/moodle/`. Each line is one desktop feature the phone must have.
-
-- [x] Sign in in iOS's own sign in sheet (an auth session, `expo-web-browser`), which offers saved passwords and hands Moodle's redirect straight back; the passport check stays.
-- [x] Courses: current ones first, then past ones; each with its banner, or its own gradient when it has none; its progress.
-- [x] Contents: sections with their descriptions; images in Moodle text read as their description; a Moodle "Page" is read in Nookly; forum and assignment rows open that forum or assignment; anything else links to its page on Moodle.
-- [x] Files: download once and stay on the phone (`moodle-files`), read in Nookly (PDF, picture, video, audio) with their details, anything else handed to another app.
-- [x] Import a file into the Space: name, labels (course and section suggested, the course one picked, an existing label reused), the matching Nookly course; all or nothing; `origin` `moodle:<address>`; an imported file offers Show in Nookly (one in Trash counts as not imported).
-- [x] Assignments: due soonest first, undated last; each opens with its description, attachments, submission status, grade and feedback.
-- [x] Grades: grade, range, percentage, weight and feedback; the course total last.
-- [x] Announcements and forums: announcements first; discussions; posts with their attachments; initials tiles for people.
-- [x] Open in Moodle on every page.
-- [x] The last answers are kept for reading offline and forgotten on sign out; downloaded files stay.
-- [x] A loading page shows placeholders in its own shape.
-- [x] Problems in plain words; an expired sign in offers Connect Again.
-- [x] Moodle deadlines on the calendar from Moodle's calendar export link (Settings, Calendar connections; read only overlay).
-
-Done so far (e25434c9): the desktop's pure helpers moved to `packages/shared/src/moodle/` (format, import, errors, path) and both apps use them. Phone: `moodle/api.ts` keeps each answer (`moodle/device.ts`, caches folder) and reads it back offline; `screens/MoodleScreens.tsx` (connect, courses), `MoodleCourse.tsx` (tabs, assignment, forum, discussion, page), `MoodleFile.tsx` (viewer, import sheet), `MoodleParts.tsx` (placeholders, problems, Open in Moodle, course art). Tests: `screens/moodle.test.tsx`. Sign in goes through `expo-web-browser`'s auth session (`service.signIn`, needs a native rebuild). The calendar feed is `moodle/calendar.ts` (link in the keychain, events in `moodle-calendar.json`), connected under Settings, Calendar, Calendar Connections, drawn dashed on the calendar and opened read only (`ExternalEventScreen.tsx`); tests `moodle/calendar.test.ts`, `screens/moodle-calendar.test.tsx`.
-
-### 12. Mobile polish, third round of `NOTES.md` (asked 2026-11-14)
-
-Reference image: `.reference-images/notes-page-empty-state-bug.png`. Look at it before item 2 below.
-
-- [x] (2026-11-15, one blur faded by a gradient mask (`MaskedView`, already in the native build) instead of bands; test; on screen) Sidebar header: the blur behind "Nookly" and the search button looks and works right, but it is visibly staggered (the bands of item 2 show as steps). Make the fade smooth.
-- [x] (2026-11-14, it is the desktop's page: the empty branch of Notes and Jots skipped the list's `p-6`; tests) Notes list empty state (`notes-page-empty-state-bug.png`): it has no horizontal padding. Fix it (check the other list pages' empty states too).
-- [x] (2026-11-14, `sheetCard` through `useSurface` for every section, field and option card on a sheet, the chosen layout tile raised, D68; tests; on screen) Filter and display option sheets: swap the colours so inputs and options are lighter than the sheet they sit on (now the sheet is a light charcoal and the inputs darker). Inputs are always lighter than their surface, for the right sense of depth.
-- [x] (2026-11-14, `FilterField` opens the floating picker card; test) Filter options open a select popover (the inline menu or the floating picker card of item 1), never a new bottom sheet covering the current one.
-- [x] (2026-11-14, the compose sheet with labels and a link as pills; a bookmark's address is its title and its note plain text; a new page's text no longer sits under a stray empty line; tests; on screen) New Note sheet in the same style as New Assignment and New Task (the compose sheet).
-- [x] (2026-11-14, as far from the bottom as from the sides, over the home indicator as Safari's bar; test; on screen) Bookmarks: the "Paste a URL to save it" bar sits further down, so it fits the iPhone's corner radius.
-- [x] (2026-11-14, iOS 26 drew a bare `Switch` at the top of the row; it sits in a centred box of its own; test; on screen) Display and filter option sheets: native switches are not vertically centred on their labels. Centre them everywhere.
-- [x] (2026-11-14, the compose sheet with labels and a link as pills; a bookmark's address is its title and its note plain text; a new page's text no longer sits under a stray empty line; tests; on screen) Redesign the New Bookmark sheet (compose style, like New Task).
-- [x] (2026-11-14, test; on screen) Semesters list: semesters look squeezed. Give them room. Each row has an icon badge, the title on its own line, and the course count and short dates below, never cut off.
-- [x] (2026-11-14, test) Semester detail sidebar: the "Open Notes" button goes.
-- [x] (2026-11-14, every section and surface in a floating card rounds with the card, less its margin: `RADIUS.inCard`; test; on screen) Start and end date pickers with a calendar (e.g. the semester detail sidebar): the inner calendar box gets a larger corner radius, matching the outer one.
-
-### 13. Leftovers from item 11 and the final checks (found 2026-11-14)
-
-- [x] (2026-11-15, dev client rebuilt and running; Calendar Connections checked on screen; the Moodle pages need a real Moodle site, so they are under Needs the user) Moodle on the phone in the running app.
-- [x] (2026-11-14, all pass alone: load timing) `packages/frontend` tests: 5 failures in 4 files in a full run (`data-table.test.tsx`, `BackupSettings.test.tsx`, `ShortcutsTab.test.tsx` and one more). Run each alone; fix any caused by this branch, note any that are load timing only.
-- [x] (2026-11-15, see Final report) Final checks again (lint, format, typecheck, all tests, cargo test, duplication) and a new final report.
+- [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
+- [ ] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
+- [ ] Final report below.
 
 ## Needs the user
 
 - On the phone with your own Moodle site: sign in from Settings, then check the course list, a course, a file with Import, and Moodle deadlines on the calendar.
-- On a real phone: the blinking caret on a tap into an empty page, tapping it again after closing the keyboard, and Undo after typing with the keyboard (the simulator here can't tap into a web view or type with keys; the fix is checked by typing through the browser's own input path).
-- On a real phone: tapping "Add a sub-task" low on a task page keeps the field above the keyboard.
-- Carried over: on a real phone, the feel of dragging; the iOS 27 scene fix (D59); the editor toolbar on the keyboard and the slash menu; scanning a document.
+- On a real phone: the editor caret and Undo after typing with the keyboard; "Add a sub-task" low on a task page staying above the keyboard; the feel of dragging; the editor toolbar on the keyboard and the slash menu; scanning a document.
 
 ## Progress log
 
-- 2026-11-15: items 12 and 13 done: sheet colours and centred switches, filter options in a floating card, roomier semester rows, calendar boxes rounded with their card, the Bookmarks paste bar lower, New Note and New Bookmark in the compose sheet, a smooth sidebar header blur.
-
-- 2026-11-14: item 11 done (Moodle parity on the phone, commits e25434c9 and 30c24399). Items 12 (third round of `NOTES.md`) and 13 (leftovers) added.
-
-- 2026-11-14: file refilled from the second round of `NOTES.md`. The previous round (all items done) is in git history up to 750c4f10 and `DECISIONS.md` up to D64.
-
-- 2026-11-14: items 2 to 10 done: Moodle on the phone (browser sign in to the university's page, courses, contents, assignments, grades, forums), task and session pages, recipe page, Space settings, the full page progress of the first sync on both apps, rounder squircle corners (D67), the new splash screen.
-
-- 2026-11-14: item 1 (Linear foundations, D65). Also fixed a red error screen when leaving a page before its editor had loaded (`editor/handle.ts`). The repo formats with `node_modules/.bin/oxfmt <files>`; never prettier.
+- 2026-11-15: file refilled from the fourth round of `NOTES.md`. The previous rounds (all items done) are in git history up to 61d46e9d and `DECISIONS.md` up to D68.
 
 ## Final report
 
-(Round three.) Every item, 1 to 13, is done; what needs a real phone or a real Moodle site is under Needs the user. Checks on 2026-11-15:
-
-- `bun run lint`, `bun run typecheck`, `bun run duplication` (0.17%), `format:check:rust`: pass.
-- `bun run format:check`: only `NOTES.md` is unformatted; it is the user's file and was left alone.
-- `bun run test`: shared 375, mobile 524 and the rest pass. In the full run, under load, one shared sync test timed out and 11 frontend tests in 6 files failed (`sidebar.test.tsx`, `ReferencedFile.test.tsx`, `EditorPanel.test.tsx`, `SettingsDialog.test.tsx`, `ShortcutsTab.test.tsx`, `spellcheck-extension.test.ts`). Each passes alone; none of them changed this round.
-- `cargo test`: 1543 pass; `search_stays_within_its_budget_on_20000_entities` missed its time budget under load and passes alone.
-- Not rerun this round (report only): `coverage`, `unused`, `audit`, `lint:rust:strict`.
-- New dependency: `@react-native-masked-view/masked-view` 0.3.2 on the phone, already in the native build through expo-router, so no rebuild is needed.
+(Written at the end.)
