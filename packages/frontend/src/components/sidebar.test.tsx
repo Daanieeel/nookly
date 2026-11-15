@@ -168,6 +168,20 @@ const shift = (id: string) => {
 const swipe = async (deltaX: number) => fireEvent.wheel(await slot("Uni"), { deltaX, deltaY: 0 });
 const settled = { timeout: 3000 };
 
+/// Fires a trackpad glide on a clock that only moves by hand, 8ms an event: real time passing
+/// between events (a slow machine in CI) made a glide look like two swipes. The slide after it
+/// runs on the real clock again, which its animation frames read.
+function glide(target: Element, sizes: number[]) {
+  const start = performance.now();
+  let ahead = 0;
+  const now = vi.spyOn(performance, "now").mockImplementation(() => start + ahead);
+  for (const dx of sizes) {
+    ahead += 8;
+    fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
+  }
+  now.mockRestore();
+}
+
 describe("swiping between Spaces", () => {
   it("moves the list with the fingers, the next Space coming in beside it", async () => {
     setup();
@@ -215,7 +229,7 @@ describe("swiping between Spaces", () => {
     setup();
     const target = await slot("Uni");
     // Fingers still moving, then lifting: the wheel goes on with a fading glide.
-    for (const dx of [40, 40, 30, 22, 16, 11]) fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
+    glide(target, [40, 40, 30, 22, 16, 11]);
     // The bottom row already shows it, without waiting for the glide to end or the list to arrive.
     expect(useNavStore.getState().activeSpaceId).toBe("space-2");
     expect(await slot("Work")).toHaveAttribute("aria-pressed", "true");
@@ -224,9 +238,7 @@ describe("swiping between Spaces", () => {
   it("does not take the rest of the glide for a new swipe", async () => {
     setup();
     const target = await slot("Uni");
-    for (const dx of [40, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2]) {
-      fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
-    }
+    glide(target, [40, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2]);
     await vi.waitFor(() => expect(pane("space-1")).toBeNull(), settled);
     // It stopped on Work, and was not carried on to Home by what was left of the glide.
     expect(useNavStore.getState().activeSpaceId).toBe("space-2");
@@ -237,9 +249,7 @@ describe("swiping between Spaces", () => {
     setup();
     const target = await slot("Uni");
     // Far more than a pane's width, a glide that fades, with no pause in between.
-    for (const dx of [60, 60, 60, 60, 60, 60, 50, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2, 2, 1]) {
-      fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
-    }
+    glide(target, [60, 60, 60, 60, 60, 60, 50, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2, 2, 1]);
     expect(useNavStore.getState().activeSpaceId).toBe("space-2");
     await vi.waitFor(
       () => expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1),
@@ -252,9 +262,7 @@ describe("swiping between Spaces", () => {
     setup();
     const target = await slot("Uni");
     // The glide after the flick wobbles, growing for a moment, but never stops for a pause.
-    for (const dx of [60, 60, 50, 44, 38, 32, 28, 30, 33, 36, 40, 34, 30, 26, 22, 18, 14]) {
-      fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
-    }
+    glide(target, [60, 60, 50, 44, 38, 32, 28, 30, 33, 36, 40, 34, 30, 26, 22, 18, 14]);
     await vi.waitFor(
       () => expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1),
       settled,

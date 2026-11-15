@@ -754,11 +754,13 @@ fn fsrs_reviews_match_the_shared_fixtures() {
         std::fs::write(&path, &actual).unwrap();
         return;
     }
-    let expected = std::fs::read_to_string(&path)
-        .unwrap_or_default()
-        .replace("\r\n", "\n");
+    let expected: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap_or_default())
+            .unwrap_or(serde_json::Value::Null);
+    // Floats to 9 decimals, as the phone's test reads them: Windows' maths library rounds
+    // the last digit of a stability or difficulty differently.
     assert!(
-        expected == actual,
+        json_close(&expected, &serde_json::to_value(&out).unwrap()),
         "FSRS scheduling changed. If that is intended, run\n  NOOKLY_UPDATE_SNAPSHOTS=1 cargo test --lib db::decks_tests\nand check packages/shared/src/data/fsrs.test.ts still passes."
     );
 }
@@ -892,4 +894,33 @@ fn migration_leaves_existing_cards_as_text_without_blocks() {
     let c = get_card(&conn, "old").unwrap();
     assert_eq!((c.front.as_str(), c.back.as_str()), ("Q", "A"));
     assert!(c.front_blocks.is_none() && c.back_blocks.is_none());
+}
+
+/// Whether two JSON values are equal, numbers to within 1e-9 of each other.
+fn json_close(a: &serde_json::Value, b: &serde_json::Value) -> bool {
+    use serde_json::Value;
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => match (x.as_f64(), y.as_f64()) {
+            (Some(x), Some(y)) => (x - y).abs() <= 1e-9 * x.abs().max(y.abs()).max(1.0),
+            _ => x == y,
+        },
+        (Value::Array(x), Value::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(x, y)| json_close(x, y))
+        }
+        (Value::Object(x), Value::Object(y)) => {
+            x.len() == y.len()
+                && x.iter()
+                    .all(|(k, v)| y.get(k).is_some_and(|w| json_close(v, w)))
+        }
+        _ => a == b,
+    }
+}
+
+#[test]
+fn json_close_takes_the_last_digits_of_a_float_as_equal() {
+    let a = serde_json::json!({ "s": [1.000_000_000_000_1, "x"] });
+    let b = serde_json::json!({ "s": [1.0, "x"] });
+    assert!(json_close(&a, &b));
+    assert!(!json_close(&a, &serde_json::json!({ "s": [1.001, "x"] })));
+    assert!(!json_close(&a, &serde_json::json!({ "s": [1.0, "y"] })));
 }

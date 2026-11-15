@@ -266,9 +266,13 @@ describe("two devices on one account", () => {
     edit(desktop, "UPDATE entities SET title = 'Buy milk (desktop)' WHERE id = 't1'");
     await Bun.sleep(300);
     phone.network.plugIn();
+    // Both devices offer it before the phone goes offline: the phone learns of the clash
+    // from its next pull, which can come after the desktop's (it raced, failing in CI).
     await until(
-      () => desktop.sync.store.getState().status.conflicts === 1,
-      "the desktop offers the clash",
+      () =>
+        desktop.sync.store.getState().status.conflicts === 1 &&
+        phone.sync.store.getState().status.conflicts === 1,
+      "both devices offer the clash",
       15_000,
     );
     phone.network.unplug();
