@@ -1,4 +1,5 @@
 import { SaveBar } from "../ui/SaveBar.tsx";
+import { PageActions } from "../ui/page-actions.tsx";
 import { ListGroup, ListItem } from "../ui/ListMotion.tsx";
 import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { statusOption } from "./option-badges.tsx";
@@ -15,6 +16,7 @@ import {
   IconList,
   IconSchool,
   IconStar,
+  IconPlus,
 } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
@@ -44,7 +46,6 @@ import { localDay } from "./dates.ts";
 import { DueLine, StatusButton } from "./TaskRow.tsx";
 import { StatusIcon } from "./StatusIcon.tsx";
 import { Board } from "../ui/Board.tsx";
-import { barButton } from "../ui/bar.ts";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import {
   AGE_OPTIONS,
@@ -285,15 +286,19 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
   );
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: "Assignments",
-          unstable_headerRightItems: () => [
-            barButton({ label: "New Assignment", icon: TOOLBAR_ICONS.plus, onPress: newOne }),
-          ],
-        }}
-      />
+      <Stack.Screen options={{ title: "Assignments" }} />
       <Screen wide={display.layout === "board"}>
+        <PageActions
+          actions={[
+            {
+              label: "New Assignment",
+              icon: IconPlus,
+              toolbarIcon: TOOLBAR_ICONS.plus,
+              onPress: newOne,
+              primary: true,
+            },
+          ]}
+        />
         <ListControls
           title="Assignments"
           count={all.length}

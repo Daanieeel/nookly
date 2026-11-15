@@ -1,4 +1,6 @@
 import { MODULE_LABELS, type ModuleKey, isModuleKey } from "@nookly/shared/modules";
+import { PageActions } from "../ui/page-actions.tsx";
+import { IconSettings } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { IconFileImport } from "@tabler/icons-react-native";
 import { View } from "react-native";
@@ -7,7 +9,6 @@ import { MODULE_ICONS } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { barButton } from "../ui/bar.ts";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 
 /// What the phone can start in a Space; a module joins the Space with its first item.
@@ -52,19 +53,18 @@ export function SpaceScreen({ spaceId }: { spaceId: string }) {
     });
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: space?.name ?? "Space",
-          unstable_headerRightItems: () => [
-            barButton({
-              label: "Space Settings",
-              icon: TOOLBAR_ICONS.settings,
-              onPress: () => router.push(`/space-settings/${spaceId}`),
-            }),
-          ],
-        }}
-      />
+      <Stack.Screen options={{ title: space?.name ?? "Space" }} />
       <Screen>
+        <PageActions
+          actions={[
+            {
+              label: "Space Settings",
+              icon: IconSettings,
+              toolbarIcon: TOOLBAR_ICONS.settings,
+              onPress: () => router.push(`/space-settings/${spaceId}`),
+            },
+          ]}
+        />
         <Section>
           {shown.length === 0 ? <Empty text="Nothing in this Space yet." /> : null}
           {rows(shown)}

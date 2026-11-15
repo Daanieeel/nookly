@@ -17,6 +17,7 @@ import { RecordingMenu } from "../test/menu.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
 import { Sidebar } from "./Sidebar.tsx";
+import { SidebarBesideProvider } from "../ui/pane.tsx";
 
 describe("the sidebar", () => {
   // The blur under "Nookly" faded out in bands of weaker blur, which showed as steps; it is
@@ -38,6 +39,27 @@ describe("the sidebar", () => {
     const fade = StyleSheet.flatten((await screen.findByTestId("header-blur-fade")).props.style);
     const list = StyleSheet.flatten(screen.getByTestId("sidebar-list").props.contentContainerStyle);
     expect(fade.height).toBeLessThanOrEqual(list.paddingTop);
+  });
+
+  // On a tablet the sidebar sits beside the page as the desktop's does: the titlebar over the
+  // page has Search, so the sidebar starts with the mascot's card, no name or Search of its own.
+  it("leaves its name and Search to the titlebar beside the page", async () => {
+    const data = testData();
+    await createSpace(data.db, "Work", "#3b82f6");
+    const screen = await renderScreens(
+      {
+        index: () => (
+          <SidebarBesideProvider value>
+            <Sidebar close={jest.fn()} />
+          </SidebarBesideProvider>
+        ),
+      },
+      data,
+    );
+    expect(await screen.findByText("Work")).toBeTruthy();
+    expect(screen.queryByText("Nookly")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
+    expect(screen.queryByTestId("header-blur")).toBeNull();
   });
 
   it("shows one Space at a time, and the Space switcher at the bottom picks another", async () => {

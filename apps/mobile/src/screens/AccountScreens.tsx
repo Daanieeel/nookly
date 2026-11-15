@@ -1,4 +1,5 @@
 import { ApiClient, emailSchema, signInSchema, usernameSchema } from "@nookly/shared/api";
+import { useIsTablet } from "../ui/pane.tsx";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import {
   type Icon,
@@ -52,6 +53,7 @@ const resetForm = z.object({ email: z.email("Enter the email address of your acc
 /// The first thing on a new phone, like the apps it sits beside: what Nookly is, and
 /// the three ways in. An account is optional: Nookly works fully on its own.
 export function WelcomeScreen() {
+  const device = useIsTablet() ? "tablet" : "phone";
   const router = useRouter();
   const { onboarded } = useAppData();
   const theme = useTheme();
@@ -86,8 +88,8 @@ export function WelcomeScreen() {
         />
         <Button label="Continue Without an Account" variant="ghost" onPress={continueAlone} />
         <Text variant="small" tone="muted" className="px-4 pt-1 text-center">
-          Nookly works fully offline, on this phone alone. An account keeps your phone, tablet and
-          computer in step, live.
+          Nookly works fully offline, on this {device} alone. An account keeps your phone, tablet
+          and computer in step, live.
         </Text>
       </View>
     </View>

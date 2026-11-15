@@ -1,4 +1,5 @@
 import { isSharedSpace } from "@nookly/shared/api";
+import { useSidebarBeside } from "../ui/pane.tsx";
 import { CARD_CLASSES, SIDEBAR_PANEL_CLASSES, sidebarMenuButtonVariants } from "@nookly/ui/classes";
 import { spaceRow } from "@nookly/frontend/lib/space-row";
 import { MODULE_LABELS, isModuleKey } from "@nookly/shared/modules";
@@ -558,6 +559,9 @@ export const Sidebar = memo(function Sidebar({ close }: { close: () => void }) {
   const menu = useMenu();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  // Beside the page on a tablet, as on the desktop: the titlebar has Search, so no header.
+  const beside = useSidebarBeside();
+  const headerRoom = beside ? 12 : HEADER_HEIGHT + LIST_GAP;
   const { data: spaces = [] } = useSpaces();
   // The drawer starts closing first, on the UI thread, and the page is built a frame
   // later while it slides: building it first held the drawer still until it was done.
@@ -591,8 +595,8 @@ export const Sidebar = memo(function Sidebar({ close }: { close: () => void }) {
         testID="sidebar-list"
         className="flex-1"
         contentContainerClassName="p-2"
-        contentContainerStyle={{ paddingTop: insets.top + HEADER_HEIGHT + LIST_GAP }}
-        scrollIndicatorInsets={{ top: HEADER_HEIGHT }}
+        contentContainerStyle={{ paddingTop: insets.top + headerRoom }}
+        scrollIndicatorInsets={{ top: beside ? 0 : HEADER_HEIGHT }}
       >
         <DayCard go={go} />
         {top.map(({ id, label, href, look }) =>
@@ -622,7 +626,7 @@ export const Sidebar = memo(function Sidebar({ close }: { close: () => void }) {
           </Text>
         )}
       </ScrollView>
-      <SidebarHeader top={insets.top} onSearch={() => go("/search")} />
+      {beside ? null : <SidebarHeader top={insets.top} onSearch={() => go("/search")} />}
       <View className="flex-row items-center border-t border-sidebar-border px-1 pt-1">
         <IconButton
           label="New"

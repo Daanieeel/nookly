@@ -1,4 +1,5 @@
 import { FixedTop } from "../ui/fixed-top.tsx";
+import { PageActions } from "../ui/page-actions.tsx";
 import { SaveBar } from "../ui/SaveBar.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
@@ -16,8 +17,9 @@ import {
   IconList,
   IconPin,
   IconTag,
+  IconPlus,
 } from "@tabler/icons-react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
@@ -66,7 +68,6 @@ import {
 import { useSyncRefresh } from "./useSyncRefresh.ts";
 import { useSetting } from "../data/settings.ts";
 import { useWeekStart } from "../ui/entity-filters.tsx";
-import { BAR_BUTTON } from "../ui/bar.ts";
 
 /// How many finished tasks a group shows at first; the rest are a tap away in their Space.
 const FINISHED_SHOWN = 10;
@@ -397,15 +398,18 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
   );
   return (
     <>
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button
-          icon={TOOLBAR_ICONS.plus}
-          {...BAR_BUTTON}
-          accessibilityLabel="New Task"
-          onPress={() => newTask()}
-        />
-      </Stack.Toolbar>
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide={board}>
+        <PageActions
+          actions={[
+            {
+              label: "New Task",
+              icon: IconPlus,
+              toolbarIcon: TOOLBAR_ICONS.plus,
+              onPress: () => newTask(),
+              primary: true,
+            },
+          ]}
+        />
         <FixedTop>
           <ListHeader title="Tasks" count={tasks.length} panel={panel} onPanel={setPanel} />
           {views.length > 0 ? (

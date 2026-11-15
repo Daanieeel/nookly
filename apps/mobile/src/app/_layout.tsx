@@ -1,5 +1,6 @@
 // The language features the engine lacks, before any other module runs.
 import "../polyfills.ts";
+import { pageBar } from "../shell/history.ts";
 import "../global.css";
 import { semanticHex } from "../ui/tokens.ts";
 import {
@@ -124,6 +125,7 @@ function AppShell({ stack }: { stack: ReactNode }) {
 export default function RootLayout() {
   const theme = useTheme();
   const navigation = useNavigationTheme();
+  const tablet = useIsTablet();
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -200,8 +202,8 @@ export default function RootLayout() {
       <Stack.Screen name="account/sign-in" options={{ title: "Sign In" }} />
       <Stack.Screen name="account/sign-up" options={{ title: "Create Account" }} />
       <Stack.Screen name="account/forgot" options={{ title: "Reset Password" }} />
-      <Stack.Screen name="entity/[id]" options={{ title: "" }} />
-      <Stack.Screen name="file/[id]" options={{ title: "" }} />
+      <Stack.Screen name="entity/[id]" options={{ title: "", ...pageBar(tablet) }} />
+      <Stack.Screen name="file/[id]" options={{ title: "", ...pageBar(tablet) }} />
       <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
       <Stack.Screen name="settings/index" options={{ title: "Settings", ...groupedHeader }} />
       <Stack.Screen name="settings/[page]" options={{ title: "Settings", ...groupedHeader }} />

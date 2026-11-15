@@ -1,4 +1,5 @@
 import { IconAdjustmentsHorizontal, IconFilter } from "@tabler/icons-react-native";
+import { useClaimedPageActions } from "./page-actions.tsx";
 import { Button } from "./Button.tsx";
 import { View } from "react-native";
 import { SearchField } from "./kit/SearchField.tsx";
@@ -51,6 +52,7 @@ export function ListHeader({
   display?: boolean;
 }) {
   const theme = useTheme();
+  const actions = useClaimedPageActions();
   const toggle = (which: Exclude<ListPanel, null>) => onPanel(panel === which ? null : which);
   return (
     // With large text the buttons go under the title rather than squeeze it.
@@ -74,6 +76,8 @@ export function ListHeader({
           onPress={() => toggle("display")}
         />
       ) : null}
+      {/* A tablet's page actions, after Filter and Display as on the desktop. */}
+      {actions}
     </View>
   );
 }

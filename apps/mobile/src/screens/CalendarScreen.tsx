@@ -9,7 +9,7 @@ import {
 } from "@nookly/shared/calendar-grid";
 import type { AgendaItem } from "@nookly/shared/data";
 import { type GridView, daysOfView } from "@nookly/shared/time-grid";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react-native";
+import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { z } from "zod";
@@ -317,15 +317,28 @@ export function CalendarScreen({
   };
   // On a phone the views are one button in the bar, which lists them; an iPad keeps the
   // desktop's tabs.
+  const createLabel = create === "session" ? "New Session" : "New Calendar Entry";
+  const createNew = () => router.push(`/new/${create}${spaceId ? `?spaceId=${spaceId}` : ""}`);
   const controls = (
     <>
       {wide ? (
-        <Segmented
-          label="View"
-          value={view}
-          options={available.map((v) => ({ value: v.id, label: v.label }))}
-          onChange={pickView}
-        />
+        // The desktop's row: the views, then the page's main action.
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1">
+            <Segmented
+              label="View"
+              value={view}
+              options={available.map((v) => ({ value: v.id, label: v.label }))}
+              onChange={pickView}
+            />
+          </View>
+          <Button
+            label={createLabel}
+            size="sm"
+            icon={<IconPlus size={16} color={theme.colors.primaryForeground} />}
+            onPress={createNew}
+          />
+        </View>
       ) : null}
       {wide && view !== "agenda" ? (
         <View className="flex-row items-center gap-1">
@@ -370,8 +383,8 @@ export function CalendarScreen({
           }
         />
       )}
-      <Stack.Toolbar placement="right">
-        {wide ? null : (
+      {wide ? null : (
+        <Stack.Toolbar placement="right">
           <Stack.Toolbar.Button
             icon={TOOLBAR_ICONS.calendarView}
             {...BAR_BUTTON}
@@ -387,14 +400,14 @@ export function CalendarScreen({
               )
             }
           />
-        )}
-        <Stack.Toolbar.Button
-          icon={TOOLBAR_ICONS.plus}
-          {...BAR_BUTTON}
-          accessibilityLabel={create === "session" ? "New Session" : "New Calendar Entry"}
-          onPress={() => router.push(`/new/${create}${spaceId ? `?spaceId=${spaceId}` : ""}`)}
-        />
-      </Stack.Toolbar>
+          <Stack.Toolbar.Button
+            icon={TOOLBAR_ICONS.plus}
+            {...BAR_BUTTON}
+            accessibilityLabel={createLabel}
+            onPress={createNew}
+          />
+        </Stack.Toolbar>
+      )}
     </>
   );
   if (view !== "agenda" && view !== "month") {

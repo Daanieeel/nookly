@@ -1,4 +1,6 @@
 import { MODULE_ENTITY_TYPES, MODULE_LABELS, type ModuleKey } from "@nookly/shared/modules";
+import { type PageAction, PageActions } from "../ui/page-actions.tsx";
+import { IconCamera, IconPlus, IconWand } from "@tabler/icons-react-native";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { EntitySwipe } from "./EntitySwipe.tsx";
 import { Stack, useRouter } from "expo-router";
@@ -23,7 +25,6 @@ import { RecipeRows } from "./RecipeScreens.tsx";
 import { ScanSheet, useScanDocument } from "./ScanSheet.tsx";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
-import { BAR_BUTTON } from "../ui/bar.ts";
 
 /// What "+" makes in a module, where the phone can make it.
 const CREATE = new Map<ModuleKey, (spaceId: string) => string>([
@@ -135,45 +136,53 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
   const { available: canScan, scan } = useScanDocument(spaceId);
   const [scanned, setScanned] = useState<string | null>(null);
   const create = CREATE.get(module);
+  const actions: PageAction[] =
+    module === "files"
+      ? [
+          ...(canScan
+            ? [
+                {
+                  label: "Scan Document",
+                  icon: IconCamera,
+                  toolbarIcon: TOOLBAR_ICONS.scan,
+                  onPress: () => scan.mutate(undefined, { onSuccess: (id) => setScanned(id) }),
+                },
+              ]
+            : []),
+          {
+            label: "Add Files",
+            icon: IconPlus,
+            toolbarIcon: TOOLBAR_ICONS.plus,
+            onPress: () => addFiles.mutate(undefined),
+            primary: true,
+          },
+        ]
+      : create
+        ? [
+            ...(module === "semesters"
+              ? [
+                  {
+                    label: "Set Up Semesters",
+                    icon: IconWand,
+                    toolbarIcon: TOOLBAR_ICONS.wand,
+                    onPress: () => router.push(`/new/semester-setup?spaceId=${spaceId}`),
+                  },
+                ]
+              : []),
+            {
+              label: `New in ${MODULE_LABELS[module]}`,
+              icon: IconPlus,
+              toolbarIcon: TOOLBAR_ICONS.plus,
+              onPress: () => router.push(create(spaceId)),
+              primary: true,
+            },
+          ]
+        : [];
   return (
     <>
       <Stack.Screen options={{ title: MODULE_LABELS[module] }} />
-      {module === "files" ? (
-        <Stack.Toolbar placement="right">
-          {canScan ? (
-            <Stack.Toolbar.Button
-              icon={TOOLBAR_ICONS.scan}
-              {...BAR_BUTTON}
-              accessibilityLabel="Scan Document"
-              onPress={() => scan.mutate(undefined, { onSuccess: (id) => setScanned(id) })}
-            />
-          ) : null}
-          <Stack.Toolbar.Button
-            icon={TOOLBAR_ICONS.plus}
-            {...BAR_BUTTON}
-            accessibilityLabel="Add Files"
-            onPress={() => addFiles.mutate(undefined)}
-          />
-        </Stack.Toolbar>
-      ) : create ? (
-        <Stack.Toolbar placement="right">
-          {module === "semesters" ? (
-            <Stack.Toolbar.Button
-              icon={TOOLBAR_ICONS.wand}
-              {...BAR_BUTTON}
-              accessibilityLabel="Set Up Semesters"
-              onPress={() => router.push(`/new/semester-setup?spaceId=${spaceId}`)}
-            />
-          ) : null}
-          <Stack.Toolbar.Button
-            icon={TOOLBAR_ICONS.plus}
-            {...BAR_BUTTON}
-            accessibilityLabel={`New in ${MODULE_LABELS[module]}`}
-            onPress={() => router.push(create(spaceId))}
-          />
-        </Stack.Toolbar>
-      ) : null}
       <Screen wide={GALLERIES.includes(module)}>
+        <PageActions actions={actions} />
         {module === "courses" ? (
           <CourseGallery spaceId={spaceId} />
         ) : module === "exams" ? (

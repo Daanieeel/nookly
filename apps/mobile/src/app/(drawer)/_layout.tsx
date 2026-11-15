@@ -1,22 +1,25 @@
 import { Stack } from "expo-router";
-import { useSidebarBeside } from "../../ui/pane.tsx";
+import { useIsTablet, useSidebarBeside } from "../../ui/pane.tsx";
 import { useSidebarDrawer } from "../../shell/SidebarDrawer.tsx";
 import { useTheme } from "../../ui/theme.ts";
 import { barButton } from "../../ui/bar.ts";
 import { TOOLBAR_ICONS } from "../../ui/toolbar-icons.ts";
-import { TOP_LEVEL_SCREEN } from "../../shell/history.ts";
+import { TOP_LEVEL_SCREEN, pageBar } from "../../shell/history.ts";
 
 /// The app's top level pages. The sidebar is the root layout's drawer around the whole
-/// stack, so it opens from any page; here is its menu button, except on a tablet where
-/// the sidebar already sits beside the page.
+/// stack, so it opens from any page; here is its menu button. A tablet has no bar at all,
+/// as the desktop: its titlebar and tabs go back and forward and name the page, and a
+/// page's actions sit in its own header row (`PageActions`).
 export default function TopLevelLayout() {
   const theme = useTheme();
   const beside = useSidebarBeside();
   const drawer = useSidebarDrawer();
+  const tablet = useIsTablet();
   return (
     <Stack
       screenOptions={{
         ...TOP_LEVEL_SCREEN,
+        ...pageBar(tablet),
         contentStyle: { backgroundColor: theme.colors.page },
         headerStyle: { backgroundColor: theme.colors.page },
         headerShadowVisible: false,

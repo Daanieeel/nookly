@@ -121,6 +121,7 @@ Both:
 ### 2b. Tablet (asked in chat, after every other item above, the seventh round included)
 
 - [ ] Optimize the app for tablet once all other items are done. The tablet should feel like a touch optimized version of the desktop app, not a bigger phone app: mostly the desktop's look and layout (sidebar, wide lists and tables, panes side by side), with touch sized targets, gestures and touch friendly inputs. Be creative for a first big version; the user gives feedback after.
+  - First pass (D82): no phone bar on a tablet's top level and item pages; page actions are labelled desktop buttons in the header row (`ui/page-actions.tsx`); the Calendar's New button beside its views; the sidebar beside the page starts with the mascot's card (no title, Search in the titlebar); the welcome text names a tablet. Checked on the iPad Pro 13-inch simulator.
 
 ### 3. Final checks and report
 
