@@ -112,27 +112,37 @@ describe("search", () => {
   });
 
   // The desktop's Cmd+K narrows by type with its tabs, to a Space with in: and by label with #.
-  it("narrows results by type, Space and label, as the desktop's search", async () => {
+  async function planSearch() {
     const { data, space } = await seeded();
     const home = await createSpace(data.db, "Home", "#00873d");
     const task = await createTask(data.db, space, "Plan the trip");
     await createPage(data.db, space, "note", "Plan for the garden");
     await createTask(data.db, home, "Plan dinner");
-    const urgent = await createLabel(data.db, space, "Urgent");
-    await attachLabel(data.db, task, urgent);
+    await attachLabel(data.db, task, await createLabel(data.db, space, "Urgent"));
     const screen = await renderScreens({ index: () => <SearchScreen /> }, data);
     await fireEvent.changeText(screen.getByLabelText("Search"), "plan");
     expect(await screen.findByText("Plan for the garden")).toBeTruthy();
+    return screen;
+  }
+
+  it("narrows results by type, as the desktop's tabs", async () => {
+    const screen = await planSearch();
     await fireEvent.press(screen.getByRole("radio", { name: "Tasks" }));
     await waitFor(() => expect(screen.queryByText("Plan for the garden")).toBeNull());
     expect(screen.getByText("Plan dinner")).toBeTruthy();
+  });
+
+  it("narrows results to a Space, as the desktop's in:", async () => {
+    const screen = await planSearch();
     await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
     await openRow(screen, "Space");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Work" }));
     await waitFor(() => expect(screen.queryByText("Plan dinner")).toBeNull());
     expect(screen.getByText("Plan the trip")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Work ×" }));
-    await fireEvent.press(screen.getByRole("radio", { name: "All" }));
+  });
+
+  it("narrows results by label, as the desktop's #", async () => {
+    const screen = await planSearch();
     await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
     await openRow(screen, "Labels");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Urgent" }));
