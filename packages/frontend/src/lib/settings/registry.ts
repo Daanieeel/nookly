@@ -39,6 +39,8 @@ export interface SettingDef<T extends SettingJson> {
   default: T;
   /// Turns anything read from disk into a valid value, falling back to the default.
   parse: (raw: SettingJson) => T;
+  /// What a valid value looks like, for the settings catalog the CLI checks values against.
+  schema: z.ZodType<T>;
   /// The `preferences.json` key this setting used to live under. Its value is
   /// copied over once, then the old key is deleted.
   legacyKey?: string;
@@ -51,13 +53,10 @@ export interface SettingDef<T extends SettingJson> {
   fromLegacy?: (raw: string) => SettingJson;
 }
 
-type SettingInput<T extends SettingJson> = Omit<SettingDef<T>, "parse"> & {
-  /// What a valid value looks like. Anything else becomes `default`.
-  schema: z.ZodType<T>;
-};
+type SettingInput<T extends SettingJson> = Omit<SettingDef<T>, "parse">;
 
-function define<T extends SettingJson>({ schema, ...def }: SettingInput<T>): SettingDef<T> {
-  const lenient = schema.catch(def.default);
+function define<T extends SettingJson>(def: SettingInput<T>): SettingDef<T> {
+  const lenient = def.schema.catch(def.default);
   return { ...def, parse: (raw) => lenient.parse(raw) };
 }
 

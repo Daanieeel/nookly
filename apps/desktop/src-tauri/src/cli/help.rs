@@ -78,6 +78,7 @@ pub(super) fn top_level_help() -> Value {
             "unrelate": "nookly cli unrelate <relationship-id> --yes",
             "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] \
                        [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
+            "settings": "nookly cli settings <list|get|set|reset> ...  (the app's settings: theme, date and time format, calendar lengths, editor, backups, shortcuts. `list` shows each one's value, default and the values it takes; the running app picks a change up within a few seconds)",
             "space": "nookly cli space <list|create|update|delete|reorder> ...",
             "label": "nookly cli label <list|get|create|update|delete|attach|detach> ...  (attach/detach take several \
                       label ids; get <id> is the reverse lookup, every entity carrying that label)",
@@ -500,6 +501,22 @@ nookly cli label <list|get|create|update|delete|attach|detach> ...
 
 Run `nookly cli space` or `nookly cli label` with no further arguments for the exact flags
 each verb takes.
+
+## Settings
+
+The app's settings, the same ones its Settings window shows (theme, date and time format,
+calendar lengths, the editor, backups, keyboard shortcuts):
+
+```
+nookly cli settings list [--category calendar]     # each: value, default, isDefault, schema
+nookly cli settings get calendar.weekStart
+nookly cli settings set calendar.weekStart monday  # checked against the setting's schema
+nookly cli settings reset calendar.weekStart
+```
+
+A value is read as JSON when it is JSON (`true`, `45`, `null`, `["en","de"]`) and as text
+otherwise. The running app picks a change up within a few seconds. Signing in to sync
+happens in the app; its session stays in the keychain and is never shown here.
 
 ## A worked example, start to finish
 

@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { installGlobalErrorLogging } from "@nookly/frontend/lib/log";
 import { initPreferences } from "@nookly/frontend/lib/preferences";
-import { initSettings } from "@nookly/frontend/lib/settings/settings";
+import { initSettings, watchSettingsFile } from "@nookly/frontend/lib/settings/settings";
 import "@nookly/ui/fonts";
 import "@nookly/frontend/styles";
 
@@ -24,6 +24,8 @@ async function start() {
     import("@nookly/frontend/lib/theme"),
   ]);
   initTheme();
+  // A change to `settings.json` from outside (`nookly cli settings`) shows up while the app runs.
+  watchSettingsFile();
   // Links that open Nookly (`nookly://open/...`) wait in a queue until the app has mounted.
   void startDeepLinks();
 

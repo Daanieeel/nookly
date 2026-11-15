@@ -24,6 +24,9 @@ mod help;
 #[cfg(test)]
 mod property_tests;
 mod remote;
+mod settings;
+#[cfg(test)]
+mod settings_tests;
 #[cfg(test)]
 mod snapshot_tests;
 mod view;
@@ -212,6 +215,11 @@ fn dispatch_command_raw(conn: &Connection, argv: Vec<String>) -> AppResult<Value
         "unrelate" => run_command(&argv[1..], |args| unrelate(conn, args)),
         "space" => space_command(conn, &argv[1..]),
         "label" => label_command(conn, &argv[1..]),
+        "settings" => {
+            let dir = crate::db::standalone_app_data_dir()
+                .map_err(|e| AppError::Io(format!("data folder: {e}")))?;
+            settings::command(&dir, &argv[1..])
+        }
         entity_type => entity_command(conn, entity_type, &argv[1..]),
     }
 }

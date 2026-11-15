@@ -47,7 +47,8 @@
           "Typing an item's short code like TSK in search lists every item with that code, after what contains it.",
           "A backup is made before a device first sends its things to your account.",
           "On your phone, scan paper documents straight into a Space's files and name, label and link them while they upload.",
-          "Moodle works on your phone just like on your computer: read your courses, pages, assignments, grades and forums, open and import files, read them offline, and see Moodle's deadlines on your calendar."
+          "Moodle works on your phone just like on your computer: read your courses, pages, assignments, grades and forums, open and import files, read them offline, and see Moodle's deadlines on your calendar.",
+          "Your coding agent can read and change Nookly's settings through the command line, and the open app shows the change within a few seconds."
         ],
         "Fixed": [
           "The hidden sidebar slides in on a solid background when you rest the pointer on the left edge.",
