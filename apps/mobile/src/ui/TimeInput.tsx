@@ -26,6 +26,40 @@ export function useTwelveHour(): boolean {
   );
 }
 
+/// What typing into one segment (an hour or a minute) leaves: the digits it shows, the number
+/// they stand for once it is in range, and whether the segment is full.
+export interface Segment {
+  text: string;
+  value: number | null;
+  done: boolean;
+}
+
+/// Typing into a segment as the desktop's does: a key on a full segment starts it over, a digit
+/// no second one can follow finishes it ("7" reads "07"), two digits out of range start over
+/// from the last, so nothing past `max` ever shows.
+export function typeSegment(
+  previous: string,
+  text: string,
+  range: { min: number; max: number },
+): Segment {
+  let typed = text.replace(/\D/g, "");
+  if (typed.length > 2) {
+    const added = typed.startsWith(previous) ? typed.slice(previous.length) : typed;
+    typed = added.slice(-2);
+    if (typed.length === 2 && previous.length === 2) typed = typed.slice(-1);
+  }
+  if (typed.length === 0) return { text: "", value: null, done: false };
+  const n = Number(typed);
+  if (typed.length === 1) {
+    if (n * 10 > range.max) {
+      return { text: pad(n), value: n >= range.min ? n : null, done: true };
+    }
+    return { text: typed, value: n >= range.min ? n : null, done: false };
+  }
+  if (n >= range.min && n <= range.max) return { text: typed, value: n, done: true };
+  return typeSegment("", typed.slice(-1), range);
+}
+
 function parse(value: string | null) {
   if (!value) return { hour: null, minute: null };
   const [h, m] = value.split(":").map(Number);
@@ -63,8 +97,11 @@ export function TimeInput({
   const minuteField = useRef<TextInput>(null);
   // What was last set here: the hour typed a moment ago, before `value` comes back with it.
   const latest = useRef(value);
+  // What this field set last: that value coming back keeps the digits as typed ("1", not "01").
+  const own = useRef<string | null>(null);
   useEffect(() => {
     latest.current = value;
+    if (value !== null && value === own.current) return;
     setHourText(shownHour(hour));
     setMinuteText(minute === null ? "" : pad(minute));
     // Only a new value from outside resets what is typed.
@@ -78,24 +115,21 @@ export function TimeInput({
     const next = `${pad(h)}:${pad(m)}`;
     if (next === latest.current) return;
     latest.current = next;
+    own.current = next;
     onChange(next);
   };
   const typedHour = (text: string) => {
-    const digits = text.replace(/\D/g, "").slice(0, 2);
-    setHourText(digits);
-    const n = Number(digits);
-    if (!digits) return;
-    const valid = twelve ? n >= 1 && n <= 12 : n >= 0 && n <= 23;
-    if (!valid) return;
-    const h = twelve ? (n % 12) + (pm ? 12 : 0) : n;
+    const typed = typeSegment(hourText, text, twelve ? { min: 1, max: 12 } : { min: 0, max: 23 });
+    setHourText(typed.text);
+    if (typed.value === null) return;
+    const h = twelve ? (typed.value % 12) + (pm ? 12 : 0) : typed.value;
     commit(h, now().minute ?? 0);
-    if (digits.length === 2 || (twelve ? n > 1 : n > 2)) minuteField.current?.focus();
+    if (typed.done) minuteField.current?.focus();
   };
   const typedMinute = (text: string) => {
-    const digits = text.replace(/\D/g, "").slice(0, 2);
-    setMinuteText(digits);
-    const n = Number(digits);
-    if (digits.length === 2 && n <= 59) commit(now().hour ?? 0, n);
+    const typed = typeSegment(minuteText, text, { min: 0, max: 59 });
+    setMinuteText(typed.text);
+    if (typed.done && typed.value !== null) commit(now().hour ?? 0, typed.value);
   };
   const segment: TextStyle = large
     ? {
@@ -156,7 +190,6 @@ export function TimeInput({
           value={hourText}
           onChangeText={typedHour}
           keyboardType="number-pad"
-          maxLength={2}
           selectTextOnFocus
           autoFocus={autoFocus}
           placeholder="--"
@@ -182,7 +215,6 @@ export function TimeInput({
             if (minuteText.length === 1) commit(now().hour ?? 0, Number(minuteText));
           }}
           keyboardType="number-pad"
-          maxLength={2}
           selectTextOnFocus
           placeholder="--"
           placeholderTextColor={placeholder}
