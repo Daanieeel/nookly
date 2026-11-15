@@ -128,9 +128,9 @@ Both:
 
 - [x] (2026-11-15, a04d9f7e: the bun group less tiptap, hotkeys and pdfjs (held back since 1da0f4d9), md5, calamine, uuid and zip taken; jsdom 31 (breaks axe tests) and rfd 0.18 (two copies beside the dialog plugin) not; all six closed with a comment) (asked in chat) Dependabot: merge every open Dependabot version bump that makes sense into this branch, then close all Dependabot PRs, the ones not merged too (with a word on why).
 - [ ] (asked in chat) CI on this branch's open PR is green at the end of the session. Never merge the PR.
-- [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
-- [ ] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
-- [ ] Final report below.
+- [x] (2026-11-15) lint, format:check, typecheck, cargo test (1567 passed), duplication (0.15%) clean. Tests: frontend, shared and mobile pass, though a full local run times out a few files under load (they pass alone and in CI); server tests run only in CI (they would reach the local MinIO). Report only: `unused` lists older exports and the e2e tools, `audit` the known Rust advisories (RUSTSEC-2026-0385, 0310, 0459) and unmaintained crates; nothing from this round.
+- [x] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once (the label shelf card reworded to the View builder, the CLI line extended).
+- [x] Final report below.
 
 ## Needs the user
 
@@ -158,4 +158,10 @@ Both:
 
 ## Final report
 
-(Written at the end.)
+Seventh round (2026-11-15), all on `feat/connected-platform`:
+
+- Phone: every 2a item done and checked in the simulator (see the ticks above).
+- Desktop: the CLI now covers settings, backups, sync status, a Space's modules and the outside calendars (read only); restore, sign ins and emptying Trash stay in the app on purpose. The page cut off on the right is not fixed: it needs what you did just before it happened (see Needs the user).
+- Both: Files Views are built in a dialog (name, searchable labels with counts, the page's filters and display), on the desktop, the phone and through the CLI; the row of every label is gone (D81).
+- Tablet, first version (D82): no phone bar, page actions as the desktop's labelled buttons, a sidebar that starts with the mascot's card, Settings in two panes, New buttons that name what they make. Open points for your feedback are listed under the tablet item.
+- CI: the Rust jobs are green; the TypeScript job failed twice on different server timing tests (live pages, clash settling) with no server or sync change since the last green run, and was rerun.
