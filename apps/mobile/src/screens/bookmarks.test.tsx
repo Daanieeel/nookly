@@ -7,6 +7,7 @@ import {
   getEntity,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
+import { StyleSheet } from "react-native";
 import Storage from "../test/kv-store.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { choose, openRow } from "../test/sheet.ts";
@@ -53,7 +54,7 @@ describe("a bookmark", () => {
       faviconUrl: "https://kubernetes.io/f.png",
       previewImageUrl: "https://kubernetes.io/card.png",
     });
-    expect(await screen.findByLabelText("Preview")).toBeTruthy();
+    expect(await screen.findByTestId("picture-Kubernetes Deployments")).toBeTruthy();
     expect(fake).toHaveBeenCalledTimes(1);
   });
 
@@ -75,6 +76,50 @@ describe("a bookmark", () => {
       expect((await getBookmarkDetails(data.db, id))?.fetchedAt).not.toBeNull(),
     );
     expect((await getEntity(data.db, id))?.title).toBe("Mine");
+  });
+});
+
+// The details page was a bare address and two buttons that wrapped onto a new line once
+// Refresh Details said "Updated". It now leads with the page's picture, its site and when its
+// details were read, its actions side by side at a fixed width.
+describe("a bookmark's page", () => {
+  it("leads with its picture and site, and says when its details were read", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Web", "#3b82f6");
+    const id = await createBookmark(data.db, space, "https://www.kubernetes.io/docs/", "Docs");
+    data.driver.exec(
+      "UPDATE bookmarks SET preview_image_url = ?, favicon_url = ?, metadata_fetched_at = ? WHERE entity_id = ?",
+      "https://kubernetes.io/card.png",
+      "https://kubernetes.io/f.png",
+      "2026-11-02T10:00:00.000Z",
+      id,
+    );
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={id} /> },
+      data,
+      `/entity/${id}`,
+    );
+    expect((await screen.findByTestId("picture-Docs")).props.source.uri).toBe(
+      "https://kubernetes.io/card.png",
+    );
+    expect(screen.getByText("kubernetes.io")).toBeTruthy();
+    expect(screen.getByText(/^Read Nov 2/)).toBeTruthy();
+  });
+
+  it("keeps Open in Browser and Refresh Details side by side whatever they say", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Web", "#3b82f6");
+    const id = await createBookmark(data.db, space, "https://example.com/", "Mine");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={id} /> },
+      data,
+      `/entity/${id}`,
+    );
+    const row = await screen.findByTestId("bookmark-actions");
+    const style = StyleSheet.flatten(row.props.style);
+    expect(style.flexDirection).toBe("row");
+    expect(style.flexWrap).toBeUndefined();
+    expect(screen.getByText(/^Not read yet/)).toBeTruthy();
   });
 });
 
@@ -130,10 +175,28 @@ describe("a Space's bookmarks", () => {
     const icon = await createBookmark(data.db, space, "https://d.org", "Icon");
     const set = (sql: string, ...params: string[]) => data.driver.exec(sql, ...params);
     const read = "metadata_fetched_at = '2026-01-01T00:00:00.000Z'";
-    set(`UPDATE bookmarks SET ${read}, screenshot_path = ?, preview_image_url = ? WHERE entity_id = ?`, "file:///docs/shots/a.png", "https://a.org/og.png", shot);
-    set(`UPDATE bookmarks SET ${read}, screenshot_path = ?, preview_image_url = ?, preferred_image = 'preview' WHERE entity_id = ?`, "file:///docs/shots/b.png", "https://b.org/og.png", picked);
-    set(`UPDATE bookmarks SET ${read}, preview_image_url = ? WHERE entity_id = ?`, "https://c.org/og.png", og);
-    set(`UPDATE bookmarks SET ${read}, favicon_url = ? WHERE entity_id = ?`, "https://d.org/f.png", icon);
+    set(
+      `UPDATE bookmarks SET ${read}, screenshot_path = ?, preview_image_url = ? WHERE entity_id = ?`,
+      "file:///docs/shots/a.png",
+      "https://a.org/og.png",
+      shot,
+    );
+    set(
+      `UPDATE bookmarks SET ${read}, screenshot_path = ?, preview_image_url = ?, preferred_image = 'preview' WHERE entity_id = ?`,
+      "file:///docs/shots/b.png",
+      "https://b.org/og.png",
+      picked,
+    );
+    set(
+      `UPDATE bookmarks SET ${read}, preview_image_url = ? WHERE entity_id = ?`,
+      "https://c.org/og.png",
+      og,
+    );
+    set(
+      `UPDATE bookmarks SET ${read}, favicon_url = ? WHERE entity_id = ?`,
+      "https://d.org/f.png",
+      icon,
+    );
     const screen = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
     const picture = async (title: string) =>
       (await screen.findByTestId(`picture-${title}`)).props.source?.uri;
@@ -167,7 +230,8 @@ describe("a Space's bookmarks", () => {
     const space = await createSpace(data.db, "Web", "#3b82f6");
     const g = await createBookmark(data.db, space, "https://www.google.com/a", "Google");
     await createBookmark(data.db, space, "https://other.org/b", "Other B");
-    data.driver.exec("UPDATE bookmarks SET favicon_url = ? WHERE entity_id = ?",
+    data.driver.exec(
+      "UPDATE bookmarks SET favicon_url = ? WHERE entity_id = ?",
       "https://www.google.com/f.png",
       g,
     );

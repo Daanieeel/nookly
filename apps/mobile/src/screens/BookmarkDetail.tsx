@@ -1,5 +1,11 @@
 import { getBookmarkDetails, setBookmarkMetadata, updateBookmark } from "@nookly/shared/data";
-import { IconCalendarEvent, IconLink } from "@tabler/icons-react-native";
+import {
+  IconCalendarEvent,
+  IconExternalLink,
+  IconLink,
+  IconRefresh,
+  IconWorld,
+} from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Image, Linking, View } from "react-native";
@@ -15,7 +21,12 @@ import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { BookmarkPicture, hostOf } from "./BookmarkList.tsx";
 import { dayLabel } from "./dates.ts";
+import { CORNER, RADIUS, SPACE } from "../ui/tokens.ts";
+
+const shortDay = (at: string) =>
+  new Date(at).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 const address = z.url("Enter a web address");
 
@@ -67,29 +78,62 @@ export function BookmarkDetail({ id, readOnly }: { id: string; readOnly: boolean
             label="Added"
             value={dayLabel(bookmark.entity.createdAt.slice(0, 10))}
           />
+          <InfoRow
+            icon={<IconRefresh size={20} color={theme.colors.mutedForeground} />}
+            label="Details"
+            value={bookmark.fetchedAt ? `Read ${shortDay(bookmark.fetchedAt)}` : "Not read yet"}
+          />
         </PropertyList>
       </AtAGlance>
       <MainPart>
-        <View className="gap-3">
-          {bookmark.previewImageUrl ? (
-            <Image
-              accessibilityLabel="Preview"
-              source={{ uri: bookmark.previewImageUrl }}
-              resizeMode="cover"
-              className="aspect-[1.91] w-full rounded-lg bg-muted"
-            />
-          ) : null}
-          <View className="flex-row items-center gap-2">
-            {bookmark.faviconUrl ? (
-              <Image
-                accessibilityLabel="Icon"
-                source={{ uri: bookmark.faviconUrl }}
-                className="size-5 rounded"
-              />
-            ) : null}
-            <Text variant="small" tone="muted" numberOfLines={1} className="flex-1">
+        <View className="gap-4">
+          <View
+            style={[CORNER, { borderRadius: RADIUS.section }]}
+            className="aspect-[1.91] w-full items-center justify-center overflow-hidden border border-border bg-muted"
+          >
+            <BookmarkPicture bookmark={bookmark} />
+          </View>
+          <View className="gap-1">
+            <View className="flex-row items-center gap-2">
+              {bookmark.faviconUrl ? (
+                <Image
+                  accessibilityLabel="Icon"
+                  source={{ uri: bookmark.faviconUrl }}
+                  className="size-5 rounded"
+                />
+              ) : (
+                <IconWorld size={20} color={theme.colors.mutedForeground} />
+              )}
+              <Text numberOfLines={1} className="flex-1 font-medium">
+                {hostOf(bookmark.url).replace(/^www\./i, "")}
+              </Text>
+            </View>
+            <Text variant="small" tone="muted" numberOfLines={2}>
               {bookmark.url}
             </Text>
+          </View>
+          <View testID="bookmark-actions" style={{ flexDirection: "row", gap: SPACE.sm }}>
+            <View style={{ flex: 1 }}>
+              <Button
+                variant="secondary"
+                label="Open in Browser"
+                icon={<IconExternalLink size={18} color={theme.colors.foreground} />}
+                onPress={() => void Linking.openURL(bookmark.url)}
+              />
+            </View>
+            {!readOnly ? (
+              <View style={{ flex: 1 }}>
+                <Button
+                  variant="secondary"
+                  label="Refresh Details"
+                  icon={<IconRefresh size={18} color={theme.colors.foreground} />}
+                  status={statusOf(refresh)}
+                  successLabel="Updated"
+                  errorLabel="Couldn't reach it"
+                  onPress={() => refresh.mutate(bookmark.url)}
+                />
+              </View>
+            ) : null}
           </View>
           <Field
             label="Note"
@@ -107,23 +151,6 @@ export function BookmarkDetail({ id, readOnly }: { id: string; readOnly: boolean
               {refresh.error.message} The page's details will come when you try again.
             </Text>
           ) : null}
-          <View className="flex-row flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              label="Open in Browser"
-              onPress={() => void Linking.openURL(bookmark.url)}
-            />
-            {!readOnly ? (
-              <Button
-                variant="ghost"
-                label="Refresh Details"
-                status={statusOf(refresh)}
-                successLabel="Updated"
-                errorLabel="Couldn't reach it"
-                onPress={() => refresh.mutate(bookmark.url)}
-              />
-            ) : null}
-          </View>
         </View>
       </MainPart>
       <DetailsPart>

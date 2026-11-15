@@ -1,5 +1,6 @@
 import { useRowEdge } from "../ui/row-edge.tsx";
 import {
+  type BookmarkDetails,
   type BookmarkRecord,
   type LabelRecord,
   createBookmark,
@@ -45,7 +46,7 @@ import { labelOption } from "./option-badges.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 
-const hostOf = (url: string) => url.replace(/^https?:\/\//, "").split("/")[0];
+export const hostOf = (url: string) => url.replace(/^https?:\/\//, "").split("/")[0];
 
 /// The Site filter's choices: each site with its icon, its address read for what matters
 /// ("google.com") after the muted part every address has ("https://www."), searchable.
@@ -80,7 +81,7 @@ function SiteIcon({ host, favicon }: { host: string; favicon: string | null }) {
 /// What a card shows of its page, as the desktop does: the page as it was captured, else
 /// the site's own picture (first when it was picked over the capture), else the site's icon
 /// large. A picture that fails to load gives way to the next.
-function BookmarkPicture({ bookmark }: { bookmark: BookmarkRecord }) {
+export function BookmarkPicture({ bookmark }: { bookmark: BookmarkDetails }) {
   const theme = useTheme();
   const [broken, setBroken] = useState<string[]>([]);
   const capture = livePath(bookmark.screenshotPath);
