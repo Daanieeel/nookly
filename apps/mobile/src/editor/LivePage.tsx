@@ -232,7 +232,6 @@ export function PageDocEditor({
         content: (
           <OptionList
             label="Language"
-            searchPlaceholder="Search languages"
             options={CODE_LANGUAGE_OPTIONS}
             value={language}
             onChange={(next) => handle.current?.setCodeLanguage(pos, next)}

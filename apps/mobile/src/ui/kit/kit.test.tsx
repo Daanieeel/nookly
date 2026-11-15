@@ -3,8 +3,9 @@ import { StyleSheet } from "react-native";
 import { MIN_TOUCH } from "../touch.ts";
 import { GroupedSection } from "./GroupedSection.tsx";
 import { ListRow } from "./ListRow.tsx";
-import { SEARCH_HEIGHT, SearchField } from "./SearchField.tsx";
-import { semantic, semanticHex } from "../tokens.ts";
+import { SEARCH_HEIGHT, SearchField, clearLook, clearSpring } from "./SearchField.tsx";
+import { SPRING } from "../motion.ts";
+import { SPACE, semantic, semanticHex } from "../tokens.ts";
 import { EmptyState, ErrorState, LoadingState } from "./States.tsx";
 
 /// The base components every screen is built from: what a screen reader hears of them,
@@ -95,6 +96,25 @@ describe("the base components", () => {
     let at = button.parent;
     while (at && at.props.testID !== "search-field") at = at.parent;
     expect(at).toBeNull();
+  });
+
+  // Its way back out was jumpy: the spring overshot past nothing, so the button's width went
+  // below zero and the field jerked. It folds back in without overshoot, and never measures
+  // less than nothing on the way.
+  it("folds the X back into the field without overshooting", () => {
+    expect(clearSpring(false).dampingRatio).toBe(1);
+    expect(clearSpring(true)).toBe(SPRING.menu);
+    const past = clearLook(-0.08, false);
+    expect(past.width).toBe(0);
+    expect(past.opacity).toBe(0);
+    expect(past.transform[0].scale).toBeGreaterThanOrEqual(0.6);
+    expect(clearLook(1.05, false).width).toBe(SEARCH_HEIGHT + SPACE.sm);
+  });
+
+  // A search field explains itself: one word, never a sentence.
+  it("says only Search", () => {
+    const screen = render(<SearchField label="Search Tasks" value="" onChangeText={() => {}} />);
+    expect(screen.getByLabelText("Search Tasks").props.placeholder).toBe("Search");
   });
 
   it("has no clear button while nothing is typed", () => {

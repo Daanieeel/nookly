@@ -84,7 +84,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 Mobile:
 
-- [ ] Search field: the X's way back out (as the text is cleared) is buggy; make it as smooth as its way in. Shorten the search placeholders to a word or two: a search bar explains itself.
+- [x] (2026-11-15, the X folds back in on a spring without overshoot and never measures below nothing (the old spring took its width negative, the field jerked); every search field and the palette say just "Search" ("Go to", "Command"), the prop for a longer one removed; tests) Search field: the X's way back out (as the text is cleared) is buggy; make it as smooth as its way in. Shorten the search placeholders to a word or two: a search bar explains itself.
 - [ ] Cross Space Tasks page: the "is any of" (or similar) part of a filter chip cannot be tapped for the preset "Due date" and "Created" filters (maybe ones synced from the desktop). Works on other pages.
 - [ ] Nicer empty states everywhere: Assignments says only "Nothing matches these filters." Give it a proper empty state with a Clear Filters button under it.
 - [ ] Assignments: active filters show as the same chips as on Tasks (with their "is any of" parts) instead of hiding in the filter menu. The Filter and Display sheets open and close slowly; make them quick.
@@ -94,7 +94,7 @@ Mobile:
 - [ ] File viewer details: with a long label chosen, the "Labels" name of the select trigger gets cut short. Never cut the field's name, only the label names.
 - [ ] Bookmarks list: the (i) button is bigger and a secondary button, easier to hit and to recognise.
 - [ ] Relationship picker: the list under the search bar and "kind of link" only shows items valid for the chosen kind of link.
-- [ ] Search placeholders are not vertically centred (the icon is), seen in the relationship picker and often elsewhere: fix it once, for every search field.
+- [x] (2026-11-15, the search field measured dead centre (icon, cap height and field share their middle); the line height Tailwind gives `text-base` pushed the paste bars', palette's, sub-task's, new deck's and recipe rows' text 2pt low, now one shared `lineInput` style without it; measured centred on screen; tests) Search placeholders are not vertically centred (the icon is), seen in the relationship picker and often elsewhere: fix it once, for every search field.
 - [ ] Selects get icons per option as on the desktop where it makes sense (New Semester: Winter and Summer), and the chosen option's icon shows in the trigger. Not where it makes no sense (a year).
 - [ ] New Semester: the year is a number input in the exact style of the time input (exams, entries, sessions), one field for one number. "Typical dates for" is renamed "Timespan".
 - [ ] Label picker (from the details of any item): rows about 25% less tall so the list scrolls less.

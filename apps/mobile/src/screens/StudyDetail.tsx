@@ -1,4 +1,5 @@
 import { deadlineBucket } from "./assignment-view.ts";
+import { lineInput } from "../ui/kit/line-input.ts";
 import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES, type FixedStatus } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
@@ -764,7 +765,8 @@ function ExamDecks({
             returnKeyType="done"
             placeholder="Deck name"
             placeholderTextColor={theme.colors.mutedForeground}
-            className="h-12 flex-1 font-sans text-sm text-foreground"
+            className="h-12 flex-1 text-foreground"
+            style={lineInput("subheadline")}
           />
         </View>
       )}

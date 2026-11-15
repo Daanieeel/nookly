@@ -210,7 +210,6 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
           <OptionList
             label="Modules"
             search
-            searchPlaceholder="Find a module…"
             value={null}
             options={more.map((key) => ({
               id: key,

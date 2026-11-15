@@ -17,7 +17,7 @@ export function FilterField({
   value: string;
   onChange: (text: string) => void;
 }) {
-  return <SearchField label={label} placeholder={label} value={value} onChangeText={onChange} />;
+  return <SearchField label={label} value={value} onChangeText={onChange} />;
 }
 
 /// A page's title with how many it lists, the line the desktop's header gives it.

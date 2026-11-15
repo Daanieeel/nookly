@@ -297,7 +297,6 @@ export function EntitySearch({ onPick }: { onPick: (e: EntityRecord) => void }) 
   return (
     <OptionList
       label="Items"
-      searchPlaceholder="Titles, keys like TSK-14, page text"
       onQueryChange={setQuery}
       options={shown.map((e) => ({
         ...entityOption(e),

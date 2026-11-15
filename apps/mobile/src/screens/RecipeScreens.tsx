@@ -1,4 +1,5 @@
 import { livePath } from "../data/reroot.ts";
+import { lineInput } from "../ui/kit/line-input.ts";
 import {
   RECIPE_KINDS,
   RECIPE_TIME_BUCKETS,
@@ -380,7 +381,8 @@ function AddLine({ noun, onAdd }: { noun: "Ingredient" | "Step"; onAdd: (text: s
         returnKeyType="done"
         placeholder={noun === "Ingredient" ? "Add an ingredient" : "Add a step"}
         placeholderTextColor={theme.colors.mutedForeground}
-        className="h-12 flex-1 font-sans text-base text-foreground"
+        className="h-12 flex-1 text-foreground"
+        style={lineInput("callout")}
       />
       {text.trim() ? (
         <Button label={`Add ${noun}`} variant="secondary" size="sm" onPress={submit} />
@@ -568,7 +570,6 @@ export function RecipeDetail({ id, readOnly }: { id: string; readOnly: boolean }
             <OptionList
               label="Tags"
               search
-              searchPlaceholder="Find a tag…"
               multiple
               values={chosen}
               options={catalog.map((tag) => ({ id: tag.id, label: tag.name }))}

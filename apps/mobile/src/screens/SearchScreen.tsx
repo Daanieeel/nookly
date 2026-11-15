@@ -74,7 +74,6 @@ export function SearchScreen() {
     <Screen>
       <SearchField
         label="Search"
-        placeholder="Titles, keys like TSK-14, page text"
         value={query}
         onChangeText={setQuery}
       />

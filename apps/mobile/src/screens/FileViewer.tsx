@@ -62,7 +62,6 @@ function PdfSearch({
       <View className="flex-1">
         <SearchField
           label="Search the PDF"
-          placeholder="Search"
           value={query}
           onChangeText={onQuery}
           onSubmit={() => viewer()?.findNext()}

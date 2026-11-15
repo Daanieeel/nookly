@@ -13,6 +13,9 @@ export const SPRING = {
   press: { duration: 260, dampingRatio: 0.7 },
   /// A row lifted to be dragged, the rows making room for it, and its drop into place.
   lift: { duration: 320, dampingRatio: 0.86 },
+  /// Something folding back into what it grew out of (the search field's X): quick, no
+  /// overshoot past nothing.
+  collapse: { duration: 260, dampingRatio: 1 },
   /// A swiped row settling on its button, back closed, or out of the way as it acts.
   swipe: { duration: 360, dampingRatio: 0.92 },
 } as const;

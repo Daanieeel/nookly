@@ -12,6 +12,7 @@ import Animated, {
 import { FADE, SPRING } from "./motion.ts";
 import { useSemantic } from "./kit/scheme.ts";
 import { useReduceMotion } from "./reduce-motion.ts";
+import { lineInput } from "./kit/line-input.ts";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 import { CORNER, DEPTH, SPACE } from "./tokens.ts";
@@ -160,7 +161,7 @@ export function FloatingField({
           autoCorrect={false}
           keyboardType="url"
           returnKeyType="send"
-          className="h-11 flex-1 font-sans text-base text-foreground"
+          style={[lineInput("callout"), { minHeight: 44, flex: 1, color: theme.colors.foreground }]}
         />
         <Animated.View
           style={[

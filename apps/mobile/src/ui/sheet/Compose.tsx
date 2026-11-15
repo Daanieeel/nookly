@@ -276,14 +276,12 @@ export function PillSelect<Id extends string>({
   value,
   options,
   onChange,
-  placeholder,
 }: {
   label: string;
   icon?: ReactNode;
   value: Id | null;
   options: Option<Id>[];
   onChange: (id: Id) => void;
-  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.id === value);
@@ -301,7 +299,6 @@ export function PillSelect<Id extends string>({
           options={options}
           value={value}
           onChange={onChange}
-          searchPlaceholder={placeholder}
           search={options.length > 7}
         />
       </Sheet>

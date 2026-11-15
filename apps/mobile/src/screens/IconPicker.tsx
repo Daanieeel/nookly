@@ -90,7 +90,6 @@ export function IconPickerScreen() {
             label={tab === "icons" ? "Search icons" : "Search emoji"}
             value={query}
             onChangeText={setQuery}
-            placeholder={tab === "icons" ? "Search icons" : "Search emoji"}
           />
         </View>
       </SheetPinned>

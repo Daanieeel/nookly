@@ -145,7 +145,6 @@ export function SettingsScreen() {
         label="Search settings"
         value={query}
         onChangeText={setQuery}
-        placeholder="Search"
       />
       {query.trim() ? (
         found.length === 0 ? (

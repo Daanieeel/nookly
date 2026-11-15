@@ -29,7 +29,6 @@ export function LabelPicker({ entityId, spaceId }: { entityId: string; spaceId: 
     <OptionList
       label="Labels"
       multiple
-      searchPlaceholder="Find or make a label"
       values={attached.map((l) => l.id)}
       options={labels.map(labelOption)}
       onToggle={(labelId, on) => toggle.mutate({ labelId, on })}

@@ -657,7 +657,6 @@ function AddCourse({
         <OptionList
           label="Courses without a semester"
           search
-          searchPlaceholder="Find a course or name a new one"
           options={unassigned.map((c) => ({
             id: c.entity.id,
             label: c.entity.title || "Untitled",

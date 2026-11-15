@@ -1,4 +1,5 @@
 import type { EntityRecord } from "@nookly/shared/data";
+import { lineInput } from "../ui/kit/line-input.ts";
 import { INPUT_CLASSES } from "@nookly/ui/classes";
 import { IconSearch } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
@@ -16,9 +17,9 @@ import { type PaletteMode, useShell } from "./store.ts";
 type AppAction = NonNullable<PaletteCommand["action"]>;
 
 const PLACEHOLDER = {
-  search: "Search titles, keys and page text, or run a command",
-  quick: "Jump to an item by name",
-  commands: "Run a command",
+  search: "Search",
+  quick: "Go to",
+  commands: "Command",
 } satisfies Record<PaletteMode, string>;
 
 function shortcutOf(command: PaletteCommand): string | null {
@@ -95,7 +96,8 @@ export function CommandPalette({ onAction }: { onAction: (action: AppAction) => 
               autoCorrect={false}
               autoCapitalize="none"
               returnKeyType="go"
-              className={cn(text, "flex-1 font-sans text-foreground")}
+              className={cn(text, "flex-1 text-foreground")}
+              style={lineInput("callout")}
             />
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="gap-3 p-2">

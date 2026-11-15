@@ -1,4 +1,5 @@
 import { statusOption } from "./option-badges.tsx";
+import { lineInput } from "../ui/kit/line-input.ts";
 import {
   type RepeatRule,
   createSubtask,
@@ -97,7 +98,8 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
             returnKeyType="done"
             placeholder="Add a sub-task"
             placeholderTextColor={theme.colors.mutedForeground}
-            className="h-12 flex-1 font-sans text-sm text-foreground"
+            className="h-12 flex-1 text-foreground"
+            style={lineInput("subheadline")}
           />
           {title.trim() ? (
             <Button
@@ -171,7 +173,6 @@ function TaskProperties({ id, readOnly }: { id: string; readOnly: boolean }) {
       <ChoiceProperty
         icon={<IconBolt size={20} color={muted} />}
         label="Effort"
-        searchPlaceholder="Set effort…"
         value={task.effort === null ? "none" : String(task.effort)}
         readOnly={readOnly}
         options={[

@@ -168,7 +168,6 @@ export function LinkPicker({ entityId }: { entityId: string }) {
       {link.error ? <Text tone="destructive">{link.error.message}</Text> : null}
       <OptionList
         label="Items"
-        searchPlaceholder="Titles, keys like TSK-14, page text"
         onQueryChange={setQuery}
         empty={{ title: "No Recents", message: "Search for an item to link." }}
         options={shown.map((e) => ({

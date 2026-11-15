@@ -150,7 +150,6 @@ export function OptionList<Id extends string>(
   props: {
     label: string;
     options: Option<Id>[];
-    searchPlaceholder?: string;
     onCreate?: (name: string) => void;
     /// Whether it has a search field; by default only a list longer than 7, or one that
     /// makes new choices or searches elsewhere.
@@ -172,7 +171,7 @@ export function OptionList<Id extends string>(
     | { multiple: true; values: Id[]; onToggle: (id: Id, on: boolean) => void }
   ),
 ) {
-  const { label, options, searchPlaceholder = "Search", onCreate } = props;
+  const { label, options, onCreate } = props;
   const sheet = useSheet();
   const inCard = useContext(InCard);
   const [query, setQuery] = useState("");
@@ -223,7 +222,6 @@ export function OptionList<Id extends string>(
             label={`Search ${label}`}
             value={query}
             onChangeText={search}
-            placeholder={searchPlaceholder}
             onSubmit={onCreate ? create : undefined}
           />
           {stuck ? (

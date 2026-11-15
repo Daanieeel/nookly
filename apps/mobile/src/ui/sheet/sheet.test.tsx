@@ -295,7 +295,6 @@ describe("a select", () => {
         label="Status"
         value={value}
         onChange={setValue}
-        searchPlaceholder="Change status…"
         options={[
           { id: "a", label: "Alpha", detail: "Mon, Nov 9", subtitle: "The first", section: "Open" },
           { id: "b", label: "Beta", section: "Open" },

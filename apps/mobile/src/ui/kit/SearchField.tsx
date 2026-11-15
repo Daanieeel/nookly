@@ -26,7 +26,6 @@ export function SearchField({
   label,
   value,
   onChangeText,
-  placeholder = "Search",
   onSubmit,
   autoFocus,
 }: {
@@ -34,7 +33,6 @@ export function SearchField({
   label: string;
   value: string;
   onChangeText: (text: string) => void;
-  placeholder?: string;
   onSubmit?: () => void;
   autoFocus?: boolean;
 }) {
@@ -67,7 +65,8 @@ export function SearchField({
           accessibilityLabel={label}
           value={value}
           onChangeText={onChangeText}
-          placeholder={placeholder}
+          // A search field explains itself: one word, whatever it searches.
+          placeholder="Search"
           placeholderTextColor={muted.color}
           autoCorrect={false}
           autoCapitalize="none"
@@ -97,6 +96,24 @@ export function SearchField({
   );
 }
 
+/// How the X grows: out with a touch of bounce, back in without overshoot (a spring that
+/// overshoots there takes the button below nothing and the field jerks).
+export function clearSpring(shown: boolean) {
+  return shown ? SPRING.menu : SPRING.collapse;
+}
+
+/// The X's width, fade and scale at `open` (0 folded away, 1 out), kept between the two
+/// whatever the spring does.
+export function clearLook(open: number, still: boolean) {
+  "worklet";
+  const at = Math.min(1, Math.max(0, open));
+  return {
+    width: (HEIGHT + SPACE.sm) * at,
+    opacity: still ? at : Math.min(1, at * 1.5),
+    transform: [{ scale: still ? 1 : 0.6 + 0.4 * at }],
+  };
+}
+
 /// The X beside the field: it grows out of the field's right edge as text comes in (the
 /// field giving way to it), and shrinks back into it once the field is empty.
 function ClearButton({
@@ -122,13 +139,9 @@ function ClearButton({
     };
     open.value = still
       ? withTiming(shown ? 1 : 0, { duration: shown ? FADE.in : FADE.out }, done)
-      : withSpring(shown ? 1 : 0, SPRING.menu, done);
+      : withSpring(shown ? 1 : 0, clearSpring(shown), done);
   }, [shown, still, open]);
-  const grow = useAnimatedStyle(() => ({
-    width: (HEIGHT + SPACE.sm) * open.value,
-    opacity: still ? open.value : Math.min(1, open.value * 1.5),
-    transform: [{ scale: still ? 1 : 0.6 + 0.4 * open.value }],
-  }));
+  const grow = useAnimatedStyle(() => clearLook(open.value, still));
   if (!present) return null;
   return (
     <Animated.View style={[{ height: HEIGHT, overflow: "hidden", alignItems: "flex-end" }, grow]}>
