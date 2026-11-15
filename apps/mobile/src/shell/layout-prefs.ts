@@ -12,3 +12,9 @@ export function useSidebarCollapsed() {
 export function useInspectorCollapsed() {
   return usePreference("shell.inspectorCollapsed", flag, false);
 }
+
+/// Whether the sidebar stays beside the page in a medium window 900 wide or more, instead
+/// of sliding over it.
+export function useSidebarPinned() {
+  return usePreference("shell.sidebarPinned", flag, false);
+}

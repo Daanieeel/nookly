@@ -484,10 +484,13 @@ export function SpaceSwitcher({
   spaces,
   active,
   onPick,
+  slot = MIN_TOUCH,
 }: {
   spaces: Space[];
   active: Space | null;
   onPick: (space: Space) => void;
+  /// Each icon's width: a finger's on a phone, the tablet's tighter row a little less.
+  slot?: number;
 }) {
   const theme = useTheme();
   const host = useOptionalSheetHost();
@@ -507,7 +510,7 @@ export function SpaceSwitcher({
         items={visible}
         keyOf={(space) => space.id}
         labelOf={spaceLabel}
-        size={MIN_TOUCH}
+        size={slot}
         onReorder={reorder}
         renderItem={(space) => {
           const selected = space.id === active?.id;
@@ -517,12 +520,13 @@ export function SpaceSwitcher({
               accessibilityLabel={spaceLabel(space)}
               accessibilityState={{ selected }}
               onPress={() => onPick(space)}
-              style={{ width: MIN_TOUCH, height: MIN_TOUCH }}
+              style={{ width: slot, height: MIN_TOUCH }}
               className="items-center justify-center active:opacity-60"
             >
               <View
                 className={cn(
-                  "size-10 items-center justify-center rounded-md",
+                  slot < MIN_TOUCH ? "size-8" : "size-10",
+                  "items-center justify-center rounded-md",
                   selected && "bg-sidebar-accent",
                 )}
               >

@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Sidebar } from "../screens/Sidebar.tsx";
 import {
   SIDEBAR_WIDTH,
   SPLIT_MIN_GROUP,
@@ -12,7 +11,9 @@ import {
 } from "../ui/pane.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
 import { useFollowRouter } from "./follow-router.ts";
-import { useSidebarCollapsed } from "./layout-prefs.ts";
+import { useSidebarCollapsed, useSidebarPinned } from "./layout-prefs.ts";
+import { SidebarOverlay } from "./sidebar/SidebarOverlay.tsx";
+import { TabletSidebar } from "./sidebar/TabletSidebar.tsx";
 import { PageGroupView } from "./PageGroup.tsx";
 import { ShortcutHost } from "./ShortcutHost.tsx";
 import { SplitProvider } from "./split-context.ts";
@@ -22,6 +23,9 @@ import { useShellActions } from "./actions.ts";
 import { matchPage, pathOf } from "./pages.tsx";
 import { type Workspace, activePath, focusedTab, visibleGroups } from "./workspace.ts";
 import { useWorkspace, workspace } from "./workspace-store.ts";
+
+/// The titlebar's height under the status bar.
+const TITLEBAR_HEIGHT = 44;
 
 /// The room between the sidebar, the page cards and the window's edges, the desktop's.
 const GAP = 12;
@@ -57,18 +61,21 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
   const windowClass = useWindowClass();
   const { width } = useWindowSize();
   const insets = useSafeAreaInsets();
-  const [collapsed] = useSidebarCollapsed();
+  const [collapsed, setCollapsed] = useSidebarCollapsed();
+  const [pinned, setPinned] = useSidebarPinned();
   const [overlay, setOverlay] = useState(false);
-  const beside = windowClass === "expanded" && !collapsed;
+  // Beside the page in an expanded window, as on the desktop; over it in a medium one,
+  // unless pinned there from 900 wide.
+  const canPin = windowClass === "medium" && width >= 900;
+  const beside = !collapsed && (windowClass === "expanded" || (canPin && pinned));
   const ws = useWorkspace((s) => s.ws);
   const pageArea = width - GAP * 2 - (beside ? SIDEBAR_WIDTH + GAP : 0);
   // A medium window shows one group at a time, the desktop's rule for a narrow window.
   const splitRoom = windowClass === "expanded" ? pageArea : 0;
   const groups = visibleGroups(ws, splitRoom);
   const split = groups.length > 1;
-  const onAction = useShellActions(
-    windowClass === "medium" ? () => setOverlay((open) => !open) : undefined,
-  );
+  const overlaid = windowClass === "medium" && !beside;
+  const onAction = useShellActions(overlaid ? () => setOverlay((open) => !open) : undefined);
   useFollowRouter({
     opened: (path) => {
       setOverlay(false);
@@ -97,7 +104,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
         <View className="flex-1 bg-background">
           <Titlebar
             onAction={onAction}
-            sidebarCollapsed={windowClass === "medium" ? !overlay : collapsed}
+            sidebarCollapsed={overlaid ? !overlay : collapsed}
             top={insets.top}
           />
           {showTabBar && focusedGroup ? <TabStrip groupId={focusedGroup.id} /> : null}
@@ -111,7 +118,11 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
           >
             {beside ? (
               <View style={{ width: SIDEBAR_WIDTH }}>
-                <Sidebar close={() => {}} />
+                <TabletSidebar
+                  width={SIDEBAR_WIDTH}
+                  pinned={canPin ? pinned : undefined}
+                  onPin={canPin ? () => setPinned(false) : undefined}
+                />
               </View>
             ) : null}
             <View className="min-w-0 flex-1 flex-row" style={{ gap: split ? GAP : 0 }}>
@@ -134,21 +145,28 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
               ))}
             </View>
           </View>
-          {windowClass === "medium" && overlay ? (
-            <View className="absolute inset-0 flex-row" style={{ top: insets.top + 52 }}>
-              <View
-                className="border-r border-border bg-background shadow-md"
-                style={{ width: SIDEBAR_WIDTH }}
-              >
-                <Sidebar close={() => setOverlay(false)} />
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close Sidebar"
-                className="flex-1 bg-black/20"
-                onPress={() => setOverlay(false)}
+          {overlaid ? (
+            <SidebarOverlay
+              open={overlay}
+              onOpenChange={setOverlay}
+              width={SIDEBAR_WIDTH}
+              top={insets.top + TITLEBAR_HEIGHT}
+            >
+              <TabletSidebar
+                width={SIDEBAR_WIDTH}
+                onPicked={() => setOverlay(false)}
+                pinned={canPin ? false : undefined}
+                onPin={
+                  canPin
+                    ? () => {
+                        setPinned(true);
+                        setCollapsed(false);
+                        setOverlay(false);
+                      }
+                    : undefined
+                }
               />
-            </View>
+            </SidebarOverlay>
           ) : null}
         </View>
         <ShortcutHost onAction={onAction} />
