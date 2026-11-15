@@ -1,3 +1,4 @@
+import { useMenu } from "../ui/menu.tsx";
 import {
   addDaysTo,
   addMonthsTo,
@@ -261,6 +262,7 @@ export function CalendarScreen({
 } = {}) {
   const theme = useTheme();
   const router = useRouter();
+  const menu = useMenu();
   const today = localDay();
   const width = usePaneWidth();
   const wide = width >= WIDE;
@@ -309,17 +311,22 @@ export function CalendarScreen({
   useSidebarEdgeOnly(phoneHours);
   const swipe = usePeriodSwipe(step, range.from, width - gutterFor(width));
   const agendaDays = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(today, i));
+  const pickView = (next: CalendarView) => {
+    setStored(next);
+    if (next === "agenda") setAnchor(today);
+  };
+  // On a phone the views are one button in the bar, which lists them; an iPad keeps the
+  // desktop's tabs.
   const controls = (
     <>
-      <Segmented
-        label="View"
-        value={view}
-        options={available.map((v) => ({ value: v.id, label: v.label }))}
-        onChange={(next) => {
-          setStored(next);
-          if (next === "agenda") setAnchor(today);
-        }}
-      />
+      {wide ? (
+        <Segmented
+          label="View"
+          value={view}
+          options={available.map((v) => ({ value: v.id, label: v.label }))}
+          onChange={pickView}
+        />
+      ) : null}
       {wide && view !== "agenda" ? (
         <View className="flex-row items-center gap-1">
           <IconButton
@@ -345,13 +352,42 @@ export function CalendarScreen({
     <>
       {wide ? null : (
         <Stack.Screen
-          options={{
-            title: periodHeader(shownDays),
-            headerTitle: () => <PeriodTitle days={shownDays} />,
-          }}
+          options={
+            // The hours say only the week; the dates are on the days themselves.
+            view === "agenda"
+              ? {
+                  title: periodHeader(shownDays),
+                  headerTitle: () => <PeriodTitle days={shownDays} />,
+                }
+              : {
+                  title: periodParts(shownDays).week,
+                  headerTitle: () => (
+                    <Label type="headline" weight="600">
+                      {periodParts(shownDays).week}
+                    </Label>
+                  ),
+                }
+          }
         />
       )}
       <Stack.Toolbar placement="right">
+        {wide ? null : (
+          <Stack.Toolbar.Button
+            icon={TOOLBAR_ICONS.calendarView}
+            {...BAR_BUTTON}
+            accessibilityLabel="Calendar View"
+            onPress={() =>
+              menu.show(
+                "View",
+                available.map((v) => ({
+                  label: v.label,
+                  checked: v.id === view,
+                  onPress: () => pickView(v.id),
+                })),
+              )
+            }
+          />
+        )}
         <Stack.Toolbar.Button
           icon={TOOLBAR_ICONS.plus}
           {...BAR_BUTTON}

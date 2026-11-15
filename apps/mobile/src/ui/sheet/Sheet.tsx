@@ -256,7 +256,9 @@ function SheetFrame({
       closed.current();
       const then = after.current;
       after.current = null;
-      then?.();
+      // A frame later, once the sheet's window has gone too: a screen the action opens
+      // over everything (the photo library) would otherwise go down with it.
+      if (then) requestAnimationFrame(() => requestAnimationFrame(then));
     }, settleTime(still));
     return () => clearTimeout(timer);
   }, [open, offset, target, release, still, window.height, shown]);

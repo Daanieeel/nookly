@@ -12,8 +12,9 @@ import { renderScreens, testData } from "../test/render.tsx";
 import { choose, openRow } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { RecipeRows } from "./RecipeScreens.tsx";
+import type { PhotoPicker, PhotoSource } from "../ui/photo-picker.tsx";
 
-async function open() {
+async function open(photoPicker?: PhotoPicker) {
   const data = testData();
   const space = await createSpace(data.db, "Kitchen", "#22c55e");
   const recipe = await createRecipe(data.db, space, "Pancakes");
@@ -21,6 +22,7 @@ async function open() {
     { "entity/[id]": () => <EntityScreen id={recipe} /> },
     data,
     `/entity/${recipe}`,
+    { photoPicker },
   );
   return { data, space, recipe, screen };
 }
@@ -88,6 +90,26 @@ describe("a recipe", () => {
     expect(await screen.findByLabelText("No banner")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add Banner Image" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Choose Banner" })).toBeNull();
+  });
+
+  // The camera button went straight to the file picker. As iOS apps do, it asks first where
+  // the picture comes from: the photo library, the camera or a file.
+  it("asks where the banner comes from, and takes one from the photo library", async () => {
+    const asked: PhotoSource[] = [];
+    const { data, recipe, screen } = await open({
+      pick: async (source) => {
+        asked.push(source);
+        return "file:///picked/pancakes.jpg";
+      },
+    });
+    await fireEvent.press(await screen.findByRole("button", { name: "Add Banner Image" }));
+    expect(await screen.findByRole("menuitem", { name: "Take Photo" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Choose File" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Photo Library" }));
+    await waitFor(async () =>
+      expect((await getRecipe(data.db, recipe))?.bannerPath).toBe("file:///picked/pancakes.jpg"),
+    );
+    expect(asked).toEqual(["library"]);
   });
 
   it("adds, edits, moves and removes ingredients and steps", async () => {

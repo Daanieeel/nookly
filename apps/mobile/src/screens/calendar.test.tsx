@@ -16,7 +16,13 @@ import { EntityScreen } from "./EntityScreen.tsx";
 import { act } from "@testing-library/react-native";
 import * as ReactNative from "react-native";
 import { fireGestureHandler, getByGestureTestId } from "react-native-gesture-handler/jest-utils";
-import { headerTitle, renderScreens, testData } from "../test/render.tsx";
+import {
+  barLabels,
+  headerTitle,
+  pressBarButton,
+  renderScreens,
+  testData,
+} from "../test/render.tsx";
 import { addDays, isoWeek, localDay, periodTitle } from "./dates.ts";
 import { CalendarScreen } from "./CalendarScreen.tsx";
 import { HOUR_PX } from "./TimeGrid.tsx";
@@ -127,20 +133,49 @@ async function listSpacesFor(data: Awaited<ReturnType<typeof planned>>["data"]) 
   return (await listSpaces(data.db)).map((space) => space.id);
 }
 
+/// Picks a view from the bar's Calendar View button, as on a phone.
+async function showView(screen: Awaited<ReturnType<typeof renderScreens>>, name: string) {
+  await pressBarButton(screen, "Calendar View");
+  await fireEvent.press(await screen.findByRole("menuitem", { name }));
+  // The menu acts once it has gone.
+  await waitFor(() => expect(screen.queryByRole("menuitem", { name })).toBeNull());
+}
+
 /// A phone's width: the calendar reads the window's.
 const PHONE = 390;
 
 describe("the calendar on a phone", () => {
-  it("offers the agenda, a day, three days and a week, and no month", async () => {
+  // The four views were tabs across the top, taking a row of the hours' height. They are one
+  // button in the bar now, left of the +, that lists them.
+  it("offers the agenda, a day, three days and a week from a button in the bar, and no month", async () => {
     const { data } = await planned();
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
       width: PHONE,
     });
+    // The bar lists its right side from the edge in: the + outermost, the view beside it.
+    await waitFor(() =>
+      expect(barLabels(screen).slice(0, 2)).toEqual(["New Calendar Entry", "Calendar View"]),
+    );
+    expect(screen.queryByRole("radio", { name: "Day" })).toBeNull();
+    await pressBarButton(screen, "Calendar View");
     for (const name of ["Agenda", "Day", "3 Days", "Week"]) {
-      expect(await screen.findByRole("radio", { name })).toBeTruthy();
+      expect(await screen.findByRole("menuitem", { name })).toBeTruthy();
     }
-    expect(screen.queryByRole("radio", { name: "Month" })).toBeNull();
-    expect(screen.queryByRole("radio", { name: "Work Week" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Month" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Work Week" })).toBeNull();
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Week" }));
+    expect(await screen.findAllByTestId("gridline")).not.toHaveLength(0);
+  });
+
+  // The day numbers over the columns were small print; they read at a glance now.
+  it("draws the day numbers over the columns large", async () => {
+    const { data } = await planned();
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: PHONE,
+    });
+    await showView(screen, "3 Days");
+    const [number] = await screen.findAllByTestId("day-number");
+    expect(StyleSheet.flatten(number.props.style).fontSize).toBeGreaterThanOrEqual(20);
   });
 
   it("carries the days' borders through the bar of all day items, to its bottom", async () => {
@@ -156,7 +191,7 @@ describe("the calendar on a phone", () => {
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
       width: PHONE,
     });
-    await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
+    await showView(screen, "3 Days");
     const chip = await screen.findByRole("button", { name: "Conference, all day" });
     const classes = (node: { props: { className?: string } }) => String(node.props.className ?? "");
     // The pages before and after are drawn too, for the swipe; this page is the middle one.
@@ -186,36 +221,19 @@ describe("the calendar on a phone", () => {
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
       width: PHONE,
     });
-    await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
+    await showView(screen, "3 Days");
     await screen.findByRole("button", { name: "Trip, all day" });
     // Three pages of three days: every day has its cell under its name.
     expect(screen.getAllByTestId("all-day-day")).toHaveLength(9);
   });
 
-  it("spreads the view tabs over the full width, each taking an equal share", async () => {
-    const { data } = await planned();
-    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
-      width: PHONE,
-    });
-    const tabs = [];
-    for (const name of ["Agenda", "Day", "3 Days", "Week"]) {
-      tabs.push(await screen.findByRole("radio", { name }));
-    }
-    for (const tab of tabs) {
-      expect(StyleSheet.flatten(tab.props.style).flex).toBe(1);
-    }
-    // In a row that does not wrap, so they share one line.
-    const group = screen.getByLabelText("View");
-    expect(String(group.props.className)).not.toMatch(/flex-wrap/);
-  });
-
-  it("has no bar of arrows on a phone: the header names the dates and the week, a swipe moves on", async () => {
+  it("has no bar of arrows on a phone: the header names the week, a swipe moves on", async () => {
     jest.useFakeTimers();
     const { data } = await planned();
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
       width: PHONE,
     });
-    await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
+    await showView(screen, "3 Days");
     await screen.findAllByTestId("gridline");
     expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
@@ -223,12 +241,11 @@ describe("the calendar on a phone", () => {
       const [y, m, d] = day.split("-").map(Number);
       return isoWeek(new Date(y, m - 1, d));
     };
-    const title = (from: string) =>
-      `${periodTitle(from, addDays(from, 2))} Week ${week(addDays(from, 1))}`;
+    // Only the week, in full: the dates are on the days themselves.
+    const title = (from: string) => `Week ${week(addDays(from, 1))}`;
     const today = localDay();
     expect(headerTitle(screen)).toBe(title(today));
-    // The week sits after the dates without a comma, quieter, as its own text.
-    expect(screen.getByText(`Week ${week(addDays(today, 1))}`)).toBeTruthy();
+    expect(screen.queryByText(periodTitle(today, addDays(today, 2)))).toBeNull();
     // A swipe to the left brings the next three days, to the right the ones before: the page slides out and the next one in.
     const swipe = (translationX: number) => {
       act(() => fireGestureHandler(getByGestureTestId("calendar-swipe"), [{ translationX }]));
@@ -267,7 +284,7 @@ describe("the calendar on a phone", () => {
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
       width: PHONE,
     });
-    await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
+    await showView(screen, "3 Days");
     expect(await screen.findByRole("button", { name: /^Later page, / })).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Earlier page, / })).toBeTruthy();
     // Three pages side by side, the middle one in view.
@@ -284,12 +301,12 @@ describe("the calendar on a phone", () => {
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
       width: PHONE,
     });
-    await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
+    await showView(screen, "3 Days");
     expect(await screen.findByRole("button", { name: "Dentist, 09:00 to 10:00" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Lecture 1, 11:00 to 12:30" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Final, 09:00" })).toBeTruthy();
-    // The page's bar says which days.
-    expect(headerTitle(screen)).toMatch(/ to .* Week \d+$/);
+    // The page's bar says which week.
+    expect(headerTitle(screen)).toMatch(/^Week \d+$/);
   });
 
   it("draws its lines in a solid color of their own, not the border's faded, which goes black in dark", async () => {
@@ -297,7 +314,7 @@ describe("the calendar on a phone", () => {
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
       width: PHONE,
     });
-    await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
+    await showView(screen, "3 Days");
     const lines = await screen.findAllByTestId("gridline");
     // Every hour and every day.
     expect(lines.length).toBeGreaterThanOrEqual(24 + 3);
@@ -329,7 +346,7 @@ describe("the calendar on a phone", () => {
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
       width: PHONE,
     });
-    await fireEvent.press(await screen.findByRole("radio", { name: "3 Days" }));
+    await showView(screen, "3 Days");
     const hours = await screen.findByTestId("hours");
     // Opened there (7, by default) from the first frame, not scrolled to after it shows (which can miss).
     expect(hours.props.contentOffset.y).toBe(7 * HOUR_PX - 4);
@@ -354,7 +371,7 @@ describe("the calendar on a phone", () => {
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
       width: PHONE,
     });
-    await fireEvent.press(await screen.findByRole("radio", { name: "Week" }));
+    await showView(screen, "Week");
     const blocks = await screen.findAllByRole("button", { name: /, \d\d:\d\d( to \d\d:\d\d)?$/ });
     expect(blocks.length).toBeGreaterThanOrEqual(4);
     const column = (390 - 40) / 7;

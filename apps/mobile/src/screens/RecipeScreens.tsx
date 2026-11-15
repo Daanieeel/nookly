@@ -33,6 +33,8 @@ import {
   IconCamera,
   IconClock,
   IconDots,
+  IconFile,
+  IconPhoto,
   IconPlus,
   IconTag,
   IconToolsKitchen2,
@@ -44,7 +46,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Image, Pressable, TextInput, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
-import { storePicked } from "../data/files.ts";
+import { type PhotoSource, usePhotoPicker } from "../ui/photo-picker.tsx";
 import { useRecipe, useRecipeParts, useRecipeTags, useRecipes } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { useMenu } from "../ui/menu.tsx";
@@ -405,61 +407,79 @@ function AddLine({ noun, onAdd }: { noun: "Ingredient" | "Step"; onAdd: (text: s
 function RecipeBanner({ id, readOnly }: { id: string; readOnly: boolean }) {
   const theme = useTheme();
   const { data: recipe } = useRecipe(id);
-  const pick = useLocalWrite(async (db, _: undefined) => {
-    const picked = await File.pickFileAsync({ mimeTypes: "image/*" });
-    if (picked.canceled) return;
-    await setRecipeBanner(db, id, (await storePicked(picked.result)).uri);
+  const menu = useMenu();
+  const photos = usePhotoPicker();
+  const pick = useLocalWrite(async (db, source: PhotoSource) => {
+    const uri = await photos.pick(source);
+    if (uri) await setRecipeBanner(db, id, uri);
   });
   const uri = livePath(recipe?.bannerPath ?? null);
   const exists = useBannerExists(uri);
   const shown = Boolean(uri && exists);
   const fill = useSemantic("fill");
   return (
-    <View
-      style={[CORNER, { borderRadius: RADIUS.section, backgroundColor: fill }]}
-      className="h-40 overflow-hidden"
-    >
-      {shown && uri ? (
-        <Image
-          accessibilityLabel="Banner"
-          source={{ uri }}
-          resizeMode="cover"
-          className="size-full"
-        />
-      ) : (
-        <View
-          accessibilityLabel={
-            recipe?.bannerBlob ? "The banner arrives when this phone has synced" : "No banner"
-          }
-          className="size-full items-center justify-center"
-        >
-          <View style={{ opacity: 0.4 }}>
-            <IconToolsKitchen2 size={32} color={theme.colors.mutedForeground} />
-          </View>
-        </View>
-      )}
-      {!readOnly ? (
-        <View className="absolute top-2 right-2">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={shown ? "Change Banner Image" : "Add Banner Image"}
-            onPress={() => pick.mutate(undefined)}
-            hitSlop={8}
-            style={({ pressed }) => [
-              CORNER,
-              {
-                width: 34,
-                height: 34,
-                borderRadius: RADIUS.control,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: pressed ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.4)",
-              },
-            ]}
+    <View className="gap-2">
+      <View
+        style={[CORNER, { borderRadius: RADIUS.section, backgroundColor: fill }]}
+        className="h-40 overflow-hidden"
+      >
+        {shown && uri ? (
+          <Image
+            accessibilityLabel="Banner"
+            source={{ uri }}
+            resizeMode="cover"
+            className="size-full"
+          />
+        ) : (
+          <View
+            accessibilityLabel={
+              recipe?.bannerBlob ? "The banner arrives when this phone has synced" : "No banner"
+            }
+            className="size-full items-center justify-center"
           >
-            <IconCamera size={17} color="#ffffff" />
-          </Pressable>
-        </View>
+            <View style={{ opacity: 0.4 }}>
+              <IconToolsKitchen2 size={32} color={theme.colors.mutedForeground} />
+            </View>
+          </View>
+        )}
+        {!readOnly ? (
+          <View className="absolute top-2 right-2">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={shown ? "Change Banner Image" : "Add Banner Image"}
+              onPress={() =>
+                menu.show(shown ? "Change Banner Image" : "Add Banner Image", [
+                  {
+                    label: "Photo Library",
+                    icon: IconPhoto,
+                    onPress: () => pick.mutate("library"),
+                  },
+                  { label: "Take Photo", icon: IconCamera, onPress: () => pick.mutate("camera") },
+                  { label: "Choose File", icon: IconFile, onPress: () => pick.mutate("file") },
+                ])
+              }
+              hitSlop={8}
+              style={({ pressed }) => [
+                CORNER,
+                {
+                  width: 34,
+                  height: 34,
+                  borderRadius: RADIUS.control,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.4)",
+                },
+              ]}
+            >
+              <IconCamera size={17} color="#ffffff" />
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+      {pick.error ? (
+        <Text variant="small" tone="destructive">
+          {pick.error.message}
+        </Text>
       ) : null}
     </View>
   );

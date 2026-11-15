@@ -101,8 +101,8 @@ Mobile:
 - [x] Every entity list page (Jots and the rest): the title, filter and display buttons and the tabs stay put; only the list scrolls.
 - [x] Semester setup, "Where do you study?": add Germany.
 - [x] "Choose an icon" sheet: categories at the top to jump to.
-- [ ] Recipes, choosing a photo: ask first (photo library, take a photo, choose a file) instead of opening the file picker.
-- [ ] Calendar: the view tabs at the top become one icon button left of the + that opens a select of the four views, saving height. The header shows only "Week XY" at full opacity, no dates (the agenda keeps its own). The day numbers in the columns get bigger.
+- [x] Recipes, choosing a photo: ask first (photo library, take a photo, choose a file) instead of opening the file picker.
+- [x] Calendar: the view tabs at the top become one icon button left of the + that opens a select of the four views, saving height. The header shows only "Week XY" at full opacity, no dates (the agenda keeps its own). The day numbers in the columns get bigger.
 
 Desktop:
 

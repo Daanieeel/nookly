@@ -1,3 +1,4 @@
+import calendarView from "../../assets/toolbar/calendar-week.png";
 import camera from "../../assets/toolbar/camera.png";
 import collapse from "../../assets/toolbar/layout-sidebar-right-collapse.png";
 import expand from "../../assets/toolbar/layout-sidebar-right-expand.png";
@@ -16,6 +17,7 @@ import signOut from "../../assets/toolbar/logout.png";
 /// `@tabler/icons/icons/outline` at 22 points, 1x to 3x.
 export const TOOLBAR_ICONS = {
   plus,
+  calendarView,
   scan: camera,
   search,
   share,

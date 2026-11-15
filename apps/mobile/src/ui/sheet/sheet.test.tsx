@@ -1,6 +1,6 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { useState } from "react";
-import { type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { Modal, type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { Button, IconButton } from "../Button.tsx";
 import { Row } from "../Row.tsx";
 import { ChoiceProperty } from "../property-rows.tsx";
@@ -238,6 +238,32 @@ describe("a menu in the sheet", () => {
     fireEvent.press(screen.getByRole("menuitem", { name: "Pin" }));
     expect(run).not.toHaveBeenCalled();
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1), { timeout: 10_000 });
+  });
+  // A menu's action opened the photo library just as the sheet's window went away, and took
+  // the library down with it. The action waits until the window is gone.
+  it("runs its action only once the sheet's window is gone", async () => {
+    let shownWhenRun: boolean | null = null;
+    function Menu() {
+      const [open, setOpen] = useState(true);
+      return (
+        <Sheet open={open} onOpenChange={setOpen}>
+          <MenuList
+            entries={[
+              {
+                label: "Photo Library",
+                onPress: () => {
+                  shownWhenRun = screen.UNSAFE_queryAllByType(Modal).length > 0;
+                },
+              },
+            ]}
+          />
+        </Sheet>
+      );
+    }
+    const screen = render(<Menu />);
+    fireEvent.press(screen.getByRole("menuitem", { name: "Photo Library" }));
+    await waitFor(() => expect(shownWhenRun).not.toBeNull(), { timeout: 10_000 });
+    expect(shownWhenRun).toBe(false);
   });
 });
 

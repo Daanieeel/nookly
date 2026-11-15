@@ -21,6 +21,7 @@ import { type FileViewer, FileViewerProvider, systemFileViewer } from "../ui/fil
 import { PageEditorViewProvider } from "../editor/editor-view.tsx";
 import { MathViewProvider } from "../ui/math/MathPreview.tsx";
 import { type DocumentScanner, ScannerProvider } from "../ui/scanner.tsx";
+import { type PhotoPicker, PhotoPickerProvider, systemPhotoPicker } from "../ui/photo-picker.tsx";
 import { EditorStandIn } from "./editor-stand-in.tsx";
 
 let ids = 0;
@@ -86,6 +87,8 @@ export async function renderScreens(
     fileViewer?: FileViewer;
     /// What the document camera hands over (none in tests unless given).
     scanner?: DocumentScanner;
+    /// What the photo library, the camera and the file picker hand over as a picture.
+    photoPicker?: PhotoPicker;
   } = {},
 ) {
   const queryClient = new QueryClient({
@@ -112,7 +115,9 @@ export async function renderScreens(
                       {/* No web view to draw formulas in. */}
                       <MathViewProvider value={NoMath}>
                         <ScannerProvider value={options.scanner ?? NoScanner}>
-                          {children}
+                          <PhotoPickerProvider value={options.photoPicker ?? systemPhotoPicker}>
+                            {children}
+                          </PhotoPickerProvider>
                         </ScannerProvider>
                       </MathViewProvider>
                     </PageEditorViewProvider>

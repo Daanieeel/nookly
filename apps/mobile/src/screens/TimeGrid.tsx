@@ -1,3 +1,4 @@
+import { TYPE } from "../ui/tokens.ts";
 import type { AgendaItem } from "@nookly/shared/data";
 import { allDayChipLook, blockLook, withAlpha } from "@nookly/shared/calendar-style";
 import {
@@ -188,13 +189,16 @@ export function TimeGrid({
                     : date.toLocaleDateString(undefined, { weekday: "short" })}
                 </Text>
                 <View
-                  className="h-6 min-w-6 items-center justify-center rounded-full px-1"
+                  className="h-8 min-w-8 items-center justify-center rounded-full px-1"
                   style={isToday ? { backgroundColor: colors.today.pill } : undefined}
                 >
                   <Text
-                    variant="small"
+                    testID="day-number"
                     className="font-medium"
-                    style={isToday ? { color: colors.today.pillText } : undefined}
+                    style={[
+                      { fontSize: TYPE.title3.fontSize, lineHeight: TYPE.title3.lineHeight },
+                      isToday ? { color: colors.today.pillText } : null,
+                    ]}
                   >
                     {number}
                   </Text>

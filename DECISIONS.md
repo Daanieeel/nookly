@@ -459,3 +459,7 @@ An unsaved change lives in memory: it outlives leaving the page, not quitting th
 ## D79. A list page's top stays put
 
 On every list page (Tasks, Assignments, Notes, Jots, Files, Bookmarks, Courses, Exams, Decks, Recipes, Search, Trash) the title with its count and Filter and Display, the tabs (Jots' presets, Views) and the filters that are on stay at the top while only the list scrolls, as the desktop's header does. A hairline parts them once the list scrolls under. The search field and anything else of the page scroll with the list. Pages declare their top where they are (`FixedTop`); the page's `Screen` draws it above its scrolling content. In a sheet nothing scrolls apart, so it stays in place.
+
+## D80. The phone's calendar switches views from its bar
+
+On a phone the four views (Agenda, Day, 3 Days, Week) are one button in the bar, left of the +, which lists them in a sheet with a check on the one shown; the row of tabs above the hours is gone, so the hours start right under the bar. Over the hours the bar names only the week ("Week 46"), at full strength, since the days carry their own dates, now in larger numbers. The agenda keeps its dates. An iPad keeps the desktop's tabs and arrows.

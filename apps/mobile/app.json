@@ -41,7 +41,15 @@
           "backgroundColor": "#1a1a1a"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nookly uses a photo you choose as a recipe's banner.",
+          "cameraPermission": "Nookly uses the camera to take a photo for a recipe's banner.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false
