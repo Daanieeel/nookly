@@ -477,3 +477,13 @@ The tablet is the desktop made for touch, not a bigger phone. Its titlebar alrea
 Beside the page, the sidebar also drops its "Nookly" title and its Search button (the titlebar has Search) and starts with the mascot's card, as the desktop's does. A module's New button names what it makes (New Note, New Semester), as the desktop's does, on the phone too.
 
 Settings on a tablet is the desktop's: its categories listed on the left, the one picked shown beside them. Pages of their own (the account, Sidebar, Keyboard Shortcuts, What's New) still open as a page.
+
+## D83. The tablet is its own shell in the same app
+
+The first tablet pass (D82) kept the phone's screens and checked the width inside them, so the iPad read as a big phone: a phone drawer pinned open, bottom sheets the width of the screen, pushed pages. The tablet now gets its own shell in the same Expo app (one bundle, one App Store listing, the same routes, data and sync), split from the phone at three seams instead of inside every screen:
+
+1. **The shell.** The root layout picks the phone shell or the tablet shell by window width (600pt and up is a tablet window; below it, in Slide Over or a narrow window, the phone layout takes over). The tablet shell is the desktop's frame: the desktop's sidebar, titlebar, tab strip, split view and details pane, sized for touch.
+2. **Presentation.** The one sheet implementation gains two presentations for a tablet window: a popover anchored to what opened it (pickers, selects, menus, context menus, display and filter options), and a centred dialog (create forms, confirmations, big flows such as Settings, the semester setup and Review Changes). The content stays the sheet's (pinned search, icon rows with subtitles, a checkmark), and pickers opened from a field in a dialog float over it, as the desktop's popovers do over its dialogs. A tablet window shows no bottom sheet.
+3. **Screens.** A screen is split into its content, shared by both shells, and its chrome, which each shell owns. Width checks inside screens go away as each screen moves.
+
+Every page is laid out for portrait and landscape and for any window size iPadOS allows; rotating keeps what is open (tabs, scroll, drafts, an open popover or dialog). The plan is in `IMPLEMENTATION_STATE.md`.

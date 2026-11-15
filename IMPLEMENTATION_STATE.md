@@ -1,4 +1,4 @@
-# Implementation brief and state
+# Implementation brief and state: the tablet rework
 
 > ## ⛔ DO NOT STOP WORKING. UNDER NO CIRCUMSTANCES.
 >
@@ -13,155 +13,309 @@
 
 **This file is a ready to run prompt and the handover file.** An agent told "read `IMPLEMENTATION_STATE.md` and get to work" reads this file, `AGENTS.md` and `docs/00-index.md`, then carries the list out from start to finish without human help. Keep it current: tick items, note findings, append to the progress log after every meaningful step.
 
-The items come from the user's `NOTES.md` (2026-11-15, fifth round, with the sixth round's items added the same day and marked so, and the seventh round in its own section). `NOTES.md` is the user's own file: read it, never edit it.
+The earlier rounds (`NOTES.md` rounds one to seven, the first tablet pass) are done and live in git history up to 04256a44 and in `DECISIONS.md` up to D82. This file now holds one thing: the plan to rebuild the tablet (D83), written on 2026-11-15 after the user's feedback on the first pass: "still feels like a big mobile version; navigation feels off; a 1:1 copy of the sidebar doesn't fit; full width bottom sheets don't fit". `NOTES.md` is the user's own file: read it, never edit it.
 
 ## Rules
 
-- **Do not ask, do not wait.** When something is ambiguous, decide: what the desktop app does beats `docs/`, which beats your own judgement; the phone deviates from the desktop only where touch demands it. Record non obvious decisions in `DECISIONS.md` and continue.
-- **Never pretend.** Done means it works in the running app (screenshots you looked at critically) plus an automated test that would have caught the problem. If something cannot be verified here (real device feel), build the best version and put it under "Needs the user".
+- **Do not ask, do not wait.** When something is ambiguous, decide: what the desktop app does beats `docs/`, which beats your own judgement; the tablet deviates from the desktop only where touch or iPadOS demands it. Record non obvious decisions in `DECISIONS.md` and continue.
+- **Never pretend.** Done means it works in the running app (screenshots in **both orientations** you looked at critically) plus an automated test that would have caught the problem. If something cannot be verified here (real device feel, a trackpad, Stage Manager), build the best version and put it under "Needs the user".
 - **Safety, no exceptions.** Nookly is released and user data must never be lost. Never run migration or sync code against the user's real Nookly data, only copies and fixtures (`NOOKLY_DATA_DIR` scratch folders). Leave the user's own processes alone: ports 3000, 8081, 1420, the simulator "iPhone 17" `45B8BECE-...`, `/Applications/Nookly.app`. **Never merge into `main`, never push to `main`**, no force push to shared history, no tags, no pull requests. Never `git stash drop` or clear a stash. Kill processes by port or task, never `pkill -f` on the app binary.
-- **Git.** Work on `feat/connected-platform`. Commit after every meaningful step, push often (`git push`).
-- **Project rules (`AGENTS.md`).** Migrations append only and hashed; a test first for every fix or behaviour change (watch it fail); versions stay 1.0.0, but every user visible change gets its line in `CHANGELOG.md` under 1.0.0 and features a card in `whats-new.json`; copy has no em or en dashes and no hyphenated sentence structure; never modify primitives or tokens in `packages/ui` (add only); new entities and fields go through the schema layer the CLI generates from; dialogs and menus get an axe test; permanent actions use `ConfirmPermanentDialog`.
-- **Mobile rules (`AGENTS.md`).** The desktop's Tabler icons only, the same icon per concept (`ui/kit/desktop-icons.test.ts`); exactly one sheet implementation (`apps/mobile/src/ui/sheet/`); motion only from `ui/motion.ts`; touch targets of 44pt or more; native iOS feel with Nookly's identity.
+- **Git.** Work on `feat/connected-platform`. Commit after every meaningful step, push often (`git push`), but not while a CI run of the last push is still going.
+- **Project rules (`AGENTS.md`).** A test first for every fix or behaviour change (watch it fail); versions stay 1.0.0; the mobile app's 1.0.0 is its first release, so the tablet needs no `CHANGELOG.md` line or What's New card unless a desktop change rides along; copy has no em or en dashes and no hyphenated sentence structure; never modify primitives or tokens in `packages/ui` (add only); dialogs and menus get an accessibility test; permanent actions confirm first.
+- **Mobile and tablet rules (`AGENTS.md`).** The desktop's Tabler icons only, the same icon per concept (`ui/kit/desktop-icons.test.ts`); exactly one sheet implementation (`apps/mobile/src/ui/sheet/`), with its tablet presentations; motion only from `ui/motion.ts`; touch targets of 44pt or more; no bottom sheet in a tablet window.
+- **The phone must not change.** Every step keeps the phone exactly as it is: its tests pass untouched (a phone test that needs editing is a red flag, look again), and phone screenshots of the screens touched look the same as before.
 - Run new tests in isolation while working; the whole set at the end.
 
 ## How to run everything (this machine)
 
-Worktree: `/Users/daniel/.t3/worktrees/nookly/t3-ed31ca16` (branch `feat/connected-platform`, tracking `origin/feat/connected-platform`, so a plain `git push`; the old branch `t3/continue-mobile-backend-improvements` and its worktree `t3-59771e54` were removed on 2026-11-13 after being fast forwarded into it). Nothing from the old checkout is installed here except what is listed below.
+Worktree: `/Users/daniel/.t3/worktrees/nookly/t3-ed31ca16` (branch `feat/connected-platform`, tracking `origin/feat/connected-platform`, so a plain `git push`).
 
 ```sh
 cp .env.example .env                 # then set PORT=3100 (the user's own dev server uses 3000); .env is gitignored
 bun install
-docker compose up -d --wait postgres minio     # containers nookly-postgres-1 (5433), nookly-minio-1 (9000, console 9001); volumes keep old data
-bun run stack                        # migrations, then the server with watch mode on http://localhost:3100 (health: /health)
-cd apps/mobile && EXPO_NO_TELEMETRY=1 bunx expo start --port 8092 --lan --dev-client --clear   # the dev client remembers port 8092
-cd apps/desktop/src-tauri && cargo build                  # first build about 2 minutes
-bun tools/fixtures/desktop.ts <empty scratch folder>      # disposable desktop data: 120 notes, 40 tasks, study data
-cd apps/desktop && NOOKLY_DATA_DIR=<that folder> bun run tauri dev    # vite on 1420
+docker compose up -d --wait postgres minio     # only for sync checks; containers nookly-postgres-1 (5433), nookly-minio-1 (9000)
+bun run stack                        # the server on http://localhost:3100, only for sync checks
+cd apps/mobile && EXPO_PUBLIC_AUTOMATION_URL=http://127.0.0.1:4600 EXPO_NO_TELEMETRY=1 bunx expo start --port 8092 --lan --dev-client --clear
 ```
 
-- Always start the desktop with `NOOKLY_DATA_DIR` pointing at a scratch fixture. Without it the dev build opens the user's real Nookly data.
-- Mobile: the dev client `app.nookly.mobile` is installed on the **iPhone 17 Pro** simulator `EF9F00F7-BA0F-491C-A3C7-97240AFBAF2B` (dark mode: `xcrun simctl ui <id> appearance dark`). The iPad Pro 13-inch (M5) is `ABFEE424-8EE0-4228-BCC2-1C9FDB94BE6D`. The user's own "iPhone 17" `45B8BECE-...` and anything on ports 3000, 8081 and 1420 are theirs, leave them. Native code changes need a rebuild of the dev client (`bunx expo run:ios -d <id> --port 8092`, from a path without spaces; this worktree has none). Expo Go is avoided. Screenshots: `xcrun simctl io <id> screenshot file.png`.
-- Dev accounts in the dev Postgres: `ada` / `correct horse battery` (the desktop fixture's data), `grace` / `grace hopper compiler`. Server address in the apps: `http://localhost:3100`.
-- Tests: `bun run test` (needs `TEST_DATABASE_URL=postgres://nookly:nookly@127.0.0.1:5433/nookly_test`, create the database once); single suites: shared `cd packages/shared && bunx vitest run`, frontend `cd packages/frontend && bunx vitest run <file>`, mobile `cd apps/mobile && bunx jest`, server `bun test apps/server/test/<file>`, Rust `cargo test --lib <filter>` (full `cargo test` is slow, run it alone).
-- Automation (scripts that drive the apps): desktop `NOOKLY_AUTOMATION_PORT=4568` plus `bun tools/e2e/desktop.ts 4568 "<script>"` or `--shot out.png`; mobile `tools/e2e/mobile.ts` (hub; Metro must be started with `EXPO_PUBLIC_AUTOMATION_URL=http://127.0.0.1:4600`); `tools/e2e/page-client.ts` acts as another device on a page. See the comments in those files. These scripts are what produced the old "verified" claims, so they are not proof that a real user gets working sync.
-- Nothing is guaranteed to be running. Start what you need (server, Metro, the desktop on a fixture, a simulator) and stop what you started when you are done.
+- **Simulators.** There is no Simulator app window on this machine; everything runs headless through `xcrun simctl`. The dev client `app.nookly.mobile` is on the **iPad Pro 13-inch (M5)** `ABFEE424-8EE0-4228-BCC2-1C9FDB94BE6D` and the iPhone 17 Pro `EF9F00F7-BA0F-491C-A3C7-97240AFBAF2B` (the phone check). Item 0.3 adds an **iPad mini (A17 Pro)** and an **iPad Pro 11-inch (M5)** simulator: create them with `xcrun simctl create`, install the newest build from DerivedData (`xcrun simctl install <id> <path>/Nookly.app`), never touch the user's "iPhone 17" `45B8BECE-...`. Point a dev client at Metro with `xcrun simctl spawn <id> defaults write app.nookly.mobile RCT_jsLocation localhost:8092`, then `xcrun simctl launch <id> app.nookly.mobile`. Avoid `simctl openurl` (its "Open in Nookly?" prompt cannot be tapped headless; a reboot of the simulator clears it). If `simctl` hangs, shut the simulator down and boot it again.
+- Native code changes need a rebuild of the dev client (`bunx expo run:ios -d <id> --port 8092`).
+- Screenshots: `xcrun simctl io <id> screenshot file.png`. Rotation: the dev only hook from item 0.2 (`hooks.rotate("landscape")` over the automation hub), since there is no window to rotate.
+- Automation: `bun tools/e2e/mobile.ts run tablet "<script>"` drives the iPad through the hub on 4600 (see the comments in `tools/e2e/mobile.ts`); helper scripts from earlier sessions live in the session scratchpad and may be gone, rebuild them from that file.
+- Tests: mobile `cd apps/mobile && bunx jest <file>`; shared `cd packages/shared && bunx vitest run`; frontend `cd packages/frontend && bunx vitest run <file>`. Server tests run only in CI (they reach the local MinIO).
+- The desktop as reference: read `packages/frontend/src` (the app's UI) and `.reference-images/desktop/`. To look at the running desktop, build the debug app on a scratch fixture only (`bun tools/fixtures/desktop.ts <empty folder>`, then `NOOKLY_DATA_DIR=<folder>`, vite on 1431 with `TAURI_CONFIG='{"build":{"devUrl":"http://localhost:1431"}}' cargo build`, `NOOKLY_AUTOMATION_PORT=4710`, `bun tools/e2e/desktop.ts 4710 --shot out.png`). Never without `NOOKLY_DATA_DIR`.
+- Nothing is guaranteed to be running. Start what you need and stop what you started when you are done; delete seeded test data from the simulators afterwards.
+
+## The target
+
+The tablet is **the desktop app made for touch**. A person who knows Nookly on the Mac picks up the iPad and finds the same app: the same sidebar, titlebar, tabs, split view, details pane, the same page layouts, the same popovers and dialogs. What changes is only what touch and iPadOS need: 44pt targets, gestures that follow the finger, no hover only controls, a software keyboard that comes and goes, rotation, and windows of any size.
+
+It is **not** the phone made wider: no pinned phone drawer, no system bar over pages, no bottom sheets, no pushed full screen pages for things the desktop shows beside each other.
+
+### Window classes
+
+The layout follows the **window**, never the device: an iPad in Slide Over, a narrow Stage Manager window or iPadOS 26's freely resized windows can be any width, and the same iPad rotates between two widths. One hook (`useWindowClass()`, item 0.1) answers from the window's size, and every rule below reads it.
+
+| Class    | Window width | Shell                               | Sidebar                                                                     | Details pane                                           | Split view                                                                            |
+| -------- | ------------ | ----------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| compact  | under 600    | the phone's (drawer, bottom sheets) | drawer                                                                      | drawer                                                 | off                                                                                   |
+| medium   | 600 to 999   | tablet                              | over the page, from the titlebar button or an edge swipe; pinnable from 900 | over the page from the right                           | only the focused group, with a switch button (the desktop's rule for a narrow window) |
+| expanded | 1000 and up  | tablet                              | beside the page, collapsible                                                | beside the page while the page keeps 600; else over it | both groups while each keeps 360                                                      |
+
+The details pane and split view decide from the **page's** width (window less sidebar), not the class. Measured sizes (points, portrait by landscape): iPad mini 744 by 1133, iPad and iPad Air 11-inch 820 by 1180, iPad Pro 11-inch 834 by 1210, iPad Air 13-inch 1024 by 1366, iPad Pro 13-inch 1032 by 1376. So an 11-inch iPad is medium in portrait and expanded in landscape; a 13-inch iPad is expanded both ways (sidebar beside the page in portrait too, details pane over the page in portrait and beside it in landscape).
+
+Default layouts this gives, which every page section below refers to:
+
+- **Landscape** (expanded): sidebar 280 beside the page, titlebar and tab strip over the page, details pane 340 beside an open item, a list and an item side by side through split view.
+- **Portrait, 13-inch** (expanded, narrow page): sidebar beside the page, details over the page, split view shows the focused group only.
+- **Portrait, 11-inch and mini** (medium): sidebar over the page, page full width, details over the page, split view shows the focused group only.
+
+### Presentations
+
+The sheet implementation (`ui/sheet/`) chooses its presentation from what is shown and the window class. Screens never pick one themselves.
+
+| What                                                                                                                                                     | Phone (compact window)        | Tablet                                                                                                                                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Picker or select (date, time, repeat, status, priority, Space, course, label, icon, colour, code language, entity picker, Relate to)                     | bottom sheet or card          | **popover** anchored to the field or button                                                                                                                                  |
+| Menu (a button's actions, the + in the sidebar, view presets, display options, filter options, split button, tab menu)                                   | bottom sheet or card          | **popover** anchored to the button                                                                                                                                           |
+| Context menu (long press, secondary click on a trackpad)                                                                                                 | sheet menu                    | **popover** at the touch point                                                                                                                                               |
+| Picker opened from a field inside a dialog or popover                                                                                                    | step pushed on the same sheet | **popover over the dialog**, anchored to the field (the desktop's popovers over its dialogs); a step pushed inside a popover stays a step                                    |
+| Create form (New Task, New Note, New Calendar Entry, New Space, New Course, and the rest of `new/*`)                                                     | route sheet or compose sheet  | **dialog**, medium (560 wide), the desktop's `NewEntityDialog` and `QuickCreate*`                                                                                            |
+| Quick create on a calendar slot, quick edit of an event                                                                                                  | sheet                         | **popover** anchored to the slot or event (the desktop's `popover-parts`)                                                                                                    |
+| Confirmation (permanent actions too)                                                                                                                     | sheet                         | **dialog**, small (420 wide), the desktop's `ConfirmPermanentDialog`                                                                                                         |
+| Big flow (Settings, Account, Review Changes, Semester setup, Import, Share, View builder, Calendar Connections, Moodle import, What's New, crash report) | page or large sheet           | **dialog**, large (720) or extra large (960, Settings and Review Changes), never taller than the window less 48; in a medium window it spans the window less 24 on each side |
+| Full screen focus (a study session)                                                                                                                      | full screen modal             | full screen in the window, content capped at 720 wide                                                                                                                        |
+
+Popovers: the desktop popover's look (`bg-popover`, border, its corner radius, shadow), 320 wide for lists and the calendar, 360 for the icon grid and filters; they open below the anchor and flip above or to the side when there is no room, keep 12 from the window's edges and above the keyboard, and never cover their anchor. No dimming; a tap outside closes them and does not reach what is under it. Dialogs dim the page, move up with the keyboard so the focused field and the buttons stay in view, and close with Escape, a tap on the dim and their close button. Rotation or a window resize keeps either open: a popover follows its anchor, and closes only if the anchor is gone.
+
+## Definition of done (every page, view, dialog below)
+
+1. A jest test renders it at a tablet window (portrait 834 by 1194 and landscape 1376 by 1032, item 0.1's `WindowSizeProvider`) and checks what the plan says for it (no bar, the right presentation, panes, labelled actions), plus the phone test still passing unchanged.
+2. Screenshots on the iPad Pro 13-inch in landscape and portrait and on the iPad mini in portrait, light and dark for anything new, looked at critically next to the desktop's version (`.reference-images/desktop/` or the running desktop on a fixture).
+3. Rotation while it is open keeps its state (scroll position, typed text, what is selected, an open popover).
+4. Touch: every target 44pt or more, nothing that only shows on hover, Dynamic Type up to the largest standard size without clipping.
+5. Hardware keyboard: the desktop's shortcuts for it work, Escape closes it, Tab moves between its fields.
+6. Copy says "iPad" or "tablet" where it says "phone" on a phone (item 11.1).
 
 ## Items
 
-Order: shared pieces first (dialog corners and padding, the search field, filter chips, swipe rows), then the screens that use them. Everything here is the phone; NOTES.md has nothing new for the desktop this round.
+Order: foundations, then the shell, then presentations, then shared parts, then every page, then input, copy and the checks. Each milestone ends with screenshots of what it changed in the progress log.
 
-### 1. Mobile: shared pieces
+### 0. Foundations
 
-- [x] (2026-11-15, one `CARD_INSET` of 12 round the card; its corners 24, so the close button's 12 run alongside; tests; on screen) Dialogs (the centred card): with squircles now, the corners of the X button and of the dialog no longer match. Use the right math for two nested corner radii and the padding between them.
-- [x] (2026-11-15, rows, search bar, lone fields and sections all start `CARD_INSET` in, the title where the rows' content starts; New, Relate to and Due date checked; tests; on screen) Dialog padding: in the "New" dialog (the + at the bottom left of the sidebar) the two items do not line up with the X button and the "New" title. Same problem in many other dialogs; fix it for all of them in the shared dialog.
-- [x] (2026-11-15, 50pt for every search field, the one component; test; on screen) The global search's search bar is too small: give it more height so it feels spacious, and apply the same to every other use of that input.
-- [x] (2026-11-15, the input's own padding pushed it down; cap height and icon now share their middle, measured; test) In that input the icon and the placeholder are not vertically centred to each other: the placeholder sits too low.
-- [x] (2026-11-15, the search's icon and placeholder in solid grey, every field's placeholder in a new solid `placeholder` colour; tests; on screen) Placeholders and their icons get no lowered opacity; use a muted colour instead, so lower SVG layers do not shine through the icon (the magnifying glass's handle).
-- [x] (2026-11-15, D75: one full width chip per field with its name, "is", "is any of", "is not" or "is none of", its values and a remove button; a tap flips is and is not, another opens the choices; every list and Tasks; tests; on screen) Many selected filters overcrowd the page (`.reference-images/mobile/filter-overcrowding.png`). Show active filters like the desktop's filter chips, with their parts ("any of", "is not" and so on); each chip may be full width, one below the other.
-- [x] (2026-11-15, a square X in the field's fill grows out to its right as text comes in and shrinks back when empty, springs from `ui/motion.ts`, fade under Reduce Motion; every search field; tests; on screen) (sixth round) Search field: the small x that appears on the right while typing is hard to hit. Instead a full X button morphs out of the input to its right (same background as the input) and clears it.
-- [x] (2026-11-15, 8 from the screen's sides and bottom, bottom corners concentric with the phone's own screen corners (looked up by screen size, 62 on the 17 Pro), regular corners on top, the send button's corners nested 8 inside; as the keyboard lifts it the corners relax to the regular ones and the shadow deepens while focused; tests; at rest on screen, lifted under Needs the user) (sixth round) The floating bars ("Paste a URL to save it" on Bookmarks, "Paste a link to add it" on Files) and their send buttons get their own corners: they sit at the bottom of the screen snug with the iPhone's own corner, about 8 from the left, right and bottom, their corners following the screen's curve at that distance; the send button gets the radius that fits inside. A shadow behind both so they stand out, more so when focused and lifted by the keyboard.
-- [x] (2026-11-15, D76: every list row swipes; More and Trash from the right with Trash rightmost and run by a long drag; the type's own action and Pin from the left; tasks get Today or Tomorrow; Mail's look with the outermost button growing; tests; on screen) Swipe actions on every list of items (not only tasks), each type with its own sensible actions; rework their look so they feel native (consider a public package). Tasks get a more useful action than "Done". Rule for every type: swiping right to left always ends in Trash, the rightmost action, active on a long drag; a second action may sit beside it.
+- [ ] 0.1 **Window classes.** `useWindowClass()` (`compact`, `medium`, `expanded`), `usePageWidth()`, `useOrientation()` in `ui/pane.tsx`, replacing `useIsTablet()` and the `TABLET_WIDTH` 768 check (the iPad mini at 744 is a tablet). A `WindowSizeProvider` for tests (width and height) replacing `WindowWidthProvider`. Tests for every class edge (599, 600, 999, 1000) and for each iPad size in the table.
+- [ ] 0.2 **Rotation for checks.** A dev only hook (`hooks.rotate("portrait" | "landscape")`) over the automation hub that calls `UIWindowScene.requestGeometryUpdate` through a small addition to a local module (`modules/nookly-keys` or a new dev module), so a headless simulator can be turned. Never in a release build (guarded by the automation address, as the rest of `dev/`).
+- [ ] 0.3 **Simulators.** Create an iPad mini (A17 Pro) and an iPad Pro 11-inch (M5) simulator, install the dev client, note their ids here. A screenshot script that shoots one route on all three iPads in both orientations (light and dark on request) into a folder named after the route.
+- [ ] 0.4 **Window controls.** In iPadOS 26 a resizable window draws its close, minimise and resize controls at its top left, over the app. Read that region through the native layout region API (`UIView.layoutRegion` with `.margins(cornerAdaptation: .horizontal)`) in a native module and give the titlebar and the sidebar's first row room for it, only while the controls show. Spike first; if the API does not reach React Native, record the fallback (a fixed leading inset while the window is not full screen) in `DECISIONS.md`.
+- [ ] 0.5 **Pointer spike.** Check what React Native 0.86 gives on iPadOS for a trackpad: hover (`onHoverIn`, `onHoverOut`, pointer events), secondary click (a right click, or a two finger click on the trackpad: React Native Gesture Handler 2.32 `mouseButton`, or a native `UIContextMenuInteraction` free recogniser in a module), and the pointer's lift effect. Write down what works, and what each needs, in `DECISIONS.md`. Hover is a bonus on a tablet, never the only way to anything.
+- [ ] 0.6 **Drag and drop spike.** Long press drag inside the app (tabs, Space icons, sidebar rows, task cards across board columns, a row onto the right edge to split), and files dragged in from the Files app onto the Files page (`UIDropInteraction` through a module). Record what is possible now and what is deferred.
+- [ ] 0.7 **The seams.** Move the shell choice into one place: the root layout renders `PhoneShell` (today's `SidebarDrawer` path) or `TabletShell` from `useWindowClass()`, switching live when a window crosses 600 without losing the route, tabs or drafts (test: resize across 600 with a draft open). Each screen file exports its content (`TasksContent`) apart from its chrome; the phone route renders the content in the phone chrome, the tablet shell renders it in a tablet page frame (item 1.8). Do this per screen as each screen is reworked, not all at once, and delete the screen's `useIsTablet` branches as it moves. Inventory today's branches first (about 20 in 9 files) and list them here.
 
-- [x] (2026-11-15, the card's 12pt inset makes its buttons' 12pt corners nest in its 24pt ones; a key on a full segment starts it over, a digit no second can follow finishes it, nothing out of range shows; tests; on screen through the automation, real keys under Needs the user) (asked in chat) Time input dialog (`.reference-images/mobile/time-input-dialog-corner-radius-mismatch.png`): its buttons' corners must be the dialog's corners less the padding. Typing in the hour does nothing; the minute takes any number, also past 59.
-- [x] (2026-11-15, `DialogActions` pins a dialog's buttons under its scrolling content; Repeat and the time picker use it; test; on screen) (asked in chat) Dialogs scroll their content while their action buttons stay visible: in Repeat, "until a day" shows a calendar that pushes "Done" out of the dialog.
+### 1. The tablet shell (`apps/mobile/src/shell/`)
 
-### 2. Mobile: screens
+Reference: `packages/frontend/src/components/sidebar.tsx`, `sidebar/*`, `titlebar.tsx`, `tab-bar.tsx`, `split-view.tsx`, `right-sidebar.tsx`, `commands-palette.tsx`, `search-palette.tsx`, `docs/04-navigation-spaces.md`.
 
-- [x] (2026-11-15, test) Hidden Spaces dialog: remove the "Drag a Space above the line to show in the sidebar." notice.
-- [x] (2026-11-15, the card opens on tap, keeps its menu, the Current badge centred on its bottom edge on a solid backing; tests; on screen) Semesters list: still crammed. The "Current" badge moves to the bottom centre of the box, overlaid on its border; no chevron and no "Open" button, the semester opens on tap; no expand or collapse.
-- [x] (2026-11-15, test; on screen) Inside a semester, "Add Course" is full width.
-- [x] (2026-11-15, the New Semester sheet sizes to its content; test; on screen) The + on the Semesters page opens its sheet over the whole screen although there is nothing to type at length: the sheet takes only the height it needs.
-- [x] Files: "Paste a link or Choose Files" becomes a floating bar like on Bookmarks, without the "Choose Files" part (the + at the top right does that); make sure that + adds several files at once. Done: the shared floating field (`ui/FloatingField.tsx`) now serves Files too; the + already picked several files (`multipleFiles: true`).
-- [x] Bookmarks, the "Site" filter: a search bar, each site with its favicon, and the address with only its important part highlighted ("https://www." muted, "google.com" full). Done: the Site card searches, shows each site's icon (a globe until it has one) and mutes "https://www." before the address.
-- [x] Bookmark details page: prettier and more useful; "Refresh Details" must not wrap to a new line in its success state (layout shift). Done: the page leads with the picture, then the site's icon and name over the address, Open in Browser and Refresh Details side by side at equal widths (no wrap in any state), the note, and a "Read Nov 15" row up top.
-- [x] Bookmark previews still do not work. Done: cards picture the page as the desktop does (its capture, else the site's picture, else its icon large), and the list reads each page never read once, so bookmarks saved elsewhere or offline fill in.
-- [x] (2026-11-15, "Custom" at the end of "Typical dates for" shows Starts and Ends day pills under the title; test; on screen) (sixth round) New Semester sheet: the timespan only offers "No dates" and "Germany". Add "Custom", which shows a start and an end date input.
-- [x] (2026-11-15, every field on a page now asks the page to keep its whole height above the keyboard while typing (the sub-task row's way, made shared); test; the real keyboard under Needs the user) (sixth round) Bookmark details: the Note field avoids the keyboard, so typing in it is never covered.
-- [x] (2026-11-15, D77: a phone gets a Home of shortcuts on the grouped background: the sentence, an Up next card (now or next today, how long until or left), four Create tiles (Task, Jot, Entry, Bookmark), count tiles that open their lists (Tasks, Assignments, Cards, Jots, the Calendar filling an odd one out), today's tasks, the calendar and the deadlines on cards of rows, every Space a tap away; the iPad keeps the desktop's panels; tests; on screen light and dark) (sixth round) Redesign the whole Dashboard for the phone: the desktop like layout does not fit. A page people want to use as a shortcut to most features.
+- [ ] 1.1 **Frame.** `TabletShell` lays out sidebar, titlebar, tab strip, split groups and details pane by the window class table above, and reflows live on rotation and window resize (no reload, no lost scroll). The sidebar's edge and the page card follow the desktop: the page sits on a card with the desktop's border and radius beside the sidebar. Safe areas: the home indicator, the status bar (hidden in a window, shown full screen), the window controls (0.4), the keyboard.
+- [ ] 1.2 **Sidebar, rebuilt from the desktop's** (not the phone's `screens/Sidebar.tsx`). New `shell/sidebar/` with the desktop's parts at touch size:
+  - the mascot card (`sidebar-mascot.tsx`: date, week, the line about what waits; a tap opens the matching list);
+  - the block above the Space (Dashboard, Calendar, Tasks with its saved Views unfolding, Assignments, Pinned, Quick Jot), its order and what is hidden read from the same device preferences as the desktop (`nookly:sidebar-items`, `nookly:sidebar-hidden`), and the settings button under the mascot opening the desktop's popover to hide and reorder them;
+  - the Space shown: its name with its menu (popover: Rename, Change Icon, Change Color, Labels, Add Module, Delete Space), its module rows with their figures (`module-row-meta.tsx`) and their saved Views unfolding (`expandable-module-children.tsx`), a module row's context menu with Remove Module (the desktop's `remove-module-dialog`, as a dialog);
+  - the bottom row: +, up to four Space slots (three and a three dot popover with the rest beyond four, the temporary slot rule), a divider, Trash, Collapse Sidebar; long press drag reorders Spaces across the row and the popover; the + is a popover with New Space and Add Module;
+  - switching Spaces: tap a slot; a horizontal pan on the Space's list follows the finger and lands on the neighbour by speed and distance (the desktop's two finger swipe, here one finger since the sidebar does not slide away); a two finger trackpad swipe does the same; `Cmd+Option+Up` and `Down`; the list slides in from the side the Space sits on; Reduce Motion switches without sliding;
+  - rows 44 tall, the desktop's type scale one step up for touch, the desktop's active highlight with the Space's colour bleed, a pressed state, a hover state when a pointer is there; width 280, fixed as on the desktop.
+  - Medium windows: the sidebar slides over the page from the left (titlebar button, an edge swipe from the left edge, the desktop's sidebar shortcut), dims the page, closes on a pick or a tap on the dim, follows the finger both ways (motion from `ui/motion.ts`). From 900 wide a pin button keeps it beside the page (device preference). Expanded windows: beside the page, Collapse folds it away entirely, as on the desktop.
+  - Settings: the desktop opens it from its menu and `Cmd+,`; on a tablet also from a gear in the bottom row's end, since there is no app menu outside iPadOS 26's menu bar (1.9).
+- [ ] 1.3 **Titlebar**, the desktop's (`titlebar.tsx`): sidebar toggle, back and forward (this tab's history), the crumbs (the Space's icon and name for Space pages, the item's parents, a saved View's crumb), the search field that opens the search palette, the sync status button and its popover (`SyncStatusButton`), the split button (popover: Split Right, Split Left), the details toggle. 52 tall, every control 44. In a medium window the crumbs shorten to the last one, and the search field becomes a search button.
+- [ ] 1.4 **Tabs**, the desktop's (`tab-bar.tsx`): only while more than one tab is open; pinned tabs as icons first; every tab's close button always visible (no hover); + for a new tab (Dashboard); long press drag to reorder, drag onto the other group or onto the page's right edge to split; the tab menu as a popover (Pin, Close, Close Others, Split Right, Split Left, Move to Other Group, Zoom Group); tabs shrink, then the strip scrolls; `Cmd+T`, `Cmd+W`, `Cmd+Shift+W`, `Ctrl+Tab`, `Cmd+Option+Left` and `Right`. Open tabs, order, pins and history persist as they do now (`tabs-store.ts`).
+- [ ] 1.5 **Split view**, the desktop's two groups (`split-view.tsx`): each group its own tabs and history, the focused one tinted; a draggable divider (a 44 wide touch area, the desktop's minimum of 360 a side, double tap evens it, the position remembered); a window too narrow for both shows only the focused group with the desktop's switch button; `Cmd+1`, `Cmd+2`, `Cmd+Option+Shift+Left` and `Right`, `Cmd+Shift+Enter` zooms a group. The same page in both groups edits only in the focused one. Rotating from landscape to a portrait too narrow for both keeps both groups and shows the focused one; rotating back shows both again.
+- [ ] 1.6 **Opening things.** A tap opens in the same tab (the desktop's click). Long press or secondary click on any row or link gives Open in New Tab and Open on the Right first in its context menu (the desktop's `Cmd+click` and split). **List beside item:** while the page has room for both groups, an item opened from a list opens in the right group as a preview tab (replaced by the next item opened the same way until it is edited or pinned, as an editor group's preview in VS Code), so a list and its item sit side by side, the iPad's list and detail; when there is no room it opens in place. A Display option "Open Items Beside the List" (device preference, on by default on a tablet) turns it off. Record in `DECISIONS.md`; flag for the user's feedback.
+- [ ] 1.7 **Details pane**, the desktop's right sidebar (`right-sidebar.tsx`): the item's properties, labels, attachments, mentioned, mentioned in, relationships, in the desktop's order, with the Course's semester section and the Jot's Refine button; beside the item when the page keeps 600, else sliding over it from the right (the titlebar's details toggle, an edge swipe from the right edge, the desktop's shortcut); collapsed state remembered like the desktop's (`useInspectorCollapsed`). Replaces today's `Inspector` and, on a tablet, the phone's `DetailsDrawer`.
+- [ ] 1.8 **Page frame.** One `TabletPage` every tablet page renders in: the page's header row (title, its View tabs, Filter, Display, labelled actions, the desktop's `page-header.tsx` and `module-view-header.tsx`), the page's content width rules (the desktop's reading width for items, `detail-page-width`), scroll memory per tab, the fixed top of a list (D79), the save bar (D78) placed as the desktop's. `PageActions` (D82) stays as the declaration and draws only here. No system bar on any tablet page, including the ones still showing one now (account, Sidebar settings, Shortcuts, What's New, Space Settings, Moodle pages, Assignments, Review Changes).
+- [ ] 1.9 **Palettes and the menu bar.** The commands palette and the search palette as the desktop's: a panel near the top centre of the window (not a sheet), 640 wide or the window less 48, the search field focused, arrow keys and Return with a hardware keyboard, Recents in `Cmd+K`, entity keys beside titles. iPadOS 26's menu bar (pulled down from the top, or shown holding `Cmd`): register the desktop's menus and shortcuts (File, Edit, View, Go, Window) with their titles, through `modules/nookly-keys`, so iPadOS lists every shortcut; this is the system's own bar, not a translated desktop control.
+- [ ] 1.10 **Back.** Inside a page: the titlebar's back, the desktop's Back shortcut, and a swipe from the left edge of the page group going back in this tab's history, following the finger with the page behind it showing (a medium window's left edge swipe opens the sidebar when there is nothing to go back to). No stack pushes for pages on a tablet: a tab's history is the navigation.
+- [ ] 1.11 **First run and signed out.** Welcome, Sign In, Create Account, Reset Password and the first sync page as centred cards over the app's background (the desktop's `AccountDialog` and `FirstSyncDialog`), in a medium window too; no phone pages full width.
 
-### 2a. Seventh round (`NOTES.md`, 2026-11-15, after the sixth round; before the tablet)
+### 2. Presentations (`apps/mobile/src/ui/sheet/`)
 
-Mobile:
+- [ ] 2.1 **Popover.** A new presentation of the one sheet: anchored to a measured rectangle (`useAnchor()` returns a ref and its window rectangle, measured on open and on every layout change), placed by the rules in "Presentations" above, sized by its content up to the window's room, with its own scroll; the sheet's steps push inside it with a back button; its search field pinned at the top; the desktop popover's look; the open and close motion from `ui/motion.ts` (a spring out of the anchor, a fade under Reduce Motion), a new spring added there; keyboard: arrows move the highlight, Return picks, Escape closes; focus returns to the anchor when it closes. Tests: placement at every window edge and above the keyboard, flip, rotation keeps it on its anchor, tap outside closes without passing through, accessibility (modal, labelled, focus order).
+- [ ] 2.2 **Dialog.** A new presentation: centred, sizes small 420, medium 560, large 720, extra large 960, the desktop dialog's look (radius, the title row with the round close button, D65's nested corner math, `CARD_INSET`), its content scrolls under a pinned title and pinned actions (`DialogActions` side by side at the bottom right, the main one filled, as the desktop's `submit-dialog-footer`), keyboard avoidance (moves up, then shrinks), `Cmd+Return` submits, Escape closes; a dirty form asks before closing (the desktop's rule). Tests as for the popover.
+- [ ] 2.3 **Context menu.** `menu.show` takes the touch point (or the anchor) and shows a popover there on a tablet; long press anywhere a phone has a long press menu, plus secondary click where 0.5 found a way. Same `MenuEntry` lists as now.
+- [ ] 2.4 **Choosing.** One resolver (`usePresentation(kind)`, kinds `picker`, `menu`, `context`, `form`, `confirm`, `flow`, `focus`) maps to the table above from the window class; `Sheet`, `RouteSheet`, `sheetRoute`, `menu.show`, `Confirm` and `Compose` all go through it. A route sheet (`new/*`, `pick/icon`, `calendar-event`) shows as a dialog over the page that opened it, the route still the source of truth (links keep working). A phone renders exactly what it does now (test).
+- [ ] 2.5 **Every existing sheet, mapped.** Go through every `Sheet`, `sheetRoute`, `menu.show` and `confirm` use (about 40 places: `SpaceSettings`, `FileViewSheets`, `Compose`, `SelectField`, `ListControls`, `LatexPage`, `AccountPage`, `TrashScreen`, `TasksScreen`, `Sidebar`, `RecipeScreens`, `NewScreens`, `DeckPage`, `DisplayParts`, `property-rows`, `SaveBar`, `DateField`, `ActiveFilters`, `entity-actions`, `SemesterList`, `ScanSheet`, `RelatedSection`, `PlannerScreens`, `MoodleFile`, `CalendarScreen`, and the routes) and give each its kind and an anchor. List them here as they are done; a use without an anchor on a tablet is a bug (a test fails on it).
 
-- [x] (2026-11-15, the X folds back in on a spring without overshoot and never measures below nothing (the old spring took its width negative, the field jerked); every search field and the palette say just "Search" ("Go to", "Command"), the prop for a longer one removed; tests) Search field: the X's way back out (as the text is cleared) is buggy; make it as smooth as its way in. Shorten the search placeholders to a word or two: a search bar explains itself.
-- [x] (2026-11-15, the tap worked but with half the choices picked (3 of the 6 due buckets, 2 of 4 ages) the swapped half read "is any of" again, so it looked dead; an even split now reads the way it was last turned; test; on screen) Cross Space Tasks page: the "is any of" (or similar) part of a filter chip cannot be tapped for the preset "Due date" and "Created" filters (maybe ones synced from the desktop). Works on other pages.
-- [x] (2026-11-15, one `ListEmpty` for every filtered list (Tasks, Assignments, Notes, Jots, Files, Bookmarks, Courses, Exams, Decks, Recipes, Trash): the module's icon and a title when there is nothing yet, "No Matches" with a Clear Filters button when filters hide everything; tests; on screen) Nicer empty states everywhere: Assignments says only "Nothing matches these filters." Give it a proper empty state with a Clear Filters button under it.
-- [x] (2026-11-15, Assignments now uses the shared list controls: its filters as Tasks' chips, and the Filter and Display sheets keep their open state to themselves, so opening one no longer redraws the whole page; tests; on screen) Assignments: active filters show as the same chips as on Tasks (with their "is any of" parts) instead of hiding in the filter menu. The Filter and Display sheets open and close slowly; make them quick.
-- [x] (2026-11-15, each switch built the other layout from nothing and redrew the page twice; now both stay built once shown (the hidden one out of sight), what they show is worked out once for both, and the tile answers before the swap; a flip went from 300 to 800 ms to about 160 ms in the debug build, React's own part of it 25 ms; test; measured on screen; how it feels in a release build under Needs the user) Tasks: switching between list and board takes a second or more; make it instant.
-- [x] (2026-11-15, D78: a pill floats at the bottom once filters or display change, Discard, Save as View on Tasks and Files, Save (into an open View); unsaved changes stay in memory; Courses, Exams, Decks, Recipes and Trash keep their filters on Save now; a filter's choices no longer keep stale ticks after Discard or Clear Filters; tests; on screen) Save View leaves the Display sheet. Once the user changes the filters or display options of a view (or a base page), a floating bar at the bottom offers the desktop's three choices: Discard, Save as View, Save. Only pages with views offer Save as View; the others show Discard and Save. Every page with filters or display options. Same floating bar as on Bookmarks and Files.
-- [x] (2026-11-15, all four corners follow the screen's curve 8pt in, up to a full pill (34 on today's phones), the send button a circle nested in it; the save bar uses the same; test; on screen) The floating bars (Bookmarks, Files, the new save bar): their top corners take the same radius as the bottom ones, a full pill following the screen's curve.
-- [x] File viewer details: with a long label chosen, the "Labels" name of the select trigger gets cut short. Never cut the field's name, only the label names.
-- [x] Bookmarks list: the (i) button is bigger and a secondary button, easier to hit and to recognise.
-- [x] Relationship picker: the list under the search bar and "kind of link" only shows items valid for the chosen kind of link.
-- [x] (2026-11-15, the search field measured dead centre (icon, cap height and field share their middle); the line height Tailwind gives `text-base` pushed the paste bars', palette's, sub-task's, new deck's and recipe rows' text 2pt low, now one shared `lineInput` style without it; measured centred on screen; tests) Search placeholders are not vertically centred (the icon is), seen in the relationship picker and often elsewhere: fix it once, for every search field.
-- [x] Selects get icons per option as on the desktop where it makes sense (New Semester: Winter and Summer), and the chosen option's icon shows in the trigger. Not where it makes no sense (a year).
-- [x] New Semester: the year is a number input in the exact style of the time input (exams, entries, sessions), one field for one number. "Typical dates for" is renamed "Timespan".
-- [x] Label picker (from the details of any item): rows about 25% less tall so the list scrolls less. (Done at 44pt, 12% shorter: 25% would go under the 44pt touch minimum.)
-- [x] Every entity list page (Jots and the rest): the title, filter and display buttons and the tabs stay put; only the list scrolls.
-- [x] Semester setup, "Where do you study?": add Germany.
-- [x] "Choose an icon" sheet: categories at the top to jump to.
-- [x] Recipes, choosing a photo: ask first (photo library, take a photo, choose a file) instead of opening the file picker.
-- [x] Calendar: the view tabs at the top become one icon button left of the + that opens a select of the four views, saving height. The header shows only "Week XY" at full opacity, no dates (the agenda keeps its own). The day numbers in the columns get bigger.
+### 3. Shared parts at tablet size
 
-Desktop:
+Reference: `packages/frontend/src/components/*`. Each gets a tablet rendering in `ui/` next to the phone's, the same props.
 
-- [ ] Some pages are cut off on the right for no reason: `.reference-images/desktop/right-side-cut-off-bug-*.png`.
-  - Investigated, not fixed yet. Layout is full width (a week lays out all 7 columns, the briefing text is cut mid word instead of wrapping) but painting stops at a fixed x inside the page's scroll area; parts outside it (the table footer) draw fully. In image 4 the details panel's own content stops at about the rail's width. That reads as WebKit keeping a stale clip on a layer after the page or the details panel changes width (the panel switches rail and full width through `@3xl` container queries on the page's `@container` scroll root). An offscreen WKWebView harness redraws from scratch and cannot show it, and a second desktop build would open the user's real data.
-  - Needs the user: what happened just before (window resized or full screen, sidebar or details panel toggled, a split opened or closed, waking from sleep), and does it go away on its own after scrolling or switching tabs?
-- [ ] CLI coverage for every feature and setting: an agent can set up and use Nookly entirely as a person can through the app. Sensitive ones (sign in) reachable but redacted.
-  - Done: `settings list|get|set|reset` (the app reloads `settings.json` before each save and every 2s, so nothing is saved over), `backup now|list` (restore stays in the app), `sync status` (no session ever shown, the keychain is never read so no password prompt), Space modules (`space modules|add-module|remove-module|reorder-modules`).
-  - Left out on purpose: emptying Trash and deleting forever (the CLI never deletes permanently), restoring a backup, signing in to sync, Moodle, Google or iCloud (they need the person). Calendars: `calendars list` and `calendars events --from --to [--provider]`, read only from the cache file, no secrets. The Files view builder is in Both.
+- [ ] 3.1 **Sizes.** A tablet scale in `ui/tokens.ts` (added, never changing the phone's): rows 44, body 15, small 13, icons 18, the desktop's spacing between controls, page gutters 24 (32 in a wide page). Buttons the desktop's sizes with their height at 44 for touch (a hit area round the smaller ones where the desktop look needs them smaller).
+- [ ] 3.2 **List header**: title, View tabs (`page-tabs.tsx`, the desktop's tabs, not the phone's segmented), Filter, Display, active filter chips under it (D75, the desktop's `quick-filter-bar`), labelled actions; wraps to two rows in a narrow page.
+- [ ] 3.3 **Tables**: the desktop's `data-table` for list modules: column headers that sort on tap, the desktop's columns per module, sticky header, rows 44, a selected row, swipe actions kept from the phone (D76) plus the context menu; in a narrow page the columns reflow (fewer columns, then two line rows), never horizontal scroll (`docs/05-ui-ux-direction.md`, Responsiveness).
+- [ ] 3.4 **Grouped list and board**: the desktop's `grouped-view` (groups with headers and counts, collapsible); the board's columns side by side, scrolling sideways when they do not fit, cards dragged between columns with a long press (0.6).
+- [ ] 3.5 **Property rows and pills**: the desktop's `property-row`, `property-fields`, `task-properties`, inline in the details pane and in item headers, each opening its picker as a popover anchored to it.
+- [ ] 3.6 **Pickers' content in a popover**: date (the desktop's calendar month with the time field, `date-input.tsx`), time, repeat (`repeat-chip`, `RepeatPicker`), select, entity picker and Relate to (`entity-picker`, `RelatePickerPopover`), labels (`label-manager`, the File label choice), icon (`icon-picker`, the grid at 8 columns), colour, Space, course, code language, the filter menu and the display menu (`filter-menu`, `display-menu`), view presets. The rows keep the bottom sheet's look (icon badge, title, subtitle, checkmark), sized for a popover.
+- [ ] 3.7 **Feedback**: in place first (D-rules in `docs/05-ui-ux-direction.md`); the desktop's toasts (`app-toaster`) at the bottom right of the window, above the keyboard; empty, loading and error states as the desktop's `empty-state`.
+- [ ] 3.8 **Fields**: text, number, time, year, search: the desktop's look with touch heights; a field focused with a hardware keyboard shows a focus ring.
+- [ ] 3.9 **Editor chrome**: with the software keyboard, the toolbar over the keyboard as now; with a hardware keyboard (no software keyboard up), the desktop's format bar over a selection and the slash menu as a popover at the caret; the find bar (`FindBar`) under the titlebar with `Cmd+F`; the desktop's block handles reachable by touch (a long press on a block's left edge).
 
-Both:
+### 4. Top level pages
 
-- [x] Files: the list of every label above the files (`.reference-images/desktop/files-label-list.png`) does not scale. Instead a view builder dialog: name a view, give it labels, and let it keep filters and display options. On the phone as well, and through the CLI so an agent can build views.
-  - Done (D81): New View on Files (desktop button beside the presets, phone + beside the View tabs) takes a name and labels from a searchable list with file counts, and keeps the page's filters and display. Above the files only the picked labels show, as chips with Change labels. CLI: `view create --module files --config '{"display":{"shelf":[...]}}'` (description now names Files). Also fixed on the phone: a field in a sheet opened from a page no longer scrolls the page behind it.
+Each page: the desktop's layout in the tablet page frame (1.8), portrait and landscape as below, its pickers as popovers and its forms as dialogs.
 
-### 2b. Tablet (asked in chat, after every other item above, the seventh round included)
+- [ ] 4.1 **Dashboard** (`index`): the desktop's `DashboardView` with its panels (briefing, calendar, tasks, assignments, decks, jots, pinned, the mascot corner), not the phone's Home of shortcuts (D77 is the phone's). Landscape: the desktop's grid of panels in columns. Portrait: two columns on 13-inch, one on medium. Panels' rows open in place, or beside (1.6).
+- [ ] 4.2 **Calendar** (`calendar`): the desktop's `UnifiedCalendarView`: Month, Week, Day and the view switch in the header row (not the phone's bar, D80), Today and the arrows; the time grid with the all day row; drag on empty time to create (a popover anchored to the new block with the quick create form), drag an event to move it, its edge to resize; tap an event for its popover; the external overlay read only. Landscape: Week by default. Portrait: Week on 13-inch, 3 days on medium (remembered per device and orientation). Pinch to change the hour height. New Calendar Entry as the labelled action.
+- [ ] 4.3 **Tasks** (`tasks`, the cross Space overview): the desktop's `TasksOverviewView`: list grouped by Space with the Space chips, or the board; saved Views as tabs; filter chips; properties as pills opening popovers; New Task asks for the Space in its dialog. Landscape: list beside the open task (1.6). Portrait: full width list.
+- [ ] 4.4 **Assignments** (`assignments`, the overview): the desktop's `AssignmentsOverviewView`, grouped by Space, its display menu (`AssignmentDisplayMenu`), the due picker (`AssignmentDuePicker`) as a popover. Moves from a pushed page with a bar into the tablet frame.
+- [ ] 4.5 **Pinned** (`pinned`): the desktop's `PinnedView` grouped by type, as a table.
+- [ ] 4.6 **Search** (`search`): on a tablet the search palette (1.9) is the way in; the Search page itself stays for a full results list (the desktop's `search-palette` results with entity keys and filters by type), reached from the palette's "Show all results".
+- [ ] 4.7 **Trash** (`trash`): the desktop's `TrashView` as a table (name, type, Space, deleted on), Restore and Delete Forever per row and for a selection, emptying through the confirmation dialog.
+- [ ] 4.8 **Space page** (`space/[id]`): what the desktop shows for a Space (its modules' overview); Space Settings as a labelled action opening the Space Settings dialog (6.12).
 
-- [ ] Optimize the app for tablet once all other items are done. The tablet should feel like a touch optimized version of the desktop app, not a bigger phone app: mostly the desktop's look and layout (sidebar, wide lists and tables, panes side by side), with touch sized targets, gestures and touch friendly inputs. Be creative for a first big version; the user gives feedback after.
-  - First pass (D82): no phone bar on a tablet's top level and item pages; page actions are labelled desktop buttons in the header row (`ui/page-actions.tsx`); the Calendar's New button beside its views; the sidebar beside the page starts with the mascot's card (no title, Search in the titlebar); the welcome text names a tablet; module New buttons name what they make; Settings is two panes (categories left, the picked one right). Checked on the iPad Pro 13-inch simulator.
-  - Next, for the user's feedback: about 70 texts still say "this phone" on a tablet (Backup, the Haptics heading, sync); the account, Sidebar, Shortcuts and What's New pages still open with a phone bar; landscape not checked (no Simulator app here to rotate).
+### 5. Module pages (`module/[spaceId]/[module]`, and saved Views of each)
 
-### 3. Final checks and report
+All: the list header (3.2), the desktop's columns (3.3), View tabs and presets, filter and display as popovers, the save bar for changed filters (D78), labelled New action naming what it makes, list beside item in landscape (1.6).
 
-- [x] (2026-11-15, a04d9f7e: the bun group less tiptap, hotkeys and pdfjs (held back since 1da0f4d9), md5, calamine, uuid and zip taken; jsdom 31 (breaks axe tests) and rfd 0.18 (two copies beside the dialog plugin) not; all six closed with a comment) (asked in chat) Dependabot: merge every open Dependabot version bump that makes sense into this branch, then close all Dependabot PRs, the ones not merged too (with a word on why).
-- [ ] (asked in chat) CI on this branch's open PR is green at the end of the session. Never merge the PR.
-- [x] (2026-11-15) lint, format:check, typecheck, cargo test (1567 passed), duplication (0.15%) clean. Tests: frontend, shared and mobile pass, though a full local run times out a few files under load (they pass alone and in CI); server tests run only in CI (they would reach the local MinIO). Report only: `unused` lists older exports and the e2e tools, `audit` the known Rust advisories (RUSTSEC-2026-0385, 0310, 0459) and unmaintained crates; nothing from this round.
-- [x] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once (the label shelf card reworded to the View builder, the CLI line extended).
-- [x] Final report below.
+- [ ] 5.1 **Tasks** in a Space: the desktop's `TasksListView` (Linear style list, grouped, inline property pills) and `TaskBoard`; `QuickCreateTask` inline at a group's end as on the desktop.
+- [ ] 5.2 **Notes**: the desktop's `NotesListView` and `RecentNotesTable`.
+- [ ] 5.3 **Jots**: the desktop's `JotsListView`; Quick Jot from the sidebar as the desktop's popover composer (`QuickJot`), not a sheet.
+- [ ] 5.4 **Bookmarks**: the desktop's `BookmarksListView` with previews (`bookmark-preview`), the paste bar placed as the desktop's add field, the bookmark editor (`BookmarkSheet`) as a dialog.
+- [ ] 5.5 **Files**: the desktop's `FilesListView`: grid with thumbnails or table, picked labels as chips with Change Labels (a popover), New View (the View builder dialog, D81), Add Files and Scan Document as actions, the paste bar as the desktop's, a drop target for files dragged in (0.6). Landscape grid 5 to 6 columns, portrait 3 to 4.
+- [ ] 5.6 **Recipes**: the desktop's `RecipesListView` and `RecipeLists`, tags (`recipe-tags`) as popovers, the gallery with banner images.
+- [ ] 5.7 **Courses**: the desktop's `CoursesListView` with the semester panel (`CourseSemesterPanel`).
+- [ ] 5.8 **Exams**: the desktop's `ExamsListView` and its calendar.
+- [ ] 5.9 **Decks**: the desktop's `DecksListView` (due counts, Study).
+- [ ] 5.10 **Assignments** in a Space: the desktop's `AssignmentsListView` with its groups.
+- [ ] 5.11 **Sessions**: the desktop's `SessionsListView` and its calendar cutout; Set Up Semesters and New Session.
+- [ ] 5.12 **Semesters**: the desktop's `SemestersListView`; the setup wizard as a large dialog (7.4).
+- [ ] 5.13 **Calendar entries**: the desktop's `CalendarEntriesListView` and its calendar.
+- [ ] 5.14 **Grades**: the desktop's `GradeReportView` table (sticky first column, cells editable in place, `GradeCells`), portrait drops the less needed columns first.
+- [ ] 5.15 **Moodle**: the desktop's `MoodleView` and `CoursesPage` (the course grid with `CourseArt`), the account (`MoodleAccount`) as a popover from its header.
+- [ ] 5.16 **Saved Views** of every module above: the View's crumb in the titlebar, its title editable in place (`EditableViewTitle`), its actions menu (`ViewActions`) as a popover, its icon (`ViewIconButton`) as the icon popover.
+
+### 6. Item pages (`entity/[id]`, `file/[id]`, `calendar-event`)
+
+All: the reading width of the desktop's `entity-detail-layout`, the title and key, the details pane (1.7), the item's menu (the desktop's `entity-actions`: Pin, Copy Link, Copy ID, Move to Space, Export, Share, Delete) as a popover from a button in the header, no system bar, the item's own parts in the middle. In a split group they work at 360 wide.
+
+- [ ] 6.1 **Note** (page editor): the desktop's `PageDetailView`: the editor at the desktop's reading width, its chrome per 3.9, page export (`ExportPageDialog`, large dialog), Share Page (`SharePage`, dialog), Import (`ImportDialog`), code language picker, inline math editor, the spell check prompt, the presence of others (`page-presence`), Vim indicator when on. Landscape with details pane beside; portrait details over it.
+- [ ] 6.2 **Jot**: as the desktop's, with Refine Into New Note (`RefineJotButton`).
+- [ ] 6.3 **Task**: the desktop's `TaskDetailView`: status, priority, due, repeat as pills with popovers, sub tasks, parent, description.
+- [ ] 6.4 **Bookmark**: the desktop's bookmark detail with its preview.
+- [ ] 6.5 **Calendar entry**: the desktop's `CalendarEntryDetailView`.
+- [ ] 6.6 **Course**: the desktop's `CourseDetailView` with the week cutout (`CourseWeekCutout`), its sessions, exams, assignments, grades.
+- [ ] 6.7 **Exam**: the desktop's `ExamDetailView`.
+- [ ] 6.8 **Deck**: the desktop's `DeckDetailView` with its cards as a table, the card editor, the image lightbox (`ImageLightbox`) as a full window view with pinch zoom, Study as the labelled action.
+- [ ] 6.9 **Recipe**: the desktop's `RecipeDetailView`: banner, ingredients beside steps in landscape, stacked in portrait; the photo picker.
+- [ ] 6.10 **Session** and **Semester**: the desktop's `SessionDetailView` and `SemesterDetailView`.
+- [ ] 6.11 **Assignment**: the desktop's `AssignmentDetailView` with grading rows (`AssignmentGradingRows`) and the evaluation toggle.
+- [ ] 6.12 **Space Settings** (`space-settings/[id]`): a large dialog with the desktop's sections (name, icon, colour, labels, modules, delete), not a pushed page.
+- [ ] 6.13 **File** (`file/[id]`): the desktop's `FileDetailView`: the PDF viewer with its toolbar (`pdf-toolbar`), search (`pdf-search-controls`), thumbnails beside the pages in landscape (a popover from the toolbar in portrait), pinch zoom anchored under the fingers (`pdf-zoom-anchor`); images, office documents, code, Markdown as the desktop's viewers; Share File (`ShareFile`).
+- [ ] 6.14 **Outside calendar event** (`calendar-event`): a popover from its block in the calendar, read only, as the desktop's `ExternalEventBlock`; opened from a link, a medium dialog.
+- [ ] 6.15 **Conflict badge** and **Review Changes** (`conflicts`, the merge editor): an extra large dialog with the desktop's `MergeEditor` two sides side by side in landscape, one above the other in portrait.
+
+### 7. Create flows (`new/*`, `pick/icon`)
+
+All: a medium dialog over the page that opened them (2.4), the desktop's fields in its order, the pickers inside as popovers over the dialog, the main button filled at the bottom right, `Cmd+Return`, a draft kept across rotation.
+
+- [ ] 7.1 New Task, New Note, New Jot, New Bookmark, New Calendar Entry (with its Space picker on the cross Space calendar), New Session, New Course, New Exam, New Assignment (the desktop's `QuickAssignmentDialog`), New Deck, New Recipe, New Semester, New Space (`space-dialogs`, `space-form-fields`): each the desktop's dialog (`NewEntityDialog`, `NewTaskDialog`, `QuickCreateDialogShell`, `CreateNameDialog`).
+- [ ] 7.2 The compose form (`ComposeForm`, `ui/sheet/Compose.tsx`): on a tablet the desktop's quick create look (title field big at the top, properties as pills under it, Send at the bottom right), in a medium dialog.
+- [ ] 7.3 **Icon picker** (`pick/icon`): a popover anchored to the icon it changes, the desktop's `icon-picker` grid with search and tabs.
+- [ ] 7.4 **Semester setup** (`new/semester-setup`, `SetupSemestersScreen`): the desktop's `SemesterSetupWizard` as a large dialog with its steps.
+- [ ] 7.5 **Import** (`new/import`): the desktop's `ImportDialog` and `MoodleImport` as large dialogs; picking files from the system's document picker as now.
+- [ ] 7.6 **Share into Nookly** (`new/share`): a large dialog; check it from the share extension in both orientations.
+- [ ] 7.7 **Scan Document** (`ScanSheet`): the system scanner as now (it is the camera), what follows in a medium dialog.
+
+### 8. Settings, account and sync
+
+- [ ] 8.1 **Settings** (`settings/index`, `settings/[page]`): the desktop's `SettingsDialog` as an extra large dialog over the app (D82's two panes move into it): the categories on the left grouped as the desktop's (General, Appearance; Writing and study: Editor, Calendar; Data and accounts: Account, Backup, Connections; Power tools: Shortcuts, LaTeX), the picked one on the right; `Cmd+,`. Rows the desktop's `SettingRow` at touch height; theme cards (`theme-cards`) in a row. Agent and About stay desktop only unless they apply (About: the version, links; decide and record).
+- [ ] 8.2 **Account** (account page, sign in, sign up, reset): inside Settings as the desktop's `AccountCards`; signing in from outside Settings as the desktop's `AccountDialog` (1.11).
+- [ ] 8.3 **Backup** (`BackupPage`): the desktop's `backup-controls` and `backup-restore`, restore confirmed in a small dialog; copy about "this iPad" (11.1).
+- [ ] 8.4 **Calendar Connections** (`settings/calendar-connections`): the desktop's `CalendarConnectionsDialog` and `ConnectionCards`, inside Settings under Connections, with Moodle sign in (`moodle-signin`, the desktop's `ConnectMoodle`) beside it.
+- [ ] 8.5 **Sidebar settings** (`settings/sidebar`): on a tablet the sidebar's own popover under the mascot (1.2) replaces this page; the route opens that popover.
+- [ ] 8.6 **Keyboard Shortcuts** (`settings/shortcuts`): inside Settings as the desktop's `ShortcutsTab`, editing a shortcut with a hardware keyboard (`ShortcutControl`, the conflict dialog `ShortcutConflictDialog`); without one, a read only list with a note.
+- [ ] 8.7 **LaTeX** (`LatexPage`): the desktop's `LatexMacrosPanel` inside Settings.
+- [ ] 8.8 **What's New** (`settings/whats-new`): the desktop's `WhatsNewDialog`, a large dialog.
+- [ ] 8.9 **Sync**: the status button and popover in the titlebar (1.3), share dialogs (`ShareDialog`) as medium dialogs, the first sync page as the desktop's `FirstSyncDialog` (1.11), view only pages marked as the desktop marks them.
+- [ ] 8.10 **Welcome** (`welcome`): a centred card in both orientations, the mascot, the copy naming an iPad.
+
+### 9. Moodle and study
+
+- [ ] 9.1 **Moodle course** (`moodle/[courseId]`): the desktop's `CoursePage`: sections listed on the left beside the content in landscape (`SectionPage`, `CourseContents`), sections as a popover from the header in portrait; assignments, forums, grades as the desktop's tabs (`CourseAssignments`, `CourseForums`, `CourseGrades`), progress (`MoodleProgress`).
+- [ ] 9.2 **Moodle assignment, forum, discussion, page, file** (`moodle/assignment/[id]`, `moodle/forum/[id]`, `moodle/discussion/[id]`, `moodle/page/[cmid]`, `moodle/file`): pages in the tablet frame at the reading width with the desktop's `MoodleHtml` rendering, no system bar, crumbs in the titlebar (course, then the item); Import as a labelled action.
+- [ ] 9.3 **Study session** (`study/[deckId]`): full window, the card centred at most 720 wide, the desktop's keys (Space flips, 1 to 4 rate, `Cmd+Z` undoes), the rating buttons at the bottom in reach of both thumbs in landscape; the top row (Back to Deck, counts, Undo) the session's own, as now.
+
+### 10. Input
+
+- [ ] 10.1 **Hardware keyboard**: every desktop shortcut that applies (`packages/frontend` keymap, `ShortcutHost`), Tab and Shift Tab between fields and through popover rows, Escape closes the top popover or dialog, Return opens the selected row, arrows move through lists and tables, the desktop's New shortcut creates on the page shown. Holding `Cmd` lists them (1.9). Test the list of shortcuts against the desktop's.
+- [ ] 10.2 **Pointer** (from 0.5): hover highlight on rows, buttons, tabs, the pointer's lift on round buttons, secondary click opens context menus, scrolling with two fingers, the divider and pane edges showing a resize pointer where the API allows.
+- [ ] 10.3 **Drag and drop** (from 0.6): tabs, Spaces, sidebar rows, task cards, rows onto the right edge to split, files from other apps onto Files; each with the desktop's drop previews.
+- [ ] 10.4 **Gestures**: edge swipes (left: back or the sidebar; right: the details pane), the sidebar's Space pan, pinch in the calendar and the PDF viewer, swipe rows (D76). None of them fight each other or the system's own (home indicator, Slide Over, the Dock): test each pair that shares an edge.
+- [ ] 10.5 **Apple Pencil**: Scribble writes into every text field (the system's; check it is not blocked by a gesture), tapping with the Pencil works as a touch everywhere.
+
+### 11. Copy and docs
+
+- [ ] 11.1 **The device's name in copy**: one helper (`deviceName()`: "iPhone", "iPad", "phone", "tablet" on Android) and every text that says "this phone" (about 70 in 31 files: Backup, Haptics, sync, the welcome, the account) reads it. Test that no text names a phone on a tablet.
+- [ ] 11.2 **Docs**: `docs/04-navigation-spaces.md` gets a tablet section (window classes, sidebar over or beside, list beside item, back); `docs/05-ui-ux-direction.md`'s Responsiveness gets the presentation table; `DECISIONS.md` gets every decision taken on the way (D84 on).
+- [ ] 11.3 **Haptics**: iPads have no Taptic Engine; the haptics setting hides on a tablet (`HapticsRow`), and nothing relies on a haptic to confirm an action.
+
+### 12. Checks and report
+
+- [ ] 12.1 **The matrix**: every route of the app (the list in "Routes" below) on the iPad Pro 13-inch landscape and portrait, the iPad Pro 11-inch landscape and portrait, the iPad mini portrait, and once at a compact width (Slide Over, the phone layout); each screenshot looked at; a page that looks like a phone page is a failure.
+- [ ] 12.2 **Rotation under load**: rotate with a popover open, a dialog with a half typed form, the keyboard up in a note, both split groups open, the sidebar over the page, the details pane over the page, a study session, a drag held. Nothing is lost, nothing ends up off screen.
+- [ ] 12.3 **The phone unchanged**: the phone's full jest suite, and screenshots of the main phone screens next to the ones from before the rework.
+- [ ] 12.4 lint, format:check, typecheck, test, cargo test (if Rust changed), duplication under 1%; report only checks read (`coverage`, `unused`, `audit`, `lint:rust:strict`).
+- [ ] 12.5 CI on this branch's open PR green at the end. Never merge it.
+- [ ] 12.6 Final report below.
+
+## Routes
+
+Every route and where this plan covers it (tick nothing here; it is the checklist for 12.1).
+
+| Route                                                                                                                                                                            | Item        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `(drawer)/index` (Dashboard)                                                                                                                                                     | 4.1         |
+| `(drawer)/calendar`                                                                                                                                                              | 4.2         |
+| `(drawer)/tasks`                                                                                                                                                                 | 4.3         |
+| `assignments`                                                                                                                                                                    | 4.4         |
+| `(drawer)/pinned`                                                                                                                                                                | 4.5         |
+| `(drawer)/search`                                                                                                                                                                | 4.6, 1.9    |
+| `(drawer)/trash`                                                                                                                                                                 | 4.7         |
+| `(drawer)/space/[id]`                                                                                                                                                            | 4.8         |
+| `(drawer)/module/[spaceId]/[module]`                                                                                                                                             | 5.1 to 5.16 |
+| `entity/[id]`                                                                                                                                                                    | 6.1 to 6.11 |
+| `file/[id]`                                                                                                                                                                      | 6.13        |
+| `calendar-event`                                                                                                                                                                 | 6.14        |
+| `conflicts`                                                                                                                                                                      | 6.15        |
+| `space-settings/[id]`                                                                                                                                                            | 6.12        |
+| `new/task`, `new/page`, `new/jot`, `new/bookmark`, `new/entry`, `new/session`, `new/course`, `new/exam`, `new/assignment`, `new/deck`, `new/recipe`, `new/semester`, `new/space` | 7.1, 7.2    |
+| `pick/icon`                                                                                                                                                                      | 7.3         |
+| `new/semester-setup`                                                                                                                                                             | 7.4         |
+| `new/import`                                                                                                                                                                     | 7.5         |
+| `new/share`                                                                                                                                                                      | 7.6         |
+| `settings/index`, `settings/[page]`                                                                                                                                              | 8.1         |
+| `account/sign-in`, `account/sign-up`, `account/forgot`                                                                                                                           | 8.2, 1.11   |
+| `settings/calendar-connections`, `moodle-signin`                                                                                                                                 | 8.4         |
+| `settings/sidebar`                                                                                                                                                               | 8.5         |
+| `settings/shortcuts`                                                                                                                                                             | 8.6         |
+| `settings/whats-new`                                                                                                                                                             | 8.8         |
+| `welcome`                                                                                                                                                                        | 8.10        |
+| `moodle/[courseId]`                                                                                                                                                              | 9.1         |
+| `moodle/assignment/[id]`, `moodle/forum/[id]`, `moodle/discussion/[id]`, `moodle/page/[cmid]`, `moodle/file`                                                                     | 9.2         |
+| `study/[deckId]`                                                                                                                                                                 | 9.3         |
+| the shell: sidebar, titlebar, tabs, split, details, palettes                                                                                                                     | 1.1 to 1.10 |
+| first sync page, sync status, share                                                                                                                                              | 1.11, 8.9   |
+
+Menus and dialogs that are not routes and where they land: the sidebar's + (1.2), the Space menu and the Spaces overflow (1.2), Remove Module (1.2), the sidebar items popover (1.2, 8.5), the tab menu (1.4), the split button (1.3), the sync status popover (1.3, 8.9), an item's menu (6), context menus on rows (2.3), view presets, filter and display menus (3.6), the View builder and picked labels (5.5), View actions and icon (5.16), the save bar (1.8), every confirmation (2.2), the code language picker, inline math, the spell check prompt (6.1), the bookmark editor (5.4), the deck's lightbox (6.8), the crash report (a large dialog, as the desktop's `CrashReportDialog`).
 
 ## Needs the user
 
-- On a real phone (a release build): switching Tasks between list and board feels instant.
-- On a real phone: typing in a bookmark's Note (or any field low on a page) keeps it above the keyboard.
-- On a real phone: the paste bars (Bookmarks, Files) lifted by the keyboard, with the deeper shadow while typing.
-- On a real phone: typing a time with the keyboard (hour over the one shown, then the minute).
-
-- On the phone with your own Moodle site: sign in from Settings, then check the course list, a course, a file with Import, and Moodle deadlines on the calendar.
-- On a real phone (a release build): whether page changes and filter changes now feel quick.
-- On a real phone: opening the sidebar with a swipe anywhere right of the leftmost tenth, and back from that tenth.
-- On a real phone: the feel of swiping a task row (open on the button, full swipe to act, the haptic at the point).
-- On a real phone: the editor caret and Undo after typing with the keyboard; "Add a sub-task" low on a task page staying above the keyboard; the feel of dragging; the editor toolbar on the keyboard and the slash menu; scanning a document.
+- After milestone 1 and 2 (shell and presentations): look at the screenshots in the progress log, and give feedback on the feel on a real iPad, above all on list beside item (1.6) and the sidebar over the page in portrait. Work goes on meanwhile.
+- On a real iPad with a Magic Keyboard or a trackpad: hover, secondary click, the menu bar, shortcuts.
+- On a real iPad with Stage Manager or iPadOS 26 windows: resizing across the window classes, the window controls (0.4).
+- Still open from the seventh round: the desktop page cut off on the right needs what was done just before it happened. The phone's real device checks from earlier rounds are listed in git history (04256a44, "Needs the user").
 
 ## Progress log
 
-- 2026-11-15: phone Home done (D77). The sign in rate limit test got the time its twelve password checks take (CI timed out at 5s). The automation can scroll now (`scroll(y, nth)`).
-- 2026-11-15: seventh round of `NOTES.md` added (section 2a).
-- 2026-11-15: CI fixed: the formatter skips NOTES.md, Windows reads the generated fixtures with LF and FSRS floats to 9 decimals, and two timing races in tests (a sync clash, a sidebar glide) wait properly.
-- 2026-11-15: sixth round of `NOTES.md` added (search clear button, floating bars' corners, custom semester dates, the bookmark note and the keyboard, the Dashboard), plus Dependabot and CI from the chat.
-- 2026-11-15: the full mobile run timed out the search label test while the machine sat at a load of 57 (another app at 580% CPU); it passes alone. Rerun at the end.
-- 2026-11-15: asked in chat: a compose sheet leaves 16pt between its buttons and the title (test; on screen).
-- 2026-11-15: dialog corners and padding done; search field height, centring and solid placeholders done.
-- 2026-11-15: file refilled from the fifth round of `NOTES.md`. The fourth round (all done, final report included) is in git history up to 2821cbac and `DECISIONS.md` up to D74.
+- 2026-11-15: file cleared and refilled with the tablet rework plan (D83); `AGENTS.md`'s mobile rules now name the tablet's popovers and dialogs.
 
 ## Final report
 
-Seventh round (2026-11-15), all on `feat/connected-platform`:
-
-- Phone: every 2a item done and checked in the simulator (see the ticks above).
-- Desktop: the CLI now covers settings, backups, sync status, a Space's modules and the outside calendars (read only); restore, sign ins and emptying Trash stay in the app on purpose. The page cut off on the right is not fixed: it needs what you did just before it happened (see Needs the user).
-- Both: Files Views are built in a dialog (name, searchable labels with counts, the page's filters and display), on the desktop, the phone and through the CLI; the row of every label is gone (D81).
-- Tablet, first version (D82): no phone bar, page actions as the desktop's labelled buttons, a sidebar that starts with the mascot's card, Settings in two panes, New buttons that name what they make. Open points for your feedback are listed under the tablet item.
-- CI: the Rust jobs are green; the TypeScript job failed twice on different server timing tests (live pages, clash settling) with no server or sync change since the last green run, and was rerun.
+Not yet written.
