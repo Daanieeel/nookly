@@ -13,7 +13,7 @@
 
 **This file is a ready to run prompt and the handover file.** An agent told "read `IMPLEMENTATION_STATE.md` and get to work" reads this file, `AGENTS.md` and `docs/00-index.md`, then carries the list out from start to finish without human help. Keep it current: tick items, note findings, append to the progress log after every meaningful step.
 
-The items come from the user's `NOTES.md` (2026-11-15, fifth round). `NOTES.md` is the user's own file: read it, never edit it.
+The items come from the user's `NOTES.md` (2026-11-15, fifth round, with the sixth round's items added the same day and marked so). `NOTES.md` is the user's own file: read it, never edit it.
 
 ## Rules
 
@@ -59,6 +59,8 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [x] (2026-11-15, the input's own padding pushed it down; cap height and icon now share their middle, measured; test) In that input the icon and the placeholder are not vertically centred to each other: the placeholder sits too low.
 - [x] (2026-11-15, the search's icon and placeholder in solid grey, every field's placeholder in a new solid `placeholder` colour; tests; on screen) Placeholders and their icons get no lowered opacity; use a muted colour instead, so lower SVG layers do not shine through the icon (the magnifying glass's handle).
 - [x] (2026-11-15, D75: one full width chip per field with its name, "is", "is any of", "is not" or "is none of", its values and a remove button; a tap flips is and is not, another opens the choices; every list and Tasks; tests; on screen) Many selected filters overcrowd the page (`.reference-images/mobile/filter-overcrowding.png`). Show active filters like the desktop's filter chips, with their parts ("any of", "is not" and so on); each chip may be full width, one below the other.
+- [ ] (sixth round) Search field: the small x that appears on the right while typing is hard to hit. Instead a full X button morphs out of the input to its right (same background as the input) and clears it.
+- [ ] (sixth round) The floating bars ("Paste a URL to save it" on Bookmarks, "Paste a link to add it" on Files) and their send buttons get their own corners: they sit at the bottom of the screen snug with the iPhone's own corner, about 8 from the left, right and bottom, their corners following the screen's curve at that distance; the send button gets the radius that fits inside. A shadow behind both so they stand out, more so when focused and lifted by the keyboard.
 - [ ] Swipe actions on every list of items (not only tasks), each type with its own sensible actions; rework their look so they feel native (consider a public package). Tasks get a more useful action than "Done". Rule for every type: swiping right to left always ends in Trash, the rightmost action, active on a long drag; a second action may sit beside it.
 
 - [x] (2026-11-15, the card's 12pt inset makes its buttons' 12pt corners nest in its 24pt ones; a key on a full segment starts it over, a digit no second can follow finishes it, nothing out of range shows; tests; on screen through the automation, real keys under Needs the user) (asked in chat) Time input dialog (`.reference-images/mobile/time-input-dialog-corner-radius-mismatch.png`): its buttons' corners must be the dialog's corners less the padding. Typing in the hour does nothing; the minute takes any number, also past 59.
@@ -74,9 +76,14 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [x] Bookmarks, the "Site" filter: a search bar, each site with its favicon, and the address with only its important part highlighted ("https://www." muted, "google.com" full). Done: the Site card searches, shows each site's icon (a globe until it has one) and mutes "https://www." before the address.
 - [x] Bookmark details page: prettier and more useful; "Refresh Details" must not wrap to a new line in its success state (layout shift). Done: the page leads with the picture, then the site's icon and name over the address, Open in Browser and Refresh Details side by side at equal widths (no wrap in any state), the note, and a "Read Nov 15" row up top.
 - [x] Bookmark previews still do not work. Done: cards picture the page as the desktop does (its capture, else the site's picture, else its icon large), and the list reads each page never read once, so bookmarks saved elsewhere or offline fill in.
+- [ ] (sixth round) New Semester sheet: the timespan only offers "No dates" and "Germany". Add "Custom", which shows a start and an end date input.
+- [ ] (sixth round) Bookmark details: the Note field avoids the keyboard, so typing in it is never covered.
+- [ ] (sixth round) Redesign the whole Dashboard for the phone: the desktop like layout does not fit. A page people want to use as a shortcut to most features.
 
 ### 3. Final checks and report
 
+- [ ] (asked in chat) Dependabot: merge every open Dependabot version bump that makes sense into this branch, then close all Dependabot PRs, the ones not merged too (with a word on why).
+- [ ] (asked in chat) CI on this branch's open PR is green at the end of the session. Never merge the PR.
 - [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
 - [ ] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
 - [ ] Final report below.
@@ -93,6 +100,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ## Progress log
 
+- 2026-11-15: sixth round of `NOTES.md` added (search clear button, floating bars' corners, custom semester dates, the bookmark note and the keyboard, the Dashboard), plus Dependabot and CI from the chat.
 - 2026-11-15: the full mobile run timed out the search label test while the machine sat at a load of 57 (another app at 580% CPU); it passes alone. Rerun at the end.
 - 2026-11-15: asked in chat: a compose sheet leaves 16pt between its buttons and the title (test; on screen).
 - 2026-11-15: dialog corners and padding done; search field height, centring and solid placeholders done.
