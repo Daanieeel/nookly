@@ -9,6 +9,7 @@
     "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
     "settings": "nookly cli settings <list|get|set|reset> ...  (the app's settings: theme, date and time format, calendar lengths, editor, backups, shortcuts. `list` shows each one's value, default and the values it takes; the running app picks a change up within a few seconds)",
     "space": "nookly cli space <list|create|update|delete|reorder> ...",
+    "sync": "nookly cli sync status  (whether sync is on, its server, changes waiting, open clashes; signing in stays in the app and the session is never shown)",
     "unrelate": "nookly cli unrelate <relationship-id> --yes"
   },
   "discovery": "Run `nookly cli schema` first, it dumps every entity type's fields and every relationship type in one call, so you never need to hardcode this app's data model.",

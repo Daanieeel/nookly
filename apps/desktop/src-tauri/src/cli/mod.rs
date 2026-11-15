@@ -32,6 +32,9 @@ mod settings;
 mod settings_tests;
 #[cfg(test)]
 mod snapshot_tests;
+mod sync;
+#[cfg(test)]
+mod sync_tests;
 mod view;
 mod warnings;
 
@@ -220,6 +223,7 @@ fn dispatch_command_raw(conn: &Connection, argv: Vec<String>) -> AppResult<Value
         "label" => label_command(conn, &argv[1..]),
         "settings" => settings::command(&data_folder()?, &argv[1..]),
         "backup" => backup::command(conn, &data_folder()?, &argv[1..]),
+        "sync" => sync::command(conn, &data_folder()?, &argv[1..]),
         entity_type => entity_command(conn, entity_type, &argv[1..]),
     }
 }

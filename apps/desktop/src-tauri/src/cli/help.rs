@@ -76,6 +76,7 @@ pub(super) fn top_level_help() -> Value {
             "describe": "nookly cli describe <entity-type>  (one entity type: fields, block commands, relationship types)",
             "relate": "nookly cli relate <from-id> <relationship-type> <to-id> [<to-id> ...] --yes  (several targets \
                        are created all or nothing)",
+            "sync": "nookly cli sync status  (whether sync is on, its server, changes waiting, open clashes; signing in stays in the app and the session is never shown)",
             "unrelate": "nookly cli unrelate <relationship-id> --yes",
             "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] \
                        [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
