@@ -44,6 +44,7 @@ import { EditorToolbar } from "../editor/EditorToolbar.tsx";
 import { SHEET_ROUTE } from "../ui/sheet/route.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { WindowFrame } from "../dev/WindowFrame.tsx";
 
 /// The pages of the sidebar itself: nothing to go back to from them.
 const TOP_LEVEL = /^\/($|calendar|tasks|pinned|search|trash|space\/|module\/)/;
@@ -256,19 +257,21 @@ export default function RootLayout() {
   );
   return (
     <GestureHandlerRootView className="flex-1 bg-background">
-      <QueryClientProvider client={queryClient}>
-        <AppDataProvider value={data}>
-          <ThemeProvider value={navigation}>
-            <SheetHost>
-              <StatusBar style="auto" />
-              <FirstRun />
-              <AppShell stack={stack} />
-              <EditorToolbar />
-              <FirstSyncPage />
-            </SheetHost>
-          </ThemeProvider>
-        </AppDataProvider>
-      </QueryClientProvider>
+      <WindowFrame>
+        <QueryClientProvider client={queryClient}>
+          <AppDataProvider value={data}>
+            <ThemeProvider value={navigation}>
+              <SheetHost>
+                <StatusBar style="auto" />
+                <FirstRun />
+                <AppShell stack={stack} />
+                <EditorToolbar />
+                <FirstSyncPage />
+              </SheetHost>
+            </ThemeProvider>
+          </AppDataProvider>
+        </QueryClientProvider>
+      </WindowFrame>
     </GestureHandlerRootView>
   );
 }

@@ -487,3 +487,9 @@ The first tablet pass (D82) kept the phone's screens and checked the width insid
 3. **Screens.** A screen is split into its content, shared by both shells, and its chrome, which each shell owns. Width checks inside screens go away as each screen moves.
 
 Every page is laid out for portrait and landscape and for any window size iPadOS allows; rotating keeps what is open (tabs, scroll, drafts, an open popover or dialog). The plan is in `IMPLEMENTATION_STATE.md`.
+
+## D84. Checking a tablet window without turning the simulator
+
+The simulators on the build machine run apps as iPadOS windows that only the device's turn changes, and there is no Simulator window to turn them; the system ignores an app's own request to rotate (`requestGeometryUpdate`) while it supports multitasking. So the checks lay the app out at the size of the window wanted instead: a development only hook (`hooks.window(width, height)`, `ui/window-override.ts`) makes the app read that size and draws it scaled into the top left of the screen. `tools/e2e/tablet-shots.ts` shoots a page that way at every window the plan names (13-inch and 11-inch in both orientations, the mini in portrait, Slide Over). It is not set in any build a person uses. What it cannot show (the real safe areas of a turned iPad, the system's own animation of a turn) is checked on a real iPad by the user.
+
+The window controls of an iPadOS 26 window are read natively (`modules/nookly-window`, the margins layout region with corner adaptation, less the plain margins) and are zero while the app fills the screen, as on the simulators here; their room in the titlebar is checked on a real iPad.

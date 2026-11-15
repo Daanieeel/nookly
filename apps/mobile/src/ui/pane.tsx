@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import { useWindowDimensions } from "react-native";
+import { useWindowOverride } from "./window-override.ts";
 
 export interface WindowSize {
   width: number;
@@ -13,8 +14,9 @@ export const WindowSizeProvider = WindowSizeOverride.Provider;
 
 export function useWindowSize(): WindowSize {
   const override = useContext(WindowSizeOverride);
+  const dev = useWindowOverride((s) => s.size);
   const { width, height } = useWindowDimensions();
-  return override ?? { width, height };
+  return override ?? dev ?? { width, height };
 }
 
 /// How much room the window has, which decides the shell (D83): `compact` is the phone's
