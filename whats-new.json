@@ -29,6 +29,12 @@
           "description": "When two devices changed the same thing, every device offers both versions side by side, and you keep one, both or a mix.",
           "icon": "layout-columns",
           "tag": "New"
+        },
+        {
+          "title": "Browse files by label",
+          "description": "Files opens with a shelf of your labels: pick one, then another, to narrow down step by step, and save what you find as a View.",
+          "icon": "filter",
+          "tag": "New"
         }
       ],
       "more": {

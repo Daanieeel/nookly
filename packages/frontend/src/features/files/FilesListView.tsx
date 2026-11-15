@@ -1,4 +1,3 @@
-import { PageHeader, PageHeaderActions, PageHeaderTitle } from "#/components/page-header.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import {
   IconArrowUp,
@@ -30,12 +29,7 @@ import {
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityKeyCopyInline } from "#/components/entity-key.tsx";
-import {
-  type ActiveFilter,
-  type FilterField,
-  FilterMenu,
-  applyFilters,
-} from "#/components/filter-menu.tsx";
+import { type ActiveFilter, type FilterField, applyFilters } from "#/components/filter-menu.tsx";
 import { ENTITY_FILTER_FIELDS, entityFilterValue } from "#/features/tasks/shared-view-defs.tsx";
 import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
@@ -80,16 +74,26 @@ import {
   isViewable,
 } from "./file-kind";
 import {
-  type DisplayOptions,
+  FILE_VIEW_PRESETS,
+  describeFileDisplay,
   fileGroupDefs,
+  normalizeDisplay,
   reindexLabel,
   orderFiles,
   readDisplay,
   writeDisplay,
 } from "./file-model";
+import { LabelShelf } from "./LabelShelf";
+import { labelShelf } from "@nookly/shared/label-shelf";
+import { ModuleViewHeader } from "#/components/module-view-header.tsx";
+import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
+import { useViewPage } from "#/features/views/use-view-page.ts";
+import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { WindowedFiles } from "./windowed-files";
 import { ignoreError } from "#/lib/log.ts";
+
+const NO_FILTERS: ActiveFilter[] = [];
 
 /// Marks items that just arrived for a moment, so a new file never appears silently.
 function useFreshIds() {
@@ -121,12 +125,20 @@ type Offer = { kind: "webpage"; url: string } | { kind: "unviewable"; file: File
 /// in; the floating bar takes a link or a path, or opens the file picker.
 const textSchema = z.object({ text: z.string().trim().min(1, "Paste a link or file path") });
 
-export function FilesListView({ spaceId }: { spaceId: string }) {
+export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: string }) {
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [display, setDisplayState] = useState<DisplayOptions>(readDisplay);
-  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const { display, setDisplay, filters, setFilters, view, dirty, save, discard } = useViewPage({
+    spaceId,
+    module: "files",
+    viewId,
+    readDisplay,
+    normalizeDisplay,
+    remember: writeDisplay,
+    filtersKey: STORAGE_KEYS.filesFilters,
+    defaultFilters: NO_FILTERS,
+  });
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [offer, setOffer] = useState<Offer | null>(null);
   const [fresh, markFresh] = useFreshIds();
@@ -147,11 +159,6 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
   });
   const labels = useSpaceLabels(spaceId);
   const { over, dragProps } = useFileDragOver();
-
-  const setDisplay = (next: DisplayOptions) => {
-    setDisplayState(next);
-    writeDisplay(next);
-  };
 
   const imported = (created: FileEntity[]) => {
     markFresh(created.map((f) => f.entity.id));
@@ -281,9 +288,11 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     ];
   }, [files, labels]);
 
+  const labelName = (id: string) => labels.find((l) => l.id === id)?.name ?? "";
+  const shelf = labelShelf(files, (f) => f.labelIds, display.shelf, labelName);
   const visible = orderFiles(
     applyFilters(
-      files,
+      shelf.shown,
       filters,
       (f, fieldId) =>
         entityFilterValue(f.entity, fieldId) ??
@@ -291,7 +300,7 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
     ),
     display.ordering,
   );
-  const defs = fileGroupDefs(display.grouping);
+  const defs = fileGroupDefs(display.grouping, labels);
   const openFile = (f: FileEntity) => openEntity(f.entity.id, spaceId);
 
   const renderItems = (items: FileEntity[]) => (
@@ -335,40 +344,69 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
       })}
     >
       {over && <FileDropOverlay label="Drop to import files" />}
-      <PageHeader>
-        <PageHeaderTitle icon={IconFile}>Files</PageHeaderTitle>
-        {files.some((f) => f.needsReindex) && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="shrink-0 gap-1.5"
-                disabled={reindexMissing.isPending}
-                onClick={() => reindexStatus === "idle" && reindexMissing.mutate()}
-              >
-                <StatusButtonContent
-                  status={reindexStatus}
-                  icon={<IconRefresh />}
-                  label={reindexLabel(reindexMissing.isPending ? reindexProgress : null)}
-                  successLabel={
-                    reindexMissing.data ? `${reindexMissing.data.reindexed} reindexed` : "Reindexed"
-                  }
-                  errorLabel="Couldn't reindex, try again"
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Index older files for search</TooltipContent>
-          </Tooltip>
-        )}
-        <PageHeaderActions>
-          <div className="min-w-0 flex-1">
-            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
-          </div>
-          <FileDisplayMenu display={display} onChange={setDisplay} />
-        </PageHeaderActions>
-      </PageHeader>
+      <ModuleViewHeader
+        icon={IconFile}
+        title="Files"
+        view={view}
+        viewMenu
+        presets={
+          <>
+            {files.some((f) => f.needsReindex) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 gap-1.5"
+                    disabled={reindexMissing.isPending}
+                    onClick={() => reindexStatus === "idle" && reindexMissing.mutate()}
+                  >
+                    <StatusButtonContent
+                      status={reindexStatus}
+                      icon={<IconRefresh />}
+                      label={reindexLabel(reindexMissing.isPending ? reindexProgress : null)}
+                      successLabel={
+                        reindexMissing.data
+                          ? `${reindexMissing.data.reindexed} reindexed`
+                          : "Reindexed"
+                      }
+                      errorLabel="Couldn't reindex, try again"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Index older files for search</TooltipContent>
+              </Tooltip>
+            )}
+            <ViewPresetsButton
+              spaceId={spaceId}
+              module="files"
+              presets={FILE_VIEW_PRESETS}
+              fields={filterFields}
+              describeDisplay={describeFileDisplay}
+            />
+          </>
+        }
+        displayMenu={<FileDisplayMenu display={display} onChange={setDisplay} />}
+        create={{ label: "Choose files", tooltip: "Import files", onClick: startImport }}
+        filterFields={filterFields}
+        filters={filters}
+        onFiltersChange={setFilters}
+        dirty={dirty}
+        save={save}
+        onDiscard={discard}
+        spaceId={spaceId}
+        module="files"
+        display={display}
+      />
+      {files.length > 0 && (
+        <LabelShelf
+          shelf={shelf}
+          picked={display.shelf}
+          labels={labels}
+          onPick={(next) => setDisplay({ ...display, shelf: next })}
+        />
+      )}
 
       {!isPending && files.length === 0 ? (
         <div className="p-6">
@@ -382,7 +420,14 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
       ) : visible.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <p className="text-sm text-muted-foreground">No files match these filters.</p>
-          <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setFilters([]);
+              setDisplay({ ...display, shelf: [] });
+            }}
+          >
             Clear filters
           </Button>
         </div>

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildGroups } from "#/components/grouped-view/grouping.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { makeFile } from "#/test/fixtures.ts";
+import { makeFile, makeLabel } from "#/test/fixtures.ts";
 import { freezeTime, setDateTimeSettings } from "#/test/time.ts";
 import {
   fileExtension,
@@ -20,7 +20,7 @@ import {
   writeDisplay,
 } from "./file-model.ts";
 
-const DEFAULTS = { layout: "grid", grouping: "none", ordering: "newest" };
+const DEFAULTS = { layout: "grid", grouping: "none", ordering: "newest", shelf: [] };
 const ids = (items: { entity: { id: string } }[]) => items.map((f) => f.entity.id);
 
 describe("readDisplay", () => {
@@ -29,8 +29,9 @@ describe("readDisplay", () => {
   });
 
   it("reads back what was written", () => {
-    writeDisplay({ layout: "list", grouping: "kind", ordering: "name" });
-    expect(readDisplay()).toEqual({ layout: "list", grouping: "kind", ordering: "name" });
+    const display = { layout: "list", grouping: "label", ordering: "name", shelf: ["l1"] } as const;
+    writeDisplay({ ...display, shelf: [...display.shelf] });
+    expect(readDisplay()).toEqual(display);
   });
 
   it("falls back for an unreadable value", () => {
@@ -118,6 +119,22 @@ describe("file kinds", () => {
 describe("fileGroupDefs", () => {
   it("has no groups without a grouping", () => {
     expect(fileGroupDefs("none")).toBeNull();
+  });
+
+  // D74: browsing by label, a file under each of its labels, those with none last.
+  it("groups by label", () => {
+    const files = [
+      makeFile({ labelIds: ["math", "uni"] }, { id: "both" }),
+      makeFile({ labelIds: ["uni"] }, { id: "uni" }),
+      makeFile({ labelIds: [] }, { id: "none" }),
+    ];
+    const labels = [makeLabel({ id: "math", name: "Math" }), makeLabel({ id: "uni", name: "Uni" })];
+    const groups = buildGroups(files, fileGroupDefs("label", labels) ?? [], null);
+    expect(groups.map((g) => [g.name, ids(g.items)])).toEqual([
+      ["Math", ["both"]],
+      ["Uni", ["both", "uni"]],
+      ["No label", ["none"]],
+    ]);
   });
 
   it("groups by kind", () => {

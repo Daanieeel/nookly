@@ -13,6 +13,7 @@ All notable changes to Nookly are listed here.
 - Settings, Account lists every signed in device, and you can sign one out from another.
 - On your phone, scan paper documents straight into a Space's files, then name, label and link them while they upload.
 - Moodle works on your phone just like on your computer: sign in with your saved passwords, read your courses, pages, assignments, grades and forums, open files and import them into a Space, read what you opened before while offline, and see Moodle's deadlines on your calendar.
+- Files opens with a shelf of the labels your files carry. Pick labels one after another to narrow down, see which files still have no label, and save what you browse to as a View that shows up on your other devices.
 
 ### Changed
 

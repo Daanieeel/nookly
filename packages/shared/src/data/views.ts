@@ -11,6 +11,7 @@ export const VIEW_MODULES = [
   "assignments",
   "tasks-overview",
   "assignments-overview",
+  "files",
 ] as const;
 export type ViewModule = (typeof VIEW_MODULES)[number];
 

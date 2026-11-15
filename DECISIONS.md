@@ -417,3 +417,11 @@ The phone stores where a file is as a full `file://` address, which holds iOS's 
 ## D73. Every list filters on what its items have
 
 Pinned, Created and Updated are on every item, so every list offers them (`ENTITY_FILTER_FIELDS` on the desktop). Each list then adds its own: Bookmarks their labels and site, Files kind and labels, Exams course, date (next 7 days, later, past, none) and status, Courses semester, Decks the exam they prepare for and whether cards wait, Recipes kind, tags and time, Trash type, Space and when it was deleted. Tasks, Assignments, Notes and Jots already had theirs. Tasks gain Pinned on both apps. The phone offers the same fields in its Filter sheet (Notes keep Last edited in place of Updated, as on the desktop), and a Tasks View keeps all of them on both apps. Sessions and the calendar are a calendar, not a list, and keep their own controls; Semesters are a few kept in the order you drag them, so they have none.
+
+## D74. Files are browsed by their labels, kept as Views
+
+Labels replace folders on purpose, but a flat list only helps someone who already knows a file's name or labels. So the Files page opens with a label shelf on both apps: every label the Space's files carry, with how many files each holds, most used first. Picking a label narrows to its files, and the shelf then shows only the labels those files also carry, with their counts inside the pick, so a person drills in step by step (all picked labels must be on a file) without remembering exact names. Display also groups by Label (a file shows under each of its labels, those with none last).
+
+What someone browses to lasts and syncs as a View, the same synced View entity Tasks and Assignments save (module `files`): it keeps the picked labels, the filters and the display, shows under Files in the desktop's sidebar and as a preset above the phone's Files page. Without a View open, the shelf's pick is kept with the page's own display, like its filters.
+
+The nudge is quiet: while some files have no label, the shelf ends with a muted "Unlabelled" chip with their count. Picking it lists them with one line saying labels make them easy to find, and Files has an "Unlabelled" preset beside the saved Views. Nothing pops up and nothing blocks.

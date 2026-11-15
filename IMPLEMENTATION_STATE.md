@@ -88,7 +88,7 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 
 ### 5. Both apps
 
-- [ ] Many more filter options on every list page (desktop and phone): every property a list's items have can be filtered on.
+- [x] (2026-11-15, D73: Pinned, Created and Updated everywhere and each list's own details on both apps, Tasks Views keep every filter across apps and their labels now read the same on both; tests; on screen) Many more filter options on every list page (desktop and phone): every property a list's items have can be filtered on.
 - [x] (2026-11-15, a bare key prefix lists its items newest first after what contains it, in the desktop search and the phone; tests; phone on screen, desktop by its search tests) Search (Cmd+K and the phone's search): typing an entity id like "TSK-" or "TSK" first shows results that contain it or match it fuzzily, then lists the tasks.
 - [ ] Files: a lasting way to browse and find files by their labels (desktop and phone, synced), and a quiet nudge to label files that have none. Decide the design in `DECISIONS.md` first.
 

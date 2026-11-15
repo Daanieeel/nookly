@@ -31,6 +31,7 @@ export const STORAGE_KEYS = {
   assignmentsFilters: "nookly:assignments-filters",
   assignmentsOverviewFilters: "nookly:assignments-overview-filters",
   filesDisplay: "nookly:files-display",
+  filesFilters: "nookly:files-filters",
   bookmarksDisplay: "nookly:bookmarks-display",
   relatedTab: "nookly:related-tab",
   sessionsView: "nookly:sessions-view",

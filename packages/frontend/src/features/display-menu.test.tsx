@@ -89,7 +89,7 @@ describe("CardDisplayMenu", () => {
 
   it("offers the Files groupings", async () => {
     const onChange = vi.fn();
-    const display: FileDisplay = { layout: "grid", grouping: "kind", ordering: "name" };
+    const display: FileDisplay = { layout: "grid", grouping: "kind", ordering: "name", shelf: [] };
     render(<FileDisplayMenu display={display} onChange={onChange} />);
     const { user, panel } = await openMenu();
     const [grouping] = within(panel).getAllByRole("combobox");
@@ -99,6 +99,7 @@ describe("CardDisplayMenu", () => {
       "No grouping",
       "Kind",
       "Date added",
+      "Label",
     ]);
     await user.click(screen.getByRole("option", { name: "Date added" }));
     expect(onChange).toHaveBeenLastCalledWith({ ...display, grouping: "added" });
