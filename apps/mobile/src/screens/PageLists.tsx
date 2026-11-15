@@ -1,6 +1,7 @@
 import type { PageSummary } from "@nookly/shared/data";
 import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { useStaged } from "../ui/staged.ts";
+import { DATE_WINDOW_OPTIONS, withinWindows } from "../ui/filter-windows.ts";
 import { notePreviewText } from "@nookly/frontend/lib/note-preview";
 import { IconClock, IconFeather, IconLink, IconTag } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
@@ -92,13 +93,6 @@ const ORDERS: { id: NoteOrder; label: string }[] = [
   { id: "id", label: "ID" },
 ];
 
-/// The desktop's Last edited filter: rolling windows back from now.
-const EDITED: { id: string; label: string; days: number }[] = [
-  { id: "today", label: "Past day", days: 1 },
-  { id: "week", label: "Past 7 days", days: 7 },
-  { id: "month", label: "Past 30 days", days: 30 },
-];
-
 const listSchema = z.object({
   ordering: z.enum(["edited", "title", "id"]),
   /// Labels and Last edited windows the list is narrowed to; empty means all.
@@ -123,11 +117,7 @@ const matches = (page: PageSummary, query: string) => {
 function passes(page: PageSummary, display: ListDisplay, now = Date.now()): boolean {
   return (
     (display.labels.length === 0 || page.labels.some((l) => display.labels.includes(l.id))) &&
-    (display.edited.length === 0 ||
-      display.edited.some((id) => {
-        const days = EDITED.find((e) => e.id === id)?.days ?? 0;
-        return now - Date.parse(page.entity.updatedAt) < days * 86_400_000;
-      }))
+    withinWindows(page.entity.updatedAt, display.edited, now)
   );
 }
 
@@ -160,7 +150,7 @@ function usePageListControls(key: string, title: string, pages: PageSummary[]): 
           label: "Last edited",
           icon: IconClock,
           values: display.edited,
-          options: EDITED.map((e) => ({ id: e.id, label: e.label })),
+          options: DATE_WINDOW_OPTIONS,
           onChange: (next) => setDisplay({ ...display, edited: next }),
         },
       ]}

@@ -7,6 +7,7 @@ import {
   getEntity,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
+import Storage from "../test/kv-store.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { choose, openRow } from "../test/sheet.ts";
 import { BookmarkList, BookmarkPasteBar } from "./BookmarkList.tsx";
@@ -115,5 +116,51 @@ describe("a Space's bookmarks", () => {
     await choose(screen, "Grouping", "Site");
     expect(await screen.findByRole("header", { name: "other.org" })).toBeTruthy();
     expect(screen.getByRole("header", { name: "example.com" })).toBeTruthy();
+  });
+
+  // The Filter sheet came up empty while no bookmark had a label or a site to offer.
+  it("lists every filter even with nothing to pick yet, and narrows to when they were added", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Web", "#3b82f6");
+    const empty = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
+    await fireEvent.press(await empty.findByRole("button", { name: "Filter" }));
+    for (const name of ["Labels", "Site", "Added"]) {
+      expect(await empty.findByRole("button", { name: new RegExp(`^${name}`) })).toBeTruthy();
+    }
+    empty.unmount();
+    const old = await createBookmark(data.db, space, "https://old.org/a", "Old one");
+    await createBookmark(data.db, space, "https://new.org/b", "New one");
+    data.driver.exec(
+      "UPDATE entities SET created_at = '2020-01-01T00:00:00.000Z' WHERE id = ?",
+      old,
+    );
+    const screen = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
+    expect(await screen.findByRole("link", { name: "Old one" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Added");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Past 7 days" }));
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Old one" })).toBeNull());
+    expect(screen.getByRole("link", { name: "New one" })).toBeTruthy();
+  });
+
+  // A new filter must not lose the display someone already picked on this phone.
+  it("keeps a display saved before the Added filter existed", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Web", "#3b82f6");
+    await createBookmark(data.db, space, "https://example.com/a", "Example A");
+    Storage.setItemSync(
+      `nookly.preference.bookmarks.display.${space}`,
+      JSON.stringify({
+        layout: "list",
+        grouping: "site",
+        ordering: "newest",
+        showPreviews: true,
+        showDescriptions: true,
+        labels: [],
+        sites: [],
+      }),
+    );
+    const screen = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
+    expect(await screen.findByRole("header", { name: "example.com" })).toBeTruthy();
   });
 });

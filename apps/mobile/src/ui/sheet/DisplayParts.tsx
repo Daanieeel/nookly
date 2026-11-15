@@ -223,6 +223,7 @@ function FilterOptions<T extends string>({
     <OptionList
       label={label}
       multiple
+      empty={{ title: `No ${label} Yet`, message: "Nothing here to filter by yet." }}
       options={options}
       values={ticked}
       onToggle={(id, on) => {

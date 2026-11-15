@@ -16,8 +16,9 @@ export interface ListFilter {
 }
 
 /// A list page's top, as Tasks has it (D65): the title with how many and Filter and Display;
-/// the filters that are on as chips to take off; the Filter sheet with a row per field
-/// (one with nothing to offer is left out) and the Display sheet with what the page shows.
+/// the filters that are on as chips to take off; the Filter sheet with a row per field (one
+/// with nothing to offer yet says so when opened, so the sheet is never empty) and the
+/// Display sheet with what the page shows.
 export function ListControls({
   title,
   count,
@@ -57,18 +58,16 @@ export function ListControls({
       ) : null}
       <Sheet open={panel === "filter"} onOpenChange={close} title="Filter">
         <DisplayGroup>
-          {filters
-            .filter((field) => field.options.length > 0)
-            .map((field) => (
-              <FilterField
-                key={field.label}
-                label={field.label}
-                icon={field.icon}
-                values={field.values}
-                options={field.options}
-                onChange={field.onChange}
-              />
-            ))}
+          {filters.map((field) => (
+            <FilterField
+              key={field.label}
+              label={field.label}
+              icon={field.icon}
+              values={field.values}
+              options={field.options}
+              onChange={field.onChange}
+            />
+          ))}
         </DisplayGroup>
       </Sheet>
       <Sheet open={panel === "display"} onOpenChange={close} title="Display">

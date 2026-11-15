@@ -10,6 +10,7 @@ import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
   IconArrowUp,
   IconBookmark,
+  IconCalendarPlus,
   IconInfoCircle,
   IconLayoutGrid,
   IconLink,
@@ -30,6 +31,7 @@ import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
+import { DATE_WINDOW_OPTIONS, withinWindows } from "../ui/filter-windows.ts";
 import { Empty, Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
 import { RoundButton } from "../ui/sheet/Sheet.tsx";
@@ -122,6 +124,8 @@ const displaySchema = z.object({
   /// Labels and sites the list is narrowed to; empty means all.
   labels: z.array(z.string()),
   sites: z.array(z.string()),
+  /// When they were added (`DATE_WINDOWS`). Defaults for a display saved before it existed.
+  added: z.array(z.string()).default([]),
 });
 type Display = z.infer<typeof displaySchema>;
 const DEFAULT: Display = {
@@ -132,6 +136,7 @@ const DEFAULT: Display = {
   showDescriptions: true,
   labels: [],
   sites: [],
+  added: [],
 };
 
 const GROUPINGS = [
@@ -271,7 +276,8 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
   const shown = bookmarks.filter(
     (b) =>
       (display.labels.length === 0 || display.labels.some((id) => b.labelIds.includes(id))) &&
-      (display.sites.length === 0 || display.sites.includes(hostOf(b.url))),
+      (display.sites.length === 0 || display.sites.includes(hostOf(b.url))) &&
+      withinWindows(b.entity.createdAt, display.added),
   );
   const groups = bookmarkGroups(shown, display, labels);
   return (
@@ -293,6 +299,13 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
             values: display.sites,
             options: sites.map((site) => ({ id: site, label: site })),
             onChange: (next) => setDisplay({ ...display, sites: next }),
+          },
+          {
+            label: "Added",
+            icon: IconCalendarPlus,
+            values: display.added,
+            options: DATE_WINDOW_OPTIONS,
+            onChange: (next) => setDisplay({ ...display, added: next }),
           },
         ]}
         display={
@@ -456,6 +469,6 @@ export function useReadBookmarkPage() {
 /// Near the phone's own corner radius, less the bar's inset from the screen's edge.
 const PASTE_BAR_RADIUS = 28;
 
-/// As far from the bottom as from the sides, over the home indicator as Safari's bar sits,
-/// so its round ends follow the screen's corners.
-export const PASTE_BAR_BOTTOM = SPACE.md;
+/// A little higher above the bottom than it is from the sides, over the home indicator as
+/// Safari's bar sits: right at the corners it looked too low.
+export const PASTE_BAR_BOTTOM = SPACE.xl;
