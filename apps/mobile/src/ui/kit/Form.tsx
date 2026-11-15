@@ -1,7 +1,7 @@
 import { Children, createContext, type ReactNode, useContext } from "react";
 import { View } from "react-native";
-import { useSectionRadius } from "../sheet/in-sheet.ts";
-import { CORNER, GUTTER, SPACE, TINT } from "../tokens.ts";
+import { InCard, useSectionRadius } from "../sheet/in-sheet.ts";
+import { CORNER, GUTTER, RADIUS, SPACE, TINT } from "../tokens.ts";
 import { GroupedSection, SectionHeader } from "./GroupedSection.tsx";
 import { Label } from "./Label.tsx";
 import { useScheme, useSurface } from "./scheme.ts";
@@ -61,6 +61,7 @@ export function FormRow({ error, children }: { error?: string | null; children: 
   const inForm = useContext(InForm);
   const surface = useSurface();
   const scheme = useScheme();
+  const inCard = useContext(InCard);
   const radius = useSectionRadius();
   const message = error ? (
     <Label
@@ -83,7 +84,13 @@ export function FormRow({ error, children }: { error?: string | null; children: 
   return (
     <View
       testID="form-row"
-      style={[CORNER, { backgroundColor: surface, borderRadius: radius, overflow: "hidden" }]}
+      style={[
+        CORNER,
+        { backgroundColor: surface, borderRadius: radius, overflow: "hidden" },
+        // In a floating card a lone field is a control under its search bar: that bar's
+        // corners, and its edges, 8pt further in than the card's content.
+        inCard && { borderRadius: RADIUS.control, marginHorizontal: SPACE.sm },
+      ]}
     >
       {children}
       {message}

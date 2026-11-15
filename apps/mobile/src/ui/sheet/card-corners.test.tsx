@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
 import { Surface } from "../kit/Surface.tsx";
-import { RADIUS } from "../tokens.ts";
+import { RADIUS, SPACE } from "../tokens.ts";
 import { Sheet } from "./Sheet.tsx";
 import { SelectField } from "../SelectField.tsx";
 
@@ -21,9 +21,11 @@ describe("a surface's corners", () => {
     expect(RADIUS.inCard).toBe(RADIUS.card - 8);
   });
 
-  // The "Kind of link" select in the Relate card kept a section's small corners under the
-  // round search bar. A field on its own rounds with the card too.
-  it("a field on its own rounds with the card", async () => {
+  // The "Kind of link" select in the Relate card took the card's big corners, nearly a pill,
+  // and reached wider than the search bar above it. A field on its own in a card is a control
+  // like that search bar: its corners, and its edges in line with it (the card's content sits
+  // 8pt in, the search bar 16pt).
+  it("a field on its own matches the search bar above it", async () => {
     render(
       <Sheet open onOpenChange={() => {}} title="Relate to…" presentation="card">
         <SelectField
@@ -34,7 +36,10 @@ describe("a surface's corners", () => {
         />
       </Sheet>,
     );
-    expect(await screen.findByTestId("form-row")).toHaveStyle({ borderRadius: RADIUS.inCard });
+    expect(await screen.findByTestId("form-row")).toHaveStyle({
+      borderRadius: RADIUS.control,
+      marginHorizontal: SPACE.sm,
+    });
   });
 
   it("keep a section's corners elsewhere", () => {
