@@ -5,6 +5,7 @@
 /// has none of it): the app asks that address for scripts, runs each with a few
 /// helpers that find buttons, inputs and text in the React tree, and sends back what
 /// it returned. A person never sees any of this.
+import { noteTouch } from "../ui/sheet/touch-point.ts";
 
 type Fiber = {
   child: Fiber | null;
@@ -87,6 +88,16 @@ async function press(label: string, nth = 0): Promise<boolean> {
       return matches && seen++ === nth;
     }),
   );
+  // As a finger would, so what it opens floats there on a tablet (D83, 2.3).
+  const at = await measure(label, nth);
+  if (at)
+    noteTouch({
+      nativeEvent: { pageX: at.x + at.width / 2, pageY: at.y + at.height / 2 },
+      target: {
+        measureInWindow: (done: (x: number, y: number, w: number, h: number) => void) =>
+          void measure(label, nth).then((r) => r && done(r.x, r.y, r.width, r.height)),
+      },
+    });
   (target.memoizedProps?.onPress as (event: object) => void)({ nativeEvent: {} });
   await sleep(250);
   return true;

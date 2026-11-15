@@ -2,6 +2,8 @@
 /// written in: the copying array methods (ES2023), and `Intl.DisplayNames`. Each is added only where missing, not
 /// enumerable, and behaves as the standard says. Imported first, before any other module.
 
+import { randomUUID } from "expo-crypto";
+
 const methods = {
   toSorted<T>(this: T[], compare?: (a: T, b: T) => number): T[] {
     return this.slice().sort(compare);
@@ -52,23 +54,23 @@ if (!("DisplayNames" in Intl)) {
   });
 }
 
-// The tab groups shared with the desktop name a new group with `crypto.randomUUID`, which
-// Hermes lacks; the system's random source makes one (`expo-crypto`).
-if (typeof globalThis.crypto?.randomUUID !== "function") {
-  // oxlint-disable-next-line typescript/no-require-imports -- loaded only where missing
-  const { randomUUID } = require("expo-crypto") as typeof import("expo-crypto");
-  const crypto = globalThis.crypto ?? {};
+/// Gives `scope` a `crypto.randomUUID` made by `randomUUID` when its engine has none.
+export interface CryptoScope {
+  crypto?: Partial<Crypto>;
+}
+
+export function addRandomUUID(scope: CryptoScope, randomUUID: () => string) {
+  if (scope.crypto?.randomUUID) return;
+  const crypto = scope.crypto ?? {};
   Object.defineProperty(crypto, "randomUUID", {
     value: randomUUID,
     writable: true,
     configurable: true,
     enumerable: false,
   });
-  Object.defineProperty(globalThis, "crypto", {
-    value: crypto,
-    configurable: true,
-    writable: true,
-  });
+  Object.defineProperty(scope, "crypto", { value: crypto, configurable: true, writable: true });
 }
 
-export {};
+// The tab groups shared with the desktop name a new group with `crypto.randomUUID`, which
+// Hermes lacks; the system's random source makes one (`expo-crypto`).
+addRandomUUID(globalThis, randomUUID);

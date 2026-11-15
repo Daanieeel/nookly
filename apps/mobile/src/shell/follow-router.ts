@@ -1,17 +1,37 @@
 import { useNavigationContainerRef, useRootNavigationState } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { devHooks } from "../dev/hooks.ts";
-import { type PageKind, matchPage, pathOf } from "./pages.tsx";
+import type { NavigationState } from "expo-router/react-navigation";
+import { z } from "zod";
+import { type PageKind, RouteParamsSchema, type RouteParams, matchPage, pathOf } from "./pages.tsx";
 
 interface RouteLike {
   key?: string;
   name: string;
-  params?: Record<string, unknown>;
+  params?: RouteParams;
   state?: StateLike;
 }
-interface StateLike {
+export interface StateLike {
   index?: number;
   routes: RouteLike[];
+}
+
+const RouteSchema: z.ZodType<RouteLike> = z.lazy(() =>
+  z.object({
+    key: z.string().optional(),
+    name: z.string(),
+    params: RouteParamsSchema.optional(),
+    state: StateSchema.optional(),
+  }),
+);
+const StateSchema: z.ZodType<StateLike> = z.lazy(() =>
+  z.object({ index: z.number().optional(), routes: z.array(RouteSchema) }),
+);
+
+/// The router's state, read as plain data (it is: the router saves it).
+export function parseRouterState(raw: NavigationState | undefined): StateLike | undefined {
+  if (!raw) return undefined;
+  return StateSchema.safeParse(JSON.parse(JSON.stringify(raw))).data;
 }
 
 /// The route the router shows, as a key and a path. A layout the tablet does not draw
@@ -23,22 +43,20 @@ export function shownRoute(state: StateLike | undefined): { key: string; path: s
   let key = route.key ?? route.name;
   let prefix = "";
   for (;;) {
+    const params = route.params ?? {};
+    const screen = z.string().safeParse(params.screen).data;
     // A navigator never drawn holds a made up first state (its routes have no keys) and
     // the page it was sent to in its params.
     const mounted = route.state?.routes?.every((r) => r.key !== undefined) ?? false;
-    if (route.state?.routes?.length && (mounted || typeof route.params?.screen !== "string")) {
+    if (route.state?.routes?.length && (mounted || screen === undefined)) {
       prefix = `${prefix}/${route.name}`;
       route = route.state.routes[route.state.index ?? route.state.routes.length - 1];
       key = route.key ?? `${key}/${route.name}`;
       continue;
     }
-    const params = route.params ?? {};
-    if (typeof params.screen === "string") {
+    if (screen !== undefined) {
       prefix = `${prefix}/${route.name}`;
-      route = {
-        name: params.screen,
-        params: (params.params as Record<string, unknown> | undefined) ?? {},
-      };
+      route = { name: screen, params: RouteParamsSchema.safeParse(params.params).data ?? {} };
       continue;
     }
     break;
@@ -75,13 +93,14 @@ export function resetRouterFollower() {
 /// pickers and other modals stay the router's and are left alone.
 export function useFollowRouter(follower: RouterFollower) {
   // The root layout is not drawn again on every step of the router: listen for each.
-  const initial = useRootNavigationState() as StateLike | undefined;
+  const root = useRootNavigationState();
+  const initial = useMemo(() => parseRouterState(root), [root]);
   const container = useNavigationContainerRef();
   const [latestState, setLatestState] = useState<StateLike | undefined>(undefined);
   useEffect(
     () =>
       container.addListener("state", () =>
-        setLatestState(container.getRootState() as StateLike | undefined),
+        setLatestState(parseRouterState(container.getRootState())),
       ),
     [container],
   );

@@ -44,7 +44,7 @@ function pageNavigation(
     isFocused: () => host().active,
     setOptions: (options: { title?: string }) => {
       const { tabId, path } = host();
-      if (typeof options.title === "string" && options.title) {
+      if (options.title) {
         const key = titleKey(tabId, path);
         if (usePageTitles.getState().titles[key] !== options.title) {
           usePageTitles.setState((s) => ({ titles: { ...s.titles, [key]: options.title ?? "" } }));
@@ -98,11 +98,14 @@ export function PageHost({ page, host }: { page: PageMatch; host: PageHostValue 
     }
   }, [host.active, listeners]);
   const { Component } = page;
+  // SAFETY: the page's navigation answers what screens ask of one (see above).
+  const navigationValue = navigation as never;
+  // SAFETY: the route carries a screen's key, name and params, all a page reads of it.
+  const routeValue = route as never;
   return (
     <PageHostContext.Provider value={host}>
-      {/* SAFETY: the page's navigation answers what screens ask of one (see above). */}
-      <NavigationContext.Provider value={navigation as never}>
-        <NavigationRouteContext.Provider value={route as never}>
+      <NavigationContext.Provider value={navigationValue}>
+        <NavigationRouteContext.Provider value={routeValue}>
           <LocalRouteParamsContext.Provider value={params}>
             <Component />
           </LocalRouteParamsContext.Provider>

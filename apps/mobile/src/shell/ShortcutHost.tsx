@@ -2,14 +2,15 @@ import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import * as system from "../../modules/nookly-keys/src/index.ts";
 import type { PaletteCommand } from "./commands.ts";
-import { type Shortcut, SHORTCUTS, type ShortcutId } from "./shortcuts.ts";
+import { topLayer, useLayers } from "../ui/sheet/layers.ts";
+import { LAYER_SHORTCUTS, type Shortcut, SHORTCUTS, type ShortcutId } from "./shortcuts.ts";
 import { useShell } from "./store.ts";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
 
 /// What the host needs of the system's keyboard shortcuts (`modules/nookly-keys`).
 export interface KeySystem {
-  setShortcuts(items: Shortcut[]): void;
+  setShortcuts(items: (Shortcut | (typeof LAYER_SHORTCUTS)[number])[]): void;
   onShortcut(listener: (id: string) => void): () => void;
 }
 
@@ -24,8 +25,11 @@ export function ShortcutHost({
 }) {
   const router = useRouter();
   const open = useShell((s) => s.open);
+  // Escape and Command Return only while a popover or dialog is open: otherwise they are
+  // the page's (the editor's).
+  const layered = useLayers((s) => s.stack.length > 0);
   useEffect(() => {
-    keys.setShortcuts(SHORTCUTS);
+    keys.setShortcuts(layered ? [...SHORTCUTS, ...LAYER_SHORTCUTS] : SHORTCUTS);
     const run = (id: ShortcutId) => {
       switch (id) {
         case "search":
@@ -55,6 +59,8 @@ export function ShortcutHost({
       }
     };
     const stop = keys.onShortcut((id) => {
+      if (id === "dismiss") return topLayer()?.close();
+      if (id === "submit") return topLayer()?.submit?.();
       const known = SHORTCUTS.find((s) => s.id === id);
       if (known) run(known.id);
     });
@@ -62,6 +68,6 @@ export function ShortcutHost({
       stop();
       keys.setShortcuts([]);
     };
-  }, [open, onAction, router, keys]);
+  }, [open, onAction, router, keys, layered]);
   return null;
 }

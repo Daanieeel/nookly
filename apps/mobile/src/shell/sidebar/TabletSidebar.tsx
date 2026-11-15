@@ -453,7 +453,7 @@ export function TabletSidebar({
                 label={label}
                 icon={icon}
                 onPress={() => {
-                  router.push(href as Href);
+                  router.push("/new/jot");
                   onPicked?.();
                 }}
               />

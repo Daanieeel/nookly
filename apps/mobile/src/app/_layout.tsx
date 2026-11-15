@@ -127,6 +127,23 @@ function AppShell({ stack }: { stack: ReactNode }) {
 
 /// A page that is not a tab on a tablet (signing in) shows as a card over the window, as
 /// the desktop's account dialog.
+/// How the stack shows its screens on a phone.
+const PHONE_SCREEN = {
+  headerLargeTitle: false,
+  headerShadowVisible: false,
+  // The arrow alone: the screen behind has no title worth naming.
+  headerBackButtonDisplayMode: "minimal",
+} as const;
+
+/// On a tablet: its page routes are empty (`tabletScreen`), nothing to show or slide in.
+const TABLET_SCREEN = {
+  ...PHONE_SCREEN,
+  headerShown: false,
+  animation: "none",
+  gestureEnabled: false,
+  contentStyle: { backgroundColor: "transparent" },
+} as const;
+
 function overWindow(tablet: boolean) {
   return tablet
     ? ({ presentation: "formSheet", headerShown: true, animation: "default" } as const)
@@ -191,21 +208,7 @@ export default function RootLayout() {
       // A tablet draws its pages in its own tabs (`TabletShell`): here they are empty, and
       // the stack only shows what goes over the window.
       screenLayout={tablet ? tabletScreen : undefined}
-      screenOptions={{
-        headerLargeTitle: false,
-        headerShadowVisible: false,
-        // The arrow alone: the screen behind has no title worth naming.
-        headerBackButtonDisplayMode: "minimal",
-        // A tablet's page routes are empty (`tabletScreen`): nothing to show or slide in.
-        ...(tablet
-          ? {
-              headerShown: false,
-              animation: "none",
-              gestureEnabled: false,
-              contentStyle: { backgroundColor: "transparent" },
-            }
-          : {}),
-      }}
+      screenOptions={tablet ? TABLET_SCREEN : PHONE_SCREEN}
     >
       <Stack.Screen
         name="(drawer)"

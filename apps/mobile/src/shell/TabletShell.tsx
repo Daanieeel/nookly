@@ -10,6 +10,7 @@ import {
   useWindowSize,
 } from "../ui/pane.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
+import { noteTouch } from "../ui/sheet/touch-point.ts";
 import { useFollowRouter } from "./follow-router.ts";
 import { useSidebarCollapsed, useSidebarPinned } from "./layout-prefs.ts";
 import { SidebarOverlay } from "./sidebar/SidebarOverlay.tsx";
@@ -20,7 +21,7 @@ import { SplitProvider } from "./split-context.ts";
 import { TabStrip } from "./TabStrip.tsx";
 import { Titlebar } from "./Titlebar.tsx";
 import { useShellActions } from "./actions.ts";
-import { matchPage, pathOf } from "./pages.tsx";
+import { matchPage, parseRouteParams, pathOf } from "./pages.tsx";
 import { type Workspace, activePath, focusedTab, visibleGroups } from "./workspace.ts";
 import { useWorkspace, workspace } from "./workspace-store.ts";
 
@@ -38,7 +39,7 @@ export function tabletScreen({
   route: { name: string; params?: object };
   children: ReactNode;
 }) {
-  const page = matchPage(pathOf(route.name, (route.params ?? {}) as Record<string, unknown>));
+  const page = matchPage(pathOf(route.name, parseRouteParams(route.params)));
   return page ? <View pointerEvents="none" /> : <>{children}</>;
 }
 
@@ -98,79 +99,82 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
   return (
     <SidebarBesideProvider value={beside}>
       <SplitProvider value={{ show: (path) => workspace.open(path, "right") }}>
-        {/* The router's stack, behind the window: pages draw nothing in it on a tablet,
+        {/* Every touch is noted, so a menu or picker it opens floats there (D83, 2.3). */}
+        <View className="flex-1" onTouchStart={noteTouch}>
+          {/* The router's stack, behind the window: pages draw nothing in it on a tablet,
             and what it presents (sheets, signing in, a study session) goes over everything. */}
-        <View style={StyleSheet.absoluteFill}>{stack}</View>
-        <View className="flex-1 bg-background">
-          <Titlebar
-            onAction={onAction}
-            sidebarCollapsed={overlaid ? !overlay : collapsed}
-            top={insets.top}
-          />
-          {showTabBar && focusedGroup ? <TabStrip groupId={focusedGroup.id} /> : null}
-          <View
-            className="min-h-0 flex-1 flex-row"
-            style={{
-              gap: GAP,
-              paddingHorizontal: beside ? GAP : 0,
-              paddingBottom: beside ? Math.max(GAP, insets.bottom) : 0,
-            }}
-          >
-            {beside ? (
-              <View style={{ width: SIDEBAR_WIDTH }}>
-                <TabletSidebar
-                  width={SIDEBAR_WIDTH}
-                  pinned={canPin ? pinned : undefined}
-                  onPin={canPin ? () => setPinned(false) : undefined}
-                />
-              </View>
-            ) : null}
-            <View className="min-w-0 flex-1 flex-row" style={{ gap: split ? GAP : 0 }}>
-              {groups.map((group, index) => (
-                <View
-                  key={group.id}
-                  className="min-w-0"
-                  style={{ flex: split ? (index === 0 ? ratio : 1 - ratio) : 1 }}
-                >
-                  <PageGroupView
-                    group={group}
-                    focused={group.id === ws.layout.focusedGroupId}
-                    width={
-                      split ? pageArea * (index === 0 ? ratio : 1 - ratio) - GAP / 2 : pageArea
-                    }
-                    tabs={split}
-                    card={beside}
+          <View style={StyleSheet.absoluteFill}>{stack}</View>
+          <View className="flex-1 bg-background">
+            <Titlebar
+              onAction={onAction}
+              sidebarCollapsed={overlaid ? !overlay : collapsed}
+              top={insets.top}
+            />
+            {showTabBar && focusedGroup ? <TabStrip groupId={focusedGroup.id} /> : null}
+            <View
+              className="min-h-0 flex-1 flex-row"
+              style={{
+                gap: GAP,
+                paddingHorizontal: beside ? GAP : 0,
+                paddingBottom: beside ? Math.max(GAP, insets.bottom) : 0,
+              }}
+            >
+              {beside ? (
+                <View style={{ width: SIDEBAR_WIDTH }}>
+                  <TabletSidebar
+                    width={SIDEBAR_WIDTH}
+                    pinned={canPin ? pinned : undefined}
+                    onPin={canPin ? () => setPinned(false) : undefined}
                   />
                 </View>
-              ))}
-            </View>
-          </View>
-          {overlaid ? (
-            <SidebarOverlay
-              open={overlay}
-              onOpenChange={setOverlay}
-              width={SIDEBAR_WIDTH}
-              top={insets.top + TITLEBAR_HEIGHT}
-            >
-              <TabletSidebar
-                width={SIDEBAR_WIDTH}
-                onPicked={() => setOverlay(false)}
-                pinned={canPin ? false : undefined}
-                onPin={
-                  canPin
-                    ? () => {
-                        setPinned(true);
-                        setCollapsed(false);
-                        setOverlay(false);
+              ) : null}
+              <View className="min-w-0 flex-1 flex-row" style={{ gap: split ? GAP : 0 }}>
+                {groups.map((group, index) => (
+                  <View
+                    key={group.id}
+                    className="min-w-0"
+                    style={{ flex: split ? (index === 0 ? ratio : 1 - ratio) : 1 }}
+                  >
+                    <PageGroupView
+                      group={group}
+                      focused={group.id === ws.layout.focusedGroupId}
+                      width={
+                        split ? pageArea * (index === 0 ? ratio : 1 - ratio) - GAP / 2 : pageArea
                       }
-                    : undefined
-                }
-              />
-            </SidebarOverlay>
-          ) : null}
+                      tabs={split}
+                      card={beside}
+                    />
+                  </View>
+                ))}
+              </View>
+            </View>
+            {overlaid ? (
+              <SidebarOverlay
+                open={overlay}
+                onOpenChange={setOverlay}
+                width={SIDEBAR_WIDTH}
+                top={insets.top + TITLEBAR_HEIGHT}
+              >
+                <TabletSidebar
+                  width={SIDEBAR_WIDTH}
+                  onPicked={() => setOverlay(false)}
+                  pinned={canPin ? false : undefined}
+                  onPin={
+                    canPin
+                      ? () => {
+                          setPinned(true);
+                          setCollapsed(false);
+                          setOverlay(false);
+                        }
+                      : undefined
+                  }
+                />
+              </SidebarOverlay>
+            ) : null}
+          </View>
+          <ShortcutHost onAction={onAction} />
+          <CommandPalette onAction={onAction} />
         </View>
-        <ShortcutHost onAction={onAction} />
-        <CommandPalette onAction={onAction} />
       </SplitProvider>
     </SidebarBesideProvider>
   );

@@ -2,6 +2,7 @@ import { act, waitFor } from "expo-router/testing-library";
 import { renderScreens } from "../test/render.tsx";
 import { type KeySystem, ShortcutHost } from "./ShortcutHost.tsx";
 import { useShell } from "./store.ts";
+import { pushLayer } from "../ui/sheet/layers.ts";
 
 let listener: ((id: string) => void) | null = null;
 const registered: string[][] = [];
@@ -36,6 +37,27 @@ describe("keyboard shortcuts", () => {
     expect(registered.at(-1)).toEqual(
       expect.arrayContaining(["search", "quickOpen", "commands", "back", "toggleSidebar"]),
     );
+  });
+
+  it("take Escape and Command Return only while a popover or dialog is open", async () => {
+    await setup();
+    expect(registered.at(-1)).not.toContain("dismiss");
+    const close = jest.fn();
+    const submit = jest.fn();
+    let layer!: ReturnType<typeof pushLayer>;
+    act(() => {
+      layer = pushLayer(close);
+      layer.setSubmit(submit);
+    });
+    await waitFor(() =>
+      expect(registered.at(-1)).toEqual(expect.arrayContaining(["dismiss", "submit"])),
+    );
+    press("submit");
+    press("dismiss");
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
+    act(() => layer.remove());
+    await waitFor(() => expect(registered.at(-1)).not.toContain("dismiss"));
   });
 
   it("open the palette in the mode they are named for", async () => {

@@ -1,3 +1,4 @@
+import { useSheetSubmit } from "./layers.ts";
 import { IconArrowUp, IconX } from "@tabler/icons-react-native";
 import { type ComponentType, type ReactNode, type RefObject, useState } from "react";
 import { Pressable, ScrollView, TextInput, type TextInputProps, View } from "react-native";
@@ -31,6 +32,8 @@ export function ComposeHeader({
 }) {
   const sheet = useSheet();
   const theme = useTheme();
+  // Command Return sends, in a tablet's dialog.
+  useSheetSubmit(canSend ? onSend : undefined);
   return (
     <SheetHeader>
       <View

@@ -3,7 +3,8 @@ import { View } from "react-native";
 import { Button } from "../Button.tsx";
 import { Field } from "../Field.tsx";
 import { Text } from "../Text.tsx";
-import { useSheet } from "./Sheet.tsx";
+import { useIsTablet } from "../pane.tsx";
+import { SheetFooter, useSheet } from "./Sheet.tsx";
 
 /// A choice that ends a confirmation: the dangerous one in red, a gentler one (Hide)
 /// `secondary`.
@@ -38,6 +39,17 @@ export function ConfirmContent({ confirmation }: { confirmation: Confirmation })
   const [typed, setTyped] = useState("");
   const { phrase, stats = [] } = confirmation;
   const locked = phrase !== undefined && !matchesPhrase(typed, phrase);
+  const tablet = useIsTablet();
+  const buttons = confirmation.actions.map((action) => (
+    <Button
+      key={action.label}
+      label={action.label}
+      variant={action.destructive ? "destructive" : "secondary"}
+      size={tablet ? "default" : "lg"}
+      disabled={action.destructive === true && locked}
+      onPress={() => sheet?.close(action.onPress)}
+    />
+  ));
   return (
     <View className="gap-5">
       <Text tone="muted">{confirmation.description}</Text>
@@ -60,19 +72,20 @@ export function ConfirmContent({ confirmation }: { confirmation: Confirmation })
           onChangeText={setTyped}
         />
       ) : null}
-      <View className="gap-3">
-        {confirmation.actions.map((action) => (
-          <Button
-            key={action.label}
-            label={action.label}
-            variant={action.destructive ? "destructive" : "secondary"}
-            size="lg"
-            disabled={action.destructive === true && locked}
-            onPress={() => sheet?.close(action.onPress)}
-          />
-        ))}
-        <Button label="Cancel" variant="ghost" size="lg" onPress={() => sheet?.close()} />
-      </View>
+      {tablet ? (
+        // The desktop's dialog footer: Cancel, then the actions, at the bottom right.
+        <SheetFooter>
+          <View className="flex-row flex-wrap justify-end gap-2">
+            <Button label="Cancel" variant="ghost" onPress={() => sheet?.close()} />
+            {buttons}
+          </View>
+        </SheetFooter>
+      ) : (
+        <View className="gap-3">
+          {buttons}
+          <Button label="Cancel" variant="ghost" size="lg" onPress={() => sheet?.close()} />
+        </View>
+      )}
     </View>
   );
 }

@@ -1,4 +1,6 @@
 import type { ComponentType } from "react";
+import type { Route } from "expo-router/react-navigation";
+import { z } from "zod";
 import Assignments from "../app/assignments.tsx";
 import Conflicts from "../app/conflicts.tsx";
 import Calendar from "../app/(drawer)/calendar.tsx";
@@ -83,8 +85,20 @@ function decode(value: string): string {
   }
 }
 
+/// A route's params as the router keeps them: plain values, lists, or the params of a
+/// route inside it (`params`).
+export const RouteParamsSchema = z.record(z.string(), z.json());
+export type RouteParams = z.infer<typeof RouteParamsSchema>;
+const Scalar = z.union([z.string(), z.number(), z.boolean()]);
+
+/// A route's params from the router: what the router keeps is plain data (it saves it),
+/// so a copy through JSON drops what is not (an undefined value) and parses.
+export function parseRouteParams(raw: Route<string>["params"]): RouteParams {
+  return RouteParamsSchema.safeParse(JSON.parse(JSON.stringify(raw ?? {}))).data ?? {};
+}
+
 /// The parts of a path: its segments and its query.
-export function splitPath(path: string): { segments: string[]; query: Record<string, string> } {
+export function splitPath(path: string) {
   const [pathname = "", search = ""] = path.split("?");
   const segments = pathname.split("/").filter(Boolean).map(decode);
   const query: Record<string, string> = {};
@@ -102,7 +116,7 @@ export function matchPage(path: string): PageMatch | null {
   for (const route of ROUTES) {
     const parts = route.pattern.split("/").filter(Boolean);
     if (parts.length !== segments.length) continue;
-    const params: Record<string, string> = { ...query };
+    const params = { ...query };
     const fits = parts.every((part, i) => {
       const dynamic = /^\[(\w+)\]$/.exec(part)?.[1];
       if (dynamic) {
@@ -118,7 +132,7 @@ export function matchPage(path: string): PageMatch | null {
 
 /// A path built from a route's name and params, as the router reports a page it shows:
 /// the route's own params fill its segments, the rest become the query.
-export function pathOf(routeName: string, params: Record<string, unknown> = {}): string {
+export function pathOf(routeName: string, params: RouteParams = {}): string {
   const used = new Set<string>();
   const pathname = routeName
     .split("/")
@@ -132,8 +146,12 @@ export function pathOf(routeName: string, params: Record<string, unknown> = {}):
     })
     .join("/");
   const query = Object.entries(params)
-    .filter(([key, value]) => !used.has(key) && value != null && typeof value !== "object")
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .flatMap(([key, value]) => {
+      const scalar = Scalar.safeParse(value);
+      return !used.has(key) && scalar.success
+        ? [`${encodeURIComponent(key)}=${encodeURIComponent(String(scalar.data))}`]
+        : [];
+    })
     .join("&");
   return `/${pathname}${query ? `?${query}` : ""}`;
 }

@@ -1,6 +1,8 @@
 import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from "react";
 import { type Confirmation, ConfirmContent } from "./Confirm.tsx";
 import { type MenuEntry, MenuList } from "./MenuList.tsx";
+import type { Anchor } from "./anchor.ts";
+import type { PresentationKind } from "./presentation.ts";
 import { Sheet, type SheetPresentation, type SheetSize } from "./Sheet.tsx";
 
 export interface Presented {
@@ -8,6 +10,9 @@ export interface Presented {
   size?: SheetSize;
   /// `card`: a dialog in the middle of the screen.
   presentation?: SheetPresentation;
+  /// What it is and what opened it: on a tablet a menu is a popover on its anchor.
+  kind?: PresentationKind;
+  anchor?: Anchor;
   content: ReactNode;
 }
 
@@ -19,7 +24,7 @@ interface SheetPresenter {
   menu(
     title: string | undefined,
     entries: MenuEntry[],
-    options?: { presentation?: SheetPresentation },
+    options?: { presentation?: SheetPresentation; anchor?: Anchor; kind?: "menu" | "context" },
   ): void;
   /// Asks before something that can't be taken back.
   confirm(confirmation: Confirmation): void;
@@ -44,11 +49,14 @@ export function SheetHost({ children }: { children: ReactNode }) {
         present({
           title,
           presentation: options?.presentation,
+          kind: options?.kind ?? "menu",
+          anchor: options?.anchor,
           content: <MenuList entries={entries} />,
         }),
       confirm: (confirmation) =>
         present({
           title: confirmation.title,
+          kind: "confirm",
           content: <ConfirmContent confirmation={confirmation} />,
         }),
     }),
@@ -64,6 +72,8 @@ export function SheetHost({ children }: { children: ReactNode }) {
           title={shown.title}
           size={shown.size}
           presentation={shown.presentation}
+          kind={shown.kind}
+          anchor={shown.anchor}
         >
           {shown.content}
         </Sheet>

@@ -67,6 +67,13 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "newItem", key: "n", modifiers: ["command"], title: "New Item", section: "Create" },
 ];
 
+/// Keys taken only while a popover or dialog is open (`ui/sheet/layers.ts`): Escape closes
+/// it, Command Return presses its main button.
+export const LAYER_SHORTCUTS: KeyShortcut[] = [
+  { id: "dismiss", key: "UIKeyInputEscape", modifiers: [], title: "Close" },
+  { id: "submit", key: "\r", modifiers: ["command"], title: "Done" },
+];
+
 const SYMBOLS = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘" } as const;
 const ORDER = ["control", "option", "shift", "command"] as const;
 const NAMED = new Map([

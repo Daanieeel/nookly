@@ -294,10 +294,10 @@ const oldTabsSchema = z.object({
   active: z.string(),
 });
 
-function readJson(text: string | null): unknown {
+function readJson(text: string | null) {
   if (!text) return null;
   try {
-    return JSON.parse(text);
+    return z.json().safeParse(JSON.parse(text)).data ?? null;
   } catch {
     return null;
   }

@@ -1,4 +1,4 @@
-import { IconChevronLeft, IconX } from "@tabler/icons-react-native";
+import { IconChevronLeft } from "@tabler/icons-react-native";
 import { RevealProvider } from "../reveal.ts";
 import {
   type ReactNode,
@@ -35,7 +35,23 @@ import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
 import { useSemantic } from "../kit/scheme.ts";
 import { InCard, InSheet } from "./in-sheet.ts";
-import { CARD_INSET, CORNER, DEPTH, RADIUS, SPACE } from "../tokens.ts";
+import { WindowFrame } from "../../dev/WindowFrame.tsx";
+import { CORNER, DEPTH, RADIUS, SPACE } from "../tokens.ts";
+import type { Anchor } from "./anchor.ts";
+import { recentTouch } from "./touch-point.ts";
+import { LayerContext, pushLayer } from "./layers.ts";
+import { CardPanel, DialogFrame, PopoverFrame, PopoverPanel } from "./Floating.tsx";
+import { type PinStore, PinnedSlot, makePinStore } from "./pins.tsx";
+import {
+  DIALOG_WIDTH,
+  POPOVER_WIDTH,
+  type PresentationKind,
+  type SheetPresentation,
+  usePresentation,
+} from "./presentation.ts";
+
+export { RoundButton } from "./Floating.tsx";
+export type { PresentationKind, SheetPresentation } from "./presentation.ts";
 
 /// The app's one bottom sheet: every picker, menu, confirmation and create form on the
 /// phone opens in it, in place of the desktop's popovers, menus and dialogs. It comes up
@@ -51,13 +67,10 @@ const settleTime = (still: boolean) => (still ? FADE.out : SPRING.sheet.duration
 
 export type SheetSize = "content" | "large";
 
-/// How it shows: `sheet` comes up from the bottom (forms, menus, display options);
-/// `card` floats in the middle of the screen, as Linear's pickers do (D65): a title, a
-/// round close button and big rows, over the page dimmed. A card opened from inside a
-/// sheet floats over it instead of being pushed as a step.
-export type SheetPresentation = "sheet" | "card";
-
-const CARD_RADIUS = RADIUS.card;
+/// How it shows (`presentation.ts`): on a phone `sheet` comes up from the bottom (forms,
+/// menus, display options) and `card` floats in the middle of the screen, as Linear's
+/// pickers do (D65), a card opened from inside a sheet floating over it; on a tablet a
+/// popover on its anchor or a centred dialog (D83).
 
 const NO_INSETS = { top: 0, bottom: 0, left: 0, right: 0 };
 
@@ -79,36 +92,14 @@ interface SheetHandle {
   back(): void;
   /// How many steps are open (1 at the start).
   depth: number;
+  /// How it shows, so a picker opened inside knows whether to float over it.
+  presentation: SheetPresentation;
 }
 
 const SheetContext = createContext<SheetHandle | null>(null);
 
 /// What a sheet's content uses to close it or push a step. Outside a sheet, null.
 export const useSheet = () => useContext(SheetContext);
-
-/// What a step pins above its list (a search field, the section scrolled to), so it stays
-/// put while the list scrolls under it.
-interface PinStore {
-  get(): ReactNode;
-  set(node: ReactNode): void;
-  subscribe(listener: () => void): () => void;
-}
-
-function makePinStore(): PinStore {
-  let current: ReactNode = null;
-  const listeners = new Set<() => void>();
-  return {
-    get: () => current,
-    set: (next) => {
-      current = next;
-      for (const listener of listeners) listener();
-    },
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => void listeners.delete(listener);
-    },
-  };
-}
 
 const PinContext = createContext<PinStore | null>(null);
 const ScrollContext = createContext<SharedValue<number> | null>(null);
@@ -168,14 +159,27 @@ export function DialogActions({ children }: { children: ReactNode }) {
   );
 }
 
-function PinnedSlot({ store, inset = SPACE.lg }: { store: PinStore; inset?: number }) {
-  const node = useSyncExternalStore(store.subscribe, store.get);
-  return node ? (
-    <View style={{ paddingHorizontal: inset, paddingBottom: SPACE.sm }}>{node}</View>
-  ) : null;
-}
-
 export { useInSheet } from "./in-sheet.ts";
+export { useSheetSubmit } from "./layers.ts";
+
+/// While `on`, a layer for Escape and Command Return (`layers.ts`).
+function useLayer(on: boolean, close: () => void) {
+  const [layer, setLayer] = useState<ReturnType<typeof pushLayer> | null>(null);
+  const closeNow = useRef(close);
+  useEffect(() => {
+    closeNow.current = close;
+  });
+  useEffect(() => {
+    if (!on) return;
+    const pushed = pushLayer(() => closeNow.current());
+    setLayer(pushed);
+    return () => {
+      pushed.remove();
+      setLayer(null);
+    };
+  }, [on]);
+  return layer;
+}
 
 /// The sheet itself, without a window of its own: the backdrop, the panel and its steps.
 /// `open` going false sends it down; `onClosed` follows once it is out of sight.
@@ -183,7 +187,10 @@ function SheetFrame({
   open,
   title,
   size = "content",
-  presentation = "sheet",
+  presentation: requested,
+  kind,
+  anchor,
+  touched,
   onRequestClose,
   onClosed,
   children,
@@ -192,6 +199,11 @@ function SheetFrame({
   title?: string;
   size?: SheetSize;
   presentation?: SheetPresentation;
+  kind?: PresentationKind;
+  /// What opened it, for a popover on a tablet.
+  anchor?: Anchor;
+  /// The anchor is only where the last touch was (`recentTouch`).
+  touched?: boolean;
   /// The person asked it to go: a swipe, the backdrop, the system's back.
   onRequestClose: () => void;
   onClosed: () => void;
@@ -234,9 +246,21 @@ function SheetFrame({
     if (open) setPages([]);
   }, [open]);
 
-  /// A card's way in: 0 gone, 1 shown.
+  const resolved = usePresentation({
+    kind,
+    anchored: anchor !== undefined && !touched,
+    touched: anchor !== undefined && touched,
+    requested,
+    large: size === "large",
+  });
+  const presentation = resolved.presentation;
+  const layer = useLayer(
+    open && (presentation === "popover" || presentation === "dialog"),
+    onRequestClose,
+  );
+  /// A card's, dialog's or popover's way in: 0 gone, 1 shown.
   const shown = useSharedValue(0);
-  const card = presentation === "card";
+  const card = presentation !== "sheet";
 
   useEffect(() => {
     const to = open ? 0 : window.height;
@@ -276,8 +300,9 @@ function SheetFrame({
         setPages((now) => now.slice(0, -1));
       },
       depth: pages.length + 1,
+      presentation,
     }),
-    [onRequestClose, pages.length],
+    [onRequestClose, pages.length, presentation],
   );
 
   const scroll = Gesture.Native();
@@ -356,6 +381,62 @@ function SheetFrame({
 
   const shownTitle = top ? top.title : title;
   if (card) {
+    const parts = {
+      title: shownTitle,
+      stepped: pages.length > 0,
+      onBack: handle.back,
+      onClose: onRequestClose,
+      pin,
+      footer,
+      onScroll,
+      children: top ? top.content : children,
+    };
+    const floating =
+      presentation === "popover" && anchor ? (
+        <PopoverFrame
+          anchor={anchor}
+          width={size === "large" ? POPOVER_WIDTH.wide : POPOVER_WIDTH.list}
+          title={shownTitle}
+          shown={shown}
+          onRequestClose={onRequestClose}
+        >
+          <PopoverPanel {...parts} />
+        </PopoverFrame>
+      ) : presentation === "dialog" ? (
+        <DialogFrame
+          width={DIALOG_WIDTH[resolved.dialog]}
+          title={shownTitle}
+          shown={shown}
+          onRequestClose={onRequestClose}
+        >
+          <CardPanel {...parts} header={header} />
+        </DialogFrame>
+      ) : (
+        <Animated.View
+          style={[cardRoom, { paddingTop: insets.top + 12 }]}
+          className="flex-1 justify-center px-3"
+        >
+          <Animated.View style={cardBackdrop} className="absolute inset-0 bg-black/60">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              onPress={onRequestClose}
+              className="flex-1"
+            />
+          </Animated.View>
+          <Animated.View
+            accessibilityViewIsModal
+            style={[
+              cardStyle,
+              CORNER,
+              DEPTH.floating,
+              { maxHeight: "100%", borderRadius: RADIUS.card },
+            ]}
+          >
+            <CardPanel {...parts} />
+          </Animated.View>
+        </Animated.View>
+      );
     return (
       <SheetContext.Provider value={handle}>
         <PinContext.Provider value={pin}>
@@ -363,111 +444,7 @@ function SheetFrame({
             <ScrollContext.Provider value={scrollY}>
               <InSheet.Provider value>
                 <InCard.Provider value>
-                  <Animated.View
-                    style={[cardRoom, { paddingTop: insets.top + 12 }]}
-                    className="flex-1 justify-center px-3"
-                  >
-                    <Animated.View style={cardBackdrop} className="absolute inset-0 bg-black/60">
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Close"
-                        onPress={onRequestClose}
-                        className="flex-1"
-                      />
-                    </Animated.View>
-                    <Animated.View
-                      accessibilityViewIsModal
-                      style={[
-                        cardStyle,
-                        CORNER,
-                        DEPTH.floating,
-                        { maxHeight: "100%", borderRadius: CARD_RADIUS },
-                      ]}
-                    >
-                      <BlurView
-                        tint="systemThickMaterial"
-                        intensity={100}
-                        style={[
-                          StyleSheet.absoluteFill,
-                          CORNER,
-                          { borderRadius: CARD_RADIUS, overflow: "hidden" },
-                        ]}
-                      />
-                      <View
-                        pointerEvents="none"
-                        style={[
-                          StyleSheet.absoluteFill,
-                          CORNER,
-                          {
-                            borderRadius: CARD_RADIUS,
-                            borderWidth: StyleSheet.hairlineWidth,
-                          },
-                        ]}
-                        className="border-border"
-                      />
-                      <View
-                        testID="card-header"
-                        className="flex-row items-center gap-1"
-                        // As much room under the close button as above and beside it.
-                        // The title starts where the rows' content does: their pressed
-                        // shapes start `CARD_INSET` in and pad 12pt.
-                        style={{
-                          paddingLeft: CARD_INSET + SPACE.md,
-                          paddingTop: CARD_INSET,
-                          paddingRight: CARD_INSET,
-                          paddingBottom: CARD_INSET,
-                        }}
-                      >
-                        {pages.length > 0 ? (
-                          <View className="-ml-3">
-                            <IconButton
-                              label="Back"
-                              icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
-                              onPress={handle.back}
-                            />
-                          </View>
-                        ) : null}
-                        <Text
-                          variant="heading"
-                          accessibilityRole="header"
-                          numberOfLines={1}
-                          className="flex-1"
-                        >
-                          {shownTitle ?? ""}
-                        </Text>
-                        <RoundButton label="Close" onPress={onRequestClose}>
-                          <IconX size={22} color={theme.colors.foreground} />
-                        </RoundButton>
-                      </View>
-                      <PinnedSlot store={pin} inset={CARD_INSET} />
-                      <Animated.ScrollView
-                        testID="card-body"
-                        bounces={false}
-                        keyboardShouldPersistTaps="handled"
-                        scrollEventThrottle={16}
-                        onScroll={onScroll}
-                        style={{ flexGrow: 0, flexShrink: 1 }}
-                        contentContainerStyle={{
-                          paddingHorizontal: CARD_INSET,
-                          paddingBottom: CARD_INSET,
-                        }}
-                      >
-                        {top ? top.content : children}
-                      </Animated.ScrollView>
-                      {footer && pages.length === 0 ? (
-                        <View
-                          testID="card-footer"
-                          style={{
-                            paddingHorizontal: CARD_INSET,
-                            paddingTop: SPACE.xs,
-                            paddingBottom: CARD_INSET,
-                          }}
-                        >
-                          {footer}
-                        </View>
-                      ) : null}
-                    </Animated.View>
-                  </Animated.View>
+                  <LayerContext.Provider value={layer}>{floating}</LayerContext.Provider>
                 </InCard.Provider>
               </InSheet.Provider>
             </ScrollContext.Provider>
@@ -578,67 +555,10 @@ function SheetFrame({
   );
 }
 
-/// Linear's round button in a sheet's or card's corners (close, send): a filled circle a
-/// finger tall.
-export function RoundButton({
-  label,
-  onPress,
-  disabled,
-  tone = "plain",
-  children,
-}: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  /// `primary` fills it with the accent (a send that is ready).
-  tone?: "plain" | "primary";
-  children: ReactNode;
-}) {
-  const fill = useSemantic("fill");
-  const theme = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        CORNER,
-        {
-          width: MIN_TOUCH,
-          height: MIN_TOUCH,
-          borderRadius: RADIUS.control,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: tone === "primary" && !disabled ? theme.colors.primary : fill,
-          opacity: disabled ? 0.45 : pressed ? 0.6 : 1,
-        },
-      ]}
-    >
-      {children}
-    </Pressable>
-  );
-}
-
 /// A value that changes on every render of its owner, read by a step shown elsewhere
 /// (in the sheet's own tree), which then follows it without its owner rendering again.
 function useLive(value: ReactNode) {
-  const store = useMemo(() => {
-    let current: ReactNode = null;
-    const listeners = new Set<() => void>();
-    return {
-      get: () => current,
-      set: (next: ReactNode) => {
-        current = next;
-        for (const listener of listeners) listener();
-      },
-      subscribe: (listener: () => void) => {
-        listeners.add(listener);
-        return () => void listeners.delete(listener);
-      },
-    };
-  }, []);
+  const store = useMemo(makePinStore, []);
   useEffect(() => store.set(value));
   return store;
 }
@@ -656,10 +576,23 @@ function LiveStep({ store, parent }: { store: ReturnType<typeof useLive>; parent
       push: parent.push,
       back: parent.back,
       depth: parent.depth,
+      presentation: parent.presentation,
     }),
     [parent],
   );
   return <SheetContext.Provider value={handle}>{content}</SheetContext.Provider>;
+}
+
+/// Where the finger just went down when `open` turned on, if nothing names what opened
+/// it; kept until it opens again, so it closes where it opened.
+function useTouchOnOpen(open: boolean, anchor: Anchor | undefined) {
+  const [touch, setTouch] = useState(() => (open && !anchor ? recentTouch() : undefined));
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setTouch(anchor ? undefined : recentTouch());
+  }
+  return touch;
 }
 
 /// A sheet opened from where it is used: `open` shows it, and it asks to close through
@@ -672,6 +605,8 @@ export function Sheet({
   title,
   size,
   presentation,
+  kind,
+  anchor,
   children,
 }: {
   open: boolean;
@@ -679,11 +614,24 @@ export function Sheet({
   title?: string;
   size?: SheetSize;
   presentation?: SheetPresentation;
+  kind?: PresentationKind;
+  /// What opened it: on a tablet a picker or menu is a popover on it (`useAnchor`).
+  anchor?: Anchor;
   children: ReactNode;
 }) {
-  // A card floats over the sheet it is opened from, in a window of its own.
+  // A card floats over the sheet it is opened from, in a window of its own; on a tablet a
+  // popover floats over a dialog, and is a step inside another popover.
   const outer = useSheet();
-  const parent = presentation === "card" ? null : outer;
+  const touch = useTouchOnOpen(open, anchor);
+  const shownAs = usePresentation({
+    kind,
+    anchored: anchor !== undefined,
+    touched: touch !== undefined,
+    requested: presentation,
+    large: size === "large",
+  }).presentation;
+  const floats = shownAs === "card" || (shownAs === "popover" && outer?.presentation !== "popover");
+  const parent = floats ? null : outer;
   const live = useLive(children);
   const opened = useRef(false);
   useEffect(() => {
@@ -710,6 +658,9 @@ export function Sheet({
       title={title}
       size={size}
       presentation={presentation}
+      kind={kind}
+      anchor={anchor ?? touch}
+      touched={!anchor && touch !== undefined}
     >
       {children}
     </WindowSheet>
@@ -723,6 +674,9 @@ function WindowSheet({
   title,
   size,
   presentation,
+  kind,
+  anchor,
+  touched,
   children,
 }: {
   open: boolean;
@@ -730,6 +684,9 @@ function WindowSheet({
   title?: string;
   size?: SheetSize;
   presentation?: SheetPresentation;
+  kind?: PresentationKind;
+  anchor?: Anchor;
+  touched?: boolean;
   children: ReactNode;
 }) {
   // Stays up after `open` turns false, until it has gone down.
@@ -749,17 +706,22 @@ function WindowSheet({
       onRequestClose={requestClose}
     >
       <GestureHandlerRootView className="flex-1">
-        <SheetFrame
-          open={open}
-          title={title}
-          size={size}
-          presentation={presentation}
-          onRequestClose={requestClose}
-          onClosed={() => setMounted(false)}
-        >
-          {/* Declared in a page, drawn over it: the page behind stays where it is. */}
-          <RevealProvider value={null}>{children}</RevealProvider>
-        </SheetFrame>
+        <WindowFrame clear>
+          <SheetFrame
+            open={open}
+            title={title}
+            size={size}
+            presentation={presentation}
+            kind={kind}
+            anchor={anchor}
+            touched={touched}
+            onRequestClose={requestClose}
+            onClosed={() => setMounted(false)}
+          >
+            {/* Declared in a page, drawn over it: the page behind stays where it is. */}
+            <RevealProvider value={null}>{children}</RevealProvider>
+          </SheetFrame>
+        </WindowFrame>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -771,11 +733,14 @@ function WindowSheet({
 export function RouteSheet({
   title,
   size,
+  kind,
   onClosed,
   children,
 }: {
   title: string;
   size?: SheetSize;
+  /// What it is, for a tablet's dialog size: a create form unless said otherwise.
+  kind?: PresentationKind;
   onClosed: () => void;
   children: ReactNode;
 }) {
@@ -786,6 +751,7 @@ export function RouteSheet({
       open={open}
       title={title}
       size={size}
+      kind={kind}
       onRequestClose={requestClose}
       onClosed={onClosed}
     >
@@ -806,6 +772,7 @@ export function SheetCloser({ close, children }: { close: () => void; children: 
       push: () => {},
       back: close,
       depth: 1,
+      presentation: "popover",
     }),
     [close],
   );
