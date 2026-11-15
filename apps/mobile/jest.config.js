@@ -16,6 +16,10 @@ module.exports = {
   // Reanimated's animation loop (driven by the calendar's swipe test) outlives a test and
   // keeps the process from ending on its own, though every test has passed.
   forceExit: true,
+  // A screen test renders the whole app and drives it through several sheets: about a second
+  // here, five or more on a CI runner, where Jest's 5 second default failed them at random.
+  // The timeout is there to catch a hang, not to time the app.
+  testTimeout: 30_000,
   testMatch: ["<rootDir>/src/**/*.test.{ts,tsx}"],
   transformIgnorePatterns: [
     "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@tabler/.*|react-native-svg|@nookly/.*|blobatar|@blobatar/.*|standard-navigation))",
