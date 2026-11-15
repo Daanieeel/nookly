@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import {
   createPage,
   createSpace,
@@ -194,5 +195,20 @@ describe("sharing from the phone", () => {
     await fireEvent.press(screen.getByRole("radio", { name: "Can edit" }));
     await fireEvent.press(screen.getByRole("button", { name: "Invite" }));
     await waitFor(() => expect(share).toHaveBeenCalledWith(page, "ben@example.com", "editor"));
+  });
+});
+
+// TaskRow read its edges above its own swipe row, so it reached out twice and its text
+// sat past the screen's left edge.
+describe("a task row's edges", () => {
+  it("reaches the edges once, through its swipe row", async () => {
+    const { data, space } = await seeded();
+    await createTask(data.db, space, "Write report");
+    const screen = await renderScreens({ index: () => <TasksScreen /> }, data);
+    const row = await screen.findByLabelText("Write report, TSK-1");
+    expect(StyleSheet.flatten(row.props.style)).toMatchObject({
+      marginHorizontal: 0,
+      paddingHorizontal: 20,
+    });
   });
 });

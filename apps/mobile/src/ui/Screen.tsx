@@ -10,6 +10,8 @@ import {
 import { PAGE_BACKGROUND, cn } from "./classes.ts";
 import { useInSheet } from "./sheet/Sheet.tsx";
 import { useSemantic } from "./kit/scheme.ts";
+import { PageGutterProvider } from "./row-edge.tsx";
+import { GUTTER } from "./tokens.ts";
 
 /// Lets what sits in a screen's scrolling page ask for a point of its own to be in
 /// view: the editor, for the line being typed in.
@@ -98,7 +100,8 @@ function ScrollingScreen({
           collapsable={false}
           className={cn("gap-5 p-4 pb-12", !wide && "w-full max-w-3xl self-center")}
         >
-          {children}
+          {/* p-4: list rows reach past it to the screen's edges. */}
+          <PageGutterProvider value={GUTTER}>{children}</PageGutterProvider>
         </View>
       </ScrollView>
     </RevealContext.Provider>

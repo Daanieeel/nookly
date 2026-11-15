@@ -1,3 +1,4 @@
+import { RowDivider, useRowEdge } from "./row-edge.tsx";
 import { LIST_ROW_CLASSES } from "@nookly/frontend/classes";
 import { SEPARATOR_CLASSES } from "@nookly/ui/classes";
 import { Pressable, View } from "react-native";
@@ -38,7 +39,7 @@ export function Row({
   accessibilityHint?: string;
 }) {
   const pressed = useSemantic("pressed");
-  const separator = useSemantic("separator");
+  const edge = useRowEdge();
   const touchable = Boolean(onPress || onLongPress);
   return (
     <Pressable
@@ -49,13 +50,11 @@ export function Row({
       onLongPress={onLongPress}
       unstable_pressDelay={0}
       style={({ pressed: down }) => ({
-        borderBottomWidth: 0.5,
-        borderBottomColor: separator,
+        ...edge,
         minHeight: subtitle ? 58 : LIST_ROW.minHeight,
         flexDirection: "row",
         alignItems: "center",
         gap: SPACE.md,
-        paddingHorizontal: SPACE.xs,
         paddingVertical: SPACE.sm,
         backgroundColor: down && touchable ? pressed : undefined,
         opacity: muted ? 0.5 : 1,
@@ -71,6 +70,7 @@ export function Row({
         ) : null}
       </View>
       {trailing}
+      <RowDivider />
     </Pressable>
   );
 }

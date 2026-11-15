@@ -13,6 +13,8 @@ export const SPRING = {
   press: { duration: 260, dampingRatio: 0.7 },
   /// A row lifted to be dragged, the rows making room for it, and its drop into place.
   lift: { duration: 320, dampingRatio: 0.86 },
+  /// A swiped row settling on its button, back closed, or out of the way as it acts.
+  swipe: { duration: 360, dampingRatio: 0.92 },
 } as const;
 
 /// How long a finger rests on a row before it lifts to be dragged, as iOS's lists.
@@ -105,4 +107,63 @@ export function settleDetent({
   }
   if (flick) return { to: velocity > 0 ? "medium" : "large", velocity };
   return { to: offset > medium / 2 ? "medium" : "large", velocity };
+}
+
+/// A row's swipe actions, as iOS Mail's: how wide an action's button rests (points), the
+/// share of the row past which letting go acts at once, and how fast a flick must be to
+/// open the button from a short pull.
+export const SWIPE = { button: 84, full: 0.55, flick: 900 } as const;
+
+/// Where a swiped row goes for a finger moved by `translation` from where it rested
+/// (`start`): towards a side with an action it follows the finger; towards one without, it
+/// resists as a rubber band.
+export function swipeDrag({
+  start,
+  left,
+  right,
+  width,
+}: {
+  start: number;
+  /// Whether there is an action revealed by a swipe to the right (on the left edge).
+  left: boolean;
+  right: boolean;
+  width: number;
+}) {
+  "worklet";
+  return (translation: number) => {
+    "worklet";
+    const next = start + translation;
+    if (next > 0 && !left) return rubberBand(next, width);
+    if (next < 0 && !right) return rubberBand(next, width);
+    return next;
+  };
+}
+
+export interface SwipeSettled {
+  to: "closed" | "open" | "full";
+  velocity: number;
+}
+
+/// Where a swiped row comes to rest when let go: `full` acts at once (pulled past most of
+/// the row, not heading back), `open` rests on the button (a pull past half of it, or a
+/// flick towards it), otherwise `closed`.
+export function settleSwipe({
+  offset,
+  velocity,
+  width,
+}: {
+  offset: number;
+  velocity: number;
+  width: number;
+}): SwipeSettled {
+  "worklet";
+  const side = Math.sign(offset);
+  const distance = Math.abs(offset);
+  const towards = velocity * side;
+  if (distance >= width * SWIPE.full && towards > -SWIPE.flick) return { to: "full", velocity };
+  if (towards < -SWIPE.flick) return { to: "closed", velocity };
+  if (distance > SWIPE.button / 2 || (distance > 8 && towards > SWIPE.flick)) {
+    return { to: "open", velocity };
+  }
+  return { to: "closed", velocity };
 }

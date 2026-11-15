@@ -1,4 +1,5 @@
 import { ListGroup, ListItem } from "../ui/ListMotion.tsx";
+import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
@@ -15,7 +16,6 @@ import { Band } from "../ui/Band.tsx";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { cn } from "../ui/classes.ts";
 import { ListHeader } from "../ui/ListBar.tsx";
-import { ROW_DIVIDER } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { DisplayGroup, FilterField, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
@@ -108,6 +108,7 @@ function Row({ card = false, ...props }: RowProps & { card?: boolean }) {
     updateAssignment(db, assignment.entity.id, { status: next }),
   );
   const due = assignment.dueDate && !done ? dueText(assignment.dueDate.slice(0, 10), today) : null;
+  const edge = useRowEdge();
   const circle = (
     <View className="size-6 items-center justify-center">
       <StatusButton
@@ -132,9 +133,7 @@ function Row({ card = false, ...props }: RowProps & { card?: boolean }) {
     );
   }
   return (
-    <View
-      className={cn("flex-row items-center gap-3 px-1 py-2", ROW_DIVIDER, done && "opacity-60")}
-    >
+    <View style={edge} className={cn("flex-row items-center gap-3 py-2", done && "opacity-60")}>
       {circle}
       <Pressable
         accessibilityRole="button"
@@ -146,6 +145,7 @@ function Row({ card = false, ...props }: RowProps & { card?: boolean }) {
         <Text numberOfLines={1}>{assignment.entity.title || "Untitled"}</Text>
         <Meta {...props} due={due} />
       </Pressable>
+      <RowDivider />
     </View>
   );
 }

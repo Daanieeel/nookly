@@ -1,3 +1,4 @@
+import { useRowEdge } from "../ui/row-edge.tsx";
 import {
   type BookmarkRecord,
   type LabelRecord,
@@ -217,8 +218,9 @@ function BookmarkRow({
   const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
+  const edge = useRowEdge();
   return (
-    <View className="flex-row items-center gap-3 py-2">
+    <View style={edge} className="flex-row items-center gap-3 py-2">
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={bookmark.entity.title}

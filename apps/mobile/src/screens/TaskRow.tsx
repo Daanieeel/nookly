@@ -1,4 +1,6 @@
 import type { TaskRecord, TaskStatus } from "@nookly/shared/data";
+import { IconArrowBackUp, IconCheck, IconTrash } from "@tabler/icons-react-native";
+import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { setTaskStatus, trashEntity } from "@nookly/shared/data";
 import { StatusIcon } from "./StatusIcon.tsx";
@@ -6,7 +8,6 @@ import { useRouter } from "expo-router";
 import { useLocalWrite } from "../data/context.tsx";
 import { Badge, SpaceDot } from "../ui/Badge.tsx";
 import { ListItem } from "../ui/ListMotion.tsx";
-import { ROW_DIVIDER } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { cn } from "../ui/classes.ts";
 import { Pressable, View } from "react-native";
@@ -199,17 +200,20 @@ export function TaskRow({ task, statuses, spaceColor, spaceName, labels = [] }: 
   const trash = useLocalWrite((db, id: string) => trashEntity(db, id));
   const today = localDay();
   const due = task.dueDate && !finished ? dueText(task.dueDate.slice(0, 10), today) : null;
+  const edge = useRowEdge({ inSwipeRow: true });
   return (
     <ListItem>
       <SwipeRow
         left={{
           label: finished ? "Reopen" : "Done",
+          icon: finished ? IconArrowBackUp : IconCheck,
           tone: "positive",
           haptic: finished ? "tap" : "complete",
           onPress: () => setStatus.mutate(finished ? "todo" : "done"),
         }}
         right={{
           label: "Trash",
+          icon: IconTrash,
           tone: "destructive",
           onPress: () => trash.mutate(task.entity.id),
         }}
@@ -219,9 +223,9 @@ export function TaskRow({ task, statuses, spaceColor, spaceName, labels = [] }: 
           accessibilityLabel={`${task.entity.title || "Untitled"}, ${task.entity.key}`}
           onPress={() => router.push(`/entity/${task.entity.id}`)}
           onLongPress={() => entityMenu(task.entity)}
+          style={edge}
           className={cn(
-            "min-h-14 justify-center gap-1 px-1 py-2 active:bg-accent/40",
-            ROW_DIVIDER,
+            "min-h-14 justify-center gap-1 py-2 active:bg-accent/40",
             finished && "opacity-50",
           )}
         >
@@ -244,6 +248,7 @@ export function TaskRow({ task, statuses, spaceColor, spaceName, labels = [] }: 
             spaceColor={spaceColor}
             className="pl-8"
           />
+          <RowDivider />
         </Pressable>
       </SwipeRow>
     </ListItem>

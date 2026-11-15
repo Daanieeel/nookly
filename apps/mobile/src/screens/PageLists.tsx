@@ -1,4 +1,5 @@
 import type { PageSummary } from "@nookly/shared/data";
+import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { notePreviewText } from "@nookly/frontend/lib/note-preview";
 import { IconClock, IconFeather, IconLink, IconTag } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
@@ -16,7 +17,6 @@ import { usePreference } from "../data/preferences.ts";
 import { z } from "zod";
 import { labelOption } from "./option-badges.tsx";
 import { cn } from "../ui/classes.ts";
-import { ROW_DIVIDER } from "../ui/Row.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ago, localDay, addDays } from "./dates.ts";
 import { useEntityMenu } from "./entity-actions.tsx";
@@ -31,13 +31,15 @@ function PageRow({ page, jot }: { page: PageSummary; jot: boolean }) {
   const title = entity.title.trim();
   const preview = notePreviewText(page.preview, title);
   const empty = jot && !title && !preview;
+  const edge = useRowEdge();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title || preview || (jot ? "Nothing written yet" : "Untitled")}
       onPress={() => router.push(`/entity/${entity.id}`)}
       onLongPress={() => entityMenu(entity)}
-      className={cn("gap-1 px-1 py-3 active:bg-accent/40", ROW_DIVIDER)}
+      style={edge}
+      className="gap-1 py-3 active:bg-accent/40"
     >
       <View className="flex-row items-center gap-3">
         <EntityIcon type={entity.type} icon={entity.icon} />
@@ -77,6 +79,7 @@ function PageRow({ page, jot }: { page: PageSummary; jot: boolean }) {
           </Pressable>
         ) : null}
       </View>
+      <RowDivider />
     </Pressable>
   );
 }
