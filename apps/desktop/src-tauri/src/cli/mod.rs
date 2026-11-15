@@ -18,6 +18,9 @@
 //!   `nookly cli describe <entity-type>` dumps just one.
 
 mod args;
+mod backup;
+#[cfg(test)]
+mod backup_tests;
 #[cfg(test)]
 mod generic_tests;
 mod help;
@@ -215,13 +218,15 @@ fn dispatch_command_raw(conn: &Connection, argv: Vec<String>) -> AppResult<Value
         "unrelate" => run_command(&argv[1..], |args| unrelate(conn, args)),
         "space" => space_command(conn, &argv[1..]),
         "label" => label_command(conn, &argv[1..]),
-        "settings" => {
-            let dir = crate::db::standalone_app_data_dir()
-                .map_err(|e| AppError::Io(format!("data folder: {e}")))?;
-            settings::command(&dir, &argv[1..])
-        }
+        "settings" => settings::command(&data_folder()?, &argv[1..]),
+        "backup" => backup::command(conn, &data_folder()?, &argv[1..]),
         entity_type => entity_command(conn, entity_type, &argv[1..]),
     }
+}
+
+/// The folder the app keeps its data and `settings.json` in.
+fn data_folder() -> AppResult<std::path::PathBuf> {
+    crate::db::standalone_app_data_dir().map_err(|e| AppError::Io(format!("data folder: {e}")))
 }
 
 fn schema_all() -> Value {

@@ -16,6 +16,7 @@ pub(super) fn top_level_help() -> Value {
             "ids": "Every entity <id> argument (get, update, delete, restore, blocks, relate, label attach, \
                     entity_ref --field values) also accepts the entity's `key`, e.g. TSK-14.",
             "entityTypes": entity_types,
+            "backup": "nookly cli backup <now|list> [--folder <path>]  (into the backup folder from Settings unless --folder is given; restoring stays in the app)",
             "describe": "nookly cli describe <entity-type>  (or `nookly cli <entity-type>` with no verb): \
                          that type's fields, block commands and relationship types",
             "list": "nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since <30m|24h|7d|date|timestamp>] \
@@ -517,6 +518,16 @@ nookly cli settings reset calendar.weekStart
 A value is read as JSON when it is JSON (`true`, `45`, `null`, `["en","de"]`) and as text
 otherwise. The running app picks a change up within a few seconds. Signing in to sync
 happens in the app; its session stays in the keychain and is never shown here.
+
+## Backups
+
+```
+nookly cli backup now [--folder <path>]   # into `backup.folder` from settings unless --folder
+nookly cli backup list [--folder <path>]  # newest first, with size and what each holds
+```
+
+A folder keeps the newest 10, as the app does. Restoring replaces everything on the device,
+so it is only done in the app, behind its confirmation.
 
 ## A worked example, start to finish
 

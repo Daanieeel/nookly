@@ -92,6 +92,14 @@ fn shown(entry: &Value, file: &Map<String, Value>) -> Value {
     })
 }
 
+/// A setting's value as the app reads it: the stored one when the app would take it,
+/// the default otherwise.
+pub fn value(dir: &Path, id: &str) -> AppResult<Value> {
+    let catalog = catalog()?;
+    let entry = entry(&catalog, id)?;
+    Ok(shown(entry, &read_file(dir)?)["value"].clone())
+}
+
 pub fn command(dir: &Path, argv: &[String]) -> AppResult<Value> {
     let Some(verb) = argv.first() else {
         return Ok(usage());
