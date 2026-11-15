@@ -1,4 +1,4 @@
-import { type ApiClient, ApiRequestError } from "@nookly/shared/api";
+import { ApiClient, ApiRequestError } from "@nookly/shared/api";
 import { afterEach, describe, expect, it } from "bun:test";
 import {
   DESKTOP,
@@ -130,8 +130,15 @@ describe("abuse", () => {
     server = await startServer({ RATE_LIMIT_SCALE: "1" });
     await server.client().signUp({ username: "ada", password: PASSWORD }, DESKTOP);
     const statuses: number[] = [];
+    // A fresh connection for each attempt: a pooled one the server had already closed
+    // reset the socket in CI, and a retry would count against the limit being tested.
+    const fresh = new ApiClient({
+      baseUrl: server.baseUrl,
+      tokens: new MemoryTokens(),
+      fetch: (url, init) => fetch(url, { ...init, keepalive: false }),
+    });
     for (let i = 0; i < 12; i++) {
-      statuses.push((await code(server.client().signIn("ada", "wrong password!", PHONE))) ?? 200);
+      statuses.push((await code(fresh.signIn("ada", "wrong password!", PHONE))) ?? 200);
     }
     expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
     expect(statuses.at(-1)).toBe(429);
