@@ -260,6 +260,22 @@ describe("the icon picker", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "rocket" }));
     await waitFor(async () => expect((await getEntity(data.db, page))?.icon).toBe("🚀"));
   });
+
+  // The emoji were one long scroll, cut off after a few hundred. As on the desktop, a row of
+  // the emoji groups sits at the top: a tap shows that group, all of it.
+  it("jumps to an emoji group from the row at the top", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const page = await createPage(data.db, space, "note", "Note");
+    const screen = await pickerFor(data, page);
+    await fireEvent.press(await screen.findByRole("radio", { name: "Emoji" }));
+    const smileys = screen.getByRole("tab", { name: "Smileys & Emotion" });
+    expect(smileys.props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.queryByRole("button", { name: "flag Germany" })).toBeNull();
+    await fireEvent.press(screen.getByRole("tab", { name: "Flags" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "flag Germany" }));
+    await waitFor(async () => expect((await getEntity(data.db, page))?.icon).toBe("🇩🇪"));
+  });
 });
 
 describe("moving an item", () => {

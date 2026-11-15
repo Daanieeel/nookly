@@ -1,10 +1,21 @@
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import { setEntityIcon, updateSpace } from "@nookly/shared/data";
 import { ICON_LIBRARY_NAMES, iconLibraryValue, isIconLibraryValue } from "@nookly/shared/icons";
-import { IconSearch } from "@tabler/icons-react-native";
+import {
+  IconApple,
+  IconBallFootball,
+  IconBox,
+  IconFlag,
+  IconMathSymbols,
+  IconMoodSmile,
+  IconPaw,
+  IconPlane,
+  IconSearch,
+  IconUsers,
+} from "@tabler/icons-react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import emojiGroups from "unicode-emoji-json/data-by-group.json";
 import { useLocalWrite } from "../data/context.tsx";
 import { useEntity, useSpaces } from "../data/queries.ts";
@@ -18,13 +29,35 @@ import { Screen } from "../ui/Screen.tsx";
 import { Segmented } from "../ui/Segmented.tsx";
 import { SheetPinned } from "../ui/sheet/Sheet.tsx";
 import { useCloseSheet } from "../ui/sheet/route.tsx";
-import { SPACE } from "../ui/tokens.ts";
+import { CORNER, RADIUS, SPACE } from "../ui/tokens.ts";
+import type { GlyphIcon } from "../ui/kit/Glyph.tsx";
+import { useSemantic } from "../ui/kit/scheme.ts";
+import { MIN_TOUCH } from "../ui/touch.ts";
 import { useTheme } from "../ui/theme.ts";
 
-/// Emoji in their groups, as the keyboard lists them.
-const GROUPS = emojiGroups.map((group) => ({ name: group.name, emojis: group.emojis }));
+/// Emoji in their groups, as the keyboard lists them, each with the desktop's icon for it.
+const GROUP_ICONS = {
+  smileys_emotion: IconMoodSmile,
+  people_body: IconUsers,
+  animals_nature: IconPaw,
+  food_drink: IconApple,
+  travel_places: IconPlane,
+  activities: IconBallFootball,
+  objects: IconBox,
+  symbols: IconMathSymbols,
+  flags: IconFlag,
+} satisfies { [slug: string]: GlyphIcon };
+function isGroupSlug(slug: string): slug is keyof typeof GROUP_ICONS {
+  return slug in GROUP_ICONS;
+}
+const GROUPS = emojiGroups.map((group) => ({
+  slug: group.slug,
+  name: group.name,
+  emojis: group.emojis,
+  icon: isGroupSlug(group.slug) ? GROUP_ICONS[group.slug] : IconBox,
+}));
 const EMOJI = GROUPS.flatMap((group) => group.emojis);
-/// How many emoji show before a search; the rest are a search away.
+/// How many emoji a search shows at most.
 const EMOJI_SHOWN = 320;
 
 /// Chooses the icon of an item or a Space: one from the icon library (tinted if wanted)
@@ -48,6 +81,7 @@ export function IconPickerScreen() {
   );
   const [color, setColor] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [group, setGroup] = useState(0);
   const save = useLocalWrite(async (db, icon: string) => {
     if (kind === "space") await updateSpace(db, id, { icon });
     else await setEntityIcon(db, id, icon);
@@ -60,13 +94,10 @@ export function IconPickerScreen() {
       const found = EMOJI.filter((e) => e.name.toLowerCase().includes(words));
       return found.length > 0 ? [{ name: "Results", emojis: found.slice(0, EMOJI_SHOWN) }] : [];
     }
-    let left = EMOJI_SHOWN;
-    return GROUPS.map((group) => {
-      const emojis = group.emojis.slice(0, Math.max(0, left));
-      left -= emojis.length;
-      return { name: group.name, emojis };
-    }).filter((group) => group.emojis.length > 0);
-  }, [words]);
+    // One group at a time, all of it, as on the desktop.
+    const shown = GROUPS[group] ?? GROUPS[0];
+    return [{ name: shown.name, emojis: shown.emojis }];
+  }, [words, group]);
   const empty = tab === "icons" ? icons.length === 0 : emojiSections.length === 0;
   return (
     <Screen>
@@ -91,6 +122,7 @@ export function IconPickerScreen() {
             value={query}
             onChangeText={setQuery}
           />
+          {tab === "emoji" && !words ? <EmojiGroups value={group} onChange={setGroup} /> : null}
         </View>
       </SheetPinned>
       {tab === "icons" ? (
@@ -147,5 +179,48 @@ export function IconPickerScreen() {
       ) : null}
       {save.error ? <ErrorState title="Couldn't Save" message={save.error.message} /> : null}
     </Screen>
+  );
+}
+
+/// The emoji groups as the desktop's row of icons: a tap shows that group.
+function EmojiGroups({ value, onChange }: { value: number; onChange: (index: number) => void }) {
+  const fill = useSemantic("fill");
+  const label = useSemantic("label");
+  const muted = useSemantic("secondaryLabel");
+  return (
+    // All nine share the width, so every group is in sight without scrolling sideways.
+    <View
+      accessibilityRole="tablist"
+      accessibilityLabel="Emoji groups"
+      style={{ flexDirection: "row" }}
+    >
+      {GROUPS.map((g, index) => {
+        const selected = index === value;
+        const Glyph = g.icon;
+        return (
+          <Pressable
+            key={g.slug}
+            accessibilityRole="tab"
+            accessibilityLabel={g.name}
+            accessibilityState={{ selected }}
+            onPress={() => onChange(index)}
+            style={({ pressed }) => [
+              CORNER,
+              {
+                flex: 1,
+                height: MIN_TOUCH,
+                borderRadius: RADIUS.control,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: selected ? fill : undefined,
+                opacity: pressed ? 0.6 : 1,
+              },
+            ]}
+          >
+            <Glyph size={22} color={selected ? label : muted} />
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
