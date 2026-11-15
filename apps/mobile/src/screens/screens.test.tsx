@@ -1,5 +1,7 @@
 import { StyleSheet } from "react-native";
 import {
+  attachLabel,
+  createLabel,
   createPage,
   createSpace,
   createTask,
@@ -11,6 +13,7 @@ import {
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { ApiClient } from "@nookly/shared/api";
 import { RecordingMenu } from "../test/menu.ts";
+import { openRow } from "../test/sheet.ts";
 import { pressBarButton, renderScreens, testData } from "../test/render.tsx";
 import { ShareScreen } from "./ShareScreen.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
@@ -101,11 +104,50 @@ describe("search", () => {
     await createTask(data.db, space, "Buy milk");
     await markOpened(data.db, id);
     const screen = await renderScreens({ index: () => <SearchScreen /> }, data);
-    expect(await screen.findByLabelText("Recents")).toBeTruthy();
+    expect(await screen.findByRole("header", { name: "Recents" })).toBeTruthy();
     expect(await screen.findByText("Renew passport")).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText("Search"), "milk");
     expect(await screen.findByText("Buy milk")).toBeTruthy();
     expect(screen.queryByText("Renew passport")).toBeNull();
+  });
+
+  // The desktop's Cmd+K narrows by type with its tabs, to a Space with in: and by label with #.
+  it("narrows results by type, Space and label, as the desktop's search", async () => {
+    const { data, space } = await seeded();
+    const home = await createSpace(data.db, "Home", "#00873d");
+    const task = await createTask(data.db, space, "Plan the trip");
+    await createPage(data.db, space, "note", "Plan for the garden");
+    await createTask(data.db, home, "Plan dinner");
+    const urgent = await createLabel(data.db, space, "Urgent");
+    await attachLabel(data.db, task, urgent);
+    const screen = await renderScreens({ index: () => <SearchScreen /> }, data);
+    await fireEvent.changeText(screen.getByLabelText("Search"), "plan");
+    expect(await screen.findByText("Plan for the garden")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "Tasks" }));
+    await waitFor(() => expect(screen.queryByText("Plan for the garden")).toBeNull());
+    expect(screen.getByText("Plan dinner")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Space");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Work" }));
+    await waitFor(() => expect(screen.queryByText("Plan dinner")).toBeNull());
+    expect(screen.getByText("Plan the trip")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Work ×" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "All" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Labels");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Urgent" }));
+    await waitFor(() => expect(screen.queryByText("Plan for the garden")).toBeNull());
+    expect(screen.getByText("Plan the trip")).toBeTruthy();
+  });
+
+  it("lists a key prefix's items after what contains it", async () => {
+    const { data, space } = await seeded();
+    await createTask(data.db, space, "Pay rent");
+    await createTask(data.db, space, "Water");
+    const screen = await renderScreens({ index: () => <SearchScreen /> }, data);
+    await fireEvent.changeText(screen.getByLabelText("Search"), "TSK-");
+    expect(await screen.findByText("Water")).toBeTruthy();
+    expect(screen.getByText("Pay rent")).toBeTruthy();
   });
 });
 

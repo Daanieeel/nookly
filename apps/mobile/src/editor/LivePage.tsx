@@ -201,7 +201,7 @@ export function PageDocEditor({
   /// Items to mention: what matches what was typed, or the ones opened last.
   const onSearch = useCallback(
     async (query: string) => {
-      const items = query.trim() ? await search(db, query, 8) : await recents(db, 8);
+      const items = query.trim() ? await search(db, query, {}, 8) : await recents(db, 8);
       return JSON.stringify(
         items
           .filter((e) => e.id !== entityId)

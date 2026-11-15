@@ -51,8 +51,9 @@ import {
   search,
   spaceModules,
   subtaskProgress,
+  type SearchScope,
 } from "@nookly/shared/data";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useDb } from "./context.tsx";
 import { keys } from "./keys.ts";
 
@@ -122,12 +123,15 @@ export const useBookmarks = (spaceId: string | null) => {
   });
 };
 
-export const useSearch = (query: string) => {
+export const useSearch = (query: string, scope: SearchScope = {}) => {
   const db = useDb();
   return useQuery({
-    queryKey: keys.search(query),
-    queryFn: () => search(db, query),
+    queryKey: keys.search(query, scope),
+    queryFn: () => search(db, query, scope),
     enabled: query.trim().length > 0,
+    // The last results stay while the next keystroke or filter searches, so the list
+    // never blinks empty.
+    placeholderData: keepPreviousData,
   });
 };
 

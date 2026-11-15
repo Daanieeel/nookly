@@ -20,6 +20,7 @@ All notable changes to Nookly are listed here.
 - Corners are a little rounder and softer across the app.
 - The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.
 - New pages open at once.
+- Typing an item's short code like TSK in search first shows what contains it, then lists every item with that code, newest first.
 
 ### Fixed
 

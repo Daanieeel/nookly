@@ -102,6 +102,32 @@ describe("spaces and entities", () => {
     expect((await search(db, "100%")).map((e) => e.id)).toEqual([page]);
     expect(await search(db, "  ")).toEqual([]);
   });
+  it("lists a bare key prefix's items after what contains it, newest first", async () => {
+    const space = await createSpace(db, "Work", "blue");
+    const first = await createTask(db, space, "Pay rent");
+    const named = await createPage(db, space, "note", "Tsk tsk, the plants");
+    const second = await createTask(db, space, "Water");
+    for (const query of ["TSK", "tsk-", "Tsk -"]) {
+      expect((await search(db, query)).map((e) => e.id)).toEqual([named, second, first]);
+    }
+    expect((await search(db, "tsk", { types: ["note"] })).map((e) => e.id)).toEqual([named]);
+  });
+
+  it("narrows to types, Spaces and labels, as the desktop's search", async () => {
+    const work = await createSpace(db, "Work", "blue");
+    const home = await createSpace(db, "Home", "green");
+    const task = await createTask(db, work, "Plan the trip");
+    const page = await createPage(db, work, "note", "Plan for the garden");
+    const away = await createTask(db, home, "Plan dinner");
+    const urgent = await createLabel(db, work, "Urgent");
+    await attachLabel(db, task, urgent);
+    const ids = async (scope: Parameters<typeof search>[2]) =>
+      (await search(db, "plan", scope)).map((e) => e.id).toSorted();
+    expect(await ids({ types: ["task"] })).toEqual([task, away].toSorted());
+    expect(await ids({ spaceIds: [work] })).toEqual([task, page].toSorted());
+    expect(await ids({ labels: ["urgent"] })).toEqual([task]);
+    expect(await ids({})).toHaveLength(3);
+  });
 
   it("keeps Recents and Pinned", async () => {
     const space = await createSpace(db, "Work", "blue");

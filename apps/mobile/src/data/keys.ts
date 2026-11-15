@@ -1,3 +1,4 @@
+import type { SearchScope } from "@nookly/shared/data";
 /// Every React Query key of the mobile app, broad to narrow, like the desktop's `qk`.
 /// Local data all sits under `local`, so a sync that brought changes refreshes it at once.
 export const keys = {
@@ -38,7 +39,7 @@ export const keys = {
   blocks: (entityId: string) => ["local", "blocks", entityId] as const,
   agenda: (from: string, to: string) => ["local", "agenda", from, to] as const,
   bookmarks: (spaceId: string | null) => ["local", "bookmarks", spaceId] as const,
-  search: (query: string) => ["local", "search", query] as const,
+  search: (query: string, scope: SearchScope = {}) => ["local", "search", query, scope] as const,
   recents: ["local", "recents"] as const,
   pinned: ["local", "pinned"] as const,
   role: (id: string) => ["local", "role", id] as const,

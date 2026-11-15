@@ -78,7 +78,7 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 - [x] (2026-11-15, the system's picture of an image, PDF, video or Office file in the grid and the list, as the desktop's `hasThumbnail`; found and fixed D72 on the way: files stored under an earlier app folder looked missing; tests; on screen) Files list: thumbnails for files that have them on the desktop.
 - [x] Bookmarks: the floating paste bar moves up a little.
 - [x] Bookmarks: the filter options sheet is empty (bug). Fill it.
-- [ ] Global search gets the same filter options as the desktop's Cmd+K search.
+- [x] (2026-11-15, the type tabs as chips, Space and Labels in the Filter sheet, as `in:` and `#`; tests; on screen) Global search gets the same filter options as the desktop's Cmd+K search.
 
 ### 4. Mobile: Moodle
 
@@ -89,7 +89,7 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 ### 5. Both apps
 
 - [ ] Many more filter options on every list page (desktop and phone): every property a list's items have can be filtered on.
-- [ ] Search (Cmd+K and the phone's search): typing an entity id like "TSK-" or "TSK" first shows results that contain it or match it fuzzily, then lists the tasks.
+- [x] (2026-11-15, a bare key prefix lists its items newest first after what contains it, in the desktop search and the phone; tests; phone on screen, desktop by its search tests) Search (Cmd+K and the phone's search): typing an entity id like "TSK-" or "TSK" first shows results that contain it or match it fuzzily, then lists the tasks.
 - [ ] Files: a lasting way to browse and find files by their labels (desktop and phone, synced), and a quiet nudge to label files that have none. Decide the design in `DECISIONS.md` first.
 
 ### 6. Final checks and report

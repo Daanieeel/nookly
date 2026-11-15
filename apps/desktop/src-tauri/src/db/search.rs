@@ -266,6 +266,23 @@ pub fn search_ranked(conn: &Connection, req: &SearchRequest) -> AppResult<Vec<Se
         }
     }
 
+    // A bare key prefix (`TSK`, `tsk-`) lists that prefix's items last, newest first,
+    // after whatever contains the typed text.
+    if let Some(prefix) = parse_key_prefix(&req.query) {
+        let p = binds.bind(prefix);
+        let narrow = narrowing(req, &mut binds, "e.id", "e.space_id", "e.type");
+        sources.push(format!(
+            "SELECT * FROM (
+               SELECT 4 AS src, 0 AS tier, -e.key_number AS rank,
+                      e.id, e.space_id, e.title, e.type, e.icon, NULL, NULL, NULL,
+                      e.key_prefix || '-' || e.key_number
+               FROM entities e
+               WHERE e.deleted_at IS NULL AND e.type != 'course_notes' AND {not_embedded}
+                 AND e.key_prefix = {p}{narrow}
+               ORDER BY rank LIMIT {limit})"
+        ));
+    }
+
     if sources.is_empty() {
         return Ok(Vec::new());
     }
@@ -299,10 +316,16 @@ fn fold_hits(
     let mut wanted: Vec<Option<String>> = Vec::new();
     let mut keyed = std::collections::HashSet::new();
     let mut at: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut seen = std::collections::HashSet::new();
     for (src, hit) in rows {
         if src == 1 && keyed.contains(&hit.entity_id) {
             continue;
         }
+        // An item listed for its key prefix shows once, below its other matches.
+        if src == 4 && seen.contains(&hit.entity_id) {
+            continue;
+        }
+        seen.insert(hit.entity_id.clone());
         if src == 0 {
             keyed.insert(hit.entity_id.clone());
         }
@@ -375,6 +398,13 @@ pub fn parse_key_query(query: &str) -> Option<(String, String)> {
     valid.then(|| (prefix.to_ascii_uppercase(), digits.to_string()))
 }
 
+/// A key prefix on its own (`TSK`, `tsk-`, `Tsk -`): three letters, maybe a dash after.
+pub fn parse_key_prefix(query: &str) -> Option<String> {
+    let bare = query.trim().trim_end_matches(['-', ' ']);
+    (bare.len() == 3 && bare.chars().all(|c| c.is_ascii_alphabetic()))
+        .then(|| bare.to_ascii_uppercase())
+}
+
 /// Reads the source number, then the hit.
 fn row_to_hit(row: &rusqlite::Row) -> rusqlite::Result<(u8, SearchHit)> {
     Ok((
@@ -421,6 +451,55 @@ mod tests {
         assert_eq!(search(&conn, "NOT 11", None).unwrap()[0].key, "NOT-11");
         assert_eq!(parse_key_query("not"), None);
         assert_eq!(parse_key_query("tsk14"), Some(("TSK".into(), "14".into())));
+    }
+
+    /// A bare key prefix (`TSK`, `tsk-`) has no number to match, so it first finds what
+    /// contains it, then lists every item with that prefix, newest first.
+    #[test]
+    fn a_bare_key_prefix_lists_its_items_after_the_matches() {
+        let conn = crate::db::test_conn();
+        let space = create_space(&conn, "Work".into(), None, "#000".into()).unwrap();
+        let first = create_entity(
+            &conn,
+            space.id.clone(),
+            "task".into(),
+            "Pay rent".into(),
+            None,
+        )
+        .unwrap();
+        let named = create_entity(
+            &conn,
+            space.id.clone(),
+            "note".into(),
+            "Tsk tsk, the plants".into(),
+            None,
+        )
+        .unwrap();
+        let second =
+            create_entity(&conn, space.id.clone(), "task".into(), "Water".into(), None).unwrap();
+        for query in ["TSK", "tsk-", "Tsk -"] {
+            let mut req = request(query);
+            req.one_per_entity = true;
+            let ids: Vec<String> = search_ranked(&conn, &req)
+                .unwrap()
+                .into_iter()
+                .map(|h| h.entity_id)
+                .collect();
+            assert_eq!(
+                ids,
+                [named.id.clone(), second.id.clone(), first.id.clone()],
+                "{query}"
+            );
+        }
+        // Not folded, an item still shows once.
+        assert_eq!(search(&conn, "tsk", None).unwrap().len(), 3);
+        // Narrowing applies to the listed items as well.
+        let mut req = request("tsk");
+        req.types = vec!["note".into()];
+        assert_eq!(search_ranked(&conn, &req).unwrap().len(), 1);
+        assert_eq!(parse_key_prefix("tsk-"), Some("TSK".into()));
+        assert_eq!(parse_key_prefix("task"), None);
+        assert_eq!(parse_key_prefix("ts1"), None);
     }
 
     /// macOS names files with decomposed accents (`U` + combining diaeresis), while

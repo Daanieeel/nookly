@@ -245,24 +245,124 @@ export async function pinned(db: LocalDb): Promise<EntityRecord[]> {
   ).map(toEntity);
 }
 
-/// Search across every Space: titles, keys like TSK-14, and page text.
-export async function search(db: LocalDb, query: string, limit = 50): Promise<EntityRecord[]> {
+/// What a search keeps, as the desktop's: types, Spaces, and label names that must all be on
+/// an item. Empty keeps everything.
+export interface SearchScope {
+  types?: string[];
+  spaceIds?: string[];
+  labels?: string[];
+}
+
+/// A key shaped query (`TSK-14`, `tsk14`, `tsk 1`) as its prefix and number digits, as the
+/// desktop reads it. A bare prefix has no digits.
+export interface KeyQuery {
+  prefix: string;
+  digits: string;
+}
+
+export function parseKeyQuery(query: string): KeyQuery | null {
+  const text = query.trim();
+  if (!/^[A-Za-z0-9 -]+$/.test(text)) return null;
+  const compact = text.replaceAll(/[^A-Za-z0-9]/g, "");
+  const prefix = compact.slice(0, 3);
+  const digits = compact.slice(3);
+  if (!/^[A-Za-z]{3}$/.test(prefix) || !/^\d*$/.test(digits)) return null;
+  // A bare prefix only when nothing but a dash or spaces follow it ("tsk-", not "task").
+  if (digits === "" && !/^[A-Za-z]{3}[ -]*$/.test(text)) return null;
+  return { prefix: prefix.toUpperCase(), digits };
+}
+
+/// The `AND ...` conditions a scope adds to a search, and their values.
+interface ScopeSql {
+  sql: string;
+  params: string[];
+}
+
+function scopeSql(scope: SearchScope): ScopeSql {
+  let sql = "";
+  const params: string[] = [];
+  const list = (values: string[]) => values.map(() => "?").join(", ");
+  if (scope.types?.length) {
+    sql += ` AND e.type IN (${list(scope.types)})`;
+    params.push(...scope.types);
+  }
+  if (scope.spaceIds?.length) {
+    sql += ` AND e.space_id IN (${list(scope.spaceIds)})`;
+    params.push(...scope.spaceIds);
+  }
+  for (const label of scope.labels ?? []) {
+    sql +=
+      " AND EXISTS (SELECT 1 FROM entity_labels el JOIN labels l ON l.id = el.label_id WHERE el.entity_id = e.id AND l.name = ? COLLATE NOCASE)";
+    params.push(label);
+  }
+  return { sql, params };
+}
+
+const SEARCHABLE =
+  "e.deleted_at IS NULL AND e.hidden_at IS NULL AND e.type NOT IN ('course_notes', 'semester_notes', 'view', 'calendar_entry', 'calendar_entry_template')";
+
+/// Search across every Space, as the desktop's: a key like TSK-14 first, then titles and
+/// page text, title matches before body matches. A bare key prefix (`TSK`, `tsk-`) then
+/// lists that prefix's items, newest first.
+export async function search(
+  db: LocalDb,
+  query: string,
+  scope: SearchScope = {},
+  limit = 50,
+): Promise<EntityRecord[]> {
   const text = query.trim();
   if (!text) return [];
-  const like = `%${text.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
-  return (
-    await rows(
-      db,
-      `SELECT ${ENTITY_COLUMNS} FROM entities e
-       WHERE e.deleted_at IS NULL AND e.hidden_at IS NULL AND e.type NOT IN ('course_notes', 'semester_notes', 'view')
-         AND (e.title LIKE ? ESCAPE '\\' OR (e.key_prefix || '-' || e.key_number) = UPPER(?)
-           OR EXISTS (SELECT 1 FROM blocks b WHERE b.entity_id = e.id AND b.content LIKE ? ESCAPE '\\'))
-       ORDER BY (e.title LIKE ? ESCAPE '\\') DESC, e.updated_at DESC LIMIT ?`,
-      like,
-      text,
-      like,
-      `${text.replaceAll("%", "")}%`,
-      limit,
-    )
-  ).map(toEntity);
+  const narrow = scopeSql(scope);
+  const key = parseKeyQuery(text);
+  const keyed =
+    key && key.digits
+      ? await rows(
+          db,
+          `SELECT ${ENTITY_COLUMNS} FROM entities e WHERE ${SEARCHABLE}
+             AND e.key_prefix = ? AND CAST(e.key_number AS TEXT) LIKE ? || '%'${narrow.sql}
+           ORDER BY length(CAST(e.key_number AS TEXT)), e.key_number LIMIT ?`,
+          key.prefix,
+          key.digits,
+          ...narrow.params,
+          limit,
+        )
+      : [];
+  // A bare prefix also finds what contains its letters ("tsk-" finds "Tsk tsk").
+  const needle = key && !key.digits ? text.replace(/[ -]+$/, "") : text;
+  const like = `%${needle.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
+  const matched = await rows(
+    db,
+    `SELECT ${ENTITY_COLUMNS} FROM entities e
+     WHERE ${SEARCHABLE}
+       AND (e.title LIKE ? ESCAPE '\\'
+         OR EXISTS (SELECT 1 FROM blocks b WHERE b.entity_id = e.id AND b.content LIKE ? ESCAPE '\\'))${narrow.sql}
+     ORDER BY (e.title LIKE ? ESCAPE '\\') DESC, (e.title LIKE ? ESCAPE '\\') DESC, e.updated_at DESC LIMIT ?`,
+    like,
+    like,
+    ...narrow.params,
+    `${needle.replaceAll("%", "")}%`,
+    like,
+    limit,
+  );
+  const listed =
+    key && !key.digits
+      ? await rows(
+          db,
+          `SELECT ${ENTITY_COLUMNS} FROM entities e WHERE ${SEARCHABLE} AND e.key_prefix = ?${narrow.sql}
+           ORDER BY e.key_number DESC LIMIT ?`,
+          key.prefix,
+          ...narrow.params,
+          limit,
+        )
+      : [];
+  const seen = new Set<string>();
+  return [...keyed, ...matched, ...listed]
+    .filter((row) => {
+      const id = String(row.id);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .slice(0, limit)
+    .map(toEntity);
 }
