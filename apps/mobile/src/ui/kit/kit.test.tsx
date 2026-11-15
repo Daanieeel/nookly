@@ -79,17 +79,27 @@ describe("the base components", () => {
     expect(onChange).toHaveBeenCalledWith("");
   });
 
-  // Bug: typing into a round search bar made it many times as tall, because its clear button
-  // asked for a percentage of a height the row did not have. It stretches to the row instead.
-  it("the clear button never sizes by percent, so typing keeps the bar's height", () => {
+  // The small x inside the field was hard to hit. A full X button grows out of the field to
+  // its right once something is typed: as tall as the field, square, in the field's fill.
+  it("clears with a full button beside the field, in the field's fill", () => {
     const screen = render(
       <SearchField label="Search Items" value="plan" onChangeText={() => {}} />,
     );
-    const style = StyleSheet.flatten(
-      screen.getByRole("button", { name: "Clear Search" }).props.style,
+    const button = screen.getByRole("button", { name: "Clear Search" });
+    const style = StyleSheet.flatten(button.props.style);
+    expect(style).toMatchObject({ width: SEARCH_HEIGHT, height: SEARCH_HEIGHT });
+    expect(style.backgroundColor).toBe(
+      StyleSheet.flatten(screen.getByTestId("search-field").props.style).backgroundColor,
     );
-    expect(style.height).toBeUndefined();
-    expect(style.alignSelf).toBe("stretch");
+    // Beside the field, not inside it.
+    let at = button.parent;
+    while (at && at.props.testID !== "search-field") at = at.parent;
+    expect(at).toBeNull();
+  });
+
+  it("has no clear button while nothing is typed", () => {
+    const screen = render(<SearchField label="Search Items" value="" onChangeText={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Clear Search" })).toBeNull();
   });
 
   // The global search's bar felt cramped, and its placeholder and magnifier were see through:
