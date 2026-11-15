@@ -380,7 +380,11 @@ export function FileRows({ spaceId }: { spaceId: string }) {
             label: "Kind",
             icon: IconCategory,
             values: display.kinds,
-            options: kinds.map((k) => ({ id: k, label: kindLabel(k) })),
+            options: kinds.map((k) => ({
+              id: k,
+              label: kindLabel(k),
+              glyph: k === "link" ? IconLink : KIND_ICONS[k],
+            })),
             onChange: (next) => setDisplay({ ...display, kinds: next }),
           },
           {

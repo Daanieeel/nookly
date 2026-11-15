@@ -72,7 +72,11 @@ export function TrashScreen() {
             values: types,
             options:
               presentTypes.length > 1
-                ? presentTypes.map((type) => ({ id: type, label: typeLabel(type) }))
+                ? presentTypes.map((type) => ({
+                    id: type,
+                    label: typeLabel(type),
+                    icon: <EntityIcon type={type} />,
+                  }))
                 : [],
             onChange: filters.pick("type"),
           },

@@ -305,9 +305,13 @@ describe("semesters", () => {
       data,
     );
     await act(() => router.push("/new/semester"));
-    await choose(screen, "Typical dates for", "Germany");
+    await choose(screen, "Timespan", "Germany");
     await choose(screen, "Term", "Summer");
-    await choose(screen, "Year", "2027");
+    // The year is typed, as a time is.
+    await openRow(screen, "Year");
+    await fireEvent.changeText(await screen.findByLabelText("Year"), "2027");
+    await fireEvent.press(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByRole("button", { name: "Year, 2027" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Create Semester" }));
     await waitFor(async () => {
       const [row] = await data.driver.query(
@@ -341,7 +345,7 @@ describe("the New Semester sheet", () => {
     );
     await act(() => router.push("/new/semester"));
     expect(screen.queryByRole("button", { name: /^Starts, / })).toBeNull();
-    await choose(screen, "Typical dates for", "Custom");
+    await choose(screen, "Timespan", "Custom");
     // The start last month, the end late this month: the closed Starts calendar, paged back a
     // month, never shows the end's day.
     const month = localDay().slice(0, 7);

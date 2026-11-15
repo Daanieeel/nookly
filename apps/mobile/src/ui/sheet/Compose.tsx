@@ -1,10 +1,11 @@
 import { IconArrowUp, IconX } from "@tabler/icons-react-native";
 import { type ComponentType, type ReactNode, type RefObject, useState } from "react";
 import { Pressable, ScrollView, TextInput, type TextInputProps, View } from "react-native";
-import { useSemantic, useSemanticPair } from "../kit/scheme.ts";
+import { Glyph } from "../kit/Glyph.tsx";
+import { useScheme, useSemantic, useSemanticPair } from "../kit/scheme.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
-import { CORNER, FACE, RADIUS, SPACE, TYPE } from "../tokens.ts";
+import { CORNER, FACE, RADIUS, SPACE, TYPE, tint } from "../tokens.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import { type Option, OptionList } from "./OptionList.tsx";
 import { RoundButton, Sheet, SheetFooter, SheetHeader, useSheet } from "./Sheet.tsx";
@@ -284,12 +285,22 @@ export function PillSelect<Id extends string>({
   onChange: (id: Id) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const scheme = useScheme();
+  const muted = useTheme().colors.mutedForeground;
   const current = options.find((o) => o.id === value);
+  // The chosen option's own icon, as its row in the list draws it.
+  const chosen = current?.glyph ? (
+    <Glyph
+      icon={current.glyph}
+      size={18}
+      color={current.tint ? tint(current.tint, scheme) : muted}
+    />
+  ) : null;
   return (
     <>
       <Pill
         label={label}
-        icon={current?.icon ?? icon}
+        icon={current?.icon ?? chosen ?? icon}
         value={current?.label ?? null}
         onPress={() => setOpen(true)}
       />

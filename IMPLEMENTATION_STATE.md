@@ -95,11 +95,11 @@ Mobile:
 - [ ] Bookmarks list: the (i) button is bigger and a secondary button, easier to hit and to recognise.
 - [ ] Relationship picker: the list under the search bar and "kind of link" only shows items valid for the chosen kind of link.
 - [x] (2026-11-15, the search field measured dead centre (icon, cap height and field share their middle); the line height Tailwind gives `text-base` pushed the paste bars', palette's, sub-task's, new deck's and recipe rows' text 2pt low, now one shared `lineInput` style without it; measured centred on screen; tests) Search placeholders are not vertically centred (the icon is), seen in the relationship picker and often elsewhere: fix it once, for every search field.
-- [ ] Selects get icons per option as on the desktop where it makes sense (New Semester: Winter and Summer), and the chosen option's icon shows in the trigger. Not where it makes no sense (a year).
-- [ ] New Semester: the year is a number input in the exact style of the time input (exams, entries, sessions), one field for one number. "Typical dates for" is renamed "Timespan".
+- [x] Selects get icons per option as on the desktop where it makes sense (New Semester: Winter and Summer), and the chosen option's icon shows in the trigger. Not where it makes no sense (a year).
+- [x] New Semester: the year is a number input in the exact style of the time input (exams, entries, sessions), one field for one number. "Typical dates for" is renamed "Timespan".
 - [ ] Label picker (from the details of any item): rows about 25% less tall so the list scrolls less.
 - [ ] Every entity list page (Jots and the rest): the title, filter and display buttons and the tabs stay put; only the list scrolls.
-- [ ] Semester setup, "Where do you study?": add Germany.
+- [x] Semester setup, "Where do you study?": add Germany.
 - [ ] "Choose an icon" sheet: categories at the top to jump to.
 - [ ] Recipes, choosing a photo: ask first (photo library, take a photo, choose a file) instead of opening the file picker.
 - [ ] Calendar: the view tabs at the top become one icon button left of the + that opens a select of the four views, saving height. The header shows only "Week XY" at full opacity, no dates (the agenda keeps its own). The day numbers in the columns get bigger.

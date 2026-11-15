@@ -1,3 +1,4 @@
+import { termOptions } from "./term-options.ts";
 import {
   ACADEMIC_SYSTEMS,
   ACADEMIC_SYSTEM_KEYS,
@@ -205,7 +206,7 @@ export function SetupSemestersScreen({ spaceId }: { spaceId?: string }) {
           <OptionList
             label="Current term"
             value={term.key}
-            options={def.terms.map((t) => ({ id: t.key, label: t.label }))}
+            options={termOptions(def.terms)}
             afterPick={stay}
             onChange={setTermKey}
           />

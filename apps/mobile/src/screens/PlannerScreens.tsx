@@ -1,3 +1,4 @@
+import { termOptions } from "./term-options.ts";
 import {
   ACADEMIC_SYSTEMS,
   ACADEMIC_SYSTEM_KEYS,
@@ -67,7 +68,7 @@ import {
   ComposeTitle,
   PillSelect,
 } from "../ui/sheet/Compose.tsx";
-import { CoursePill, DayPill, TimePill } from "./ComposeForm.tsx";
+import { CoursePill, DayPill, TimePill, YearPill } from "./ComposeForm.tsx";
 import { spaceOption } from "./option-badges.tsx";
 import { RepeatPill } from "./RepeatPicker.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -529,7 +530,7 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
           ? `${dayLabel(dates.startDate)} to ${dayLabel(dates.endDate)}`
           : custom
             ? "Pick the day it starts and the day it ends."
-            : "No dates yet; pick where to take typical dates from, or your own."}
+            : "No dates yet. Pick a timespan for them."}
       </Text>
       {create.error ? (
         <Text tone="destructive" variant="small">
@@ -555,21 +556,12 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
           label="Term"
           icon={<IconCalendarWeek size={18} color={muted} />}
           value={term.key}
-          options={def.terms.map((t) => ({ id: t.key, label: t.label }))}
+          options={termOptions(def.terms)}
           onChange={setTermKey}
         />
+        <YearPill label="Year" value={theYear} onChange={setYear} />
         <PillSelect
-          label="Year"
-          icon={<IconCalendarEvent size={18} color={muted} />}
-          value={String(theYear)}
-          options={[guess.year - 1, guess.year, guess.year + 1].map((y) => ({
-            id: String(y),
-            label: String(y),
-          }))}
-          onChange={(y) => setYear(Number(y))}
-        />
-        <PillSelect
-          label="Typical dates for"
+          label="Timespan"
           icon={<IconMapPin size={18} color={muted} />}
           value={region}
           options={[

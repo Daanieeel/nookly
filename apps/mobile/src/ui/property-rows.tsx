@@ -8,6 +8,7 @@ import { usePropertyLook } from "./parts.tsx";
 import { Property } from "./Property.tsx";
 import { DayPicker } from "./sheet/DayPicker.tsx";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
+import { YearInput } from "./YearInput.tsx";
 import { DialogActions, Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
 import { TimeInput, useTwelveHour } from "./TimeInput.tsx";
 import { LIST_ROW } from "./touch.ts";
@@ -114,29 +115,57 @@ export function TimePicker({
   onChange: (value: string | null) => void;
   clearable?: boolean;
 }) {
-  const sheet = useSheet();
   return (
     <View className="gap-6 pt-2">
       <TimeInput label={label} value={value} onChange={onChange} autoFocus large />
-      <DialogActions>
-        {clearable && value ? (
-          <View className="flex-1">
-            <Button
-              variant="destructive"
-              size="lg"
-              label={`Clear ${label}`}
-              onPress={() => {
-                onChange(null);
-                sheet?.close();
-              }}
-            />
-          </View>
-        ) : null}
-        <View className="flex-1">
-          <Button size="lg" label="Done" onPress={() => sheet?.close()} />
-        </View>
-      </DialogActions>
+      <PickerActions
+        label={label}
+        onClear={clearable && value ? () => onChange(null) : undefined}
+      />
     </View>
+  );
+}
+
+/// A year in a sheet of its own, typed as a time is: the large digits, and Done.
+export function YearPicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (year: number) => void;
+}) {
+  return (
+    <View className="gap-6 pt-2">
+      <YearInput label={label} value={value} onChange={onChange} autoFocus />
+      <PickerActions label={label} />
+    </View>
+  );
+}
+
+/// What a typed picker ends with: Done, and Clear beside it when there is something to clear.
+function PickerActions({ label, onClear }: { label: string; onClear?: () => void }) {
+  const sheet = useSheet();
+  return (
+    <DialogActions>
+      {onClear ? (
+        <View className="flex-1">
+          <Button
+            variant="destructive"
+            size="lg"
+            label={`Clear ${label}`}
+            onPress={() => {
+              onClear();
+              sheet?.close();
+            }}
+          />
+        </View>
+      ) : null}
+      <View className="flex-1">
+        <Button size="lg" label="Done" onPress={() => sheet?.close()} />
+      </View>
+    </DialogActions>
   );
 }
 

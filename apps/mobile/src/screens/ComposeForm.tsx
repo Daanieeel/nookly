@@ -15,7 +15,7 @@ import { ComposeBody, saveComposeBody, useComposeDoc } from "../editor/ComposeBo
 import { EditorToolbar } from "../editor/EditorToolbar.tsx";
 import { shownValue } from "../ui/DateField.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
-import { TimePicker } from "../ui/property-rows.tsx";
+import { TimePicker, YearPicker } from "../ui/property-rows.tsx";
 import { clockText, useTwelveHour } from "../ui/TimeInput.tsx";
 import { DayPicker } from "../ui/sheet/DayPicker.tsx";
 import {
@@ -312,6 +312,28 @@ export function EntitySearch({ onPick }: { onPick: (e: EntityRecord) => void }) 
 }
 
 /// A time of day as a pill: typed in a card, on the clock in use.
+/// The year as a pill: tapped, it is typed on the time input's large digits.
+export function YearPill({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (year: number) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <PillSheet
+      label={label}
+      icon={<IconCalendarEvent size={PILL_ICON} color={theme.colors.mutedForeground} />}
+      value={String(value)}
+    >
+      <YearPicker label={label} value={value} onChange={onChange} />
+    </PillSheet>
+  );
+}
+
 export function TimePill({
   label,
   value,
