@@ -19,6 +19,7 @@ import {
 import { PAGE_BACKGROUND, cn } from "./classes.ts";
 import { useInSheet } from "./sheet/Sheet.tsx";
 import { useSemantic } from "./kit/scheme.ts";
+import { FloatingLayer } from "./floating.tsx";
 import { PageGutterProvider } from "./row-edge.tsx";
 import { GUTTER } from "./tokens.ts";
 
@@ -114,28 +115,30 @@ function ScrollingScreen({
   );
   return (
     <RevealContext.Provider value={reveal}>
-      <ScrollView
-        ref={scroll}
-        className={cn("flex-1", grouped ? undefined : PAGE_BACKGROUND)}
-        style={grouped ? { backgroundColor: groupedBackground } : undefined}
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-        scrollEventThrottle={32}
-        onScroll={onScroll}
-        onLayout={onLayout}
-        refreshControl={
-          onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
-        }
-      >
-        <View
-          ref={content}
-          collapsable={false}
-          className={cn("gap-5 p-4 pb-12", !wide && "w-full max-w-3xl self-center")}
+      <FloatingLayer>
+        <ScrollView
+          ref={scroll}
+          className={cn("flex-1", grouped ? undefined : PAGE_BACKGROUND)}
+          style={grouped ? { backgroundColor: groupedBackground } : undefined}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={32}
+          onScroll={onScroll}
+          onLayout={onLayout}
+          refreshControl={
+            onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
+          }
         >
-          {/* p-4: list rows reach past it to the screen's edges. */}
-          <PageGutterProvider value={GUTTER}>{children}</PageGutterProvider>
-        </View>
-      </ScrollView>
+          <View
+            ref={content}
+            collapsable={false}
+            className={cn("gap-5 p-4 pb-12", !wide && "w-full max-w-3xl self-center")}
+          >
+            {/* p-4: list rows reach past it to the screen's edges. */}
+            <PageGutterProvider value={GUTTER}>{children}</PageGutterProvider>
+          </View>
+        </ScrollView>
+      </FloatingLayer>
     </RevealContext.Provider>
   );
 }

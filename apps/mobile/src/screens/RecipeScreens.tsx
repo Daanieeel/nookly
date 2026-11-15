@@ -1,3 +1,4 @@
+import { usePageFilters } from "../ui/page-filters.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { EmptyState } from "../ui/kit/States.tsx";
@@ -57,7 +58,7 @@ import { Badge } from "../ui/Badge.tsx";
 import { RecipeTagChip } from "./RecipeTagChip.tsx";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
-import { ENTITY_FILTERS_NONE, useEntityFilters } from "../ui/entity-filters.tsx";
+import { useEntityFilters } from "../ui/entity-filters.tsx";
 import { Field } from "../ui/Field.tsx";
 
 import { cn } from "../ui/classes.ts";
@@ -83,11 +84,11 @@ const minutes = (total: number | null) =>
 /// A Space's recipes: their kind, how long they take, their tags.
 export function RecipeRows({ spaceId }: { spaceId: string }) {
   const { data: recipes = [] } = useRecipes(spaceId);
-  const [kinds, setKinds] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [times, setTimes] = useState<string[]>([]);
-  const [entity, setEntity] = useState(ENTITY_FILTERS_NONE);
-  const own = useEntityFilters(entity, setEntity);
+  const filters = usePageFilters(`recipes.filters.${spaceId}`);
+  const kinds = filters.picked("kind");
+  const tags = filters.picked("tags");
+  const times = filters.picked("time");
+  const own = useEntityFilters(filters.entity, filters.setEntity);
   const usedTags = [
     ...new Map(recipes.flatMap((r) => r.tags.map((t) => [t.id, t] as const))).values(),
   ];
@@ -118,21 +119,21 @@ export function RecipeRows({ spaceId }: { spaceId: string }) {
             icon: IconToolsKitchen2,
             values: kinds,
             options: RECIPE_KINDS.map((k, i) => ({ id: k, label: KIND_LABELS[i] ?? k })),
-            onChange: setKinds,
+            onChange: filters.pick("kind"),
           },
           {
             label: "Tags",
             icon: IconTag,
             values: tags,
             options: usedTags.map((t) => ({ id: t.id, label: t.name, tint: t.color })),
-            onChange: setTags,
+            onChange: filters.pick("tags"),
           },
           {
             label: "Time",
             icon: IconClock,
             values: times,
             options: RECIPE_TIME_BUCKETS,
-            onChange: setTimes,
+            onChange: filters.pick("time"),
           },
           ...own.fields,
         ]}
@@ -142,18 +143,14 @@ export function RecipeRows({ spaceId }: { spaceId: string }) {
         total={recipes.length}
         shown={shown.length}
         nothingYet={{ title: "No Recipes" }}
-        onClear={() => {
-          setKinds([]);
-          setTags([]);
-          setTimes([]);
-          setEntity(ENTITY_FILTERS_NONE);
-        }}
+        onClear={filters.clear}
       />
       <Grid min={240} max={4}>
         {shown.map((recipe) => (
           <RecipeCard key={recipe.entity.id} recipe={recipe} />
         ))}
       </Grid>
+      {filters.saveBar}
     </View>
   );
 }

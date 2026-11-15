@@ -1,3 +1,4 @@
+import { usePageFilters } from "../ui/page-filters.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { EmptyState } from "../ui/kit/States.tsx";
@@ -25,12 +26,11 @@ import {
   IconSchool,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
-import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { ListControls } from "../ui/ListControls.tsx";
 import { courseOption, statusOption } from "./option-badges.tsx";
 import { EXAM_STATUSES } from "@nookly/shared/colors";
-import { ENTITY_FILTERS_NONE, useEntityFilters } from "../ui/entity-filters.tsx";
+import { useEntityFilters } from "../ui/entity-filters.tsx";
 import {
   useAssignments,
   useCourseSemesters,
@@ -134,9 +134,9 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
   const { data: all = [] } = useCourses(spaceId);
   const { data: semesters = [] } = useSemesters(spaceId);
   const { data: inSemester = new Map<string, string>() } = useCourseSemesters(spaceId);
-  const [semesterPicks, setSemesterPicks] = useState<string[]>([]);
-  const [entity, setEntity] = useState(ENTITY_FILTERS_NONE);
-  const own = useEntityFilters(entity, setEntity);
+  const filters = usePageFilters(`courses.filters.${spaceId}`);
+  const semesterPicks = filters.picked("semester");
+  const own = useEntityFilters(filters.entity, filters.setEntity);
   const shown = all.filter(
     (c) =>
       (semesterPicks.length === 0 ||
@@ -171,7 +171,7 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
               ...semesters.map((s) => ({ id: s.entity.id, label: s.entity.title || "Untitled" })),
               { id: NO_SEMESTER, label: "No semester" },
             ],
-            onChange: setSemesterPicks,
+            onChange: filters.pick("semester"),
           },
           ...own.fields,
         ]}
@@ -181,10 +181,7 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
         total={all.length}
         shown={shown.length}
         nothingYet={{ title: "No Courses" }}
-        onClear={() => {
-          setSemesterPicks([]);
-          setEntity(ENTITY_FILTERS_NONE);
-        }}
+        onClear={filters.clear}
       />
       {bands.map((band) => {
         const cards = (
@@ -208,6 +205,7 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
           <View key="all">{cards}</View>
         );
       })}
+      {filters.saveBar}
     </View>
   );
 }
@@ -234,11 +232,11 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
   const today = localDay();
   const { data: all = [] } = useExams({ spaceId });
   const { data: courses = [] } = useCourses(spaceId);
-  const [picked, setPicked] = useState<string[]>([]);
-  const [when, setWhen] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<string[]>([]);
-  const [entity, setEntity] = useState(ENTITY_FILTERS_NONE);
-  const own = useEntityFilters(entity, setEntity);
+  const filters = usePageFilters(`exams.filters.${spaceId}`);
+  const picked = filters.picked("course");
+  const when = filters.picked("date");
+  const statuses = filters.picked("status");
+  const own = useEntityFilters(filters.entity, filters.setEntity);
   const picks = (values: string[], value: string) => values.length === 0 || values.includes(value);
   const exams = all.filter(
     (e) =>
@@ -271,21 +269,21 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
             icon: IconSchool,
             values: picked,
             options: used.map((c) => courseOption(c)),
-            onChange: setPicked,
+            onChange: filters.pick("course"),
           },
           {
             label: "Date",
             icon: IconCalendarEvent,
             values: when,
             options: EXAM_WHEN,
-            onChange: setWhen,
+            onChange: filters.pick("date"),
           },
           {
             label: "Status",
             icon: IconCircleDot,
             values: statuses,
             options: EXAM_STATUSES.map(statusOption),
-            onChange: setStatuses,
+            onChange: filters.pick("status"),
           },
           ...own.fields,
         ]}
@@ -295,12 +293,7 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
         total={all.length}
         shown={exams.length}
         nothingYet={{ title: "No Exams" }}
-        onClear={() => {
-          setPicked([]);
-          setWhen([]);
-          setStatuses([]);
-          setEntity(ENTITY_FILTERS_NONE);
-        }}
+        onClear={filters.clear}
       />
       {past.map((e) => (
         <TimelineNode key={e.entity.id} day={e.examDate} dim>
@@ -386,6 +379,7 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
           </Pressable>
         </TimelineNode>
       ))}
+      {filters.saveBar}
     </View>
   );
 }
@@ -525,10 +519,10 @@ export function DeckGrid({ spaceId }: { spaceId: string }) {
   const { data: decks = [] } = useDecks(spaceId);
   const { data: exams = [] } = useExams({ spaceId });
   const examName = (id: string | null) => exams.find((e) => e.entity.id === id)?.entity.title;
-  const [examPicks, setExamPicks] = useState<string[]>([]);
-  const [study, setStudy] = useState<string[]>([]);
-  const [entity, setEntity] = useState(ENTITY_FILTERS_NONE);
-  const own = useEntityFilters(entity, setEntity);
+  const filters = usePageFilters(`decks.filters.${spaceId}`);
+  const examPicks = filters.picked("exam");
+  const study = filters.picked("study");
+  const own = useEntityFilters(filters.entity, filters.setEntity);
   const waiting = (d: DeckRecord) => d.stats.due + d.stats.learning + d.stats.new > 0;
   const shown = decks.filter(
     (d) =>
@@ -590,7 +584,7 @@ export function DeckGrid({ spaceId }: { spaceId: string }) {
               ...usedExams.map((e) => ({ id: e.entity.id, label: e.entity.title || "Exam" })),
               { id: NO_EXAM, label: "No exam" },
             ],
-            onChange: setExamPicks,
+            onChange: filters.pick("exam"),
           },
           {
             label: "Cards to study",
@@ -600,7 +594,7 @@ export function DeckGrid({ spaceId }: { spaceId: string }) {
               { id: "ready", label: "Ready to study" },
               { id: "done", label: "All caught up" },
             ],
-            onChange: setStudy,
+            onChange: filters.pick("study"),
           },
           ...own.fields,
         ]}
@@ -613,14 +607,11 @@ export function DeckGrid({ spaceId }: { spaceId: string }) {
         total={decks.length}
         shown={shown.length}
         nothingYet={{ title: "No Decks", message: "Tap + to make one, or import a deck." }}
-        onClear={() => {
-          setExamPicks([]);
-          setStudy([]);
-          setEntity(ENTITY_FILTERS_NONE);
-        }}
+        onClear={filters.clear}
       />
       {section("Ready to study", ready)}
       {section("All caught up", caught)}
+      {filters.saveBar}
     </View>
   );
 }

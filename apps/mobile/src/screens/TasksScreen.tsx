@@ -1,7 +1,8 @@
+import { SaveBar } from "../ui/SaveBar.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { labelOption, statusOption } from "./option-badges.tsx";
-import { createView, setTaskStatus } from "@nookly/shared/data";
+import { createView, setTaskStatus, updateViewConfig } from "@nookly/shared/data";
 import {
   IconBolt,
   IconCalendarCheck,
@@ -19,7 +20,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
-import { usePreference } from "../data/preferences.ts";
+import { useDraftPreference } from "../data/preferences.ts";
 import {
   useAllLabels,
   useSpaces,
@@ -29,12 +30,11 @@ import {
   useViews,
 } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
-import { Button, statusOf } from "../ui/Button.tsx";
+import { Button } from "../ui/Button.tsx";
 import { ListHeader, Presets } from "../ui/ListBar.tsx";
 import { ActiveFilters } from "../ui/ActiveFilters.tsx";
 import type { ListFilter } from "../ui/ListControls.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
-import { Field } from "../ui/Field.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import {
   DisplayGroup,
@@ -70,25 +70,15 @@ import { BAR_BUTTON } from "../ui/bar.ts";
 /// How many finished tasks a group shows at first; the rest are a tap away in their Space.
 const FINISHED_SHOWN = 10;
 
-/// Layout, grouping and ordering, remembered on this phone like the desktop remembers
-/// them per page: the desktop's Display popover as a sheet.
+/// Layout, grouping and ordering: the desktop's Display popover as a sheet. A change is kept,
+/// or made a View, from the save bar at the bottom of the page.
 function DisplayPanel({
   display,
   onChange,
-  spaceId,
 }: {
   display: TaskDisplay;
   onChange: (next: TaskDisplay) => void;
-  spaceId: string | null;
 }) {
-  const module = spaceId ? "tasks" : "tasks-overview";
-  const { data: allSpaces = [] } = useSpaces();
-  const [name, setName] = useState("");
-  const save = useLocalWrite((db, title: string) => {
-    const space = spaceId ?? allSpaces[0]?.id;
-    if (!space) throw new Error("Make a Space first.");
-    return createView(db, space, { title, module, config: viewConfigFromDisplay(display) });
-  });
   return (
     <View className="gap-3">
       <LayoutTiles
@@ -118,18 +108,6 @@ function DisplayPanel({
           onChange={(showFinished) => onChange({ ...display, showFinished })}
         />
       </DisplayGroup>
-      <View className="flex-row items-end gap-2 border-t border-border pt-3">
-        <View className="flex-1">
-          <Field label="View name" placeholder="Open work" value={name} onChangeText={setName} />
-        </View>
-        <Button
-          label="Save View"
-          variant="secondary"
-          status={statusOf(save)}
-          errorLabel="Couldn't save"
-          onPress={() => name.trim() && save.mutate(name.trim(), { onSuccess: () => setName("") })}
-        />
-      </View>
     </View>
   );
 }
@@ -217,20 +195,22 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
       ? { ...DEFAULT_DISPLAY, layout: "board" }
       : DEFAULT_DISPLAY
     : { ...DEFAULT_DISPLAY, grouping: "due" };
-  const [display, setDisplay] = usePreference<TaskDisplay>(
+  const draft = useDraftPreference<TaskDisplay>(
     `tasks.display.${spaceId ?? "all"}`,
     displaySchema,
     initial,
   );
+  const display = draft.value;
+  const setDisplay = draft.set;
   const [panel, setPanel] = useState<"filter" | "display" | null>(null);
   const { view: requested } = useLocalSearchParams<{ view?: string }>();
-  const [view, setView] = useState("all");
+  const view = draft.viewId ?? "all";
   const [note, setNote] = useState<string | null>(null);
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
   const weekStart = useWeekStart();
   // What the list and the board show depends on everything but which of them is shown, so a
   // switch between them builds nothing again (see `built` below).
-  const shapeKey = JSON.stringify({ ...display, layout: null });
+  const contentKey = JSON.stringify({ ...display, layout: null });
   const groups = useMemo(
     () =>
       groupTasks(tasks, display, {
@@ -240,9 +220,9 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
         spaces,
         weekStart,
       }),
-    // `display` is read through `shapeKey`, its layout left out.
+    // `display` is read through `contentKey`, its layout left out.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tasks, shapeKey, statuses, labels, labelMap, spaces, weekStart, spaceId],
+    [tasks, contentKey, statuses, labels, labelMap, spaces, weekStart, spaceId],
   );
   const spaceOf = (task: (typeof tasks)[number]) =>
     spaceId ? undefined : spaces.find((s) => s.id === task.entity.spaceId);
@@ -269,9 +249,8 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
   const move = useRef(moveTo);
   move.current = moveTo;
   const openView = (id: string) => {
-    setView(id);
     if (id === "all") {
-      setDisplay(initial);
+      draft.open(null);
       setNote(null);
       return;
     }
@@ -281,7 +260,7 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
       statusIds: statuses.map((s) => s.id),
       labelIds: labels.map((l) => l.id),
     });
-    setDisplay(next);
+    draft.open({ id, value: next });
     setNote(
       ignored.length > 0
         ? `This view also uses ${ignored.join(", ")}, which the phone doesn't show yet.`
@@ -295,6 +274,18 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requested, views.length]);
   const filters = useTaskFilters(display, setDisplay, spaceId);
+  const viewSpace = spaceId ?? spaces[0]?.id;
+  const saveView = useLocalWrite((db, id: string) =>
+    updateViewConfig(db, id, viewConfigFromDisplay(display)),
+  );
+  const saveAsView = useLocalWrite((db, title: string) => {
+    if (!viewSpace) throw new Error("Make a Space first.");
+    return createView(db, viewSpace, {
+      title,
+      module: spaceId ? "tasks" : "tasks-overview",
+      config: viewConfigFromDisplay(display),
+    });
+  });
   const row = (task: (typeof tasks)[number]) => {
     const space = spaceOf(task);
     return (
@@ -367,9 +358,9 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
           }}
         />
       ) : null,
-    // Built from the same things as `groups`; `display` read through `shapeKey`.
+    // Built from the same things as `groups`; `display` read through `contentKey`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [built, groups, shapeKey, statuses, labels, labelMap, spaces],
+    [built, groups, contentKey, statuses, labels, labelMap, spaces],
   );
   const listBlock = useMemo(
     () =>
@@ -401,7 +392,7 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
         </>
       ) : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [built, groups, shapeKey, statuses, labels, labelMap, spaces],
+    [built, groups, contentKey, statuses, labels, labelMap, spaces],
   );
   return (
     <>
@@ -439,7 +430,7 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
           onOpenChange={(open) => !open && setPanel(null)}
           title="Display"
         >
-          <DisplayPanel display={display} onChange={setDisplay} spaceId={spaceId} />
+          <DisplayPanel display={display} onChange={setDisplay} />
         </Sheet>
         {note ? (
           <Text variant="small" tone="muted">
@@ -457,6 +448,25 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
         <View testID="tasks-list" className="gap-5" style={hiddenUnless(!board)}>
           {listBlock}
         </View>
+        <SaveBar
+          dirty={draft.dirty}
+          onDiscard={draft.discard}
+          onSave={async () => {
+            if (draft.viewId) {
+              await saveView.mutateAsync(draft.viewId);
+              draft.commit();
+            } else draft.save();
+          }}
+          // An open View saves into itself; only the page's own makes a new one.
+          onSaveAsView={
+            draft.viewId
+              ? undefined
+              : async (title) => {
+                  const id = await saveAsView.mutateAsync(title);
+                  draft.open({ id, value: display });
+                }
+          }
+        />
       </Screen>
     </>
   );

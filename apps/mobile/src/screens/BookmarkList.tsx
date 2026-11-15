@@ -1,3 +1,4 @@
+import { SaveBar } from "../ui/SaveBar.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { useRowEdge } from "../ui/row-edge.tsx";
@@ -31,7 +32,7 @@ import { fetchPageMetadata } from "../data/bookmark-fetch.ts";
 import { afterLocalWrite, useAppData, useLocalWrite } from "../data/context.tsx";
 import { livePath } from "../data/reroot.ts";
 import { useBookmarks, useLabels } from "../data/queries.ts";
-import { usePreference } from "../data/preferences.ts";
+import { useDraftPreference } from "../data/preferences.ts";
 import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
@@ -44,7 +45,7 @@ import {
 } from "../ui/entity-filters.tsx";
 import { Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
-import { FloatingField, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
+import { FloatingField, PASTE_BAR_MARGIN, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
 import { localDay } from "./dates.ts";
 import { labelOption } from "./option-badges.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -348,11 +349,9 @@ function BookmarkRow({
 export function BookmarkList({ spaceId }: { spaceId: string }) {
   const { data: bookmarks = [] } = useBookmarks(spaceId);
   const { data: labels = [] } = useLabels(spaceId);
-  const [display, setDisplay] = usePreference<Display>(
-    `bookmarks.display.${spaceId}`,
-    displaySchema,
-    DEFAULT,
-  );
+  const draft = useDraftPreference<Display>(`bookmarks.display.${spaceId}`, displaySchema, DEFAULT);
+  const display = draft.value;
+  const setDisplay = draft.set;
   const used = labels.filter((l) => bookmarks.some((b) => b.labelIds.includes(l.id)));
   const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
   useReadUnread(bookmarks, spaceId);
@@ -462,6 +461,12 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
           ))}
       {/* Room for the paste bar floating over the end of the list. */}
       <View style={{ height: PASTE_BAR_ROOM }} />
+      <SaveBar
+        dirty={draft.dirty}
+        above={PASTE_BAR_ROOM - PASTE_BAR_MARGIN}
+        onDiscard={draft.discard}
+        onSave={draft.save}
+      />
     </View>
   );
 }

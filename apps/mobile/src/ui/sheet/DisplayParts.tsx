@@ -229,7 +229,14 @@ export function FilterOptions<T extends string>({
   onChange: (values: T[]) => void;
   search?: boolean;
 }) {
+  // Ticks of its own, so quick taps build on each other before the page catches up; a change
+  // made elsewhere (Discard, Clear Filters, a chip's X) replaces them.
   const [ticked, setTicked] = useState(values);
+  const [given, setGiven] = useState(values);
+  if (given !== values && given.join("\n") !== values.join("\n")) {
+    setGiven(values);
+    setTicked(values);
+  }
   return (
     <OptionList
       label={label}

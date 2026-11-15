@@ -81,3 +81,82 @@ export function usePreference<T>(key: string, schema: z.ZodType<T>, fallback: T)
   const write = useCallback((next: T) => writePreference(key, next), [key]);
   return [value, write] as const;
 }
+
+/// Changes to a page's filters and display that are not saved yet, by preference key: shown
+/// at once, kept only in memory (so they outlive leaving the page, not the app), and measured
+/// against `bases`: an opened View's own, else the page's saved one.
+const drafts = new Map<string, unknown>();
+const bases = new Map<string, { id: string; value: unknown }>();
+const draftListeners = new Map<string, Set<() => void>>();
+/// Bumped on every change, so a snapshot changes whenever a draft or base does.
+const versions = new Map<string, number>();
+
+function touch(key: string) {
+  versions.set(key, (versions.get(key) ?? 0) + 1);
+  for (const listener of draftListeners.get(key) ?? []) listener();
+}
+
+/// Drops every unsaved change (tests).
+export function forgetDrafts() {
+  drafts.clear();
+  bases.clear();
+  versions.clear();
+}
+
+const same = <T>(a: T, b: T) => JSON.stringify(a) === JSON.stringify(b);
+
+/// A page's filters and display as the desktop treats them: a change shows at once but is a
+/// change (`dirty`) until `save` keeps it as what the page opens with, or `discard` drops it.
+/// `open` shows a View and measures against it instead (null goes back to the page's own),
+/// and `commit` makes what is shown the View's, once the page has saved it into the View.
+export function useDraftPreference<T>(key: string, schema: z.ZodType<T>, fallback: T) {
+  const [saved, write] = usePreference(key, schema, fallback);
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      const set = draftListeners.get(key) ?? new Set();
+      set.add(notify);
+      draftListeners.set(key, set);
+      return () => {
+        set.delete(notify);
+      };
+    },
+    [key],
+  );
+  useSyncExternalStore(subscribe, () => versions.get(key) ?? 0);
+  const view = bases.get(key);
+  // SAFETY: only this hook writes drafts and bases under `key`, always as a T.
+  const base = (view ? view.value : saved) as T;
+  // SAFETY: as above.
+  const value = (drafts.has(key) ? drafts.get(key) : base) as T;
+  return {
+    value,
+    dirty: drafts.has(key) && !same(drafts.get(key), base),
+    /// The View the page shows and compares with, if one is open.
+    viewId: view?.id ?? null,
+    set: (next: T) => {
+      if (same(next, base)) drafts.delete(key);
+      else drafts.set(key, next);
+      touch(key);
+    },
+    discard: () => {
+      drafts.delete(key);
+      touch(key);
+    },
+    save: () => {
+      write(value);
+      drafts.delete(key);
+      touch(key);
+    },
+    open: (opened: { id: string; value: T } | null) => {
+      if (opened === null) bases.delete(key);
+      else bases.set(key, opened);
+      drafts.delete(key);
+      touch(key);
+    },
+    commit: () => {
+      if (view) bases.set(key, { id: view.id, value });
+      drafts.delete(key);
+      touch(key);
+    },
+  };
+}

@@ -1,3 +1,4 @@
+import { SaveBar } from "../ui/SaveBar.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { EmptyState } from "../ui/kit/States.tsx";
@@ -22,7 +23,7 @@ import {
   useEntityFilters,
 } from "../ui/entity-filters.tsx";
 import { DisplayGroup, SelectRow } from "../ui/sheet/DisplayParts.tsx";
-import { usePreference } from "../data/preferences.ts";
+import { useDraftPreference } from "../data/preferences.ts";
 import { z } from "zod";
 import { labelOption } from "./option-badges.tsx";
 import { cn } from "../ui/classes.ts";
@@ -159,13 +160,17 @@ interface PageListControls {
   /// Whether any filter is on, and turning them all off.
   filtered: boolean;
   clear: () => void;
+  /// The save bar for a change to them, for the end of the page.
+  saveBar: React.ReactNode;
 }
 
 /// Notes' and Jots' header, filters and display, as Tasks has them (D65): the title with
 /// Filter and Display, the filters on as chips, and the desktop's filters (labels, last
 /// edited) and order in Linear's sheets. The search field stays under it.
 function usePageListControls(key: string, title: string, pages: PageSummary[]): PageListControls {
-  const [display, setDisplay] = usePreference<ListDisplay>(key, listSchema, LIST_DEFAULT);
+  const draft = useDraftPreference<ListDisplay>(key, listSchema, LIST_DEFAULT);
+  const display = draft.value;
+  const setDisplay = draft.set;
   const labels = [...new Map(pages.flatMap((p) => p.labels).map((l) => [l.id, l])).values()].sort(
     (a, b) => a.name.localeCompare(b.name),
   );
@@ -228,6 +233,7 @@ function usePageListControls(key: string, title: string, pages: PageSummary[]): 
     controls,
     keep: (page) => passes(page, display, own.passes),
     filtered,
+    saveBar: <SaveBar dirty={draft.dirty} onDiscard={draft.discard} onSave={draft.save} />,
     clear: () =>
       setDisplay({ ...display, courses: [], labels: [], edited: [], ...ENTITY_FILTERS_NONE }),
   };
@@ -237,7 +243,7 @@ function usePageListControls(key: string, title: string, pages: PageSummary[]): 
 export function NoteList({ spaceId }: { spaceId: string }) {
   const { data: pages = [] } = usePageSummaries(spaceId, "note");
   const [query, setQuery] = useState("");
-  const { display, controls, keep, clear } = usePageListControls(
+  const { display, controls, keep, clear, saveBar } = usePageListControls(
     `notes.display.${spaceId}`,
     "Notes",
     pages,
@@ -267,6 +273,7 @@ export function NoteList({ spaceId }: { spaceId: string }) {
           ))}
         </ListGroup>
       </View>
+      {saveBar}
     </View>
   );
 }
@@ -288,7 +295,7 @@ export function JotList({ spaceId }: { spaceId: string }) {
   const { data: jots = [] } = usePageSummaries(spaceId, "jot");
   const [preset, setPreset] = useState<JotPreset>("unrefined");
   const [query, setQuery] = useState("");
-  const { display, controls, keep, filtered, clear } = usePageListControls(
+  const { display, controls, keep, filtered, clear, saveBar } = usePageListControls(
     `jots.display.${spaceId}`,
     "Jots",
     jots,
@@ -351,6 +358,7 @@ export function JotList({ spaceId }: { spaceId: string }) {
           </ListGroup>
         </View>
       )}
+      {saveBar}
     </View>
   );
 }

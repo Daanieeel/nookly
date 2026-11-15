@@ -1,3 +1,4 @@
+import { SaveBar } from "../ui/SaveBar.tsx";
 import { ListGroup, ListItem } from "../ui/ListMotion.tsx";
 import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { statusOption } from "./option-badges.tsx";
@@ -19,7 +20,7 @@ import { Stack, useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
-import { usePreference } from "../data/preferences.ts";
+import { useDraftPreference } from "../data/preferences.ts";
 import { useAssignments, useCourses, useSpaces } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
 import { SpaceDot } from "../ui/Badge.tsx";
@@ -198,11 +199,13 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
   const { data: all = [] } = useAssignments(spaceId ? { spaceId } : {});
   const { data: courses = [] } = useCourses(spaceId);
   const { data: spaces = [] } = useSpaces();
-  const [display, setDisplay] = usePreference<Display>(
+  const draft = useDraftPreference<Display>(
     `assignments.display.${spaceId ?? "all"}`,
     displaySchema,
     DEFAULT,
   );
+  const display = draft.value;
+  const setDisplay = draft.set;
   const courseName = (id: string | null) => courses.find((c) => c.entity.id === id)?.entity.title;
   const spaceOf = (id: string) => spaces.find((s) => s.id === id);
   const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
@@ -377,6 +380,7 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
             </Band>
           ))
         )}
+        <SaveBar dirty={draft.dirty} onDiscard={draft.discard} onSave={draft.save} />
       </Screen>
     </>
   );

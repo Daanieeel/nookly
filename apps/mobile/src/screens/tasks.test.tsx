@@ -22,6 +22,8 @@ import { addDays, localDay } from "./dates.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewTaskScreen } from "./NewScreens.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
+import { DEFAULT_DISPLAY, displaySchema } from "./task-view.ts";
+import { readPreference } from "../data/preferences.ts";
 
 async function seeded() {
   const data = testData();
@@ -181,8 +183,9 @@ describe("saved views", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Filter" }));
     await openRow(screen, "Status");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Todo" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
-    await fireEvent.changeText(screen.getByLabelText("View name"), "Todo only");
+    // The change waits in the save bar at the bottom, as on the desktop.
+    await fireEvent.press(screen.getByRole("button", { name: "Save as View" }));
+    await fireEvent.changeText(await screen.findByLabelText("View name"), "Todo only");
     await fireEvent.press(screen.getByRole("button", { name: "Save View" }));
     await waitFor(async () => {
       const [view] = await listViews(data.db, { spaceId: space, module: "tasks" });
@@ -197,6 +200,58 @@ describe("saved views", () => {
     await fireEvent.press(await screen.findByRole("tab", { name: "Todo only" }));
     expect((await screen.findAllByRole("button", { name: "Todo" })).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("button", { name: "Backlog" })).toEqual([]);
+  });
+
+  // A change to the filters or display is a change until the save bar keeps it (D78).
+  it("keeps a change only once saved, and drops it on Discard", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    const stored = () =>
+      readPreference(`tasks.display.${space}`, displaySchema, DEFAULT_DISPLAY).statuses;
+    const pickTodo = async () => {
+      await fireEvent.press(await screen.findByRole("button", { name: "Filter" }));
+      await openRow(screen, "Status");
+      await fireEvent.press(await screen.findByRole("checkbox", { name: "Todo" }));
+      // The sheets close, and the save bar waits at the bottom of the page.
+      for (const close of screen.getAllByRole("button", { name: "Close" }).reverse()) {
+        await fireEvent.press(close);
+      }
+    };
+    await pickTodo();
+    expect(await screen.findByLabelText("Unsaved changes")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Discard" }));
+    await waitFor(() =>
+      expect(screen.queryAllByRole("button", { name: "Status: Todo" })).toEqual([]),
+    );
+    expect(stored()).toEqual([]);
+    await pickTodo();
+    await fireEvent.press(await screen.findByRole("button", { name: "Save" }));
+    expect(stored()).toEqual(["todo"]);
+    expect(screen.getAllByRole("button", { name: "Status: Todo" }).length).toBe(1);
+  });
+
+  it("saves a change to an open View into the View", async () => {
+    const { data, space } = await seeded();
+    const id = await createView(data.db, space, {
+      title: "Everything",
+      module: "tasks",
+      config: JSON.stringify({ filters: [], display: { layout: "list" } }),
+    });
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("tab", { name: "Everything" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Status");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Todo" }));
+    // An open View has nothing to save as: it saves into itself.
+    expect(screen.queryByRole("button", { name: "Save as View" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Save" }));
+    await waitFor(async () => {
+      const [view] = await listViews(data.db, { spaceId: space, module: "tasks" });
+      expect(view.entity.id).toBe(id);
+      expect(JSON.parse(view.config).filters).toEqual([
+        { fieldId: "status", operator: "is", values: ["todo"] },
+      ]);
+    });
   });
 
   it("says what a View from the computer uses that the phone doesn't show", async () => {

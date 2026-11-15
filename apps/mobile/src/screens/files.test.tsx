@@ -161,7 +161,8 @@ describe("files", () => {
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Unlabelled 1" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "exam.pdf" })).toBeNull());
     expect(screen.getByRole("button", { name: "other.pdf" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
+    // The change waits in the save bar, which makes it a View.
+    await fireEvent.press(screen.getByRole("button", { name: "Save as View" }));
     await fireEvent.changeText(await screen.findByLabelText("View name"), "To sort");
     await fireEvent.press(screen.getByRole("button", { name: "Save View" }));
     await waitFor(async () => {

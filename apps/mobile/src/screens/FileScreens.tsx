@@ -8,6 +8,7 @@ import {
   addFile,
   addFileLink,
   createView,
+  updateViewConfig,
   type LabelRecord,
   fileKindOf,
   isDownloading,
@@ -35,8 +36,7 @@ import { storePicked } from "../data/files.ts";
 import { useFile, useFiles, useLabels, useViews } from "../data/queries.ts";
 import { UNLABELLED, labelShelf } from "@nookly/shared/label-shelf";
 import { Chip, ChipGroup } from "../ui/Chips.tsx";
-import { FloatingField, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
-import { Field } from "../ui/Field.tsx";
+import { FloatingField, PASTE_BAR_MARGIN, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
 import { Presets } from "../ui/ListBar.tsx";
 import {
   FILE_DEFAULT,
@@ -47,13 +47,14 @@ import {
   fileDisplaySchema,
   fileViewConfig,
 } from "./file-view.ts";
-import { Button, statusOf } from "../ui/Button.tsx";
+import { Button } from "../ui/Button.tsx";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
 import { useEntityFilters } from "../ui/entity-filters.tsx";
 import { Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
-import { usePreference } from "../data/preferences.ts";
+import { useDraftPreference } from "../data/preferences.ts";
+import { SaveBar } from "../ui/SaveBar.tsx";
 import { labelOption } from "./option-badges.tsx";
 import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
@@ -322,12 +323,14 @@ export function FileRows({ spaceId }: { spaceId: string }) {
   const { data: files = [] } = useFiles(spaceId);
   const { data: labels = [] } = useLabels(spaceId);
   const { data: views = [] } = useViews({ spaceId, module: "files" });
-  const [display, setDisplay] = usePreference<FileDisplay>(
+  const draft = useDraftPreference<FileDisplay>(
     `files.display.${spaceId}`,
     fileDisplaySchema,
     FILE_DEFAULT,
   );
-  const [view, setView] = useState("all");
+  const display = draft.value;
+  const setDisplay = draft.set;
+  const view = draft.viewId ?? "all";
   const [note, setNote] = useState<string | null>(null);
   const kinds = [...new Set(files.map(kindOf))];
   const used = labels.filter((l) => files.some((f) => f.labelIds.includes(l.id)));
@@ -345,17 +348,22 @@ export function FileRows({ spaceId }: { spaceId: string }) {
       own.passes(f.entity),
   );
   const groups = fileGroups(shown, display, used);
+  const saveView = useLocalWrite((db, id: string) =>
+    updateViewConfig(db, id, fileViewConfig(display)),
+  );
+  const saveAsView = useLocalWrite((db, title: string) =>
+    createView(db, spaceId, { title, module: "files", config: fileViewConfig(display) }),
+  );
   const openView = (id: string) => {
-    setView(id);
     setNote(null);
-    if (id === "all") return setDisplay(FILE_DEFAULT);
+    if (id === "all") return draft.open(null);
     const saved = views.find((v) => v.entity.id === id);
     if (!saved) return;
     const opened = fileDisplayFromView(saved.config, {
       labelIds: labels.map((l) => l.id),
       kinds,
     });
-    setDisplay(opened.display);
+    draft.open({ id, value: opened.display });
     if (opened.ignored.length > 0) {
       setNote(
         `This view also uses ${opened.ignored.join(", ")}, which the phone doesn't show yet.`,
@@ -384,7 +392,7 @@ export function FileRows({ spaceId }: { spaceId: string }) {
           },
           ...own.fields,
         ]}
-        display={<FileDisplayPanel spaceId={spaceId} display={display} onChange={setDisplay} />}
+        display={<FileDisplayPanel display={display} onChange={setDisplay} />}
       />
       {views.length > 0 ? (
         <Presets
@@ -434,24 +442,37 @@ export function FileRows({ spaceId }: { spaceId: string }) {
           ))}
       {/* Room for the paste bar floating over the end of the list. */}
       <View style={{ height: PASTE_BAR_ROOM }} />
+      <SaveBar
+        dirty={draft.dirty}
+        above={PASTE_BAR_ROOM - PASTE_BAR_MARGIN}
+        onDiscard={draft.discard}
+        onSave={async () => {
+          if (draft.viewId) {
+            await saveView.mutateAsync(draft.viewId);
+            draft.commit();
+          } else draft.save();
+        }}
+        onSaveAsView={
+          draft.viewId
+            ? undefined
+            : async (title) => {
+                const id = await saveAsView.mutateAsync(title);
+                draft.open({ id, value: display });
+              }
+        }
+      />
     </View>
   );
 }
 
-/// Layout, grouping and ordering, and saving what is shown as a View the desktop opens too.
+/// Layout, grouping and ordering; the save bar keeps a change or makes it a View.
 function FileDisplayPanel({
-  spaceId,
   display,
   onChange,
 }: {
-  spaceId: string;
   display: FileDisplay;
   onChange: (next: FileDisplay) => void;
 }) {
-  const [name, setName] = useState("");
-  const save = useLocalWrite((db, title: string) =>
-    createView(db, spaceId, { title, module: "files", config: fileViewConfig(display) }),
-  );
   return (
     <View className="gap-3">
       <LayoutTiles
@@ -476,18 +497,6 @@ function FileDisplayPanel({
           onChange={(ordering) => onChange({ ...display, ordering })}
         />
       </DisplayGroup>
-      <View className="flex-row items-end gap-2 border-t border-border pt-3">
-        <View className="flex-1">
-          <Field label="View name" placeholder="Exam papers" value={name} onChangeText={setName} />
-        </View>
-        <Button
-          label="Save View"
-          variant="secondary"
-          status={statusOf(save)}
-          errorLabel="Couldn't save"
-          onPress={() => name.trim() && save.mutate(name.trim(), { onSuccess: () => setName("") })}
-        />
-      </View>
     </View>
   );
 }

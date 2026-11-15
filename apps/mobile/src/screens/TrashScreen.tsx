@@ -1,3 +1,4 @@
+import { usePageFilters } from "../ui/page-filters.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { deleteForever, emptyTrash, restoreEntity } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
@@ -31,9 +32,10 @@ export function TrashScreen() {
   const { data: trashed = [] } = useEntities(null, [], true);
   const { data: spaces = [] } = useSpaces();
   const [query, setQuery] = useState("");
-  const [types, setTypes] = useState<string[]>([]);
-  const [inSpaces, setInSpaces] = useState<string[]>([]);
-  const [deleted, setDeleted] = useState<string[]>([]);
+  const filters = usePageFilters("trash.filters");
+  const types = filters.picked("type");
+  const inSpaces = filters.picked("space");
+  const deleted = filters.picked("deleted");
   const weekStart = useWeekStart();
   const spaceName = (id: string) => spaces.find((s) => s.id === id)?.name ?? "";
   const shown = trashed.filter(
@@ -72,21 +74,21 @@ export function TrashScreen() {
               presentTypes.length > 1
                 ? presentTypes.map((type) => ({ id: type, label: typeLabel(type) }))
                 : [],
-            onChange: setTypes,
+            onChange: filters.pick("type"),
           },
           {
             label: "Space",
             icon: IconFolder,
             values: inSpaces,
             options: presentSpaces.length > 1 ? presentSpaces.map(spaceOption) : [],
-            onChange: setInSpaces,
+            onChange: filters.pick("space"),
           },
           {
             label: "Deleted",
             icon: IconTrash,
             values: deleted,
             options: trashed.length > 0 ? AGE_OPTIONS : [],
-            onChange: setDeleted,
+            onChange: filters.pick("deleted"),
           },
         ]}
       />
@@ -130,9 +132,7 @@ export function TrashScreen() {
           nothingYet={{ title: "Trash Is Empty" }}
           onClear={() => {
             setQuery("");
-            setTypes([]);
-            setInSpaces([]);
-            setDeleted([]);
+            filters.clear();
           }}
         />
         {staged.map((entity) => (
@@ -165,6 +165,7 @@ export function TrashScreen() {
           </View>
         ))}
       </Section>
+      {filters.saveBar}
     </Screen>
   );
 }
