@@ -13,7 +13,9 @@ import { ListTitle } from "../ui/ListBar.tsx";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
+  IconCalendarEvent,
   IconCalendarStats,
+  IconCircleDot,
   IconCards,
   IconFileImport,
   IconPlayerPlayFilled,
@@ -24,7 +26,9 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { ListControls } from "../ui/ListControls.tsx";
 import { Empty } from "../ui/Row.tsx";
-import { courseOption } from "./option-badges.tsx";
+import { courseOption, statusOption } from "./option-badges.tsx";
+import { EXAM_STATUSES } from "@nookly/shared/colors";
+import { ENTITY_FILTERS_NONE, useEntityFilters } from "../ui/entity-filters.tsx";
 import {
   useAssignments,
   useCourseSemesters,
@@ -43,7 +47,7 @@ import { ProgressRing } from "../ui/ProgressRing.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { courseStats, inDays } from "./course-stats.ts";
-import { dayLabel, localDay } from "./dates.ts";
+import { addDays, dayLabel, localDay } from "./dates.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "../ui/touch.ts";
 
 /// A soft, light color for a name, steered around the yellows, as the desktop's course
@@ -120,20 +124,32 @@ function CourseCard({ course }: { course: CourseRecord }) {
 
 /// A Space's Courses as the desktop's gallery: cards under a band per semester (the current
 /// one marked Active), courses with no semester last.
+/// The Semester filter's value for a course in none.
+const NO_SEMESTER = "none";
+
 export function CourseGallery({ spaceId }: { spaceId: string }) {
   const theme = useTheme();
-  const { data: courses = [] } = useCourses(spaceId);
+  const { data: all = [] } = useCourses(spaceId);
   const { data: semesters = [] } = useSemesters(spaceId);
   const { data: inSemester = new Map<string, string>() } = useCourseSemesters(spaceId);
+  const [semesterPicks, setSemesterPicks] = useState<string[]>([]);
+  const [entity, setEntity] = useState(ENTITY_FILTERS_NONE);
+  const own = useEntityFilters(entity, setEntity);
+  const shown = all.filter(
+    (c) =>
+      (semesterPicks.length === 0 ||
+        semesterPicks.includes(inSemester.get(c.entity.id) ?? NO_SEMESTER)) &&
+      own.passes(c.entity),
+  );
   const bands: { semester: SemesterRecord | null; courses: CourseRecord[] }[] = semesters
     .map((s) => ({
       semester: s,
-      courses: courses.filter((c) => inSemester.get(c.entity.id) === s.entity.id),
+      courses: shown.filter((c) => inSemester.get(c.entity.id) === s.entity.id),
     }))
     .filter((b) => b.courses.length > 0);
-  const loose = courses.filter((c) => !inSemester.has(c.entity.id));
+  const loose = shown.filter((c) => !inSemester.has(c.entity.id));
   if (loose.length > 0) bands.push({ semester: null, courses: loose });
-  if (courses.length === 0) {
+  if (all.length === 0) {
     return (
       <View className="items-center gap-2 p-8">
         <IconSchool size={28} color={theme.colors.mutedForeground} />
@@ -146,6 +162,24 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
   const grouped = semesters.length > 0;
   return (
     <View className="gap-5">
+      <ListControls
+        title="Courses"
+        count={all.length}
+        filters={[
+          {
+            label: "Semester",
+            icon: IconCalendarStats,
+            values: semesterPicks,
+            options: [
+              ...semesters.map((s) => ({ id: s.entity.id, label: s.entity.title || "Untitled" })),
+              { id: NO_SEMESTER, label: "No semester" },
+            ],
+            onChange: setSemesterPicks,
+          },
+          ...own.fields,
+        ]}
+      />
+      {shown.length === 0 ? <Empty text="No courses match these filters." /> : null}
       {bands.map((band) => {
         const cards = (
           <Grid min={260} max={3}>
@@ -172,6 +206,20 @@ export function CourseGallery({ spaceId }: { spaceId: string }) {
   );
 }
 
+/// When an exam is, from today, as the desktop's Date filter: soon, later, behind, unset.
+const EXAM_WHEN = [
+  { id: "week", label: "Next 7 days" },
+  { id: "later", label: "Later" },
+  { id: "past", label: "Past" },
+  { id: "none", label: "No date" },
+];
+
+export function examWhen(examDate: string | null, today: string): string {
+  if (!examDate) return "none";
+  if (examDate < today) return "past";
+  return examDate <= addDays(today, 7) ? "week" : "later";
+}
+
 /// The Exams page: a timeline with what is behind you above a Today marker and what is
 /// ahead below it, the next exam as a highlighted card with the days to go.
 export function ExamTimeline({ spaceId }: { spaceId: string }) {
@@ -181,7 +229,18 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
   const { data: all = [] } = useExams({ spaceId });
   const { data: courses = [] } = useCourses(spaceId);
   const [picked, setPicked] = useState<string[]>([]);
-  const exams = all.filter((e) => picked.length === 0 || picked.includes(e.courseId ?? ""));
+  const [when, setWhen] = useState<string[]>([]);
+  const [statuses, setStatuses] = useState<string[]>([]);
+  const [entity, setEntity] = useState(ENTITY_FILTERS_NONE);
+  const own = useEntityFilters(entity, setEntity);
+  const picks = (values: string[], value: string) => values.length === 0 || values.includes(value);
+  const exams = all.filter(
+    (e) =>
+      picks(picked, e.courseId ?? "") &&
+      picks(when, examWhen(e.examDate, today)) &&
+      picks(statuses, e.status) &&
+      own.passes(e.entity),
+  );
   const courseName = (id: string | null) => courses.find((c) => c.entity.id === id)?.entity.title;
   const dated = exams
     .filter((e) => e.examDate !== null)
@@ -214,6 +273,21 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
             options: used.map((c) => courseOption(c)),
             onChange: setPicked,
           },
+          {
+            label: "Date",
+            icon: IconCalendarEvent,
+            values: when,
+            options: EXAM_WHEN,
+            onChange: setWhen,
+          },
+          {
+            label: "Status",
+            icon: IconCircleDot,
+            values: statuses,
+            options: EXAM_STATUSES.map(statusOption),
+            onChange: setStatuses,
+          },
+          ...own.fields,
         ]}
       />
       {exams.length === 0 ? <Empty text="No exams match these filters." /> : null}
@@ -439,8 +513,20 @@ export function DeckGrid({ spaceId }: { spaceId: string }) {
   const { data: decks = [] } = useDecks(spaceId);
   const { data: exams = [] } = useExams({ spaceId });
   const examName = (id: string | null) => exams.find((e) => e.entity.id === id)?.entity.title;
-  const ready = decks.filter((d) => d.stats.due + d.stats.learning + d.stats.new > 0);
-  const caught = decks.filter((d) => !ready.includes(d));
+  const [examPicks, setExamPicks] = useState<string[]>([]);
+  const [study, setStudy] = useState<string[]>([]);
+  const [entity, setEntity] = useState(ENTITY_FILTERS_NONE);
+  const own = useEntityFilters(entity, setEntity);
+  const waiting = (d: DeckRecord) => d.stats.due + d.stats.learning + d.stats.new > 0;
+  const shown = decks.filter(
+    (d) =>
+      (examPicks.length === 0 || examPicks.includes(d.examId ?? NO_EXAM)) &&
+      (study.length === 0 || study.includes(waiting(d) ? "ready" : "done")) &&
+      own.passes(d.entity),
+  );
+  const ready = shown.filter(waiting);
+  const caught = shown.filter((d) => !waiting(d));
+  const usedExams = exams.filter((e) => decks.some((d) => d.examId === e.entity.id));
   const header = (
     <View className="flex-row flex-wrap items-center gap-2">
       <View style={{ flexGrow: 1 }}>
@@ -480,9 +566,42 @@ export function DeckGrid({ spaceId }: { spaceId: string }) {
     );
   return (
     <View className="gap-5">
-      {header}
+      <ListControls
+        title="Decks"
+        count={decks.length}
+        filters={[
+          {
+            label: "Exam",
+            icon: IconCalendarStats,
+            values: examPicks,
+            options: [
+              ...usedExams.map((e) => ({ id: e.entity.id, label: e.entity.title || "Exam" })),
+              { id: NO_EXAM, label: "No exam" },
+            ],
+            onChange: setExamPicks,
+          },
+          {
+            label: "Cards to study",
+            icon: IconCards,
+            values: study,
+            options: [
+              { id: "ready", label: "Ready to study" },
+              { id: "done", label: "All caught up" },
+            ],
+            onChange: setStudy,
+          },
+          ...own.fields,
+        ]}
+      />
+      <View className="flex-row justify-end">
+        <ImportDeckButton spaceId={spaceId} />
+      </View>
+      {shown.length === 0 ? <Empty text="No decks match these filters." /> : null}
       {section("Ready to study", ready)}
       {section("All caught up", caught)}
     </View>
   );
 }
+
+/// The Exam filter's value for a deck that prepares for none.
+const NO_EXAM = "none";

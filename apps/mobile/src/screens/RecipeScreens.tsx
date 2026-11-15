@@ -1,6 +1,8 @@
 import { livePath } from "../data/reroot.ts";
 import {
   RECIPE_KINDS,
+  RECIPE_TIME_BUCKETS,
+  recipeTime,
   type RecipeItem,
   type RecipeRecord,
   type RecipeStep,
@@ -50,7 +52,8 @@ import { labelSummary } from "./ComposeForm.tsx";
 import { Badge } from "../ui/Badge.tsx";
 import { RecipeTagChip } from "./RecipeTagChip.tsx";
 import { Grid } from "../ui/Grid.tsx";
-import { ListTitle } from "../ui/ListBar.tsx";
+import { ListControls } from "../ui/ListControls.tsx";
+import { ENTITY_FILTERS_NONE, useEntityFilters } from "../ui/entity-filters.tsx";
 import { Field } from "../ui/Field.tsx";
 
 import { cn } from "../ui/classes.ts";
@@ -77,6 +80,21 @@ const minutes = (total: number | null) =>
 export function RecipeRows({ spaceId }: { spaceId: string }) {
   const theme = useTheme();
   const { data: recipes = [] } = useRecipes(spaceId);
+  const [kinds, setKinds] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [times, setTimes] = useState<string[]>([]);
+  const [entity, setEntity] = useState(ENTITY_FILTERS_NONE);
+  const own = useEntityFilters(entity, setEntity);
+  const usedTags = [
+    ...new Map(recipes.flatMap((r) => r.tags.map((t) => [t.id, t] as const))).values(),
+  ];
+  const shown = recipes.filter(
+    (r) =>
+      (kinds.length === 0 || kinds.includes(r.kind)) &&
+      (tags.length === 0 || r.tags.some((t) => tags.includes(t.id))) &&
+      (times.length === 0 || times.includes(recipeTime(r.totalDurationMinutes))) &&
+      own.passes(r.entity),
+  );
   if (recipes.length === 0) {
     return (
       <View className="items-center gap-2 p-8">
@@ -89,9 +107,37 @@ export function RecipeRows({ spaceId }: { spaceId: string }) {
   }
   return (
     <View className="gap-4">
-      <ListTitle title="Recipes" count={recipes.length} />
+      <ListControls
+        title="Recipes"
+        count={recipes.length}
+        filters={[
+          {
+            label: "Kind",
+            icon: IconToolsKitchen2,
+            values: kinds,
+            options: RECIPE_KINDS.map((k, i) => ({ id: k, label: KIND_LABELS[i] ?? k })),
+            onChange: setKinds,
+          },
+          {
+            label: "Tags",
+            icon: IconTag,
+            values: tags,
+            options: usedTags.map((t) => ({ id: t.id, label: t.name, tint: t.color })),
+            onChange: setTags,
+          },
+          {
+            label: "Time",
+            icon: IconClock,
+            values: times,
+            options: RECIPE_TIME_BUCKETS,
+            onChange: setTimes,
+          },
+          ...own.fields,
+        ]}
+      />
+      {shown.length === 0 ? <Empty text="No recipes match these filters." /> : null}
       <Grid min={240} max={4}>
-        {recipes.map((recipe) => (
+        {shown.map((recipe) => (
           <RecipeCard key={recipe.entity.id} recipe={recipe} />
         ))}
       </Grid>

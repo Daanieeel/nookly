@@ -9,7 +9,7 @@ import {
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
-import { choose } from "../test/sheet.ts";
+import { choose, openRow } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { RecipeRows } from "./RecipeScreens.tsx";
 
@@ -36,6 +36,28 @@ describe("a recipe", () => {
     expect(await screen.findByRole("button", { name: "Pancakes" })).toBeTruthy();
     expect(screen.getByText("Breakfast")).toBeTruthy();
     expect(screen.getByText("25 min")).toBeTruthy();
+  });
+
+  // The desktop's filters (D73): kind, tags, time and the fields every item has.
+  it("narrows by kind, tags and time", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Kitchen", "#22c55e");
+    const oats = await createRecipe(data.db, space, "Overnight oats");
+    await createRecipe(data.db, space, "Lasagne");
+    data.driver.exec(
+      "UPDATE recipes SET kind = 'breakfast', duration_minutes = 10 WHERE entity_id = ?",
+      oats,
+    );
+    const screen = await renderScreens({ index: () => <RecipeRows spaceId={space} /> }, data);
+    expect(await screen.findByRole("button", { name: "Lasagne" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    for (const name of ["Kind", "Tags", "Time", "Pinned", "Created", "Updated"]) {
+      expect(await screen.findByRole("button", { name: new RegExp(`^${name}, `) })).toBeTruthy();
+    }
+    await openRow(screen, "Time");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "15 minutes or less" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Lasagne" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Overnight oats" })).toBeTruthy();
   });
 
   // Its tags were plain grey badges; on the desktop each is tinted with its colour.
