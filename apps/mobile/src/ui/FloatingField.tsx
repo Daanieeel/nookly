@@ -26,7 +26,7 @@ export const PASTE_BAR_ROOM = 84;
 /// app, so these are the phones' own published shapes. A phone not listed (one with a
 /// Home button and square corners, an iPad, one not out yet) gets 0, and the bar keeps its
 /// regular corners.
-const SCREEN_CORNERS: Record<string, number> = {
+const SCREEN_CORNERS = {
   "375x812": 39, // X, XS, 11 Pro (the 12 and 13 mini share the size, a little rounder)
   "414x896": 41.5, // XR, 11, XS Max, 11 Pro Max
   "360x780": 44, // 12 mini, 13 mini
@@ -37,18 +37,19 @@ const SCREEN_CORNERS: Record<string, number> = {
   "402x874": 62, // 16 Pro, 17, 17 Pro
   "440x956": 62, // 16 Pro Max, 17 Pro Max
   "420x912": 62, // Air
-};
+} satisfies Record<string, number>;
 
 export function screenCornerRadius({ width, height }: { width: number; height: number }) {
   const short = Math.round(Math.min(width, height));
   const long = Math.round(Math.max(width, height));
-  return SCREEN_CORNERS[`${short}x${long}`] ?? 0;
+  const key = `${short}x${long}`;
+  return key in SCREEN_CORNERS ? SCREEN_CORNERS[key as keyof typeof SCREEN_CORNERS] : 0;
 }
 
-/// The bar's shape for a screen whose corners are `screen` points round: its bottom corners
+/// The bar's corners for a screen whose corners are `screen` points round: its bottom corners
 /// run alongside the screen's at the bar's margin, its top corners are the regular ones, and
 /// the send button sits `inset` inside it with corners nested in the bar's.
-export function floatingBarShape(screen: number) {
+export function pasteBarCorners(screen: number) {
   const height = 68;
   const top = 16;
   const inset = 8;
@@ -84,7 +85,7 @@ export function FloatingField({
   const theme = useTheme();
   const still = useReduceMotion();
   const fill = useSemantic("fill");
-  const shape = floatingBarShape(screenCornerRadius(useWindowDimensions()));
+  const corners = pasteBarCorners(screenCornerRadius(useWindowDimensions()));
   const keyboard = useAnimatedKeyboard();
   const [focused, setFocused] = useState(false);
   // 0 at rest in the corners, 1 once the keyboard has lifted it clear of them.
@@ -95,7 +96,7 @@ export function FloatingField({
       : withSpring(focused ? 1 : 0, SPRING.menu),
   );
   const bar = useAnimatedStyle(() => {
-    const bottom = interpolate(lifted.value, [0, 1], [shape.bottom, shape.top]);
+    const bottom = interpolate(lifted.value, [0, 1], [corners.bottom, corners.top]);
     return {
       transform: [
         { translateY: -Math.max(0, keyboard.height.value - PASTE_BAR_MARGIN + SPACE.sm) },
@@ -107,7 +108,7 @@ export function FloatingField({
     };
   });
   const button = useAnimatedStyle(() => {
-    const bottom = interpolate(lifted.value, [0, 1], [shape.button.bottom, shape.button.top]);
+    const bottom = interpolate(lifted.value, [0, 1], [corners.button.bottom, corners.button.top]);
     return { borderBottomRightRadius: bottom };
   });
   const ready = value.trim().length > 0;
@@ -135,10 +136,10 @@ export function FloatingField({
           CORNER,
           DEPTH.floating,
           {
-            height: shape.height,
-            paddingRight: shape.button.inset,
-            borderTopLeftRadius: shape.top,
-            borderTopRightRadius: shape.top,
+            height: corners.height,
+            paddingRight: corners.button.inset,
+            borderTopLeftRadius: corners.top,
+            borderTopRightRadius: corners.top,
           },
           bar,
         ]}
@@ -163,12 +164,12 @@ export function FloatingField({
           style={[
             CORNER,
             {
-              width: shape.button.size,
-              height: shape.button.size,
+              width: corners.button.size,
+              height: corners.button.size,
               overflow: "hidden",
-              borderTopLeftRadius: shape.button.top,
-              borderTopRightRadius: shape.button.top,
-              borderBottomLeftRadius: shape.button.top,
+              borderTopLeftRadius: corners.button.top,
+              borderTopRightRadius: corners.button.top,
+              borderBottomLeftRadius: corners.button.top,
             },
             button,
           ]}

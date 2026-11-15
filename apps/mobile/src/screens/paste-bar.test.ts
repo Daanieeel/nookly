@@ -1,4 +1,4 @@
-import { PASTE_BAR_MARGIN, floatingBarShape, screenCornerRadius } from "../ui/FloatingField.tsx";
+import { PASTE_BAR_MARGIN, pasteBarCorners, screenCornerRadius } from "../ui/FloatingField.tsx";
 
 // The paste bars (Bookmarks, Files) sit at the very bottom of the screen, snug in the
 // phone's own rounded corners as Safari's bar does: 8 points from the sides and the bottom,
@@ -17,28 +17,28 @@ describe("the paste bar", () => {
 
   it("sits 8 points in, its bottom corners following the screen's", () => {
     expect(PASTE_BAR_MARGIN).toBe(8);
-    const shape = floatingBarShape(55);
-    expect(shape.bottom).toBe(55 - PASTE_BAR_MARGIN);
+    const corners = pasteBarCorners(55);
+    expect(corners.bottom).toBe(55 - PASTE_BAR_MARGIN);
     // The top keeps the regular corners, never a pill.
-    expect(shape.top).toBeLessThan(shape.height / 2);
-    expect(shape.top + shape.bottom).toBeLessThanOrEqual(shape.height);
+    expect(corners.top).toBeLessThan(corners.height / 2);
+    expect(corners.top + corners.bottom).toBeLessThanOrEqual(corners.height);
   });
 
   it("nests the send button's corners in the bar's", () => {
-    const shape = floatingBarShape(55);
-    expect(shape.button.top).toBe(shape.top - shape.button.inset);
-    expect(shape.button.bottom).toBe(shape.bottom - shape.button.inset);
-    expect(shape.button.size).toBe(shape.height - 2 * shape.button.inset);
-    expect(shape.button.size).toBeGreaterThanOrEqual(44);
+    const corners = pasteBarCorners(55);
+    expect(corners.button.top).toBe(corners.top - corners.button.inset);
+    expect(corners.button.bottom).toBe(corners.bottom - corners.button.inset);
+    expect(corners.button.size).toBe(corners.height - 2 * corners.button.inset);
+    expect(corners.button.size).toBeGreaterThanOrEqual(44);
   });
 
   it("never asks for corners larger than the bar, whatever the screen", () => {
-    const shape = floatingBarShape(90);
-    expect(shape.top + shape.bottom).toBeLessThanOrEqual(shape.height);
+    const corners = pasteBarCorners(90);
+    expect(corners.top + corners.bottom).toBeLessThanOrEqual(corners.height);
   });
 
   it("keeps regular corners all round on a phone with square corners", () => {
-    const shape = floatingBarShape(0);
-    expect(shape.bottom).toBe(shape.top);
+    const corners = pasteBarCorners(0);
+    expect(corners.bottom).toBe(corners.top);
   });
 });
