@@ -4425,7 +4425,7 @@
     "childCollections": [],
     "computedFields": [],
     "convertsTo": [],
-    "description": "A saved View of a module page (Tasks or Assignments): a name plus the filters and display options to reopen it with.",
+    "description": "A saved View of a module page (Tasks, Assignments or Files): a name plus the filters and display options to reopen it with. A Files View of some labels keeps their ids in display.shelf.",
     "entityActions": [],
     "entityType": "view",
     "fields": [

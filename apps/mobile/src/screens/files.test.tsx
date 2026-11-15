@@ -97,8 +97,8 @@ describe("files", () => {
     expect(screen.getByRole("button", { name: "old.pdf" })).toBeTruthy();
   });
 
-  // D74: labels as the way in, step by step, and what has none easy to find.
-  it("browses by label on the shelf, narrowing with each label picked", async () => {
+  // D81: a View of some labels is built in a sheet, never a row of every label.
+  it("makes a View from a name and labels, and shows only the labels picked", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
     const uni = await createLabel(data.db, space, "Uni");
@@ -110,17 +110,54 @@ describe("files", () => {
     await attachLabel(data.db, both, math);
     await attachLabel(data.db, one, uni);
     const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
-    await fireEvent.press(await screen.findByRole("checkbox", { name: "Uni 2" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "loose.pdf" })).toBeNull());
-    expect(screen.getByRole("button", { name: "essay.pdf" })).toBeTruthy();
-    // Inside the pick, the shelf offers what those files also carry.
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Math 1" }));
+    expect(await screen.findByRole("button", { name: "loose.pdf" })).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: /^Uni/ })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "New View" }));
+    await fireEvent.changeText(await screen.findByLabelText("View name"), "Maths");
+    await fireEvent.press(screen.getByRole("button", { name: /^Labels/ }));
+    // Most used first, each with how many files carry it.
+    expect(await screen.findByRole("checkbox", { name: "Uni, 2 files" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Math, 1 file" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByRole("button", { name: "Labels, Math" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Create View" }));
+    await waitFor(async () => {
+      const saved = (await listViews(data.db, { spaceId: space, module: "files" })).find(
+        (v) => v.entity.title === "Maths",
+      );
+      expect(JSON.parse(saved?.config ?? "{}").display.shelf).toEqual([math]);
+    });
+    // The new View opens, its label shown on its own.
     await waitFor(() => expect(screen.queryByRole("button", { name: "essay.pdf" })).toBeNull());
     expect(screen.getByRole("button", { name: "algebra.pdf" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Uni ×" }));
+    expect(screen.getByRole("tab", { name: /^Maths/, selected: true })).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: /^Uni/ })).toBeNull();
     await fireEvent.press(screen.getByRole("checkbox", { name: "Math ×" }));
-    await fireEvent.press(await screen.findByRole("checkbox", { name: "Unlabelled 1" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "algebra.pdf" })).toBeNull());
+    expect(await screen.findByRole("button", { name: "loose.pdf" })).toBeTruthy();
+  });
+
+  it("changes the labels shown, and nudges quietly toward the files without one", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const uni = await createLabel(data.db, space, "Uni");
+    const one = await addFile(data.db, space, "essay.pdf", "file:///docs/files/e.pdf");
+    await addFile(data.db, space, "loose.pdf", "file:///docs/files/l.pdf");
+    await attachLabel(data.db, one, uni);
+    await createView(data.db, space, {
+      title: "Uni files",
+      module: "files",
+      config: JSON.stringify({ filters: [], display: { shelf: [uni] } }),
+    });
+    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("tab", { name: /^Uni files/ }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "loose.pdf" })).toBeNull());
+    await fireEvent.press(screen.getByRole("button", { name: "Change Labels" }));
+    // Taking off the last label keeps the sheet open to pick another.
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Uni, 1 file" }));
+    await fireEvent.press(
+      await screen.findByRole("checkbox", { name: "Files without a label, 1 file" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("button", { name: "essay.pdf" })).toBeNull());
     expect(screen.getByRole("button", { name: "loose.pdf" })).toBeTruthy();
     expect(screen.getByText(/Give these a label/)).toBeTruthy();
   });
@@ -157,17 +194,17 @@ describe("files", () => {
     const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
     await fireEvent.press(await screen.findByRole("tab", { name: /^Exam files/ }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "other.pdf" })).toBeNull());
-    await fireEvent.press(screen.getByRole("tab", { name: /^All/ }));
-    await fireEvent.press(await screen.findByRole("checkbox", { name: "Unlabelled 1" }));
+    // Changing its labels waits in the save bar, which saves it into the View.
+    await fireEvent.press(screen.getByRole("button", { name: "Change Labels" }));
+    await fireEvent.press(
+      await screen.findByRole("checkbox", { name: "Files without a label, 1 file" }),
+    );
     await waitFor(() => expect(screen.queryByRole("button", { name: "exam.pdf" })).toBeNull());
     expect(screen.getByRole("button", { name: "other.pdf" })).toBeTruthy();
-    // The change waits in the save bar, which makes it a View.
-    await fireEvent.press(screen.getByRole("button", { name: "Save as View" }));
-    await fireEvent.changeText(await screen.findByLabelText("View name"), "To sort");
-    await fireEvent.press(screen.getByRole("button", { name: "Save View" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Save" }));
     await waitFor(async () => {
       const saved = (await listViews(data.db, { spaceId: space, module: "files" })).find(
-        (v) => v.entity.title === "To sort",
+        (v) => v.entity.title === "Exam files",
       );
       expect(JSON.parse(saved?.config ?? "{}").display.shelf).toEqual(["none"]);
     });

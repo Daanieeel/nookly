@@ -46,3 +46,35 @@ export function labelShelf<T>(
     .sort((a, b) => b.count - a.count || nameOf(a.id).localeCompare(nameOf(b.id)));
   return { shown, labels, unlabelled: unlabelled.length };
 }
+
+/// Every label with how many items carry it, most used first, and how many carry none:
+/// what a View of some labels is made from (D81).
+export interface LabelCounts<L> {
+  labels: { label: L; count: number }[];
+  unlabelled: number;
+}
+
+export function labelCounts<T, L extends { id: string; name: string }>(
+  items: T[],
+  labelsOf: (item: T) => string[],
+  labels: L[],
+): LabelCounts<L> {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    for (const id of labelsOf(item)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return {
+    labels: labels
+      .map((label) => ({ label, count: counts.get(label.id) ?? 0 }))
+      .sort((a, b) => b.count - a.count || a.label.name.localeCompare(b.label.name)),
+    unlabelled: items.filter((item) => labelsOf(item).length === 0).length,
+  };
+}
+
+/// Ticks or unticks `id`. Picking a label leaves the files without one, and those leave
+/// every label: a file can't be both.
+export function togglePick(picked: string[], id: string): string[] {
+  if (picked.includes(id)) return picked.filter((x) => x !== id);
+  if (id === UNLABELLED) return [UNLABELLED];
+  return [...picked.filter((x) => x !== UNLABELLED), id];
+}

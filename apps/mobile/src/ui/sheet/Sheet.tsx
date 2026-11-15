@@ -1,4 +1,5 @@
 import { IconChevronLeft, IconX } from "@tabler/icons-react-native";
+import { RevealProvider } from "../reveal.ts";
 import {
   type ReactNode,
   createContext,
@@ -756,7 +757,8 @@ function WindowSheet({
           onRequestClose={requestClose}
           onClosed={() => setMounted(false)}
         >
-          {children}
+          {/* Declared in a page, drawn over it: the page behind stays where it is. */}
+          <RevealProvider value={null}>{children}</RevealProvider>
         </SheetFrame>
       </GestureHandlerRootView>
     </Modal>

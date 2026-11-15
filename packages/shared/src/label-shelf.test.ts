@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UNLABELLED, labelShelf } from "./label-shelf.ts";
+import { UNLABELLED, labelCounts, labelShelf, togglePick } from "./label-shelf.ts";
 
 const files = [
   { name: "a", labels: ["uni", "math"] },
@@ -51,5 +51,33 @@ describe("the label shelf (D74)", () => {
 
   it("forgets a picked label that no file carries anymore", () => {
     expect(shelf(["gone"]).shown).toHaveLength(6);
+  });
+});
+
+describe("labelCounts", () => {
+  it("counts every label, the unused too, most used first, and the items with none", () => {
+    const labels = [
+      { id: "a", name: "Art" },
+      { id: "b", name: "Bio" },
+      { id: "c", name: "Chem" },
+    ];
+    const items = [["b"], ["b", "a"], []];
+    const counts = labelCounts(items, (i) => i, labels);
+    expect(counts.labels.map((l) => [l.label.id, l.count])).toEqual([
+      ["b", 2],
+      ["a", 1],
+      ["c", 0],
+    ]);
+    expect(counts.unlabelled).toBe(1);
+  });
+});
+
+describe("togglePick", () => {
+  it("ticks and unticks, and keeps labels and the files without one apart", () => {
+    expect(togglePick([], "a")).toEqual(["a"]);
+    expect(togglePick(["a"], "b")).toEqual(["a", "b"]);
+    expect(togglePick(["a", "b"], "a")).toEqual(["b"]);
+    expect(togglePick(["a", "b"], UNLABELLED)).toEqual([UNLABELLED]);
+    expect(togglePick([UNLABELLED], "a")).toEqual(["a"]);
   });
 });

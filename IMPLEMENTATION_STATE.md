@@ -111,11 +111,12 @@ Desktop:
   - Needs the user: what happened just before (window resized or full screen, sidebar or details panel toggled, a split opened or closed, waking from sleep), and does it go away on its own after scrolling or switching tabs?
 - [ ] CLI coverage for every feature and setting: an agent can set up and use Nookly entirely as a person can through the app. Sensitive ones (sign in) reachable but redacted.
   - Done: `settings list|get|set|reset` (the app reloads `settings.json` before each save and every 2s, so nothing is saved over), `backup now|list` (restore stays in the app), `sync status` (no session ever shown, the keychain is never read so no password prompt), Space modules (`space modules|add-module|remove-module|reorder-modules`).
-  - Left out on purpose: emptying Trash and deleting forever (the CLI never deletes permanently), restoring a backup, signing in to sync, Moodle, Google or iCloud (they need the person). Calendars: `calendars list` and `calendars events --from --to [--provider]`, read only from the cache file, no secrets. Still open: the Files view builder (see Both).
+  - Left out on purpose: emptying Trash and deleting forever (the CLI never deletes permanently), restoring a backup, signing in to sync, Moodle, Google or iCloud (they need the person). Calendars: `calendars list` and `calendars events --from --to [--provider]`, read only from the cache file, no secrets. The Files view builder is in Both.
 
 Both:
 
-- [ ] Files: the list of every label above the files (`.reference-images/desktop/files-label-list.png`) does not scale. Instead a view builder dialog: name a view, give it labels, and let it keep filters and display options. On the phone as well, and through the CLI so an agent can build views.
+- [x] Files: the list of every label above the files (`.reference-images/desktop/files-label-list.png`) does not scale. Instead a view builder dialog: name a view, give it labels, and let it keep filters and display options. On the phone as well, and through the CLI so an agent can build views.
+  - Done (D81): New View on Files (desktop button beside the presets, phone + beside the View tabs) takes a name and labels from a searchable list with file counts, and keeps the page's filters and display. Above the files only the picked labels show, as chips with Change labels. CLI: `view create --module files --config '{"display":{"shelf":[...]}}'` (description now names Files). Also fixed on the phone: a field in a sheet opened from a page no longer scrolls the page behind it.
 
 ### 2b. Tablet (asked in chat, after every other item above, the seventh round included)
 

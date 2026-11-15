@@ -31,12 +31,12 @@ import { File } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { type ReactNode, useState } from "react";
 import { Image, Linking, Pressable, View } from "react-native";
-import { IconLayoutGrid, IconList, IconTag } from "@tabler/icons-react-native";
+import { IconLayoutGrid, IconList, IconPlus, IconTag } from "@tabler/icons-react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
 import { useFile, useFiles, useLabels, useViews } from "../data/queries.ts";
-import { UNLABELLED, labelShelf } from "@nookly/shared/label-shelf";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
+import { labelShelf } from "@nookly/shared/label-shelf";
+import { NewFileView, PickedLabels, fileLabelCounts } from "./FileViewSheets.tsx";
 import { FloatingField, PASTE_BAR_MARGIN, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
 import { Presets } from "../ui/ListBar.tsx";
 import {
@@ -48,7 +48,7 @@ import {
   fileDisplaySchema,
   fileViewConfig,
 } from "./file-view.ts";
-import { Button } from "../ui/Button.tsx";
+import { Button, IconButton } from "../ui/Button.tsx";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
 import { useEntityFilters } from "../ui/entity-filters.tsx";
@@ -260,70 +260,13 @@ function fileGroups(files: FileRecord[], display: FileDisplay, labels: LabelReco
   return [...groups.entries()].map(([title, items]) => ({ title, items }));
 }
 
-/// The labels the Space's files carry, most used first, to browse by (D74): a picked one
-/// narrows to its files and the shelf then offers what those also carry. While some files
-/// have none, a quiet Unlabelled chip lists them.
-function Shelf({
-  shelf,
-  picked,
-  labels,
-  onChange,
-}: {
-  shelf: ReturnType<typeof labelShelf<FileRecord>>;
-  picked: string[];
-  labels: LabelRecord[];
-  onChange: (picked: string[]) => void;
-}) {
-  const nameOf = (id: string) =>
-    id === UNLABELLED ? "Unlabelled" : (labels.find((l) => l.id === id)?.name ?? id);
-  const live = picked.filter((id) => id === UNLABELLED || labels.some((l) => l.id === id));
-  const unlabelled = live.length === 0 && shelf.unlabelled > 0;
-  if (live.length === 0 && shelf.labels.length === 0 && !unlabelled) return null;
-  return (
-    <View className="gap-2">
-      <ChipGroup label="Browse by label" scroll multiple>
-        {live.map((id) => (
-          <Chip
-            key={id}
-            label={`${nameOf(id)} ×`}
-            multiple
-            selected
-            onPress={() => onChange(live.filter((x) => x !== id))}
-          />
-        ))}
-        {shelf.labels.map(({ id, count }) => (
-          <Chip
-            key={id}
-            label={`${nameOf(id)} ${count}`}
-            multiple
-            selected={false}
-            onPress={() => onChange([...live, id])}
-          />
-        ))}
-        {unlabelled ? (
-          <Chip
-            label={`Unlabelled ${shelf.unlabelled}`}
-            multiple
-            selected={false}
-            onPress={() => onChange([UNLABELLED])}
-          />
-        ) : null}
-      </ChipGroup>
-      {live.includes(UNLABELLED) ? (
-        <Text variant="small" tone="muted">
-          Give these a label and they turn up on the shelf, under every label they carry.
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 /// A Space's files as tiles or a list, filtered by kind and label, grouped and ordered as
 /// on the desktop; the bar to paste a link floats over its end (`FilePasteBar`).
 export function FileRows({ spaceId }: { spaceId: string }) {
   const { data: files = [] } = useFiles(spaceId);
   const { data: labels = [] } = useLabels(spaceId);
   const { data: views = [] } = useViews({ spaceId, module: "files" });
+  const theme = useTheme();
   const draft = useDraftPreference<FileDisplay>(
     `files.display.${spaceId}`,
     fileDisplaySchema,
@@ -352,9 +295,15 @@ export function FileRows({ spaceId }: { spaceId: string }) {
   const saveView = useLocalWrite((db, id: string) =>
     updateViewConfig(db, id, fileViewConfig(display)),
   );
-  const saveAsView = useLocalWrite((db, title: string) =>
-    createView(db, spaceId, { title, module: "files", config: fileViewConfig(display) }),
+  const saveAsView = useLocalWrite((db, input: { title: string; value: FileDisplay }) =>
+    createView(db, spaceId, {
+      title: input.title,
+      module: "files",
+      config: fileViewConfig(input.value),
+    }),
   );
+  const counts = fileLabelCounts(files, labels);
+  const [making, setMaking] = useState(false);
   const openView = (id: string) => {
     setNote(null);
     if (id === "all") return draft.open(null);
@@ -399,24 +348,48 @@ export function FileRows({ spaceId }: { spaceId: string }) {
         ]}
         display={<FileDisplayPanel display={display} onChange={setDisplay} />}
       />
-      {views.length > 0 ? (
+      {files.length > 0 ? (
         <FixedTop>
-          <Presets
-            label="Views"
-            value={view}
-            onChange={openView}
-            options={[
-              { id: "all", label: "All" },
-              ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
-            ]}
-          />
+          <View className="flex-row items-center gap-2">
+            <View className="flex-1">
+              <Presets
+                label="Views"
+                value={view}
+                onChange={openView}
+                options={[
+                  { id: "all", label: "All" },
+                  ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
+                ]}
+              />
+            </View>
+            <IconButton
+              label="New View"
+              variant="secondary"
+              icon={<IconPlus size={18} color={theme.colors.foreground} />}
+              onPress={() => setMaking(true)}
+            />
+          </View>
         </FixedTop>
       ) : null}
-      <Shelf
-        shelf={shelf}
+      <PickedLabels
         picked={display.shelf}
         labels={labels}
+        counts={counts}
         onChange={(picked) => setDisplay({ ...display, shelf: picked })}
+        showsFiles={shelf.shown.length > 0}
+      />
+      <NewFileView
+        open={making}
+        onOpenChange={setMaking}
+        labels={labels}
+        counts={counts}
+        picked={display.shelf}
+        onCreate={async (title, picked) => {
+          const value = { ...display, shelf: picked };
+          const id = await saveAsView.mutateAsync({ title, value });
+          setNote(null);
+          draft.open({ id, value });
+        }}
       />
       {note ? (
         <Text variant="small" tone="muted">
@@ -463,7 +436,7 @@ export function FileRows({ spaceId }: { spaceId: string }) {
           draft.viewId
             ? undefined
             : async (title) => {
-                const id = await saveAsView.mutateAsync(title);
+                const id = await saveAsView.mutateAsync({ title, value: display });
                 draft.open({ id, value: display });
               }
         }

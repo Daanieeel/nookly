@@ -518,7 +518,7 @@ inventory::submit! {
     EntitySchemaDef {
         entity_type: "view",
         supports_blocks: false,
-        description: "A saved View of a module page (Tasks or Assignments): a name plus the filters and display options to reopen it with.",
+        description: "A saved View of a module page (Tasks, Assignments or Files): a name plus the filters and display options to reopen it with. A Files View of some labels keeps their ids in display.shelf.",
         fields: VIEW_FIELDS,
         relationship_types: &["relates-to"],
         create: cli_create_view,

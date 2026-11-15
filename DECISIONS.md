@@ -463,3 +463,9 @@ On every list page (Tasks, Assignments, Notes, Jots, Files, Bookmarks, Courses, 
 ## D80. The phone's calendar switches views from its bar
 
 On a phone the four views (Agenda, Day, 3 Days, Week) are one button in the bar, left of the +, which lists them in a sheet with a check on the one shown; the row of tabs above the hours is gone, so the hours start right under the bar. Over the hours the bar names only the week ("Week 46"), at full strength, since the days carry their own dates, now in larger numbers. The agenda keeps its dates. An iPad keeps the desktop's tabs and arrows.
+
+## D81. A Files View of some labels is built in a dialog
+
+The label shelf of D74 listed every label the Space's files carry above the files. With dozens of labels it filled the top of the page before a single file. It is gone. A View of some labels is now made in a dialog instead: New View on the Files page (a button beside the presets on the desktop, a + beside the View tabs on the phone) asks for a name and the labels, ticked in a searchable list that shows how many files carry each, most used first, with "Files without a label" at the end. The View keeps the page's filters and display around those labels, as Save as View does. Picking a label still leaves the files without one, and the other way round.
+
+Above the files, only the labels picked show, as chips to take off one by one, with Change labels to tick others in the same list. A change waits in the save bar like any other. Nothing shows while none is picked. The config is unchanged (`display.shelf`), so Views saved before open as they did, and the CLI builds the same View with `view create --module files --config`.

@@ -1,13 +1,4 @@
-import {
-  type RefObject,
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -25,13 +16,9 @@ import { FloatingLayer, useSlotStore } from "./floating.tsx";
 import { FixedTopContext } from "./fixed-top.tsx";
 import { PageGutterProvider } from "./row-edge.tsx";
 import { GUTTER } from "./tokens.ts";
+import { RevealContext, useReveal } from "./reveal.ts";
 
-/// Lets what sits in a screen's scrolling page ask for a point of its own to be in
-/// view: the editor, for the line being typed in.
-const RevealContext = createContext<((anchor: View, y: number) => void) | null>(null);
-
-export const useReveal = () => useContext(RevealContext);
-export const RevealProvider = RevealContext.Provider;
+export { RevealProvider, useReveal } from "./reveal.ts";
 
 /// Keeps `anchor` in view, `height()` of it, while someone types in it: the keyboard rises
 /// over the bottom of the page, so once it is up the page scrolls just enough to keep the

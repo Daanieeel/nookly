@@ -7,6 +7,7 @@ import {
   IconFileUpload,
   IconLink,
   IconRefresh,
+  IconStack2,
   IconTag,
   IconWorld,
   IconX,
@@ -83,7 +84,11 @@ import {
   readDisplay,
   writeDisplay,
 } from "./file-model";
-import { LabelShelf } from "./LabelShelf";
+import { PickedLabels } from "./PickedLabels";
+import { fileLabelOptions } from "./FileLabelChoice";
+import { ViewDialog } from "#/features/views/ViewDialog.tsx";
+import { serializeViewConfig } from "#/features/views/view-config.ts";
+import { viewTarget } from "#/features/views/view-target.ts";
 import { labelShelf } from "@nookly/shared/label-shelf";
 import { ModuleViewHeader } from "#/components/module-view-header.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
@@ -290,6 +295,8 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
 
   const labelName = (id: string) => labels.find((l) => l.id === id)?.name ?? "";
   const shelf = labelShelf(files, (f) => f.labelIds, display.shelf, labelName);
+  const labelOptions = useMemo(() => fileLabelOptions(files, labels), [files, labels]);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const visible = orderFiles(
     applyFilters(
       shelf.shown,
@@ -378,6 +385,25 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
                 <TooltipContent>Index older files for search</TooltipContent>
               </Tooltip>
             )}
+            {!view && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 gap-1.5"
+                    onClick={() => setViewDialogOpen(true)}
+                  >
+                    <IconStack2 />
+                    New view
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Name a View of some labels, with this page's filters
+                </TooltipContent>
+              </Tooltip>
+            )}
             <ViewPresetsButton
               spaceId={spaceId}
               module="files"
@@ -399,14 +425,27 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
         module="files"
         display={display}
       />
-      {files.length > 0 && (
-        <LabelShelf
-          shelf={shelf}
-          picked={display.shelf}
-          labels={labels}
-          onPick={(next) => setDisplay({ ...display, shelf: next })}
-        />
-      )}
+      <PickedLabels
+        picked={display.shelf}
+        labels={labels}
+        options={labelOptions}
+        onPick={(next) => setDisplay({ ...display, shelf: next })}
+        showsFiles={shelf.shown.length > 0}
+      />
+      <ViewDialog
+        open={viewDialogOpen}
+        onOpenChange={setViewDialogOpen}
+        spaceId={spaceId}
+        module="files"
+        labels={{
+          options: labelOptions,
+          picked: display.shelf,
+          configFor: (picked) => serializeViewConfig(filters, { ...display, shelf: picked }),
+        }}
+        onSaved={(created) =>
+          useNavStore.getState().setView(viewTarget("files", spaceId, created.id))
+        }
+      />
 
       {!isPending && files.length === 0 ? (
         <div className="p-6">

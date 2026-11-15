@@ -31,8 +31,8 @@
           "tag": "New"
         },
         {
-          "title": "Browse files by label",
-          "description": "Files opens with a shelf of your labels: pick one, then another, to narrow down step by step, and save what you find as a View.",
+          "title": "Views of your files by label",
+          "description": "Make a View in Files from a name and the labels you search and tick, and it keeps your filters and display too.",
           "icon": "filter",
           "tag": "New"
         }
