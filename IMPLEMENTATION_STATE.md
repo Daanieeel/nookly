@@ -86,7 +86,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ### 3. Final checks and report
 
-- [ ] (asked in chat) Dependabot: merge every open Dependabot version bump that makes sense into this branch, then close all Dependabot PRs, the ones not merged too (with a word on why).
+- [x] (2026-11-15, a04d9f7e: the bun group less tiptap, hotkeys and pdfjs (held back since 1da0f4d9), md5, calamine, uuid and zip taken; jsdom 31 (breaks axe tests) and rfd 0.18 (two copies beside the dialog plugin) not; all six closed with a comment) (asked in chat) Dependabot: merge every open Dependabot version bump that makes sense into this branch, then close all Dependabot PRs, the ones not merged too (with a word on why).
 - [ ] (asked in chat) CI on this branch's open PR is green at the end of the session. Never merge the PR.
 - [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
 - [ ] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
@@ -104,6 +104,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ## Progress log
 
+- 2026-11-15: CI fixed: the formatter skips NOTES.md, Windows reads the generated fixtures with LF and FSRS floats to 9 decimals, and two timing races in tests (a sync clash, a sidebar glide) wait properly.
 - 2026-11-15: sixth round of `NOTES.md` added (search clear button, floating bars' corners, custom semester dates, the bookmark note and the keyboard, the Dashboard), plus Dependabot and CI from the chat.
 - 2026-11-15: the full mobile run timed out the search label test while the machine sat at a load of 57 (another app at 580% CPU); it passes alone. Rerun at the end.
 - 2026-11-15: asked in chat: a compose sheet leaves 16pt between its buttons and the title (test; on screen).
