@@ -78,7 +78,9 @@ describe("haptics in the controls", () => {
 
   it("finishes a swipe action with its own pattern", () => {
     const screen = render(
-      <SwipeRow left={{ label: "Done", tone: "positive", haptic: "complete", onPress: () => {} }}>
+      <SwipeRow
+        leading={[{ label: "Done", tone: "positive", haptic: "complete", onPress: () => {} }]}
+      >
         <Text>Row</Text>
       </SwipeRow>,
     );

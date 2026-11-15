@@ -7,6 +7,7 @@ import {
   resolveTermDates,
 } from "@nookly/shared/academic";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { EntitySwipe } from "./EntitySwipe.tsx";
 import {
   createCourse,
   createSessionSeries,
@@ -333,13 +334,15 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
             .filter((c) => members.includes(c.entity.id))
             .map((c) => (
               <View key={c.entity.id}>
-                <Row
-                  title={c.entity.title || "Untitled"}
-                  subtitle={c.professor ?? c.entity.key}
-                  icon={<EntityIcon type="course" icon={c.entity.icon} />}
-                  onPress={() => router.push(`/entity/${c.entity.id}`)}
-                  onLongPress={() => entityMenu(c.entity)}
-                />
+                <EntitySwipe entity={c.entity}>
+                  <Row
+                    title={c.entity.title || "Untitled"}
+                    subtitle={c.professor ?? c.entity.key}
+                    icon={<EntityIcon type="course" icon={c.entity.icon} />}
+                    onPress={() => router.push(`/entity/${c.entity.id}`)}
+                    onLongPress={() => entityMenu(c.entity)}
+                  />
+                </EntitySwipe>
               </View>
             ))}
         </Section>

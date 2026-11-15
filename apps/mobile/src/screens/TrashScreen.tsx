@@ -127,16 +127,20 @@ export function TrashScreen() {
         {staged.map((entity) => (
           <View key={entity.id}>
             <SwipeRow
-              left={{
-                label: "Restore",
-                tone: "positive",
-                onPress: () => restore.mutate(entity.id),
-              }}
-              right={{
-                label: "Delete",
-                tone: "destructive",
-                onPress: () => askForever(entity.id, entity.title),
-              }}
+              leading={[
+                {
+                  label: "Restore",
+                  tone: "positive",
+                  onPress: () => restore.mutate(entity.id),
+                },
+              ]}
+              trailing={[
+                {
+                  label: "Delete",
+                  tone: "destructive",
+                  onPress: () => askForever(entity.id, entity.title),
+                },
+              ]}
             >
               <Row
                 title={entity.title || "Untitled"}

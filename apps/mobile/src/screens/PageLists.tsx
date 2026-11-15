@@ -27,6 +27,7 @@ import { cn } from "../ui/classes.ts";
 import { Text } from "../ui/Text.tsx";
 import { ago, localDay, addDays } from "./dates.ts";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { EntitySwipe } from "./EntitySwipe.tsx";
 
 /// A page's row in a list, as the desktop's table gives it: the key, the title, the start of
 /// its text and its labels, with when it was last edited at the right. A long press opens
@@ -38,56 +39,61 @@ function PageRow({ page, jot }: { page: PageSummary; jot: boolean }) {
   const title = entity.title.trim();
   const preview = notePreviewText(page.preview, title);
   const empty = jot && !title && !preview;
-  const edge = useRowEdge();
+  const edge = useRowEdge({ inSwipeRow: true });
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={title || preview || (jot ? "Nothing written yet" : "Untitled")}
-      onPress={() => router.push(`/entity/${entity.id}`)}
-      onLongPress={() => entityMenu(entity)}
-      style={edge}
-      className="gap-1 py-3 active:bg-accent/40"
-    >
-      <View className="flex-row items-center gap-3">
-        <EntityIcon type={entity.type} icon={entity.icon} />
-        <Text
-          numberOfLines={1}
-          className={cn("flex-1 font-medium", empty && "font-normal italic text-muted-foreground")}
-        >
-          {title || preview || (jot ? "Nothing written yet" : "Untitled")}
-        </Text>
-        <Text variant="small" tone="muted">
-          {ago(entity.updatedAt)}
-        </Text>
-      </View>
-      {preview && title ? (
-        <Text variant="small" tone="muted" numberOfLines={1} className="pl-8">
-          {preview}
-        </Text>
-      ) : null}
-      <View className="flex-row flex-wrap items-center gap-2 pl-8">
-        <Text variant="small" tone="muted">
-          {entity.key}
-        </Text>
-        {page.labels.map((label) => (
-          <Badge key={label.id} label={label.name} size="sm" />
-        ))}
-        {page.refinedInto ? (
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel={`Refined into ${page.refinedInto.title}`}
-            onPress={() => router.push(`/entity/${page.refinedInto?.id}`)}
-            className="flex-row items-center gap-1 active:opacity-60"
+    <EntitySwipe entity={entity}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title || preview || (jot ? "Nothing written yet" : "Untitled")}
+        onPress={() => router.push(`/entity/${entity.id}`)}
+        onLongPress={() => entityMenu(entity)}
+        style={edge}
+        className="gap-1 py-3 active:bg-accent/40"
+      >
+        <View className="flex-row items-center gap-3">
+          <EntityIcon type={entity.type} icon={entity.icon} />
+          <Text
+            numberOfLines={1}
+            className={cn(
+              "flex-1 font-medium",
+              empty && "font-normal italic text-muted-foreground",
+            )}
           >
-            <IconLink size={12} />
-            <Text variant="small" tone="muted" numberOfLines={1}>
-              {page.refinedInto.title || "Note"}
-            </Text>
-          </Pressable>
+            {title || preview || (jot ? "Nothing written yet" : "Untitled")}
+          </Text>
+          <Text variant="small" tone="muted">
+            {ago(entity.updatedAt)}
+          </Text>
+        </View>
+        {preview && title ? (
+          <Text variant="small" tone="muted" numberOfLines={1} className="pl-8">
+            {preview}
+          </Text>
         ) : null}
-      </View>
-      <RowDivider />
-    </Pressable>
+        <View className="flex-row flex-wrap items-center gap-2 pl-8">
+          <Text variant="small" tone="muted">
+            {entity.key}
+          </Text>
+          {page.labels.map((label) => (
+            <Badge key={label.id} label={label.name} size="sm" />
+          ))}
+          {page.refinedInto ? (
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={`Refined into ${page.refinedInto.title}`}
+              onPress={() => router.push(`/entity/${page.refinedInto?.id}`)}
+              className="flex-row items-center gap-1 active:opacity-60"
+            >
+              <IconLink size={12} />
+              <Text variant="small" tone="muted" numberOfLines={1}>
+                {page.refinedInto.title || "Note"}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+        <RowDivider />
+      </Pressable>
+    </EntitySwipe>
   );
 }
 

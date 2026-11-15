@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { EntitySwipe } from "./EntitySwipe.tsx";
 import { useState } from "react";
 import { View } from "react-native";
 import { IconFolder, IconTag } from "@tabler/icons-react-native";
@@ -20,13 +21,15 @@ function Results({ entities, empty }: { entities: EntityRecord[]; empty: string 
   if (entities.length === 0) return <Empty text={empty} />;
   return entities.map((entity) => (
     <View key={entity.id}>
-      <Row
-        title={entity.title || "Untitled"}
-        subtitle={entity.key}
-        icon={<EntityIcon type={entity.type} icon={entity.icon} />}
-        onPress={() => router.push(`/entity/${entity.id}`)}
-        onLongPress={() => entityMenu(entity)}
-      />
+      <EntitySwipe entity={entity}>
+        <Row
+          title={entity.title || "Untitled"}
+          subtitle={entity.key}
+          icon={<EntityIcon type={entity.type} icon={entity.icon} />}
+          onPress={() => router.push(`/entity/${entity.id}`)}
+          onLongPress={() => entityMenu(entity)}
+        />
+      </EntitySwipe>
     </View>
   ));
 }

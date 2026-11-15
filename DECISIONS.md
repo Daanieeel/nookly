@@ -431,3 +431,13 @@ The nudge is quiet: while some files have no label, the shelf ends with a muted 
 Many filters on the phone used to show one chip per value, which crowded the page. They are now one chip per field, as on the desktop: the field's icon and name, how it matches, what it matches, and a way to take it off. Each spans the page, one under the other. A tap on what it matches opens its choices.
 
 The phone keeps only the values that match. "is not" and "is none of" are that set read the other way round: when a filter matches most of a field's options, the chip names the few it leaves out. A tap on how it matches swaps the set for its complement, so "is" and "is not" flip without a second kind of filter. Options added later fall outside a flipped filter, as they do when the phone opens a desktop View with "is not".
+
+## D76. Every list row swipes, the same way
+
+Only tasks and the Trash could be swiped. Now every list of items can: notes, jots, bookmarks in the list layout, files in the list layout, assignments, courses, exams, decks, sessions, a module's plain list, Pinned and the search results. Cards and galleries (bookmark cards, recipes, file tiles, semesters, the board) keep the long press only, since a card is not a row.
+
+One rule for every type. Right to left shows More (the item's menu) and Trash; Trash is always the rightmost and a long drag runs it. Left to right shows the type's own action first, then Pin; a long drag runs the first. A type's own action: a task is brought to Today, or moved to Tomorrow once it is due today or overdue (a finished task offers Reopen); a jot is refined into a note; a bookmark's address is copied. Types without one start with Pin.
+
+Tasks lost "Done" as a swipe on purpose: the circle on the row already finishes a task with one tap, so the swipe is spent on scheduling, which had no quick way.
+
+The look is Mail's: full height buttons side by side, each with its icon and name, sharing what the row uncovers; past most of the row the outermost button grows over the others. No package was added: the existing row already followed the finger with the phone's own springs and haptics (`ui/motion.ts`), and the libraries looked at (the gesture handler's swipeable) have no long drag action.

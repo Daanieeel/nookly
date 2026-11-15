@@ -34,7 +34,7 @@ async function seeded() {
 }
 
 describe("the Tasks tab", () => {
-  it("groups every Space's tasks by due date and finishes one from the row", async () => {
+  it("groups every Space's tasks by due date and brings one to today from the row", async () => {
     const { data, space } = await seeded();
     const id = await createTask(data.db, space, "Write report");
     const done = await createTask(data.db, space, "Old one");
@@ -49,8 +49,9 @@ describe("the Tasks tab", () => {
     let row = screen.getByLabelText("Write report, TSK-1").parent;
     while (row && !row.props.onAccessibilityAction) row = row.parent;
     if (!row) throw new Error("no swipe actions");
-    await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "Done" } });
-    await waitFor(async () => expect((await getTask(data.db, id))?.statusId).toBe("done"));
+    // A swipe brings it to today; the circle finishes it (D76).
+    await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "Today" } });
+    await waitFor(async () => expect((await getTask(data.db, id))?.dueDate).toBe(localDay()));
   });
 });
 

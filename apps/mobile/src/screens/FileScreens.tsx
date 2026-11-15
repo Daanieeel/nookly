@@ -1,3 +1,4 @@
+import { useRowEdge } from "../ui/row-edge.tsx";
 import {
   type FileKindId,
   type FileRecord,
@@ -10,6 +11,7 @@ import {
   isLinkOnly,
 } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { EntitySwipe } from "./EntitySwipe.tsx";
 import { KIND_ICONS, KIND_LABELS, hasThumbnail, nameOf, pathOf, viewerFor } from "./file-kinds.ts";
 import { useFileViewer } from "../ui/file-viewer.tsx";
 import {
@@ -120,6 +122,7 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
   const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
+  const edge = useRowEdge({ inSwipeRow: true });
   const name = nameOf(file);
   const Glyph = isLinkOnly(file)
     ? file.provider === "dropbox"
@@ -132,29 +135,32 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
   });
   if (row) {
     return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={name}
-        onPress={() => router.push(`/entity/${file.entity.id}`)}
-        onLongPress={() => entityMenu(file.entity)}
-        className="min-h-14 flex-row items-center gap-3 py-2 active:opacity-70"
-      >
-        <View className="size-10 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary">
-          <FileThumb
-            file={file}
-            size={120}
-            fallback={<Glyph size={22} color={theme.colors.mutedForeground} strokeWidth={1.75} />}
-          />
-        </View>
-        <View className="flex-1">
-          <Text numberOfLines={1} className="font-medium">
-            {name}
-          </Text>
-          <Text variant="small" tone="muted" numberOfLines={1}>
-            {`${state(file)} · ${added}`}
-          </Text>
-        </View>
-      </Pressable>
+      <EntitySwipe entity={file.entity}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={name}
+          onPress={() => router.push(`/entity/${file.entity.id}`)}
+          onLongPress={() => entityMenu(file.entity)}
+          style={edge}
+          className="min-h-14 flex-row items-center gap-3 py-2 active:opacity-70"
+        >
+          <View className="size-10 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary">
+            <FileThumb
+              file={file}
+              size={120}
+              fallback={<Glyph size={22} color={theme.colors.mutedForeground} strokeWidth={1.75} />}
+            />
+          </View>
+          <View className="flex-1">
+            <Text numberOfLines={1} className="font-medium">
+              {name}
+            </Text>
+            <Text variant="small" tone="muted" numberOfLines={1}>
+              {`${state(file)} · ${added}`}
+            </Text>
+          </View>
+        </Pressable>
+      </EntitySwipe>
     );
   }
   return (

@@ -1,8 +1,9 @@
 import type { TaskRecord, TaskStatus } from "@nookly/shared/data";
-import { IconArrowBackUp, IconCheck, IconTrash } from "@tabler/icons-react-native";
+import { IconArrowBackUp, IconCalendarEvent } from "@tabler/icons-react-native";
 import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { useEntityMenu } from "./entity-actions.tsx";
-import { setTaskStatus, trashEntity } from "@nookly/shared/data";
+import { setTaskDates, setTaskStatus } from "@nookly/shared/data";
+import { EntitySwipe } from "./EntitySwipe.tsx";
 import { StatusIcon } from "./StatusIcon.tsx";
 import { useRouter } from "expo-router";
 import { useLocalWrite } from "../data/context.tsx";
@@ -14,7 +15,6 @@ import { Pressable, View } from "react-native";
 import { effortLabel } from "@nookly/shared/effort";
 import { useSetting } from "../data/settings.ts";
 import { dueText } from "./dashboard-model.ts";
-import { SwipeRow } from "../ui/SwipeRow.tsx";
 import { haptic } from "../ui/haptics.ts";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { useOptionalSheetHost } from "../ui/sheet/SheetHost.tsx";
@@ -22,7 +22,11 @@ import { CHECK_PRESS_SCALE } from "../ui/motion.ts";
 import Animated from "react-native-reanimated";
 import { usePressScale } from "../ui/press.ts";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
-import { dayLabel, localDay } from "./dates.ts";
+import { addDays, dayLabel, localDay } from "./dates.ts";
+
+/// A start date kept on or before the new due date.
+const startNoLaterThan = (start: string | null, due: string) =>
+  start !== null && start.slice(0, 10) > due ? due : start;
 
 /// A task's or an assignment's circle in a list, as the desktop's row: a tap opens its
 /// statuses to pick from, the circle giving way under the finger.
@@ -186,7 +190,8 @@ export function TaskCard({ task, statuses, spaceColor, spaceName, labels = [] }:
   );
 }
 
-/// A task in a list. Swipe right to finish it (or open it again), left to move it to Trash.
+/// A task in a list. Swipe right to bring it to today (or tomorrow, once due), left for its
+/// menu or the Trash.
 /// Two lines, like the desktop's row: the status and title, then the key, when it is due and
 /// how long that is, its labels, its Space and its effort.
 export function TaskRow({ task, statuses, spaceColor, spaceName, labels = [] }: TaskParts) {
@@ -197,26 +202,33 @@ export function TaskRow({ task, statuses, spaceColor, spaceName, labels = [] }: 
   const setStatus = useLocalWrite((db, statusId: string) =>
     setTaskStatus(db, task.entity.id, statusId),
   );
-  const trash = useLocalWrite((db, id: string) => trashEntity(db, id));
   const today = localDay();
+  // Due today or before: the swipe moves it on to tomorrow; otherwise it brings it to today.
+  const soon = task.dueDate !== null && task.dueDate.slice(0, 10) <= today;
+  const schedule = useLocalWrite((db, day: string) =>
+    setTaskDates(db, task.entity.id, startNoLaterThan(task.startDate, day), day),
+  );
   const due = task.dueDate && !finished ? dueText(task.dueDate.slice(0, 10), today) : null;
   const edge = useRowEdge({ inSwipeRow: true });
   return (
     <ListItem>
-      <SwipeRow
-        left={{
-          label: finished ? "Reopen" : "Done",
-          icon: finished ? IconArrowBackUp : IconCheck,
-          tone: "positive",
-          haptic: finished ? "tap" : "complete",
-          onPress: () => setStatus.mutate(finished ? "todo" : "done"),
-        }}
-        right={{
-          label: "Trash",
-          icon: IconTrash,
-          tone: "destructive",
-          onPress: () => trash.mutate(task.entity.id),
-        }}
+      <EntitySwipe
+        entity={task.entity}
+        own={[
+          finished
+            ? {
+                label: "Reopen",
+                icon: IconArrowBackUp,
+                tone: "positive",
+                onPress: () => setStatus.mutate("todo"),
+              }
+            : {
+                label: soon ? "Tomorrow" : "Today",
+                icon: IconCalendarEvent,
+                tone: "accent",
+                onPress: () => schedule.mutate(soon ? addDays(today, 1) : today),
+              },
+        ]}
       >
         <Pressable
           accessibilityRole="button"
@@ -250,7 +262,7 @@ export function TaskRow({ task, statuses, spaceColor, spaceName, labels = [] }: 
           />
           <RowDivider />
         </Pressable>
-      </SwipeRow>
+      </EntitySwipe>
     </ListItem>
   );
 }

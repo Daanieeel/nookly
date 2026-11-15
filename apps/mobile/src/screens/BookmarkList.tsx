@@ -7,6 +7,8 @@ import {
   setBookmarkMetadata,
 } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { EntitySwipe } from "./EntitySwipe.tsx";
+import { useClipboard } from "../ui/clipboard.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
   IconBookmark,
@@ -288,41 +290,54 @@ function BookmarkRow({
   const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
-  const edge = useRowEdge();
+  const edge = useRowEdge({ inSwipeRow: true });
+  const clipboard = useClipboard();
   return (
-    <View style={edge} className="flex-row items-center gap-3 py-2">
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={bookmark.entity.title}
-        onPress={() => void Linking.openURL(bookmark.url)}
-        onLongPress={() => entityMenu(bookmark.entity)}
-        className="min-h-11 flex-1 flex-row items-center gap-3 active:opacity-70"
-      >
-        {bookmark.faviconUrl ? (
-          <Image source={{ uri: bookmark.faviconUrl }} className="size-5 rounded" />
-        ) : (
-          <IconLink size={20} color={theme.colors.mutedForeground} />
-        )}
-        <View className="flex-1">
-          <Text numberOfLines={1} className="font-medium">
-            {bookmark.entity.title}
-          </Text>
-          {description && bookmark.description ? (
-            <Text variant="small" tone="muted" numberOfLines={1}>
-              {bookmark.description}
+    <EntitySwipe
+      entity={bookmark.entity}
+      own={[
+        {
+          label: "Copy URL",
+          icon: IconLink,
+          tone: "accent",
+          onPress: () => void clipboard.copy(bookmark.url),
+        },
+      ]}
+    >
+      <View style={edge} className="flex-row items-center gap-3 py-2">
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={bookmark.entity.title}
+          onPress={() => void Linking.openURL(bookmark.url)}
+          onLongPress={() => entityMenu(bookmark.entity)}
+          className="min-h-11 flex-1 flex-row items-center gap-3 active:opacity-70"
+        >
+          {bookmark.faviconUrl ? (
+            <Image source={{ uri: bookmark.faviconUrl }} className="size-5 rounded" />
+          ) : (
+            <IconLink size={20} color={theme.colors.mutedForeground} />
+          )}
+          <View className="flex-1">
+            <Text numberOfLines={1} className="font-medium">
+              {bookmark.entity.title}
             </Text>
-          ) : null}
-          <Text variant="small" tone="muted" numberOfLines={1}>
-            {hostOf(bookmark.url)}
-          </Text>
-        </View>
-      </Pressable>
-      <IconButton
-        label={`Details of ${bookmark.entity.title}`}
-        icon={<IconInfoCircle size={20} color={theme.colors.mutedForeground} />}
-        onPress={() => router.push(`/entity/${bookmark.entity.id}`)}
-      />
-    </View>
+            {description && bookmark.description ? (
+              <Text variant="small" tone="muted" numberOfLines={1}>
+                {bookmark.description}
+              </Text>
+            ) : null}
+            <Text variant="small" tone="muted" numberOfLines={1}>
+              {hostOf(bookmark.url)}
+            </Text>
+          </View>
+        </Pressable>
+        <IconButton
+          label={`Details of ${bookmark.entity.title}`}
+          icon={<IconInfoCircle size={20} color={theme.colors.mutedForeground} />}
+          onPress={() => router.push(`/entity/${bookmark.entity.id}`)}
+        />
+      </View>
+    </EntitySwipe>
   );
 }
 

@@ -35,7 +35,7 @@ describe("a list row's edges", () => {
   it("in a swipe row, the swipe row reaches the edges and the row only pads", () => {
     render(
       <Screen>
-        <SwipeRow left={{ label: "Done", tone: "positive", onPress: () => {} }}>
+        <SwipeRow leading={[{ label: "Done", tone: "positive", onPress: () => {} }]}>
           <Row title="Buy milk" onPress={() => {}} />
         </SwipeRow>
       </Screen>,
@@ -48,7 +48,7 @@ describe("a list row's edges", () => {
   it("builds its actions only once a swipe starts, then shows them named", async () => {
     const onPress = jest.fn();
     render(
-      <SwipeRow right={{ label: "Trash", tone: "destructive", onPress }}>
+      <SwipeRow trailing={[{ label: "Trash", tone: "destructive", onPress }]}>
         <Text>Row</Text>
       </SwipeRow>,
     );

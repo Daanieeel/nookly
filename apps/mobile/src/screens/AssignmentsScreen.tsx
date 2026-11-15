@@ -3,6 +3,7 @@ import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { EntitySwipe } from "./EntitySwipe.tsx";
 import { type AssignmentRecord, updateAssignment } from "@nookly/shared/data";
 import {
   IconCalendarCheck,
@@ -144,7 +145,7 @@ function Row({ card = false, ...props }: RowProps & { card?: boolean }) {
     updateAssignment(db, assignment.entity.id, { status: next }),
   );
   const due = assignment.dueDate && !done ? dueText(assignment.dueDate.slice(0, 10), today) : null;
-  const edge = useRowEdge();
+  const edge = useRowEdge({ inSwipeRow: true });
   const circle = (
     <View className="size-6 items-center justify-center">
       <StatusButton
@@ -169,20 +170,22 @@ function Row({ card = false, ...props }: RowProps & { card?: boolean }) {
     );
   }
   return (
-    <View style={edge} className={cn("flex-row items-center gap-3 py-2", done && "opacity-60")}>
-      {circle}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${assignment.entity.title || "Untitled"}, ${assignment.entity.key}`}
-        onPress={() => router.push(`/entity/${assignment.entity.id}`)}
-        onLongPress={() => entityMenu(assignment.entity)}
-        className="min-h-11 flex-1 justify-center gap-1 active:opacity-70"
-      >
-        <Text numberOfLines={1}>{assignment.entity.title || "Untitled"}</Text>
-        <Meta {...props} due={due} />
-      </Pressable>
-      <RowDivider />
-    </View>
+    <EntitySwipe entity={assignment.entity}>
+      <View style={edge} className={cn("flex-row items-center gap-3 py-2", done && "opacity-60")}>
+        {circle}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${assignment.entity.title || "Untitled"}, ${assignment.entity.key}`}
+          onPress={() => router.push(`/entity/${assignment.entity.id}`)}
+          onLongPress={() => entityMenu(assignment.entity)}
+          className="min-h-11 flex-1 justify-center gap-1 active:opacity-70"
+        >
+          <Text numberOfLines={1}>{assignment.entity.title || "Untitled"}</Text>
+          <Meta {...props} due={due} />
+        </Pressable>
+        <RowDivider />
+      </View>
+    </EntitySwipe>
   );
 }
 

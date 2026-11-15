@@ -151,10 +151,13 @@ export function settleSwipe({
   offset,
   velocity,
   width,
+  rest = SWIPE.button,
 }: {
   offset: number;
   velocity: number;
   width: number;
+  /// How wide the side's buttons rest open: one button's width for each action.
+  rest?: number;
 }): SwipeSettled {
   "worklet";
   const side = Math.sign(offset);
@@ -162,7 +165,7 @@ export function settleSwipe({
   const towards = velocity * side;
   if (distance >= width * SWIPE.full && towards > -SWIPE.flick) return { to: "full", velocity };
   if (towards < -SWIPE.flick) return { to: "closed", velocity };
-  if (distance > SWIPE.button / 2 || (distance > 8 && towards > SWIPE.flick)) {
+  if (distance > rest / 2 || (distance > 8 && towards > SWIPE.flick)) {
     return { to: "open", velocity };
   }
   return { to: "closed", velocity };

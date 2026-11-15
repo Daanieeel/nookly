@@ -2,6 +2,7 @@ import { deadlineBucket } from "./assignment-view.ts";
 import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES, type FixedStatus } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { EntitySwipe } from "./EntitySwipe.tsx";
 import {
   type AssignmentRecord,
   createDeck,
@@ -622,13 +623,15 @@ function SessionList({ courseId }: { courseId: string }) {
   if (upcoming.length === 0) return <Empty text="No sessions yet." />;
   return upcoming.map((s) => (
     <View key={s.entity.id}>
-      <Row
-        title={s.entity.title || "Session"}
-        subtitle={`${dayLabel(s.date)} · ${s.startTime} to ${s.endTime}${s.location ? ` · ${s.location}` : ""}`}
-        icon={<EntityIcon type="session" icon={s.entity.icon} />}
-        onPress={() => router.push(`/entity/${s.entity.id}`)}
-        onLongPress={() => entityMenu(s.entity)}
-      />
+      <EntitySwipe entity={s.entity}>
+        <Row
+          title={s.entity.title || "Session"}
+          subtitle={`${dayLabel(s.date)} · ${s.startTime} to ${s.endTime}${s.location ? ` · ${s.location}` : ""}`}
+          icon={<EntityIcon type="session" icon={s.entity.icon} />}
+          onPress={() => router.push(`/entity/${s.entity.id}`)}
+          onLongPress={() => entityMenu(s.entity)}
+        />
+      </EntitySwipe>
     </View>
   ));
 }

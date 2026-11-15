@@ -1,5 +1,6 @@
 import { IconPin } from "@tabler/icons-react-native";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { EntitySwipe } from "./EntitySwipe.tsx";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 import { usePinned, useSpaces } from "../data/queries.ts";
@@ -65,13 +66,15 @@ export function PinnedScreen() {
                   <Section>
                     {group.items.map((entity) => (
                       <View key={entity.id}>
-                        <Row
-                          title={entity.title || "Untitled"}
-                          subtitle={entity.key}
-                          icon={<EntityIcon type={entity.type} icon={entity.icon} />}
-                          onPress={() => router.push(`/entity/${entity.id}`)}
-                          onLongPress={() => entityMenu(entity)}
-                        />
+                        <EntitySwipe entity={entity}>
+                          <Row
+                            title={entity.title || "Untitled"}
+                            subtitle={entity.key}
+                            icon={<EntityIcon type={entity.type} icon={entity.icon} />}
+                            onPress={() => router.push(`/entity/${entity.id}`)}
+                            onLongPress={() => entityMenu(entity)}
+                          />
+                        </EntitySwipe>
                       </View>
                     ))}
                   </Section>

@@ -1,5 +1,6 @@
 import { MODULE_ENTITY_TYPES, MODULE_LABELS, type ModuleKey } from "@nookly/shared/modules";
 import { useEntityMenu } from "./entity-actions.tsx";
+import { EntitySwipe } from "./EntitySwipe.tsx";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
@@ -80,13 +81,15 @@ function EntityList({ spaceId, module }: { spaceId: string; module: ModuleKey })
       ) : null}
       {shown.map((entity) => (
         <View key={entity.id}>
-          <Row
-            title={entity.title || "Untitled"}
-            subtitle={entity.key}
-            icon={<EntityIcon type={entity.type} icon={entity.icon} />}
-            onPress={() => router.push(`/entity/${entity.id}`)}
-            onLongPress={() => entityMenu(entity)}
-          />
+          <EntitySwipe entity={entity}>
+            <Row
+              title={entity.title || "Untitled"}
+              subtitle={entity.key}
+              icon={<EntityIcon type={entity.type} icon={entity.icon} />}
+              onPress={() => router.push(`/entity/${entity.id}`)}
+              onLongPress={() => entityMenu(entity)}
+            />
+          </EntitySwipe>
         </View>
       ))}
     </Section>
