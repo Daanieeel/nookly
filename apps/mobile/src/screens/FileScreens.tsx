@@ -3,6 +3,8 @@ import {
   type FileRecord,
   addFile,
   addFileLink,
+  createView,
+  type LabelRecord,
   fileKindOf,
   isDownloading,
   isLinkOnly,
@@ -26,20 +28,28 @@ import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconArrowUp, IconLayoutGrid, IconList, IconTag } from "@tabler/icons-react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
-import { useFile, useFiles, useLabels } from "../data/queries.ts";
+import { useFile, useFiles, useLabels, useViews } from "../data/queries.ts";
+import { UNLABELLED, labelShelf } from "@nookly/shared/label-shelf";
+import { Chip, ChipGroup } from "../ui/Chips.tsx";
+import { Field } from "../ui/Field.tsx";
+import { Presets } from "../ui/ListBar.tsx";
+import {
+  FILE_DEFAULT,
+  FILE_GROUPINGS,
+  FILE_ORDERINGS,
+  type FileDisplay,
+  fileDisplayFromView,
+  fileDisplaySchema,
+  fileViewConfig,
+} from "./file-view.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
-import {
-  ENTITY_FILTERS_NONE,
-  ENTITY_FILTER_PICKS,
-  useEntityFilters,
-} from "../ui/entity-filters.tsx";
+import { useEntityFilters } from "../ui/entity-filters.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
 import { usePreference } from "../data/preferences.ts";
-import { z } from "zod";
 import { labelOption } from "./option-badges.tsx";
 import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
@@ -225,35 +235,6 @@ function AddBar({ spaceId }: { spaceId: string }) {
   );
 }
 
-const fileDisplaySchema = z.object({
-  layout: z.enum(["grid", "list"]),
-  grouping: z.enum(["none", "kind", "added"]),
-  ordering: z.enum(["newest", "oldest", "name"]),
-  /// Kinds and labels the list is narrowed to; empty means all.
-  kinds: z.array(z.string()),
-  labels: z.array(z.string()),
-  ...ENTITY_FILTER_PICKS,
-});
-type FileDisplay = z.infer<typeof fileDisplaySchema>;
-const FILE_DEFAULT: FileDisplay = {
-  layout: "grid",
-  grouping: "none",
-  ordering: "newest",
-  kinds: [],
-  labels: [],
-  ...ENTITY_FILTERS_NONE,
-};
-const FILE_GROUPINGS = [
-  { id: "none", label: "No grouping" },
-  { id: "kind", label: "Kind" },
-  { id: "added", label: "Date added" },
-] as const;
-const FILE_ORDERINGS = [
-  { id: "newest", label: "Newest first" },
-  { id: "oldest", label: "Oldest first" },
-  { id: "name", label: "Name" },
-] as const;
-
 const kindOf = (f: FileRecord): FileKindId | "link" =>
   isLinkOnly(f) ? "link" : fileKindOf(nameOf(f));
 const kindLabel = (k: FileKindId | "link") => (k === "link" ? "Links" : KIND_LABELS[k]);
@@ -266,8 +247,9 @@ function addedGroup(f: FileRecord, today = localDay()): string {
   return days <= 0 ? "Today" : days <= 6 ? "This week" : days <= 30 ? "This month" : "Earlier";
 }
 
-/// Files in the order and groups picked, as the desktop's `file-model.ts`.
-function fileGroups(files: FileRecord[], display: FileDisplay) {
+/// Files in the order and groups picked, as the desktop's `file-model.ts`. By label, a file
+/// shows under each of its labels, in the labels' order, and those with none last.
+function fileGroups(files: FileRecord[], display: FileDisplay, labels: LabelRecord[]) {
   const ordered = [...files].sort((a, b) =>
     display.ordering === "name"
       ? nameOf(a).localeCompare(nameOf(b))
@@ -275,6 +257,15 @@ function fileGroups(files: FileRecord[], display: FileDisplay) {
         ? a.entity.createdAt.localeCompare(b.entity.createdAt)
         : b.entity.createdAt.localeCompare(a.entity.createdAt),
   );
+  if (display.grouping === "label") {
+    return [
+      ...labels.map((label) => ({
+        title: label.name,
+        items: ordered.filter((f) => f.labelIds.includes(label.id)),
+      })),
+      { title: "No label", items: ordered.filter((f) => f.labelIds.length === 0) },
+    ].filter((g) => g.items.length > 0);
+  }
   const key =
     display.grouping === "kind"
       ? (f: FileRecord) => kindLabel(kindOf(f))
@@ -286,26 +277,110 @@ function fileGroups(files: FileRecord[], display: FileDisplay) {
   return [...groups.entries()].map(([title, items]) => ({ title, items }));
 }
 
+/// The labels the Space's files carry, most used first, to browse by (D74): a picked one
+/// narrows to its files and the shelf then offers what those also carry. While some files
+/// have none, a quiet Unlabelled chip lists them.
+function Shelf({
+  shelf,
+  picked,
+  labels,
+  onChange,
+}: {
+  shelf: ReturnType<typeof labelShelf<FileRecord>>;
+  picked: string[];
+  labels: LabelRecord[];
+  onChange: (picked: string[]) => void;
+}) {
+  const nameOf = (id: string) =>
+    id === UNLABELLED ? "Unlabelled" : (labels.find((l) => l.id === id)?.name ?? id);
+  const live = picked.filter((id) => id === UNLABELLED || labels.some((l) => l.id === id));
+  const unlabelled = live.length === 0 && shelf.unlabelled > 0;
+  if (live.length === 0 && shelf.labels.length === 0 && !unlabelled) return null;
+  return (
+    <View className="gap-2">
+      <ChipGroup label="Browse by label" scroll multiple>
+        {live.map((id) => (
+          <Chip
+            key={id}
+            label={`${nameOf(id)} ×`}
+            multiple
+            selected
+            onPress={() => onChange(live.filter((x) => x !== id))}
+          />
+        ))}
+        {shelf.labels.map(({ id, count }) => (
+          <Chip
+            key={id}
+            label={`${nameOf(id)} ${count}`}
+            multiple
+            selected={false}
+            onPress={() => onChange([...live, id])}
+          />
+        ))}
+        {unlabelled ? (
+          <Chip
+            label={`Unlabelled ${shelf.unlabelled}`}
+            multiple
+            selected={false}
+            onPress={() => onChange([UNLABELLED])}
+          />
+        ) : null}
+      </ChipGroup>
+      {live.includes(UNLABELLED) ? (
+        <Text variant="small" tone="muted">
+          Give these a label and they turn up on the shelf, under every label they carry.
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 /// A Space's files as tiles or a list, filtered by kind and label, grouped and ordered as
 /// on the desktop, with a bar under them to add a link or choose files.
 export function FileRows({ spaceId }: { spaceId: string }) {
   const { data: files = [] } = useFiles(spaceId);
   const { data: labels = [] } = useLabels(spaceId);
+  const { data: views = [] } = useViews({ spaceId, module: "files" });
   const [display, setDisplay] = usePreference<FileDisplay>(
     `files.display.${spaceId}`,
     fileDisplaySchema,
     FILE_DEFAULT,
   );
+  const [view, setView] = useState("all");
+  const [note, setNote] = useState<string | null>(null);
   const kinds = [...new Set(files.map(kindOf))];
   const used = labels.filter((l) => files.some((f) => f.labelIds.includes(l.id)));
   const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
-  const shown = files.filter(
+  const shelf = labelShelf(
+    files,
+    (f) => f.labelIds,
+    display.shelf,
+    (id) => labels.find((l) => l.id === id)?.name ?? id,
+  );
+  const shown = shelf.shown.filter(
     (f) =>
       (display.kinds.length === 0 || display.kinds.includes(kindOf(f))) &&
       (display.labels.length === 0 || display.labels.some((id) => f.labelIds.includes(id))) &&
       own.passes(f.entity),
   );
-  const groups = fileGroups(shown, display);
+  const groups = fileGroups(shown, display, used);
+  const openView = (id: string) => {
+    setView(id);
+    setNote(null);
+    if (id === "all") return setDisplay(FILE_DEFAULT);
+    const saved = views.find((v) => v.entity.id === id);
+    if (!saved) return;
+    const opened = fileDisplayFromView(saved.config, {
+      labelIds: labels.map((l) => l.id),
+      kinds,
+    });
+    setDisplay(opened.display);
+    if (opened.ignored.length > 0) {
+      setNote(
+        `This view also uses ${opened.ignored.join(", ")}, which the phone doesn't show yet.`,
+      );
+    }
+  };
   return (
     <View className="gap-4">
       <ListControls
@@ -328,33 +403,30 @@ export function FileRows({ spaceId }: { spaceId: string }) {
           },
           ...own.fields,
         ]}
-        display={
-          <View className="gap-3">
-            <LayoutTiles
-              tiles={[
-                { id: "grid", label: "Grid", icon: IconLayoutGrid },
-                { id: "list", label: "List", icon: IconList },
-              ]}
-              value={display.layout}
-              onSelect={(layout) => setDisplay({ ...display, layout })}
-            />
-            <DisplayGroup>
-              <SelectRow
-                label="Grouping"
-                value={display.grouping}
-                options={[...FILE_GROUPINGS]}
-                onChange={(grouping) => setDisplay({ ...display, grouping })}
-              />
-              <SelectRow
-                label="Ordering"
-                value={display.ordering}
-                options={[...FILE_ORDERINGS]}
-                onChange={(ordering) => setDisplay({ ...display, ordering })}
-              />
-            </DisplayGroup>
-          </View>
-        }
+        display={<FileDisplayPanel spaceId={spaceId} display={display} onChange={setDisplay} />}
       />
+      {views.length > 0 ? (
+        <Presets
+          label="Views"
+          value={view}
+          onChange={openView}
+          options={[
+            { id: "all", label: "All" },
+            ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
+          ]}
+        />
+      ) : null}
+      <Shelf
+        shelf={shelf}
+        picked={display.shelf}
+        labels={labels}
+        onChange={(picked) => setDisplay({ ...display, shelf: picked })}
+      />
+      {note ? (
+        <Text variant="small" tone="muted">
+          {note}
+        </Text>
+      ) : null}
       {files.length === 0 ? (
         <Text tone="muted" className="p-4 text-center">
           No files yet. Paste a link or choose files below.
@@ -377,6 +449,60 @@ export function FileRows({ spaceId }: { spaceId: string }) {
         ))
       )}
       <AddBar spaceId={spaceId} />
+    </View>
+  );
+}
+
+/// Layout, grouping and ordering, and saving what is shown as a View the desktop opens too.
+function FileDisplayPanel({
+  spaceId,
+  display,
+  onChange,
+}: {
+  spaceId: string;
+  display: FileDisplay;
+  onChange: (next: FileDisplay) => void;
+}) {
+  const [name, setName] = useState("");
+  const save = useLocalWrite((db, title: string) =>
+    createView(db, spaceId, { title, module: "files", config: fileViewConfig(display) }),
+  );
+  return (
+    <View className="gap-3">
+      <LayoutTiles
+        tiles={[
+          { id: "grid", label: "Grid", icon: IconLayoutGrid },
+          { id: "list", label: "List", icon: IconList },
+        ]}
+        value={display.layout}
+        onSelect={(layout) => onChange({ ...display, layout })}
+      />
+      <DisplayGroup>
+        <SelectRow
+          label="Grouping"
+          value={display.grouping}
+          options={[...FILE_GROUPINGS]}
+          onChange={(grouping) => onChange({ ...display, grouping })}
+        />
+        <SelectRow
+          label="Ordering"
+          value={display.ordering}
+          options={[...FILE_ORDERINGS]}
+          onChange={(ordering) => onChange({ ...display, ordering })}
+        />
+      </DisplayGroup>
+      <View className="flex-row items-end gap-2 border-t border-border pt-3">
+        <View className="flex-1">
+          <Field label="View name" placeholder="Exam papers" value={name} onChangeText={setName} />
+        </View>
+        <Button
+          label="Save View"
+          variant="secondary"
+          status={statusOf(save)}
+          errorLabel="Couldn't save"
+          onPress={() => name.trim() && save.mutate(name.trim(), { onSuccess: () => setName("") })}
+        />
+      </View>
     </View>
   );
 }

@@ -6,8 +6,10 @@ import {
   createLabel,
   createPage,
   createSpace,
+  createView,
   entityLabels,
   listFiles,
+  listViews,
   relatedItems,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
@@ -93,6 +95,81 @@ describe("files", () => {
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Earlier" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "new.pdf" })).toBeNull());
     expect(screen.getByRole("button", { name: "old.pdf" })).toBeTruthy();
+  });
+
+  // D74: labels as the way in, step by step, and what has none easy to find.
+  it("browses by label on the shelf, narrowing with each label picked", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const uni = await createLabel(data.db, space, "Uni");
+    const math = await createLabel(data.db, space, "Math");
+    const both = await addFile(data.db, space, "algebra.pdf", "file:///docs/files/a.pdf");
+    const one = await addFile(data.db, space, "essay.pdf", "file:///docs/files/e.pdf");
+    await addFile(data.db, space, "loose.pdf", "file:///docs/files/l.pdf");
+    await attachLabel(data.db, both, uni);
+    await attachLabel(data.db, both, math);
+    await attachLabel(data.db, one, uni);
+    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Uni 2" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "loose.pdf" })).toBeNull());
+    expect(screen.getByRole("button", { name: "essay.pdf" })).toBeTruthy();
+    // Inside the pick, the shelf offers what those files also carry.
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Math 1" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "essay.pdf" })).toBeNull());
+    expect(screen.getByRole("button", { name: "algebra.pdf" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Uni ×" }));
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Math ×" }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Unlabelled 1" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "algebra.pdf" })).toBeNull());
+    expect(screen.getByRole("button", { name: "loose.pdf" })).toBeTruthy();
+    expect(screen.getByText(/Give these a label/)).toBeTruthy();
+  });
+
+  it("groups by label, a file under each of its labels", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const file = await addFile(data.db, space, "algebra.pdf", "file:///docs/files/a.pdf");
+    await attachLabel(data.db, file, await createLabel(data.db, space, "Math"));
+    await attachLabel(data.db, file, await createLabel(data.db, space, "Exam"));
+    await addFile(data.db, space, "loose.pdf", "file:///docs/files/l.pdf");
+    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+    expect(await screen.findByRole("button", { name: "loose.pdf" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
+    await choose(screen, "Grouping", "Label");
+    expect(await screen.findByRole("header", { name: "Math" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Exam" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "No label" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "algebra.pdf" })).toHaveLength(2);
+  });
+
+  it("opens a Files View saved on the desktop, and saves one the desktop reads", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const exam = await createLabel(data.db, space, "Exam");
+    const tagged = await addFile(data.db, space, "exam.pdf", "file:///docs/files/x.pdf");
+    await attachLabel(data.db, tagged, exam);
+    await addFile(data.db, space, "other.pdf", "file:///docs/files/o.pdf");
+    await createView(data.db, space, {
+      title: "Exam files",
+      module: "files",
+      config: JSON.stringify({ filters: [], display: { layout: "list", shelf: [exam] } }),
+    });
+    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("tab", { name: /^Exam files/ }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "other.pdf" })).toBeNull());
+    await fireEvent.press(screen.getByRole("tab", { name: /^All/ }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Unlabelled 1" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "exam.pdf" })).toBeNull());
+    expect(screen.getByRole("button", { name: "other.pdf" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
+    await fireEvent.changeText(await screen.findByLabelText("View name"), "To sort");
+    await fireEvent.press(screen.getByRole("button", { name: "Save View" }));
+    await waitFor(async () => {
+      const saved = (await listViews(data.db, { spaceId: space, module: "files" })).find(
+        (v) => v.entity.title === "To sort",
+      );
+      expect(JSON.parse(saved?.config ?? "{}").display.shelf).toEqual(["none"]);
+    });
   });
 
   it("adds a link to a file kept elsewhere, and sends a web page to the bookmarks", async () => {

@@ -424,4 +424,4 @@ Labels replace folders on purpose, but a flat list only helps someone who alread
 
 What someone browses to lasts and syncs as a View, the same synced View entity Tasks and Assignments save (module `files`): it keeps the picked labels, the filters and the display, shows under Files in the desktop's sidebar and as a preset above the phone's Files page. Without a View open, the shelf's pick is kept with the page's own display, like its filters.
 
-The nudge is quiet: while some files have no label, the shelf ends with a muted "Unlabelled" chip with their count. Picking it lists them with one line saying labels make them easy to find, and Files has an "Unlabelled" preset beside the saved Views. Nothing pops up and nothing blocks.
+The nudge is quiet: while some files have no label, the shelf ends with a muted "Unlabelled" chip with their count. Picking it lists them with one line saying labels make them easy to find, and the desktop offers an "Unlabelled" View preset to keep that list one click away. Nothing pops up and nothing blocks.
