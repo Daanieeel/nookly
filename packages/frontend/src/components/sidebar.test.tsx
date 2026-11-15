@@ -166,7 +166,9 @@ const shift = (id: string) => {
   return match ? Number(match[1]) : 0;
 };
 const swipe = async (deltaX: number) => fireEvent.wheel(await slot("Uni"), { deltaX, deltaY: 0 });
-const settled = { timeout: 3000 };
+/// How long a swipe may take to settle: its slide runs on real timers and frames, which a
+/// loaded CI machine stretched past 3 seconds. A swipe that works settles far sooner.
+const settled = { timeout: 10_000 };
 
 /// Fires a trackpad glide on a clock that only moves by hand, 8ms an event: real time passing
 /// between events (a slow machine in CI) made a glide look like two swipes. The slide after it
