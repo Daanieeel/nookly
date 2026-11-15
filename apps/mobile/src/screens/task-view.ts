@@ -96,7 +96,7 @@ const BUCKET_FILTERS = [
 
 export type BucketKey = (typeof BUCKET_FILTERS)[number]["key"];
 
-export const NO_EFFORT = "none";
+const NO_EFFORT = "none";
 
 /// Where a start date falls, as the desktop's start buckets: begun, today, soon, later, none.
 function startBucket(startDate: string | null, today: string): string {
@@ -228,7 +228,7 @@ export function orderTasks(
   return [...tasks].sort(compare);
 }
 
-export const DUE_BUCKETS = [
+const DUE_BUCKETS = [
   { id: "overdue", title: "Overdue" },
   { id: "today", title: "Due today" },
   { id: "week", title: "Next 7 days" },

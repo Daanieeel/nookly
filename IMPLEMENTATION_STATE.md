@@ -94,9 +94,9 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 
 ### 6. Final checks and report
 
-- [ ] `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
-- [ ] `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
-- [ ] Final report below.
+- [x] (2026-11-15, see Final report) `bun run lint`, `bun run format:check`, `bun run typecheck`, `bun run test`, `cargo test` (in `apps/desktop/src-tauri`), `bun run duplication`; read the report only checks (`coverage`, `unused`, `audit`, `lint:rust:strict`).
+- [x] (2026-11-15) `CHANGELOG.md` and `whats-new.json` (1.0.0) describe what ships, once.
+- [x] (2026-11-15) Final report below.
 
 ## Needs the user
 
@@ -108,8 +108,25 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 
 ## Progress log
 
+- 2026-11-15: every item done (sections 1 to 6), final report written.
 - 2026-11-15: file refilled from the fourth round of `NOTES.md`. The previous rounds (all items done) are in git history up to 61d46e9d and `DECISIONS.md` up to D68.
 
 ## Final report
 
-(Written at the end.)
+Every item of this round is done; decisions D69 to D74 are in `DECISIONS.md`.
+
+Checks on the final tree:
+
+- `bun run lint`, `bun run typecheck`: clean.
+- `bun run format:check`: clean except `NOTES.md`, which is yours and left untouched.
+- `bun run duplication`: 0.14%.
+- `bun run test`: passes. The phone's search filter test was split in three, since one long flow ran past Jest's 5 second limit while every suite ran at once.
+- `cargo test`: 1546 pass, 1 fails: `db::search::tests::search_stays_within_its_budget_on_20000_entities`. It takes 19 ms alone and about 240 ms only while the whole suite runs, and failed the same way on 2026-11-14, before this round's search change. It looks like the machine being busy (the simulator, Metro and parallel tests), not a slower search; worth a look on CI.
+- On the way, Views written through the CLI now accept the filters the apps save (pinned, completed, effort), which the CLI refused.
+
+Report only:
+
+- `coverage`: stops on `spellcheck-extension.test.ts` "stays quick on a long page" (3238 ms against 1500 under coverage instrumentation); untouched this round.
+- `unused`: this round's leftovers removed; the remaining 51 exports and 15 types were there before.
+- `audit`: Rust advisories (RUSTSEC-2024-0370, 2024-0436, 2026-0192, 0310, 0346 to 0349) in dependencies; no change this round.
+- `lint:rust:strict`: 3 "too many lines" warnings, as before.

@@ -31,7 +31,7 @@ import { CORNER, RADIUS, TINT, type TintName } from "../ui/tokens.ts";
 /// `MoodleFrame.tsx` and `CourseArt.tsx`.
 
 /// The same page on the Moodle website.
-export function OpenInMoodle({ url }: { url: string | null }) {
+function OpenInMoodle({ url }: { url: string | null }) {
   const service = useMoodleService();
   const theme = useTheme();
   if (!url) return null;
