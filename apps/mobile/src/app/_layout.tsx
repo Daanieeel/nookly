@@ -11,8 +11,6 @@ import {
 import { InterTight_600SemiBold, InterTight_900Black } from "@expo-google-fonts/inter-tight";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-  DarkTheme,
-  DefaultTheme,
   Stack,
   ThemeProvider,
   router,
@@ -21,10 +19,11 @@ import {
   useRouter,
 } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SidebarDrawer } from "../shell/SidebarDrawer.tsx";
 import { TabletShell } from "../shell/TabletShell.tsx";
+import { useNavigationTheme } from "../shell/navigation-theme.ts";
 
 import { SidebarBesideProvider, useIsTablet } from "../ui/pane.tsx";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -101,11 +100,30 @@ function FirstRun() {
   return null;
 }
 
+/// What changes with the page shown: the sidebar beside the page on a tablet (not over
+/// signing in), or the drawer, which needs to know whether the page can go back. Kept
+/// apart from the layout so a page change re-renders only this, and not the whole app
+/// with it: the stack it holds is the same element from one page to the next.
+function AppShell({ stack }: { stack: ReactNode }) {
+  const pathname = usePathname();
+  const beside = useIsTablet() && !/^\/(welcome|account)/.test(pathname);
+  return beside ? (
+    <TabletShell>{stack}</TabletShell>
+  ) : (
+    <SidebarBesideProvider value={false}>
+      <SidebarDrawer
+        enabled={!/^\/(welcome|account)/.test(pathname)}
+        edgeBack={!TOP_LEVEL.test(pathname)}
+      >
+        {stack}
+      </SidebarDrawer>
+    </SidebarBesideProvider>
+  );
+}
+
 export default function RootLayout() {
   const theme = useTheme();
-  const pathname = usePathname();
-  // The sidebar sits beside the page on a tablet, but not over signing in.
-  const beside = useIsTablet() && !/^\/(welcome|account)/.test(pathname);
+  const navigation = useNavigationTheme();
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -149,20 +167,6 @@ export default function RootLayout() {
     );
   }
 
-  const base = theme.dark ? DarkTheme : DefaultTheme;
-  const navigation = {
-    ...base,
-    colors: {
-      ...base.colors,
-      primary: theme.colors.primary,
-      // Behind every page: the sidebar's background, so the page's rounded corners only
-      // ever show the sidebar's color around them. The pages paint their own (`Screen`).
-      background: theme.colors.background,
-      card: theme.colors.page,
-      text: theme.colors.foreground,
-      border: theme.colors.border,
-    },
-  };
   // A page of grouped sections has its bar on the same grouped background, as iOS's Settings.
   const groupedHeader = {
     headerStyle: {
@@ -252,18 +256,7 @@ export default function RootLayout() {
             <SheetHost>
               <StatusBar style="auto" />
               <FirstRun />
-              {beside ? (
-                <TabletShell>{stack}</TabletShell>
-              ) : (
-                <SidebarBesideProvider value={false}>
-                  <SidebarDrawer
-                    enabled={!/^\/(welcome|account)/.test(pathname)}
-                    edgeBack={!TOP_LEVEL.test(pathname)}
-                  >
-                    {stack}
-                  </SidebarDrawer>
-                </SidebarBesideProvider>
-              )}
+              <AppShell stack={stack} />
               <EditorToolbar />
               <FirstSyncPage />
             </SheetHost>

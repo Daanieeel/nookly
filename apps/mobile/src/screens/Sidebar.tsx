@@ -21,7 +21,7 @@ import {
 } from "@tabler/icons-react-native";
 import { z } from "zod";
 import { type Href, usePathname, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { ReorderList } from "../ui/ReorderList.tsx";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -549,15 +549,17 @@ const SPACE_SHOWN = z.string().nullable();
 /// The app's navigation, as a sidebar that slides the page aside, mirroring the desktop's:
 /// the mascot's card, Search and the overviews across every Space, then one Space at a time
 /// with its modules, and at the bottom the Space switcher, Trash and Settings.
-export function Sidebar({ close }: { close: () => void }) {
+export const Sidebar = memo(function Sidebar({ close }: { close: () => void }) {
   const router = useRouter();
   const menu = useMenu();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { data: spaces = [] } = useSpaces();
+  // The drawer starts closing first, on the UI thread, and the page is built a frame
+  // later while it slides: building it first held the drawer still until it was done.
   const go = (href: Href) => {
-    router.navigate(href);
     close();
+    requestAnimationFrame(() => router.navigate(href));
   };
   const push = (href: Href) => {
     close();
@@ -652,4 +654,4 @@ export function Sidebar({ close }: { close: () => void }) {
       </View>
     </View>
   );
-}
+});

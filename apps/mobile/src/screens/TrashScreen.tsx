@@ -15,6 +15,7 @@ import { Empty, Row, Section } from "../ui/Row.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { SwipeRow } from "../ui/SwipeRow.tsx";
+import { useStaged } from "../ui/staged.ts";
 import { useState } from "react";
 import { ago } from "./dates.ts";
 import { typeLabel } from "./pinned-groups.ts";
@@ -51,6 +52,7 @@ export function TrashScreen() {
       description: "This can't be undone, on any device.",
       actions: [{ label: "Delete Forever", destructive: true, onPress: () => forever.mutate(id) }],
     });
+  const staged = useStaged(shown);
   return (
     <Screen>
       <ListControls
@@ -111,7 +113,7 @@ export function TrashScreen() {
       <Section>
         {trashed.length === 0 ? <Empty text="Trash is empty." /> : null}
         {trashed.length > 0 && shown.length === 0 ? <Empty text="Nothing matches." /> : null}
-        {shown.map((entity) => (
+        {staged.map((entity) => (
           <View key={entity.id}>
             <SwipeRow
               left={{

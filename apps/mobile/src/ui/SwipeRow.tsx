@@ -50,6 +50,9 @@ export function SwipeRow({
   const start = useSharedValue(0);
   const armed = useSharedValue(false);
   const [open, setOpen] = useState(false);
+  // The actions are built once a swipe starts: a list need not build every row's hidden
+  // buttons (a third of a row's views) for a swipe that may never come.
+  const [revealed, setRevealed] = useState(false);
   const hasLeft = left !== undefined;
   const hasRight = right !== undefined;
 
@@ -81,6 +84,10 @@ export function SwipeRow({
     // Sideways only: a vertical drag still scrolls the list.
     .activeOffsetX([-12, 12])
     .failOffsetY([-10, 10])
+    .withTestId("swipe-row")
+    .onStart(() => {
+      runOnJS(setRevealed)(true);
+    })
     .onBegin(() => {
       cancelAnimation(x);
       start.value = x.value;
@@ -137,7 +144,7 @@ export function SwipeRow({
         onLayout={onLayout}
         style={{ marginHorizontal: gutter === 0 ? 0 : -gutter, overflow: "hidden" }}
       >
-        {left ? (
+        {revealed && left ? (
           <Fill
             style={[leftFill, { left: 0 }]}
             action={left}
@@ -146,7 +153,7 @@ export function SwipeRow({
             run={run}
           />
         ) : null}
-        {right ? (
+        {revealed && right ? (
           <Fill
             style={[rightFill, { right: 0 }]}
             action={right}

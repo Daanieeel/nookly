@@ -1,5 +1,6 @@
 import type { PageSummary } from "@nookly/shared/data";
 import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
+import { useStaged } from "../ui/staged.ts";
 import { notePreviewText } from "@nookly/frontend/lib/note-preview";
 import { IconClock, IconFeather, IconLink, IconTag } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
@@ -186,6 +187,7 @@ export function NoteList({ spaceId }: { spaceId: string }) {
   const shown = pages
     .filter((p) => matches(p, query) && passes(p, display))
     .sort(compare(display.ordering));
+  const staged = useStaged(shown);
   return (
     <View className="gap-3">
       {controls}
@@ -197,7 +199,7 @@ export function NoteList({ spaceId }: { spaceId: string }) {
           </Text>
         ) : null}
         <ListGroup>
-          {shown.map((page) => (
+          {staged.map((page) => (
             <ListItem key={page.entity.id}>
               <PageRow page={page} jot={false} />
             </ListItem>
@@ -238,6 +240,7 @@ export function JotList({ spaceId }: { spaceId: string }) {
   const shown = jots
     .filter((j) => inPreset[preset](j) && matches(j, query) && passes(j, display))
     .sort(compare(display.ordering));
+  const staged = useStaged(shown);
   return (
     <View className="gap-3">
       {controls}
@@ -269,7 +272,7 @@ export function JotList({ spaceId }: { spaceId: string }) {
             </Text>
           ) : null}
           <ListGroup>
-            {shown.map((jot) => (
+            {staged.map((jot) => (
               <ListItem key={jot.entity.id}>
                 <PageRow page={jot} jot />
               </ListItem>

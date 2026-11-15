@@ -49,7 +49,31 @@ describe("the sidebar", () => {
     expect(screen.queryByRole("button", { name: "Tasks in Work" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Tasks in Home" }));
     expect(close).toHaveBeenCalled();
-    expect(screen.getPathname()).toBe(`/module/${home}/tasks`);
+    await waitFor(() => expect(screen.getPathname()).toBe(`/module/${home}/tasks`));
+  });
+
+  // Picking a page felt slow: the drawer only began to close once the new page had been
+  // built. It starts closing first; the page follows a frame later.
+  it("starts closing before it opens the page", async () => {
+    const data = testData();
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    await createTask(data.db, work, "Quarterly report");
+    const order: string[] = [];
+    const screen = await renderScreens(
+      {
+        index: () => <Sidebar close={() => order.push("close")} />,
+        "module/[spaceId]/[module]": () => {
+          order.push("page");
+          return <Text>Module page</Text>;
+        },
+      },
+      data,
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Tasks in Work" }));
+    expect(order).toEqual(["close"]);
+    expect(await screen.findByText("Module page")).toBeTruthy();
+    expect(order[0]).toBe("close");
+    expect(screen.getPathname()).toBe(`/module/${work}/tasks`);
   });
 
   it("orders the Spaces by dragging their icons at the bottom", async () => {
@@ -106,7 +130,7 @@ describe("the sidebar", () => {
     expect(screen.queryByRole("search")).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Search" }));
     expect(close).toHaveBeenCalled();
-    expect(screen.getPathname()).toBe("/search");
+    await waitFor(() => expect(screen.getPathname()).toBe("/search"));
   });
 
   it("says a shared Space is shared, and leaves pinned items to Pinned, as the desktop does", async () => {

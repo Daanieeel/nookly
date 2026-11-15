@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
+import { State } from "react-native-gesture-handler";
+import { fireGestureHandler, getByGestureTestId } from "react-native-gesture-handler/jest-utils";
 import { Row } from "./Row.tsx";
 import { Screen } from "./Screen.tsx";
 import { SwipeRow } from "./SwipeRow.tsx";
@@ -39,15 +41,23 @@ describe("a list row's edges", () => {
       </Screen>,
     );
     expect(style("Buy milk")).toMatchObject({ marginHorizontal: 0, paddingHorizontal: 20 });
-    expect(screen.getByText("Done")).toBeTruthy();
   });
 
-  it("swipe actions show their icon and name", () => {
+  // A list mounted every row's hidden actions, a third of each row's views, for nothing
+  // until a finger swipes. They appear once a swipe starts.
+  it("builds its actions only once a swipe starts, then shows them named", async () => {
+    const onPress = jest.fn();
     render(
-      <SwipeRow right={{ label: "Trash", tone: "destructive", onPress: () => {} }}>
+      <SwipeRow right={{ label: "Trash", tone: "destructive", onPress }}>
         <Text>Row</Text>
       </SwipeRow>,
     );
-    expect(screen.getByRole("button", { name: "Trash" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Trash" })).toBeNull();
+    fireGestureHandler(getByGestureTestId("swipe-row"), [
+      { state: State.BEGAN },
+      { state: State.ACTIVE, translationX: -40 },
+      { state: State.END, translationX: -60, velocityX: 0 },
+    ]);
+    expect(await screen.findByRole("button", { name: "Trash" })).toBeTruthy();
   });
 });
