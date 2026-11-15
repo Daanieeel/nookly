@@ -12,7 +12,12 @@ import { MIN_TOUCH } from "./touch.ts";
 /// How a field's filter reads: the values it matches, or, when it matches most of them, the
 /// few it leaves out ("is not"). The phone keeps only what matches; "is not" is that read the
 /// other way round, as the desktop's operator shows it.
-export function operatorOf(filter: ListFilter): { negated: boolean; shown: string[] } {
+export interface FilterReading {
+  negated: boolean;
+  shown: string[];
+}
+
+export function operatorOf(filter: ListFilter): FilterReading {
   const rest = filter.options.map((o) => o.id).filter((id) => !filter.values.includes(id));
   const negated = rest.length > 0 && rest.length < filter.values.length;
   return { negated, shown: negated ? rest : filter.values };
