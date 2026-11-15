@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import {
   createAssignment,
   createDeck,
@@ -152,6 +153,10 @@ describe("an item's page and its details", () => {
     expect(await screen.findByText("sessions this week")).toBeTruthy();
     expect(screen.getByText("upcoming exams")).toBeTruthy();
     expect(screen.getByText("open assignments")).toBeTruthy();
+    // Full width, as the page's main action (the user's notes).
+    expect(StyleSheet.flatten(screen.getByTestId("add-course").props.style)?.alignItems).toBe(
+      "stretch",
+    );
     await fireEvent.press(screen.getByRole("button", { name: "Add Course" }));
     await fireEvent.changeText(
       await screen.findByLabelText("Search Courses without a semester"),

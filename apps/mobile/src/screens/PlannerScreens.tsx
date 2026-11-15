@@ -620,7 +620,7 @@ function AddCourse({
     await setCourseSemester(db, course, semesterId);
   });
   return (
-    <View className="items-start">
+    <View testID="add-course" style={{ alignItems: "stretch" }}>
       <Button
         label="Add Course"
         variant="secondary"
