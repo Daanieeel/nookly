@@ -179,6 +179,7 @@ export function FilterField<T extends string>({
   options,
   values,
   onChange,
+  search,
 }: {
   label: string;
   /// The desktop's icon for the field, as Linear's filter list draws one per row.
@@ -186,6 +187,8 @@ export function FilterField<T extends string>({
   options: Option<T>[];
   values: T[];
   onChange: (values: T[]) => void;
+  /// Whether its choices get a search field; by default only a long list.
+  search?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const shown =
@@ -199,7 +202,13 @@ export function FilterField<T extends string>({
       <NextRow label={label} icon={icon} value={shown} onPress={() => setOpen(true)} />
       {/* A card over the Filter sheet, as a select opens, not a step covering it. */}
       <Sheet open={open} onOpenChange={setOpen} title={label} presentation="card">
-        <FilterOptions label={label} options={options} values={values} onChange={onChange} />
+        <FilterOptions
+          label={label}
+          options={options}
+          values={values}
+          onChange={onChange}
+          search={search}
+        />
       </Sheet>
     </>
   );
@@ -212,17 +221,20 @@ export function FilterOptions<T extends string>({
   options,
   values,
   onChange,
+  search,
 }: {
   label: string;
   options: Option<T>[];
   values: T[];
   onChange: (values: T[]) => void;
+  search?: boolean;
 }) {
   const [ticked, setTicked] = useState(values);
   return (
     <OptionList
       label={label}
       multiple
+      search={search}
       empty={{ title: `No ${label} Yet`, message: "Nothing here to filter by yet." }}
       options={options}
       values={ticked}

@@ -187,14 +187,7 @@ function FilterPanel({ filters }: { filters: ListFilter[] }) {
   return (
     <DisplayGroup>
       {filters.map((field) => (
-        <FilterField
-          key={field.label}
-          label={field.label}
-          icon={field.icon}
-          values={field.values}
-          options={field.options}
-          onChange={field.onChange}
-        />
+        <FilterField key={field.label} {...field} />
       ))}
     </DisplayGroup>
   );

@@ -118,6 +118,32 @@ describe("a Space's bookmarks", () => {
     expect(screen.getByRole("header", { name: "example.com" })).toBeTruthy();
   });
 
+  // The Site filter was a bare list of addresses: it searches, shows each site's icon and
+  // mutes the part of the address everyone has ("https://www.").
+  it("finds a site by search, with its icon and its address's important part", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Web", "#3b82f6");
+    const g = await createBookmark(data.db, space, "https://www.google.com/a", "Google");
+    await createBookmark(data.db, space, "https://other.org/b", "Other B");
+    data.driver.exec("UPDATE bookmarks SET favicon_url = ? WHERE entity_id = ?",
+      "https://www.google.com/f.png",
+      g,
+    );
+    const screen = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
+    expect(await screen.findByRole("link", { name: "Other B" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Site");
+    expect(await screen.findByLabelText("Search Site")).toBeTruthy();
+    expect(screen.getByText("https://www.")).toBeTruthy();
+    expect(screen.getByTestId("site-icon-www.google.com").props.source).toEqual({
+      uri: "https://www.google.com/f.png",
+    });
+    await fireEvent.changeText(screen.getByLabelText("Search Site"), "goo");
+    await waitFor(() => expect(screen.queryByRole("checkbox", { name: "other.org" })).toBeNull());
+    await fireEvent.press(screen.getByRole("checkbox", { name: "google.com" }));
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Other B" })).toBeNull());
+  });
+
   // The Filter sheet came up empty while no bookmark had a label or a site to offer.
   it("lists every filter even with nothing to pick yet, and narrows to when they were created", async () => {
     const data = testData();

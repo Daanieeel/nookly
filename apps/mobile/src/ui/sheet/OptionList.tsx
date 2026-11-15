@@ -19,6 +19,8 @@ import { SheetPinned, useSheet, useSheetScroll } from "./Sheet.tsx";
 export interface Option<Id extends string = string> {
   id: Id;
   label: string;
+  /// Muted text the label follows, as an address's "https://www." before what matters.
+  prefix?: string;
   /// An icon of its own (a status's mark, a Space's icon, a colour dot), drawn on a badge.
   icon?: ReactNode;
   /// One of the desktop's icons for the badge instead.
@@ -108,6 +110,7 @@ function PickerRow({
       <LeadingIcon option={option} />
       <View className="flex-1 py-2">
         <Text numberOfLines={1} style={BODY}>
+          {option.prefix ? <Text tone="muted">{option.prefix}</Text> : null}
           {option.label}
         </Text>
         {option.subtitle ? (

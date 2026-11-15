@@ -125,6 +125,7 @@ function FilterChip({ filter }: { filter: ListFilter }) {
           options={filter.options}
           values={filter.values}
           onChange={filter.onChange}
+          search={filter.search}
         />
       </Sheet>
     </View>

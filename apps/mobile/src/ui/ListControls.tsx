@@ -13,6 +13,8 @@ export interface ListFilter {
   options: Option<string>[];
   values: string[];
   onChange: (values: string[]) => void;
+  /// Whether its choices get a search field; by default only a long list.
+  search?: boolean;
 }
 
 /// A list page's top, as Tasks has it (D65): the title with how many and Filter and Display;
@@ -46,14 +48,7 @@ export function ListControls({
       <Sheet open={panel === "filter"} onOpenChange={close} title="Filter">
         <DisplayGroup>
           {filters.map((field) => (
-            <FilterField
-              key={field.label}
-              label={field.label}
-              icon={field.icon}
-              values={field.values}
-              options={field.options}
-              onChange={field.onChange}
-            />
+            <FilterField key={field.label} {...field} />
           ))}
         </DisplayGroup>
       </Sheet>

@@ -28,6 +28,7 @@ import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
+import type { Option } from "../ui/sheet/OptionList.tsx";
 import {
   ENTITY_FILTERS_NONE,
   ENTITY_FILTER_PICKS,
@@ -42,6 +43,36 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 
 const hostOf = (url: string) => url.replace(/^https?:\/\//, "").split("/")[0];
+
+/// The Site filter's choices: each site with its icon, its address read for what matters
+/// ("google.com") after the muted part every address has ("https://www."), searchable.
+export function siteOptions(bookmarks: BookmarkRecord[]): Option[] {
+  const sites = new Map<string, BookmarkRecord>();
+  for (const b of bookmarks) {
+    const host = hostOf(b.url);
+    if (!sites.get(host)?.faviconUrl) sites.set(host, b);
+  }
+  return [...sites.entries()]
+    .sort(([a], [b]) => a.replace(/^www\./, "").localeCompare(b.replace(/^www\./, "")))
+    .map(([host, b]) => {
+      const lead = /^(https?:\/\/)?(www\.)?/i.exec(b.url)?.[0] ?? "";
+      return {
+        id: host,
+        prefix: lead || undefined,
+        label: host.replace(/^www\./i, ""),
+        keywords: [host],
+        icon: <SiteIcon host={host} favicon={b.faviconUrl} />,
+      };
+    });
+}
+
+function SiteIcon({ host, favicon }: { host: string; favicon: string | null }) {
+  const theme = useTheme();
+  if (!favicon) return <IconWorld size={20} color={theme.colors.mutedForeground} />;
+  return (
+    <Image testID={`site-icon-${host}`} source={{ uri: favicon }} className="size-5 rounded" />
+  );
+}
 
 /// A bookmark as a rich link card: the page's picture, its icon and title, what it says, its
 /// host and when it was added. Tapping it opens the link; the button in the corner opens its
@@ -271,7 +302,6 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
     DEFAULT,
   );
   const used = labels.filter((l) => bookmarks.some((b) => b.labelIds.includes(l.id)));
-  const sites = [...new Set(bookmarks.map((b) => hostOf(b.url)))].sort();
   const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
   const shown = bookmarks.filter(
     (b) =>
@@ -297,7 +327,8 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
             label: "Site",
             icon: IconWorld,
             values: display.sites,
-            options: sites.map((site) => ({ id: site, label: site })),
+            options: siteOptions(bookmarks),
+            search: true,
             onChange: (next) => setDisplay({ ...display, sites: next }),
           },
           ...own.fields,
