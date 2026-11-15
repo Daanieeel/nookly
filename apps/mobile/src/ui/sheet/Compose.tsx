@@ -32,7 +32,12 @@ export function ComposeHeader({
   const theme = useTheme();
   return (
     <SheetHeader>
-      <View className="flex-row items-center gap-2 px-4 pb-1 pt-2">
+      <View
+        testID="compose-header"
+        className="flex-row items-center gap-2 px-4 pt-2"
+        // Room between the buttons and the title under them.
+        style={{ paddingBottom: SPACE.md }}
+      >
         <RoundButton label="Close" onPress={() => sheet?.close()}>
           <IconX size={22} color={theme.colors.foreground} />
         </RoundButton>

@@ -10,6 +10,8 @@ import { MenuList, SEPARATOR, menuGroups } from "./MenuList.tsx";
 import { FilterField } from "./DisplayParts.tsx";
 import { OptionList } from "./OptionList.tsx";
 import { Sheet, useSheet } from "./Sheet.tsx";
+import { ComposeHeader } from "./Compose.tsx";
+import { SPACE } from "../tokens.ts";
 
 // The sheet animates in and out on timers, which take longer when every suite runs at once.
 jest.setTimeout(20_000);
@@ -355,5 +357,19 @@ describe("an option list searched elsewhere", () => {
     fireEvent.changeText(screen.getByLabelText("Search Items"), "zebra");
     expect(asked).toEqual(["zebra"]);
     expect(screen.getByRole("radio", { name: "Found by its page text" })).toBeTruthy();
+  });
+});
+
+// The title under a compose sheet's close, Space and send buttons sat right against them.
+describe("a compose sheet's header", () => {
+  it("leaves a gap before the title", async () => {
+    const screen = render(
+      <Sheet open onOpenChange={() => {}}>
+        <ComposeHeader sendLabel="Create Task" canSend={false} onSend={() => {}} />
+        <Text>Title</Text>
+      </Sheet>,
+    );
+    const header = StyleSheet.flatten((await screen.findByTestId("compose-header")).props.style);
+    expect(header.paddingBottom).toBeGreaterThanOrEqual(SPACE.md);
   });
 });

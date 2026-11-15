@@ -88,6 +88,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ## Progress log
 
+- 2026-11-15: asked in chat: a compose sheet leaves 16pt between its buttons and the title (test; on screen).
 - 2026-11-15: dialog corners and padding done; search field height, centring and solid placeholders done.
 - 2026-11-15: file refilled from the fifth round of `NOTES.md`. The fourth round (all done, final report included) is in git history up to 2821cbac and `DECISIONS.md` up to D74.
 
