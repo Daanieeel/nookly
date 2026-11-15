@@ -79,26 +79,35 @@ async function waitFor<T>(check: () => T | null | undefined, ms = 10000): Promis
 const isPressable = (props: Record<string, unknown>) => typeof props.onPress === "function";
 
 /// Presses the button or row whose label or text is `label`.
-async function press(label: string, nth = 0): Promise<boolean> {
+const press = (label: string, nth = 0) => touch("onPress", label, nth);
+
+/// Holds a finger on the row whose label or text is `label` (its long press menu).
+const longPress = (label: string, nth = 0) => touch("onLongPress", label, nth);
+
+async function touch(handler: "onPress" | "onLongPress", label: string, nth: number) {
   let seen = 0;
   const target = await waitFor(() =>
     find((f, props) => {
-      if (!isPressable(props)) return false;
+      if (typeof props[handler] !== "function") return false;
       const matches = props.accessibilityLabel === label || textOf(f) === label;
       return matches && seen++ === nth;
     }),
   );
-  // As a finger would, so what it opens floats there on a tablet (D83, 2.3).
+  // As a finger would, so what it opens floats there on a tablet (D83, 2.3): a press on
+  // the view it landed on, a long press at the finger.
   const at = await measure(label, nth);
   if (at)
     noteTouch({
       nativeEvent: { pageX: at.x + at.width / 2, pageY: at.y + at.height / 2 },
-      target: {
-        measureInWindow: (done: (x: number, y: number, w: number, h: number) => void) =>
-          void measure(label, nth).then((r) => r && done(r.x, r.y, r.width, r.height)),
-      },
+      target:
+        handler === "onPress"
+          ? {
+              measureInWindow: (done: (x: number, y: number, w: number, h: number) => void) =>
+                void measure(label, nth).then((r) => r && done(r.x, r.y, r.width, r.height)),
+            }
+          : undefined,
     });
-  (target.memoizedProps?.onPress as (event: object) => void)({ nativeEvent: {} });
+  (target.memoizedProps?.[handler] as (event: object) => void)({ nativeEvent: {} });
   await sleep(250);
   return true;
 }
@@ -244,6 +253,7 @@ export interface AutomationContext {
 export function startAutomation(url: string, device: string, context: AutomationContext) {
   const helpers = {
     press,
+    longPress,
     type,
     focus,
     finish,

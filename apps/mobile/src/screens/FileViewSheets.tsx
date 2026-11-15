@@ -96,7 +96,7 @@ export function PickedLabels({
   const [choosing, setChoosing] = useState(false);
   const live = picked.filter((id) => id === UNLABELLED || labels.some((l) => l.id === id));
   const sheet = (
-    <Sheet open={choosing} onOpenChange={setChoosing} title="Labels">
+    <Sheet open={choosing} onOpenChange={setChoosing} title="Labels" kind="picker">
       <LabelChoice counts={counts} picked={live} onChange={onChange} />
     </Sheet>
   );
@@ -209,7 +209,7 @@ export function NewFileView({
           onPress={() => void create()}
         />
       </View>
-      <Sheet open={choosing} onOpenChange={setChoosing} title="Labels">
+      <Sheet open={choosing} onOpenChange={setChoosing} title="Labels" kind="picker">
         <LabelChoice counts={counts} picked={picked} onChange={setPicked} />
       </Sheet>
     </Sheet>

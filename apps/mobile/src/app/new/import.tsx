@@ -7,4 +7,4 @@ function NewImport() {
   return <ImportScreen spaceId={spaceId} />;
 }
 
-export default sheetRoute("Import a File", NewImport, "large");
+export default sheetRoute("Import a File", NewImport, "large", "flow");

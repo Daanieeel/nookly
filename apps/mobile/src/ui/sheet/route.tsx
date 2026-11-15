@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import type { ComponentType } from "react";
-import { RouteSheet, type SheetSize, useSheet } from "./Sheet.tsx";
+import { type PresentationKind, RouteSheet, type SheetSize, useSheet } from "./Sheet.tsx";
 
 /// A route drawn as the app's sheet (a create form, the icon picker): its screen is see
 /// through (`SHEET_ROUTE` in the root layout) and `Screen` inside it lays out without
@@ -9,11 +9,18 @@ export function sheetRoute<P extends object>(
   title: string,
   Content: ComponentType<P>,
   size?: SheetSize,
+  /// What it is, for a tablet (D83): a create form's medium dialog unless said otherwise.
+  kind: PresentationKind = "form",
 ) {
   return function SheetRouteScreen(props: P) {
     const router = useRouter();
     return (
-      <RouteSheet title={title} size={size} onClosed={() => router.canGoBack() && router.back()}>
+      <RouteSheet
+        title={title}
+        size={size}
+        kind={kind}
+        onClosed={() => router.canGoBack() && router.back()}
+      >
         <Content {...props} />
       </RouteSheet>
     );

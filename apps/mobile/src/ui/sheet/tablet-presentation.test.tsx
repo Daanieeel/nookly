@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react-native";
 import { type ReactNode, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { WindowSizeProvider } from "../pane.tsx";
@@ -241,6 +241,40 @@ describe("how a sheet shows by the window", () => {
     );
     await screen.findByTestId("sheet-panel");
     expect(topLayer()).toBeUndefined();
+  });
+
+  it("asks in a small dialog with the desktop's footer: Cancel, then the action", async () => {
+    const trashed = jest.fn();
+    function Opener() {
+      const host = useOptionalSheetHost();
+      return (
+        <Text
+          onPress={() =>
+            host?.confirm({
+              title: "Delete Work forever?",
+              description: "It can't be undone.",
+              actions: [{ label: "Delete Forever", destructive: true, onPress: trashed }],
+            })
+          }
+        >
+          ask
+        </Text>
+      );
+    }
+    render(
+      <At size={LANDSCAPE}>
+        <SheetHost>
+          <Opener />
+        </SheetHost>
+      </At>,
+    );
+    fireEvent.press(screen.getByText("ask"));
+    await screen.findByTestId("sheet-dialog");
+    expect(widthOf("sheet-dialog")).toBe(420);
+    const footer = screen.getByTestId("card-footer");
+    expect(within(footer).getByRole("button", { name: "Cancel" })).toBeTruthy();
+    fireEvent.press(within(footer).getByRole("button", { name: "Delete Forever" }));
+    await waitFor(() => expect(trashed).toHaveBeenCalled());
   });
 
   it("closes when its anchor is gone", async () => {

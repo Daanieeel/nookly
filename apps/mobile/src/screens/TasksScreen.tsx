@@ -429,6 +429,8 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
           open={panel === "filter"}
           onOpenChange={(open) => !open && setPanel(null)}
           title="Filter"
+          kind="picker"
+          wide
         >
           <FilterPanel filters={filters} />
         </Sheet>
@@ -436,6 +438,9 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
           open={panel === "display"}
           onOpenChange={(open) => !open && setPanel(null)}
           title="Display"
+
+          kind="picker"
+          wide
         >
           <DisplayPanel display={display} onChange={setDisplay} />
         </Sheet>

@@ -7,4 +7,4 @@ function ExternalEvent() {
   return <ExternalEventScreen id={id ?? ""} />;
 }
 
-export default sheetRoute("Moodle", ExternalEvent);
+export default sheetRoute("Moodle", ExternalEvent, undefined, "picker");

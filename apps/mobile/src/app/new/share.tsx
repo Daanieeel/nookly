@@ -7,4 +7,4 @@ function Share() {
   return <ShareScreen entityId={entityId} />;
 }
 
-export default sheetRoute("Share", Share, "large");
+export default sheetRoute("Share", Share, "large", "flow");

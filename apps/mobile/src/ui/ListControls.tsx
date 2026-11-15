@@ -52,14 +52,14 @@ export function ListControls({
         {tabs}
         <ActiveFilters filters={filters} />
       </FixedTop>
-      <Sheet open={panel === "filter"} onOpenChange={close} title="Filter">
+      <Sheet open={panel === "filter"} onOpenChange={close} title="Filter" kind="picker" wide>
         <DisplayGroup>
           {filters.map((field) => (
             <FilterField key={field.label} {...field} />
           ))}
         </DisplayGroup>
       </Sheet>
-      <Sheet open={panel === "display"} onOpenChange={close} title="Display">
+      <Sheet open={panel === "display"} onOpenChange={close} title="Display" kind="picker" wide>
         {display}
       </Sheet>
     </>

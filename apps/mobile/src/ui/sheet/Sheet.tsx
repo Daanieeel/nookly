@@ -191,6 +191,7 @@ function SheetFrame({
   kind,
   anchor,
   touched,
+  wide,
   onRequestClose,
   onClosed,
   children,
@@ -204,6 +205,8 @@ function SheetFrame({
   anchor?: Anchor;
   /// The anchor is only where the last touch was (`recentTouch`).
   touched?: boolean;
+  /// A popover for filters and display options, wider than a list's.
+  wide?: boolean;
   /// The person asked it to go: a swipe, the backdrop, the system's back.
   onRequestClose: () => void;
   onClosed: () => void;
@@ -395,7 +398,7 @@ function SheetFrame({
       presentation === "popover" && anchor ? (
         <PopoverFrame
           anchor={anchor}
-          width={size === "large" ? POPOVER_WIDTH.wide : POPOVER_WIDTH.list}
+          width={wide || size === "large" ? POPOVER_WIDTH.wide : POPOVER_WIDTH.list}
           title={shownTitle}
           shown={shown}
           onRequestClose={onRequestClose}
@@ -607,6 +610,7 @@ export function Sheet({
   presentation,
   kind,
   anchor,
+  wide,
   children,
 }: {
   open: boolean;
@@ -617,6 +621,8 @@ export function Sheet({
   kind?: PresentationKind;
   /// What opened it: on a tablet a picker or menu is a popover on it (`useAnchor`).
   anchor?: Anchor;
+  /// On a tablet, a wider popover (filters, display options).
+  wide?: boolean;
   children: ReactNode;
 }) {
   // A card floats over the sheet it is opened from, in a window of its own; on a tablet a
@@ -661,6 +667,7 @@ export function Sheet({
       kind={kind}
       anchor={anchor ?? touch}
       touched={!anchor && touch !== undefined}
+      wide={wide}
     >
       {children}
     </WindowSheet>
@@ -677,6 +684,7 @@ function WindowSheet({
   kind,
   anchor,
   touched,
+  wide,
   children,
 }: {
   open: boolean;
@@ -687,6 +695,7 @@ function WindowSheet({
   kind?: PresentationKind;
   anchor?: Anchor;
   touched?: boolean;
+  wide?: boolean;
   children: ReactNode;
 }) {
   // Stays up after `open` turns false, until it has gone down.
@@ -715,6 +724,7 @@ function WindowSheet({
             kind={kind}
             anchor={anchor}
             touched={touched}
+            wide={wide}
             onRequestClose={requestClose}
             onClosed={() => setMounted(false)}
           >
@@ -746,12 +756,16 @@ export function RouteSheet({
 }) {
   const [open, setOpen] = useState(true);
   const requestClose = useCallback(() => setOpen(false), []);
+  // A picker route (the icon picker) floats where the finger that opened it was.
+  const touch = useTouchOnOpen(true, undefined);
   return (
     <SheetFrame
       open={open}
       title={title}
       size={size}
       kind={kind}
+      anchor={touch}
+      touched={touch !== undefined}
       onRequestClose={requestClose}
       onClosed={onClosed}
     >
