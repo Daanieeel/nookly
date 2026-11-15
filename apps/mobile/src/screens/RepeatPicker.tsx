@@ -9,7 +9,7 @@ import { Segmented } from "../ui/Segmented.tsx";
 import { CalendarPanel } from "../ui/sheet/CalendarPanel.tsx";
 import { PillSheet } from "../ui/sheet/Compose.tsx";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
-import { useSheet } from "../ui/sheet/Sheet.tsx";
+import { DialogActions, useSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { SPACE } from "../ui/tokens.ts";
@@ -114,7 +114,11 @@ function RepeatPlanPicker({
           )}
         </>
       )}
-      <Button size="lg" label="Done" onPress={() => sheet?.close()} />
+      <DialogActions>
+        <View style={{ flex: 1 }}>
+          <Button size="lg" label="Done" onPress={() => sheet?.close()} />
+        </View>
+      </DialogActions>
     </View>
   );
 }

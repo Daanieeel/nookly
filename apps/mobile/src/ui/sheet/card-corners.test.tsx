@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react-native";
+import { render, screen, within } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
 import { Surface } from "../kit/Surface.tsx";
 import { CARD_INSET, RADIUS, SPACE } from "../tokens.ts";
-import { Sheet } from "./Sheet.tsx";
+import { DialogActions, Sheet } from "./Sheet.tsx";
 import { SelectField } from "../SelectField.tsx";
 
 // The calendar's box in a floating card (a date picker) had the small corners of a section,
@@ -81,5 +81,26 @@ describe("a floating card's header", () => {
       (await screen.findByTestId("card-body")).props.contentContainerStyle,
     );
     expect(body.paddingHorizontal).toBe(CARD_INSET);
+  });
+});
+
+// "Until a day" in Repeat grew the card past the screen and its Done button scrolled out of
+// sight. A card's actions stay under its scrolling content, always in view.
+describe("a floating card's actions", () => {
+  it("stay below the scrolling content", async () => {
+    render(
+      <Sheet open onOpenChange={() => {}} title="Repeat" presentation="card">
+        <Text>Long content</Text>
+        <DialogActions>
+          <Text>Done</Text>
+        </DialogActions>
+      </Sheet>,
+    );
+    const footer = await screen.findByTestId("card-footer");
+    expect(footer).toHaveTextContent("Done");
+    expect(within(screen.getByTestId("card-body")).queryByText("Done")).toBeNull();
+    const style = StyleSheet.flatten(footer.props.style);
+    expect(style.paddingHorizontal).toBe(CARD_INSET);
+    expect(style.paddingBottom).toBe(CARD_INSET);
   });
 });

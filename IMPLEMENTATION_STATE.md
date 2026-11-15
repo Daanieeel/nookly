@@ -62,7 +62,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [ ] Swipe actions on every list of items (not only tasks), each type with its own sensible actions; rework their look so they feel native (consider a public package). Tasks get a more useful action than "Done". Rule for every type: swiping right to left always ends in Trash, the rightmost action, active on a long drag; a second action may sit beside it.
 
 - [x] (2026-11-15, the card's 12pt inset makes its buttons' 12pt corners nest in its 24pt ones; a key on a full segment starts it over, a digit no second can follow finishes it, nothing out of range shows; tests; on screen through the automation, real keys under Needs the user) (asked in chat) Time input dialog (`.reference-images/mobile/time-input-dialog-corner-radius-mismatch.png`): its buttons' corners must be the dialog's corners less the padding. Typing in the hour does nothing; the minute takes any number, also past 59.
-- [ ] (asked in chat) Dialogs scroll their content while their action buttons stay visible: in Repeat, "until a day" shows a calendar that pushes "Done" out of the dialog.
+- [x] (2026-11-15, `DialogActions` pins a dialog's buttons under its scrolling content; Repeat and the time picker use it; test; on screen) (asked in chat) Dialogs scroll their content while their action buttons stay visible: in Repeat, "until a day" shows a calendar that pushes "Done" out of the dialog.
 
 ### 2. Mobile: screens
 
@@ -93,6 +93,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ## Progress log
 
+- 2026-11-15: the full mobile run timed out the search label test while the machine sat at a load of 57 (another app at 580% CPU); it passes alone. Rerun at the end.
 - 2026-11-15: asked in chat: a compose sheet leaves 16pt between its buttons and the title (test; on screen).
 - 2026-11-15: dialog corners and padding done; search field height, centring and solid placeholders done.
 - 2026-11-15: file refilled from the fifth round of `NOTES.md`. The fourth round (all done, final report included) is in git history up to 2821cbac and `DECISIONS.md` up to D74.

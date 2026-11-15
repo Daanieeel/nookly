@@ -8,7 +8,7 @@ import { usePropertyLook } from "./parts.tsx";
 import { Property } from "./Property.tsx";
 import { DayPicker } from "./sheet/DayPicker.tsx";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
-import { Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
+import { DialogActions, Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
 import { TimeInput, useTwelveHour } from "./TimeInput.tsx";
 import { LIST_ROW } from "./touch.ts";
 import { Label } from "./kit/Label.tsx";
@@ -127,7 +127,7 @@ export function TimePicker({
   return (
     <View className="gap-6 pt-2">
       <TimeInput label={label} value={value} onChange={onChange} autoFocus large />
-      <View className="flex-row gap-3">
+      <DialogActions>
         {clearable && value ? (
           <View className="flex-1">
             <Button
@@ -144,7 +144,7 @@ export function TimePicker({
         <View className="flex-1">
           <Button size="lg" label="Done" onPress={() => sheet?.close()} />
         </View>
-      </View>
+      </DialogActions>
     </View>
   );
 }

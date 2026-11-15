@@ -157,6 +157,16 @@ export function SheetFooter({ children }: { children: ReactNode }) {
   return edges ? null : <>{children}</>;
 }
 
+/// A dialog's buttons (Clear, Done): pinned under its content, which scrolls on its own, so
+/// they stay in view however tall the content grows. Side by side, sharing the width.
+export function DialogActions({ children }: { children: ReactNode }) {
+  return (
+    <SheetFooter>
+      <View style={{ flexDirection: "row", gap: SPACE.md }}>{children}</View>
+    </SheetFooter>
+  );
+}
+
 function PinnedSlot({ store, inset = SPACE.lg }: { store: PinStore; inset?: number }) {
   const node = useSyncExternalStore(store.subscribe, store.get);
   return node ? (
@@ -441,6 +451,18 @@ function SheetFrame({
                       >
                         {top ? top.content : children}
                       </Animated.ScrollView>
+                      {footer && pages.length === 0 ? (
+                        <View
+                          testID="card-footer"
+                          style={{
+                            paddingHorizontal: CARD_INSET,
+                            paddingTop: SPACE.xs,
+                            paddingBottom: CARD_INSET,
+                          }}
+                        >
+                          {footer}
+                        </View>
+                      ) : null}
                     </Animated.View>
                   </Animated.View>
                 </InCard.Provider>
