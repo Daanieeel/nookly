@@ -371,6 +371,9 @@ describe("filters", () => {
     expect(filterValues(task, "status")).toEqual(["done"]);
     expect(filterValues(task, "space")).toEqual(["s9"]);
     expect(filterValues(task, "labels")).toEqual(["l1", "l2"]);
+    // A View saved on a phone before it wrote "labels".
+    expect(filterValues(task, "label")).toEqual(["l1", "l2"]);
+    expect(filterValues(task, "pinned")).toEqual(["unpinned"]);
     expect(filterValues(task, "due")).toEqual(["today"]);
     expect(filterValues(task, "start")).toEqual(["none"]);
     expect(filterValues(task, "created")).toEqual(["earlier"]);

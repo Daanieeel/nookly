@@ -154,6 +154,7 @@ describe("taskFilterFields", () => {
       "updated",
       "completedAt",
       "effort",
+      "pinned",
     ]);
   });
 
@@ -173,8 +174,10 @@ describe("taskFilterFields", () => {
   });
 
   it("labels effort in the chosen scale, with no estimate last", () => {
-    const tshirt = taskFilterFields(STATUSES, kindOf, "tshirt").at(-1)?.options ?? [];
-    const points = taskFilterFields(STATUSES, kindOf, "fibonacci").at(-1)?.options ?? [];
+    const effort = (scale: "tshirt" | "fibonacci") =>
+      taskFilterFields(STATUSES, kindOf, scale).find((f) => f.id === "effort")?.options ?? [];
+    const tshirt = effort("tshirt");
+    const points = effort("fibonacci");
     expect(tshirt.map((o) => o.label)).toEqual(["XS", "S", "M", "L", "XL", "XXL", "No estimate"]);
     expect(points.map((o) => o.label)).toEqual(["1", "2", "3", "5", "8", "13", "No estimate"]);
     expect(tshirt.map((o) => o.value)).toEqual([

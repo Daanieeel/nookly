@@ -2,6 +2,7 @@ import type { TaskRecord, TaskStatus } from "@nookly/shared/data";
 import {
   DEFAULT_DISPLAY,
   displayFromView,
+  displaySchema,
   dueBucket,
   filterTasks,
   groupTasks,
@@ -155,6 +156,41 @@ describe("grouping", () => {
   });
 });
 
+describe("the desktop's task filters (D73)", () => {
+  const now = new Date(2026, 9, 15, 12);
+  it("narrows by due and start date, created, updated, completed, effort and pinned", () => {
+    const late = task({ title: "Late", dueDate: "2026-10-10", startDate: "2026-10-01" });
+    const soon = task({ title: "Soon", dueDate: "2026-10-18", effort: 3 });
+    const done = task({
+      title: "Done",
+      statusId: "done",
+      completedAt: "2026-10-15T08:00:00Z",
+    });
+    done.entity.updatedAt = "2026-10-15T08:00:00Z";
+    const pinned = task({ title: "Pinned" });
+    pinned.entity.pinned = true;
+    const all = [late, soon, done, pinned];
+    const titles = (patch: Partial<TaskDisplay>) =>
+      filterTasks(all, display(patch), { ...ctx(), now }).map((t) => t.entity.title);
+    expect(titles({ due: ["overdue"] })).toEqual(["Late"]);
+    expect(titles({ due: ["week"] })).toEqual(["Soon"]);
+    expect(titles({ start: ["overdue"] })).toEqual(["Late"]);
+    expect(titles({ completed: ["today"] })).toEqual(["Done"]);
+    expect(titles({ updated: ["today"] })).toEqual(["Done"]);
+    expect(titles({ effort: ["3"] })).toEqual(["Soon"]);
+    expect(titles({ effort: ["none"] })).toEqual(["Late", "Done", "Pinned"]);
+    expect(titles({ pinned: ["pinned"] })).toEqual(["Pinned"]);
+  });
+
+  it("keeps a display saved before these filters existed", () => {
+    const added = ["due", "start", "created", "updated", "completed", "effort", "pinned"];
+    const before = Object.fromEntries(
+      Object.entries(DEFAULT_DISPLAY).filter(([key]) => !added.includes(key)),
+    );
+    expect(displaySchema.parse(before)).toEqual(DEFAULT_DISPLAY);
+  });
+});
+
 describe("saved views", () => {
   const all = { statusIds: ["backlog", "todo", "doing", "done"], labelIds: ["l1", "l2"] };
 
@@ -162,8 +198,10 @@ describe("saved views", () => {
     const raw = JSON.stringify({
       filters: [
         { fieldId: "status", operator: "isNot", values: ["done"] },
-        { fieldId: "label", operator: "is", values: ["l2"] },
+        { fieldId: "labels", operator: "is", values: ["l2"] },
         { fieldId: "due", operator: "is", values: ["overdue"] },
+        { fieldId: "completedAt", operator: "isNot", values: ["none"] },
+        { fieldId: "course", operator: "is", values: ["c1"] },
       ],
       display: {
         layout: "board",
@@ -177,10 +215,18 @@ describe("saved views", () => {
       layout: "board",
       statuses: ["backlog", "todo", "doing"],
       labels: ["l2"],
+      due: ["overdue"],
+      completed: ["today", "week", "last", "earlier"],
       grouping: "status",
       ordering: "title",
     });
-    expect(ignored).toEqual(["due", "grouping by start"]);
+    expect(ignored).toEqual(["course", "grouping by start"]);
+  });
+
+  // Views saved on this phone before it wrote the desktop's field name.
+  it("still reads labels saved under the phone's old name", () => {
+    const raw = JSON.stringify({ filters: [{ fieldId: "label", operator: "is", values: ["l1"] }] });
+    expect(displayFromView(raw, all).display.labels).toEqual(["l1"]);
   });
 
   it("opens an unreadable or empty View as the defaults", () => {
@@ -196,11 +242,15 @@ describe("saved views", () => {
       grouping: "due" as const,
       statuses: ["todo"],
       labels: ["l1"],
+      due: ["overdue", "today"],
+      pinned: ["pinned"],
     };
     const config = JSON.parse(viewConfigFromDisplay(display));
     expect(config.filters).toEqual([
       { fieldId: "status", operator: "is", values: ["todo"] },
-      { fieldId: "label", operator: "is", values: ["l1"] },
+      { fieldId: "labels", operator: "is", values: ["l1"] },
+      { fieldId: "due", operator: "is", values: ["overdue", "today"] },
+      { fieldId: "pinned", operator: "is", values: ["pinned"] },
     ]);
     expect(config.display).toEqual({ layout: "board", grouping: "due", ordering: "due" });
     expect(displayFromView(viewConfigFromDisplay(display), all).display).toMatchObject(display);

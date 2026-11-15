@@ -9,7 +9,8 @@ import { useEntities, useSpaces } from "../data/queries.ts";
 import { EntityIcon } from "../ui/icons.tsx";
 import { FilterField } from "../ui/ListBar.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
-import { IconCategory, IconFolder } from "@tabler/icons-react-native";
+import { AGE_OPTIONS, ageBucket, useWeekStart } from "../ui/entity-filters.tsx";
+import { IconCategory, IconFolder, IconTrash } from "@tabler/icons-react-native";
 import { spaceOption } from "./option-badges.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { useMenu } from "../ui/menu.tsx";
@@ -31,6 +32,8 @@ export function TrashScreen() {
   const [query, setQuery] = useState("");
   const [types, setTypes] = useState<string[]>([]);
   const [inSpaces, setInSpaces] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
+  const weekStart = useWeekStart();
   const spaceName = (id: string) => spaces.find((s) => s.id === id)?.name ?? "";
   const shown = trashed.filter(
     (e) =>
@@ -38,7 +41,8 @@ export function TrashScreen() {
         .toLowerCase()
         .includes(query.trim().toLowerCase()) &&
       (types.length === 0 || types.includes(e.type)) &&
-      (inSpaces.length === 0 || inSpaces.includes(e.spaceId)),
+      (inSpaces.length === 0 || inSpaces.includes(e.spaceId)) &&
+      (deleted.length === 0 || deleted.includes(ageBucket(e.deletedAt ?? e.updatedAt, weekStart))),
   );
   // As the desktop: a filter shows only when there is more than one thing to pick.
   const presentTypes = [...new Set(trashed.map((e) => e.type))];
@@ -75,6 +79,13 @@ export function TrashScreen() {
             values: inSpaces,
             options: presentSpaces.length > 1 ? presentSpaces.map(spaceOption) : [],
             onChange: setInSpaces,
+          },
+          {
+            label: "Deleted",
+            icon: IconTrash,
+            values: deleted,
+            options: trashed.length > 0 ? AGE_OPTIONS : [],
+            onChange: setDeleted,
           },
         ]}
       />

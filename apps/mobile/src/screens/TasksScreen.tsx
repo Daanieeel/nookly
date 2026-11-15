@@ -1,6 +1,18 @@
 import { labelOption, statusOption } from "./option-badges.tsx";
 import { createView, setTaskStatus } from "@nookly/shared/data";
-import { IconCircleDot, IconLayoutKanban, IconList, IconTag } from "@tabler/icons-react-native";
+import {
+  IconBolt,
+  IconCalendarCheck,
+  IconCalendarEvent,
+  IconCalendarPlus,
+  IconCircleDot,
+  IconClockEdit,
+  IconClockPlus,
+  IconLayoutKanban,
+  IconList,
+  IconPin,
+  IconTag,
+} from "@tabler/icons-react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -39,13 +51,17 @@ import {
   DEFAULT_DISPLAY,
   GROUPINGS,
   ORDERINGS,
+  type BucketKey,
   type TaskDisplay,
+  bucketFilters,
   displayFromView,
   displaySchema,
   groupTasks,
   viewConfigFromDisplay,
 } from "./task-view.ts";
 import { useSyncRefresh } from "./useSyncRefresh.ts";
+import { useSetting } from "../data/settings.ts";
+import { useWeekStart } from "../ui/entity-filters.tsx";
 import { BAR_BUTTON } from "../ui/bar.ts";
 
 /// How many finished tasks a group shows at first; the rest are a tap away in their Space.
@@ -115,7 +131,18 @@ function DisplayPanel({
   );
 }
 
-/// What to narrow the list to, statuses and labels: the desktop's Filter menu as a sheet.
+/// The desktop's icon for each of its other task filters.
+const BUCKET_ICONS = {
+  due: IconCalendarEvent,
+  start: IconCalendarPlus,
+  created: IconClockPlus,
+  updated: IconClockEdit,
+  completed: IconCalendarCheck,
+  effort: IconBolt,
+  pinned: IconPin,
+} satisfies Record<BucketKey, typeof IconPin>;
+
+/// What to narrow the list to: the desktop's Filter menu as a sheet.
 function FilterPanel({
   display,
   onChange,
@@ -127,6 +154,7 @@ function FilterPanel({
 }) {
   const { data: statuses = [] } = useStatuses();
   const { data: labels = [] } = useAllLabels();
+  const [scale] = useSetting("general.effortScale");
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
   return (
     <DisplayGroup>
@@ -146,6 +174,16 @@ function FilterPanel({
           onChange={(next) => onChange({ ...display, labels: next })}
         />
       ) : null}
+      {bucketFilters(scale).map((field) => (
+        <FilterField
+          key={field.key}
+          label={field.label}
+          icon={BUCKET_ICONS[field.key]}
+          values={display[field.key]}
+          options={field.options}
+          onChange={(next) => onChange({ ...display, [field.key]: next })}
+        />
+      ))}
     </DisplayGroup>
   );
 }
@@ -182,11 +220,14 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
   const [view, setView] = useState("all");
   const [note, setNote] = useState<string | null>(null);
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
+  const [scale] = useSetting("general.effortScale");
+  const weekStart = useWeekStart();
   const groups = groupTasks(tasks, display, {
     statuses,
     labels: shownLabels,
     labelIdsOf: (id) => labelMap?.get(id) ?? [],
     spaces,
+    weekStart,
   });
   const spaceOf = (task: (typeof tasks)[number]) =>
     spaceId ? undefined : spaces.find((s) => s.id === task.entity.spaceId);
@@ -243,6 +284,13 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
       label: labels.find((l) => l.id === id)?.name ?? id,
       remove: () => setDisplay({ ...display, labels: toggle(display.labels, id) }),
     })),
+    ...bucketFilters(scale).flatMap((field) =>
+      display[field.key].map((id) => ({
+        key: `${field.key}-${id}`,
+        label: field.options.find((o) => o.id === id)?.label ?? id,
+        remove: () => setDisplay({ ...display, [field.key]: toggle(display[field.key], id) }),
+      })),
+    ),
   ];
   const row = (task: (typeof tasks)[number]) => {
     const space = spaceOf(task);

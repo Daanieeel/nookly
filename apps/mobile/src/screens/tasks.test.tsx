@@ -76,6 +76,30 @@ describe("the tasks list", () => {
     expect(await screen.findByText("Nothing matches these filters.")).toBeTruthy();
   });
 
+  // The desktop's other task filters (D73), in the Filter sheet and as chips.
+  it("narrows by due date and the other desktop filters", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Filter" }));
+    for (const name of [
+      "Status",
+      "Due date",
+      "Start date",
+      "Created",
+      "Updated",
+      "Completed at",
+      "Effort",
+      "Pinned",
+    ]) {
+      expect(await screen.findByRole("button", { name: new RegExp(`^${name}, `) })).toBeTruthy();
+    }
+    await openRow(screen, "Due date");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Overdue" }));
+    await waitFor(() => expect(screen.queryByText("Call Ana")).toBeNull());
+    expect(screen.getByText("Overdue report")).toBeTruthy();
+    expect(screen.getAllByRole("checkbox", { name: "Overdue ×" }).length).toBe(1);
+  });
+
   it("lays the groups out as board columns, each with a way to add a task in it", async () => {
     const { data, space } = await seeded();
     const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
@@ -164,13 +188,13 @@ describe("saved views", () => {
       title: "Overdue board",
       module: "tasks",
       config: JSON.stringify({
-        filters: [{ fieldId: "due", operator: "is", values: ["overdue"] }],
+        filters: [{ fieldId: "course", operator: "is", values: ["c1"] }],
         display: { layout: "board" },
       }),
     });
     const screen = await renderScreens({ index: () => <TasksScreen spaceId={space} /> }, data);
     await fireEvent.press(await screen.findByRole("tab", { name: "Overdue board" }));
-    expect(await screen.findByText(/also uses due/)).toBeTruthy();
+    expect(await screen.findByText(/also uses course/)).toBeTruthy();
     expect(await screen.findByLabelText("Backlog column")).toBeTruthy();
   });
 });

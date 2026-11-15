@@ -1,5 +1,8 @@
 import type { LabelRecord, TaskRecord, TaskStatus } from "@nookly/shared/data";
 import { z } from "zod";
+import { EFFORT_STEPS, type EffortScale, effortLabel } from "@nookly/shared/effort";
+import type { WeekStart } from "@nookly/shared/calendar-grid";
+import { AGE_OPTIONS, ageBucket } from "../ui/entity-filters.tsx";
 import { addDays, localDay } from "./dates.ts";
 
 /// How the Tasks list is shown: laid out as a list or a board, grouped, ordered and
@@ -31,6 +34,15 @@ export const displaySchema = z.object({
   labels: z.array(z.string()),
   /// Finished work hidden unless asked for.
   showFinished: z.boolean(),
+  /// The desktop's other task filters (D73), each a list of its bucket ids. A display saved
+  /// before they existed reads as nothing picked.
+  due: z.array(z.string()).default([]),
+  start: z.array(z.string()).default([]),
+  created: z.array(z.string()).default([]),
+  updated: z.array(z.string()).default([]),
+  completed: z.array(z.string()).default([]),
+  effort: z.array(z.string()).default([]),
+  pinned: z.array(z.string()).default([]),
 });
 export type TaskDisplay = z.infer<typeof displaySchema>;
 
@@ -41,6 +53,13 @@ export const DEFAULT_DISPLAY: TaskDisplay = {
   statuses: [],
   labels: [],
   showFinished: true,
+  due: [],
+  start: [],
+  created: [],
+  updated: [],
+  completed: [],
+  effort: [],
+  pinned: [],
 };
 
 export interface TaskGroup {
@@ -55,10 +74,113 @@ interface Context {
   labelIdsOf: (taskId: string) => string[];
   spaces: { id: string; name: string }[];
   today?: string;
+  /// When "today" is for Created, Updated and Completed, and where a week starts.
+  now?: Date;
+  weekStart?: WeekStart;
 }
 
 const finished = (task: TaskRecord, statuses: TaskStatus[]) =>
   (statuses.find((s) => s.id === task.statusId)?.doneness ?? 0) >= 100;
+
+/// The filters a task list has besides status and labels, as the desktop names them in a
+/// View, with the display's field for each.
+const BUCKET_FILTERS = [
+  { fieldId: "due", key: "due" },
+  { fieldId: "start", key: "start" },
+  { fieldId: "created", key: "created" },
+  { fieldId: "updated", key: "updated" },
+  { fieldId: "completedAt", key: "completed" },
+  { fieldId: "effort", key: "effort" },
+  { fieldId: "pinned", key: "pinned" },
+] as const;
+
+export type BucketKey = (typeof BUCKET_FILTERS)[number]["key"];
+
+export const NO_EFFORT = "none";
+
+/// Where a start date falls, as the desktop's start buckets: begun, today, soon, later, none.
+function startBucket(startDate: string | null, today: string): string {
+  if (!startDate) return "none";
+  if (startDate < today) return "overdue";
+  if (startDate === today) return "today";
+  return startDate <= addDays(today, 7) ? "week" : "later";
+}
+
+/// A task's value for one of `BUCKET_FILTERS`.
+function bucketOf(task: TaskRecord, key: BucketKey, ctx: Context): string {
+  const today = ctx.today ?? localDay();
+  const now = ctx.now ?? new Date();
+  const weekStart = ctx.weekStart ?? 1;
+  switch (key) {
+    case "due":
+      return dueBucket(task.dueDate, finished(task, ctx.statuses), today);
+    case "start":
+      return startBucket(task.startDate, today);
+    case "created":
+      return ageBucket(task.entity.createdAt, weekStart, now);
+    case "updated":
+      return ageBucket(task.entity.updatedAt, weekStart, now);
+    case "completed":
+      return task.completedAt ? ageBucket(task.completedAt, weekStart, now) : "none";
+    case "effort":
+      return task.effort === null ? NO_EFFORT : String(task.effort);
+    case "pinned":
+      return task.entity.pinned ? "pinned" : "unpinned";
+  }
+}
+
+/// Each bucket filter's name and choices, as the desktop's Filter menu has them.
+export function bucketFilters(
+  scale: EffortScale,
+): { key: BucketKey; label: string; options: { id: string; label: string }[] }[] {
+  return [
+    {
+      key: "due",
+      label: "Due date",
+      options: DUE_BUCKETS.map((b) => ({ id: b.id, label: b.title })),
+    },
+    {
+      key: "start",
+      label: "Start date",
+      options: [
+        { id: "overdue", label: "Started" },
+        { id: "today", label: "Starts today" },
+        { id: "week", label: "Next 7 days" },
+        { id: "later", label: "Later" },
+        { id: "none", label: "No start date" },
+      ],
+    },
+    { key: "created", label: "Created", options: AGE_OPTIONS },
+    { key: "updated", label: "Updated", options: AGE_OPTIONS },
+    {
+      key: "completed",
+      label: "Completed at",
+      options: [...AGE_OPTIONS, { id: "none", label: "Not completed" }],
+    },
+    {
+      key: "effort",
+      label: "Effort",
+      options: [
+        ...EFFORT_STEPS.map((s) => ({ id: String(s.value), label: effortLabel(s.value, scale) })),
+        { id: NO_EFFORT, label: "No estimate" },
+      ],
+    },
+    {
+      key: "pinned",
+      label: "Pinned",
+      options: [
+        { id: "pinned", label: "Pinned" },
+        { id: "unpinned", label: "Not pinned" },
+      ],
+    },
+  ];
+}
+
+/// The ids a bucket filter can take, to read a View's "is not" as the rest.
+const bucketIds = (key: BucketKey): string[] =>
+  bucketFilters("fibonacci")
+    .find((f) => f.key === key)
+    ?.options.map((o) => o.id) ?? [];
 
 /// The tasks that pass the display's filters.
 export function filterTasks(tasks: TaskRecord[], display: TaskDisplay, ctx: Context): TaskRecord[] {
@@ -69,7 +191,9 @@ export function filterTasks(tasks: TaskRecord[], display: TaskDisplay, ctx: Cont
       const mine = ctx.labelIdsOf(task.entity.id);
       if (!display.labels.some((l) => mine.includes(l))) return false;
     }
-    return true;
+    return BUCKET_FILTERS.every(
+      ({ key }) => display[key].length === 0 || display[key].includes(bucketOf(task, key, ctx)),
+    );
   });
 }
 
@@ -227,8 +351,12 @@ export function displayFromView(
   const pick = (every: string[], filter: { operator: string; values: string[] }) =>
     filter.operator === "isNot" ? every.filter((id) => !filter.values.includes(id)) : filter.values;
   for (const filter of stored.filters) {
+    const bucket = BUCKET_FILTERS.find((b) => b.fieldId === filter.fieldId);
     if (filter.fieldId === "status") display.statuses = pick(all.statusIds, filter);
-    else if (filter.fieldId === "label") display.labels = pick(all.labelIds, filter);
+    // "label" is what this phone wrote before it used the desktop's name.
+    else if (filter.fieldId === "labels" || filter.fieldId === "label") {
+      display.labels = pick(all.labelIds, filter);
+    } else if (bucket) display[bucket.key] = pick(bucketIds(bucket.key), filter);
     else ignored.push(filter.fieldId);
   }
   const { layout, grouping, ordering } = stored.display;
@@ -250,8 +378,13 @@ export function viewConfigFromDisplay(display: TaskDisplay): string {
         ? [{ fieldId: "status", operator: "is", values: display.statuses }]
         : []),
       ...(display.labels.length > 0
-        ? [{ fieldId: "label", operator: "is", values: display.labels }]
+        ? [{ fieldId: "labels", operator: "is", values: display.labels }]
         : []),
+      ...BUCKET_FILTERS.filter(({ key }) => display[key].length > 0).map(({ fieldId, key }) => ({
+        fieldId,
+        operator: "is",
+        values: display[key],
+      })),
     ],
     display: { layout: display.layout, grouping: display.grouping, ordering: display.ordering },
   });

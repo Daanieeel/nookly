@@ -37,6 +37,26 @@ describe("the Trash page", () => {
     expect(screen.getByRole("button", { name: /^Old note, Note · Work/ })).toBeTruthy();
   });
 
+  // Every list filters on what its items have (D73): here, when each went to Trash.
+  it("narrows to when things were deleted", async () => {
+    const data = testData();
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    const old = await createTask(data.db, work, "Old task");
+    await trashEntity(data.db, old);
+    await trashEntity(data.db, await createTask(data.db, work, "New task"));
+    data.driver.exec(
+      "UPDATE entities SET deleted_at = '2020-01-01T00:00:00.000Z' WHERE id = ?",
+      old,
+    );
+    const screen = await renderScreens({ index: () => <TrashScreen /> }, data);
+    expect(await screen.findByRole("button", { name: /^Old task/ })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Deleted");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Today" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Old task/ })).toBeNull());
+    expect(screen.getByRole("button", { name: /^New task/ })).toBeTruthy();
+  });
+
   // The desktop's Filter: what kind of item, and which Space (D65).
   it("narrows to a type and a Space from Filter", async () => {
     const data = testData();
