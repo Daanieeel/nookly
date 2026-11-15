@@ -128,6 +128,8 @@ describe("the sidebar", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "More Spaces" }));
     expect(await screen.findByLabelText("Search Spaces")).toBeTruthy();
     expect(screen.getByText("IN THE SIDEBAR")).toBeTruthy();
+    // The line speaks for itself: no hint under it (the user's notes).
+    expect(screen.queryByText(/Drag a Space above the line/)).toBeNull();
     // A screen reader moves Gym up past the line, as a finger drags it.
     for (const place of [4, 3, 2]) {
       await fireEvent(screen.getByLabelText("Gym, drag to reorder"), "accessibilityAction", {

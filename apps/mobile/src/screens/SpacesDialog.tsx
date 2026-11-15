@@ -94,13 +94,6 @@ export function SpacesDialog({
               />
             ) : null}
           </View>
-          <Label
-            type="footnote"
-            color="secondaryLabel"
-            style={{ paddingHorizontal: SPACE.lg, paddingTop: SPACE.sm }}
-          >
-            Drag a Space above the line to show it in the sidebar.
-          </Label>
         </View>
       )}
     </View>

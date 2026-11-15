@@ -66,7 +66,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ### 2. Mobile: screens
 
-- [ ] Hidden Spaces dialog: remove the "Drag a Space above the line to show in the sidebar." notice.
+- [x] (2026-11-15, test) Hidden Spaces dialog: remove the "Drag a Space above the line to show in the sidebar." notice.
 - [ ] Semesters list: still crammed. The "Current" badge moves to the bottom centre of the box, overlaid on its border; no chevron and no "Open" button, the semester opens on tap; no expand or collapse.
 - [ ] Inside a semester, "Add Course" is full width.
 - [ ] The + on the Semesters page opens its sheet over the whole screen although there is nothing to type at length: the sheet takes only the height it needs.
