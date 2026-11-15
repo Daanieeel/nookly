@@ -119,12 +119,12 @@ describe("a Space's bookmarks", () => {
   });
 
   // The Filter sheet came up empty while no bookmark had a label or a site to offer.
-  it("lists every filter even with nothing to pick yet, and narrows to when they were added", async () => {
+  it("lists every filter even with nothing to pick yet, and narrows to when they were created", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Web", "#3b82f6");
     const empty = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
     await fireEvent.press(await empty.findByRole("button", { name: "Filter" }));
-    for (const name of ["Labels", "Site", "Added"]) {
+    for (const name of ["Labels", "Site", "Pinned", "Created", "Updated"]) {
       expect(await empty.findByRole("button", { name: new RegExp(`^${name}`) })).toBeTruthy();
     }
     empty.unmount();
@@ -137,14 +137,14 @@ describe("a Space's bookmarks", () => {
     const screen = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
     expect(await screen.findByRole("link", { name: "Old one" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
-    await openRow(screen, "Added");
-    await fireEvent.press(await screen.findByRole("checkbox", { name: "Past 7 days" }));
+    await openRow(screen, "Created");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Today" }));
     await waitFor(() => expect(screen.queryByRole("link", { name: "Old one" })).toBeNull());
     expect(screen.getByRole("link", { name: "New one" })).toBeTruthy();
   });
 
   // A new filter must not lose the display someone already picked on this phone.
-  it("keeps a display saved before the Added filter existed", async () => {
+  it("keeps a display saved before Pinned, Created and Updated existed", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Web", "#3b82f6");
     await createBookmark(data.db, space, "https://example.com/a", "Example A");

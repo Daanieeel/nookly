@@ -7,6 +7,10 @@ import {
   getEntity,
   attachLabel,
   createLabel,
+  createCourse,
+  createOneOffSession,
+  createSessionPage,
+  setPinned,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { RecordingMenu } from "../test/menu.ts";
@@ -62,6 +66,41 @@ describe("a Space's Notes", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Plain" })).toBeNull());
     expect(screen.getByRole("button", { name: "Tagged" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "Ideas ×" })).toBeTruthy();
+  });
+
+  // Every list filters on what its items have (D73): the desktop's Course, Pinned and Created.
+  it("narrows to a course, to pinned ones and to when they were created", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    const session = await createOneOffSession(data.db, space, {
+      title: "Lecture",
+      courseId: course,
+      date: "2026-11-18",
+      startTime: "10:00",
+      endTime: "12:00",
+    });
+    const lecture = await createSessionPage(data.db, session, "note");
+    const pinnedOne = await createPage(data.db, space, "note", "Pinned plan");
+    await setPinned(data.db, pinnedOne, true);
+    await createPage(data.db, space, "note", "Groceries");
+    const screen = await renderScreens({ index: () => <NoteList spaceId={space} /> }, data);
+    expect(await screen.findByRole("button", { name: "Groceries" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    for (const name of ["Course", "Labels", "Pinned", "Last edited", "Created"]) {
+      expect(await screen.findByRole("button", { name: new RegExp(`^${name}, `) })).toBeTruthy();
+    }
+    await openRow(screen, "Course");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Algorithms" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Groceries" })).toBeNull());
+    expect((await getEntity(data.db, lecture))?.title).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Pinned plan" })).toBeNull();
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Algorithms ×" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Pinned");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Pinned" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Groceries" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Pinned plan" })).toBeTruthy();
   });
 
   it("lists them with a preview and narrows them as you type", async () => {

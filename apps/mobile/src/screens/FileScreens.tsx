@@ -31,6 +31,11 @@ import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
+import {
+  ENTITY_FILTERS_NONE,
+  ENTITY_FILTER_PICKS,
+  useEntityFilters,
+} from "../ui/entity-filters.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow } from "../ui/sheet/DisplayParts.tsx";
 import { usePreference } from "../data/preferences.ts";
@@ -227,6 +232,7 @@ const fileDisplaySchema = z.object({
   /// Kinds and labels the list is narrowed to; empty means all.
   kinds: z.array(z.string()),
   labels: z.array(z.string()),
+  ...ENTITY_FILTER_PICKS,
 });
 type FileDisplay = z.infer<typeof fileDisplaySchema>;
 const FILE_DEFAULT: FileDisplay = {
@@ -235,6 +241,7 @@ const FILE_DEFAULT: FileDisplay = {
   ordering: "newest",
   kinds: [],
   labels: [],
+  ...ENTITY_FILTERS_NONE,
 };
 const FILE_GROUPINGS = [
   { id: "none", label: "No grouping" },
@@ -291,10 +298,12 @@ export function FileRows({ spaceId }: { spaceId: string }) {
   );
   const kinds = [...new Set(files.map(kindOf))];
   const used = labels.filter((l) => files.some((f) => f.labelIds.includes(l.id)));
+  const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
   const shown = files.filter(
     (f) =>
       (display.kinds.length === 0 || display.kinds.includes(kindOf(f))) &&
-      (display.labels.length === 0 || display.labels.some((id) => f.labelIds.includes(id))),
+      (display.labels.length === 0 || display.labels.some((id) => f.labelIds.includes(id))) &&
+      own.passes(f.entity),
   );
   const groups = fileGroups(shown, display);
   return (
@@ -317,6 +326,7 @@ export function FileRows({ spaceId }: { spaceId: string }) {
             options: used.map(labelOption),
             onChange: (next) => setDisplay({ ...display, labels: next }),
           },
+          ...own.fields,
         ]}
         display={
           <View className="gap-3">

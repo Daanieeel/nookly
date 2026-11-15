@@ -3,7 +3,7 @@ import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { useStaged } from "../ui/staged.ts";
 import { DATE_WINDOW_OPTIONS, withinWindows } from "../ui/filter-windows.ts";
 import { notePreviewText } from "@nookly/frontend/lib/note-preview";
-import { IconClock, IconFeather, IconLink, IconTag } from "@tabler/icons-react-native";
+import { IconClock, IconFeather, IconLink, IconSchool, IconTag } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -13,6 +13,11 @@ import { EntityIcon } from "../ui/icons.tsx";
 import { ListGroup, ListItem } from "../ui/ListMotion.tsx";
 import { FilterField, Presets } from "../ui/ListBar.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
+import {
+  ENTITY_FILTERS_NONE,
+  ENTITY_FILTER_PICKS,
+  useEntityFilters,
+} from "../ui/entity-filters.tsx";
 import { DisplayGroup, SelectRow } from "../ui/sheet/DisplayParts.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { usePreference } from "../data/preferences.ts";
@@ -98,9 +103,18 @@ const listSchema = z.object({
   /// Labels and Last edited windows the list is narrowed to; empty means all.
   labels: z.array(z.string()),
   edited: z.array(z.string()),
+  /// Courses, and Pinned and Created (D73). Saved displays from before read as all.
+  courses: z.array(z.string()).default([]),
+  ...ENTITY_FILTER_PICKS,
 });
 type ListDisplay = z.infer<typeof listSchema>;
-const LIST_DEFAULT: ListDisplay = { ordering: "edited", labels: [], edited: [] };
+const LIST_DEFAULT: ListDisplay = {
+  ordering: "edited",
+  labels: [],
+  edited: [],
+  courses: [],
+  ...ENTITY_FILTERS_NONE,
+};
 
 const matches = (page: PageSummary, query: string) => {
   const q = query.trim().toLowerCase();
@@ -113,17 +127,27 @@ const matches = (page: PageSummary, query: string) => {
   );
 };
 
-/// Whether a page passes the filters picked: any of its labels, edited within any window.
-function passes(page: PageSummary, display: ListDisplay, now = Date.now()): boolean {
+/// Whether a page passes the filters picked: any of its labels and courses, edited within
+/// any window, and Pinned and Created (`own`).
+function passes(
+  page: PageSummary,
+  display: ListDisplay,
+  own: (entity: PageSummary["entity"]) => boolean,
+  now = Date.now(),
+): boolean {
   return (
     (display.labels.length === 0 || page.labels.some((l) => display.labels.includes(l.id))) &&
-    withinWindows(page.entity.updatedAt, display.edited, now)
+    (display.courses.length === 0 || page.courses.some((c) => display.courses.includes(c.id))) &&
+    withinWindows(page.entity.updatedAt, display.edited, now) &&
+    own(page.entity)
   );
 }
 
 interface PageListControls {
   display: ListDisplay;
   controls: React.ReactNode;
+  /// Whether a page passes every filter picked.
+  keep: (page: PageSummary) => boolean;
 }
 
 /// Notes' and Jots' header, filters and display, as Tasks has them (D65): the title with
@@ -134,11 +158,28 @@ function usePageListControls(key: string, title: string, pages: PageSummary[]): 
   const labels = [...new Map(pages.flatMap((p) => p.labels).map((l) => [l.id, l])).values()].sort(
     (a, b) => a.name.localeCompare(b.name),
   );
+  const courses = [...new Map(pages.flatMap((p) => p.courses).map((c) => [c.id, c])).values()].sort(
+    (a, b) => a.title.localeCompare(b.title),
+  );
+  const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
+  // Last edited stands for Updated on a page, as on the desktop.
+  const [pinned, created] = own.fields;
   const controls = (
     <ListControls
       title={title}
       count={pages.length}
       filters={[
+        {
+          label: "Course",
+          icon: IconSchool,
+          values: display.courses,
+          options: courses.map((c) => ({
+            id: c.id,
+            label: c.title || "Untitled",
+            glyph: IconSchool,
+          })),
+          onChange: (next) => setDisplay({ ...display, courses: next }),
+        },
         {
           label: "Labels",
           icon: IconTag,
@@ -153,6 +194,8 @@ function usePageListControls(key: string, title: string, pages: PageSummary[]): 
           options: DATE_WINDOW_OPTIONS,
           onChange: (next) => setDisplay({ ...display, edited: next }),
         },
+        pinned,
+        created,
       ]}
       display={
         <DisplayGroup>
@@ -166,17 +209,19 @@ function usePageListControls(key: string, title: string, pages: PageSummary[]): 
       }
     />
   );
-  return { display, controls };
+  return { display, controls, keep: (page) => passes(page, display, own.passes) };
 }
 
 /// A Space's Notes: a table of its pages with a filter and the order of your choice.
 export function NoteList({ spaceId }: { spaceId: string }) {
   const { data: pages = [] } = usePageSummaries(spaceId, "note");
   const [query, setQuery] = useState("");
-  const { display, controls } = usePageListControls(`notes.display.${spaceId}`, "Notes", pages);
-  const shown = pages
-    .filter((p) => matches(p, query) && passes(p, display))
-    .sort(compare(display.ordering));
+  const { display, controls, keep } = usePageListControls(
+    `notes.display.${spaceId}`,
+    "Notes",
+    pages,
+  );
+  const shown = pages.filter((p) => matches(p, query) && keep(p)).sort(compare(display.ordering));
   const staged = useStaged(shown);
   return (
     <View className="gap-3">
@@ -218,7 +263,7 @@ export function JotList({ spaceId }: { spaceId: string }) {
   const { data: jots = [] } = usePageSummaries(spaceId, "jot");
   const [preset, setPreset] = useState<JotPreset>("unrefined");
   const [query, setQuery] = useState("");
-  const { display, controls } = usePageListControls(`jots.display.${spaceId}`, "Jots", jots);
+  const { display, controls, keep } = usePageListControls(`jots.display.${spaceId}`, "Jots", jots);
   const weekAgo = addDays(localDay(), -7);
   const inPreset = {
     unrefined: (j) => j.refinedInto === null,
@@ -228,7 +273,7 @@ export function JotList({ spaceId }: { spaceId: string }) {
   } satisfies Record<JotPreset, (j: PageSummary) => boolean>;
   const count = (id: JotPreset) => jots.filter(inPreset[id]).length;
   const shown = jots
-    .filter((j) => inPreset[preset](j) && matches(j, query) && passes(j, display))
+    .filter((j) => inPreset[preset](j) && matches(j, query) && keep(j))
     .sort(compare(display.ordering));
   const staged = useStaged(shown);
   return (

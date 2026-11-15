@@ -10,7 +10,6 @@ import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
   IconArrowUp,
   IconBookmark,
-  IconCalendarPlus,
   IconInfoCircle,
   IconLayoutGrid,
   IconLink,
@@ -31,7 +30,11 @@ import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
-import { DATE_WINDOW_OPTIONS, withinWindows } from "../ui/filter-windows.ts";
+import {
+  ENTITY_FILTERS_NONE,
+  ENTITY_FILTER_PICKS,
+  useEntityFilters,
+} from "../ui/entity-filters.tsx";
 import { Empty, Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
 import { RoundButton } from "../ui/sheet/Sheet.tsx";
@@ -124,8 +127,7 @@ const displaySchema = z.object({
   /// Labels and sites the list is narrowed to; empty means all.
   labels: z.array(z.string()),
   sites: z.array(z.string()),
-  /// When they were added (`DATE_WINDOWS`). Defaults for a display saved before it existed.
-  added: z.array(z.string()).default([]),
+  ...ENTITY_FILTER_PICKS,
 });
 type Display = z.infer<typeof displaySchema>;
 const DEFAULT: Display = {
@@ -136,7 +138,7 @@ const DEFAULT: Display = {
   showDescriptions: true,
   labels: [],
   sites: [],
-  added: [],
+  ...ENTITY_FILTERS_NONE,
 };
 
 const GROUPINGS = [
@@ -273,11 +275,12 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
   );
   const used = labels.filter((l) => bookmarks.some((b) => b.labelIds.includes(l.id)));
   const sites = [...new Set(bookmarks.map((b) => hostOf(b.url)))].sort();
+  const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
   const shown = bookmarks.filter(
     (b) =>
       (display.labels.length === 0 || display.labels.some((id) => b.labelIds.includes(id))) &&
       (display.sites.length === 0 || display.sites.includes(hostOf(b.url))) &&
-      withinWindows(b.entity.createdAt, display.added),
+      own.passes(b.entity),
   );
   const groups = bookmarkGroups(shown, display, labels);
   return (
@@ -300,13 +303,7 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
             options: sites.map((site) => ({ id: site, label: site })),
             onChange: (next) => setDisplay({ ...display, sites: next }),
           },
-          {
-            label: "Added",
-            icon: IconCalendarPlus,
-            values: display.added,
-            options: DATE_WINDOW_OPTIONS,
-            onChange: (next) => setDisplay({ ...display, added: next }),
-          },
+          ...own.fields,
         ]}
         display={
           <View className="gap-3">

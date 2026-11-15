@@ -73,6 +73,28 @@ describe("files", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "zebra.pdf" })).toBeNull());
   });
 
+  // Every list filters on what its items have (D73).
+  it("filters on pinned, created and updated too", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const old = await addFile(data.db, space, "old.pdf", "file:///docs/files/old.pdf");
+    await addFile(data.db, space, "new.pdf", "file:///docs/files/new.pdf");
+    data.driver.exec(
+      "UPDATE entities SET created_at = '2020-01-01T00:00:00.000Z' WHERE id = ?",
+      old,
+    );
+    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+    expect(await screen.findByRole("button", { name: "old.pdf" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    for (const name of ["Kind", "Labels", "Pinned", "Created", "Updated"]) {
+      expect(await screen.findByRole("button", { name: new RegExp(`^${name}`) })).toBeTruthy();
+    }
+    await openRow(screen, "Created");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Earlier" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "new.pdf" })).toBeNull());
+    expect(screen.getByRole("button", { name: "old.pdf" })).toBeTruthy();
+  });
+
   it("adds a link to a file kept elsewhere, and sends a web page to the bookmarks", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");

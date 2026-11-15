@@ -248,6 +248,9 @@ export interface PageSummary {
   labels: { id: string; name: string; color: string }[];
   /// For a jot: the note it was refined into, if any.
   refinedInto: { id: string; title: string } | null;
+  /// The courses it belongs to, as the desktop's Course filter reads them: a course's own
+  /// notes, or a note of one of its sessions.
+  courses: { id: string; title: string }[];
 }
 
 /// A Space's notes or jots (or every Space's), most recently edited first, with what a list
@@ -292,8 +295,21 @@ export async function listPageSummaries(
             entity.id,
           )
         : undefined;
+    const courses = await rows(
+      db,
+      `SELECT DISTINCT c.id, c.title FROM relationships r
+       LEFT JOIN relationships rs ON r.relationship_type = 'session-note'
+         AND rs.from_entity_id = r.from_entity_id AND rs.relationship_type = 'session-course'
+       JOIN entities c ON c.id = CASE
+         WHEN r.relationship_type = 'course-notes' THEN r.from_entity_id ELSE rs.to_entity_id END
+       WHERE r.to_entity_id = ? AND r.relationship_type IN ('course-notes', 'session-note')
+         AND c.type = 'course' AND c.deleted_at IS NULL
+       ORDER BY c.title COLLATE NOCASE`,
+      entity.id,
+    );
     summaries.push({
       entity,
+      courses: courses.map((c) => ({ id: str(c.id), title: str(c.title) })),
       preview: blocks
         .map((b) => str(b.content))
         .join(" ")
