@@ -20,9 +20,9 @@ import {
   IconX,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { Keyboard, TextInput, View } from "react-native";
-import { useReveal } from "../ui/Screen.tsx";
+import { useRef, useState } from "react";
+import { TextInput, View } from "react-native";
+import { useRevealWhileTyping } from "../ui/Screen.tsx";
 import { useLocalWrite } from "../data/context.tsx";
 import { useSetting } from "../data/settings.ts";
 import {
@@ -62,19 +62,8 @@ function Subtasks({ id, readOnly }: { id: string; readOnly: boolean }) {
   const [title, setTitle] = useState("");
   const add = useLocalWrite((db, text: string) => createSubtask(db, id, text));
   const field = useRef<View>(null);
-  const reveal = useReveal();
   const [typing, setTyping] = useState(false);
-  // The keyboard rises over the bottom of the page: once it is up, the page scrolls just
-  // enough to keep the field being typed in above it.
-  useEffect(() => {
-    if (!typing) return;
-    const show = () => {
-      if (field.current && reveal) reveal(field.current, ADD_ROW_HEIGHT);
-    };
-    show();
-    const sub = Keyboard.addListener("keyboardDidShow", show);
-    return () => sub.remove();
-  }, [typing, reveal]);
+  useRevealWhileTyping(field, typing, () => ADD_ROW_HEIGHT);
   const submit = () => {
     const text = title.trim();
     if (text) add.mutate(text, { onSuccess: () => setTitle("") });

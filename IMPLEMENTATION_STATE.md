@@ -77,7 +77,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [x] Bookmark details page: prettier and more useful; "Refresh Details" must not wrap to a new line in its success state (layout shift). Done: the page leads with the picture, then the site's icon and name over the address, Open in Browser and Refresh Details side by side at equal widths (no wrap in any state), the note, and a "Read Nov 15" row up top.
 - [x] Bookmark previews still do not work. Done: cards picture the page as the desktop does (its capture, else the site's picture, else its icon large), and the list reads each page never read once, so bookmarks saved elsewhere or offline fill in.
 - [x] (2026-11-15, "Custom" at the end of "Typical dates for" shows Starts and Ends day pills under the title; test; on screen) (sixth round) New Semester sheet: the timespan only offers "No dates" and "Germany". Add "Custom", which shows a start and an end date input.
-- [ ] (sixth round) Bookmark details: the Note field avoids the keyboard, so typing in it is never covered.
+- [x] (2026-11-15, every field on a page now asks the page to keep its whole height above the keyboard while typing (the sub-task row's way, made shared); test; the real keyboard under Needs the user) (sixth round) Bookmark details: the Note field avoids the keyboard, so typing in it is never covered.
 - [ ] (sixth round) Redesign the whole Dashboard for the phone: the desktop like layout does not fit. A page people want to use as a shortcut to most features.
 
 ### 2b. Tablet (asked in chat, after every other item above)
@@ -94,6 +94,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ## Needs the user
 
+- On a real phone: typing in a bookmark's Note (or any field low on a page) keeps it above the keyboard.
 - On a real phone: the paste bars (Bookmarks, Files) lifted by the keyboard: corners relaxing as they rise, the deeper shadow while typing.
 - On a real phone: typing a time with the keyboard (hour over the one shown, then the minute).
 

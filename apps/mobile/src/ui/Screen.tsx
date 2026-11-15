@@ -1,8 +1,17 @@
-import { createContext, useCallback, useContext, useMemo, useRef } from "react";
+import {
+  type RefObject,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Keyboard,
   RefreshControl,
   ScrollView,
   View,
@@ -18,6 +27,29 @@ import { GUTTER } from "./tokens.ts";
 const RevealContext = createContext<((anchor: View, y: number) => void) | null>(null);
 
 export const useReveal = () => useContext(RevealContext);
+export const RevealProvider = RevealContext.Provider;
+
+/// Keeps `anchor` in view, `height()` of it, while someone types in it: the keyboard rises
+/// over the bottom of the page, so once it is up the page scrolls just enough to keep the
+/// field above it. Nothing happens where no page scrolls (a sheet).
+export function useRevealWhileTyping(
+  anchor: RefObject<View | null>,
+  typing: boolean,
+  height: () => number,
+) {
+  const reveal = useReveal();
+  const measure = useRef(height);
+  measure.current = height;
+  useEffect(() => {
+    if (!typing || !reveal) return;
+    const show = () => {
+      if (anchor.current) reveal(anchor.current, measure.current());
+    };
+    show();
+    const sub = Keyboard.addListener("keyboardDidShow", show);
+    return () => sub.remove();
+  }, [typing, reveal, anchor]);
+}
 
 /// A screen's scrolling page on the app's background, with pull to sync. In a sheet (a
 /// create form) the sheet scrolls, so the page is only its column.

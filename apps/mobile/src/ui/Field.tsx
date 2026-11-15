@@ -1,8 +1,15 @@
 import { type ReactNode, useRef, useState } from "react";
-import { Pressable, TextInput, type TextInputProps, View } from "react-native";
+import {
+  type LayoutChangeEvent,
+  Pressable,
+  TextInput,
+  type TextInputProps,
+  View,
+} from "react-native";
 import { FormRow, useInForm } from "./kit/Form.tsx";
 import { Label } from "./kit/Label.tsx";
 import { useScheme, useSemantic, useSurface } from "./kit/scheme.ts";
+import { useRevealWhileTyping } from "./Screen.tsx";
 import { useSectionRadius } from "./sheet/in-sheet.ts";
 import { CORNER, DEPTH, FACE, GUTTER, SPACE, TINT, TYPE } from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
@@ -53,6 +60,13 @@ export function Field({
   const inForm = useInForm();
   const [focused, setFocused] = useState(false);
   const field = useRef<TextInput>(null);
+  // What the page keeps above the keyboard while typing: the whole field, its name too.
+  const box = useRef<View>(null);
+  const boxHeight = useRef(0);
+  useRevealWhileTyping(box, focused, () => boxHeight.current);
+  const measured = (event: LayoutChangeEvent) => {
+    boxHeight.current = event.nativeEvent.layout.height;
+  };
   const accent = TINT.blue[scheme];
   const name = icon ? null : (
     <Label
@@ -100,6 +114,9 @@ export function Field({
     return (
       <FormRow error={error}>
         <Pressable
+          ref={box}
+          testID={`field-${label}`}
+          onLayout={measured}
           accessible={false}
           onPress={() => field.current?.focus()}
           style={{
@@ -123,6 +140,9 @@ export function Field({
   const border = error ? TINT.red[scheme] : focused ? accent : edge;
   return (
     <Pressable
+      ref={box}
+      testID={`field-${label}`}
+      onLayout={measured}
       accessible={false}
       onPress={() => field.current?.focus()}
       style={{ flexDirection: "column", gap: SPACE.xs + 2 }}
