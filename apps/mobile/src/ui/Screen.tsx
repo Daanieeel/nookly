@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import {
   type LayoutChangeEvent,
@@ -14,12 +15,14 @@ import {
   Keyboard,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   View,
 } from "react-native";
 import { PAGE_BACKGROUND, cn } from "./classes.ts";
 import { useInSheet } from "./sheet/Sheet.tsx";
 import { useSemantic } from "./kit/scheme.ts";
-import { FloatingLayer } from "./floating.tsx";
+import { FloatingLayer, useSlotStore } from "./floating.tsx";
+import { FixedTopContext } from "./fixed-top.tsx";
 import { PageGutterProvider } from "./row-edge.tsx";
 import { GUTTER } from "./tokens.ts";
 
@@ -86,9 +89,15 @@ function ScrollingScreen({
   const content = useRef<View>(null);
   const offset = useRef(0);
   const height = useRef(0);
+  const top = useSlotStore();
+  // Whether the page has scrolled under its fixed top: a hairline then parts them.
+  const [under, setUnder] = useState(false);
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     offset.current = event.nativeEvent.contentOffset.y;
+    setUnder(offset.current > 0);
   }, []);
+  const separator = useSemantic("separator");
+  const column = cn(!wide && "w-full max-w-3xl self-center");
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     height.current = event.nativeEvent.layout.height;
   }, []);
@@ -113,32 +122,51 @@ function ScrollingScreen({
     },
     [],
   );
+  const background = grouped ? { backgroundColor: groupedBackground } : undefined;
+  const pageBackground = grouped ? undefined : PAGE_BACKGROUND;
   return (
     <RevealContext.Provider value={reveal}>
-      <FloatingLayer>
-        <ScrollView
-          ref={scroll}
-          className={cn("flex-1", grouped ? undefined : PAGE_BACKGROUND)}
-          style={grouped ? { backgroundColor: groupedBackground } : undefined}
-          contentInsetAdjustmentBehavior="automatic"
-          keyboardShouldPersistTaps="handled"
-          scrollEventThrottle={32}
-          onScroll={onScroll}
-          onLayout={onLayout}
-          refreshControl={
-            onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined
-          }
-        >
-          <View
-            ref={content}
-            collapsable={false}
-            className={cn("gap-5 p-4 pb-12", !wide && "w-full max-w-3xl self-center")}
-          >
-            {/* p-4: list rows reach past it to the screen's edges. */}
-            <PageGutterProvider value={GUTTER}>{children}</PageGutterProvider>
+      <FixedTopContext.Provider value={top.store}>
+        <FloatingLayer>
+          <View className={cn("flex-1", pageBackground)} style={background}>
+            {top.shown.length > 0 ? (
+              <View
+                style={{
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: under ? separator : "transparent",
+                }}
+              >
+                <View className={cn("gap-3 px-4 pb-3 pt-4", column)}>
+                  <PageGutterProvider value={GUTTER}>{top.shown}</PageGutterProvider>
+                </View>
+              </View>
+            ) : null}
+            <ScrollView
+              ref={scroll}
+              className="flex-1"
+              contentInsetAdjustmentBehavior="automatic"
+              keyboardShouldPersistTaps="handled"
+              scrollEventThrottle={32}
+              onScroll={onScroll}
+              onLayout={onLayout}
+              refreshControl={
+                onRefresh ? (
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                ) : undefined
+              }
+            >
+              <View
+                ref={content}
+                collapsable={false}
+                className={cn("gap-5 p-4 pb-12", top.shown.length > 0 && "pt-2", column)}
+              >
+                {/* p-4: list rows reach past it to the screen's edges. */}
+                <PageGutterProvider value={GUTTER}>{children}</PageGutterProvider>
+              </View>
+            </ScrollView>
           </View>
-        </ScrollView>
-      </FloatingLayer>
+        </FloatingLayer>
+      </FixedTopContext.Provider>
     </RevealContext.Provider>
   );
 }

@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
 import { useState } from "react";
 import { ActiveFilters } from "./ActiveFilters.tsx";
+import { FixedTop } from "./fixed-top.tsx";
 import { ListHeader, type ListPanel } from "./ListBar.tsx";
 import { DisplayGroup, FilterField } from "./sheet/DisplayParts.tsx";
 import type { Option } from "./sheet/OptionList.tsx";
@@ -26,10 +27,13 @@ export function ListControls({
   count,
   filters,
   display,
+  tabs,
 }: {
   title: string;
   count: number;
   filters: ListFilter[];
+  /// The page's presets or Views, under the title.
+  tabs?: ReactNode;
   /// What the Display sheet holds; a page without display options leaves it out.
   display?: ReactNode;
 }) {
@@ -37,14 +41,17 @@ export function ListControls({
   const close = (open: boolean) => !open && setPanel(null);
   return (
     <>
-      <ListHeader
-        title={title}
-        count={count}
-        panel={panel}
-        onPanel={setPanel}
-        display={display !== undefined}
-      />
-      <ActiveFilters filters={filters} />
+      <FixedTop>
+        <ListHeader
+          title={title}
+          count={count}
+          panel={panel}
+          onPanel={setPanel}
+          display={display !== undefined}
+        />
+        {tabs}
+        <ActiveFilters filters={filters} />
+      </FixedTop>
       <Sheet open={panel === "filter"} onOpenChange={close} title="Filter">
         <DisplayGroup>
           {filters.map((field) => (

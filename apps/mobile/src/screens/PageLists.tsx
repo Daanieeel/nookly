@@ -1,3 +1,4 @@
+import { FixedTop } from "../ui/fixed-top.tsx";
 import { SaveBar } from "../ui/SaveBar.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
@@ -315,17 +316,19 @@ export function JotList({ spaceId }: { spaceId: string }) {
   return (
     <View className="gap-3">
       {controls}
-      <Presets
-        label="Show"
-        value={preset}
-        onChange={setPreset}
-        options={[
-          { id: "unrefined", label: "Unrefined", count: count("unrefined") },
-          { id: "refined", label: "Refined", count: count("refined") },
-          { id: "week", label: "This week", count: count("week") },
-          { id: "all", label: "All", count: count("all") },
-        ]}
-      />
+      <FixedTop>
+        <Presets
+          label="Show"
+          value={preset}
+          onChange={setPreset}
+          options={[
+            { id: "unrefined", label: "Unrefined", count: count("unrefined") },
+            { id: "refined", label: "Refined", count: count("refined") },
+            { id: "week", label: "This week", count: count("week") },
+            { id: "all", label: "All", count: count("all") },
+          ]}
+        />
+      </FixedTop>
       <FilterField label="Filter jots" value={query} onChange={setQuery} />
       {jots.length === 0 ? (
         <EmptyState

@@ -1,3 +1,4 @@
+import { FixedTop } from "../ui/fixed-top.tsx";
 import { SaveBar } from "../ui/SaveBar.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
@@ -405,19 +406,21 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
         />
       </Stack.Toolbar>
       <Screen onRefresh={onRefresh} refreshing={refreshing} wide={board}>
-        <ListHeader title="Tasks" count={tasks.length} panel={panel} onPanel={setPanel} />
-        {views.length > 0 ? (
-          <Presets
-            label="Views"
-            value={view}
-            onChange={openView}
-            options={[
-              { id: "all", label: "All" },
-              ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
-            ]}
-          />
-        ) : null}
-        <ActiveFilters filters={filters} />
+        <FixedTop>
+          <ListHeader title="Tasks" count={tasks.length} panel={panel} onPanel={setPanel} />
+          {views.length > 0 ? (
+            <Presets
+              label="Views"
+              value={view}
+              onChange={openView}
+              options={[
+                { id: "all", label: "All" },
+                ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
+              ]}
+            />
+          ) : null}
+          <ActiveFilters filters={filters} />
+        </FixedTop>
         <Sheet
           open={panel === "filter"}
           onOpenChange={(open) => !open && setPanel(null)}

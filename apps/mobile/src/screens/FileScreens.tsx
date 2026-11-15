@@ -1,3 +1,4 @@
+import { FixedTop } from "../ui/fixed-top.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { ENTITY_FILTERS_NONE } from "../ui/entity-filters.tsx";
@@ -399,15 +400,17 @@ export function FileRows({ spaceId }: { spaceId: string }) {
         display={<FileDisplayPanel display={display} onChange={setDisplay} />}
       />
       {views.length > 0 ? (
-        <Presets
-          label="Views"
-          value={view}
-          onChange={openView}
-          options={[
-            { id: "all", label: "All" },
-            ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
-          ]}
-        />
+        <FixedTop>
+          <Presets
+            label="Views"
+            value={view}
+            onChange={openView}
+            options={[
+              { id: "all", label: "All" },
+              ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
+            ]}
+          />
+        </FixedTop>
       ) : null}
       <Shelf
         shelf={shelf}
