@@ -106,7 +106,7 @@ export function Property({
             alignItems: "center",
             gap: SPACE.xs + 2,
             paddingHorizontal: SPACE.md,
-            borderRadius: RADIUS.pill,
+            borderRadius: RADIUS.badge,
             backgroundColor: pressed ? pressedFill : fill,
           },
         ]}

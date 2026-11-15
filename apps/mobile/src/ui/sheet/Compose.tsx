@@ -4,7 +4,7 @@ import { Pressable, ScrollView, TextInput, type TextInputProps, View } from "rea
 import { useSemantic, useSemanticPair } from "../kit/scheme.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
-import { CORNER, FACE, SPACE, TYPE } from "../tokens.ts";
+import { CORNER, FACE, RADIUS, SPACE, TYPE } from "../tokens.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import { type Option, OptionList } from "./OptionList.tsx";
 import { RoundButton, Sheet, SheetFooter, SheetHeader, useSheet } from "./Sheet.tsx";
@@ -242,7 +242,7 @@ export function Pill({
         CORNER,
         {
           minHeight: MIN_TOUCH,
-          borderRadius: MIN_TOUCH / 2,
+          borderRadius: RADIUS.control,
           paddingHorizontal: SPACE.lg,
           flexDirection: "row",
           alignItems: "center",

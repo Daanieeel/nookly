@@ -6,7 +6,7 @@ import { Label } from "./kit/Label.tsx";
 import { useScheme, useSemantic } from "./kit/scheme.ts";
 import { SPRING } from "./motion.ts";
 import { useReduceMotion } from "./reduce-motion.ts";
-import { CORNER, DEPTH, SEGMENT_THUMB } from "./tokens.ts";
+import { CORNER, DEPTH, RADIUS, SEGMENT_THUMB } from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
 
 export interface SegmentOption<T extends string> {
@@ -61,7 +61,7 @@ export function Segmented<T extends string>({
           width: "100%",
           flexDirection: "row",
           padding: INSET,
-          borderRadius: MIN_TOUCH / 2,
+          borderRadius: RADIUS.control,
           backgroundColor: track,
         },
       ]}
@@ -78,7 +78,7 @@ export function Segmented<T extends string>({
               bottom: INSET,
               left: INSET,
               width: segment,
-              borderRadius: MIN_TOUCH / 2,
+              borderRadius: RADIUS.control - INSET,
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: edge,
               backgroundColor: SEGMENT_THUMB[scheme],

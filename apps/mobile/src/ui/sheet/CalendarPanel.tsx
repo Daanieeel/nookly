@@ -17,7 +17,7 @@ import { Glyph, type GlyphIcon } from "../kit/Glyph.tsx";
 import { Label } from "../kit/Label.tsx";
 import { useScheme, useSemantic } from "../kit/scheme.ts";
 import { Surface } from "../kit/Surface.tsx";
-import { SPACE, TINT, TINT_FILL, withAlpha } from "../tokens.ts";
+import { CORNER, RADIUS, SPACE, TINT, TINT_FILL, withAlpha } from "../tokens.ts";
 import { MIN_TOUCH } from "../touch.ts";
 
 const toDate = (day: string) => {
@@ -122,9 +122,10 @@ export function CalendarPanel({
                   {({ pressed }) => (
                     <View
                       style={{
+                        ...CORNER,
                         width: DAY,
                         height: DAY,
-                        borderRadius: DAY / 2,
+                        borderRadius: RADIUS.control,
                         alignItems: "center",
                         justifyContent: "center",
                         backgroundColor: selected

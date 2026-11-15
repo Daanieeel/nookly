@@ -36,7 +36,7 @@ export function SearchField({
         CORNER,
         {
           minHeight: HEIGHT,
-          borderRadius: RADIUS.pill,
+          borderRadius: RADIUS.control,
           backgroundColor: fill,
           flexDirection: "row",
           alignItems: "center",

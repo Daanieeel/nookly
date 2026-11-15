@@ -570,10 +570,11 @@ export function RoundButton({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
+        CORNER,
         {
           width: MIN_TOUCH,
           height: MIN_TOUCH,
-          borderRadius: MIN_TOUCH / 2,
+          borderRadius: RADIUS.control,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: tone === "primary" && !disabled ? theme.colors.primary : fill,

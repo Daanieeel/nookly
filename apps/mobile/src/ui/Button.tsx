@@ -153,7 +153,7 @@ export function Button({
           justifyContent: "center",
           gap: SPACE.sm - 2,
           paddingHorizontal: words ? 0 : small ? SPACE.md + 2 : SPACE.xl,
-          borderRadius: RADIUS.pill,
+          borderRadius: RADIUS.control,
           backgroundColor: look.fill,
           borderWidth: look.border ? 1 : 0,
           borderColor: look.border,
@@ -217,7 +217,8 @@ export function IconButton({
       unstable_pressDelay={0}
       style={[
         drawnAt(size),
-        { alignItems: "center", justifyContent: "center", borderRadius: RADIUS.pill },
+        CORNER,
+        { alignItems: "center", justifyContent: "center", borderRadius: RADIUS.control },
         disabled && { opacity: 0.35 },
         press.style,
       ]}

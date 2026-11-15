@@ -53,7 +53,7 @@ export function Chip({
           justifyContent: "center",
           gap: SPACE.xs + 2,
           paddingHorizontal: SPACE.md + 2,
-          borderRadius: RADIUS.pill,
+          borderRadius: RADIUS.badge,
           backgroundColor: selected ? TINT.blue[scheme] : fill,
           opacity: disabled ? 0.45 : 1,
         },

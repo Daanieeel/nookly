@@ -46,7 +46,7 @@ export function BrandButton({
           justifyContent: "center",
           gap: SPACE.sm + 2,
           paddingHorizontal: SPACE.xl,
-          borderRadius: RADIUS.pill,
+          borderRadius: RADIUS.control,
           borderWidth: 1,
           borderColor: BRAND.border,
           backgroundColor: BRAND.fill,

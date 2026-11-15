@@ -108,6 +108,7 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 
 ## Progress log
 
+- 2026-11-15: asked outside NOTES.md: every fully rounded phone control (buttons, chips, property pills, search fields, segmented controls, sheet buttons, compose pills, calendar days, the editor's inline toolbar) is now a squircle with the regular corners; round only where the desktop is round too (dots, swatches, grabber, thin bars, today in the week) and the glass button beside iOS's own bar buttons. `ui/corners.test.ts` keeps it so.
 - 2026-11-15: every item done (sections 1 to 6), final report written.
 - 2026-11-15: file refilled from the fourth round of `NOTES.md`. The previous rounds (all items done) are in git history up to 61d46e9d and `DECISIONS.md` up to D68.
 

@@ -23,7 +23,7 @@ import Animated, { useAnimatedKeyboard, useAnimatedStyle } from "react-native-re
 import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { useTheme } from "../ui/theme.ts";
-import { CORNER } from "../ui/tokens.ts";
+import { CORNER, RADIUS } from "../ui/tokens.ts";
 import { TOOLBAR, type ToolbarId } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
@@ -66,12 +66,14 @@ export function EditorToolbar({ inline = false }: { inline?: boolean }) {
     <Animated.View
       className={cn(
         "flex-row",
-        inline
-          ? "mx-4 mb-2 overflow-hidden rounded-full bg-muted"
-          : "border-t border-border bg-background",
+        inline ? "mx-4 mb-2 overflow-hidden bg-muted" : "border-t border-border bg-background",
       )}
       accessibilityRole="toolbar"
-      style={inline ? CORNER : [{ position: "absolute", left: 0, right: 0, bottom: 0 }, ride]}
+      style={
+        inline
+          ? [CORNER, { borderRadius: RADIUS.control }]
+          : [{ position: "absolute", left: 0, right: 0, bottom: 0 }, ride]
+      }
     >
       <ScrollView
         className="flex-1"

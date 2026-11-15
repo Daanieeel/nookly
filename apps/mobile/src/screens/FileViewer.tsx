@@ -14,6 +14,7 @@ import { IconButton } from "../ui/Button.tsx";
 import { EmptyState, LoadingState } from "../ui/kit/States.tsx";
 import { SearchField } from "../ui/kit/SearchField.tsx";
 import { Text } from "../ui/Text.tsx";
+import { CORNER, RADIUS } from "../ui/tokens.ts";
 import { useTheme } from "../ui/theme.ts";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { KIND_ICONS, nameOf, pathOf, type ViewerKind, viewerFor } from "./file-kinds.ts";
@@ -170,7 +171,8 @@ export function FileContents({
           {kind === "pdf" && page && page.count > 1 ? (
             <View
               pointerEvents="none"
-              className="absolute bottom-8 self-center rounded-full bg-card/90 px-3 py-1.5"
+              className="absolute bottom-8 self-center bg-card/90 px-3 py-1.5"
+              style={[CORNER, { borderRadius: RADIUS.badge }]}
             >
               <Text variant="small">{`${page.page} of ${page.count}`}</Text>
             </View>

@@ -25,7 +25,7 @@ import { Separator } from "../ui/Row.tsx";
 import { RoundButton } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
-import { SPACE, TINT } from "../ui/tokens.ts";
+import { CORNER, RADIUS, SPACE, TINT } from "../ui/tokens.ts";
 import { MIN_TOUCH } from "../ui/touch.ts";
 
 /// The ratings as the desktop draws them: Again red, Hard amber, Good green, Easy plain.
@@ -262,8 +262,14 @@ function Finished({ studied, onClose }: { studied: number; onClose: () => void }
   return (
     <View className="flex-1 items-center justify-center gap-3 px-4">
       <View
-        className="items-center justify-center rounded-full"
-        style={{ width: MIN_TOUCH, height: MIN_TOUCH, backgroundColor: `${TINT.green[scheme]}22` }}
+        className="items-center justify-center"
+        style={{
+          ...CORNER,
+          borderRadius: RADIUS.control,
+          width: MIN_TOUCH,
+          height: MIN_TOUCH,
+          backgroundColor: `${TINT.green[scheme]}22`,
+        }}
       >
         <IconConfetti size={22} color={TINT.green[scheme]} />
       </View>

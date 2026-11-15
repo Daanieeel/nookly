@@ -9,6 +9,7 @@ import { File } from "expo-file-system";
 import { useLocalWrite } from "../data/context.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { EmptyState } from "../ui/kit/States.tsx";
+import { CORNER, RADIUS } from "../ui/tokens.ts";
 import { ListTitle } from "../ui/ListBar.tsx";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
@@ -466,7 +467,8 @@ export function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: stri
             accessibilityLabel={`Study ${deck.entity.title || "deck"}, ${waiting} ${waiting === 1 ? "card" : "cards"}`}
             onPress={() => router.push(`/study/${deck.entity.id}`)}
             hitSlop={touchSlop(CONTROL_SIZE.sm, MIN_TOUCH)}
-            className="h-8 flex-row items-center gap-1 rounded-full bg-primary px-3 active:opacity-80"
+            className="h-8 flex-row items-center gap-1 bg-primary px-3 active:opacity-80"
+            style={[CORNER, { borderRadius: RADIUS.badge }]}
           >
             <IconPlayerPlayFilled size={12} color={theme.colors.primaryForeground} />
             <Text variant="small" className="font-medium text-primary-foreground">

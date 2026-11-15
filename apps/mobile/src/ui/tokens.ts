@@ -146,7 +146,6 @@ export const RADIUS = {
   /// A section or surface inside a floating card: the card's corners less its margin, so
   /// the two curves run side by side.
   inCard: 22,
-  pill: 999,
 } as const;
 
 export const CORNER: ViewStyle = { borderCurve: "continuous" };
