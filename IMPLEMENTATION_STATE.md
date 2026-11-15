@@ -76,7 +76,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [x] Bookmarks, the "Site" filter: a search bar, each site with its favicon, and the address with only its important part highlighted ("https://www." muted, "google.com" full). Done: the Site card searches, shows each site's icon (a globe until it has one) and mutes "https://www." before the address.
 - [x] Bookmark details page: prettier and more useful; "Refresh Details" must not wrap to a new line in its success state (layout shift). Done: the page leads with the picture, then the site's icon and name over the address, Open in Browser and Refresh Details side by side at equal widths (no wrap in any state), the note, and a "Read Nov 15" row up top.
 - [x] Bookmark previews still do not work. Done: cards picture the page as the desktop does (its capture, else the site's picture, else its icon large), and the list reads each page never read once, so bookmarks saved elsewhere or offline fill in.
-- [ ] (sixth round) New Semester sheet: the timespan only offers "No dates" and "Germany". Add "Custom", which shows a start and an end date input.
+- [x] (2026-11-15, "Custom" at the end of "Typical dates for" shows Starts and Ends day pills under the title; test; on screen) (sixth round) New Semester sheet: the timespan only offers "No dates" and "Germany". Add "Custom", which shows a start and an end date input.
 - [ ] (sixth round) Bookmark details: the Note field avoids the keyboard, so typing in it is never covered.
 - [ ] (sixth round) Redesign the whole Dashboard for the phone: the desktop like layout does not fit. A page people want to use as a shortcut to most features.
 

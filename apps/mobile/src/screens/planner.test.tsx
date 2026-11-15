@@ -21,7 +21,7 @@ import { ModuleScreen } from "./ModuleScreen.tsx";
 import { choose, openRow, pickDay, pickDayInSheet } from "../test/sheet.ts";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { NewSemesterScreen, NewSessionScreen, primarySessionPage } from "./PlannerScreens.tsx";
-import { dayLabel } from "./dates.ts";
+import { addDays, dayLabel, localDay } from "./dates.ts";
 import { SemesterList, semesterSpan } from "./SemesterList.tsx";
 
 async function seeded() {
@@ -327,6 +327,34 @@ describe("semesters", () => {
 
 // The + on Semesters opened a sheet over the whole screen for three choices and a button.
 describe("the New Semester sheet", () => {
+  // Dates came only from a region's typical ones ("No dates" or "Germany"). "Custom" asks
+  // for the start and the end.
+  it("takes dates of its own under Custom", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens(
+      {
+        index: () => <Text>Home</Text>,
+        "entity/[id]": () => <Text>Opened</Text>,
+        "new/semester": () => <NewSemesterScreen spaceId={space} />,
+      },
+      data,
+    );
+    await act(() => router.push("/new/semester"));
+    expect(screen.queryByRole("button", { name: /^Starts, / })).toBeNull();
+    await choose(screen, "Typical dates for", "Custom");
+    // The start last month, the end late this month: the closed Starts calendar, paged back a
+    // month, never shows the end's day.
+    const month = localDay().slice(0, 7);
+    const lastMonth = addDays(`${month}-01`, -1).slice(0, 7);
+    await pickDay(screen, "Starts", `${lastMonth}-12`);
+    await pickDay(screen, "Ends", `${month}-27`);
+    await fireEvent.press(screen.getByRole("button", { name: "Create Semester" }));
+    await waitFor(async () => {
+      const [row] = await data.driver.query("SELECT s.start_date, s.end_date FROM semesters s", []);
+      expect(row).toEqual({ start_date: `${lastMonth}-12`, end_date: `${month}-27` });
+    });
+  });
+
   it("takes only the height it needs", async () => {
     const { data, space } = await seeded();
     const screen = await renderScreens(

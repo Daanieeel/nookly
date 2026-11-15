@@ -457,13 +457,19 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
   const [termKey, setTermKey] = useState<string | null>(null);
   const [year, setYear] = useState<number | null>(null);
   const [region, setRegion] = useState<string | null>(null);
+  const [own, setOwn] = useState<{ start: string | null; end: string | null }>({
+    start: null,
+    end: null,
+  });
+  const custom = region === "custom";
   const [named, setNamed] = useState<string | null>(null);
   const def = ACADEMIC_SYSTEMS[system];
   const term = def.terms.find((t) => t.key === (termKey ?? guess.term.key)) ?? guess.term;
   const theYear = year ?? guess.year;
   const regions = REGION_TERM_DATES.filter((r) => r.system === system);
   const window = regions.find((r) => r.key === region)?.windows[term.key];
-  const dates = window ? resolveTermDates(window, theYear) : null;
+  const typical = window ? resolveTermDates(window, theYear) : null;
+  const dates = custom ? { startDate: own.start, endDate: own.end } : typical;
   const title = named ?? def.formatTitle(term, theYear);
   const muted = useTheme().colors.mutedForeground;
   const create = useLocalWrite((db, _: undefined) => {
@@ -504,10 +510,26 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
         placeholder="Winter 2026/27"
         autoFocus={false}
       />
+      {custom ? (
+        <View className="flex-row flex-wrap gap-2">
+          <DayPill
+            label="Starts"
+            value={own.start}
+            onChange={(start) => setOwn((o) => ({ ...o, start }))}
+          />
+          <DayPill
+            label="Ends"
+            value={own.end}
+            onChange={(end) => setOwn((o) => ({ ...o, end }))}
+          />
+        </View>
+      ) : null}
       <Text tone="muted">
-        {dates
+        {dates?.startDate && dates.endDate
           ? `${dayLabel(dates.startDate)} to ${dayLabel(dates.endDate)}`
-          : "No dates yet; pick where to take typical dates from."}
+          : custom
+            ? "Pick the day it starts and the day it ends."
+            : "No dates yet; pick where to take typical dates from, or your own."}
       </Text>
       {create.error ? (
         <Text tone="destructive" variant="small">
@@ -553,6 +575,7 @@ export function NewSemesterScreen({ spaceId }: { spaceId?: string }) {
           options={[
             { id: "none", label: "No dates" },
             ...regions.map((r) => ({ id: r.key, label: r.label })),
+            { id: "custom", label: "Custom" },
           ]}
           onChange={(key) => setRegion(key === "none" ? null : key)}
         />
