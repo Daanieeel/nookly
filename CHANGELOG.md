@@ -20,6 +20,7 @@ All notable changes to Nookly are listed here.
 - Corners are a little rounder and softer across the app.
 - The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.
 - New pages open at once.
+- Every list can be filtered by more of what its items have: pinned, created and updated everywhere, and its own details, like a recipe's kind and time, an exam's date and status, or when something went to Trash.
 - Typing an item's short code like TSK in search first shows what contains it, then lists every item with that code, newest first.
 
 ### Fixed

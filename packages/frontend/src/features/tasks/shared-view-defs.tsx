@@ -1,8 +1,8 @@
-import { IconClockEdit, IconClockPlus, IconFolder } from "@tabler/icons-react";
+import { IconClockEdit, IconClockPlus, IconFolder, IconPin } from "@tabler/icons-react";
 import type { FilterField } from "#/components/filter-menu.tsx";
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
 import { SpaceDot } from "#/components/space-chip.tsx";
-import type { Space } from "#/lib/api/types.ts";
+import type { Entity, Space } from "#/lib/api/types.ts";
 import { AGE_BUCKETS, ageBucket } from "#/features/assignments/assignment-model.ts";
 
 /// Filter fields and group defs the Tasks and Assignments pages have in common.
@@ -64,3 +64,28 @@ export function ageGroupDefs<T>(
 
 /// Created and Updated, as a pair that sits together in every filter list.
 export const AGE_FILTER_FIELDS: FilterField[] = [CREATED_FILTER_FIELD, UPDATED_FILTER_FIELD];
+
+export const PINNED_FILTER_FIELD: FilterField = {
+  id: "pinned",
+  label: "Pinned",
+  icon: IconPin,
+  options: [
+    { value: "pinned", label: "Pinned" },
+    { value: "unpinned", label: "Not pinned" },
+  ],
+};
+
+/// Pinned, Created and Updated: every item has them, so every list can filter on them.
+export const ENTITY_FILTER_FIELDS: FilterField[] = [PINNED_FILTER_FIELD, ...AGE_FILTER_FIELDS];
+
+/// An item's value for Pinned, Created or Updated; undefined for any other field.
+export function entityFilterValue(
+  entity: Entity,
+  fieldId: string,
+  now = new Date(),
+): string | undefined {
+  if (fieldId === "pinned") return entity.pinned ? "pinned" : "unpinned";
+  if (fieldId === "created") return ageBucket(entity.createdAt, now);
+  if (fieldId === "updated") return ageBucket(entity.updatedAt, now);
+  return undefined;
+}

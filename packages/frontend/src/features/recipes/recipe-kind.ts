@@ -36,3 +36,19 @@ export const RECIPE_KIND_ICONS = {
   dessert: IconCake,
   other: IconDots,
 } satisfies Record<RecipeKind, TablerIcon>;
+
+/// How long a recipe takes, in the steps a meal is planned by.
+export const RECIPE_TIME_BUCKETS: { id: string; label: string }[] = [
+  { id: "15", label: "15 minutes or less" },
+  { id: "30", label: "30 minutes or less" },
+  { id: "60", label: "An hour or less" },
+  { id: "longer", label: "Longer" },
+  { id: "none", label: "Not set" },
+];
+
+export function recipeTime(minutes: number | null): string {
+  if (minutes === null) return "none";
+  if (minutes <= 15) return "15";
+  if (minutes <= 30) return "30";
+  return minutes <= 60 ? "60" : "longer";
+}

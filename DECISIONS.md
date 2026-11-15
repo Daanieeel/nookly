@@ -413,3 +413,7 @@ The + at the bottom of the sidebar, the dots on the Space shown and the dots for
 ## D72. A stored file's place is read from this app's own folder
 
 The phone stores where a file is as a full `file://` address, which holds iOS's name for the app's folder (`.../Containers/Data/Application/<ID>/Documents/`). iOS gives that folder a new name when the app is restored onto another phone and after some reinstalls, and every file then looked missing (found while adding thumbnails: a PDF showed no picture and would not open). Reading now moves any address inside an app's Documents folder into this app's own (`data/reroot.ts`): the Files list, a file's page and viewer, recipe banners, and the file sync's hashing and uploads. What is stored is left exactly as it was, so nothing needs a migration and nothing is rewritten.
+
+## D73. Every list filters on what its items have
+
+Pinned, Created and Updated are on every item, so every list offers them (`ENTITY_FILTER_FIELDS` on the desktop). Each list then adds its own: Bookmarks their labels and site, Files kind and labels, Exams course, date (next 7 days, later, past, none) and status, Courses semester, Decks the exam they prepare for and whether cards wait, Recipes kind, tags and time, Trash type, Space and when it was deleted. Tasks, Assignments, Notes and Jots already had theirs. The phone offers the same fields in its Filter sheet, with its own date windows where the desktop's buckets would read the same. Sessions and the calendar are a calendar, not a list, and keep their own controls.

@@ -40,6 +40,7 @@ import { formatEditedAt } from "#/lib/relative-time.ts";
 import { typeGroupFor } from "#/lib/search-results.ts";
 import { type DataTableFeatures, dataTableFeatures } from "#/lib/table-features.ts";
 import { includesFolded } from "#/lib/text-search.ts";
+import { AGE_BUCKETS, ageBucket } from "#/features/assignments/assignment-model.ts";
 
 interface TrashRow {
   entity: Entity;
@@ -188,6 +189,15 @@ export function TrashView() {
         })),
       });
     }
+    // When it went to Trash, as Created and Updated split time on every other list.
+    if (rows.length > 0) {
+      fields.push({
+        id: "deleted",
+        label: "Deleted",
+        icon: IconTrash,
+        options: AGE_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      });
+    }
     return fields;
   }, [rows]);
 
@@ -199,7 +209,12 @@ export function TrashView() {
           (r) => !needle || includesFolded(r.title, needle) || matchesKey(r.entity.key, query),
         ),
         filters,
-        (row, fieldId) => (fieldId === "space" ? row.entity.spaceId : row.type.key),
+        (row, fieldId) =>
+          fieldId === "space"
+            ? row.entity.spaceId
+            : fieldId === "deleted"
+              ? ageBucket(row.entity.deletedAt ?? row.entity.updatedAt)
+              : row.type.key,
       ),
     [rows, needle, query, filters],
   );

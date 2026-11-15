@@ -15,13 +15,22 @@ import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 import { createDeck, listDeckSummaries } from "#/lib/api/decks.ts";
-import {} from "#/lib/api/exams.ts";
+import {
+  type ActiveFilter,
+  type FilterField,
+  FilterMenu,
+  applyFilters,
+} from "#/components/filter-menu.tsx";
+import { ENTITY_FILTER_FIELDS, entityFilterValue } from "#/features/tasks/shared-view-defs.tsx";
 import type { DeckSummary, Exam } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { formatInterval, requestStudy, studyCount } from "./deck/deck-data";
 import { DeckStack, STATE_TONE } from "./deck/index-card";
+
+/// The Exam filter's value for a deck that prepares for none.
+const NO_EXAM = "none";
 
 /// Every deck as a pile on the desk. Decks with cards to study come first, the
 /// ones prepping for the nearest exam leading; caught up decks follow by name.
@@ -37,14 +46,49 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
   const startCreate = useCallback(() => setCreating(true), []);
   useCreateShortcut(startCreate);
 
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const usedExams = exams.filter((e) => decks.some((d) => d.examId === e.entity.id));
+  const filterFields: FilterField[] = [
+    {
+      id: "exam",
+      label: "Exam",
+      icon: IconCalendarStats,
+      options: [
+        ...usedExams.map((e) => ({ value: e.entity.id, label: displayTitle(e.entity) })),
+        { value: NO_EXAM, label: "No exam" },
+      ],
+    },
+    {
+      id: "study",
+      label: "Cards to study",
+      icon: IconCards,
+      options: [
+        { value: "ready", label: "Ready to study" },
+        { value: "done", label: "All caught up" },
+      ],
+    },
+    ...ENTITY_FILTER_FIELDS,
+  ];
+  const shown = applyFilters(
+    decks,
+    filters,
+    (deck, fieldId) =>
+      entityFilterValue(deck.entity, fieldId) ??
+      (fieldId === "study"
+        ? studyCount(deck.stats) > 0
+          ? "ready"
+          : "done"
+        : (deck.examId ?? NO_EXAM)),
+  );
+
   const examDate = (deck: DeckSummary) =>
     (deck.examId && examOf.get(deck.examId)?.examDate) || "9999-12-31";
-  const ready = decks
+  const ready = shown
     .filter((d) => studyCount(d.stats) > 0)
     .sort(
       (a, b) => examDate(a).localeCompare(examDate(b)) || studyCount(b.stats) - studyCount(a.stats),
     );
-  const caughtUp = decks
+  const caughtUp = shown
     .filter((d) => studyCount(d.stats) === 0)
     .sort((a, b) => displayTitle(a.entity).localeCompare(displayTitle(b.entity)));
 
@@ -56,6 +100,9 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
       <PageHeader>
         <PageHeaderTitle icon={IconCards}>Decks</PageHeaderTitle>
         <PageHeaderActions>
+          <div className="min-w-0 flex-1">
+            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+          </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="secondary" size="sm" className="gap-1.5" onClick={startCreate}>
@@ -79,6 +126,13 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
               description="Press C to add one. Name it, then start writing cards."
               action={{ label: "New deck", onClick: startCreate }}
             />
+          ) : shown.length === 0 && !creating ? (
+            <div className="flex flex-col items-center gap-2 py-16 text-center">
+              <p className="text-sm text-muted-foreground">No decks match these filters.</p>
+              <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
+                Clear filters
+              </Button>
+            </div>
           ) : (
             <>
               <DeckSection label="Ready to study" decks={ready} examOf={examOf}>

@@ -1,4 +1,4 @@
-import { IconPin, IconSchool } from "@tabler/icons-react";
+import { IconSchool } from "@tabler/icons-react";
 import {
   type ActiveFilter,
   entityFilterOption,
@@ -6,7 +6,7 @@ import {
 } from "#/components/filter-menu.tsx";
 import type { Entity, Label } from "#/lib/api/types.ts";
 import { ageBucket } from "#/features/assignments/assignment-model.ts";
-import { CREATED_FILTER_FIELD } from "#/features/tasks/shared-view-defs.tsx";
+import { CREATED_FILTER_FIELD, PINNED_FILTER_FIELD } from "#/features/tasks/shared-view-defs.tsx";
 import {
   EDITED_FILTER_FIELD,
   editedWithin,
@@ -14,16 +14,6 @@ import {
   passesRowFilters,
 } from "./list-table-shared";
 import type { NoteRow } from "./NotesListView";
-
-const PINNED_FILTER_FIELD: FilterField = {
-  id: "pinned",
-  label: "Pinned",
-  icon: IconPin,
-  options: [
-    { value: "pinned", label: "Pinned" },
-    { value: "unpinned", label: "Not pinned" },
-  ],
-};
 
 /// Whether `row` carries `value` for a filter field. Labels and Courses can hold
 /// several values at once, so filters test membership, not equality.

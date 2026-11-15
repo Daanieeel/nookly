@@ -36,6 +36,7 @@ import {
   FilterMenu,
   applyFilters,
 } from "#/components/filter-menu.tsx";
+import { ENTITY_FILTER_FIELDS, entityFilterValue } from "#/features/tasks/shared-view-defs.tsx";
 import { hasVisibleErrors } from "#/components/form-field.tsx";
 import { FLOATING_BAR_INPUT, FloatingBar } from "#/components/floating-bar.tsx";
 import { Badge } from "@nookly/ui/components/badge";
@@ -276,12 +277,17 @@ export function FilesListView({ spaceId }: { spaceId: string }) {
           icon: <LabelDot label={l} />,
         })),
       },
+      ...ENTITY_FILTER_FIELDS,
     ];
   }, [files, labels]);
 
   const visible = orderFiles(
-    applyFilters(files, filters, (f, fieldId) =>
-      fieldId === "labels" ? f.labelIds : fileKind(f).id,
+    applyFilters(
+      files,
+      filters,
+      (f, fieldId) =>
+        entityFilterValue(f.entity, fieldId) ??
+        (fieldId === "labels" ? f.labelIds : fileKind(f).id),
     ),
     display.ordering,
   );
