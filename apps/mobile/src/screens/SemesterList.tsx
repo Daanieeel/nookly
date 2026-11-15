@@ -3,6 +3,7 @@ import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
   IconArrowUpRight,
+  IconCalendarEvent,
   IconCalendarStats,
   IconChevronDown,
   IconChevronRight,
@@ -117,7 +118,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
           onPress={() => setOpen((o) => !o)}
           className="flex-1 flex-row items-center gap-3 py-2.5 active:opacity-60"
         >
-          <IconBadge glyph={IconCalendarStats} tint={semester.isCurrent ? "green" : "blue"} />
+          <IconBadge glyph={IconCalendarStats} tint="blue" />
           <View className="flex-1 gap-1">
             <View className="flex-row items-center gap-2">
               <Text variant="small" tone="muted">
@@ -126,7 +127,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
               <Text numberOfLines={1} className="shrink font-semibold">
                 {name}
               </Text>
-              {semester.isCurrent ? <Badge label="Current" variant="positive" size="sm" /> : null}
+              {semester.isCurrent ? <Badge label="Current" variant="primary" size="sm" /> : null}
             </View>
             <View className="flex-row flex-wrap gap-x-2">
               <Text variant="small" tone="muted">
@@ -141,19 +142,6 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
           </View>
           <Chevron size={16} color={muted} />
         </Pressable>
-        {semesterSpan(semester) ? null : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Set dates of ${name}`}
-            onPress={() => setDating(true)}
-            hitSlop={8}
-            className="min-h-11 justify-center px-2 active:opacity-60"
-          >
-            <Text variant="small" tone="primary" className="font-medium">
-              Set dates
-            </Text>
-          </Pressable>
-        )}
         <IconButton
           label={`Open ${name}`}
           icon={<IconArrowUpRight size={20} color={muted} />}
@@ -175,6 +163,11 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
                 label: "Open",
                 icon: IconArrowUpRight,
                 onPress: () => router.push(`/entity/${semester.entity.id}`),
+              },
+              {
+                label: "Set Dates",
+                icon: IconCalendarEvent,
+                onPress: () => setDating(true),
               },
               {
                 label: "Rename",

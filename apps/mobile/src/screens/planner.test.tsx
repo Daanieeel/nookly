@@ -182,6 +182,9 @@ describe("semesters", () => {
     await setCourseSemester(data.db, course, ws);
     const rows = await renderScreens({ index: () => <SemesterList spaceId={space} /> }, data);
     expect(await rows.findByText("Current")).toBeTruthy();
+    // The current semester is Nookly's blue, not green (the user's notes).
+    expect(rows.UNSAFE_queryAllByProps({ tint: "green" })).toHaveLength(0);
+    expect(rows.UNSAFE_getAllByProps({ label: "Current", variant: "primary" }).length).toBe(1);
     expect(await rows.findByText("1 course")).toBeTruthy();
     expect(
       rows.getByText(semesterSpan({ startDate: "2025-10-15", endDate: "2026-02-15" }) ?? ""),
@@ -204,8 +207,9 @@ describe("semesters", () => {
   });
 
   // "Set dates" did nothing when tapped; each row also opens its semester directly, and
-  // the setup sits in the bar beside +, not as a big button on the page.
-  it("sets its dates from the row, opens it, and offers the setup in the bar", async () => {
+  // the setup sits in the bar beside +, not as a big button on the page. The row was
+  // crammed, so Set Dates moved into its menu.
+  it("sets its dates from the row's menu, opens it, and offers the setup in the bar", async () => {
     const { data, space } = await seeded();
     const ws = await createSemester(data.db, space, { title: "WS 26/27" });
     const screen = await renderScreens(
@@ -222,7 +226,9 @@ describe("semesters", () => {
     expect(barLabels(screen)).toEqual(
       expect.arrayContaining(["Set Up Semesters", "New in Semesters"]),
     );
-    await fireEvent.press(screen.getByRole("button", { name: "Set dates of WS 26/27" }));
+    expect(screen.queryByRole("button", { name: "Set dates of WS 26/27" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Options for WS 26/27" }));
+    await fireEvent.press(await screen.findByRole("menuitem", { name: "Set Dates" }));
     await pickDay(screen, "Starts", "2026-10-15");
     // The first calendar goes away before the second opens.
     await waitFor(() =>

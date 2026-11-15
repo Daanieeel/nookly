@@ -73,7 +73,7 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 
 ### 3. Mobile: list pages and modules
 
-- [ ] Semesters list: less crammed. "Set dates" moves into the row's three dot menu. The logo and the "Current" badge use the regular blue, not green.
+- [x] (2026-11-15, Set Dates in the row's menu, the badge and the Current label in the primary blue; tests; on screen) Semesters list: less crammed. "Set dates" moves into the row's three dot menu. The logo and the "Current" badge use the regular blue, not green.
 - [ ] Decks: they are very buggy. Go through every deck flow (list, create, edit cards, study, results) against the desktop and fix all of it.
 - [ ] Files list: thumbnails for files that have them on the desktop.
 - [ ] Bookmarks: the floating paste bar moves up a little.
