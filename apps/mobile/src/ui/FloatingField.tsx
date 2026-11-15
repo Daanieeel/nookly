@@ -43,7 +43,9 @@ export function screenCornerRadius({ width, height }: { width: number; height: n
   const short = Math.round(Math.min(width, height));
   const long = Math.round(Math.max(width, height));
   const key = `${short}x${long}`;
-  return key in SCREEN_CORNERS ? SCREEN_CORNERS[key as keyof typeof SCREEN_CORNERS] : 0;
+  if (!(key in SCREEN_CORNERS)) return 0;
+  // SAFETY: `key in SCREEN_CORNERS` was checked on the line above.
+  return SCREEN_CORNERS[key as keyof typeof SCREEN_CORNERS];
 }
 
 /// The bar's corners for a screen whose corners are `screen` points round: its bottom corners
