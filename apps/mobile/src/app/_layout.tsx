@@ -244,7 +244,8 @@ export default function RootLayout() {
       <Stack.Screen name="conflicts" options={{ title: "Review Changes", ...groupedHeader }} />
       <Stack.Screen
         name="study/[deckId]"
-        options={{ title: "Study", presentation: "fullScreenModal" }}
+        // The session draws its own top row: Back to Deck, the counts and Undo.
+        options={{ title: "Study", headerShown: false, presentation: "fullScreenModal" }}
       />
     </Stack>
   );

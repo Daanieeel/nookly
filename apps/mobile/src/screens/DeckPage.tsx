@@ -5,7 +5,6 @@ import {
   deleteCard,
   setDeckExam,
   studyQueue,
-  textFaceBlocks,
   updateCardFaces,
 } from "@nookly/shared/data";
 import { CARD_CLASSES } from "@nookly/ui/classes";
@@ -25,11 +24,13 @@ import { Grid } from "../ui/Grid.tsx";
 import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
-import { Section } from "../ui/Row.tsx";
+import { useMenu } from "../ui/menu.tsx";
+import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { dayLabel } from "./dates.ts";
 import { CardFaceEditor } from "../editor/CardFaceEditor.tsx";
+import { faceBlocks, textBlocks } from "../editor/CardFaceView.tsx";
 import { sameFace } from "../editor/card-face.ts";
 import { ExamProperty } from "./StudyPickers.tsx";
 
@@ -51,24 +52,6 @@ const SIDES = {
   front: { title: "Front", label: "Front of the card", placeholder: "The question" },
   back: { title: "Back", label: "Back of the card", placeholder: "The answer" },
 } as const;
-
-/// A face's blocks as the editor holds them, for a face written as text too.
-function asBlocks(text: string): CardBlock[] {
-  return text.trim() === ""
-    ? []
-    : textFaceBlocks(text).map((b) => ({
-        type: b.type,
-        content: b.content,
-        language: null,
-        filename: null,
-        attrs: b.attrs ?? {},
-      }));
-}
-
-/// A card's face as blocks: the ones it was written with, or its text.
-function faceOf(card: IndexCard, side: Side): CardBlock[] {
-  return (side === "front" ? card.frontBlocks : card.backBlocks) ?? asBlocks(card[side]);
-}
 
 /// Whether a face holds anything: words, or a block that is more than words (a picture).
 const written = (blocks: CardBlock[]) =>
@@ -107,8 +90,8 @@ function WriteDesk({ deckId, onDone }: { deckId: string; onDone: () => void }) {
   });
   const [draft, setDraft] = usePreference(`deck.cardDraft.${deckId}`, draftSchema, {
     // A card half written before the editor came along carries on from its text.
-    front: asBlocks(old.front),
-    back: asBlocks(old.back),
+    front: textBlocks(old.front),
+    back: textBlocks(old.back),
   });
   const [side, setSide] = useState<Side>("front");
   const [round, setRound] = useState(0);
@@ -193,7 +176,10 @@ function CardEditor({
   onDelete: () => void;
   status: Parameters<typeof statusOf>[0];
 }) {
-  const [start] = useState(() => ({ front: faceOf(card, "front"), back: faceOf(card, "back") }));
+  const [start] = useState(() => ({
+    front: faceBlocks(card, "front"),
+    back: faceBlocks(card, "back"),
+  }));
   const faces = useRef(start);
   const setFront = useCallback((blocks: CardBlock[]) => {
     faces.current = { ...faces.current, front: blocks };
@@ -274,6 +260,7 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
     }),
   );
   const remove = useLocalWrite((db, cardId: string) => deleteCard(db, cardId));
+  const menu = useMenu();
   if (!deck) return null;
   const queue = studyQueue(cards);
   const next = cards
@@ -306,7 +293,13 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
       <InfoRow
         icon={<IconClock size={20} color={muted} />}
         label="Next due"
-        value={next ? dayLabel(next.slice(0, 10)) : "Nothing waiting"}
+        value={
+          queue.length > 0
+            ? `${queue.length} waiting now`
+            : next
+              ? dayLabel(next.slice(0, 10))
+              : "Nothing waiting"
+        }
       />
     </PropertyList>
   );
@@ -333,9 +326,9 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
                   : `${queue.length} ${queue.length === 1 ? "card" : "cards"} waiting`}
               </Text>
               <View className="flex-row flex-wrap justify-center gap-2">
-                {readOnly ? null : (
+                {readOnly || cards.length === 0 ? null : (
                   <Button
-                    label={`Write cards ${cards.length}`}
+                    label="Write Cards"
                     variant="secondary"
                     onPress={() => setMode("write")}
                   />
@@ -347,8 +340,13 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
                 />
               </View>
             </View>
-            {edited ? (
-              <Section title="Edit card">
+            <Sheet
+              open={edited !== undefined}
+              onOpenChange={(open) => !open && setEditing(null)}
+              title="Edit Card"
+              size="large"
+            >
+              {edited ? (
                 <CardEditor
                   key={edited.id}
                   card={edited}
@@ -357,13 +355,26 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
                     await save.mutateAsync({ id: edited.id, ...faces });
                     setEditing(null);
                   }}
-                  onDelete={() => {
-                    remove.mutate(edited.id);
-                    setEditing(null);
-                  }}
+                  onDelete={() =>
+                    menu.confirm({
+                      title: "Delete this card?",
+                      description:
+                        "The card and how well you knew it go for good, on every device. This can't be undone.",
+                      actions: [
+                        {
+                          label: "Delete Card",
+                          destructive: true,
+                          onPress: () => {
+                            remove.mutate(edited.id);
+                            setEditing(null);
+                          },
+                        },
+                      ],
+                    })
+                  }
                 />
-              </Section>
-            ) : null}
+              ) : null}
+            </Sheet>
             <View className="gap-2">
               <View className="flex-row items-baseline gap-2 px-1">
                 <Text accessibilityRole="header" className="font-medium">
@@ -376,7 +387,7 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
                   <Text tone="muted">No cards yet</Text>
                   {readOnly ? null : (
                     <Button
-                      label="Write the first card"
+                      label="Write the First Card"
                       variant="secondary"
                       onPress={() => setMode("write")}
                     />

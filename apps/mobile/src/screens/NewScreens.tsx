@@ -627,12 +627,7 @@ export function NewDeckScreen({ spaceId }: { spaceId?: string }) {
       create={(db, space, title) => createDeck(db, space, title, exam)}
     >
       {(space) => (
-        <View className="gap-2">
-          <Text variant="label" tone="muted">
-            Prepares for
-          </Text>
-          <ExamPicker spaceId={space} value={exam} onChange={setExam} />
-        </View>
+        <ExamPicker label="Prepares for" spaceId={space} value={exam} onChange={setExam} />
       )}
     </NewStudyItem>
   );

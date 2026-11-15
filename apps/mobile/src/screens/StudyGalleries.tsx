@@ -1,7 +1,24 @@
-import type { CourseRecord, DeckRecord, ExamRecord, SemesterRecord } from "@nookly/shared/data";
+import {
+  type CourseRecord,
+  type DeckRecord,
+  type ExamRecord,
+  type SemesterRecord,
+  importDeckFile,
+} from "@nookly/shared/data";
+import { File } from "expo-file-system";
+import { useLocalWrite } from "../data/context.tsx";
+import { Button, statusOf } from "../ui/Button.tsx";
+import { EmptyState } from "../ui/kit/States.tsx";
+import { ListTitle } from "../ui/ListBar.tsx";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { CARD_CLASSES } from "@nookly/ui/classes";
-import { IconCalendarStats, IconPlayerPlayFilled, IconSchool } from "@tabler/icons-react-native";
+import {
+  IconCalendarStats,
+  IconCards,
+  IconFileImport,
+  IconPlayerPlayFilled,
+  IconSchool,
+} from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -388,19 +405,60 @@ export function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: stri
   );
 }
 
+/// Brings in a deck written to a file, from the phone's files.
+function ImportDeckButton({ spaceId }: { spaceId: string }) {
+  const router = useRouter();
+  const theme = useTheme();
+  const importDeck = useLocalWrite(async (db, _: undefined) => {
+    const picked = await File.pickFileAsync({ mimeTypes: ["application/json", "text/plain"] });
+    if (picked.canceled) return null;
+    return importDeckFile(db, spaceId, await picked.result.text());
+  });
+  return (
+    <View className="items-end gap-1">
+      <Button
+        label="Import Deck File"
+        variant="secondary"
+        size="sm"
+        icon={<IconFileImport size={16} color={theme.colors.foreground} />}
+        status={statusOf(importDeck)}
+        successLabel="Imported"
+        errorLabel="Couldn't import it"
+        onPress={() =>
+          importDeck.mutate(undefined, { onSuccess: (id) => id && router.push(`/entity/${id}`) })
+        }
+      />
+      {importDeck.error ? <Text tone="destructive">{importDeck.error.message}</Text> : null}
+    </View>
+  );
+}
+
 /// The Decks page: tiles in two sections, what is ready to study and what is all caught up.
 export function DeckGrid({ spaceId }: { spaceId: string }) {
+  const router = useRouter();
   const { data: decks = [] } = useDecks(spaceId);
   const { data: exams = [] } = useExams({ spaceId });
   const examName = (id: string | null) => exams.find((e) => e.entity.id === id)?.entity.title;
   const ready = decks.filter((d) => d.stats.due + d.stats.learning + d.stats.new > 0);
   const caught = decks.filter((d) => !ready.includes(d));
+  const header = (
+    <View className="flex-row flex-wrap items-center gap-2">
+      <View style={{ flexGrow: 1 }}>
+        <ListTitle title="Decks" count={decks.length} />
+      </View>
+      <ImportDeckButton spaceId={spaceId} />
+    </View>
+  );
   if (decks.length === 0) {
     return (
-      <View className="p-8">
-        <Text tone="muted" className="text-center">
-          No decks yet. Tap + to make one.
-        </Text>
+      <View className="gap-5">
+        {header}
+        <EmptyState
+          glyph={IconCards}
+          title="No Decks Yet"
+          message="Make one, then start writing cards."
+          action={{ label: "New Deck", onPress: () => router.push(`/new/deck?spaceId=${spaceId}`) }}
+        />
       </View>
     );
   }
@@ -422,6 +480,7 @@ export function DeckGrid({ spaceId }: { spaceId: string }) {
     );
   return (
     <View className="gap-5">
+      {header}
       {section("Ready to study", ready)}
       {section("All caught up", caught)}
     </View>

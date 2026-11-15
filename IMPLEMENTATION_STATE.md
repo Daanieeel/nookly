@@ -74,7 +74,7 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 ### 3. Mobile: list pages and modules
 
 - [x] (2026-11-15, Set Dates in the row's menu, the badge and the Current label in the primary blue; tests; on screen) Semesters list: less crammed. "Set dates" moves into the row's three dot menu. The logo and the "Current" badge use the regular blue, not green.
-- [ ] Decks: they are very buggy. Go through every deck flow (list, create, edit cards, study, results) against the desktop and fix all of it.
+- [x] (2026-11-15, walked every flow in the simulator against the desktop. Fixed: studying had no way out but finishing (now the desktop's session: Back to Deck, counts by kind with the current one marked, a progress bar, Undo in the corner, the ratings in their colours, All caught up at the end); faces with pictures, formulas or code showed as bare text (now the page editor, read only); a card was deleted without asking (now a confirmation); its editor opened at the top of the page (now a sheet); "Write cards 0" and two write buttons on an empty deck; "Nothing waiting" while a card waited; New Deck's stray "Prepares for" line; the Decks page had no title, a bare import button and a grey line for an empty page. Tests; on screen) Decks: they are very buggy. Go through every deck flow (list, create, edit cards, study, results) against the desktop and fix all of it.
 - [ ] Files list: thumbnails for files that have them on the desktop.
 - [ ] Bookmarks: the floating paste bar moves up a little.
 - [ ] Bookmarks: the filter options sheet is empty (bug). Fill it.

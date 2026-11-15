@@ -1,7 +1,9 @@
 import { createCard, createDeck, createSpace, listCards, reviewCard } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
+import { RecordingMenu } from "../test/menu.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
+import { NewDeckScreen } from "./NewScreens.tsx";
 
 async function open() {
   const data = testData();
@@ -49,7 +51,7 @@ describe("a deck's page", () => {
 
   it("writes a card on the large card: the front, flipped, then the back", async () => {
     const { data, deck, screen } = await open();
-    await fireEvent.press(await screen.findByRole("button", { name: "Write cards 1" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Write Cards" }));
     await fireEvent.changeText(
       await screen.findByLabelText("The question"),
       "Mergesort worst case?",
@@ -76,6 +78,48 @@ describe("a deck's page", () => {
     expect(
       await screen.findByRole("button", { name: "Mergesort worst case?, n log n" }),
     ).toBeTruthy();
+  });
+
+  // The decks were buggy (the user's notes): a card's editor opened at the top of the page,
+  // far from the card tapped, a card went with no question asked, the buttons said
+  // "Write cards 0", and "Nothing waiting" showed while a card waited.
+  it("edits a card in a sheet, and asks before deleting it", async () => {
+    const menu = new RecordingMenu();
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const deck = await createDeck(data.db, space, "Sorting");
+    await createCard(data.db, deck, "Quicksort average?", "n log n");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={deck} /> },
+      data,
+      `/entity/${deck}`,
+      { menu },
+    );
+    await fireEvent.press(
+      await screen.findByRole("button", { name: "Quicksort average?, n log n" }),
+    );
+    expect(await screen.findByRole("header", { name: "Edit Card" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Delete Card" }));
+    expect(menu.asked).toBe("Delete this card?");
+    expect(await listCards(data.db, deck)).toHaveLength(1);
+    menu.choose("Delete Card");
+    await waitFor(async () => expect(await listCards(data.db, deck)).toHaveLength(0));
+  });
+
+  it("says what waits now, and offers one way to write the first card", async () => {
+    const { screen } = await open();
+    expect((await screen.findAllByText("1 waiting now")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Nothing waiting")).toBeNull();
+    const empty = testData();
+    const space = await createSpace(empty.db, "Uni", "#3b82f6");
+    const deck = await createDeck(empty.db, space, "Empty");
+    const blank = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={deck} /> },
+      empty,
+      `/entity/${deck}`,
+    );
+    expect(await blank.findByRole("button", { name: "Write the First Card" })).toBeTruthy();
+    expect(blank.queryByRole("button", { name: "Write Cards" })).toBeNull();
   });
 
   it("edits a card from its small card", async () => {
@@ -114,5 +158,16 @@ describe("a deck's page", () => {
       type: "image",
       attrs: { file: "f1" },
     });
+  });
+});
+
+// New Deck had a stray "Prepares for" line inside its field box, over a select named Exam.
+describe("making a deck", () => {
+  it("names the exam field for what it is, in the field itself", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const screen = await renderScreens({ index: () => <NewDeckScreen spaceId={space} /> }, data);
+    expect(await screen.findByRole("button", { name: "Prepares for, No exam" })).toBeTruthy();
+    expect(screen.queryByText("Prepares for")).toBeTruthy();
   });
 });

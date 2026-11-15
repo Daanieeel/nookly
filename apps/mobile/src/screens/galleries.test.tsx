@@ -10,6 +10,7 @@ import {
   setCurrentSemester,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
+import { Text } from "react-native";
 import { openRow } from "../test/sheet.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { addDays, localDay } from "./dates.ts";
@@ -88,5 +89,24 @@ describe("the Decks grid", () => {
       0,
     );
     expect(screen.getByText("1 new")).toBeTruthy();
+    // A title with the count, as every list page has, and Import beside it.
+    expect(screen.getByRole("header", { name: "Decks" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Import Deck File" })).toBeTruthy();
+  });
+
+  // The empty page was one grey line under a bare text button.
+  it("says what to do when there are no decks, with New Deck", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const screen = await renderScreens(
+      {
+        index: () => <DeckGrid spaceId={space} />,
+        "new/deck": () => <Text>New deck sheet</Text>,
+      },
+      data,
+    );
+    expect(await screen.findByRole("summary", { name: /^No Decks Yet/ })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "New Deck" }));
+    expect(await screen.findByText("New deck sheet")).toBeTruthy();
   });
 });

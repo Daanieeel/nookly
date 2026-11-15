@@ -1,13 +1,9 @@
 import { MODULE_ENTITY_TYPES, MODULE_LABELS, type ModuleKey } from "@nookly/shared/modules";
 import { useEntityMenu } from "./entity-actions.tsx";
-import { importDeckFile } from "@nookly/shared/data";
-import { File } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
-import { useLocalWrite } from "../data/context.tsx";
 import { useAssignments, useCourses, useDecks, useEntities, useExams } from "../data/queries.ts";
-import { Button, statusOf } from "../ui/Button.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { MoodleModule } from "./MoodleScreens.tsx";
@@ -27,31 +23,6 @@ import { ScanSheet, useScanDocument } from "./ScanSheet.tsx";
 import { AssignmentRows, CourseRows, DeckRows, ExamRows } from "./StudyLists.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
 import { BAR_BUTTON } from "../ui/bar.ts";
-
-/// Brings in a deck written to a file, from the phone's files.
-function ImportDeckButton({ spaceId }: { spaceId: string }) {
-  const router = useRouter();
-  const importDeck = useLocalWrite(async (db, _: undefined) => {
-    const picked = await File.pickFileAsync({ mimeTypes: ["application/json", "text/plain"] });
-    if (picked.canceled) return null;
-    return importDeckFile(db, spaceId, await picked.result.text());
-  });
-  return (
-    <View className="items-start">
-      <Button
-        label="Import Deck File"
-        variant="ghost"
-        status={statusOf(importDeck)}
-        successLabel="Imported"
-        errorLabel="Couldn't import it"
-        onPress={() =>
-          importDeck.mutate(undefined, { onSuccess: (id) => id && router.push(`/entity/${id}`) })
-        }
-      />
-      {importDeck.error ? <Text tone="destructive">{importDeck.error.message}</Text> : null}
-    </View>
-  );
-}
 
 /// What "+" makes in a module, where the phone can make it.
 const CREATE = new Map<ModuleKey, (spaceId: string) => string>([
@@ -205,10 +176,7 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
         ) : module === "exams" ? (
           <ExamTimeline spaceId={spaceId} />
         ) : module === "decks" ? (
-          <>
-            <ImportDeckButton spaceId={spaceId} />
-            <DeckGrid spaceId={spaceId} />
-          </>
+          <DeckGrid spaceId={spaceId} />
         ) : module === "notes" ? (
           <NoteList spaceId={spaceId} />
         ) : module === "jots" ? (

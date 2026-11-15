@@ -40,11 +40,13 @@ export function CoursePicker({
 
 /// The Exam a deck prepares for, or none.
 export function ExamPicker({
+  label = "Exam",
   spaceId,
   value,
   onChange,
   readOnly = false,
 }: {
+  label?: string;
   spaceId: string;
   value: string | null;
   onChange: (examId: string | null) => void;
@@ -53,7 +55,7 @@ export function ExamPicker({
   const { data: exams = [] } = useExams({ spaceId });
   return (
     <SelectField
-      label="Exam"
+      label={label}
       value={value ?? "none"}
       onChange={(id) => onChange(id === "none" ? null : id)}
       disabled={readOnly}

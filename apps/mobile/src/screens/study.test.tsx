@@ -121,7 +121,7 @@ describe("studying a deck", () => {
     expect(screen.getByText("n log n")).toBeTruthy();
     // A new card rated Easy comes back in days, so the session ends.
     await fireEvent.press(screen.getByRole("button", { name: "Easy" }));
-    expect(await screen.findByText("All done for now")).toBeTruthy();
+    expect(await screen.findByText("All caught up")).toBeTruthy();
     const [studied] = await listCards(data.db, deck);
     expect([studied.id, studied.state, studied.reps]).toEqual([card, "review", 1]);
   });
@@ -135,12 +135,60 @@ describe("undoing an answer while studying", () => {
     const screen = await renderScreens({ index: () => <StudyScreen deckId={deck} /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Show Answer" }));
     await fireEvent.press(screen.getByRole("button", { name: "Easy" }));
-    expect(await screen.findByText("All done for now")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Undo Last Answer" }));
+    expect(await screen.findByText("All caught up")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Undo Last Rating" }));
     expect(await screen.findByText("Quicksort average?")).toBeTruthy();
     const [card] = await listCards(data.db, deck);
     expect([card.state, card.reps]).toEqual(["new", 0]);
-    expect(screen.queryByRole("button", { name: "Undo Last Answer" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Undo Last Rating" }).props.accessibilityState.disabled,
+    ).toBe(true);
+  });
+});
+
+// Studying had no way out but finishing the deck, and drew a card's pictures and formulas
+// as bare text. It is the desktop's session: Back to Deck at any time, how many are left
+// of each kind, how far along, and the faces as written.
+describe("a study session", () => {
+  it("can be left at any time, and says how many are left and how far along", async () => {
+    const { data, space } = await seeded();
+    const deck = await createDeck(data.db, space, "Sorting");
+    await createCard(data.db, deck, "Quicksort average?", "n log n");
+    await createCard(data.db, deck, "Mergesort worst?", "n log n");
+    const screen = await renderScreens(
+      {
+        index: () => <Text>Deck page</Text>,
+        "study/[deckId]": () => <StudyScreen deckId={deck} />,
+      },
+      data,
+    );
+    act(() => router.push(`/study/${deck}`));
+    expect(await screen.findByLabelText("2 new, 0 learning, 0 due")).toBeTruthy();
+    expect(screen.getByRole("progressbar")).toHaveProp("accessibilityValue", {
+      min: 0,
+      max: 2,
+      now: 0,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Back to Deck" }));
+    expect(await screen.findByText("Deck page")).toBeTruthy();
+  });
+
+  it("draws a face with more than words in the page editor, read only", async () => {
+    const { data, space } = await seeded();
+    const deck = await createDeck(data.db, space, "Sorting");
+    await createCard(
+      data.db,
+      deck,
+      {
+        blocks: [
+          { type: "paragraph", content: "Run time of", language: null, filename: null, attrs: {} },
+          { type: "math", content: "O(n^2)", language: null, filename: null, attrs: {} },
+        ],
+      },
+      "worst case",
+    );
+    const screen = await renderScreens({ index: () => <StudyScreen deckId={deck} /> }, data);
+    expect(await screen.findByTestId("card-face-blocks")).toBeTruthy();
   });
 });
 
