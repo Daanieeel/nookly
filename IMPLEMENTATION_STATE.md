@@ -13,7 +13,7 @@
 
 **This file is a ready to run prompt and the handover file.** An agent told "read `IMPLEMENTATION_STATE.md` and get to work" reads this file, `AGENTS.md` and `docs/00-index.md`, then carries the list out from start to finish without human help. Keep it current: tick items, note findings, append to the progress log after every meaningful step.
 
-The items come from the user's `NOTES.md` (2026-11-15, fifth round, with the sixth round's items added the same day and marked so). `NOTES.md` is the user's own file: read it, never edit it.
+The items come from the user's `NOTES.md` (2026-11-15, fifth round, with the sixth round's items added the same day and marked so, and the seventh round in its own section). `NOTES.md` is the user's own file: read it, never edit it.
 
 ## Rules
 
@@ -80,7 +80,40 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [x] (2026-11-15, every field on a page now asks the page to keep its whole height above the keyboard while typing (the sub-task row's way, made shared); test; the real keyboard under Needs the user) (sixth round) Bookmark details: the Note field avoids the keyboard, so typing in it is never covered.
 - [ ] (sixth round) Redesign the whole Dashboard for the phone: the desktop like layout does not fit. A page people want to use as a shortcut to most features.
 
-### 2b. Tablet (asked in chat, after every other item above)
+### 2a. Seventh round (`NOTES.md`, 2026-11-15, after the sixth round; before the tablet)
+
+Mobile:
+
+- [ ] Search field: the X's way back out (as the text is cleared) is buggy; make it as smooth as its way in. Shorten the search placeholders to a word or two: a search bar explains itself.
+- [ ] Cross Space Tasks page: the "is any of" (or similar) part of a filter chip cannot be tapped for the preset "Due date" and "Created" filters (maybe ones synced from the desktop). Works on other pages.
+- [ ] Nicer empty states everywhere: Assignments says only "Nothing matches these filters." Give it a proper empty state with a Clear Filters button under it.
+- [ ] Assignments: active filters show as the same chips as on Tasks (with their "is any of" parts) instead of hiding in the filter menu. The Filter and Display sheets open and close slowly; make them quick.
+- [ ] Tasks: switching between list and board takes a second or more; make it instant.
+- [ ] Save View leaves the Display sheet. Once the user changes the filters or display options of a view (or a base page), a floating bar at the bottom offers the desktop's three choices: Discard, Save as View, Save. Only pages with views offer Save as View; the others show Discard and Save. Every page with filters or display options. Same floating bar as on Bookmarks and Files.
+- [ ] The floating bars (Bookmarks, Files, the new save bar): their top corners take the same radius as the bottom ones, a full pill following the screen's curve.
+- [ ] File viewer details: with a long label chosen, the "Labels" name of the select trigger gets cut short. Never cut the field's name, only the label names.
+- [ ] Bookmarks list: the (i) button is bigger and a secondary button, easier to hit and to recognise.
+- [ ] Relationship picker: the list under the search bar and "kind of link" only shows items valid for the chosen kind of link.
+- [ ] Search placeholders are not vertically centred (the icon is), seen in the relationship picker and often elsewhere: fix it once, for every search field.
+- [ ] Selects get icons per option as on the desktop where it makes sense (New Semester: Winter and Summer), and the chosen option's icon shows in the trigger. Not where it makes no sense (a year).
+- [ ] New Semester: the year is a number input in the exact style of the time input (exams, entries, sessions), one field for one number. "Typical dates for" is renamed "Timespan".
+- [ ] Label picker (from the details of any item): rows about 25% less tall so the list scrolls less.
+- [ ] Every entity list page (Jots and the rest): the title, filter and display buttons and the tabs stay put; only the list scrolls.
+- [ ] Semester setup, "Where do you study?": add Germany.
+- [ ] "Choose an icon" sheet: categories at the top to jump to.
+- [ ] Recipes, choosing a photo: ask first (photo library, take a photo, choose a file) instead of opening the file picker.
+- [ ] Calendar: the view tabs at the top become one icon button left of the + that opens a select of the four views, saving height. The header shows only "Week XY" at full opacity, no dates (the agenda keeps its own). The day numbers in the columns get bigger.
+
+Desktop:
+
+- [ ] Some pages are cut off on the right for no reason: `.reference-images/desktop/right-side-cut-off-bug-*.png`.
+- [ ] CLI coverage for every feature and setting: an agent can set up and use Nookly entirely as a person can through the app. Sensitive ones (sign in) reachable but redacted.
+
+Both:
+
+- [ ] Files: the list of every label above the files (`.reference-images/desktop/files-label-list.png`) does not scale. Instead a view builder dialog: name a view, give it labels, and let it keep filters and display options. On the phone as well, and through the CLI so an agent can build views.
+
+### 2b. Tablet (asked in chat, after every other item above, the seventh round included)
 
 - [ ] Optimize the app for tablet once all other items are done. The tablet should feel like a touch optimized version of the desktop app, not a bigger phone app: mostly the desktop's look and layout (sidebar, wide lists and tables, panes side by side), with touch sized targets, gestures and touch friendly inputs. Be creative for a first big version; the user gives feedback after.
 
@@ -106,6 +139,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 
 ## Progress log
 
+- 2026-11-15: seventh round of `NOTES.md` added (section 2a). Dashboard redesign for the phone under way.
 - 2026-11-15: CI fixed: the formatter skips NOTES.md, Windows reads the generated fixtures with LF and FSRS floats to 9 decimals, and two timing races in tests (a sync clash, a sidebar glide) wait properly.
 - 2026-11-15: sixth round of `NOTES.md` added (search clear button, floating bars' corners, custom semester dates, the bookmark note and the keyboard, the Dashboard), plus Dependabot and CI from the chat.
 - 2026-11-15: the full mobile run timed out the search label test while the machine sat at a load of 57 (another app at 580% CPU); it passes alone. Rerun at the end.
