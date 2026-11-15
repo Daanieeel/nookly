@@ -425,3 +425,9 @@ Labels replace folders on purpose, but a flat list only helps someone who alread
 What someone browses to lasts and syncs as a View, the same synced View entity Tasks and Assignments save (module `files`): it keeps the picked labels, the filters and the display, shows under Files in the desktop's sidebar and as a preset above the phone's Files page. Without a View open, the shelf's pick is kept with the page's own display, like its filters.
 
 The nudge is quiet: while some files have no label, the shelf ends with a muted "Unlabelled" chip with their count. Picking it lists them with one line saying labels make them easy to find, and the desktop offers an "Unlabelled" View preset to keep that list one click away. Nothing pops up and nothing blocks.
+
+## D75. The phone's active filters are the desktop's chips
+
+Many filters on the phone used to show one chip per value, which crowded the page. They are now one chip per field, as on the desktop: the field's icon and name, how it matches, what it matches, and a way to take it off. Each spans the page, one under the other. A tap on what it matches opens its choices.
+
+The phone keeps only the values that match. "is not" and "is none of" are that set read the other way round: when a filter matches most of a field's options, the chip names the few it leaves out. A tap on how it matches swaps the set for its complement, so "is" and "is not" flip without a second kind of filter. Options added later fall outside a flipped filter, as they do when the phone opens a desktop View with "is not".

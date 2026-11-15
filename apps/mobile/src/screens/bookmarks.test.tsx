@@ -110,7 +110,7 @@ describe("a Space's bookmarks", () => {
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Later" }));
     await waitFor(() => expect(screen.queryByRole("link", { name: "Other B" })).toBeNull());
     expect(screen.getByRole("link", { name: "Example A" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Later ×" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Remove Labels Filter" }));
     await fireEvent.press(screen.getByRole("button", { name: "Display" }));
     await fireEvent.press(await screen.findByRole("radio", { name: "List" }));
     await choose(screen, "Grouping", "Site");

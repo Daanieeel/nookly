@@ -68,7 +68,7 @@ describe("files", () => {
           .map((b) => b.props.accessibilityLabel),
       ).toEqual(["apple.pdf", "zebra.pdf"]),
     );
-    await fireEvent.press(screen.getByRole("checkbox", { name: "PDF ×" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Remove Kind Filter" }));
     await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
     await openRow(screen, "Labels");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Exam" }));

@@ -58,8 +58,11 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [x] (2026-11-15, 50pt for every search field, the one component; test; on screen) The global search's search bar is too small: give it more height so it feels spacious, and apply the same to every other use of that input.
 - [x] (2026-11-15, the input's own padding pushed it down; cap height and icon now share their middle, measured; test) In that input the icon and the placeholder are not vertically centred to each other: the placeholder sits too low.
 - [x] (2026-11-15, the search's icon and placeholder in solid grey, every field's placeholder in a new solid `placeholder` colour; tests; on screen) Placeholders and their icons get no lowered opacity; use a muted colour instead, so lower SVG layers do not shine through the icon (the magnifying glass's handle).
-- [ ] Many selected filters overcrowd the page (`.reference-images/mobile/filter-overcrowding.png`). Show active filters like the desktop's filter chips, with their parts ("any of", "is not" and so on); each chip may be full width, one below the other.
+- [x] (2026-11-15, D75: one full width chip per field with its name, "is", "is any of", "is not" or "is none of", its values and a remove button; a tap flips is and is not, another opens the choices; every list and Tasks; tests; on screen) Many selected filters overcrowd the page (`.reference-images/mobile/filter-overcrowding.png`). Show active filters like the desktop's filter chips, with their parts ("any of", "is not" and so on); each chip may be full width, one below the other.
 - [ ] Swipe actions on every list of items (not only tasks), each type with its own sensible actions; rework their look so they feel native (consider a public package). Tasks get a more useful action than "Done". Rule for every type: swiping right to left always ends in Trash, the rightmost action, active on a long drag; a second action may sit beside it.
+
+- [ ] (asked in chat) Time input dialog (`.reference-images/mobile/time-input-dialog-corner-radius-mismatch.png`): its buttons' corners must be the dialog's corners less the padding. Typing in the hour does nothing; the minute takes any number, also past 59.
+- [ ] (asked in chat) Dialogs scroll their content while their action buttons stay visible: in Repeat, "until a day" shows a calendar that pushes "Done" out of the dialog.
 
 ### 2. Mobile: screens
 

@@ -68,7 +68,7 @@ describe("the tasks list", () => {
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Todo" }));
     expect((await screen.findAllByRole("button", { name: "Todo" })).length).toBeGreaterThan(0);
     expect(screen.queryAllByRole("button", { name: "Backlog" })).toEqual([]);
-    expect(screen.getAllByRole("checkbox", { name: "Todo ×" }).length).toBe(1);
+    expect(screen.getAllByRole("button", { name: "Status: Todo" }).length).toBe(1);
     await fireEvent.press(screen.getByRole("checkbox", { name: "Todo" }));
     await fireEvent.press(screen.getByRole("checkbox", { name: "Done" }));
     await fireEvent.press(screen.getByRole("button", { name: "Display" }));
@@ -97,7 +97,7 @@ describe("the tasks list", () => {
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Overdue" }));
     await waitFor(() => expect(screen.queryByText("Call Ana")).toBeNull());
     expect(screen.getByText("Overdue report")).toBeTruthy();
-    expect(screen.getAllByRole("checkbox", { name: "Overdue ×" }).length).toBe(1);
+    expect(screen.getAllByRole("button", { name: "Due date: Overdue" }).length).toBe(1);
   });
 
   it("lays the groups out as board columns, each with a way to add a task in it", async () => {

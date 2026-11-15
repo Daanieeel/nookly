@@ -207,7 +207,7 @@ export function FilterField<T extends string>({
 
 /// The card keeps the values it opened with unless it is told the new ones, so the list
 /// holds its own as it is ticked.
-function FilterOptions<T extends string>({
+export function FilterOptions<T extends string>({
   label,
   options,
   values,

@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import { useState } from "react";
-import { Chip, ChipGroup } from "./Chips.tsx";
+import { ActiveFilters } from "./ActiveFilters.tsx";
 import { ListHeader, type ListPanel } from "./ListBar.tsx";
 import { DisplayGroup, FilterField } from "./sheet/DisplayParts.tsx";
 import type { Option } from "./sheet/OptionList.tsx";
@@ -16,7 +16,7 @@ export interface ListFilter {
 }
 
 /// A list page's top, as Tasks has it (D65): the title with how many and Filter and Display;
-/// the filters that are on as chips to take off; the Filter sheet with a row per field (one
+/// the filters that are on as the desktop's chips, one per field; the Filter sheet with a row per field (one
 /// with nothing to offer yet says so when opened, so the sheet is never empty) and the
 /// Display sheet with what the page shows.
 export function ListControls({
@@ -33,13 +33,6 @@ export function ListControls({
 }) {
   const [panel, setPanel] = useState<ListPanel>(null);
   const close = (open: boolean) => !open && setPanel(null);
-  const active = filters.flatMap((field) =>
-    field.values.map((value) => ({
-      key: `${field.label}-${value}`,
-      label: field.options.find((o) => o.id === value)?.label ?? value,
-      remove: () => field.onChange(field.values.filter((v) => v !== value)),
-    })),
-  );
   return (
     <>
       <ListHeader
@@ -49,13 +42,7 @@ export function ListControls({
         onPanel={setPanel}
         display={display !== undefined}
       />
-      {active.length > 0 ? (
-        <ChipGroup label="Active filters" multiple>
-          {active.map((f) => (
-            <Chip key={f.key} label={`${f.label} ×`} multiple selected onPress={f.remove} />
-          ))}
-        </ChipGroup>
-      ) : null}
+      <ActiveFilters filters={filters} />
       <Sheet open={panel === "filter"} onOpenChange={close} title="Filter">
         <DisplayGroup>
           {filters.map((field) => (

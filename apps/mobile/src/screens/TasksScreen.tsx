@@ -29,8 +29,9 @@ import {
 import { Band } from "../ui/Band.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { ListHeader, Presets } from "../ui/ListBar.tsx";
+import { ActiveFilters } from "../ui/ActiveFilters.tsx";
+import type { ListFilter } from "../ui/ListControls.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
-import { Chip, ChipGroup } from "../ui/Chips.tsx";
 import { Field } from "../ui/Field.tsx";
 import { Empty } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
@@ -142,46 +143,57 @@ const BUCKET_ICONS = {
   pinned: IconPin,
 } satisfies Record<BucketKey, typeof IconPin>;
 
-/// What to narrow the list to: the desktop's Filter menu as a sheet.
-function FilterPanel({
-  display,
-  onChange,
-  spaceId,
-}: {
-  display: TaskDisplay;
-  onChange: (next: TaskDisplay) => void;
-  spaceId: string | null;
-}) {
+/// The Tasks page's filters, for its Filter sheet and its chips alike.
+function useTaskFilters(
+  display: TaskDisplay,
+  onChange: (next: TaskDisplay) => void,
+  spaceId: string | null,
+): ListFilter[] {
   const { data: statuses = [] } = useStatuses();
   const { data: labels = [] } = useAllLabels();
   const [scale] = useSetting("general.effortScale");
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
+  return [
+    {
+      label: "Status",
+      icon: IconCircleDot,
+      values: display.statuses,
+      options: statuses.map(statusOption),
+      onChange: (next) => onChange({ ...display, statuses: next }),
+    },
+    ...(shownLabels.length > 0 || display.labels.length > 0
+      ? [
+          {
+            label: "Labels",
+            icon: IconTag,
+            values: display.labels,
+            options: shownLabels.map(labelOption),
+            onChange: (next: string[]) => onChange({ ...display, labels: next }),
+          },
+        ]
+      : []),
+    ...bucketFilters(scale).map((field) => ({
+      label: field.label,
+      icon: BUCKET_ICONS[field.key],
+      values: display[field.key],
+      options: field.options,
+      onChange: (next: string[]) => onChange({ ...display, [field.key]: next }),
+    })),
+  ];
+}
+
+/// What to narrow the list to: the desktop's Filter menu as a sheet.
+function FilterPanel({ filters }: { filters: ListFilter[] }) {
   return (
     <DisplayGroup>
-      <FilterField
-        label="Status"
-        icon={IconCircleDot}
-        values={display.statuses}
-        options={statuses.map(statusOption)}
-        onChange={(next) => onChange({ ...display, statuses: next })}
-      />
-      {shownLabels.length > 0 ? (
+      {filters.map((field) => (
         <FilterField
-          label="Labels"
-          icon={IconTag}
-          values={display.labels}
-          options={shownLabels.map(labelOption)}
-          onChange={(next) => onChange({ ...display, labels: next })}
-        />
-      ) : null}
-      {bucketFilters(scale).map((field) => (
-        <FilterField
-          key={field.key}
+          key={field.label}
           label={field.label}
-          icon={BUCKET_ICONS[field.key]}
-          values={display[field.key]}
+          icon={field.icon}
+          values={field.values}
           options={field.options}
-          onChange={(next) => onChange({ ...display, [field.key]: next })}
+          onChange={field.onChange}
         />
       ))}
     </DisplayGroup>
@@ -220,7 +232,6 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
   const [view, setView] = useState("all");
   const [note, setNote] = useState<string | null>(null);
   const shownLabels = spaceId ? labels.filter((l) => l.spaceId === spaceId) : labels;
-  const [scale] = useSetting("general.effortScale");
   const weekStart = useWeekStart();
   const groups = groupTasks(tasks, display, {
     statuses,
@@ -271,27 +282,7 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
     // Only when the request or the views change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requested, views.length]);
-  const toggle = (list: string[], id: string) =>
-    list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
-  const active = [
-    ...display.statuses.map((id) => ({
-      key: `status-${id}`,
-      label: statuses.find((s) => s.id === id)?.name ?? id,
-      remove: () => setDisplay({ ...display, statuses: toggle(display.statuses, id) }),
-    })),
-    ...display.labels.map((id) => ({
-      key: `label-${id}`,
-      label: labels.find((l) => l.id === id)?.name ?? id,
-      remove: () => setDisplay({ ...display, labels: toggle(display.labels, id) }),
-    })),
-    ...bucketFilters(scale).flatMap((field) =>
-      display[field.key].map((id) => ({
-        key: `${field.key}-${id}`,
-        label: field.options.find((o) => o.id === id)?.label ?? id,
-        remove: () => setDisplay({ ...display, [field.key]: toggle(display[field.key], id) }),
-      })),
-    ),
-  ];
+  const filters = useTaskFilters(display, setDisplay, spaceId);
   const row = (task: (typeof tasks)[number]) => {
     const space = spaceOf(task);
     return (
@@ -327,19 +318,13 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
             ]}
           />
         ) : null}
-        {active.length > 0 ? (
-          <ChipGroup label="Active filters" multiple>
-            {active.map((f) => (
-              <Chip key={f.key} label={`${f.label} ×`} multiple selected onPress={f.remove} />
-            ))}
-          </ChipGroup>
-        ) : null}
+        <ActiveFilters filters={filters} />
         <Sheet
           open={panel === "filter"}
           onOpenChange={(open) => !open && setPanel(null)}
           title="Filter"
         >
-          <FilterPanel display={display} onChange={setDisplay} spaceId={spaceId} />
+          <FilterPanel filters={filters} />
         </Sheet>
         <Sheet
           open={panel === "display"}

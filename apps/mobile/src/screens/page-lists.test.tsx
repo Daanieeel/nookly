@@ -65,7 +65,7 @@ describe("a Space's Notes", () => {
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Ideas" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Plain" })).toBeNull());
     expect(screen.getByRole("button", { name: "Tagged" })).toBeTruthy();
-    expect(screen.getByRole("checkbox", { name: "Ideas ×" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Labels: Ideas" })).toBeTruthy();
   });
 
   // Every list filters on what its items have (D73): the desktop's Course, Pinned and Created.
@@ -95,7 +95,7 @@ describe("a Space's Notes", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Groceries" })).toBeNull());
     expect((await getEntity(data.db, lecture))?.title).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Pinned plan" })).toBeNull();
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Algorithms ×" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Remove Course Filter" }));
     await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
     await openRow(screen, "Pinned");
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Pinned" }));
