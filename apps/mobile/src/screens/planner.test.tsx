@@ -233,9 +233,7 @@ describe("semesters", () => {
     );
     expect(await screen.findByRole("button", { name: "WS 26/27" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Set Up Semesters" })).toBeNull();
-    expect(barLabels(screen)).toEqual(
-      expect.arrayContaining(["Set Up Semesters", "New Semester"]),
-    );
+    expect(barLabels(screen)).toEqual(expect.arrayContaining(["Set Up Semesters", "New Semester"]));
     expect(screen.queryByRole("button", { name: "Set dates of WS 26/27" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Options for WS 26/27" }));
     await fireEvent.press(await screen.findByRole("menuitem", { name: "Set Dates" }));
