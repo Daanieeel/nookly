@@ -177,12 +177,27 @@ export function SetupSemestersScreen({ spaceId }: { spaceId?: string }) {
         <OptionList
           label="Region"
           value={region ?? "none"}
+          // Every region: one of another term system switches to it, so a school is never
+          // missing for the system picked first.
           options={[
             { id: "none", label: "No dates", subtitle: "Set them later" },
             ...regions.map((r) => ({ id: r.key, label: r.label })),
+            ...REGION_TERM_DATES.filter((r) => r.system !== system).map((r) => ({
+              id: r.key,
+              label: r.label,
+              subtitle: ACADEMIC_SYSTEMS[r.system].label,
+              section: "Other term systems",
+            })),
           ]}
           afterPick={stay}
-          onChange={(key) => setRegion(key === "none" ? null : key)}
+          onChange={(key) => {
+            const other = REGION_TERM_DATES.find((r) => r.key === key && r.system !== system);
+            if (other) {
+              setSystem(other.system);
+              setTermKey(null);
+            }
+            setRegion(key === "none" ? null : key);
+          }}
         />
       ) : null}
       {step === 2 ? (

@@ -42,4 +42,22 @@ describe("the semester setup", () => {
       expect(made.find((s) => s.isCurrent)?.entity.title).toBe("Fall 2026");
     });
   });
+
+  // "Where do you study?" had no Germany once Fall / Spring / Summer was picked: a region
+  // showed only under its own term system. Every region is offered; picking one of another
+  // system switches to it.
+  it("offers every region, switching to its term system", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const screen = await renderScreens(
+      { index: () => <SetupSemestersScreen spaceId={space} /> },
+      data,
+    );
+    await fireEvent.press(await screen.findByRole("radio", { name: "Fall / Spring / Summer" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: /^Germany/ }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("radio", { name: "Winter" })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "Fall" })).toBeNull();
+  });
 });
