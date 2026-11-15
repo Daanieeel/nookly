@@ -4,7 +4,15 @@ import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES } from "@nookly/shared/colors";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { type AssignmentRecord, updateAssignment } from "@nookly/shared/data";
-import { IconCircleDot, IconLayoutKanban, IconList, IconSchool } from "@tabler/icons-react-native";
+import {
+  IconCalendarCheck,
+  IconCalendarEvent,
+  IconCircleDot,
+  IconLayoutKanban,
+  IconList,
+  IconSchool,
+  IconStar,
+} from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -24,6 +32,8 @@ import {
   ASSIGNMENT_GROUPINGS,
   ASSIGNMENT_ORDERINGS,
   type AssignmentGroup,
+  DEADLINE_BUCKETS,
+  deadlineBucket,
   groupAssignments,
   isHandedIn,
 } from "./assignment-view.ts";
@@ -34,6 +44,13 @@ import { StatusIcon } from "./StatusIcon.tsx";
 import { Board } from "../ui/Board.tsx";
 import { barButton } from "../ui/bar.ts";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
+import {
+  AGE_OPTIONS,
+  ENTITY_FILTERS_NONE,
+  ENTITY_FILTER_PICKS,
+  ageBucket,
+  useEntityFilters,
+} from "../ui/entity-filters.tsx";
 
 /// Assignments that no longer wait on the student: handed in, or graded.
 export const ASSIGNMENT_DONE = new Set(["submitted", "evaluated"]);
@@ -48,6 +65,11 @@ const displaySchema = z.object({
   /// Course and status ids the list is narrowed to; empty means all.
   courses: z.array(z.string()),
   statuses: z.array(z.string()),
+  /// The desktop's other filters (D73). Saved displays from before read as nothing picked.
+  due: z.array(z.string()).default([]),
+  grades: z.array(z.string()).default([]),
+  evaluated: z.array(z.string()).default([]),
+  ...ENTITY_FILTER_PICKS,
 });
 type Display = z.infer<typeof displaySchema>;
 const DEFAULT: Display = {
@@ -56,7 +78,21 @@ const DEFAULT: Display = {
   ordering: "auto",
   courses: [],
   statuses: [],
+  due: [],
+  grades: [],
+  evaluated: [],
+  ...ENTITY_FILTERS_NONE,
 };
+
+/// Whether an assignment has a grade, as the desktop's Grade filter reads it.
+const GRADE_OPTIONS = [
+  { id: "graded", label: "Has a grade" },
+  { id: "none", label: "No grade" },
+  { id: "ungraded", label: "Ungraded" },
+];
+const gradeOf = (a: AssignmentRecord) =>
+  a.ungraded ? "ungraded" : a.grade === null ? "none" : "graded";
+const EVALUATED_OPTIONS = [...AGE_OPTIONS, { id: "none", label: "Not evaluated" }];
 
 interface RowProps {
   assignment: AssignmentRecord;
@@ -167,10 +203,16 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
   const [panel, setPanel] = useState<"filter" | "display" | null>(null);
   const courseName = (id: string | null) => courses.find((c) => c.entity.id === id)?.entity.title;
   const spaceOf = (id: string) => spaces.find((s) => s.id === id);
+  const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
+  const picks = (values: string[], value: string) => values.length === 0 || values.includes(value);
   const shown = all.filter(
     (a) =>
-      (display.courses.length === 0 || display.courses.includes(a.courseId ?? "none")) &&
-      (display.statuses.length === 0 || display.statuses.includes(a.status)),
+      picks(display.courses, a.courseId ?? "none") &&
+      picks(display.statuses, a.status) &&
+      picks(display.due, deadlineBucket(a, today)) &&
+      picks(display.grades, gradeOf(a)) &&
+      picks(display.evaluated, a.evaluatedAt ? ageBucket(a.evaluatedAt, own.weekStart) : "none") &&
+      own.passes(a.entity),
   );
   const grouping = display.layout === "board" ? "status" : display.grouping;
   const groups: AssignmentGroup[] = groupAssignments(
@@ -233,6 +275,37 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
               options={ASSIGNMENT_STATUSES.map(statusOption)}
               onChange={(next) => setDisplay({ ...display, statuses: next })}
             />
+            <FilterField
+              label="Due date"
+              icon={IconCalendarEvent}
+              values={display.due}
+              options={DEADLINE_BUCKETS.map((b) => ({ id: b.id, label: b.title }))}
+              onChange={(next) => setDisplay({ ...display, due: next })}
+            />
+            <FilterField
+              label="Grade"
+              icon={IconStar}
+              values={display.grades}
+              options={GRADE_OPTIONS}
+              onChange={(next) => setDisplay({ ...display, grades: next })}
+            />
+            <FilterField
+              label="Evaluated at"
+              icon={IconCalendarCheck}
+              values={display.evaluated}
+              options={EVALUATED_OPTIONS}
+              onChange={(next) => setDisplay({ ...display, evaluated: next })}
+            />
+            {own.fields.map((field) => (
+              <FilterField
+                key={field.label}
+                label={field.label}
+                icon={field.icon}
+                values={field.values}
+                options={field.options}
+                onChange={field.onChange}
+              />
+            ))}
           </DisplayGroup>
         </Sheet>
         <Sheet

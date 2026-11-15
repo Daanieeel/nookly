@@ -8,7 +8,7 @@ import {
   IconStar,
 } from "@tabler/icons-react";
 import { entityFilterOption, type FilterField } from "#/components/filter-menu.tsx";
-import { AGE_FILTER_FIELDS } from "#/features/tasks/shared-view-defs.tsx";
+import { AGE_FILTER_FIELDS, PINNED_FILTER_FIELD } from "#/features/tasks/shared-view-defs.tsx";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import type { Assignment, Entity } from "#/lib/api/types.ts";
 import {
@@ -67,6 +67,7 @@ export function assignmentFilterFields(courses: Entity[]): FilterField[] {
       options: EVALUATED_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
     },
     ...AGE_FILTER_FIELDS,
+    PINNED_FILTER_FIELD,
   ];
 }
 
@@ -85,5 +86,6 @@ export function assignmentFilterValue(
   if (fieldId === "evaluatedAt") return a.evaluatedAt ? ageBucket(a.evaluatedAt) : "none";
   if (fieldId === "created") return ageBucket(a.entity.createdAt);
   if (fieldId === "updated") return ageBucket(a.entity.updatedAt);
+  if (fieldId === "pinned") return a.entity.pinned ? "pinned" : "unpinned";
   return a.status;
 }

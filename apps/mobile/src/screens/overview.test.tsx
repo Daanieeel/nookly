@@ -14,7 +14,7 @@ import { router } from "expo-router";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { barLabels, renderScreens, testData } from "../test/render.tsx";
-import { choose } from "../test/sheet.ts";
+import { choose, openRow } from "../test/sheet.ts";
 import { readPreference } from "../data/preferences.ts";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
@@ -160,6 +160,36 @@ describe("the assignments overview", () => {
     await fireEvent(card, "accessibilityAction", { nativeEvent: { actionName: "move-submitted" } });
     await waitFor(async () => expect((await getAssignment(data.db, id))?.status).toBe("submitted"));
   });
+  // The desktop's other assignment filters (D73).
+  it("narrows by due date and the desktop's other filters", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    await createAssignment(data.db, space, "Late sheet", course, addDays(localDay(), -4));
+    await createAssignment(data.db, space, "Someday", course);
+    const screen = await renderScreens({ index: () => <AssignmentsScreen /> }, data);
+    expect(await screen.findByRole("button", { name: "Status of Someday" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    for (const name of [
+      "Course",
+      "Status",
+      "Due date",
+      "Grade",
+      "Evaluated at",
+      "Pinned",
+      "Created",
+      "Updated",
+    ]) {
+      expect(await screen.findByRole("button", { name: new RegExp(`^${name}, `) })).toBeTruthy();
+    }
+    await openRow(screen, "Due date");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Overdue" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Status of Someday" })).toBeNull(),
+    );
+    expect(screen.getByRole("button", { name: "Status of Late sheet" })).toBeTruthy();
+  });
+
   it("orders the assignments as picked under Display, as the desktop does", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");

@@ -107,7 +107,9 @@ describe("assignment filters", () => {
       "evaluatedAt",
       "created",
       "updated",
+      "pinned",
     ]);
+    expect(assignmentFilterValue(open, "pinned", new Map())).toBe("unpinned");
   });
 
   it("filters on when an assignment was evaluated", () => {

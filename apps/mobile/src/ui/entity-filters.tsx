@@ -109,6 +109,7 @@ export function useEntityFilters(
   ];
   return {
     fields,
+    weekStart,
     passes: (item: Dated) => passesEntityFilters(item, state, weekStart),
   };
 }
