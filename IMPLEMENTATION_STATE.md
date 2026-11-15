@@ -93,7 +93,7 @@ Mobile:
 - [x] (2026-11-15, all four corners follow the screen's curve 8pt in, up to a full pill (34 on today's phones), the send button a circle nested in it; the save bar uses the same; test; on screen) The floating bars (Bookmarks, Files, the new save bar): their top corners take the same radius as the bottom ones, a full pill following the screen's curve.
 - [x] File viewer details: with a long label chosen, the "Labels" name of the select trigger gets cut short. Never cut the field's name, only the label names.
 - [x] Bookmarks list: the (i) button is bigger and a secondary button, easier to hit and to recognise.
-- [ ] Relationship picker: the list under the search bar and "kind of link" only shows items valid for the chosen kind of link.
+- [x] Relationship picker: the list under the search bar and "kind of link" only shows items valid for the chosen kind of link.
 - [x] (2026-11-15, the search field measured dead centre (icon, cap height and field share their middle); the line height Tailwind gives `text-base` pushed the paste bars', palette's, sub-task's, new deck's and recipe rows' text 2pt low, now one shared `lineInput` style without it; measured centred on screen; tests) Search placeholders are not vertically centred (the icon is), seen in the relationship picker and often elsewhere: fix it once, for every search field.
 - [x] Selects get icons per option as on the desktop where it makes sense (New Semester: Winter and Summer), and the chosen option's icon shows in the trigger. Not where it makes no sense (a year).
 - [x] New Semester: the year is a number input in the exact style of the time input (exams, entries, sessions), one field for one number. "Typical dates for" is renamed "Timespan".

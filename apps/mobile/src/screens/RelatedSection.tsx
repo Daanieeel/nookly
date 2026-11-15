@@ -1,9 +1,9 @@
+import { fitsLink, linkKinds } from "./link-kinds.ts";
 import { entityOption } from "./option-badges.tsx";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
 import {
   type EntityRecord,
   type LinkedItem,
-  RELATIONSHIP_TYPES,
   createRelationship,
   unrelate,
 } from "@nookly/shared/data";
@@ -13,6 +13,7 @@ import { useState } from "react";
 import { View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import {
+  useEntity,
   useEntityLabels,
   useLinks,
   useMentions,
@@ -152,17 +153,20 @@ export function LinkPicker({ entityId }: { entityId: string }) {
     entityId,
     ...(typeName === "relates-to" ? related.map((r) => r.entity.id) : []),
   ]);
+  const { data: self } = useEntity(entityId);
+  const kinds = linkKinds(self?.type);
+  const kind = kinds.find((t) => t.name === typeName);
   const searching = query.trim().length > 0;
-  const shown = (searching ? results : recent).filter((e) => !linked.has(e.id));
+  // Only what the chosen kind of link can tie this item to.
+  const shown = (searching ? results : recent).filter(
+    (e) => !linked.has(e.id) && fitsLink(kind, e.type),
+  );
   return (
     <View className="gap-4">
       <SelectField
         label="Kind of link"
         value={typeName}
-        options={RELATIONSHIP_TYPES.filter((t) => t.creatable).map((t) => ({
-          id: t.name,
-          label: t.label,
-        }))}
+        options={kinds.map((t) => ({ id: t.name, label: t.label }))}
         onChange={setTypeName}
       />
       {link.error ? <Text tone="destructive">{link.error.message}</Text> : null}

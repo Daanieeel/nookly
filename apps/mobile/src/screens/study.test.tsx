@@ -328,6 +328,43 @@ describe("an item's links", () => {
   });
 });
 
+// The picker listed every item whatever the kind of link: a task offered "Sequel of" (which
+// links a course to a course) and "Attached file" listed tasks, and picking one failed.
+describe("the link picker", () => {
+  it("offers only the kinds of link an item can make, and the items each one fits", async () => {
+    const { data, space } = await seeded();
+    const task = await createTask(data.db, space, "Thesis draft");
+    await createTask(data.db, space, "Thesis plan");
+    await addFile(data.db, space, "Thesis outline.pdf", "file:///outline.pdf");
+    const screen = await renderScreens(
+      { index: () => <Text>Task page</Text>, link: () => <LinkPicker entityId={task} /> },
+      data,
+    );
+    await act(() => router.push("/link"));
+    await openRow(screen, "Kind of link");
+    expect(screen.queryByRole("radio", { name: "Sequel of" })).toBeNull();
+    await fireEvent.press((await screen.findAllByRole("radio", { name: "Attached file" })).at(-1)!);
+    await fireEvent.changeText(screen.getByLabelText("Search Items"), "Thesis");
+    expect(await screen.findByRole("radio", { name: /^Thesis outline.pdf, / })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /^Thesis plan, / })).toBeNull();
+  });
+
+  it("links a course only to a course as its sequel", async () => {
+    const { data, space, course } = await seeded();
+    await createCourse(data.db, space, "Algorithms II");
+    await createTask(data.db, space, "Algorithms homework");
+    const screen = await renderScreens(
+      { index: () => <Text>Course page</Text>, link: () => <LinkPicker entityId={course} /> },
+      data,
+    );
+    await act(() => router.push("/link"));
+    await choose(screen, "Kind of link", "Sequel of");
+    await fireEvent.changeText(screen.getByLabelText("Search Items"), "Algorithms");
+    expect(await screen.findByRole("radio", { name: /^Algorithms II, / })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /^Algorithms homework, / })).toBeNull();
+  });
+});
+
 describe("an overdue assignment", () => {
   it("shows its due date in red, as the desktop does, until it is handed in", async () => {
     const { data, space, course } = await seeded();
