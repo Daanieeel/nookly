@@ -1,3 +1,4 @@
+import { MIN_TOUCH } from "../touch.ts";
 import { IconCheck, IconPlus, IconSearch } from "@tabler/icons-react-native";
 import { type ReactNode, useContext, useState } from "react";
 import { Pressable, View } from "react-native";
@@ -87,12 +88,14 @@ function PickerRow({
   role,
   onPress,
   accessibilityLabel,
+  dense = false,
 }: {
   option: Option;
   selected: boolean;
   role: "radio" | "checkbox" | "button";
   onPress: () => void;
   accessibilityLabel?: string;
+  dense?: boolean;
 }) {
   const theme = useTheme();
   return (
@@ -104,11 +107,11 @@ function PickerRow({
       }
       accessibilityState={role === "button" ? undefined : { checked: selected, selected }}
       onPress={onPress}
-      style={[CORNER, { minHeight: ROW_HEIGHT }]}
+      style={[CORNER, { minHeight: dense ? MIN_TOUCH : ROW_HEIGHT }]}
       className="flex-row items-center gap-3.5 rounded-xl px-3 active:bg-accent"
     >
       <LeadingIcon option={option} />
-      <View className="flex-1 py-2">
+      <View className={dense ? "flex-1 py-1" : "flex-1 py-2"}>
         <Text numberOfLines={1} style={BODY}>
           {option.prefix ? <Text tone="muted">{option.prefix}</Text> : null}
           {option.label}
@@ -159,6 +162,8 @@ export function OptionList<Id extends string>(
     onQueryChange?: (query: string) => void;
     /// What an empty list says instead of No Results (before anything is searched).
     empty?: { title: string; message: string };
+    /// Shorter rows, at the touch minimum, for a long list of short words (labels).
+    dense?: boolean;
   } & (
     | {
         multiple?: false;
@@ -259,6 +264,7 @@ export function OptionList<Id extends string>(
                 role={props.multiple ? "checkbox" : "radio"}
                 selected={chosen(option.id)}
                 onPress={() => pick(option)}
+                dense={props.dense}
               />
             ))}
           </View>

@@ -29,6 +29,7 @@ export function LabelPicker({ entityId, spaceId }: { entityId: string; spaceId: 
     <OptionList
       label="Labels"
       multiple
+      dense
       values={attached.map((l) => l.id)}
       options={labels.map(labelOption)}
       onToggle={(labelId, on) => toggle.mutate({ labelId, on })}

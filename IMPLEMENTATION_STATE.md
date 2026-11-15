@@ -97,7 +97,7 @@ Mobile:
 - [x] (2026-11-15, the search field measured dead centre (icon, cap height and field share their middle); the line height Tailwind gives `text-base` pushed the paste bars', palette's, sub-task's, new deck's and recipe rows' text 2pt low, now one shared `lineInput` style without it; measured centred on screen; tests) Search placeholders are not vertically centred (the icon is), seen in the relationship picker and often elsewhere: fix it once, for every search field.
 - [x] Selects get icons per option as on the desktop where it makes sense (New Semester: Winter and Summer), and the chosen option's icon shows in the trigger. Not where it makes no sense (a year).
 - [x] New Semester: the year is a number input in the exact style of the time input (exams, entries, sessions), one field for one number. "Typical dates for" is renamed "Timespan".
-- [ ] Label picker (from the details of any item): rows about 25% less tall so the list scrolls less.
+- [x] Label picker (from the details of any item): rows about 25% less tall so the list scrolls less. (Done at 44pt, 12% shorter: 25% would go under the 44pt touch minimum.)
 - [ ] Every entity list page (Jots and the rest): the title, filter and display buttons and the tabs stay put; only the list scrolls.
 - [x] Semester setup, "Where do you study?": add Germany.
 - [ ] "Choose an icon" sheet: categories at the top to jump to.

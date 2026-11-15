@@ -313,7 +313,7 @@ describe("a select", () => {
     expect(screen.getByRole("radio", { name: "Alpha" }).props.accessibilityState).toMatchObject({
       checked: true,
     });
-    fireEvent.changeText(screen.getByPlaceholderText("Change status…"), "bet");
+    fireEvent.changeText(screen.getByPlaceholderText("Search"), "bet");
     expect(screen.queryByRole("radio", { name: "Alpha" })).toBeNull();
     fireEvent.press(screen.getByRole("radio", { name: "Beta" }));
     expect(await screen.findByRole("button", { name: "Status, Beta" })).toBeTruthy();
