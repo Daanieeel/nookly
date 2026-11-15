@@ -15,13 +15,13 @@ describe("a filter's choices", () => {
     const { rerender } = render(
       <FilterOptions label="Status" options={OPTIONS} values={["todo"]} onChange={onChange} />,
     );
-    expect(screen.getByRole("checkbox", { name: "Todo" }).props.accessibilityState).toMatchObject(
-      { checked: true },
-    );
+    expect(screen.getByRole("checkbox", { name: "Todo" }).props.accessibilityState).toMatchObject({
+      checked: true,
+    });
     rerender(<FilterOptions label="Status" options={OPTIONS} values={[]} onChange={onChange} />);
-    expect(screen.getByRole("checkbox", { name: "Todo" }).props.accessibilityState).toMatchObject(
-      { checked: false },
-    );
+    expect(screen.getByRole("checkbox", { name: "Todo" }).props.accessibilityState).toMatchObject({
+      checked: false,
+    });
     fireEvent.press(screen.getByRole("checkbox", { name: "Todo" }));
     expect(onChange).toHaveBeenLastCalledWith(["todo"]);
   });

@@ -141,11 +141,7 @@ export function SettingsScreen() {
   const found = query.trim() ? searchSettings(query) : [];
   return (
     <Screen grouped>
-      <SearchField
-        label="Search settings"
-        value={query}
-        onChangeText={setQuery}
-      />
+      <SearchField label="Search settings" value={query} onChangeText={setQuery} />
       {query.trim() ? (
         found.length === 0 ? (
           <EmptyState glyph={IconSearch} title="No Results" message="No setting matches." />

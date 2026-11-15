@@ -72,11 +72,7 @@ export function SearchScreen() {
   const filtered = tab !== null || spaceIds.length > 0 || labels.length > 0;
   return (
     <Screen>
-      <SearchField
-        label="Search"
-        value={query}
-        onChangeText={setQuery}
-      />
+      <SearchField label="Search" value={query} onChangeText={setQuery} />
       <ChipGroup label="Result type" scroll>
         {[{ key: null, label: "All" }, ...SEARCH_TABS].map((t) => (
           <Chip
