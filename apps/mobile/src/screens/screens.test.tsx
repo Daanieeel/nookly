@@ -112,6 +112,9 @@ describe("search", () => {
   });
 
   // The desktop's Cmd+K narrows by type with its tabs, to a Space with in: and by label with #.
+  // Each opens a sheet and searches a seeded database: under 2s alone, past Jest's 5s on a busy
+  // machine running every suite at once.
+  jest.setTimeout(15_000);
   async function planSearch() {
     const { data, space } = await seeded();
     const home = await createSpace(data.db, "Home", "#00873d");
