@@ -1,11 +1,12 @@
 import { addFile, addFileLink, createSpace, getFile } from "@nookly/shared/data";
-import { fireEvent } from "expo-router/testing-library";
+import { fireEvent, waitFor } from "expo-router/testing-library";
 import { View } from "react-native";
 import type { FileViewer } from "../ui/file-viewer.tsx";
 import { barLabels, pressBarButton, renderScreens, testData } from "../test/render.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { viewerFor } from "./file-kinds.ts";
 import { FileViewerScreen } from "./FileViewer.tsx";
+import { FileRows } from "./FileScreens.tsx";
 
 // This build's own viewer, standing in for the native one (PDFKit, Quick Look): what it was
 // asked to show.
@@ -118,5 +119,32 @@ describe("the file viewer", () => {
     expect(await screen.findByRole("button", { name: "Open In…" })).toBeTruthy();
     expect(barLabels(screen)).toContain("Share");
     expect(barLabels(screen)).not.toContain("Search");
+  });
+});
+
+// The Files list showed a picture only for images; the desktop shows the first page of a
+// PDF, a frame of a video and an Office document's own picture too.
+describe("the Files list's thumbnails", () => {
+  const withThumbs: FileViewer = {
+    ...standIn,
+    thumbnail: async (uri) => `file:///thumbs/${uri.split("/").pop()}.png`,
+  };
+
+  it("shows each file's picture where the desktop does, in the grid and in the list", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    for (const name of ["notes.pdf", "talk.mp4", "essay.docx", "read.md"]) {
+      await addFile(data.db, space, name, `file:///docs/files/${name}`);
+    }
+    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data, "/", {
+      fileViewer: withThumbs,
+    });
+    await waitFor(() => expect(screen.getAllByTestId("file-thumb")).toHaveLength(3));
+    const uris = screen.getAllByTestId("file-thumb").map((n) => n.props.source.uri);
+    expect(uris.sort()).toEqual([
+      "file:///thumbs/essay.docx.png",
+      "file:///thumbs/notes.pdf.png",
+      "file:///thumbs/talk.mp4.png",
+    ]);
   });
 });

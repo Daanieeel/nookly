@@ -8,7 +8,7 @@ import {
   isLinkOnly,
 } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
-import { KIND_ICONS, KIND_LABELS, nameOf, pathOf, viewerFor } from "./file-kinds.ts";
+import { KIND_ICONS, KIND_LABELS, hasThumbnail, nameOf, pathOf, viewerFor } from "./file-kinds.ts";
 import { useFileViewer } from "../ui/file-viewer.tsx";
 import {
   IconBrandDropbox,
@@ -20,7 +20,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { File } from "expo-file-system";
 import * as Sharing from "expo-sharing";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Image, Linking, Pressable, TextInput, View } from "react-native";
 import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconArrowUp, IconLayoutGrid, IconList, IconTag } from "@tabler/icons-react-native";
@@ -68,13 +68,45 @@ export function useAddFiles(spaceId: string) {
 const extensionOf = (file: FileRecord) =>
   isLinkOnly(file) ? "LINK" : (nameOf(file).split(".").pop() ?? "").slice(0, 4).toUpperCase();
 
+/// A picture of the file for the list, as the desktop draws one: the image itself, a PDF's
+/// first page, a frame of a video, an Office document's own picture, made by the system.
+/// Without one, nothing: the caller shows the kind's icon.
+function FileThumb({
+  file,
+  size,
+  fallback,
+}: {
+  file: FileRecord;
+  size: number;
+  fallback: ReactNode;
+}) {
+  const viewer = useFileViewer();
+  const path = pathOf(file);
+  const name = nameOf(file);
+  const shown = hasThumbnail(file);
+  const thumbnail = useQuery({
+    queryKey: ["file-thumbnail", path, size],
+    enabled: shown && Boolean(path),
+    queryFn: async () => (path ? await viewer.thumbnail(path, name, size) : null),
+  });
+  const picture = thumbnail.data ?? (shown && fileKindOf(name) === "image" ? path : null);
+  if (!picture) return fallback;
+  return (
+    <Image
+      testID="file-thumb"
+      source={{ uri: picture }}
+      resizeMode="cover"
+      className="size-full"
+      accessibilityIgnoresInvertColors
+    />
+  );
+}
+
 function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
   const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
   const name = nameOf(file);
-  const path = file.localPath ?? file.sourcePath;
-  const image = !isLinkOnly(file) && fileKindOf(name) === "image" && path;
   const Glyph = isLinkOnly(file)
     ? file.provider === "dropbox"
       ? IconBrandDropbox
@@ -93,7 +125,13 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
         onLongPress={() => entityMenu(file.entity)}
         className="min-h-14 flex-row items-center gap-3 py-2 active:opacity-70"
       >
-        <Glyph size={22} color={theme.colors.mutedForeground} strokeWidth={1.75} />
+        <View className="size-10 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary">
+          <FileThumb
+            file={file}
+            size={120}
+            fallback={<Glyph size={22} color={theme.colors.mutedForeground} strokeWidth={1.75} />}
+          />
+        </View>
         <View className="flex-1">
           <Text numberOfLines={1} className="font-medium">
             {name}
@@ -114,11 +152,11 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
       className="gap-2 active:opacity-80"
     >
       <View className="aspect-square items-center justify-center overflow-hidden rounded-xl border border-border bg-secondary">
-        {image ? (
-          <Image source={{ uri: path }} resizeMode="cover" className="size-full" />
-        ) : (
-          <Glyph size={44} color={theme.colors.mutedForeground} strokeWidth={1.5} />
-        )}
+        <FileThumb
+          file={file}
+          size={400}
+          fallback={<Glyph size={44} color={theme.colors.mutedForeground} strokeWidth={1.5} />}
+        />
         <View className="absolute bottom-2 left-2 rounded bg-background/80 px-1.5 py-0.5">
           <Text variant="small" className="font-medium">
             {extensionOf(file)}
@@ -384,7 +422,7 @@ export function FileDetail({ id }: { id: string }) {
   const muted = theme.colors.mutedForeground;
   const { data: file } = useFile(id);
   if (!file) return null;
-  const path = file.localPath ?? file.sourcePath;
+  const path = pathOf(file);
   const link = file.url;
   const name = nameOf(file);
   const open = async () => {

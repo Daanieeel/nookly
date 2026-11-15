@@ -1,3 +1,4 @@
+import { livePath } from "./reroot.ts";
 import type { SqlDriver } from "@nookly/shared/sync";
 import { BLOB_COLUMNS, type BlobPlatform } from "@nookly/shared/sync";
 import type { ApiClient } from "@nookly/shared/api";
@@ -31,14 +32,15 @@ export function phoneBlobs(serverUrl: string, api: ApiClient, driver: SqlDriver)
   const base = serverUrl.replace(/\/+$/, "");
   return {
     async hash(path) {
-      const file = new File(path);
+      // A path stored under an earlier app folder (a restore onto another phone).
+      const file = new File(livePath(path));
       if (!file.exists) return null;
       return { sha256: await sha256Of(file), size: file.size ?? 0 };
     },
     async upload(sha256, path, contentType) {
       const token = await api.sessionToken();
       if (!token) throw new Error("Sign in first.");
-      const result = await new File(path).upload(`${base}/v1/blobs/${sha256}`, {
+      const result = await new File(livePath(path)).upload(`${base}/v1/blobs/${sha256}`, {
         httpMethod: "PUT",
         uploadType: UploadType.BINARY_CONTENT,
         headers: { authorization: `Bearer ${token}`, "content-type": contentType },

@@ -409,3 +409,7 @@ A swipe to the right opens the sidebar from anywhere except the leftmost tenth o
 ## D71. The sidebar's menus are dialogs; Spaces move in by dragging across a line
 
 The + at the bottom of the sidebar, the dots on the Space shown and the dots for the Spaces that do not fit open as dialogs in the middle of the screen (the floating card of D65, through `menu.show(..., { presentation: "card" })`), not sheets from the bottom. The Spaces dialog has a search and lists every Space in its order: the first three are the ones the sidebar shows, a line stays put under them, and dragging a Space across the line (its grip, or a screen reader's Move Up) moves it into the sidebar or out. It reorders the same stored order the switcher's icons do, so it syncs and the desktop's switcher follows.
+
+## D72. A stored file's place is read from this app's own folder
+
+The phone stores where a file is as a full `file://` address, which holds iOS's name for the app's folder (`.../Containers/Data/Application/<ID>/Documents/`). iOS gives that folder a new name when the app is restored onto another phone and after some reinstalls, and every file then looked missing (found while adding thumbnails: a PDF showed no picture and would not open). Reading now moves any address inside an app's Documents folder into this app's own (`data/reroot.ts`): the Files list, a file's page and viewer, recipe banners, and the file sync's hashing and uploads. What is stored is left exactly as it was, so nothing needs a migration and nothing is rewritten.

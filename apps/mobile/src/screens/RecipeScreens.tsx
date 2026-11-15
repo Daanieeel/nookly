@@ -1,3 +1,4 @@
+import { livePath } from "../data/reroot.ts";
 import {
   RECIPE_KINDS,
   type RecipeItem,
@@ -104,7 +105,7 @@ function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
   const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
-  const banner = recipe.bannerPath;
+  const banner = livePath(recipe.bannerPath);
   const shown = useBannerExists(banner);
   const kind = KIND_LABELS[RECIPE_KINDS.findIndex((k) => k === recipe.kind)] ?? "Other";
   const time = minutes(recipe.totalDurationMinutes);
@@ -352,7 +353,7 @@ function RecipeBanner({ id, readOnly }: { id: string; readOnly: boolean }) {
     if (picked.canceled) return;
     await setRecipeBanner(db, id, (await storePicked(picked.result)).uri);
   });
-  const uri = recipe?.bannerPath ?? null;
+  const uri = livePath(recipe?.bannerPath ?? null);
   const exists = useBannerExists(uri);
   const shown = Boolean(uri && exists);
   const fill = useSemantic("fill");
