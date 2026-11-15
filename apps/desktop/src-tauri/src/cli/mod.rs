@@ -21,6 +21,9 @@ mod args;
 mod backup;
 #[cfg(test)]
 mod backup_tests;
+mod calendars;
+#[cfg(test)]
+mod calendars_tests;
 #[cfg(test)]
 mod generic_tests;
 mod help;
@@ -226,6 +229,7 @@ fn dispatch_command_raw(conn: &Connection, argv: Vec<String>) -> AppResult<Value
         "settings" => settings::command(&data_folder()?, &argv[1..]),
         "backup" => backup::command(conn, &data_folder()?, &argv[1..]),
         "sync" => sync::command(conn, &data_folder()?, &argv[1..]),
+        "calendars" => calendars::command(&data_folder()?, &argv[1..]),
         entity_type => entity_command(conn, entity_type, &argv[1..]),
     }
 }

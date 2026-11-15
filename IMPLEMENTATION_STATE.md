@@ -111,7 +111,7 @@ Desktop:
   - Needs the user: what happened just before (window resized or full screen, sidebar or details panel toggled, a split opened or closed, waking from sleep), and does it go away on its own after scrolling or switching tabs?
 - [ ] CLI coverage for every feature and setting: an agent can set up and use Nookly entirely as a person can through the app. Sensitive ones (sign in) reachable but redacted.
   - Done: `settings list|get|set|reset` (the app reloads `settings.json` before each save and every 2s, so nothing is saved over), `backup now|list` (restore stays in the app), `sync status` (no session ever shown, the keychain is never read so no password prompt), Space modules (`space modules|add-module|remove-module|reorder-modules`).
-  - Left out on purpose: emptying Trash and deleting forever (the CLI never deletes permanently), restoring a backup, signing in to sync, Moodle, Google or iCloud (they need the person). Still open: external calendar connections (read only status and events), the Files view builder (see Both).
+  - Left out on purpose: emptying Trash and deleting forever (the CLI never deletes permanently), restoring a backup, signing in to sync, Moodle, Google or iCloud (they need the person). Calendars: `calendars list` and `calendars events --from --to [--provider]`, read only from the cache file, no secrets. Still open: the Files view builder (see Both).
 
 Both:
 

@@ -17,6 +17,7 @@ pub(super) fn top_level_help() -> Value {
                     entity_ref --field values) also accepts the entity's `key`, e.g. TSK-14.",
             "entityTypes": entity_types,
             "backup": "nookly cli backup <now|list> [--folder <path>]  (into the backup folder from Settings unless --folder is given; restoring stays in the app)",
+            "calendars": "nookly cli calendars <list|events> ...  (the outside calendars connected in the app and their cached events, read only; connecting and syncing stay in the app)",
             "describe": "nookly cli describe <entity-type>  (or `nookly cli <entity-type>` with no verb): \
                          that type's fields, block commands and relationship types",
             "list": "nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since <30m|24h|7d|date|timestamp>] \
@@ -530,6 +531,17 @@ nookly cli backup list [--folder <path>]  # newest first, with size and what eac
 
 A folder keeps the newest 10, as the app does. Restoring replaces everything on the device,
 so it is only done in the app, behind its confirmation.
+
+## Outside calendars
+
+The Google, iCloud and Moodle calendars connected in the app, and the events it has cached
+from the ones that show. Read only: connecting, choosing calendars and syncing are done in
+the app, and the sign in never leaves the keychain.
+
+```
+nookly cli calendars list                                         # accounts, calendars, last sync
+nookly cli calendars events --from 2026-11-16 --to 2026-11-22 [--provider google]
+```
 
 ## A worked example, start to finish
 

@@ -91,12 +91,7 @@ pub struct ExternalCalendarState {
 impl ExternalCalendarState {
     pub fn load(app_data_dir: &std::path::Path) -> Self {
         let path = app_data_dir.join(STORE_FILE);
-        // A missing or unreadable cache is just an empty one: it only holds data
-        // that the next sync fetches again.
-        let data = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|raw| serde_json::from_str(&raw).ok())
-            .unwrap_or_default();
+        let data = read_store(&path);
         Self {
             path,
             data: Mutex::new(data),
@@ -120,20 +115,7 @@ impl ExternalCalendarState {
     /// Cached events of selected calendars touching `from..=to` (`YYYY-MM-DD`).
     /// Timed events compare by their UTC date, so callers pad the range by a day.
     pub async fn events_between(&self, from: &str, to: &str) -> Vec<ExternalEvent> {
-        let data = self.data.lock().await;
-        data.events
-            .iter()
-            .filter(|e| {
-                data.connections.iter().any(|c| {
-                    c.provider == e.provider
-                        && c.calendars
-                            .iter()
-                            .any(|cal| cal.selected && cal.id == e.calendar_id)
-                })
-            })
-            .filter(|e| date_part(&e.start) <= to && date_part(&e.end) >= from)
-            .cloned()
-            .collect()
+        shown_between(&*self.data.lock().await, from, to)
     }
 
     /// Adds or replaces the connection for its provider, keeping the calendar
@@ -278,6 +260,47 @@ fn merge_selection(calendars: &mut [RemoteCalendar], previous: &[RemoteCalendar]
     for calendar in calendars {
         calendar.selected = previous.iter().any(|p| p.id == calendar.id && p.selected);
     }
+}
+
+/// A missing or unreadable cache is just an empty one: it only holds data that the next
+/// sync fetches again.
+fn read_store(path: &std::path::Path) -> StoreData {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+/// Events of selected calendars touching `from..=to`.
+fn shown_between(data: &StoreData, from: &str, to: &str) -> Vec<ExternalEvent> {
+    data.events
+        .iter()
+        .filter(|e| {
+            data.connections.iter().any(|c| {
+                c.provider == e.provider
+                    && c.calendars
+                        .iter()
+                        .any(|cal| cal.selected && cal.id == e.calendar_id)
+            })
+        })
+        .filter(|e| date_part(&e.start) <= to && date_part(&e.end) >= from)
+        .cloned()
+        .collect()
+}
+
+/// The connections as the cache file holds them, read without the running app and without
+/// any sign in secret (those stay in the keychain).
+pub fn cached_connections(app_data_dir: &std::path::Path) -> Vec<Connection> {
+    read_store(&app_data_dir.join(STORE_FILE)).connections
+}
+
+/// [`ExternalCalendarState::events_between`] on the cache file, read without the running app.
+pub fn cached_events_between(
+    app_data_dir: &std::path::Path,
+    from: &str,
+    to: &str,
+) -> Vec<ExternalEvent> {
+    shown_between(&read_store(&app_data_dir.join(STORE_FILE)), from, to)
 }
 
 fn date_part(value: &str) -> &str {
