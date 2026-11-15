@@ -69,7 +69,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [x] (2026-11-15, test) Hidden Spaces dialog: remove the "Drag a Space above the line to show in the sidebar." notice.
 - [x] (2026-11-15, the card opens on tap, keeps its menu, the Current badge centred on its bottom edge on a solid backing; tests; on screen) Semesters list: still crammed. The "Current" badge moves to the bottom centre of the box, overlaid on its border; no chevron and no "Open" button, the semester opens on tap; no expand or collapse.
 - [x] (2026-11-15, test; on screen) Inside a semester, "Add Course" is full width.
-- [ ] The + on the Semesters page opens its sheet over the whole screen although there is nothing to type at length: the sheet takes only the height it needs.
+- [x] (2026-11-15, the New Semester sheet sizes to its content; test; on screen) The + on the Semesters page opens its sheet over the whole screen although there is nothing to type at length: the sheet takes only the height it needs.
 - [ ] Files: "Paste a link or Choose Files" becomes a floating bar like on Bookmarks, without the "Choose Files" part (the + at the top right does that); make sure that + adds several files at once.
 - [ ] Bookmarks, the "Site" filter: a search bar, each site with its favicon, and the address with only its important part highlighted ("https://www." muted, "google.com" full).
 - [ ] Bookmark details page: prettier and more useful; "Refresh Details" must not wrap to a new line in its success state (layout shift).

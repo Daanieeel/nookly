@@ -1,4 +1,5 @@
 import { StyleSheet } from "react-native";
+import NewSemesterRoute from "../app/new/semester.tsx";
 import {
   createCourse,
   createEntityStatements,
@@ -321,5 +322,19 @@ describe("semesters", () => {
         end_date: "2027-07-15",
       });
     });
+  });
+});
+
+// The + on Semesters opened a sheet over the whole screen for three choices and a button.
+describe("the New Semester sheet", () => {
+  it("takes only the height it needs", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens(
+      { index: () => <Text>Home</Text>, "new/semester": NewSemesterRoute },
+      data,
+    );
+    await act(() => router.push(`/new/semester?spaceId=${space}`));
+    const panel = await screen.findByTestId("sheet-panel");
+    expect(StyleSheet.flatten(panel.props.style).height).toBeUndefined();
   });
 });

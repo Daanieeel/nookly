@@ -491,6 +491,7 @@ function SheetFrame({
                   </Animated.View>
                   <GestureDetector gesture={pan}>
                     <Animated.View
+                      testID="sheet-panel"
                       accessibilityViewIsModal
                       style={[
                         panel,

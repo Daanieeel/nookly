@@ -7,4 +7,4 @@ function Route() {
   return <NewSemesterScreen spaceId={spaceId} />;
 }
 
-export default sheetRoute("New Semester", Route, "large");
+export default sheetRoute("New Semester", Route);
