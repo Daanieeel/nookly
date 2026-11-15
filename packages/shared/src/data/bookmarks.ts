@@ -9,6 +9,12 @@ export interface BookmarkRecord {
   faviconUrl: string | null;
   /// The site's own picture for it, once its page was read.
   previewImageUrl: string | null;
+  /// The page as a desktop captured it, on this device once its file has synced.
+  screenshotPath: string | null;
+  /// "preview" when the site's own picture was picked over the capture.
+  preferredImage: string | null;
+  /// When its page was last read; null while it never was.
+  fetchedAt: string | null;
   /// The labels on it, to filter and group by.
   labelIds: string[];
 }
@@ -24,7 +30,8 @@ export async function listBookmarks(db: LocalDb, spaceId?: string): Promise<Book
     await rows(
       db,
       `SELECT e.id, e.space_id, e.type, e.title, e.icon, e.pinned, e.created_at, e.updated_at, e.deleted_at, e.key_prefix, e.key_number, e.last_opened_at,
-         b.url, b.description, b.favicon_url, b.preview_image_url, ${LABEL_IDS_COLUMN}
+         b.url, b.description, b.favicon_url, b.preview_image_url, b.screenshot_path,
+         b.preferred_image, b.metadata_fetched_at, ${LABEL_IDS_COLUMN}
        FROM entities e JOIN bookmarks b ON b.entity_id = e.id
        WHERE e.deleted_at IS NULL AND e.hidden_at IS NULL ${spaceId ? "AND e.space_id = ?" : ""}
        ORDER BY e.created_at DESC`,
@@ -36,6 +43,9 @@ export async function listBookmarks(db: LocalDb, spaceId?: string): Promise<Book
     description: optStr(r.description),
     faviconUrl: optStr(r.favicon_url),
     previewImageUrl: optStr(r.preview_image_url),
+    screenshotPath: optStr(r.screenshot_path),
+    preferredImage: optStr(r.preferred_image),
+    fetchedAt: optStr(r.metadata_fetched_at),
     labelIds: labelIdsOf(r),
   }));
 }
@@ -113,14 +123,13 @@ export async function setBookmarkMetadata(
   ]);
 }
 
-export interface BookmarkDetails extends Omit<BookmarkRecord, "labelIds"> {
-  fetchedAt: string | null;
-}
+export type BookmarkDetails = Omit<BookmarkRecord, "labelIds">;
 
 export async function getBookmarkDetails(db: LocalDb, id: string): Promise<BookmarkDetails | null> {
   const r = await first(
     db,
-    `SELECT ${ENTITY_COLUMNS}, b.url, b.description, b.favicon_url, b.preview_image_url, b.metadata_fetched_at
+    `SELECT ${ENTITY_COLUMNS}, b.url, b.description, b.favicon_url, b.preview_image_url, b.metadata_fetched_at,
+       b.screenshot_path, b.preferred_image
      FROM entities e JOIN bookmarks b ON b.entity_id = e.id WHERE e.id = ?`,
     id,
   );
@@ -131,6 +140,8 @@ export async function getBookmarkDetails(db: LocalDb, id: string): Promise<Bookm
         description: optStr(r.description),
         faviconUrl: optStr(r.favicon_url),
         previewImageUrl: optStr(r.preview_image_url),
+        screenshotPath: optStr(r.screenshot_path),
+        preferredImage: optStr(r.preferred_image),
         fetchedAt: optStr(r.metadata_fetched_at),
       }
     : null;

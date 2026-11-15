@@ -17,11 +17,14 @@ import {
   IconWorld,
 } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { isSharedSpace } from "@nookly/shared/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Image, Linking, Pressable, View } from "react-native";
 import { z } from "zod";
 import { fetchPageMetadata } from "../data/bookmark-fetch.ts";
-import { useLocalWrite } from "../data/context.tsx";
+import { afterLocalWrite, useAppData, useLocalWrite } from "../data/context.tsx";
+import { livePath } from "../data/reroot.ts";
 import { useBookmarks, useLabels } from "../data/queries.ts";
 import { usePreference } from "../data/preferences.ts";
 import { IconButton } from "../ui/Button.tsx";
@@ -74,6 +77,45 @@ function SiteIcon({ host, favicon }: { host: string; favicon: string | null }) {
   );
 }
 
+/// What a card shows of its page, as the desktop does: the page as it was captured, else
+/// the site's own picture (first when it was picked over the capture), else the site's icon
+/// large. A picture that fails to load gives way to the next.
+function BookmarkPicture({ bookmark }: { bookmark: BookmarkRecord }) {
+  const theme = useTheme();
+  const [broken, setBroken] = useState<string[]>([]);
+  const capture = livePath(bookmark.screenshotPath);
+  const ordered =
+    bookmark.preferredImage === "preview"
+      ? [bookmark.previewImageUrl, capture]
+      : [capture, bookmark.previewImageUrl];
+  const fail = (uri: string) => () => setBroken((b) => [...b, uri]);
+  const picture = ordered.find((uri): uri is string => !!uri && !broken.includes(uri));
+  const testID = `picture-${bookmark.entity.title}`;
+  if (picture) {
+    return (
+      <Image
+        testID={testID}
+        source={{ uri: picture }}
+        resizeMode="cover"
+        onError={fail(picture)}
+        className="size-full bg-white"
+      />
+    );
+  }
+  const icon = bookmark.faviconUrl;
+  if (icon && !broken.includes(icon)) {
+    return (
+      <Image
+        testID={testID}
+        source={{ uri: icon }}
+        onError={fail(icon)}
+        className="size-10 rounded-md"
+      />
+    );
+  }
+  return <IconBookmark size={32} color={theme.colors.mutedForeground} />;
+}
+
 /// A bookmark as a rich link card: the page's picture, its icon and title, what it says, its
 /// host and when it was added. Tapping it opens the link; the button in the corner opens its
 /// details.
@@ -104,15 +146,7 @@ function BookmarkCard({
       >
         {preview ? (
           <View className="aspect-[1.91] items-center justify-center bg-muted">
-            {bookmark.previewImageUrl ? (
-              <Image
-                source={{ uri: bookmark.previewImageUrl }}
-                resizeMode="cover"
-                className="size-full"
-              />
-            ) : (
-              <IconBookmark size={32} color={theme.colors.mutedForeground} />
-            )}
+            <BookmarkPicture bookmark={bookmark} />
           </View>
         ) : null}
         <View className="gap-1 p-3">
@@ -303,6 +337,7 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
   );
   const used = labels.filter((l) => bookmarks.some((b) => b.labelIds.includes(l.id)));
   const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
+  useReadUnread(bookmarks, spaceId);
   const shown = bookmarks.filter(
     (b) =>
       (display.labels.length === 0 || display.labels.some((id) => b.labelIds.includes(id))) &&
@@ -448,10 +483,50 @@ export function bookmarkLink(address: string): string {
   return /^[a-z]+:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
-/// Reads a new bookmark's page after it is saved, for its title, picture and description;
-/// offline it is read when the bookmark is opened.
+/// Bookmarks whose page this phone has set out to read since it started, so none is read
+/// twice: once after it is saved, or once when the list first shows it unread.
+const asked = new Set<string>();
+
+/// Reads a bookmark's page for its title, icon, picture and description, once; offline it
+/// fails quietly and is read when the bookmark is opened.
 export function useReadBookmarkPage() {
-  return useLocalWrite(async (db, input: { id: string; link: string }) =>
+  const read = useLocalWrite(async (db, input: { id: string; link: string }) =>
     setBookmarkMetadata(db, input.id, await fetchPageMetadata(input.link)),
   );
+  return {
+    ...read,
+    mutate: (input: { id: string; link: string }) => {
+      if (asked.has(input.id)) return;
+      asked.add(input.id);
+      read.mutate(input);
+    },
+  };
+}
+
+/// Reads, one after the other, the pages of the bookmarks shown that were never read: saved
+/// on another device, offline, or before reading them existed. A Space shared with this
+/// phone is left to its owner's devices.
+function useReadUnread(bookmarks: BookmarkRecord[], spaceId: string) {
+  const { db, sync } = useAppData();
+  const queryClient = useQueryClient();
+  const unread = isSharedSpace(spaceId)
+    ? []
+    : bookmarks.filter((b) => b.fetchedAt === null && !asked.has(b.entity.id));
+  const ids = unread.map((b) => b.entity.id).join();
+  useEffect(() => {
+    if (unread.length === 0) return;
+    for (const b of unread) asked.add(b.entity.id);
+    void (async () => {
+      for (const b of unread) {
+        try {
+          await setBookmarkMetadata(db, b.entity.id, await fetchPageMetadata(b.url));
+          await afterLocalWrite(queryClient, sync);
+        } catch {
+          // Offline or unreachable: it is read again when opened.
+        }
+      }
+    })();
+    // The bookmarks to read are named by `ids`.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids]);
 }

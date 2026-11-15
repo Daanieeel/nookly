@@ -118,6 +118,48 @@ describe("a Space's bookmarks", () => {
     expect(screen.getByRole("header", { name: "example.com" })).toBeTruthy();
   });
 
+  // Cards showed a bare bookmark icon for every page without its own picture, though the
+  // desktop had captured it. As there: the capture first (unless the site's picture was
+  // picked), then the site's picture, then its icon large.
+  it("pictures each card as the desktop does", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Web", "#3b82f6");
+    const shot = await createBookmark(data.db, space, "https://a.org", "Shot");
+    const picked = await createBookmark(data.db, space, "https://b.org", "Picked");
+    const og = await createBookmark(data.db, space, "https://c.org", "Og");
+    const icon = await createBookmark(data.db, space, "https://d.org", "Icon");
+    const set = (sql: string, ...params: string[]) => data.driver.exec(sql, ...params);
+    const read = "metadata_fetched_at = '2026-01-01T00:00:00.000Z'";
+    set(`UPDATE bookmarks SET ${read}, screenshot_path = ?, preview_image_url = ? WHERE entity_id = ?`, "file:///docs/shots/a.png", "https://a.org/og.png", shot);
+    set(`UPDATE bookmarks SET ${read}, screenshot_path = ?, preview_image_url = ?, preferred_image = 'preview' WHERE entity_id = ?`, "file:///docs/shots/b.png", "https://b.org/og.png", picked);
+    set(`UPDATE bookmarks SET ${read}, preview_image_url = ? WHERE entity_id = ?`, "https://c.org/og.png", og);
+    set(`UPDATE bookmarks SET ${read}, favicon_url = ? WHERE entity_id = ?`, "https://d.org/f.png", icon);
+    const screen = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
+    const picture = async (title: string) =>
+      (await screen.findByTestId(`picture-${title}`)).props.source?.uri;
+    expect(await picture("Shot")).toMatch(/shots\/a\.png$/);
+    expect(await picture("Picked")).toBe("https://b.org/og.png");
+    expect(await picture("Og")).toBe("https://c.org/og.png");
+    expect(await picture("Icon")).toBe("https://d.org/f.png");
+  });
+
+  // A bookmark saved elsewhere, or while offline, was only read when opened, so the list kept
+  // showing it bare. The list reads each unread page once.
+  it("reads the pages of bookmarks never read", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Web", "#3b82f6");
+    const id = await createBookmark(data.db, space, "https://kubernetes.io/docs/");
+    const fake = serve(PAGE);
+    const screen = await renderScreens({ index: () => <Bookmarks space={space} /> }, data);
+    await waitFor(async () =>
+      expect((await getBookmarkDetails(data.db, id))?.previewImageUrl).toBe(
+        "https://kubernetes.io/card.png",
+      ),
+    );
+    expect(await screen.findByRole("link", { name: "Kubernetes Deployments" })).toBeTruthy();
+    expect(fake).toHaveBeenCalledTimes(1);
+  });
+
   // The Site filter was a bare list of addresses: it searches, shows each site's icon and
   // mutes the part of the address everyone has ("https://www.").
   it("finds a site by search, with its icon and its address's important part", async () => {

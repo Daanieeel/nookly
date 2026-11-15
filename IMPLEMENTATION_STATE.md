@@ -73,7 +73,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [x] Files: "Paste a link or Choose Files" becomes a floating bar like on Bookmarks, without the "Choose Files" part (the + at the top right does that); make sure that + adds several files at once. Done: the shared floating field (`ui/FloatingField.tsx`) now serves Files too; the + already picked several files (`multipleFiles: true`).
 - [x] Bookmarks, the "Site" filter: a search bar, each site with its favicon, and the address with only its important part highlighted ("https://www." muted, "google.com" full). Done: the Site card searches, shows each site's icon (a globe until it has one) and mutes "https://www." before the address.
 - [ ] Bookmark details page: prettier and more useful; "Refresh Details" must not wrap to a new line in its success state (layout shift).
-- [ ] Bookmark previews still do not work.
+- [x] Bookmark previews still do not work. Done: cards picture the page as the desktop does (its capture, else the site's picture, else its icon large), and the list reads each page never read once, so bookmarks saved elsewhere or offline fill in.
 
 ### 3. Final checks and report
 
