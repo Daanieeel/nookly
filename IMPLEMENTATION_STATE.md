@@ -80,6 +80,10 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [ ] (sixth round) Bookmark details: the Note field avoids the keyboard, so typing in it is never covered.
 - [ ] (sixth round) Redesign the whole Dashboard for the phone: the desktop like layout does not fit. A page people want to use as a shortcut to most features.
 
+### 2b. Tablet (asked in chat, after every other item above)
+
+- [ ] Optimize the app for tablet once all other items are done. The tablet should feel like a touch optimized version of the desktop app, not a bigger phone app: mostly the desktop's look and layout (sidebar, wide lists and tables, panes side by side), with touch sized targets, gestures and touch friendly inputs. Be creative for a first big version; the user gives feedback after.
+
 ### 3. Final checks and report
 
 - [ ] (asked in chat) Dependabot: merge every open Dependabot version bump that makes sense into this branch, then close all Dependabot PRs, the ones not merged too (with a word on why).
