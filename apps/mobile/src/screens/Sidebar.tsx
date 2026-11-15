@@ -84,15 +84,18 @@ function useSidebarIconColor() {
 /// fades into the list scrolling under it.
 const HEADER_HEIGHT = 52;
 const HEADER_BLUR = 24;
-/// How far under the header its blur fades out.
-const HEADER_FADE = 28;
+/// The room between the header and the list's first item (the mascot's card).
+const LIST_GAP = 4;
+/// How tall the blur's fade is, at the bottom of the header: it ends where the list
+/// starts, so it never lies over the first item until the list scrolls under it.
+const HEADER_FADE = 20;
 
 function SidebarHeader({ top, onSearch }: { top: number; onSearch: () => void }) {
   const theme = useTheme();
   const page = theme.colors.background;
-  const full = top + HEADER_HEIGHT + HEADER_FADE;
-  // Where the blur starts to fade: the header's own bottom.
-  const solid = (top + HEADER_HEIGHT) / full;
+  const full = top + HEADER_HEIGHT + LIST_GAP;
+  // Where the blur starts to fade, inside the header's lower edge, under its title.
+  const solid = (full - HEADER_FADE) / full;
   return (
     <View
       pointerEvents="box-none"
@@ -127,7 +130,7 @@ function SidebarHeader({ top, onSearch }: { top: number; onSearch: () => void })
       <Svg
         pointerEvents="none"
         width="100%"
-        height={top + HEADER_HEIGHT + HEADER_FADE}
+        height={full}
         style={{ position: "absolute", top: 0, left: 0, right: 0 }}
       >
         <Defs>
@@ -584,9 +587,10 @@ export const Sidebar = memo(function Sidebar({ close }: { close: () => void }) {
     // through. To bring the panel back: bg-sidebar here, the sidebar color in the drawer.
     <View className={SIDEBAR_PANEL_CLASSES} style={{ paddingBottom: insets.bottom + 4 }}>
       <ScrollView
+        testID="sidebar-list"
         className="flex-1"
         contentContainerClassName="p-2"
-        contentContainerStyle={{ paddingTop: insets.top + HEADER_HEIGHT + 4 }}
+        contentContainerStyle={{ paddingTop: insets.top + HEADER_HEIGHT + LIST_GAP }}
         scrollIndicatorInsets={{ top: HEADER_HEIGHT }}
       >
         <DayCard go={go} />

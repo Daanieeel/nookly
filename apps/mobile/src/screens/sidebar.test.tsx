@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import {
   createSpace,
   createTask,
@@ -26,6 +27,17 @@ describe("the sidebar", () => {
     const screen = await renderScreens({ index: () => <Sidebar close={jest.fn()} /> }, data);
     expect(await screen.findAllByTestId("header-blur")).toHaveLength(1);
     expect(screen.getByTestId("header-blur-fade")).toBeTruthy();
+  });
+
+  // The blur's fade reached past the header over the mascot's card at the top of the list.
+  // Unscrolled, it ends where the list starts.
+  it("keeps the header's blur off the list until it scrolls under it", async () => {
+    const data = testData();
+    await createSpace(data.db, "Work", "#3b82f6");
+    const screen = await renderScreens({ index: () => <Sidebar close={jest.fn()} /> }, data);
+    const fade = StyleSheet.flatten((await screen.findByTestId("header-blur-fade")).props.style);
+    const list = StyleSheet.flatten(screen.getByTestId("sidebar-list").props.contentContainerStyle);
+    expect(fade.height).toBeLessThanOrEqual(list.paddingTop);
   });
 
   it("shows one Space at a time, and the Space switcher at the bottom picks another", async () => {
