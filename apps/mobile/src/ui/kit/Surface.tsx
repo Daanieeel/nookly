@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
+import { PageGutterProvider } from "../row-edge.tsx";
 import { useSectionRadius } from "../sheet/in-sheet.ts";
 import { CORNER, SPACE } from "../tokens.ts";
 import { SectionHeader } from "./GroupedSection.tsx";
@@ -27,6 +28,30 @@ export function Surface({
       >
         {children}
       </View>
+    </View>
+  );
+}
+
+/// A plain list's rows on a raised, rounded card (a Home's lists): the rows reach the card's
+/// edges, so a pressed row and its swipe actions fill it and stay inside its corners, while
+/// what they show sits in line with the cards around it.
+export function RowsCard({ children }: { children: ReactNode }) {
+  const surface = useSurface();
+  const radius = useSectionRadius();
+  return (
+    <View
+      testID="rows-card"
+      style={[
+        CORNER,
+        {
+          backgroundColor: surface,
+          borderRadius: radius,
+          paddingHorizontal: SPACE.sm,
+          overflow: "hidden",
+        },
+      ]}
+    >
+      <PageGutterProvider value={SPACE.sm}>{children}</PageGutterProvider>
     </View>
   );
 }

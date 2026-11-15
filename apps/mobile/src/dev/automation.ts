@@ -209,6 +209,21 @@ const labels = (): string[] => {
   return out;
 };
 
+/// Scrolls a vertical scroll view to `y`: the `nth` of those mounted (by default the last
+/// found, the page in front). Returns how many there are.
+function scroll(y: number, nth?: number): number {
+  const views: { scrollTo: (to: { y: number; animated: boolean }) => void }[] = [];
+  for (const root of roots()) {
+    walk(root, (f) => {
+      const node = f.stateNode as { scrollTo?: unknown } | null | undefined;
+      if (node && typeof node.scrollTo === "function" && f.memoizedProps?.horizontal !== true)
+        views.push(node as (typeof views)[number]);
+    });
+  }
+  views[nth ?? views.length - 1]?.scrollTo({ y, animated: false });
+  return views.length;
+}
+
 export interface AutomationContext {
   [name: string]: unknown;
 }
@@ -226,6 +241,7 @@ export function startAutomation(url: string, device: string, context: Automation
     screenText,
     labels,
     measure,
+    scroll,
     ...context,
   };
   let stopped = false;

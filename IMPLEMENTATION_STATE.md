@@ -78,7 +78,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 - [x] Bookmark previews still do not work. Done: cards picture the page as the desktop does (its capture, else the site's picture, else its icon large), and the list reads each page never read once, so bookmarks saved elsewhere or offline fill in.
 - [x] (2026-11-15, "Custom" at the end of "Typical dates for" shows Starts and Ends day pills under the title; test; on screen) (sixth round) New Semester sheet: the timespan only offers "No dates" and "Germany". Add "Custom", which shows a start and an end date input.
 - [x] (2026-11-15, every field on a page now asks the page to keep its whole height above the keyboard while typing (the sub-task row's way, made shared); test; the real keyboard under Needs the user) (sixth round) Bookmark details: the Note field avoids the keyboard, so typing in it is never covered.
-- [ ] (sixth round) Redesign the whole Dashboard for the phone: the desktop like layout does not fit. A page people want to use as a shortcut to most features.
+- [x] (2026-11-15, D77: a phone gets a Home of shortcuts on the grouped background: the sentence, an Up next card (now or next today, how long until or left), four Create tiles (Task, Jot, Entry, Bookmark), count tiles that open their lists (Tasks, Assignments, Cards, Jots, the Calendar filling an odd one out), today's tasks, the calendar and the deadlines on cards of rows, every Space a tap away; the iPad keeps the desktop's panels; tests; on screen light and dark) (sixth round) Redesign the whole Dashboard for the phone: the desktop like layout does not fit. A page people want to use as a shortcut to most features.
 
 ### 2a. Seventh round (`NOTES.md`, 2026-11-15, after the sixth round; before the tablet)
 
@@ -139,7 +139,8 @@ Both:
 
 ## Progress log
 
-- 2026-11-15: seventh round of `NOTES.md` added (section 2a). Dashboard redesign for the phone under way.
+- 2026-11-15: phone Home done (D77). The sign in rate limit test got the time its twelve password checks take (CI timed out at 5s). The automation can scroll now (`scroll(y, nth)`).
+- 2026-11-15: seventh round of `NOTES.md` added (section 2a).
 - 2026-11-15: CI fixed: the formatter skips NOTES.md, Windows reads the generated fixtures with LF and FSRS floats to 9 decimals, and two timing races in tests (a sync clash, a sidebar glide) wait properly.
 - 2026-11-15: sixth round of `NOTES.md` added (search clear button, floating bars' corners, custom semester dates, the bookmark note and the keyboard, the Dashboard), plus Dependabot and CI from the chat.
 - 2026-11-15: the full mobile run timed out the search label test while the machine sat at a load of 57 (another app at 580% CPU); it passes alone. Rerun at the end.

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
 import { State } from "react-native-gesture-handler";
 import { fireGestureHandler, getByGestureTestId } from "react-native-gesture-handler/jest-utils";
+import { RowsCard } from "./kit/Surface.tsx";
 import { Row } from "./Row.tsx";
 import { Screen } from "./Screen.tsx";
 import { SwipeRow } from "./SwipeRow.tsx";
@@ -20,6 +21,22 @@ describe("a list row's edges", () => {
       </Screen>,
     );
     expect(style("Buy milk")).toMatchObject({ marginHorizontal: -16, paddingHorizontal: 20 });
+  });
+
+  // Home's lists sit on cards: a row reaches the card's edges, not the screen's.
+  it("reaches only the edges of a card of rows, inside its corners", () => {
+    render(
+      <Screen>
+        <RowsCard>
+          <Row title="Buy milk" onPress={() => {}} />
+        </RowsCard>
+      </Screen>,
+    );
+    expect(style("Buy milk")).toMatchObject({ marginHorizontal: -8, paddingHorizontal: 12 });
+    expect(StyleSheet.flatten(screen.getByTestId("rows-card").props.style)).toMatchObject({
+      paddingHorizontal: 8,
+      overflow: "hidden",
+    });
   });
 
   it("stays inside a sheet, which pads nothing", async () => {

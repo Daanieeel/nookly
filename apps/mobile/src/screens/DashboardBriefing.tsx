@@ -1,6 +1,7 @@
-import { useRouter } from "expo-router";
+import { useIsFocused, useRouter } from "expo-router";
 // The runs inside the sentence are plain native text, so they take its size and font.
 import { Text as Inline, View } from "react-native";
+import { Mascot } from "../ui/Mascot.tsx";
 import { Text } from "../ui/Text.tsx";
 import { type Briefing, type LinkTarget, type Run } from "./briefing-runs.ts";
 
@@ -11,9 +12,12 @@ import { type Briefing, type LinkTarget, type Run } from "./briefing-runs.ts";
 export function DashboardBriefing({
   briefing,
   open,
+  compact = false,
 }: {
   briefing: Briefing;
   open: (target: LinkTarget) => void;
+  /// A size smaller, for a phone's Home where the sentence leads a page of shortcuts.
+  compact?: boolean;
 }) {
   const glue = (text: string, key?: string) => (
     <Inline key={key} className={GLUE}>
@@ -40,7 +44,11 @@ export function DashboardBriefing({
     );
   return (
     <View accessibilityRole="header">
-      <Text className="text-2xl leading-9 text-foreground">
+      <Text
+        className={
+          compact ? "text-xl leading-8 text-foreground" : "text-2xl leading-9 text-foreground"
+        }
+      >
         <Inline className="font-semibold text-foreground">
           {briefing.greeting}
           {briefing.mark}
@@ -55,6 +63,36 @@ export function DashboardBriefing({
         ))}
         {glue(".")}
       </Text>
+    </View>
+  );
+}
+
+/// The day the Dashboard greets, offline or not, and the desktop's corner mascot beside it,
+/// over the sentence about the day.
+export function DashboardGreeting({
+  date,
+  offline,
+  briefing,
+  open,
+  compact = false,
+}: {
+  date: string;
+  offline: boolean;
+  briefing: Briefing;
+  open: (target: LinkTarget) => void;
+  compact?: boolean;
+}) {
+  const focused = useIsFocused();
+  return (
+    <View className="gap-2">
+      <View className="flex-row items-end gap-3">
+        <Text variant="small" tone="muted" className="flex-1 pb-1">
+          {date}
+          {offline ? ". Offline, changes sync later." : ""}
+        </Text>
+        <Mascot size={compact ? 52 : 64} animate={focused} />
+      </View>
+      <DashboardBriefing briefing={briefing} open={open} compact={compact} />
     </View>
   );
 }

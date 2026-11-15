@@ -441,3 +441,11 @@ One rule for every type. Right to left shows More (the item's menu) and Trash; T
 Tasks lost "Done" as a swipe on purpose: the circle on the row already finishes a task with one tap, so the swipe is spent on scheduling, which had no quick way.
 
 The look is Mail's: full height buttons side by side, each with its icon and name, sharing what the row uncovers; past most of the row the outermost button grows over the others. No package was added: the existing row already followed the finger with the phone's own springs and haptics (`ui/motion.ts`), and the libraries looked at (the gesture handler's swipeable) have no long drag action.
+
+## D77. The phone's Dashboard is a Home of shortcuts
+
+The desktop's Dashboard (panels with tabs for assignments, tasks, decks and jots) read as a long page of small lists on a phone. A phone gets a Home instead, the page people open to get somewhere fast; an iPad, wide enough for the desktop's layout, keeps the panels with today's hours beside them.
+
+From the top: the date and the mascot over the sentence about the day (its counts and names still open what they speak of), then an Up next card with what is on the calendar now or next today and how long until it or how much is left. Then Create, four tiles for what people make on the go (a task, a quick jot, a calendar entry, a bookmark). Then At a glance, two tiles to a row counting what waits, each opening its list: tasks due today or overdue, assignments due in the next two weeks, cards to learn, jots to refine; Assignments and Cards only once there are any, and the Calendar's tile fills an odd one out. Then today's tasks (the same rows as the Tasks page, so they tick off and swipe there), today's calendar, the deadlines coming up, and a row of every Space.
+
+The page sits on the grouped background with its tiles and lists on raised cards, as iOS's Health and Fitness summaries do, so the tiles read as widgets in light mode too.

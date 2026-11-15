@@ -24,6 +24,9 @@ import { SidebarSettingsScreen } from "./settings/SidebarSettings.tsx";
 import { DEFAULT_TOP, topSchema } from "./sidebar-top.ts";
 import { addDays, localDay } from "./dates.ts";
 
+/// The desktop's Dashboard, as an iPad shows it (a phone has its Home, `home.test.tsx`).
+const IPAD = { width: 1100 };
+
 describe("the dashboard", () => {
   it("says what the day holds and lists jots to refine, which refining takes off", async () => {
     const data = testData();
@@ -34,6 +37,8 @@ describe("the dashboard", () => {
     const screen = await renderScreens(
       { index: () => <DashboardScreen />, "entity/[id]": () => <Text>Opened</Text> },
       data,
+      "/",
+      IPAD,
     );
     expect(await screen.findByRole("button", { name: "Idea for the app" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "To be refined 1" })).toBeTruthy();
@@ -61,7 +66,7 @@ describe("the dashboard", () => {
     const course = await createCourse(data.db, space, "Algorithms");
     await createAssignment(data.db, space, "Sheet 3", course, addDays(localDay(), 3));
     await createDeck(data.db, space, "Graph terms");
-    const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
+    const screen = await renderScreens({ index: () => <DashboardScreen /> }, data, "/", IPAD);
     await fireEvent.press(await screen.findByRole("tab", { name: "Next 7 days 1" }));
     expect(await screen.findByRole("button", { name: "Sheet 3" })).toBeTruthy();
   });
@@ -72,11 +77,12 @@ describe("the dashboard", () => {
     expect(await screen.findByTestId("mascot", { includeHiddenElements: true })).toBeTruthy();
   });
 
-  // A general page: a + there would only ever make a task, which reads as misleading.
+  // A general page: a + there would only ever make a task, which reads as misleading. The
+  // phone's Home makes things from its own tiles instead.
   it("has no New Task button in its bar", async () => {
     const data = testData();
     const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
-    expect((await screen.findAllByRole("tab")).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("button", { name: "Quick Jot" })).toBeTruthy();
     expect(barLabels(screen)).not.toContain("New Task");
   });
 
@@ -85,7 +91,7 @@ describe("the dashboard", () => {
     const space = await createSpace(data.db, "Uni", "#3b82f6");
     const course = await createCourse(data.db, space, "Algorithms");
     await createAssignment(data.db, space, "Sheet 3", course, addDays(localDay(), 3));
-    const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
+    const screen = await renderScreens({ index: () => <DashboardScreen /> }, data, "/", IPAD);
     // Nothing is due today, so the panel opens on the next week rather than on nothing.
     expect(await screen.findByRole("button", { name: "Sheet 3" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Next 7 days 1" }).props.accessibilityState).toEqual(

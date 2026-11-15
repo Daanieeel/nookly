@@ -1,4 +1,3 @@
-import { useIsFocused } from "expo-router";
 import { View } from "react-native";
 import { useSyncState } from "../data/context.tsx";
 import {
@@ -14,14 +13,11 @@ import {
   useUnrefinedJots,
 } from "../data/queries.ts";
 import { useSetting } from "../data/settings.ts";
-import { Section, Empty } from "../ui/Row.tsx";
-import { Mascot } from "../ui/Mascot.tsx";
 import { Screen } from "../ui/Screen.tsx";
-import { Text } from "../ui/Text.tsx";
 import { usePaneWidth } from "../ui/pane.tsx";
-import { AgendaRow } from "./CalendarScreen.tsx";
 import { ASSIGNMENT_DONE } from "./AssignmentsScreen.tsx";
-import { DashboardBriefing, useOpenTarget } from "./DashboardBriefing.tsx";
+import { DashboardGreeting, useOpenTarget } from "./DashboardBriefing.tsx";
+import { HomeScreen } from "./HomeScreen.tsx";
 import { AssignmentsPanel, DecksPanel, JotsPanel, TasksPanel } from "./DashboardPanels.tsx";
 import { buildBriefing } from "./briefing-runs.ts";
 import { tasksFor } from "./dashboard-model.ts";
@@ -34,10 +30,9 @@ const AHEAD_DAYS = 14;
 const WIDE_DASHBOARD = 900;
 const TODAY_WIDTH = 360;
 
-/// The day at a glance, like the desktop's Dashboard: a sentence about the day whose counts
-/// and names open the matching list, then panels for assignments, tasks, decks and jots, and
-/// today's hours (beside the panels on an iPad, under them on a phone).
-export function DashboardScreen() {
+/// What the Dashboard and the phone's Home show: today's items, what is due, the decks with
+/// cards to learn, the jots to refine, and the sentence about the day.
+export function useDashboard() {
   const today = localDay();
   const horizon = addDays(today, AHEAD_DAYS);
   const { data: items = [] } = useAgenda(today, today);
@@ -127,55 +122,63 @@ export function DashboardScreen() {
     day: "numeric",
     month: "long",
   });
+  return {
+    today,
+    items,
+    tasks,
+    statuses,
+    spaces,
+    assignments,
+    decks,
+    jots,
+    deadlines,
+    readyDecks,
+    dueTasks,
+    briefing,
+    date,
+    offline: syncState === "offline",
+    refreshing,
+    onRefresh,
+    open,
+    colorOf,
+    courseName,
+    examName,
+  };
+}
 
+export type Dashboard = ReturnType<typeof useDashboard>;
+
+/// The day at a glance. On an iPad the desktop's Dashboard: a sentence about the day whose
+/// counts and names open the matching list, panels for assignments, tasks, decks and jots,
+/// and today's hours beside them. On a phone a Home of shortcuts (`HomeScreen`).
+export function DashboardScreen() {
+  const d = useDashboard();
   const wide = usePaneWidth() >= WIDE_DASHBOARD;
-  const focused = useIsFocused();
+  return wide ? <DesktopDashboard d={d} /> : <HomeScreen d={d} />;
+}
+
+function DesktopDashboard({ d }: { d: Dashboard }) {
+  const { today, items, tasks, statuses, spaces, assignments, decks, jots } = d;
   const page = (
-    <>
-      <Screen onRefresh={onRefresh} refreshing={refreshing} wide={wide}>
-        <View className="gap-2">
-          {/* The desktop's corner mascot, beside the day it greets. */}
-          <View className="flex-row items-end gap-3">
-            <Text variant="small" tone="muted" className="flex-1 pb-1">
-              {date}
-              {syncState === "offline" ? ". Offline, changes sync later." : ""}
-            </Text>
-            <Mascot size={64} animate={focused} />
-          </View>
-          <DashboardBriefing briefing={briefing} open={open} />
-        </View>
-        <AssignmentsPanel
-          assignments={assignments}
-          spaces={spaces}
-          courseName={courseName}
-          today={today}
-        />
-        <TasksPanel tasks={tasks} statuses={statuses} spaces={spaces} today={today} />
-        <DecksPanel decks={decks} examName={examName} />
-        <JotsPanel jots={jots} spaces={spaces} />
-        {wide ? null : (
-          <Section title="Today">
-            {items.length === 0 ? (
-              <Empty text="Nothing on the calendar today." />
-            ) : (
-              items.map((item) => (
-                <View key={item.id}>
-                  <AgendaRow item={item} color={colorOf(item.spaceId)} />
-                </View>
-              ))
-            )}
-          </Section>
-        )}
-      </Screen>
-    </>
+    <Screen onRefresh={d.onRefresh} refreshing={d.refreshing} wide>
+      <DashboardGreeting date={d.date} offline={d.offline} briefing={d.briefing} open={d.open} />
+      <AssignmentsPanel
+        assignments={assignments}
+        spaces={spaces}
+        courseName={d.courseName}
+        today={today}
+      />
+      <TasksPanel tasks={tasks} statuses={statuses} spaces={spaces} today={today} />
+      <DecksPanel decks={decks} examName={d.examName} />
+      <JotsPanel jots={jots} spaces={spaces} />
+    </Screen>
   );
-  if (!wide) return page;
   // The desktop's Dashboard on an iPad: the lists on the left, today's hours on the right.
   return (
     <View className="flex-1 flex-row">
       <View className="flex-1">{page}</View>
       <View className="border-l border-border" style={{ width: TODAY_WIDTH }}>
-        <TimeGrid days={[today]} items={items} width={TODAY_WIDTH} colorOf={colorOf} />
+        <TimeGrid days={[today]} items={items} width={TODAY_WIDTH} colorOf={d.colorOf} />
       </View>
     </View>
   );
