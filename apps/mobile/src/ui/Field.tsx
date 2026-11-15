@@ -1,9 +1,10 @@
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Pressable, TextInput, type TextInputProps, View } from "react-native";
-import { FormRow } from "./kit/Form.tsx";
+import { FormRow, useInForm } from "./kit/Form.tsx";
 import { Label } from "./kit/Label.tsx";
-import { useSemantic } from "./kit/scheme.ts";
-import { FACE, GUTTER, SPACE, TYPE } from "./tokens.ts";
+import { useScheme, useSemantic, useSurface } from "./kit/scheme.ts";
+import { useSectionRadius } from "./sheet/in-sheet.ts";
+import { CORNER, DEPTH, FACE, GUTTER, SPACE, TINT, TYPE } from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
 
 /// A field's name above what it holds, for the few places that lay a control out on their
@@ -19,9 +20,11 @@ export function FieldLabel({ label, required }: { label: string; required?: bool
   );
 }
 
-/// Text typed into a form, as an iOS form row: its name small above the text, so the name
-/// never passes for a placeholder, or an icon at the start in place of the name. A tap
-/// anywhere on the row puts the cursor in it. Errors show under it in red.
+/// Text typed into a form. On its own it is a raised box with a hairline edge, as the
+/// desktop's input, its name small above it; focused, the edge and the name take the accent,
+/// and an error turns the edge red with the message under it. As a row of a `FormSection` it
+/// is an iOS form row with its name above the text. Either way an icon may stand for the
+/// name, and a tap anywhere on it puts the cursor in it.
 export function Field({
   label,
   required,
@@ -30,6 +33,8 @@ export function Field({
   icon,
   className: _className,
   style,
+  onFocus,
+  onBlur,
   ...props
 }: TextInputProps & {
   label: string;
@@ -41,50 +46,128 @@ export function Field({
 }) {
   const text = useSemantic("label");
   const muted = useSemantic("tertiaryLabel");
+  const edge = useSemantic("separator");
+  const surface = useSurface();
+  const scheme = useScheme();
+  const radius = useSectionRadius();
+  const inForm = useInForm();
+  const [focused, setFocused] = useState(false);
   const field = useRef<TextInput>(null);
+  const accent = TINT.blue[scheme];
+  const name = icon ? null : (
+    <Label
+      type="footnote"
+      weight="500"
+      color="secondaryLabel"
+      tint={focused ? accent : undefined}
+      style={inForm ? undefined : { paddingHorizontal: SPACE.xs }}
+    >
+      {label}
+      {required ? " *" : ""}
+    </Label>
+  );
+  const input = (
+    <TextInput
+      ref={field}
+      accessibilityLabel={label}
+      multiline={multiline}
+      placeholderTextColor={muted}
+      {...props}
+      onFocus={(event) => {
+        setFocused(true);
+        onFocus?.(event);
+      }}
+      onBlur={(event) => {
+        setFocused(false);
+        onBlur?.(event);
+      }}
+      style={[
+        {
+          flex: inForm ? undefined : 1,
+          minHeight: multiline ? 88 : icon || !inForm ? MIN_TOUCH : 26,
+          fontFamily: FACE["400"],
+          fontSize: TYPE.body.fontSize,
+          lineHeight: multiline ? TYPE.body.lineHeight : undefined,
+          color: text,
+          paddingVertical: multiline ? SPACE.sm : 0,
+        },
+        style,
+      ]}
+      textAlignVertical={multiline ? "top" : "center"}
+    />
+  );
+  if (inForm) {
+    return (
+      <FormRow error={error}>
+        <Pressable
+          accessible={false}
+          onPress={() => field.current?.focus()}
+          style={{
+            flexDirection: "row",
+            alignItems: multiline ? "flex-start" : "center",
+            gap: SPACE.md,
+            paddingHorizontal: GUTTER,
+            paddingVertical: icon ? 0 : SPACE.sm,
+            minHeight: MIN_TOUCH + 12,
+          }}
+        >
+          {icon ? <View style={{ paddingTop: multiline ? SPACE.md : 0 }}>{icon}</View> : null}
+          <View style={{ flex: 1, flexDirection: "column", gap: SPACE.xxs }}>
+            {name}
+            {input}
+          </View>
+        </Pressable>
+      </FormRow>
+    );
+  }
+  const border = error ? TINT.red[scheme] : focused ? accent : edge;
   return (
-    <FormRow error={error}>
-      <Pressable
-        accessible={false}
-        onPress={() => field.current?.focus()}
-        style={{
-          flexDirection: "row",
-          alignItems: multiline ? "flex-start" : "center",
-          gap: SPACE.md,
-          paddingHorizontal: GUTTER,
-          paddingVertical: icon ? 0 : SPACE.sm,
-          minHeight: MIN_TOUCH + 12,
-        }}
+    <Pressable
+      accessible={false}
+      onPress={() => field.current?.focus()}
+      style={{ flexDirection: "column", gap: SPACE.xs + 2 }}
+    >
+      {name}
+      <View
+        testID="field-box"
+        style={[
+          CORNER,
+          DEPTH.raised,
+          {
+            flexDirection: "row",
+            alignItems: multiline ? "flex-start" : "center",
+            gap: SPACE.md,
+            paddingHorizontal: SPACE.md + 2,
+            minHeight: MIN_TOUCH + 6,
+            borderRadius: radius,
+            borderWidth: focused || error ? 1.5 : 1,
+            borderColor: border,
+            backgroundColor: surface,
+          },
+          // The desktop's focus ring, as a soft glow of the accent.
+          focused && !error
+            ? {
+                shadowColor: accent,
+                shadowOpacity: 0.35,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 0 },
+              }
+            : null,
+        ]}
       >
         {icon ? <View style={{ paddingTop: multiline ? SPACE.md : 0 }}>{icon}</View> : null}
-        <View style={{ flex: 1, flexDirection: "column", gap: SPACE.xxs }}>
-          {icon ? null : (
-            <Label type="footnote" color="secondaryLabel">
-              {label}
-              {required ? " *" : ""}
-            </Label>
-          )}
-          <TextInput
-            ref={field}
-            accessibilityLabel={label}
-            multiline={multiline}
-            placeholderTextColor={muted}
-            {...props}
-            style={[
-              {
-                minHeight: multiline ? 88 : icon ? MIN_TOUCH : 26,
-                fontFamily: FACE["400"],
-                fontSize: TYPE.body.fontSize,
-                lineHeight: multiline ? TYPE.body.lineHeight : undefined,
-                color: text,
-                paddingVertical: multiline && icon ? SPACE.sm : 0,
-              },
-              style,
-            ]}
-            textAlignVertical={multiline ? "top" : "center"}
-          />
-        </View>
-      </Pressable>
-    </FormRow>
+        {input}
+      </View>
+      {error ? (
+        <Label
+          type="footnote"
+          tint={TINT.red[scheme]}
+          accessibilityLiveRegion="polite"
+          style={{ paddingHorizontal: SPACE.xs }}
+        >
+          {error}
+        </Label>
+      ) : null}
+    </Pressable>
   );
 }

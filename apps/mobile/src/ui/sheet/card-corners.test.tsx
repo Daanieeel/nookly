@@ -3,6 +3,7 @@ import { Text } from "react-native";
 import { Surface } from "../kit/Surface.tsx";
 import { RADIUS } from "../tokens.ts";
 import { Sheet } from "./Sheet.tsx";
+import { SelectField } from "../SelectField.tsx";
 
 // The calendar's box in a floating card (a date picker) had the small corners of a section,
 // so it looked off inside the card's big round ones. Inside a card it rounds as much as the
@@ -18,6 +19,22 @@ describe("a surface's corners", () => {
     );
     expect(await screen.findByTestId("surface")).toHaveStyle({ borderRadius: RADIUS.inCard });
     expect(RADIUS.inCard).toBe(RADIUS.card - 8);
+  });
+
+  // The "Kind of link" select in the Relate card kept a section's small corners under the
+  // round search bar. A field on its own rounds with the card too.
+  it("a field on its own rounds with the card", async () => {
+    render(
+      <Sheet open onOpenChange={() => {}} title="Relate to…" presentation="card">
+        <SelectField
+          label="Kind of link"
+          value="a"
+          options={[{ id: "a", label: "Related to" }]}
+          onChange={() => {}}
+        />
+      </Sheet>,
+    );
+    expect(await screen.findByTestId("form-row")).toHaveStyle({ borderRadius: RADIUS.inCard });
   });
 
   it("keep a section's corners elsewhere", () => {

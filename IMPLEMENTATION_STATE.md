@@ -53,10 +53,10 @@ Order: shared pieces first (the input field, the centred dialog, list rows and g
 
 ### 1. Mobile: shared pieces
 
-- [ ] Redesign the regular text input field. It looks flat and plain now; give it Nookly's style (depth, the squircle radius, a clear focus state), through `ui/` only, used everywhere.
-- [ ] Bug: the round search bars (e.g. in the relationship picker) double their height once you start typing.
-- [ ] The relationship picker's "kind of link" select trigger below the search bar is not rounded. Round it.
-- [ ] The "Filter notes" search bar on the Notes list gets the regular round search bar design (check every list page's search bar).
+- [x] (2026-11-15, D69: a raised box with a hairline edge, accent edge, name and glow while focused; tests; on screen) Redesign the regular text input field. It looks flat and plain now; give it Nookly's style (depth, the squircle radius, a clear focus state), through `ui/` only, used everywhere.
+- [x] (2026-11-15, the clear button asked for a percent of a height the row lacked; test; on screen) Bug: the round search bars (e.g. in the relationship picker) double their height once you start typing.
+- [x] (2026-11-15, a field on its own in a card rounds with the card; test; on screen) The relationship picker's "kind of link" select trigger below the search bar is not rounded. Round it.
+- [x] (2026-11-15, `FilterField` is the round `SearchField` on Notes, Jots and Trash, and the global search too; test) The "Filter notes" search bar on the Notes list gets the regular round search bar design (check every list page's search bar).
 - [ ] Dialogs (the centred floating card): the space below the close button equals its space to the right and top.
 - [ ] List rows (tasks, notes, jots, every item list): the side padding moves from the list container into each row, so the pressed colour and swipe actions run from screen edge to edge.
 - [ ] Swipe actions on rows feel like iOS Mail: actions revealed from outside the screen edge, full swipe to act, spring motion from `ui/motion.ts`, haptics.

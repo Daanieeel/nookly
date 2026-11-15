@@ -31,6 +31,7 @@ export function SearchField({
   const text = useSemantic("label");
   return (
     <View
+      testID="search-field"
       style={[
         CORNER,
         {
@@ -75,7 +76,7 @@ export function SearchField({
           onPress={() => onChangeText("")}
           hitSlop={touchSlop(HEIGHT, MIN_TOUCH)}
           style={({ pressed }) => [
-            { paddingHorizontal: SPACE.sm, height: "100%", justifyContent: "center" },
+            { paddingHorizontal: SPACE.sm, alignSelf: "stretch", justifyContent: "center" },
             pressed && { opacity: 0.6 },
           ]}
         >

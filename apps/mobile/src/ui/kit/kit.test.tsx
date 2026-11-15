@@ -78,6 +78,19 @@ describe("the base components", () => {
     expect(onChange).toHaveBeenCalledWith("");
   });
 
+  // Bug: typing into a round search bar made it many times as tall, because its clear button
+  // asked for a percentage of a height the row did not have. It stretches to the row instead.
+  it("the clear button never sizes by percent, so typing keeps the bar's height", () => {
+    const screen = render(
+      <SearchField label="Search Items" value="plan" onChangeText={() => {}} />,
+    );
+    const style = StyleSheet.flatten(
+      screen.getByRole("button", { name: "Clear Search" }).props.style,
+    );
+    expect(style.height).toBeUndefined();
+    expect(style.alignSelf).toBe("stretch");
+  });
+
   it("an empty state is a summary with its action", () => {
     const onPress = jest.fn();
     const screen = render(

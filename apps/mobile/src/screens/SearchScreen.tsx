@@ -3,7 +3,7 @@ import { useEntityMenu } from "./entity-actions.tsx";
 import { useState } from "react";
 import { View } from "react-native";
 import { useRecents, useSearch } from "../data/queries.ts";
-import { Field } from "../ui/Field.tsx";
+import { SearchField } from "../ui/kit/SearchField.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
@@ -34,14 +34,11 @@ export function SearchScreen() {
   const searching = query.trim().length > 0;
   return (
     <Screen>
-      <Field
+      <SearchField
         label="Search"
         placeholder="Titles, keys like TSK-14, page text"
         value={query}
         onChangeText={setQuery}
-        autoCorrect={false}
-        clearButtonMode="while-editing"
-        returnKeyType="search"
       />
       <Section title={searching ? "Results" : "Recents"}>
         <Results

@@ -1,13 +1,13 @@
-import { INPUT_CLASSES } from "@nookly/ui/classes";
-import { IconAdjustmentsHorizontal, IconFilter, IconSearch } from "@tabler/icons-react-native";
+import { IconAdjustmentsHorizontal, IconFilter } from "@tabler/icons-react-native";
 import { Button } from "./Button.tsx";
-import { TextInput, View } from "react-native";
-import { cn, row, splitText } from "./classes.ts";
+import { View } from "react-native";
+import { SearchField } from "./kit/SearchField.tsx";
 import { PageTabs } from "./PageTabs.tsx";
 import { Text } from "./Text.tsx";
 import { useTheme } from "./theme.ts";
 
-/// The field above a page's list that narrows it as you type: "Filter notes".
+/// The field above a page's list that narrows it as you type: "Filter notes". The app's
+/// round search bar.
 export function FilterField({
   label,
   value,
@@ -17,25 +17,7 @@ export function FilterField({
   value: string;
   onChange: (text: string) => void;
 }) {
-  const theme = useTheme();
-  const { box, text } = splitText(row(INPUT_CLASSES));
-  return (
-    <View className={cn(box, "gap-2")}>
-      <IconSearch size={16} color={theme.colors.mutedForeground} />
-      <TextInput
-        accessibilityLabel={label}
-        value={value}
-        onChangeText={onChange}
-        placeholder={label}
-        placeholderTextColor={theme.colors.mutedForeground}
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="search"
-        clearButtonMode="while-editing"
-        className={cn(text, "flex-1 font-sans text-foreground")}
-      />
-    </View>
-  );
+  return <SearchField label={label} placeholder={label} value={value} onChangeText={onChange} />;
 }
 
 /// A page's title with how many it lists, the line the desktop's header gives it.

@@ -1,15 +1,22 @@
 import { Children, createContext, type ReactNode, useContext } from "react";
 import { View } from "react-native";
-import { CORNER, GUTTER, RADIUS, SPACE, TINT } from "../tokens.ts";
-import { GroupedSection } from "./GroupedSection.tsx";
+import { useSectionRadius } from "../sheet/in-sheet.ts";
+import { CORNER, GUTTER, SPACE, TINT } from "../tokens.ts";
+import { GroupedSection, SectionHeader } from "./GroupedSection.tsx";
 import { Label } from "./Label.tsx";
 import { useScheme, useSurface } from "./scheme.ts";
 
 /// Whether a field sits in a `FormSection`, which draws the surface its rows share.
 const InForm = createContext(false);
 
+/// Whether the caller is a row of a `FormSection` rather than a field on its own.
+export function useInForm() {
+  return useContext(InForm);
+}
+
 /// Fields grouped as iOS groups a form's rows (D52): one raised surface, hairlines between
-/// them, a title above and a note below.
+/// them, a title above and a note below. A section of one field leaves the surface to the
+/// field (D69).
 export function FormSection({
   title,
   footer,
@@ -19,7 +26,26 @@ export function FormSection({
   footer?: string;
   children: ReactNode;
 }) {
-  if (Children.toArray(children).length === 0) return null;
+  const rows = Children.toArray(children);
+  if (rows.length === 0) return null;
+  // One field on its own draws its own box (a text field's raised box, a select's row).
+  if (rows.length === 1) {
+    return (
+      <View>
+        {title ? <SectionHeader title={title} /> : null}
+        {children}
+        {footer ? (
+          <Label
+            type="footnote"
+            color="secondaryLabel"
+            style={{ paddingHorizontal: SPACE.lg, paddingTop: SPACE.sm }}
+          >
+            {footer}
+          </Label>
+        ) : null}
+      </View>
+    );
+  }
   return (
     <InForm.Provider value>
       <GroupedSection title={title} footer={footer} margin={0}>
@@ -35,6 +61,7 @@ export function FormRow({ error, children }: { error?: string | null; children: 
   const inForm = useContext(InForm);
   const surface = useSurface();
   const scheme = useScheme();
+  const radius = useSectionRadius();
   const message = error ? (
     <Label
       type="footnote"
@@ -55,10 +82,8 @@ export function FormRow({ error, children }: { error?: string | null; children: 
   }
   return (
     <View
-      style={[
-        CORNER,
-        { backgroundColor: surface, borderRadius: RADIUS.section, overflow: "hidden" },
-      ]}
+      testID="form-row"
+      style={[CORNER, { backgroundColor: surface, borderRadius: radius, overflow: "hidden" }]}
     >
       {children}
       {message}

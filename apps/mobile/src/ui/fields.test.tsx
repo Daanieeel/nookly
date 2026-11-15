@@ -1,6 +1,8 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
 import { Field } from "./Field.tsx";
+import { TINT } from "./tokens.ts";
+import { FormSection } from "./kit/Form.tsx";
 import { DayProperty, TextRow } from "./property-rows.tsx";
 import { renderScreens, testData } from "../test/render.tsx";
 
@@ -36,6 +38,70 @@ describe("a text field", () => {
     const screen = render(<Field label="Title" value="" onChangeText={() => {}} />);
     fireEvent.press(screen.getByText("Title"));
     expect(screen.getByLabelText("Title")).toBeTruthy();
+  });
+});
+
+// The user found the plain filled field flat. A field on its own is a raised box with a
+// hairline edge, as the desktop's input; focused, its edge and name take the accent.
+describe("a field's box", () => {
+  const box = (screen: ReturnType<typeof render>) =>
+    StyleSheet.flatten(screen.getByTestId("field-box").props.style);
+
+  it("is raised, with a hairline edge", () => {
+    const screen = render(<Field label="Name" value="" onChangeText={() => {}} />);
+    expect(box(screen).borderWidth).toBeGreaterThan(0);
+    expect(box(screen).shadowOpacity).toBeGreaterThan(0);
+  });
+
+  it("takes the accent while focused, and lets go after", () => {
+    const screen = render(<Field label="Name" value="" onChangeText={() => {}} />);
+    const resting = box(screen).borderColor;
+    fireEvent(screen.getByLabelText("Name"), "focus");
+    expect(box(screen).borderColor).toBe(TINT.blue.light);
+    expect(StyleSheet.flatten(screen.getByText("Name").props.style).color).toBe(TINT.blue.light);
+    fireEvent(screen.getByLabelText("Name"), "blur");
+    expect(box(screen).borderColor).toEqual(resting);
+  });
+
+  it("still calls the field's own focus and blur handlers", () => {
+    const onFocus = jest.fn();
+    const onBlur = jest.fn();
+    const screen = render(
+      <Field label="Name" value="" onChangeText={() => {}} onFocus={onFocus} onBlur={onBlur} />,
+    );
+    fireEvent(screen.getByLabelText("Name"), "focus");
+    fireEvent(screen.getByLabelText("Name"), "blur");
+    expect(onFocus).toHaveBeenCalled();
+    expect(onBlur).toHaveBeenCalled();
+  });
+
+  // Most forms hold one field in a section (New Space's name); it showed as a flat row.
+  it("draws its box in a section of its own", () => {
+    const screen = render(
+      <FormSection title="Space">
+        <Field label="Name" value="" onChangeText={() => {}} />
+      </FormSection>,
+    );
+    expect(screen.getByTestId("field-box")).toBeTruthy();
+    expect(screen.getByText("SPACE")).toBeTruthy();
+  });
+
+  it("is a grouped row among other rows", () => {
+    const screen = render(
+      <FormSection>
+        <Field label="Username" value="" onChangeText={() => {}} />
+        <Field label="Password" value="" onChangeText={() => {}} />
+      </FormSection>,
+    );
+    expect(screen.queryByTestId("field-box")).toBeNull();
+  });
+
+  it("has a red edge with an error", () => {
+    const screen = render(
+      <Field label="Name" value="" onChangeText={() => {}} error="Give it a name." />,
+    );
+    expect(box(screen).borderColor).toBe(TINT.red.light);
+    expect(screen.getByText("Give it a name.")).toBeTruthy();
   });
 });
 
