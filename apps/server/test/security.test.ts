@@ -126,23 +126,30 @@ describe("one account never reaches another's data", () => {
 });
 
 describe("abuse", () => {
-  it("rate limits sign in attempts", async () => {
-    server = await startServer({ RATE_LIMIT_SCALE: "1" });
-    await server.client().signUp({ username: "ada", password: PASSWORD }, DESKTOP);
-    const statuses: number[] = [];
-    // A fresh connection for each attempt: a pooled one the server had already closed
-    // reset the socket in CI, and a retry would count against the limit being tested.
-    const fresh = new ApiClient({
-      baseUrl: server.baseUrl,
-      tokens: new MemoryTokens(),
-      fetch: (url, init) => fetch(url, { ...init, keepalive: false }),
-    });
-    for (let i = 0; i < 12; i++) {
-      statuses.push((await code(fresh.signIn("ada", "wrong password!", PHONE))) ?? 200);
-    }
-    expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
-    expect(statuses.at(-1)).toBe(429);
-  });
+  it(
+    "rate limits sign in attempts",
+    async () => {
+      server = await startServer({ RATE_LIMIT_SCALE: "1" });
+      await server.client().signUp({ username: "ada", password: PASSWORD }, DESKTOP);
+      const statuses: number[] = [];
+      // A fresh connection for each attempt: a pooled one the server had already closed
+      // reset the socket in CI, and a retry would count against the limit being tested.
+      const fresh = new ApiClient({
+        baseUrl: server.baseUrl,
+        tokens: new MemoryTokens(),
+        fetch: (url, init) => fetch(url, { ...init, keepalive: false }),
+      });
+      for (let i = 0; i < 12; i++) {
+        statuses.push((await code(fresh.signIn("ada", "wrong password!", PHONE))) ?? 200);
+      }
+      expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
+      expect(statuses.at(-1)).toBe(429);
+      // Twelve wrong passwords, each checked against its hash (most of a second on a CI
+      // runner): past bun's 5 second default, after which the server stopping under the last
+      // attempt reset its connection.
+    },
+    HOOK_TIMEOUT,
+  );
 
   it("refuses a body over the size limit", async () => {
     server = await startServer({ MAX_BODY_BYTES: "4096" });
