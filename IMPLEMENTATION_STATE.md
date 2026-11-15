@@ -85,7 +85,7 @@ Order: shared pieces first (dialog corners and padding, the search field, filter
 Mobile:
 
 - [x] (2026-11-15, the X folds back in on a spring without overshoot and never measures below nothing (the old spring took its width negative, the field jerked); every search field and the palette say just "Search" ("Go to", "Command"), the prop for a longer one removed; tests) Search field: the X's way back out (as the text is cleared) is buggy; make it as smooth as its way in. Shorten the search placeholders to a word or two: a search bar explains itself.
-- [ ] Cross Space Tasks page: the "is any of" (or similar) part of a filter chip cannot be tapped for the preset "Due date" and "Created" filters (maybe ones synced from the desktop). Works on other pages.
+- [x] (2026-11-15, the tap worked but with half the choices picked (3 of the 6 due buckets, 2 of 4 ages) the swapped half read "is any of" again, so it looked dead; an even split now reads the way it was last turned; test; on screen) Cross Space Tasks page: the "is any of" (or similar) part of a filter chip cannot be tapped for the preset "Due date" and "Created" filters (maybe ones synced from the desktop). Works on other pages.
 - [ ] Nicer empty states everywhere: Assignments says only "Nothing matches these filters." Give it a proper empty state with a Clear Filters button under it.
 - [ ] Assignments: active filters show as the same chips as on Tasks (with their "is any of" parts) instead of hiding in the filter menu. The Filter and Display sheets open and close slowly; make them quick.
 - [ ] Tasks: switching between list and board takes a second or more; make it instant.

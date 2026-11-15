@@ -17,9 +17,13 @@ export interface FilterReading {
   shown: string[];
 }
 
-export function operatorOf(filter: ListFilter): FilterReading {
+/// An even split (half the choices picked) reads either way; it reads as `turned` says, the
+/// way the person last turned it.
+export function operatorOf(filter: ListFilter, turned = false): FilterReading {
   const rest = filter.options.map((o) => o.id).filter((id) => !filter.values.includes(id));
-  const negated = rest.length > 0 && rest.length < filter.values.length;
+  const negated =
+    rest.length > 0 &&
+    (rest.length < filter.values.length || (turned && rest.length === filter.values.length));
   return { negated, shown: negated ? rest : filter.values };
 }
 
@@ -46,11 +50,13 @@ export function ActiveFilters({ filters }: { filters: ListFilter[] }) {
 
 function FilterChip({ filter }: { filter: ListFilter }) {
   const [open, setOpen] = useState(false);
+  // Which way the chip was last turned, for an even split that reads either way.
+  const [turned, setTurned] = useState(false);
   const fill = useSemantic("fill");
   const separator = useSemantic("separator");
   const muted = useSemanticPair("secondaryLabelSolid");
   const pressed = useSemantic("pressed");
-  const { negated, shown } = operatorOf(filter);
+  const { negated, shown } = operatorOf(filter, turned);
   const names = shown.map((id) => filter.options.find((o) => o.id === id)?.label ?? id);
   const text = names.join(", ");
   const operator = words(negated, shown.length);
@@ -85,7 +91,10 @@ function FilterChip({ filter }: { filter: ListFilter }) {
         accessibilityLabel={`${filter.label} ${operator} ${text}. Switch to ${other}`}
         // Every option picked reads the same both ways round; there is nothing to flip.
         disabled={rest.length === 0}
-        onPress={() => filter.onChange(rest)}
+        onPress={() => {
+          setTurned(!negated);
+          filter.onChange(rest);
+        }}
         style={({ pressed: down }) => [segment, divider, down && { backgroundColor: pressed }]}
       >
         <Label type="subheadline" numberOfLines={1}>

@@ -46,6 +46,32 @@ describe("active filters", () => {
     expect(onChange).toHaveBeenCalledWith(["overdue", "week", "none"]);
   });
 
+  // The Tasks page's Due date filter held half of its choices (Overdue, Due today, Next 7
+  // days of six): a tap on "is any of" swapped them for the other half but still read "is any
+  // of", so the tap looked dead. An even split reads the way it was last turned.
+  it("reads an even split the way it was last turned", () => {
+    const six = (values: string[], onChange = jest.fn()): ListFilter => ({
+      ...due(values, onChange),
+      options: [...due([]).options, { id: "later", label: "Later" }, { id: "done", label: "Done" }],
+    });
+    let filter = six(["overdue", "today", "week"]);
+    const onChange = jest.fn((next: string[]) => {
+      filter = six(next, onChange);
+    });
+    filter = six(["overdue", "today", "week"], onChange);
+    const screen = render(<ActiveFilters filters={[filter]} />);
+    expect(screen.getByText("is any of")).toBeTruthy();
+    fireEvent.press(
+      screen.getByRole("button", {
+        name: "Due date is any of Overdue, Due today, Next 7 days. Switch to is none of",
+      }),
+    );
+    expect(onChange).toHaveBeenCalledWith(["none", "later", "done"]);
+    screen.rerender(<ActiveFilters filters={[filter]} />);
+    expect(screen.getByText("is none of")).toBeTruthy();
+    expect(screen.getByText("Overdue, Due today, Next 7 days")).toBeTruthy();
+  });
+
   it("takes a field's filter off", () => {
     const onChange = jest.fn();
     const screen = render(<ActiveFilters filters={[due(["today"], onChange)]} />);
