@@ -51,6 +51,7 @@ import {
   search,
   spaceModules,
   subtaskProgress,
+  parentTask,
   type SearchScope,
 } from "@nookly/shared/data";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -247,6 +248,12 @@ export const useEntityLabels = (entityId: string) => {
 export const useSubtasks = (parentId: string) => {
   const db = useDb();
   return useQuery({ queryKey: keys.subtasks(parentId), queryFn: () => listSubtasks(db, parentId) });
+};
+
+/// The task a sub-task belongs to; null for anything else.
+export const useParentTask = (id: string) => {
+  const db = useDb();
+  return useQuery({ queryKey: keys.parentTask(id), queryFn: () => parentTask(db, id) });
 };
 
 export const useSubtaskProgress = (parentId: string) => {

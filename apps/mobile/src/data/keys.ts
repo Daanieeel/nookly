@@ -36,6 +36,7 @@ export const keys = {
   fileWithOrigin: (origin: string) => ["local", "file-origin", origin] as const,
   subtasks: (id: string) => ["local", "subtasks", id] as const,
   progress: (id: string) => ["local", "subtask-progress", id] as const,
+  parentTask: (id: string) => ["local", "parent-task", id] as const,
   blocks: (entityId: string) => ["local", "blocks", entityId] as const,
   agenda: (from: string, to: string) => ["local", "agenda", from, to] as const,
   bookmarks: (spaceId: string | null) => ["local", "bookmarks", spaceId] as const,

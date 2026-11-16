@@ -11,7 +11,7 @@ import {
 } from "@tabler/icons-react-native";
 import { Fragment, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
-import { useEntity, useSpaces } from "../data/queries.ts";
+import { useEntity, useParentTask, useSpaces } from "../data/queries.ts";
 import { SpaceIcon } from "../screens/SpaceIcon.tsx";
 import { TOP_ICONS } from "../screens/Sidebar.tsx";
 import { cn } from "../ui/classes.ts";
@@ -57,6 +57,7 @@ function useCrumbs(path: string): Crumb[] {
   const itemId = pattern === "entity/[id]" || pattern === "file/[id]" ? params.id : undefined;
   const { data: item } = useEntity(itemId ?? "");
   const { data: view } = useEntity(params.view ?? "");
+  const { data: parent } = useParentTask(item?.type === "sub_task" ? item.id : "");
   const { data: spaces = [] } = useSpaces();
   const fallback = usePathTitle(path);
   const spaceCrumb = (spaceId: string | undefined): Crumb[] => {
@@ -105,6 +106,17 @@ function useCrumbs(path: string): Crumb[] {
     return [
       ...spaceCrumb(item.spaceId),
       ...(module ? moduleCrumb(item.spaceId, module, true) : []),
+      // A sub-task's parent before it, as the desktop's Tasks › TSK-3 › TSK-7.
+      ...(parent
+        ? [
+            {
+              key: `parent ${parent.id}`,
+              icon: <EntityIcon type={parent.type} icon={parent.icon} size={ICON} />,
+              label: parent.key,
+              to: `/entity/${parent.id}`,
+            },
+          ]
+        : []),
       {
         key: `item ${item.id}`,
         icon: <EntityIcon type={item.type} icon={item.icon} size={ICON} />,

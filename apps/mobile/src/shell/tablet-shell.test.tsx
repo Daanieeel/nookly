@@ -1,4 +1,4 @@
-import { createPage, createSpace } from "@nookly/shared/data";
+import { createPage, createSpace, createSubtask, createTask, getEntity } from "@nookly/shared/data";
 import { Stack, router } from "expo-router";
 import { act, fireEvent, waitFor, within } from "expo-router/testing-library";
 import { State } from "react-native-gesture-handler";
@@ -36,7 +36,7 @@ async function setup(window: { width: number; height: number }) {
   const space = await createSpace(data.db, "Work", "#0070f3");
   const note = await createPage(data.db, space, "note", "Meeting notes");
   const screen = await renderScreens(ROUTES, data, "/", window);
-  return { ...screen, space, note };
+  return { ...screen, space, note, data };
 }
 
 const LANDSCAPE = { width: 1376, height: 1032 };
@@ -110,6 +110,17 @@ describe("the tablet's window", () => {
     // An item has its details toggle; the search field opens the palette.
     expect(screen.getByRole("button", { name: /Details$/ })).toBeTruthy();
     expect(screen.getByRole("search", { name: "Search" })).toBeTruthy();
+  });
+
+  it("names a sub-task's parent task between its module and itself", async () => {
+    const screen = await setup(LANDSCAPE);
+    const parent = await createTask(screen.data.db, screen.space, "Plan the trip");
+    const sub = await createSubtask(screen.data.db, parent, "Book the train");
+    const keyOf = async (id: string) => (await getEntity(screen.data.db, id))?.key ?? "";
+    act(() => workspace.open(`/entity/${sub}`));
+    const crumbs = () => within(screen.getByTestId("crumbs"));
+    expect(await crumbs().findByRole("link", { name: await keyOf(parent) })).toBeTruthy();
+    expect(crumbs().getByText(await keyOf(sub))).toBeTruthy();
   });
 
   it("keeps a medium window's titlebar to the last crumb and a search button", async () => {

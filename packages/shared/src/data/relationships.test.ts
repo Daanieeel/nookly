@@ -5,7 +5,7 @@ import { addBlock, createPage, listBlocks, updateBlock } from "./notes.ts";
 import { createRelationship, linkedItems, mentionedIn, mentionsOf } from "./relationships.ts";
 import { unrelate } from "./links.ts";
 import { createCourse } from "./study.ts";
-import { createSubtask, createTask } from "./tasks.ts";
+import { createSubtask, createTask, parentTask } from "./tasks.ts";
 import { testDb } from "./test-db.ts";
 import { trashEntity } from "./entities.ts";
 
@@ -17,6 +17,13 @@ beforeEach(async () => {
 });
 
 describe("relationships", () => {
+  it("finds a sub-task's parent, and none for a task", async () => {
+    const parent = await createTask(db, space, "Plan");
+    const sub = await createSubtask(db, parent, "Step");
+    expect((await parentTask(db, sub))?.title).toBe("Plan");
+    expect(await parentTask(db, parent)).toBeNull();
+  });
+
   it("links two items by hand, read as each end sees it, and once only", async () => {
     const a = await createTask(db, space, "Write");
     const b = await createTask(db, space, "Review");

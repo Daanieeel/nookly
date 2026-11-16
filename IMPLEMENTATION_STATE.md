@@ -196,20 +196,20 @@ All: the list header (3.2), the desktop's columns (3.3), View tabs and presets, 
 All: the reading width of the desktop's `entity-detail-layout`, the title and key, the details pane (1.7), the item's menu (the desktop's `entity-actions`: Pin, Copy Link, Copy ID, Move to Space, Export, Share, Delete) as a popover from a button in the header, no system bar, the item's own parts in the middle. In a split group they work at 360 wide.
 
 - [ ] 6.1 **Note** (page editor): the desktop's `PageDetailView`: the editor at the desktop's reading width, its chrome per 3.9, page export (`ExportPageDialog`, large dialog), Share Page (`SharePage`, dialog), Import (`ImportDialog`), code language picker, inline math editor, the spell check prompt, the presence of others (`page-presence`), Vim indicator when on. Landscape with details pane beside; portrait details over it. Also (from 1.5): the same page open in both groups edits only in the focused one.
-- [ ] 6.2 **Jot**: as the desktop's, with Refine Into New Note (`RefineJotButton`).
-- [ ] 6.3 **Task**: the desktop's `TaskDetailView`: status, priority, due, repeat as pills with popovers, sub tasks, parent, description.
+- [x] 6.2 Done: the jot's page is the editor, Refine Into New Note in its details (beside it, or over it in portrait), as the desktop's right sidebar. Was: **Jot**: as the desktop's, with Refine Into New Note (`RefineJotButton`).
+- [x] 6.3 Done: status, labels, dates, effort and repeat are chips over the description where the details are not beside the page, each popover hanging from its chip; sub tasks under the description; a sub task's parent is a crumb in the titlebar (`parentTask`). Stepping with J and K is 10.1. Was: **Task**: the desktop's `TaskDetailView`: status, priority, due, repeat as pills with popovers, sub tasks, parent, description.
 - [ ] 6.4 **Bookmark**: the desktop's bookmark detail with its preview.
 - [ ] 6.5 **Calendar entry**: the desktop's `CalendarEntryDetailView`.
 - [ ] 6.6 **Course**: the desktop's `CourseDetailView` with the week cutout (`CourseWeekCutout`), its sessions, exams, assignments, grades.
 - [ ] 6.7 **Exam**: the desktop's `ExamDetailView`.
 - [ ] 6.8 **Deck**: the desktop's `DeckDetailView` with its cards as a table, the card editor, the image lightbox (`ImageLightbox`) as a full window view with pinch zoom, Study as the labelled action.
-- [ ] 6.9 **Recipe**: the desktop's `RecipeDetailView`: banner, ingredients beside steps in landscape, stacked in portrait; the photo picker.
+- [x] 6.9 **Recipe** Done: ingredients beside steps where the page is 820 wide or more, stacked below; the banner and photo picker are the phone's, already the desktop's layout. Was: the desktop's `RecipeDetailView`: banner, ingredients beside steps in landscape, stacked in portrait; the photo picker.
 - [ ] 6.10 **Session** and **Semester**: the desktop's `SessionDetailView` and `SemesterDetailView`.
 - [ ] 6.11 **Assignment**: the desktop's `AssignmentDetailView` with grading rows (`AssignmentGradingRows`) and the evaluation toggle.
 - [x] 6.12 **Space Settings** Done: off the tablet's pages, a see through route drawing a large dialog (`flow`) with the page's sections; the sidebar's Space menu opens it the same way. Was: (`space-settings/[id]`): a large dialog with the desktop's sections (name, icon, colour, labels, modules, delete), not a pushed page.
 - [ ] 6.13 **File** (`file/[id]`): the desktop's `FileDetailView`: the PDF viewer with its toolbar (`pdf-toolbar`), search (`pdf-search-controls`), thumbnails beside the pages in landscape (a popover from the toolbar in portrait), pinch zoom anchored under the fingers (`pdf-zoom-anchor`); images, office documents, code, Markdown as the desktop's viewers; Share File (`ShareFile`).
 - [ ] 6.14 **Outside calendar event** (`calendar-event`): a popover from its block in the calendar, read only, as the desktop's `ExternalEventBlock`; opened from a link, a medium dialog.
-- [ ] 6.15 **Conflict badge** and **Review Changes** (`conflicts`, the merge editor): an extra large dialog with the desktop's `MergeEditor` two sides side by side in landscape, one above the other in portrait.
+- [x] 6.15 Done: Review Changes is off the tablet's pages, a see through route drawing an extra large dialog (`focus`); a dialog lays its page out for its own width, so the merge editor's two sides sit side by side in a wide dialog and stack in portrait; the conflict badge opens it. Was: **Conflict badge** and **Review Changes** (`conflicts`, the merge editor): an extra large dialog with the desktop's `MergeEditor` two sides side by side in landscape, one above the other in portrait.
 
 ### 7. Create flows (`new/*`, `pick/icon`)
 

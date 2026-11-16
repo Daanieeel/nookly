@@ -7,6 +7,7 @@ import {
   type EntityRecord,
   getEntity,
   type PlannedCreate,
+  ENTITY_COLUMNS,
   createEntityStatements,
   toEntity,
 } from "./entities.ts";
@@ -338,6 +339,17 @@ export async function listSubtasks(db: LocalDb, parentId: string): Promise<TaskR
       parentId,
     )
   ).map(toTask);
+}
+
+/// The task a sub-task belongs to (the desktop's `parent_of`), or null for anything else.
+export async function parentTask(db: LocalDb, id: string): Promise<EntityRecord | null> {
+  const row = await first(
+    db,
+    `SELECT ${ENTITY_COLUMNS} FROM relationships r JOIN entities e ON e.id = r.to_entity_id
+     WHERE r.from_entity_id = ? AND r.relationship_type = 'sub-task-of'`,
+    id,
+  );
+  return row ? toEntity(row) : null;
 }
 
 /// `subtask_progress`: the average doneness of the sub-tasks not in Trash, or null.
