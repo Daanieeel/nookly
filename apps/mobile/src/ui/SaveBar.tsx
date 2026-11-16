@@ -238,7 +238,13 @@ function NameView({
     }
   };
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="Save as View" presentation="card">
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Save as View"
+      presentation="card"
+      kind="form"
+    >
       <View style={{ gap: SPACE.md }}>
         <Field
           label="View name"

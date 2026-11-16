@@ -8,6 +8,7 @@ import { useSemanticPair } from "./kit/scheme.ts";
 import { SheetTrigger } from "./SelectField.tsx";
 import { DayPicker } from "./sheet/DayPicker.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
+import { useAnchor } from "./sheet/anchor.ts";
 import { TimeInput, clockText } from "./TimeInput.tsx";
 import { GUTTER, SPACE } from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
@@ -39,6 +40,7 @@ export function DateField({
   readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const anchor = useAnchor();
   const muted = useSemanticPair("tertiaryLabel");
   const clear =
     clearable && value && !readOnly ? (
@@ -83,8 +85,16 @@ export function DateField({
         hint="Opens a calendar"
         onPress={() => setOpen(true)}
         trailing={clear ?? undefined}
+        ref={anchor.ref}
       />
-      <Sheet open={open} onOpenChange={setOpen} title={label} presentation="card">
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title={label}
+        presentation="card"
+        kind="picker"
+        anchor={anchor}
+      >
         <DayPicker
           label={label}
           value={value}

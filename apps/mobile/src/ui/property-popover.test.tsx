@@ -3,6 +3,8 @@ import { useState } from "react";
 import { renderScreens, testData } from "../test/render.tsx";
 import { PropertyList } from "./Property.tsx";
 import { ChoiceProperty } from "./property-rows.tsx";
+import { DateField } from "./DateField.tsx";
+import { SelectField } from "./SelectField.tsx";
 
 function Status() {
   const [value, setValue] = useState<"todo" | "done">("todo");
@@ -32,5 +34,25 @@ describe("a property's picker on a tablet", () => {
     const phone = await renderScreens({ index: Status }, testData());
     await fireEvent.press(await phone.findByRole("button", { name: "Status, Todo" }));
     expect(phone.queryByTestId("sheet-popover")).toBeNull();
+  });
+
+  it("opens a form's select and date fields as popovers from the field", async () => {
+    const Form = () => (
+      <>
+        <SelectField
+          label="Priority"
+          value={null}
+          onChange={() => {}}
+          options={[{ id: "high", label: "High" }]}
+        />
+        <DateField label="Due" value={null} onChange={() => {}} />
+      </>
+    );
+    for (const name of [/^Priority/, /^Due/]) {
+      const screen = await renderScreens({ index: Form }, testData(), "/", { width: 1032 });
+      await fireEvent.press(await screen.findByRole("button", { name }));
+      expect(await screen.findByTestId("sheet-popover")).toBeTruthy();
+      screen.unmount();
+    }
   });
 });

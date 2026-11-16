@@ -6,6 +6,7 @@ import { useSemantic, useSemanticPair } from "./kit/scheme.ts";
 import type { ListFilter } from "./ListControls.tsx";
 import { FilterOptions } from "./sheet/DisplayParts.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
+import { useAnchor } from "./sheet/anchor.ts";
 import { CORNER, RADIUS, SPACE } from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
 
@@ -50,6 +51,7 @@ export function ActiveFilters({ filters }: { filters: ListFilter[] }) {
 
 function FilterChip({ filter }: { filter: ListFilter }) {
   const [open, setOpen] = useState(false);
+  const anchor = useAnchor();
   // Which way the chip was last turned, for an even split that reads either way.
   const [turned, setTurned] = useState(false);
   const fill = useSemantic("fill");
@@ -103,6 +105,7 @@ function FilterChip({ filter }: { filter: ListFilter }) {
       </Pressable>
       <Pressable
         accessibilityRole="button"
+        ref={anchor.ref}
         accessibilityLabel={`${filter.label}: ${text}`}
         onPress={() => setOpen(true)}
         style={({ pressed: down }) => [
@@ -128,7 +131,14 @@ function FilterChip({ filter }: { filter: ListFilter }) {
       >
         <IconX size={16} color={muted.hex} />
       </Pressable>
-      <Sheet open={open} onOpenChange={setOpen} title={filter.label} presentation="card">
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title={filter.label}
+        presentation="card"
+        kind="picker"
+        anchor={anchor}
+      >
         <FilterOptions
           label={filter.label}
           options={filter.options}

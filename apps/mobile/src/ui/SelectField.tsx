@@ -7,6 +7,7 @@ import { Label } from "./kit/Label.tsx";
 import { useSemantic, useSemanticPair } from "./kit/scheme.ts";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
+import { useAnchor } from "./sheet/anchor.ts";
 import { GUTTER, SPACE } from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
 
@@ -119,6 +120,7 @@ export function SelectField<Id extends string>({
   empty?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const anchor = useAnchor();
   const current = options.find((o) => o.id === value);
   const list = <OptionList label={label} options={options} value={value} onChange={onChange} />;
   return (
@@ -142,9 +144,17 @@ export function SelectField<Id extends string>({
           placeholder={placeholder}
           disabled={disabled}
           onPress={() => setOpen(true)}
+          ref={anchor.ref}
         />
       )}
-      <Sheet open={open} onOpenChange={setOpen} title={label} presentation="card">
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title={label}
+        presentation="card"
+        kind="picker"
+        anchor={anchor}
+      >
         {list}
       </Sheet>
     </>
@@ -169,6 +179,7 @@ export function MultiSelectField<Id extends string>({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const anchor = useAnchor();
   const names = options.filter((o) => values.includes(o.id)).map((o) => o.label);
   return (
     <>
@@ -178,8 +189,16 @@ export function MultiSelectField<Id extends string>({
         placeholder={placeholder}
         disabled={disabled}
         onPress={() => setOpen(true)}
+        ref={anchor.ref}
       />
-      <Sheet open={open} onOpenChange={setOpen} title={label} presentation="card">
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title={label}
+        presentation="card"
+        kind="picker"
+        anchor={anchor}
+      >
         <OptionList
           label={label}
           multiple
