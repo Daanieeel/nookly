@@ -24,6 +24,8 @@ const ROUTES = {
   "entity/[id]": () => null,
   "module/[spaceId]/[module]": () => null,
   "new/task": () => null,
+  conflicts: () => null,
+  "space-settings/[id]": () => null,
 };
 
 async function setup(window: { width: number; height: number }) {
@@ -195,8 +197,16 @@ describe("the tablet's window", () => {
 
   it("titles a page without a list header in its own header row, with no system bar", async () => {
     const screen = await setup(LANDSCAPE);
-    act(() => workspace.open(`/space-settings/${screen.space}`));
-    expect(await screen.findByRole("header", { name: "Space Settings" })).toBeTruthy();
+    act(() => workspace.open("/conflicts"));
+    expect(await screen.findByRole("header", { name: "Review Changes" })).toBeTruthy();
+  });
+
+  // A Space's settings are the desktop's dialog over the window, not a page in a tab (6.12).
+  it("opens a Space's settings over the window, leaving the tabs as they were", async () => {
+    const screen = await setup(LANDSCAPE);
+    act(() => router.push(`/space-settings/${screen.space}`));
+    await waitFor(() => expect(screen.getPathname()).toBe(`/space-settings/${screen.space}`));
+    expect(groups()).toEqual([["/"]]);
   });
 
   it("goes back in the tab's history on a swipe from the page's left edge", async () => {

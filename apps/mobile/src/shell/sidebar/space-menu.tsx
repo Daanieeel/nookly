@@ -24,7 +24,6 @@ import { ColorChoices } from "../../ui/kit/ColorChoices.tsx";
 import { SEPARATOR, type MenuEntry } from "../../ui/menu.tsx";
 import { useSheet } from "../../ui/sheet/Sheet.tsx";
 import { SpaceIconChoices } from "../../ui/SpaceIconChoices.tsx";
-import { workspace } from "../workspace-store.ts";
 
 /// The desktop sidebar's Space menu (`space-menu`), as a popover on a tablet: Rename,
 /// Change Icon and Change Color as steps inside it, Labels and Space Settings as a page,
@@ -112,7 +111,7 @@ export function useSpaceMenu(space: Space): MenuEntry[] {
     {
       label: "Space Settings",
       icon: IconSettings,
-      onPress: () => workspace.open(`/space-settings/${space.id}`),
+      onPress: () => router.push(`/space-settings/${space.id}`),
     },
     SEPARATOR,
     { label: "Delete Space", icon: IconTrash, destructive: true, onPress: () => void ask() },

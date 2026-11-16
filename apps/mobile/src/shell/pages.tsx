@@ -25,7 +25,6 @@ import Settings from "../app/settings/index.tsx";
 import Shortcuts from "../app/settings/shortcuts.tsx";
 import SidebarSettings from "../app/settings/sidebar.tsx";
 import WhatsNew from "../app/settings/whats-new.tsx";
-import SpaceSettings from "../app/space-settings/[id].tsx";
 
 /// What sort of page a path is: a list an item is picked from (an item then opens beside
 /// it, 1.6), an item, or any other page.
@@ -39,8 +38,8 @@ interface PageRoute {
 }
 
 /// Every route the tablet shows as a page in a tab, by the same route files the phone's
-/// stack shows. Create forms, pickers, the welcome, signing in and a study session are not
-/// pages: they stay the router's, over the window.
+/// stack shows. Create forms, pickers, the welcome, signing in, a Space's settings and a
+/// study session are not pages: they stay the router's, over the window.
 const ROUTES: PageRoute[] = [
   { pattern: "", Component: Dashboard, kind: "list" },
   { pattern: "calendar", Component: Calendar, kind: "page" },
@@ -54,7 +53,6 @@ const ROUTES: PageRoute[] = [
   { pattern: "entity/[id]", Component: Entity, kind: "item" },
   { pattern: "file/[id]", Component: File, kind: "item" },
   { pattern: "conflicts", Component: Conflicts, kind: "page" },
-  { pattern: "space-settings/[id]", Component: SpaceSettings, kind: "page" },
   { pattern: "settings", Component: Settings, kind: "page" },
   { pattern: "settings/calendar-connections", Component: CalendarConnections, kind: "page" },
   { pattern: "settings/shortcuts", Component: Shortcuts, kind: "page" },

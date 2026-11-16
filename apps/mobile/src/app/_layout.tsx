@@ -240,7 +240,10 @@ export default function RootLayout() {
       />
       <Stack.Screen name="entity/[id]" options={{ title: "", ...pageBar(tablet) }} />
       <Stack.Screen name="file/[id]" options={{ title: "", ...pageBar(tablet) }} />
-      <Stack.Screen name="space-settings/[id]" options={{ title: "Space Settings" }} />
+      <Stack.Screen
+        name="space-settings/[id]"
+        options={tablet ? SHEET_ROUTE : { title: "Space Settings" }}
+      />
       <Stack.Screen
         name="settings/index"
         options={{ title: "Settings", ...groupedHeader, ...pageBar(tablet) }}
