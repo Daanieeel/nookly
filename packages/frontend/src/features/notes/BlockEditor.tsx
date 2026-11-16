@@ -57,7 +57,8 @@ import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { useViewOnly } from "#/features/sync/view-only.ts";
 import { syncRuntime, useSyncState } from "#/features/sync/sync-instance.ts";
 import { useSetting } from "#/lib/settings/settings.ts";
-import { PresenceBar, usePresence } from "./page-presence.tsx";
+import { PresenceBar } from "./page-presence.tsx";
+import { usePresence } from "#/lib/presence.ts";
 import { usePageSession } from "./use-page-session.ts";
 import { type PageSection, pageSections } from "./heading-anchors";
 

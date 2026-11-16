@@ -29,6 +29,9 @@ import { type EditorAction, editorStateSchema } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
 import { FindBar, type FindResult, useFindBar } from "./FindBar.tsx";
 import { usePageHost } from "../shell/PageHost.tsx";
+import { usePresence } from "@nookly/frontend/lib/presence";
+import { useIsTablet } from "../ui/pane.tsx";
+import { PresenceRow } from "./PresenceRow.tsx";
 
 /// How tall an item's description is at least: the region a tap starts typing in.
 /// How tall a page's editor is at least: a page reaches the bottom of the screen; an item's
@@ -56,16 +59,22 @@ export function LivePage({
   editable: boolean;
   fill: boolean;
 }) {
+  // Who else is here, the desktop's initials at the page's top (a tablet's, 6.1).
+  const tablet = useIsTablet();
+  const present = usePresence(tablet ? session : null);
   return (
-    <PageDocEditor
-      // A page opened again is another document object: the editor starts over on it.
-      key={session.doc.guid}
-      doc={session.doc}
-      awareness={session.provider.awareness ?? null}
-      entityId={session.entityId}
-      editable={editable}
-      fill={fill}
-    />
+    <>
+      {fill && present.length > 0 ? <PresenceRow present={present} /> : null}
+      <PageDocEditor
+        // A page opened again is another document object: the editor starts over on it.
+        key={session.doc.guid}
+        doc={session.doc}
+        awareness={session.provider.awareness ?? null}
+        entityId={session.entityId}
+        editable={editable}
+        fill={fill}
+      />
+    </>
   );
 }
 
