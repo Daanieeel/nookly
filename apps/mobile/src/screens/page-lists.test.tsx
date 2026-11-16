@@ -29,6 +29,34 @@ function inCard(node: Node | null): boolean {
   return false;
 }
 
+// A tablet's Notes and Jots are the desktop's tables (5.2, 5.3): the title, its labels and
+// when it changed, the headings sorting it.
+describe("Notes and Jots on a tablet", () => {
+  it("lists notes as a table with their labels", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const a = await createPage(data.db, space, "note", "Apple");
+    await attachLabel(data.db, a, await createLabel(data.db, space, "Ideas"));
+    const screen = await renderScreens({ index: () => <NoteList spaceId={space} /> }, data, "/", {
+      width: 1032,
+    });
+    expect(await screen.findByRole("button", { name: "Apple" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Edited/ })).toBeTruthy();
+    expect(screen.getByText("Ideas")).toBeTruthy();
+  });
+
+  it("lists jots as a table", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    await createPage(data.db, space, "jot", "Call the bank");
+    const screen = await renderScreens({ index: () => <JotList spaceId={space} /> }, data, "/", {
+      width: 1032,
+    });
+    expect(await screen.findByRole("button", { name: "Call the bank" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Edited/ })).toBeTruthy();
+  });
+});
+
 describe("a Space's Notes", () => {
   // The rows sat in one big rounded box under a row of filled chips; Tasks and Assignments
   // are flat, with the desktop's quiet controls. The order is in Display, as theirs (D65).

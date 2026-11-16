@@ -1,3 +1,5 @@
+import { type Column, DataTable } from "../ui/DataTable.tsx";
+import { useIsTablet } from "../ui/pane.tsx";
 import { FixedTop } from "../ui/fixed-top.tsx";
 import { SaveBar } from "../ui/SaveBar.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
@@ -98,6 +100,67 @@ function PageRow({ page, jot }: { page: PageSummary; jot: boolean }) {
         <RowDivider />
       </Pressable>
     </EntitySwipe>
+  );
+}
+
+/// A tablet's Notes and Jots, the desktop's table (5.2, 5.3): the title with its icon, its
+/// labels and when it changed; the swipe actions and the long press menu kept (D76).
+function PageTable({ pages, jot }: { pages: readonly PageSummary[]; jot: boolean }) {
+  const entityMenu = useEntityMenu();
+  const router = useRouter();
+  const name = (page: PageSummary) => {
+    const title = page.entity.title.trim();
+    return (
+      title || notePreviewText(page.preview, title) || (jot ? "Nothing written yet" : "Untitled")
+    );
+  };
+  const columns: Column<PageSummary>[] = [
+    {
+      id: "title",
+      label: "Title",
+      width: "fill",
+      sortValue: name,
+      render: (page) => (
+        <View className="flex-row items-center gap-2">
+          <EntityIcon type={page.entity.type} icon={page.entity.icon} size={16} />
+          <Text numberOfLines={1} className="flex-1">
+            {name(page)}
+          </Text>
+        </View>
+      ),
+    },
+    {
+      id: "labels",
+      label: "Labels",
+      width: 180,
+      hideBelow: 640,
+      render: (page) => (
+        <View className="flex-row flex-wrap gap-1">
+          {page.labels.map((label) => (
+            <Badge key={label.id} label={label.name} size="sm" />
+          ))}
+        </View>
+      ),
+    },
+    {
+      id: "edited",
+      label: "Edited",
+      width: 110,
+      sortValue: (page) => page.entity.updatedAt,
+      render: (page) => <Text tone="muted">{ago(page.entity.updatedAt)}</Text>,
+    },
+  ];
+  return (
+    <DataTable
+      label={jot ? "Jots" : "Notes"}
+      rows={pages}
+      columns={columns}
+      keyOf={(page) => page.entity.id}
+      titleOf={name}
+      onPress={(page) => router.push(`/entity/${page.entity.id}`)}
+      onLongPress={(page) => entityMenu(page.entity)}
+      wrapRow={(page, node) => <EntitySwipe entity={page.entity}>{node}</EntitySwipe>}
+    />
   );
 }
 
@@ -251,6 +314,7 @@ export function NoteList({ spaceId }: { spaceId: string }) {
   );
   const shown = pages.filter((p) => matches(p, query) && keep(p)).sort(compare(display.ordering));
   const staged = useStaged(shown);
+  const tablet = useIsTablet();
   return (
     <View className="gap-3">
       {controls}
@@ -266,13 +330,17 @@ export function NoteList({ spaceId }: { spaceId: string }) {
             setQuery("");
           }}
         />
-        <ListGroup>
-          {staged.map((page) => (
-            <ListItem key={page.entity.id}>
-              <PageRow page={page} jot={false} />
-            </ListItem>
-          ))}
-        </ListGroup>
+        {tablet ? (
+          <PageTable pages={staged} jot={false} />
+        ) : (
+          <ListGroup>
+            {staged.map((page) => (
+              <ListItem key={page.entity.id}>
+                <PageRow page={page} jot={false} />
+              </ListItem>
+            ))}
+          </ListGroup>
+        )}
       </View>
       {saveBar}
     </View>
@@ -313,6 +381,7 @@ export function JotList({ spaceId }: { spaceId: string }) {
     .filter((j) => inPreset[preset](j) && matches(j, query) && keep(j))
     .sort(compare(display.ordering));
   const staged = useStaged(shown);
+  const tablet = useIsTablet();
   return (
     <View className="gap-3">
       {controls}
@@ -352,13 +421,17 @@ export function JotList({ spaceId }: { spaceId: string }) {
               }}
             />
           )}
-          <ListGroup>
-            {staged.map((jot) => (
-              <ListItem key={jot.entity.id}>
-                <PageRow page={jot} jot />
-              </ListItem>
-            ))}
-          </ListGroup>
+          {tablet ? (
+            <PageTable pages={staged} jot />
+          ) : (
+            <ListGroup>
+              {staged.map((jot) => (
+                <ListItem key={jot.entity.id}>
+                  <PageRow page={jot} jot />
+                </ListItem>
+              ))}
+            </ListGroup>
+          )}
         </View>
       )}
       {saveBar}
