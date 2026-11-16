@@ -174,22 +174,22 @@ Each page: the desktop's layout in the tablet page frame (1.8), portrait and lan
 
 All: the list header (3.2), the desktop's columns (3.3), View tabs and presets, filter and display as popovers, the save bar for changed filters (D78), labelled New action naming what it makes, list beside item in landscape (1.6).
 
-- [ ] 5.1 **Tasks** in a Space: the desktop's `TasksListView` (Linear style list, grouped, inline property pills) and `TaskBoard`; `QuickCreateTask` inline at a group's end as on the desktop.
-- [ ] 5.2 **Notes**: the desktop's `NotesListView` and `RecentNotesTable`.
-- [ ] 5.3 **Jots**: the desktop's `JotsListView`; Quick Jot from the sidebar as the desktop's popover composer (`QuickJot`), not a sheet.
-- [ ] 5.4 **Bookmarks**: the desktop's `BookmarksListView` with previews (`bookmark-preview`), the paste bar placed as the desktop's add field, the bookmark editor (`BookmarkSheet`) as a dialog.
-- [ ] 5.5 **Files**: the desktop's `FilesListView`: grid with thumbnails or table, picked labels as chips with Change Labels (a popover), New View (the View builder dialog, D81), Add Files and Scan Document as actions, the paste bar as the desktop's, a drop target for files dragged in (0.6). Landscape grid 5 to 6 columns, portrait 3 to 4.
-- [ ] 5.6 **Recipes**: the desktop's `RecipesListView` and `RecipeLists`, tags (`recipe-tags`) as popovers, the gallery with banner images.
-- [ ] 5.7 **Courses**: the desktop's `CoursesListView` with the semester panel (`CourseSemesterPanel`).
-- [ ] 5.8 **Exams**: the desktop's `ExamsListView` and its calendar.
-- [ ] 5.9 **Decks**: the desktop's `DecksListView` (due counts, Study).
-- [ ] 5.10 **Assignments** in a Space: the desktop's `AssignmentsListView` with its groups.
-- [ ] 5.11 **Sessions**: the desktop's `SessionsListView` and its calendar cutout; Set Up Semesters and New Session.
-- [ ] 5.12 **Semesters**: the desktop's `SemestersListView`; the setup wizard as a large dialog (7.4).
-- [ ] 5.13 **Calendar entries**: the desktop's `CalendarEntriesListView` and its calendar.
-- [ ] 5.14 **Grades**: the desktop's `GradeReportView` table (sticky first column, cells editable in place, `GradeCells`), portrait drops the less needed columns first.
-- [ ] 5.15 **Moodle**: the desktop's `MoodleView` and `CoursesPage` (the course grid with `CourseArt`), the account (`MoodleAccount`) as a popover from its header.
-- [ ] 5.16 **Saved Views** of every module above: the View's crumb in the titlebar, its title editable in place (`EditableViewTitle`), its actions menu (`ViewActions`) as a popover, its icon (`ViewIconButton`) as the icon popover.
+- [x] 5.1 **Tasks** in a Space Done: the overview's folding groups (4.3) and the board; New Task in a status from its group's header (opening the create dialog with the status). The inline quick create row moved to 7.2. Was:: the desktop's `TasksListView` (Linear style list, grouped, inline property pills) and `TaskBoard`; `QuickCreateTask` inline at a group's end as on the desktop.
+- [x] 5.2 **Notes** Done: the desktop's table (title, labels, edited; swipe and menu kept) in `PageLists.tsx`. Was:: the desktop's `NotesListView` and `RecentNotesTable`.
+- [x] 5.3 **Jots** Done: the same table under the presets; Quick Jot is a wide popover at what opened it (`sheetRoute(..., "picker", true)`), a medium dialog from `Cmd+J`. Was:: the desktop's `JotsListView`; Quick Jot from the sidebar as the desktop's popover composer (`QuickJot`), not a sheet.
+- [x] 5.4 **Bookmarks** Done: already the grid with previews and the floating paste bar; New Bookmark is a dialog (form). Was:: the desktop's `BookmarksListView` with previews (`bookmark-preview`), the paste bar placed as the desktop's add field, the bookmark editor (`BookmarkSheet`) as a dialog.
+- [x] 5.5 **Files** Done: the grid was there; the list is the desktop's table (name with thumbnail, kind or where it is, added); labels change in a popover (3.6). Was:: the desktop's `FilesListView`: grid with thumbnails or table, picked labels as chips with Change Labels (a popover), New View (the View builder dialog, D81), Add Files and Scan Document as actions, the paste bar as the desktop's, a drop target for files dragged in (0.6). Landscape grid 5 to 6 columns, portrait 3 to 4.
+- [x] 5.6 **Recipes** Done: already the gallery (`Grid`, 240 to 4 columns) in a wide page. Was:: the desktop's `RecipesListView` and `RecipeLists`, tags (`recipe-tags`) as popovers, the gallery with banner images.
+- [x] 5.7 **Courses** Done: already the gallery by semester (`CourseGallery`). Was:: the desktop's `CoursesListView` with the semester panel (`CourseSemesterPanel`).
+- [x] 5.8 **Exams** Done: already the timeline (`ExamTimeline`). Was:: the desktop's `ExamsListView` and its calendar.
+- [x] 5.9 **Decks** Done: already the grid with due counts (`DeckGrid`). Was:: the desktop's `DecksListView` (due counts, Study).
+- [x] 5.10 **Assignments** in a Space Done: the folding groups (4.4) and the board. Was:: the desktop's `AssignmentsListView` with its groups.
+- [x] 5.11 **Sessions** Done: the Space's calendar (4.2) with Set Up Semesters and New Session as labelled actions. Was:: the desktop's `SessionsListView` and its calendar cutout; Set Up Semesters and New Session.
+- [x] 5.12 **Semesters** Done: the list was there; the setup wizard is a large dialog (`flow`, 7.4). Was:: the desktop's `SemestersListView`; the setup wizard as a large dialog (7.4).
+- [x] 5.13 **Calendar entries** Done: the Space's calendar (4.2). Was:: the desktop's `CalendarEntriesListView` and its calendar.
+- [x] 5.14 **Grades** Done: each course's items as a table (item with its day, weight, grade edited in place) under one heading row. Was:: the desktop's `GradeReportView` table (sticky first column, cells editable in place, `GradeCells`), portrait drops the less needed columns first.
+- [x] 5.15 **Moodle** Done in part: the courses as the desktop's grid of cards with their art; the account as a popover from the header stays the bar it is (moved to 9.1). Was:: the desktop's `MoodleView` and `CoursesPage` (the course grid with `CourseArt`), the account (`MoodleAccount`) as a popover from its header.
+- [x] 5.16 **Saved Views** Done in part: the View's crumb (1.3); its menu (Rename in a step, Change Icon, Delete View with Undo) from a long press on its sidebar row, and the sidebar row's own controls now outside its button so VoiceOver reaches them. The title edited in place in the page header moved to 10.1. Was: of every module above: the View's crumb in the titlebar, its title editable in place (`EditableViewTitle`), its actions menu (`ViewActions`) as a popover, its icon (`ViewIconButton`) as the icon popover.
 
 ### 6. Item pages (`entity/[id]`, `file/[id]`, `calendar-event`)
 
