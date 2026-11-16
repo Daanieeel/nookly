@@ -9,6 +9,8 @@ import { resolvePresentation } from "./presentation.ts";
 import { forgetTouch, noteTouch } from "./touch-point.ts";
 import { topLayer, useSheetSubmit } from "./layers.ts";
 import { SheetHost, useOptionalSheetHost } from "./SheetHost.tsx";
+import { RouteSheet } from "./Sheet.tsx";
+import { POPOVER_WIDTH } from "./presentation.ts";
 
 const touchAt = (pageX: number, pageY: number) => noteTouch({ nativeEvent: { pageX, pageY } });
 
@@ -294,5 +296,20 @@ describe("how a sheet shows by the window", () => {
     );
     await screen.findByTestId("sheet-panel");
     expect(screen.queryByTestId("sheet-popover")).toBeNull();
+  });
+
+  // The desktop's Quick Jot is a popover composer under the button that opened it (5.3).
+  it("floats a composer route at the touch that opened it, wide enough to write in", async () => {
+    touchAt(200, 300);
+    render(
+      <At size={LANDSCAPE}>
+        <RouteSheet title="Quick Jot" kind="picker" wide onClosed={() => {}}>
+          <Text>Jot something down</Text>
+        </RouteSheet>
+      </At>,
+    );
+    const popover = await screen.findByTestId("sheet-popover");
+    expect(StyleSheet.flatten(popover.props.style).width).toBe(POPOVER_WIDTH.wide);
+    forgetTouch();
   });
 });

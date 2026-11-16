@@ -11,6 +11,8 @@ export function sheetRoute<P extends object>(
   size?: SheetSize,
   /// What it is, for a tablet (D83): a create form's medium dialog unless said otherwise.
   kind: PresentationKind = "form",
+  /// A tablet's popover at its wider width (a composer).
+  wide = false,
 ) {
   return function SheetRouteScreen(props: P) {
     const router = useRouter();
@@ -19,6 +21,7 @@ export function sheetRoute<P extends object>(
         title={title}
         size={size}
         kind={kind}
+        wide={wide}
         onClosed={() => router.canGoBack() && router.back()}
       >
         <Content {...props} />

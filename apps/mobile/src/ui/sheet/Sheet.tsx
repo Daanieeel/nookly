@@ -744,6 +744,7 @@ export function RouteSheet({
   title,
   size,
   kind,
+  wide,
   onClosed,
   children,
 }: {
@@ -751,6 +752,8 @@ export function RouteSheet({
   size?: SheetSize;
   /// What it is, for a tablet's dialog size: a create form unless said otherwise.
   kind?: PresentationKind;
+  /// A tablet's popover at its wider width (a composer).
+  wide?: boolean;
   onClosed: () => void;
   children: ReactNode;
 }) {
@@ -766,6 +769,7 @@ export function RouteSheet({
       kind={kind}
       anchor={touch}
       touched={touch !== undefined}
+      wide={wide}
       onRequestClose={requestClose}
       onClosed={onClosed}
     >
