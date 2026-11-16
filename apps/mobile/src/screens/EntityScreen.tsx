@@ -15,6 +15,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ConflictBadge } from "./ConflictBadge.tsx";
 import { useDetails, useDetailsFor } from "../shell/DetailsDrawer.tsx";
+import { useMirrored } from "../shell/PageHost.tsx";
 import { useInspectorShown, useIsTablet } from "../ui/pane.tsx";
 import { GlanceProvider, PartProvider } from "../ui/parts.tsx";
 import { ItemParts } from "./ItemParts.tsx";
@@ -103,7 +104,9 @@ function OpenEntity({
   details: boolean;
 }) {
   const { data: spaces = [] } = useSpaces();
-  const readOnly = useReadOnly(entity);
+  // The same page in the other, focused group is the one that edits (6.1).
+  const mirrored = useMirrored();
+  const readOnly = useReadOnly(entity) || mirrored;
   const theme = useTheme();
   const present = useMenu();
   const menu = useEntityActions()(entity, "more");
@@ -139,7 +142,11 @@ function OpenEntity({
               {space?.name ?? ""}
             </Text>
             {entity.deletedAt ? <Badge label="In Trash" variant="destructive" /> : null}
-            {readOnly && !entity.deletedAt ? <Badge label="View only" /> : null}
+            {mirrored ? (
+              <Badge label="Editing in the other group" />
+            ) : readOnly && !entity.deletedAt ? (
+              <Badge label="View only" />
+            ) : null}
             {entity.type === "task" ? (
               <TaskStepper id={entity.id} spaceId={entity.spaceId} />
             ) : null}

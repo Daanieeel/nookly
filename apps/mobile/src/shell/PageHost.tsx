@@ -6,6 +6,8 @@ import { NavigationContext, NavigationRouteContext } from "expo-router/react-nav
 import { type ReactNode, createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { create } from "zustand";
 import type { PageMatch } from "./pages.tsx";
+import { activePath } from "./workspace.ts";
+import { useWorkspace } from "./workspace-store.ts";
 
 /// Where a page sits in the tablet's window: its tab and group, and whether it shows.
 export interface PageHostValue {
@@ -23,6 +25,13 @@ const PageHostContext = createContext<PageHostValue | null>(null);
 /// The tablet page this is in, or null on a phone (or over the window, in a sheet).
 export function usePageHost(): PageHostValue | null {
   return useContext(PageHostContext);
+}
+
+/// Whether this page is also the one the focused group shows, while its own group is not
+/// focused: as on the desktop, the same page in both groups is edited in the focused one only.
+export function useMirrored(): boolean {
+  const host = usePageHost();
+  return useWorkspace((s) => !!host && !host.focused && activePath(s.ws) === host.path);
 }
 
 /// The titles pages give themselves (`<Stack.Screen options={{ title }} />`), by tab and

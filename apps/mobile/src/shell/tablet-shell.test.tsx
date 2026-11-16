@@ -170,6 +170,20 @@ describe("the tablet's window", () => {
     expect(await screen.findByRole("button", { name: "Show Right Group" })).toBeTruthy();
   });
 
+  // As the desktop: the same page in both groups is edited in the focused one only (6.1).
+  it("edits a page open in both groups only in the focused group", async () => {
+    const screen = await setup(LANDSCAPE);
+    act(() => {
+      workspace.open(`/entity/${screen.note}`);
+      workspace.splitRight();
+      workspace.open(`/entity/${screen.note}`);
+    });
+    await waitFor(() => expect(screen.getAllByLabelText("Title")).toHaveLength(2));
+    const [left, right] = screen.getAllByLabelText("Title");
+    expect(right.props.editable).toBe(true);
+    expect(left.props.editable).toBe(false);
+  });
+
   it("splits where the divider is let go, each group keeping 360", () => {
     expect(ratioAt(500, 1000)).toBe(0.5);
     expect(ratioAt(100, 1000)).toBe(0.36);
