@@ -11,6 +11,9 @@ import { ListTitle } from "../ui/ListBar.tsx";
 import { Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
+import { DataTable } from "../ui/DataTable.tsx";
+import { EDITED_COLUMN, KEY_COLUMN, titleColumn } from "./entity-columns.tsx";
+import { useIsTablet } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { groupPinned } from "./pinned-groups.ts";
 
@@ -22,6 +25,9 @@ export function PinnedScreen() {
   const theme = useTheme();
   const { data: pinned = [] } = usePinned();
   const { data: spaces = [] } = useSpaces();
+  const tablet = useIsTablet();
+  // A tablet's module groups are the desktop's tables (4.5).
+  const columns = [titleColumn(), KEY_COLUMN, EDITED_COLUMN];
   const sections = groupPinned(
     pinned,
     spaces.map((s) => s.id),
@@ -63,8 +69,21 @@ export function PinnedScreen() {
                       {group.items.length}
                     </Text>
                   </View>
+                  {tablet ? (
+                    <DataTable
+                      label={group.label}
+                      rows={group.items}
+                      columns={columns}
+                      keyOf={(e) => e.id}
+                      titleOf={(e) => e.title || "Untitled"}
+                      onPress={(e) => router.push(`/entity/${e.id}`)}
+                      onLongPress={(e) => entityMenu(e)}
+                      initialSort={{ id: "edited", desc: true }}
+                      headings="inline"
+                    />
+                  ) : null}
                   <Section>
-                    {group.items.map((entity) => (
+                    {(tablet ? [] : group.items).map((entity) => (
                       <View key={entity.id}>
                         <EntitySwipe entity={entity}>
                           <Row

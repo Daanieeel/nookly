@@ -63,6 +63,7 @@ export function DataTable<T>({
   initialSort = null,
   wrapRow,
   trailing,
+  headings = "fixed",
 }: {
   label: string;
   rows: readonly T[];
@@ -81,6 +82,9 @@ export function DataTable<T>({
   /// A row's own buttons at its end (Restore, Delete Forever), beside the row's button
   /// rather than in it, so VoiceOver reaches each; `width` keeps the headings over them.
   trailing?: { width: number; render: (row: T) => ReactNode };
+  /// "fixed" keeps the headings above the scrolling page; "inline" draws them over the rows,
+  /// for a page of several tables (one per group).
+  headings?: "fixed" | "inline";
 }) {
   const width = usePageWidth();
   const { row: rowHeight } = useScale();
@@ -92,21 +96,22 @@ export function DataTable<T>({
   const sorted = sortRows(rows, columns, sort);
   const tap = (id: string) =>
     setSort((now) => (now?.id === id ? { id, desc: !now.desc } : { id, desc: false }));
+  const headingRow = (
+    <View className={cn("flex-row items-center gap-3 px-3", ROW_DIVIDER)}>
+      {inline.map((column) => (
+        <Heading
+          key={column.id}
+          column={column}
+          sort={sort?.id === column.id ? sort : null}
+          onPress={column.sortValue ? () => tap(column.id) : undefined}
+        />
+      ))}
+      {trailing ? <View style={{ width: trailing.width }} /> : null}
+    </View>
+  );
   return (
     <View accessibilityLabel={label}>
-      <FixedTop>
-        <View className={cn("flex-row items-center gap-3 px-3", ROW_DIVIDER)}>
-          {inline.map((column) => (
-            <Heading
-              key={column.id}
-              column={column}
-              sort={sort?.id === column.id ? sort : null}
-              onPress={column.sortValue ? () => tap(column.id) : undefined}
-            />
-          ))}
-          {trailing ? <View style={{ width: trailing.width }} /> : null}
-        </View>
-      </FixedTop>
+      {headings === "fixed" ? <FixedTop>{headingRow}</FixedTop> : headingRow}
       {sorted.map((row) => {
         const key = keyOf(row);
         const on = key === selected;

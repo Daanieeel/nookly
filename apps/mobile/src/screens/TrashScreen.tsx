@@ -7,6 +7,7 @@ import { View } from "react-native";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import type { EntityRecord } from "@nookly/shared/data";
 import { type Column, DataTable } from "../ui/DataTable.tsx";
+import { titleColumn } from "./entity-columns.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { Text } from "../ui/Text.tsx";
@@ -74,20 +75,7 @@ export function TrashScreen() {
   const theme = useTheme();
   // A tablet's Trash is the desktop's table (4.7), each row with its two ways out.
   const columns: Column<EntityRecord>[] = [
-    {
-      id: "title",
-      label: "Title",
-      width: "fill",
-      sortValue: (e) => e.title,
-      render: (e) => (
-        <View className="flex-row items-center gap-2">
-          <EntityIcon type={e.type} icon={e.icon} size={16} />
-          <Text numberOfLines={1} className="flex-1 text-muted-foreground">
-            {e.title || "Untitled"}
-          </Text>
-        </View>
-      ),
-    },
+    titleColumn(true),
     {
       id: "type",
       label: "Type",

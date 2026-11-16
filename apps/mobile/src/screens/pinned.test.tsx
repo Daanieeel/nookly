@@ -18,6 +18,20 @@ describe("the Pinned page", () => {
     expect(screen.getByRole("button", { name: /^Quarterly report/ })).toBeTruthy();
   });
 
+  // A tablet's groups are the desktop's tables (4.5): the key and when it changed beside
+  // each title, sortable by its headings.
+  it("lists each module's pins as a table on a tablet", async () => {
+    const data = testData();
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    await setPinned(data.db, await createTask(data.db, work, "Quarterly report"), true);
+    const screen = await renderScreens({ index: () => <PinnedScreen /> }, data, "/", {
+      width: 1032,
+    });
+    expect(await screen.findByRole("button", { name: /^Quarterly report/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Edited, sorted descending" })).toBeTruthy();
+    expect(screen.getByText("TSK-1")).toBeTruthy();
+  });
+
   it("says when nothing is pinned", async () => {
     const screen = await renderScreens({ index: () => <PinnedScreen /> }, testData());
     expect(await screen.findByText(/Nothing pinned yet/)).toBeTruthy();
