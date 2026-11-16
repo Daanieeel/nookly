@@ -28,7 +28,10 @@ export type ShortcutId =
   | "toggleGroupZoom"
   | "nextSpace"
   | "previousSpace"
-  | "find";
+  | "find"
+  | "newTask"
+  | "quickAssignment"
+  | "import";
 
 export interface Shortcut extends KeyShortcut {
   id: ShortcutId;
@@ -145,6 +148,21 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "find", key: "f", modifiers: ["command"], title: "Find in Page", section: "Navigation" },
   { id: "quickJot", key: "j", modifiers: ["command"], title: "Quick Jot", section: "Create" },
   { id: "newItem", key: "n", modifiers: ["command"], title: "New Item", section: "Create" },
+  {
+    id: "newTask",
+    key: "t",
+    modifiers: ["command", "shift"],
+    title: "New Task",
+    section: "Create",
+  },
+  {
+    id: "quickAssignment",
+    key: "a",
+    modifiers: ["command", "shift"],
+    title: "New Assignment",
+    section: "Create",
+  },
+  { id: "import", key: "i", modifiers: ["command"], title: "Import", section: "Create" },
 ];
 
 /// Keys taken only while a popover or dialog is open (`ui/sheet/layers.ts`): Escape closes
@@ -163,7 +181,19 @@ export const MOVE_SHORTCUTS: KeyShortcut[] = [
 /// The iPadOS menu bar: every shortcut once, under the desktop's menus. File, Edit, View
 /// and Window join the system's own.
 export const MENUS: { title: string; ids: ShortcutId[] }[] = [
-  { title: "File", ids: ["newItem", "quickJot", "newTab", "closeTab", "closeOtherTabs"] },
+  {
+    title: "File",
+    ids: [
+      "newItem",
+      "newTask",
+      "quickAssignment",
+      "quickJot",
+      "import",
+      "newTab",
+      "closeTab",
+      "closeOtherTabs",
+    ],
+  },
   { title: "Edit", ids: ["find", "search", "commands"] },
   {
     title: "View",

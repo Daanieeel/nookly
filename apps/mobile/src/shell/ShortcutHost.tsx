@@ -1,5 +1,8 @@
 import { useFindBar } from "../editor/FindBar.tsx";
 import { usePageKeys } from "./page-keys.ts";
+import { createPathFor } from "./create-path.ts";
+import { activePath } from "./workspace.ts";
+import { useWorkspace } from "./workspace-store.ts";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import * as system from "../../modules/nookly-keys/src/index.ts";
@@ -64,7 +67,8 @@ export function ShortcutHost({
         case "quickJot":
           return router.push("/new/jot");
         case "newItem":
-          return router.push("/new/page");
+          // SAFETY: `createPathFor` gives a route under `app/new`.
+          return router.push(createPathFor(activePath(useWorkspace.getState().ws)) as never);
         case "toggleSidebar":
         case "toggleInspector":
         case "back":
@@ -92,6 +96,12 @@ export function ShortcutHost({
           return onAction("previousTab");
         case "find":
           return useFindBar.setState({ open: true });
+        case "newTask":
+          return router.push("/new/task");
+        case "quickAssignment":
+          return router.push("/new/assignment");
+        case "import":
+          return router.push("/new/import");
       }
     };
     const stop = keys.onShortcut((id) => {

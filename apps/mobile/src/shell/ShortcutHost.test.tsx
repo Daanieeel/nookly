@@ -4,6 +4,7 @@ import { type KeySystem, ShortcutHost } from "./ShortcutHost.tsx";
 import { useShell } from "./store.ts";
 import { pushLayer } from "../ui/sheet/layers.ts";
 import { setPageKeys } from "./page-keys.ts";
+import { workspace } from "./workspace-store.ts";
 
 let listener: ((id: string) => void) | null = null;
 const registered: string[][] = [];
@@ -28,6 +29,7 @@ async function setup() {
     index: () => <ShortcutHost keys={fakeKeys} onAction={(action) => actions.push(action)} />,
     settings: () => null,
     "new/jot": () => null,
+    "new/task": () => null,
   });
   return { ...screen, actions };
 }
@@ -35,6 +37,14 @@ async function setup() {
 afterEach(() => act(() => useShell.getState().close()));
 
 describe("keyboard shortcuts", () => {
+  // As the desktop's New: it creates in the list shown (10.1).
+  it("creates in the list the focused tab shows", async () => {
+    const screen = await setup();
+    act(() => workspace.open("/module/s1/tasks"));
+    press("newItem");
+    await waitFor(() => expect(screen.getPathname()).toBe("/new/task"));
+  });
+
   // A screen's own keys (a study session's Space and 1 to 4) only while it is shown (9.3).
   it("takes a screen's own keys while it is shown, and gives them back after", async () => {
     await setup();
