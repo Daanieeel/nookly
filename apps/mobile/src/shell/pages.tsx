@@ -2,7 +2,6 @@ import type { ComponentType } from "react";
 import type { Route } from "expo-router/react-navigation";
 import { z } from "zod";
 import Assignments from "../app/assignments.tsx";
-import Conflicts from "../app/conflicts.tsx";
 import Calendar from "../app/(drawer)/calendar.tsx";
 import Dashboard from "../app/(drawer)/index.tsx";
 import Module from "../app/(drawer)/module/[spaceId]/[module].tsx";
@@ -38,8 +37,8 @@ interface PageRoute {
 }
 
 /// Every route the tablet shows as a page in a tab, by the same route files the phone's
-/// stack shows. Create forms, pickers, the welcome, signing in, a Space's settings and a
-/// study session are not pages: they stay the router's, over the window.
+/// stack shows. Create forms, pickers, the welcome, signing in, a Space's settings, Review
+/// Changes and a study session are not pages: they stay the router's, over the window.
 const ROUTES: PageRoute[] = [
   { pattern: "", Component: Dashboard, kind: "list" },
   { pattern: "calendar", Component: Calendar, kind: "page" },
@@ -52,7 +51,6 @@ const ROUTES: PageRoute[] = [
   { pattern: "module/[spaceId]/[module]", Component: Module, kind: "list" },
   { pattern: "entity/[id]", Component: Entity, kind: "item" },
   { pattern: "file/[id]", Component: File, kind: "item" },
-  { pattern: "conflicts", Component: Conflicts, kind: "page" },
   { pattern: "settings", Component: Settings, kind: "page" },
   { pattern: "settings/calendar-connections", Component: CalendarConnections, kind: "page" },
   { pattern: "settings/shortcuts", Component: Shortcuts, kind: "page" },

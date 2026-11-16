@@ -25,6 +25,7 @@ const ROUTES = {
   "module/[spaceId]/[module]": () => null,
   "new/task": () => null,
   conflicts: () => null,
+  "settings/sidebar": () => null,
   "space-settings/[id]": () => null,
 };
 
@@ -197,8 +198,8 @@ describe("the tablet's window", () => {
 
   it("titles a page without a list header in its own header row, with no system bar", async () => {
     const screen = await setup(LANDSCAPE);
-    act(() => workspace.open("/conflicts"));
-    expect(await screen.findByRole("header", { name: "Review Changes" })).toBeTruthy();
+    act(() => workspace.open("/settings/sidebar"));
+    expect(await screen.findByRole("header", { name: "Settings" })).toBeTruthy();
   });
 
   // A Space's settings are the desktop's dialog over the window, not a page in a tab (6.12).
@@ -206,6 +207,14 @@ describe("the tablet's window", () => {
     const screen = await setup(LANDSCAPE);
     act(() => router.push(`/space-settings/${screen.space}`));
     await waitFor(() => expect(screen.getPathname()).toBe(`/space-settings/${screen.space}`));
+    expect(groups()).toEqual([["/"]]);
+  });
+
+  // Review Changes is the desktop's extra large dialog over the window (6.15).
+  it("reviews changes over the window, leaving the tabs as they were", async () => {
+    const screen = await setup(LANDSCAPE);
+    act(() => router.push("/conflicts"));
+    await waitFor(() => expect(screen.getPathname()).toBe("/conflicts"));
     expect(groups()).toEqual([["/"]]);
   });
 

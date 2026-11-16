@@ -9,7 +9,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { IconButton } from "../Button.tsx";
-import { useWindowSize } from "../pane.tsx";
+import { GroupWidthProvider, useWindowSize } from "../pane.tsx";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
 import { CARD_INSET, CORNER, DEPTH, RADIUS, SPACE } from "../tokens.ts";
@@ -279,7 +279,10 @@ export function DialogFrame({
           },
         ]}
       >
-        {children}
+        {/* A page drawn in a dialog lays out for the dialog, not the window behind it. */}
+        <GroupWidthProvider value={Math.min(width, window.width - 2 * DIALOG_MARGIN)}>
+          {children}
+        </GroupWidthProvider>
       </Animated.View>
     </Animated.View>
   );

@@ -285,7 +285,10 @@ export default function RootLayout() {
       <Stack.Screen name="new/import" options={SHEET_ROUTE} />
       <Stack.Screen name="new/deck" options={SHEET_ROUTE} />
       <Stack.Screen name="new/share" options={SHEET_ROUTE} />
-      <Stack.Screen name="conflicts" options={{ title: "Review Changes", ...groupedHeader }} />
+      <Stack.Screen
+        name="conflicts"
+        options={tablet ? SHEET_ROUTE : { title: "Review Changes", ...groupedHeader }}
+      />
       <Stack.Screen
         name="study/[deckId]"
         // The session draws its own top row: Back to Deck, the counts and Undo.
