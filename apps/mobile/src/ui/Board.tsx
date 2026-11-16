@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { Pressable, View, useWindowDimensions } from "react-native";
+import { Pressable, View } from "react-native";
+import { useWindowSize } from "./pane.tsx";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   type SharedValue,
@@ -206,7 +207,7 @@ export function Board<T>({
   onOpen: (item: T) => void;
   onMove?: (item: T, columnId: string) => void;
 }) {
-  const { width } = useWindowDimensions();
+  const { width } = useWindowSize();
   const ref = useAnimatedRef<Animated.ScrollView>();
   const scrollX = useScrollOffset(ref);
   const startScroll = useSharedValue(0);
