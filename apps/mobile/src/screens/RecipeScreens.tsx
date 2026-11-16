@@ -1,3 +1,4 @@
+import { usePageWidth } from "../ui/pane.tsx";
 import { usePageFilters } from "../ui/page-filters.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
@@ -486,8 +487,12 @@ function RecipeBanner({ id, readOnly }: { id: string; readOnly: boolean }) {
 }
 
 /// A recipe's own page: banner, ingredients and steps; its kind, time and tags in the details.
+/// From this page width a recipe's ingredients sit beside its steps.
+const RECIPE_COLUMNS = 820;
+
 export function RecipeDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
   const theme = useTheme();
+  const pageWidth = usePageWidth();
   const { data: recipe } = useRecipe(id);
   const { data: catalog = [] } = useRecipeTags();
   const { data: parts } = useRecipeParts(id);
@@ -512,61 +517,76 @@ export function RecipeDetail({ id, readOnly }: { id: string; readOnly: boolean }
   const moveSt = useLocalWrite((db, s: { id: string; to: number }) => moveStep(db, s.id, s.to));
   const dropStep = useLocalWrite((db, step: string) => deleteStep(db, step));
   if (!recipe) return null;
+  const besideSteps = pageWidth >= RECIPE_COLUMNS;
   const muted = theme.colors.mutedForeground;
   const chosen = recipe.tags.map((t) => t.id);
   const fromSteps = recipe.durationMinutes === null ? minutes(recipe.totalDurationMinutes) : null;
+  const ingredientsPart = (
+    <Section title="Ingredients">
+      {readOnly && parts?.ingredients.length === 0 ? <Empty text="No ingredients yet." /> : null}
+      {parts?.ingredients.map((item, index) => (
+        <Part
+          key={item.id}
+          noun="Ingredient"
+          item={item}
+          index={index}
+          count={parts.ingredients.length}
+          readOnly={readOnly}
+          onText={(text) => editIngredient.mutate({ id: item.id, text })}
+          onMove={(to) => moveIng.mutate({ id: item.id, to })}
+          onDelete={() => dropIngredient.mutate(item.id)}
+        />
+      ))}
+      {!readOnly ? (
+        <AddLine noun="Ingredient" onAdd={(text) => addIngredient.mutate(text)} />
+      ) : null}
+    </Section>
+  );
+  const stepsPart = (
+    <Section title="Steps">
+      {readOnly && parts?.steps.length === 0 ? <Empty text="No steps yet." /> : null}
+      {parts?.steps.map((item, index) => (
+        <Part
+          key={item.id}
+          noun="Step"
+          item={item}
+          index={index}
+          count={parts.steps.length}
+          readOnly={readOnly}
+          onText={(text) => editStep.mutate({ id: item.id, patch: { text } })}
+          onMove={(to) => moveSt.mutate({ id: item.id, to })}
+          onDelete={() => dropStep.mutate(item.id)}
+          extra={
+            <StepDuration
+              name={`Step ${index + 1}`}
+              step={item}
+              readOnly={readOnly}
+              onChange={(value) =>
+                editStep.mutate({ id: item.id, patch: { durationMinutes: value } })
+              }
+            />
+          }
+        />
+      ))}
+      {!readOnly ? <AddLine noun="Step" onAdd={(text) => addStep.mutate(text)} /> : null}
+    </Section>
+  );
   return (
     <>
       <MainPart>
         <RecipeBanner id={id} readOnly={readOnly} />
-        <Section title="Ingredients">
-          {readOnly && parts?.ingredients.length === 0 ? (
-            <Empty text="No ingredients yet." />
-          ) : null}
-          {parts?.ingredients.map((item, index) => (
-            <Part
-              key={item.id}
-              noun="Ingredient"
-              item={item}
-              index={index}
-              count={parts.ingredients.length}
-              readOnly={readOnly}
-              onText={(text) => editIngredient.mutate({ id: item.id, text })}
-              onMove={(to) => moveIng.mutate({ id: item.id, to })}
-              onDelete={() => dropIngredient.mutate(item.id)}
-            />
-          ))}
-          {!readOnly ? (
-            <AddLine noun="Ingredient" onAdd={(text) => addIngredient.mutate(text)} />
-          ) : null}
-        </Section>
-        <Section title="Steps">
-          {readOnly && parts?.steps.length === 0 ? <Empty text="No steps yet." /> : null}
-          {parts?.steps.map((item, index) => (
-            <Part
-              key={item.id}
-              noun="Step"
-              item={item}
-              index={index}
-              count={parts.steps.length}
-              readOnly={readOnly}
-              onText={(text) => editStep.mutate({ id: item.id, patch: { text } })}
-              onMove={(to) => moveSt.mutate({ id: item.id, to })}
-              onDelete={() => dropStep.mutate(item.id)}
-              extra={
-                <StepDuration
-                  name={`Step ${index + 1}`}
-                  step={item}
-                  readOnly={readOnly}
-                  onChange={(value) =>
-                    editStep.mutate({ id: item.id, patch: { durationMinutes: value } })
-                  }
-                />
-              }
-            />
-          ))}
-          {!readOnly ? <AddLine noun="Step" onAdd={(text) => addStep.mutate(text)} /> : null}
-        </Section>
+        {/* Beside each other where the page is wide, as the desktop's (6.9). */}
+        {besideSteps ? (
+          <View testID="recipe-columns" className="flex-row items-start gap-6">
+            <View style={{ width: "38%" }}>{ingredientsPart}</View>
+            <View className="min-w-0 flex-1">{stepsPart}</View>
+          </View>
+        ) : (
+          <>
+            {ingredientsPart}
+            {stepsPart}
+          </>
+        )}
       </MainPart>
       <DetailsPart>
         <PropertyList>

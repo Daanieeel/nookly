@@ -27,6 +27,32 @@ async function open(photoPicker?: PhotoPicker) {
   return { data, space, recipe, screen };
 }
 
+// A tablet's recipe has its ingredients beside its steps where the page is wide, as the
+// desktop's, and stacked where it is narrow (6.9).
+describe("a recipe on a tablet", () => {
+  it("puts its ingredients beside its steps in a wide page", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Kitchen", "#22c55e");
+    const recipe = await createRecipe(data.db, space, "Pancakes");
+    const wide = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={recipe} /> },
+      data,
+      `/entity/${recipe}`,
+      { width: 1376, height: 1032 },
+    );
+    expect(await wide.findByTestId("recipe-columns")).toBeTruthy();
+    wide.unmount();
+    const narrow = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={recipe} /> },
+      data,
+      `/entity/${recipe}`,
+      { width: 744, height: 1133 },
+    );
+    expect(await narrow.findByText("INGREDIENTS")).toBeTruthy();
+    expect(narrow.queryByTestId("recipe-columns")).toBeNull();
+  });
+});
+
 describe("a recipe", () => {
   it("lists a Space's recipes with their kind and time", async () => {
     const { data, space, recipe } = await open();
