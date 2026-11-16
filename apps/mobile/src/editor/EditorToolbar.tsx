@@ -1,3 +1,5 @@
+import { useIsTablet } from "../ui/pane.tsx";
+import { useKeyboardTop } from "../ui/sheet/Floating.tsx";
 import {
   IconArrowBackUp,
   IconArrowForwardUp,
@@ -24,7 +26,7 @@ import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { useTheme } from "../ui/theme.ts";
 import { CORNER, RADIUS } from "../ui/tokens.ts";
-import { TOOLBAR, type ToolbarId } from "./toolbar.ts";
+import { type EditorAction, type EditorState, TOOLBAR, type ToolbarId } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
 import { CONTROL_SIZE, gapBetween } from "../ui/touch.ts";
 
@@ -61,7 +63,32 @@ export function EditorToolbar({ inline = false }: { inline?: boolean }) {
   const ride = useAnimatedStyle(() => ({
     transform: [{ translateY: -keyboard.height.value }],
   }));
+  // A tablet typed on with a hardware keyboard has no software keyboard up: the toolbar is
+  // the desktop's format bar, floating over the bottom of the page (3.9).
+  const tablet = useIsTablet();
+  const softKeyboard = useKeyboardTop().height > 0;
   if (!focused || !run) return null;
+  if (tablet && !inline && !softKeyboard) {
+    return (
+      <View pointerEvents="box-none" className="absolute bottom-4 left-0 right-0 items-center px-4">
+        <View
+          testID="format-bar"
+          accessibilityRole="toolbar"
+          className="max-w-full flex-row rounded-xl border border-border bg-popover px-1.5 py-1 shadow-lg"
+        >
+          <ScrollView
+            horizontal
+            keyboardShouldPersistTaps="always"
+            showsHorizontalScrollIndicator={false}
+          >
+            <View className="flex-row" style={{ gap: 2 }}>
+              <ToolbarButtons iconSize={18} on={on} off={off} run={run} />
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    );
+  }
   return (
     <Animated.View
       className={cn(
@@ -82,24 +109,7 @@ export function EditorToolbar({ inline = false }: { inline?: boolean }) {
         showsHorizontalScrollIndicator={false}
       >
         <View className="flex-row px-2 py-1.5" style={{ gap: gapBetween(CONTROL_SIZE.icon) }}>
-          {TOOLBAR.map(({ id, label }) => {
-            const Icon = ICONS[id];
-            return (
-              <View key={id} className={cn("rounded-lg", on[id] && "bg-primary/15")}>
-                <IconButton
-                  label={label}
-                  icon={
-                    <Icon
-                      size={22}
-                      color={on[id] ? theme.colors.primary : theme.colors.foreground}
-                    />
-                  }
-                  disabled={off[id]}
-                  onPress={() => run(id)}
-                />
-              </View>
-            );
-          })}
+          <ToolbarButtons iconSize={22} on={on} off={off} run={run} />
         </View>
       </ScrollView>
       <View className="justify-center border-l border-border px-1">
@@ -118,5 +128,42 @@ export function EditorToolbar({ inline = false }: { inline?: boolean }) {
         />
       </View>
     </Animated.View>
+  );
+}
+
+/// The toolbar's buttons, the format on lit in the primary colour.
+function ToolbarButtons({
+  iconSize,
+  on,
+  off,
+  run,
+}: {
+  iconSize: number;
+  on: EditorState["on"];
+  off: NonNullable<EditorState["off"]>;
+  run: (id: EditorAction) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <>
+      {TOOLBAR.map(({ id, label }) => {
+        const Icon = ICONS[id];
+        return (
+          <View key={id} className={cn("rounded-lg", on[id] && "bg-primary/15")}>
+            <IconButton
+              label={label}
+              icon={
+                <Icon
+                  size={iconSize}
+                  color={on[id] ? theme.colors.primary : theme.colors.foreground}
+                />
+              }
+              disabled={off[id]}
+              onPress={() => run(id)}
+            />
+          </View>
+        );
+      })}
+    </>
   );
 }

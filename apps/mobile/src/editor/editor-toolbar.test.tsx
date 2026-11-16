@@ -37,4 +37,16 @@ describe("the editor's toolbar", () => {
       disabled: false,
     });
   });
+
+  // With a hardware keyboard on a tablet there is no software keyboard to ride on or hide:
+  // the desktop's format bar floats over the page's bottom instead (3.9).
+  it("floats as the desktop's format bar on a tablet with no software keyboard", async () => {
+    const screen = await renderScreens({ index: () => <EditorToolbar /> }, testData(), "/", {
+      width: 1032,
+    });
+    act(() => useToolbar.getState().set({ focused: true, on: {} }, jest.fn()));
+    expect(await screen.findByTestId("format-bar")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Hide Keyboard" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Bold" })).toBeTruthy();
+  });
 });
