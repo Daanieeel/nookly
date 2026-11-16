@@ -10,8 +10,6 @@ import {
   IconPin,
   IconPinFilled,
   IconPlus,
-  IconSettings,
-  IconTag,
   IconTrash,
 } from "@tabler/icons-react-native";
 import { type Href, useRouter } from "expo-router";
@@ -49,6 +47,11 @@ import { useTheme } from "../../ui/theme.ts";
 import { FACE } from "../../ui/tokens.ts";
 import { activePath } from "../workspace.ts";
 import { useWorkspace, workspace } from "../workspace-store.ts";
+import { useSpaceMenu } from "./space-menu.tsx";
+import { useOnSpaceStep } from "./space-step.ts";
+import { SidebarItemsEditor } from "../../screens/settings/SidebarSettings.tsx";
+import { useAnchor } from "../../ui/sheet/anchor.ts";
+import { Sheet } from "../../ui/sheet/Sheet.tsx";
 
 /// The tablet's rows: a finger's height, the desktop's type one step up for touch.
 const ROW_HEIGHT = 44;
@@ -227,7 +230,8 @@ function ModuleRow({ space, module }: { space: Space; module: string }) {
 function SpaceHeader({ space }: { space: Space }) {
   const theme = useTheme();
   const menu = useMenu();
-  const router = useRouter();
+  const entries = useSpaceMenu(space);
+  const anchor = useAnchor();
   const muted = theme.colors.mutedForeground;
   return (
     <View className="flex-row items-center gap-2 pl-2.5" style={{ height: ROW_HEIGHT }}>
@@ -240,30 +244,14 @@ function SpaceHeader({ space }: { space: Space }) {
       >
         {space.name}
       </Text>
-      <IconButton
-        label={`${space.name} Menu`}
-        size="iconSm"
-        icon={<IconDots size={18} color={muted} />}
-        onPress={() =>
-          menu.show(space.name, [
-            {
-              label: "Add Module",
-              icon: IconLayoutGridAdd,
-              onPress: () => workspace.open(`/space/${space.id}`),
-            },
-            {
-              label: "Labels",
-              icon: IconTag,
-              onPress: () => router.push(`/space-settings/${space.id}`),
-            },
-            {
-              label: "Space Settings",
-              icon: IconSettings,
-              onPress: () => router.push(`/space-settings/${space.id}`),
-            },
-          ])
-        }
-      />
+      <View ref={anchor.ref} collapsable={false}>
+        <IconButton
+          label={`${space.name} Menu`}
+          size="iconSm"
+          icon={<IconDots size={18} color={muted} />}
+          onPress={() => menu.show(space.name, entries, { anchor })}
+        />
+      </View>
     </View>
   );
 }
@@ -385,6 +373,8 @@ export function TabletSidebar({
   onPin?: () => void;
   width: number;
 }) {
+  const [customizing, setCustomizing] = useState(false);
+  const customize = useAnchor();
   const theme = useTheme();
   const menu = useMenu();
   const router = useRouter();
@@ -404,6 +394,10 @@ export function TabletSidebar({
     if (pathSpace && pathSpace !== shownId) setShownId(pathSpace);
   }, [pathSpace, shownId, setShownId]);
   const shown = spaces.find((s) => s.id === shownId) ?? spaces[0] ?? null;
+  useOnSpaceStep((direction) => {
+    const next = spaces[spaces.findIndex((s) => s.id === shown?.id) + direction];
+    if (next) setShownId(next.id);
+  });
   const [tasksOpen, setTasksOpen] = useState(false);
   const { data: taskViews = [] } = useViews({ module: "tasks-overview" });
   const open = (href: string) => {
@@ -435,12 +429,26 @@ export function TabletSidebar({
               onPress={onPin}
             />
           ) : null}
-          <IconButton
-            label="Customize Sidebar"
-            size="iconSm"
-            icon={<IconAdjustmentsHorizontal size={16} color={muted} />}
-            onPress={() => router.push("/settings/sidebar")}
-          />
+          <View ref={customize.ref} collapsable={false}>
+            <IconButton
+              label="Customize Sidebar"
+              size="iconSm"
+              icon={<IconAdjustmentsHorizontal size={16} color={muted} />}
+              onPress={() => setCustomizing(true)}
+            />
+          </View>
+          <Sheet
+            open={customizing}
+            onOpenChange={setCustomizing}
+            title="Customize Sidebar"
+            kind="picker"
+            anchor={customize}
+            wide
+          >
+            <View className="gap-3 p-2">
+              <SidebarItemsEditor />
+            </View>
+          </Sheet>
         </View>
         {top.map(({ id, label, href }) => {
           const look = TOP_ICONS[id];

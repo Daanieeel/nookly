@@ -10,6 +10,7 @@ import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconSearch,
+  IconSettings,
   IconLayoutColumns,
   IconLayoutSidebar,
   IconLayoutSidebarRight,
@@ -68,6 +69,7 @@ export function Titlebar({
   leading?: number;
 }) {
   const theme = useTheme();
+  const router = useRouter();
   const open = useShell((s) => s.open);
   const muted = theme.colors.mutedForeground;
   const tab = useWorkspace((s) => focusedTab(s.ws));
@@ -149,6 +151,11 @@ export function Titlebar({
           onPress={() => onAction("toggleInspector")}
         />
       ) : null}
+      <IconButton
+        label="Settings"
+        icon={<IconSettings size={20} color={muted} />}
+        onPress={() => router.push("/settings")}
+      />
     </View>
   );
 }

@@ -15,6 +15,15 @@ const ROW = 56;
 /// Which overviews the sidebar lists at the top, and in what order: rows dragged into
 /// place, a switch to show each. Kept on this phone, like the desktop's.
 export function SidebarSettingsScreen() {
+  return (
+    <Screen>
+      <SidebarItemsEditor />
+    </Screen>
+  );
+}
+
+/// The rows and their switches: the page's on a phone, the sidebar's popover on a tablet.
+export function SidebarItemsEditor() {
   const [pref, setPref] = usePreference("sidebar.top", topSchema, DEFAULT_TOP);
   const items = orderedTop(pref);
   const ids = items.map((i) => i.id);
@@ -24,7 +33,7 @@ export function SidebarSettingsScreen() {
       hidden: on ? pref.hidden.filter((h) => h !== id) : [...pref.hidden, id],
     });
   return (
-    <Screen>
+    <>
       <Text tone="muted">
         Choose what the sidebar lists first. Hold a row, or its grip, and drag it into place.
       </Text>
@@ -58,6 +67,6 @@ export function SidebarSettingsScreen() {
           )}
         />
       </Section>
-    </Screen>
+    </>
   );
 }

@@ -5,6 +5,7 @@ import type { PaletteCommand } from "./commands.ts";
 import { topLayer, useLayers } from "../ui/sheet/layers.ts";
 import { LAYER_SHORTCUTS, type Shortcut, SHORTCUTS, type ShortcutId } from "./shortcuts.ts";
 import { useShell } from "./store.ts";
+import { stepSpace } from "./sidebar/space-step.ts";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
 
@@ -52,6 +53,10 @@ export function ShortcutHost({
         case "closeTab":
         case "splitRight":
           return onAction(id);
+        case "nextSpace":
+          return stepSpace(1);
+        case "previousSpace":
+          return stepSpace(-1);
         case "nextTab":
           return onAction("nextTab");
         case "previousTab":

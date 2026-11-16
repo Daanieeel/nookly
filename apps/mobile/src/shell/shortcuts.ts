@@ -18,7 +18,9 @@ export type ShortcutId =
   | "closeTab"
   | "nextTab"
   | "previousTab"
-  | "splitRight";
+  | "splitRight"
+  | "nextSpace"
+  | "previousSpace";
 
 export interface Shortcut extends KeyShortcut {
   id: ShortcutId;
@@ -63,6 +65,20 @@ export const SHORTCUTS: Shortcut[] = [
     section: "Tabs",
   },
   { id: "splitRight", key: "\\", modifiers: ["command"], title: "Split Right", section: "Tabs" },
+  {
+    id: "previousSpace",
+    key: "UIKeyInputUpArrow",
+    modifiers: ["command", "option"],
+    title: "Previous Space",
+    section: "Navigation",
+  },
+  {
+    id: "nextSpace",
+    key: "UIKeyInputDownArrow",
+    modifiers: ["command", "option"],
+    title: "Next Space",
+    section: "Navigation",
+  },
   { id: "quickJot", key: "j", modifiers: ["command"], title: "Quick Jot", section: "Create" },
   { id: "newItem", key: "n", modifiers: ["command"], title: "New Item", section: "Create" },
 ];
@@ -79,6 +95,10 @@ const ORDER = ["control", "option", "shift", "command"] as const;
 const NAMED = new Map([
   ["\t", "⇥"],
   ["\\", "\\"],
+  ["UIKeyInputUpArrow", "↑"],
+  ["UIKeyInputDownArrow", "↓"],
+  ["UIKeyInputEscape", "⎋"],
+  ["\r", "↩"],
 ]);
 
 /// "⇧⌘P": modifiers in the system's order, then the key.

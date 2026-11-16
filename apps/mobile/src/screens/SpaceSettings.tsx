@@ -1,26 +1,22 @@
 import { ACCENT_COLORS } from "@nookly/shared/colors";
 import {
-  addSpaceModule,
   deleteLabel,
-  deleteSpace,
-  listEntities,
   removeSpaceModule,
   reorderSpaceModules,
   updateLabel,
-  updateSpace,
 } from "@nookly/shared/data";
-import {
-  MODULE_KEYS,
-  MODULE_LABELS,
-  type ModuleKey,
-  isModuleKey,
-  removalGroup,
-} from "@nookly/shared/modules";
+import { MODULE_LABELS, type ModuleKey, isModuleKey, removalGroup } from "@nookly/shared/modules";
 import { IconChevronRight, IconLayoutGridAdd, IconTrash } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import { useDb, useLocalWrite } from "../data/context.tsx";
+import { useLocalWrite } from "../data/context.tsx";
+import {
+  AddModuleList,
+  useAddableModules,
+  useAskDeleteSpace,
+  useUpdateSpace,
+} from "./space-actions.tsx";
 import { useLabels, useSpaceModules, useSpaces } from "../data/queries.ts";
 import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
@@ -28,7 +24,6 @@ import { MODULE_ICONS } from "../ui/icons.tsx";
 import { cn } from "../ui/classes.ts";
 import { Empty, ROW_DIVIDER, Row, Section } from "../ui/Row.tsx";
 import { FormSection } from "../ui/kit/Form.tsx";
-import { OptionList } from "../ui/sheet/OptionList.tsx";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { Screen } from "../ui/Screen.tsx";
@@ -41,9 +36,6 @@ import { TYPE } from "../ui/tokens.ts";
 
 /// A module's row height, which a drag moves by.
 const MODULE_ROW = 56;
-
-/// Modules offered under Add Module: all of them but the passenger that comes with Courses.
-const ADDABLE = MODULE_KEYS.filter((key) => key !== "semesters");
 
 function Swatches({
   label,
@@ -137,20 +129,16 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
   const space = spaces.find((s) => s.id === spaceId);
   const [name, setName] = useState(space?.name ?? "");
   useEffect(() => setName(space?.name ?? ""), [space?.name]);
-  const update = useLocalWrite((db, patch: { name?: string; color?: string; icon?: string }) =>
-    updateSpace(db, spaceId, patch),
-  );
+  const update = useUpdateSpace(spaceId);
   const reorder = useLocalWrite((db, keys: string[]) => reorderSpaceModules(db, spaceId, keys));
-  const add = useLocalWrite((db, key: string) => addSpaceModule(db, spaceId, key));
   const remove = useLocalWrite((db, input: { key: string; trash: boolean }) =>
     removeSpaceModule(db, spaceId, input.key, input.trash),
   );
-  const destroy = useLocalWrite((db) => deleteSpace(db, spaceId));
+  const { ask: askDelete, destroy } = useAskDeleteSpace(space);
   const [adding, setAdding] = useState(false);
-  const db = useDb();
+  const more = useAddableModules(spaceId);
   if (!space) return null;
   const shown = modules.filter(isModuleKey);
-  const more = ADDABLE.filter((key) => !shown.includes(key));
   const askRemove = (key: ModuleKey) =>
     menu.confirm({
       title: `Remove ${MODULE_LABELS[key]}?`,
@@ -207,21 +195,7 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
           />
         ) : null}
         <Sheet open={adding} onOpenChange={setAdding} title="Add Module" presentation="card">
-          <OptionList
-            label="Modules"
-            search
-            value={null}
-            options={more.map((key) => ({
-              id: key,
-              label: MODULE_LABELS[key],
-              glyph: MODULE_ICONS[key],
-              tint: space.color,
-            }))}
-            onChange={(key) => {
-              setAdding(false);
-              add.mutate(key);
-            }}
-          />
+          <AddModuleList space={space} onAdded={() => setAdding(false)} />
         </Sheet>
         <Section title="Modules">
           {shown.length === 0 ? <Empty text="No modules yet." /> : null}
@@ -272,25 +246,7 @@ export function SpaceSettingsScreen({ spaceId }: { spaceId: string }) {
               variant="destructive"
               status={statusOf(destroy)}
               errorLabel="Couldn't delete"
-              onPress={async () => {
-                // Counted when asked, so it is what goes now.
-                const count = (await listEntities(db, { spaceId })).length;
-                menu.confirm({
-                  title: `Delete "${space.name}"?`,
-                  description:
-                    "This permanently deletes the Space and everything in it, across all its modules. This cannot be undone; nothing goes to Trash.",
-                  stats: [{ value: count, label: count === 1 ? "Item" : "Items" }],
-                  phrase: space.name,
-                  actions: [
-                    {
-                      label: "Delete Space",
-                      destructive: true,
-                      onPress: () =>
-                        destroy.mutate(undefined, { onSuccess: () => router.dismissAll() }),
-                    },
-                  ],
-                });
-              }}
+              onPress={() => void askDelete()}
             />
           </View>
         </Section>
