@@ -14,7 +14,11 @@ import {
 } from "@tabler/icons-react-native";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import { cn } from "../ui/classes.ts";
+import { useIsTablet, usePageWidth } from "../ui/pane.tsx";
+import { SelectField } from "../ui/SelectField.tsx";
+import { MIN_TOUCH } from "../ui/touch.ts";
 import type {
   MoodleAssignment,
   MoodleForum,
@@ -112,6 +116,9 @@ function Contents({
   webUrl: string | null;
 }) {
   const contents = useMoodleContents(courseId);
+  const tablet = useIsTablet();
+  const wide = usePageWidth() >= SECTIONS_BESIDE;
+  const [picked, setPicked] = useState(0);
   return (
     <MoodleData
       query={contents}
@@ -127,17 +134,74 @@ function Contents({
         ) : null
       }
     >
-      {(sections) =>
-        sections.map((section, index) => (
+      {(sections) => {
+        const one = (section: (typeof sections)[number], index: number) => (
           <Section key={section.id} title={sectionTitle(section.name, index)}>
             <MoodleText html={section.summary} muted />
             {section.modules.map((module) => (
               <ModuleItem key={module.id} courseId={courseId} spaceId={spaceId} module={module} />
             ))}
           </Section>
-        ))
-      }
+        );
+        if (!tablet) return sections.map(one);
+        // The desktop's course page: one section at a time, picked beside it or above it.
+        const at = Math.min(picked, sections.length - 1);
+        const names = sections.map((section, index) => sectionTitle(section.name, index));
+        return wide ? (
+          <View className="flex-row gap-4">
+            <SectionList names={names} picked={at} onPick={setPicked} />
+            <View className="min-w-0 flex-1">{one(sections[at], at)}</View>
+          </View>
+        ) : (
+          <>
+            <SelectField
+              label="Section"
+              value={String(at)}
+              options={names.map((name, index) => ({ id: String(index), label: name }))}
+              onChange={(id) => setPicked(Number(id))}
+            />
+            {one(sections[at], at)}
+          </>
+        );
+      }}
     </MoodleData>
+  );
+}
+
+/// From this page width a course's sections are listed beside the one shown.
+const SECTIONS_BESIDE = 820;
+
+/// The desktop's list of a course's sections beside the one shown (`CourseContents`).
+function SectionList({
+  names,
+  picked,
+  onPick,
+}: {
+  names: string[];
+  picked: number;
+  onPick: (index: number) => void;
+}) {
+  return (
+    <View accessibilityLabel="Sections" accessibilityRole="tablist" style={{ width: 220 }}>
+      {names.map((name, index) => (
+        <Pressable
+          key={`${index} ${name}`}
+          accessibilityRole="tab"
+          accessibilityLabel={name}
+          accessibilityState={{ selected: index === picked }}
+          onPress={() => onPick(index)}
+          style={{ minHeight: MIN_TOUCH }}
+          className={cn(
+            "justify-center rounded-md px-3",
+            index === picked ? "bg-accent" : "active:bg-accent/50",
+          )}
+        >
+          <Text numberOfLines={2} className={index === picked ? "font-medium" : undefined}>
+            {name}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
   );
 }
 
