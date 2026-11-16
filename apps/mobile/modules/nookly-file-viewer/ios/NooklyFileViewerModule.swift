@@ -74,6 +74,10 @@ public class NooklyFileViewerModule: Module {
         view.search(query ?? "")
       }
 
+      Prop("thumbnails") { (view: NooklyFileView, on: Bool?) in
+        view.setThumbnails(on ?? false)
+      }
+
       AsyncFunction("findNext") { (view: NooklyFileView, backwards: Bool) in
         view.findNext(backwards: backwards)
       }.runOnQueue(.main)

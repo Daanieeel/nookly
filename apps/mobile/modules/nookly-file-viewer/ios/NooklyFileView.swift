@@ -10,6 +10,10 @@ class NooklyFileView: ExpoView, QLPreviewControllerDataSource {
 
   private var loadedKey = ""
   private var pdfView: PDFView?
+  private var strip: PDFThumbnailView?
+  private var wantsStrip = false
+  /// The page strip's width, the desktop's thumbnails column.
+  private static let stripWidth: CGFloat = 112
   private var preview: QLPreviewController?
   private var previewURL: URL?
   private var matches: [PDFSelection] = []
@@ -59,6 +63,8 @@ class NooklyFileView: ExpoView, QLPreviewControllerDataSource {
 
   private func tearDown() {
     NotificationCenter.default.removeObserver(self)
+    strip?.removeFromSuperview()
+    strip = nil
     pdfView?.removeFromSuperview()
     pdfView = nil
     if let preview {
@@ -75,7 +81,6 @@ class NooklyFileView: ExpoView, QLPreviewControllerDataSource {
 
   private func showPDF(_ document: PDFDocument) {
     let view = PDFView(frame: bounds)
-    view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     view.displayMode = .singlePageContinuous
     view.displayDirection = .vertical
     view.autoScales = true
@@ -84,10 +89,48 @@ class NooklyFileView: ExpoView, QLPreviewControllerDataSource {
     view.document = document
     addSubview(view)
     pdfView = view
+    placeStrip()
     NotificationCenter.default.addObserver(
       self, selector: #selector(pageChanged), name: .PDFViewPageChanged, object: view)
     pageChanged()
     if !query.isEmpty { search(query, force: true) }
+  }
+
+  /// Shows or hides the page strip down the left side of a PDF's pages.
+  func setThumbnails(_ on: Bool) {
+    wantsStrip = on
+    placeStrip()
+  }
+
+  private func placeStrip() {
+    guard let view = pdfView, wantsStrip else {
+      strip?.removeFromSuperview()
+      strip = nil
+      setNeedsLayout()
+      return
+    }
+    if strip == nil {
+      let thumbnails = PDFThumbnailView(frame: .zero)
+      thumbnails.pdfView = view
+      thumbnails.layoutMode = .vertical
+      thumbnails.thumbnailSize = CGSize(width: 80, height: 104)
+      thumbnails.backgroundColor = .systemBackground
+      addSubview(thumbnails)
+      strip = thumbnails
+    }
+    setNeedsLayout()
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    guard let view = pdfView else { return }
+    if let strip {
+      let width = min(Self.stripWidth, bounds.width / 3)
+      strip.frame = CGRect(x: 0, y: 0, width: width, height: bounds.height)
+      view.frame = CGRect(x: width, y: 0, width: bounds.width - width, height: bounds.height)
+    } else {
+      view.frame = bounds
+    }
   }
 
   @objc private func pageChanged() {

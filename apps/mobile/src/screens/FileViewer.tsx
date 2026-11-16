@@ -1,5 +1,13 @@
 import { fileKindOf } from "@nookly/shared/data";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react-native";
+import {
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronUp,
+  IconLayoutSidebar,
+  IconSearch,
+  IconShare,
+} from "@tabler/icons-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { File } from "expo-file-system";
 import { Stack } from "expo-router";
@@ -10,7 +18,8 @@ import type { FileViewHandle } from "../../modules/nookly-file-viewer/src/index.
 import { useFileViewer } from "../ui/file-viewer.tsx";
 import { useFile } from "../data/queries.ts";
 import { barButton } from "../ui/bar.ts";
-import { IconButton } from "../ui/Button.tsx";
+import { Button, IconButton } from "../ui/Button.tsx";
+import { useIsTablet, usePageWidth } from "../ui/pane.tsx";
 import { EmptyState, LoadingState } from "../ui/kit/States.tsx";
 import { SearchField } from "../ui/kit/SearchField.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -87,6 +96,91 @@ function PdfSearch({
   );
 }
 
+/// From this page width a PDF opens with its page strip beside it.
+const THUMBNAILS_FROM = 900;
+
+/// A tablet's file toolbar, the desktop's `pdf-toolbar` (there is no system bar over a tab):
+/// the page strip's toggle, the pages, then search and share at the end. Zoom is the pinch.
+function FileToolbar({
+  pdf,
+  page,
+  pages,
+  onPages,
+  onPage,
+  onSearch,
+  onShare,
+  actions,
+}: {
+  pdf: boolean;
+  page: { page: number; count: number } | null;
+  pages: boolean;
+  onPages: () => void;
+  onPage: (page: number) => void;
+  onSearch?: () => void;
+  onShare?: () => void;
+  actions: ReturnType<typeof barButton>[];
+}) {
+  const theme = useTheme();
+  const muted = theme.colors.mutedForeground;
+  return (
+    <View
+      testID="file-toolbar"
+      className="flex-row items-center gap-1 border-b border-border px-2 py-1"
+    >
+      {pdf ? (
+        <>
+          <IconButton
+            label={pages ? "Hide Pages" : "Show Pages"}
+            icon={<IconLayoutSidebar size={20} color={muted} />}
+            onPress={onPages}
+          />
+          {page && page.count > 1 ? (
+            <>
+              <IconButton
+                label="Previous Page"
+                icon={<IconChevronUp size={20} color={muted} />}
+                onPress={() => onPage(page.page - 1)}
+              />
+              <IconButton
+                label="Next Page"
+                icon={<IconChevronDown size={20} color={muted} />}
+                onPress={() => onPage(page.page + 1)}
+              />
+              <Text variant="small" tone="muted" className="px-1">
+                {`${page.page} of ${page.count}`}
+              </Text>
+            </>
+          ) : null}
+        </>
+      ) : null}
+      <View className="flex-1" />
+      {actions.map((action) => (
+        <Button
+          key={action.label}
+          label={action.label}
+          variant="ghost"
+          size="sm"
+          onPress={action.onPress}
+        />
+      ))}
+      {onSearch ? (
+        <IconButton
+          label="Search in File"
+          icon={<IconSearch size={20} color={muted} />}
+          onPress={onSearch}
+        />
+      ) : null}
+      {onShare ? (
+        <IconButton
+          label="Share File"
+          icon={<IconShare size={20} color={muted} />}
+          onPress={onShare}
+        />
+      ) : null}
+    </View>
+  );
+}
+
 /// A file on this phone shown full screen, with Search for a PDF and Share in the bar, and
 /// any `actions` of the page after them. `path` is null while the file is not here yet,
 /// which `missing` explains.
@@ -111,16 +205,20 @@ export function FileContents({
   const [page, setPage] = useState<{ page: number; count: number } | null>(null);
   const shown = kind === "text" || ((kind === "pdf" || kind === "system") && available);
   const canSearch = kind === "pdf" && available;
+  const tablet = useIsTablet();
+  // The page strip beside a PDF's pages where the page is wide, as the desktop's (6.13).
+  const [pages, setPages] = useState(usePageWidth() >= THUMBNAILS_FROM);
+  const toggleSearch = () => {
+    setSearching((on) => !on);
+    setQuery("");
+  };
   const bar = () => [
     ...(canSearch
       ? [
           barButton({
             label: "Search",
             icon: TOOLBAR_ICONS.search,
-            onPress: () => {
-              setSearching((on) => !on);
-              setQuery("");
-            },
+            onPress: toggleSearch,
           }),
         ]
       : []),
@@ -137,7 +235,20 @@ export function FileContents({
   ];
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen options={{ title: name, unstable_headerRightItems: bar }} />
+      {tablet ? (
+        <FileToolbar
+          pdf={canSearch && path !== null}
+          page={page}
+          pages={pages}
+          onPages={() => setPages((on) => !on)}
+          onPage={(to) => viewer.current?.goToPage(to)}
+          onSearch={canSearch && path ? toggleSearch : undefined}
+          onShare={path ? () => void shareFile(path) : undefined}
+          actions={actions}
+        />
+      ) : (
+        <Stack.Screen options={{ title: name, unstable_headerRightItems: bar }} />
+      )}
       {!path || !shown ? (
         <EmptyState
           glyph={KIND_ICONS[fileKindOf(name)]}
@@ -165,9 +276,10 @@ export function FileContents({
             query={searching ? query : ""}
             onPageChange={setPage}
             onSearchResult={setResult}
+            thumbnails={tablet && kind === "pdf" && pages}
             style={{ flex: 1 }}
           />
-          {kind === "pdf" && page && page.count > 1 ? (
+          {!tablet && kind === "pdf" && page && page.count > 1 ? (
             <View
               pointerEvents="none"
               className="absolute bottom-8 self-center bg-card/90 px-3 py-1.5"

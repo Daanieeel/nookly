@@ -51,6 +51,7 @@ interface NativeHandle {
 interface NativeProps extends ViewProps {
   source: { uri: string; name: string };
   query?: string;
+  thumbnails?: boolean;
   onPageChange?: (event: NativeSyntheticEvent<PageChange>) => void;
   onSearchResult?: (event: NativeSyntheticEvent<SearchResult>) => void;
   ref?: Ref<NativeHandle>;
@@ -66,6 +67,8 @@ export interface FileViewProps extends ViewProps {
   name: string;
   /// Text to find in a PDF; every match is highlighted.
   query?: string;
+  /// A PDF's page strip down its left side (the desktop's thumbnails).
+  thumbnails?: boolean;
   onPageChange?: (change: PageChange) => void;
   onSearchResult?: (result: SearchResult) => void;
   ref?: Ref<FileViewHandle>;
@@ -77,6 +80,7 @@ export function FileView({
   uri,
   name,
   query,
+  thumbnails = false,
   onPageChange,
   onSearchResult,
   ref,
@@ -94,6 +98,7 @@ export function FileView({
       ref={inner}
       source={{ uri, name }}
       query={query ?? ""}
+      thumbnails={thumbnails}
       onPageChange={(event) => onPageChange?.(event.nativeEvent)}
       onSearchResult={(event) => onSearchResult?.(event.nativeEvent)}
     />

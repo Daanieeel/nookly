@@ -1,5 +1,5 @@
 import { addFile, addFileLink, createSpace, getFile } from "@nookly/shared/data";
-import { fireEvent, waitFor } from "expo-router/testing-library";
+import { fireEvent, waitFor, within } from "expo-router/testing-library";
 import { View } from "react-native";
 import type { FileViewer } from "../ui/file-viewer.tsx";
 import { barLabels, pressBarButton, renderScreens, testData } from "../test/render.tsx";
@@ -13,7 +13,12 @@ import { FileRows } from "./FileScreens.tsx";
 const standIn: FileViewer = {
   available: true,
   View: (props) => (
-    <View accessibilityLabel={props.accessibilityLabel} testID={`viewer ${props.query ?? ""}`} />
+    <View
+      accessibilityLabel={props.accessibilityLabel}
+      testID={`viewer ${props.query ?? ""}`}
+      // @ts-expect-error: what it was asked for, read back by the tests.
+      thumbnails={props.thumbnails}
+    />
   ),
   thumbnail: async () => null,
 };
@@ -80,6 +85,25 @@ describe("the file viewer", () => {
     );
     await screen.findByLabelText("notes.pdf");
     expect(barLabels(screen)).toEqual(expect.arrayContaining(["Search", "Share"]));
+  });
+
+  // A tablet's page has no system bar: the desktop's PDF toolbar sits over the pages (6.13),
+  // with the page strip beside them where the page is wide.
+  it("keeps a tablet's search, pages and share in its own toolbar", async () => {
+    const { data, id } = await oneFile("notes.pdf");
+    const screen = await renderScreens(
+      { "file/[id]": () => <FileViewerScreen id={id} /> },
+      data,
+      `/file/${id}`,
+      { fileViewer: standIn, width: 1194, height: 834 },
+    );
+    const toolbar = within(await screen.findByTestId("file-toolbar"));
+    expect(toolbar.getByRole("button", { name: "Share File" })).toBeTruthy();
+    expect(screen.getByTestId("viewer ").props.thumbnails).toBe(true);
+    await fireEvent.press(toolbar.getByRole("button", { name: "Hide Pages" }));
+    expect(screen.getByTestId("viewer ").props.thumbnails).toBe(false);
+    await fireEvent.press(toolbar.getByRole("button", { name: "Search in File" }));
+    expect(await screen.findByLabelText("Search the PDF")).toBeTruthy();
   });
 
   it("shows Office documents and the rest as the system does", async () => {
