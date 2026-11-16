@@ -26,6 +26,9 @@ import { localDay } from "./dates.ts";
 
 /// Pixels per hour, and the least a block is drawn tall (a short item stays tappable).
 export const HOUR_PX = 52;
+
+/// How strongly a faded item still shows (the desktop's cutout dims the rest of the week).
+const FADED = 0.4;
 const MIN_BLOCK_PX = 22;
 const ALL_DAY_ROW_PX = 20;
 /// All day rows shown under the day names before the rest fold into "+ n".
@@ -103,6 +106,7 @@ export function TimeGrid({
   width,
   colorOf,
   onCreateAt,
+  faded,
 }: {
   /// A finger resting on a day's hours: a new entry on that day, at that quarter hour.
   onCreateAt?: (day: string, time: string) => void;
@@ -112,8 +116,11 @@ export function TimeGrid({
   /// The grid's own width, gutter included.
   width: number;
   colorOf: (spaceId: string) => string | undefined;
+  /// What is drawn faded behind the rest (a course's week: everything not the course's).
+  faded?: (item: AgendaItem) => boolean;
 }) {
   const router = useRouter();
+  const fade = (item: AgendaItem) => (faded?.(item) ? FADED : 1);
   const colors = useCalendarColors();
   const [startHour] = useSetting("calendar.dayStartHour");
   const [timeFormat] = useSetting("general.timeFormat");
@@ -234,6 +241,7 @@ export function TimeGrid({
                       className="justify-center overflow-hidden rounded px-1 active:opacity-70"
                       style={{
                         height: ALL_DAY_ROW_PX,
+                        opacity: fade(item),
                         backgroundColor: withAlpha(color, look.fillAlpha),
                         borderWidth: look.borderWidth,
                         borderColor: withAlpha(color, look.borderAlpha),
@@ -324,6 +332,7 @@ export function TimeGrid({
                       top: g.top + 1,
                       width: w,
                       height: g.height - 2,
+                      opacity: fade(item),
                       backgroundColor: withAlpha(color, look.fillAlpha),
                       borderWidth: look.borderWidth,
                       borderColor: withAlpha(color, look.borderAlpha),

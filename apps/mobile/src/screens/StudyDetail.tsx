@@ -74,6 +74,8 @@ import { useTheme } from "../ui/theme.ts";
 import { clockText, useTwelveHour } from "../ui/TimeInput.tsx";
 import { dayLabel, localDay } from "./dates.ts";
 import { AssignmentRows, ExamRows } from "./StudyLists.tsx";
+import { CourseWeek } from "./CourseWeek.tsx";
+import { useIsTablet } from "../ui/pane.tsx";
 import { CourseSemesterPicker } from "./PlannerScreens.tsx";
 import { CourseProperty } from "./StudyPickers.tsx";
 import { OwnNotes, PageEditor } from "./PageEditor.tsx";
@@ -117,6 +119,7 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
   const { data: course } = useCourse(id);
   const { data: exams = [] } = useExams({ courseId: id });
   const { data: assignments = [] } = useAssignments({ courseId: id });
+  const tablet = useIsTablet();
   const professor = useLocalWrite((db, value: string | null) => setCourseProfessor(db, id, value));
   const room = useLocalWrite((db, value: string | null) => setCourseRoom(db, id, value));
   if (!course) return null;
@@ -168,7 +171,8 @@ export function CourseDetail({ id, readOnly }: { id: string; readOnly: boolean }
             />
           }
         >
-          <SessionList courseId={id} />
+          {/* A tablet's is the desktop's week cutout (6.6). */}
+          {tablet ? <CourseWeek courseId={id} /> : <SessionList courseId={id} />}
         </Section>
         <Section
           title="Exams"
