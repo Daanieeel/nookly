@@ -1,3 +1,4 @@
+import { PointerPressable } from "../../ui/PointerPressable.tsx";
 import { type Space } from "@nookly/shared/data";
 import { MODULE_LABELS, isModuleKey } from "@nookly/shared/modules";
 import {
@@ -14,7 +15,7 @@ import {
 } from "@tabler/icons-react-native";
 import { type Href, useRouter } from "expo-router";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -94,12 +95,14 @@ function Row({
         active ? "bg-sidebar-accent" : undefined,
       )}
     >
-      <Pressable
+      <PointerPressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ selected: active }}
         onPress={onPress}
         onLongPress={onLongPress}
+        onSecondary={onLongPress}
+        hoverClassName={active ? "" : "bg-sidebar-accent/60"}
         style={{ height: ROW_HEIGHT }}
         className={cn(
           "min-w-0 flex-1 flex-row items-center gap-2.5 rounded-md",
@@ -122,7 +125,7 @@ function Row({
         >
           {label}
         </Text>
-      </Pressable>
+      </PointerPressable>
       {trailing}
     </View>
   );

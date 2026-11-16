@@ -1,3 +1,4 @@
+import { PointerPressable } from "../ui/PointerPressable.tsx";
 import {
   IconArrowBarToLeft,
   IconArrowBarToRight,
@@ -11,7 +12,7 @@ import {
   IconPlus,
   IconX,
 } from "@tabler/icons-react-native";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Text } from "../ui/Text.tsx";
@@ -82,7 +83,9 @@ function TabLabel({ tab, active, preview }: { tab: PageTab; active: boolean; pre
         active ? "bg-accent" : "active:bg-accent/50",
       )}
     >
-      <Pressable
+      <PointerPressable
+        onSecondary={showMenu}
+        hoverClassName="opacity-80"
         accessibilityRole="tab"
         accessibilityLabel={tab.pinned ? `${title}, pinned` : title}
         accessibilityState={{ selected: active }}
@@ -106,7 +109,7 @@ function TabLabel({ tab, active, preview }: { tab: PageTab; active: boolean; pre
             {title}
           </Text>
         )}
-      </Pressable>
+      </PointerPressable>
       {tab.pinned ? null : (
         <IconButton
           label={`Close ${title}`}

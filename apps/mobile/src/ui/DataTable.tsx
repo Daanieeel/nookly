@@ -1,3 +1,4 @@
+import { PointerPressable } from "./PointerPressable.tsx";
 import { IconChevronDown, IconChevronUp, IconSelector } from "@tabler/icons-react-native";
 import { type ReactNode, useState } from "react";
 import { Pressable, View } from "react-native";
@@ -116,13 +117,15 @@ export function DataTable<T>({
         const key = keyOf(row);
         const on = key === selected;
         const button = (
-          <Pressable
+          <PointerPressable
             accessibilityRole="button"
             accessibilityLabel={titleOf(row)}
             accessibilityHint="Opens it"
             accessibilityState={{ selected: on }}
             onPress={() => onPress(row)}
             onLongPress={onLongPress ? () => onLongPress(row) : undefined}
+            onSecondary={onLongPress ? () => onLongPress(row) : undefined}
+            hoverClassName={on ? "" : "bg-accent/50"}
             style={{ minHeight: rowHeight }}
             className={cn("flex-1 justify-center gap-0.5 px-3 py-1", !on && "active:bg-accent/50")}
           >
@@ -140,7 +143,7 @@ export function DataTable<T>({
                 ))}
               </View>
             ) : null}
-          </Pressable>
+          </PointerPressable>
         );
         const node = (
           <View

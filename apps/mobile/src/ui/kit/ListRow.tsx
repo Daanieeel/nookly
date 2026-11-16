@@ -1,3 +1,4 @@
+import { usePointer } from "../pointer.ts";
 import { IconCheck, IconChevronRight } from "@tabler/icons-react-native";
 import type { ReactNode } from "react";
 import {
@@ -54,6 +55,8 @@ export function ListRow({
   const accent = TINT.blue[scheme];
   /// With large text a detail goes under the title, as iOS stacks a row's value.
   const stacked = useWindowDimensions().fontScale >= STACK_SCALE;
+  // Lit under an iPad's pointer, as the desktop's rows are (10.2).
+  const pointer = usePointer();
   return (
     <Pressable
       accessibilityRole={accessibilityRole}
@@ -64,6 +67,7 @@ export function ListRow({
       disabled={disabled || !onPress}
       onPress={onPress}
       unstable_pressDelay={0}
+      {...pointer.handlers}
       style={({ pressed: down }) => ({
         minHeight: subtitle ? 58 : MIN_TOUCH + 4,
         flexDirection: "row",
@@ -71,7 +75,7 @@ export function ListRow({
         gap: SPACE.md,
         paddingHorizontal: GUTTER,
         paddingVertical: SPACE.sm,
-        backgroundColor: down ? pressed : undefined,
+        backgroundColor: down || (pointer.hovered && onPress && !disabled) ? pressed : undefined,
         opacity: disabled ? 0.45 : 1,
       })}
     >

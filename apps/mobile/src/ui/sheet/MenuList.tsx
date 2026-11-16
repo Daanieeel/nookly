@@ -1,6 +1,7 @@
+import { PointerPressable } from "../PointerPressable.tsx";
 import { IconCheck, IconChevronRight } from "@tabler/icons-react-native";
 import { type ComponentType, Fragment, type ReactNode, useContext } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { cn } from "../classes.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
@@ -70,7 +71,7 @@ export function MenuList({ entries }: { entries: MenuEntry[] }) {
               : theme.colors.mutedForeground;
             const Icon = item.icon;
             return (
-              <Pressable
+              <PointerPressable
                 key={item.label}
                 accessibilityRole="menuitem"
                 accessibilityLabel={item.label}
@@ -107,7 +108,7 @@ export function MenuList({ entries }: { entries: MenuEntry[] }) {
                 {item.submenu || item.page ? (
                   <IconChevronRight size={20} color={theme.colors.mutedForeground} />
                 ) : null}
-              </Pressable>
+              </PointerPressable>
             );
           })}
         </Fragment>

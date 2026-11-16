@@ -1,10 +1,11 @@
+import { PointerPressable } from "../PointerPressable.tsx";
 import { MIN_TOUCH } from "../touch.ts";
 import { IconCheck, IconPlus, IconSearch } from "@tabler/icons-react-native";
 import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { cn } from "../classes.ts";
 import { useIsTablet } from "../pane.tsx";
 import { LayerContext } from "./layers.ts";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { runOnJS, useAnimatedReaction, useSharedValue } from "react-native-reanimated";
 import { haptic } from "../haptics.ts";
 import type { GlyphIcon } from "../kit/Glyph.tsx";
@@ -105,7 +106,7 @@ function PickerRow({
 }) {
   const theme = useTheme();
   return (
-    <Pressable
+    <PointerPressable
       testID={highlighted ? "highlighted" : undefined}
       accessibilityRole={role}
       accessibilityLabel={
@@ -142,7 +143,7 @@ function PickerRow({
           {selected ? <IconCheck size={20} color={theme.colors.foreground} /> : null}
         </View>
       )}
-    </Pressable>
+    </PointerPressable>
   );
 }
 

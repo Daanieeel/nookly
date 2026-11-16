@@ -7,6 +7,7 @@ import { Label } from "./kit/Label.tsx";
 import { useSemantic } from "./kit/scheme.ts";
 import { SPACE } from "./tokens.ts";
 import { useScale } from "./scale.ts";
+import { usePointer } from "./pointer.ts";
 
 /// The line under a list row, the desktop's (`LIST_ROW_CLASSES`), for rows of other
 /// content in a `Section`.
@@ -42,6 +43,7 @@ export function Row({
   const { row } = useScale();
   const edge = useRowEdge();
   const touchable = Boolean(onPress || onLongPress);
+  const pointer = usePointer(onLongPress);
   return (
     <Pressable
       accessibilityRole={onPress ? "button" : undefined}
@@ -49,6 +51,7 @@ export function Row({
       accessibilityHint={accessibilityHint}
       onPress={onPress}
       onLongPress={onLongPress}
+      {...pointer.handlers}
       unstable_pressDelay={0}
       style={({ pressed: down }) => ({
         ...edge,
@@ -57,7 +60,7 @@ export function Row({
         alignItems: "center",
         gap: SPACE.md,
         paddingVertical: SPACE.sm,
-        backgroundColor: down && touchable ? pressed : undefined,
+        backgroundColor: (down || pointer.hovered) && touchable ? pressed : undefined,
         opacity: muted ? 0.5 : 1,
       })}
     >
