@@ -173,6 +173,26 @@ export const TYPE = {
 
 export type TypeName = keyof typeof TYPE;
 
+/// A tablet's text styles (D83, 3.1): the desktop's sizes (body 15, small 13), each style
+/// keeping its place in the order and its weight. Added beside the phone's, never changing
+/// them.
+export const TABLET_TYPE = {
+  largeTitle: { fontSize: 28, lineHeight: 34, fontWeight: "700" },
+  title1: { fontSize: 24, lineHeight: 30, fontWeight: "700" },
+  title2: { fontSize: 20, lineHeight: 26, fontWeight: "700" },
+  title3: { fontSize: 18, lineHeight: 24, fontWeight: "600" },
+  headline: { fontSize: 15, lineHeight: 20, fontWeight: "600" },
+  body: { fontSize: 15, lineHeight: 20, fontWeight: "400" },
+  callout: { fontSize: 14, lineHeight: 19, fontWeight: "400" },
+  subheadline: { fontSize: 13, lineHeight: 18, fontWeight: "400" },
+  footnote: { fontSize: 12, lineHeight: 16, fontWeight: "400" },
+  caption: { fontSize: 11, lineHeight: 14, fontWeight: "400" },
+} satisfies Record<TypeName, Pick<TextStyle, "fontSize" | "lineHeight" | "fontWeight">>;
+
+/// A tablet's sizes beside the phone's: list rows at the touch minimum and the desktop's
+/// page gutter.
+export const TABLET_SIZE = { row: 44, gutter: 24 } as const;
+
 /// Inter as the phone loads it, one family per weight (`global.css`).
 export const FACE = {
   "400": "Inter_400Regular",

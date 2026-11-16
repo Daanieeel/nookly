@@ -16,6 +16,7 @@ import { FloatingLayer, useSlotStore } from "./floating.tsx";
 import { FixedTopContext } from "./fixed-top.tsx";
 import { PageGutterProvider } from "./row-edge.tsx";
 import { GUTTER } from "./tokens.ts";
+import { useScale } from "./scale.ts";
 import { RevealContext, useReveal } from "./reveal.ts";
 import { PageActionsProvider, usePageActionSlots } from "./page-actions.tsx";
 import { PageFrameProvider, usePageFrame } from "./page-frame.ts";
@@ -91,6 +92,7 @@ function ScrollingScreen({
     setUnder(offset.current > 0);
   }, []);
   const separator = useSemantic("separator");
+  const { gutter } = useScale();
   const column = cn(!wide && "w-full max-w-3xl self-center");
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     height.current = event.nativeEvent.layout.height;
@@ -173,9 +175,11 @@ function ScrollingScreen({
                     ref={content}
                     collapsable={false}
                     className={cn("gap-5 p-4 pb-12", top.shown.length > 0 && "pt-2", column)}
+                    // A tablet's pages keep the desktop's wider gutter (3.1).
+                    style={gutter === GUTTER ? undefined : { paddingHorizontal: gutter }}
                   >
                     {/* p-4: list rows reach past it to the screen's edges. */}
-                    <PageGutterProvider value={GUTTER}>{children}</PageGutterProvider>
+                    <PageGutterProvider value={gutter}>{children}</PageGutterProvider>
                   </View>
                 </ScrollView>
               </View>

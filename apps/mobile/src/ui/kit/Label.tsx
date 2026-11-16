@@ -1,5 +1,6 @@
 import { type ColorValue, Text, type TextProps } from "react-native";
-import { FACE, type SemanticName, TYPE, type TypeName, semantic } from "../tokens.ts";
+import { useScale } from "../scale.ts";
+import { FACE, type SemanticName, type TypeName, semantic } from "../tokens.ts";
 import { useScheme } from "./scheme.ts";
 
 /// Text in one of iOS's text styles, in a semantic colour or a tint, growing with the
@@ -22,7 +23,7 @@ export function Label({
   style?: TextProps["style"];
 }) {
   const scheme = useScheme();
-  const { fontWeight, ...size } = TYPE[type];
+  const { fontWeight, ...size } = useScale().type[type];
   return (
     <Text
       maxFontSizeMultiplier={2}

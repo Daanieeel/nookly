@@ -6,7 +6,7 @@ import { withState } from "./classes.ts";
 import { Label } from "./kit/Label.tsx";
 import { useSemantic } from "./kit/scheme.ts";
 import { SPACE } from "./tokens.ts";
-import { LIST_ROW } from "./touch.ts";
+import { useScale } from "./scale.ts";
 
 /// The line under a list row, the desktop's (`LIST_ROW_CLASSES`), for rows of other
 /// content in a `Section`.
@@ -39,6 +39,7 @@ export function Row({
   accessibilityHint?: string;
 }) {
   const pressed = useSemantic("pressed");
+  const { row } = useScale();
   const edge = useRowEdge();
   const touchable = Boolean(onPress || onLongPress);
   return (
@@ -51,7 +52,7 @@ export function Row({
       unstable_pressDelay={0}
       style={({ pressed: down }) => ({
         ...edge,
-        minHeight: subtitle ? 58 : LIST_ROW.minHeight,
+        minHeight: subtitle ? row + 6 : row,
         flexDirection: "row",
         alignItems: "center",
         gap: SPACE.md,
