@@ -3,6 +3,7 @@ import { renderScreens } from "../test/render.tsx";
 import { type KeySystem, ShortcutHost } from "./ShortcutHost.tsx";
 import { useShell } from "./store.ts";
 import { pushLayer } from "../ui/sheet/layers.ts";
+import { setPageKeys } from "./page-keys.ts";
 
 let listener: ((id: string) => void) | null = null;
 const registered: string[][] = [];
@@ -34,6 +35,21 @@ async function setup() {
 afterEach(() => act(() => useShell.getState().close()));
 
 describe("keyboard shortcuts", () => {
+  // A screen's own keys (a study session's Space and 1 to 4) only while it is shown (9.3).
+  it("takes a screen's own keys while it is shown, and gives them back after", async () => {
+    await setup();
+    const run = jest.fn();
+    let stop!: () => void;
+    act(() => {
+      stop = setPageKeys([{ id: "flip", key: " ", modifiers: [], title: "Show Answer" }], run);
+    });
+    await waitFor(() => expect(registered.at(-1)).toContain("flip"));
+    press("flip");
+    expect(run).toHaveBeenCalledWith("flip");
+    act(() => stop());
+    await waitFor(() => expect(registered.at(-1)).not.toContain("flip"));
+  });
+
   it("tells the system about every shortcut", async () => {
     await setup();
     expect(registered.at(-1)).toEqual(

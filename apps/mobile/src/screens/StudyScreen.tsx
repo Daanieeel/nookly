@@ -27,6 +27,9 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { CORNER, RADIUS, SPACE, TINT } from "../ui/tokens.ts";
 import { MIN_TOUCH } from "../ui/touch.ts";
+import { useIsTablet } from "../ui/pane.tsx";
+import { usePageShortcuts } from "../shell/page-keys.ts";
+import type { KeyShortcut } from "../../modules/nookly-keys/src/index.ts";
 
 /// The ratings as the desktop draws them: Again red, Hard amber, Good green, Easy plain.
 const RATING_LOOKS = {
@@ -56,6 +59,18 @@ function comesBack(dueAt: string, now = Date.now()): string {
   const months = Math.round(days / 30);
   return months < 12 ? `${months} mo` : `${Math.round(days / 365)} y`;
 }
+
+/// The widest a tablet's card gets, the desktop's study session's.
+const STUDY_WIDTH = 720;
+
+const STUDY_KEYS = [
+  { id: "showAnswer", key: " ", modifiers: [], title: "Show Answer" },
+  { id: "rate1", key: "1", modifiers: [], title: "Again" },
+  { id: "rate2", key: "2", modifiers: [], title: "Hard" },
+  { id: "rate3", key: "3", modifiers: [], title: "Good" },
+  { id: "rate4", key: "4", modifiers: [], title: "Easy" },
+  { id: "undoRating", key: "z", modifiers: ["command"], title: "Undo Last Rating" },
+] satisfies KeyShortcut[];
 
 /// Studying a deck, as the desktop's session: Back to Deck at any time, how many cards are
 /// left of each kind and how far along, the front, then the back under it, then how well
@@ -93,6 +108,59 @@ export function StudyScreen({ deckId }: { deckId: string }) {
   const counts = { new: 0, learning: 0, review: 0 };
   for (const c of queue) counts[groupOf(c)] += 1;
   const done = answered.length;
+  const tablet = useIsTablet();
+  const rateCard = (rating: Rating) => {
+    if (!card || rate.isPending) return;
+    rate.mutate(
+      { cardId: card.id, rating },
+      {
+        onSuccess: () => {
+          setRevealed(false);
+          setPinned(null);
+          setAnswered((list) => [...list, card.id]);
+        },
+      },
+    );
+  };
+  // The desktop's keys on a tablet with a keyboard: Space shows the answer, 1 to 4 rate it,
+  // Command Z takes the last rating back.
+  usePageShortcuts(
+    STUDY_KEYS,
+    (id) => {
+      if (id === "showAnswer") return card && setRevealed(true);
+      if (id === "undoRating") return undoLast();
+      const rating = RATINGS[Number(id.slice("rate".length)) - 1];
+      if (revealed && rating) rateCard(rating);
+    },
+    tablet,
+  );
+  const actions =
+    card && revealed && next ? (
+      <View className="flex-row gap-2">
+        {RATINGS.map((rating) => (
+          <View key={rating} className="flex-1 items-center gap-1">
+            <Button
+              label={RATING_LOOKS[rating].label}
+              variant={RATING_LOOKS[rating].variant}
+              accessibilityHint={`Comes back in ${comesBack(next[rating])}`}
+              className="self-stretch px-1"
+              disabled={rate.isPending}
+              onPress={() => rateCard(rating)}
+            />
+            <Text variant="small" tone="muted">
+              {comesBack(next[rating])}
+            </Text>
+          </View>
+        ))}
+      </View>
+    ) : card ? (
+      <Button label="Show Answer" onPress={() => setRevealed(true)} />
+    ) : null;
+  // A tablet's card sits in the middle, at most the desktop's width, the ratings in reach
+  // of both thumbs at the bottom (9.3).
+  const column = tablet
+    ? { width: "100%" as const, maxWidth: STUDY_WIDTH, alignSelf: "center" as const }
+    : undefined;
   return (
     <>
       <View className={cn("flex-1", PAGE_BACKGROUND)} style={{ paddingTop: insets.top }}>
@@ -121,72 +189,48 @@ export function StudyScreen({ deckId }: { deckId: string }) {
         {!cards ? null : (
           <ScrollView
             contentContainerClassName="grow gap-4 p-4"
-            contentContainerStyle={{ paddingBottom: insets.bottom + SPACE.lg }}
+            contentContainerStyle={{ paddingBottom: tablet ? SPACE.lg : insets.bottom + SPACE.lg }}
           >
-            {!card ? (
-              <Finished studied={done} onClose={leave} />
-            ) : (
-              <>
-                <Animated.View
-                  key={`${card.id}:${done}`}
-                  entering={FadeIn.duration(FADE.in)}
-                  exiting={FadeOut.duration(FADE.out)}
-                >
-                  <Pressable
-                    accessible={false}
-                    onPress={() => setRevealed(true)}
-                    className={cn(CARD_CLASSES, "min-h-56 gap-4 p-5")}
+            <View testID="study-column" className="grow gap-4" style={column}>
+              {!card ? (
+                <Finished studied={done} onClose={leave} />
+              ) : (
+                <>
+                  <Animated.View
+                    key={`${card.id}:${done}`}
+                    entering={FadeIn.duration(FADE.in)}
+                    exiting={FadeOut.duration(FADE.out)}
                   >
-                    <CardFaceView card={card} side="front" heading muted={revealed} />
-                    {revealed ? (
-                      <>
-                        <Separator />
-                        <View accessibilityLiveRegion="polite">
-                          <CardFaceView card={card} side="back" />
-                        </View>
-                      </>
-                    ) : null}
-                  </Pressable>
-                </Animated.View>
-                {revealed && next ? (
-                  <View className="flex-row gap-2">
-                    {RATINGS.map((rating) => (
-                      <View key={rating} className="flex-1 items-center gap-1">
-                        <Button
-                          label={RATING_LOOKS[rating].label}
-                          variant={RATING_LOOKS[rating].variant}
-                          accessibilityHint={`Comes back in ${comesBack(next[rating])}`}
-                          className="self-stretch px-1"
-                          disabled={rate.isPending}
-                          onPress={() =>
-                            rate.mutate(
-                              { cardId: card.id, rating },
-                              {
-                                onSuccess: () => {
-                                  setRevealed(false);
-                                  setPinned(null);
-                                  setAnswered((list) => [...list, card.id]);
-                                },
-                              },
-                            )
-                          }
-                        />
-                        <Text variant="small" tone="muted">
-                          {comesBack(next[rating])}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : (
-                  <Button label="Show Answer" onPress={() => setRevealed(true)} />
-                )}
-                {rate.isError ? (
-                  <Text tone="destructive">Couldn't save that rating, try again.</Text>
-                ) : null}
-              </>
-            )}
+                    <Pressable
+                      accessible={false}
+                      onPress={() => setRevealed(true)}
+                      className={cn(CARD_CLASSES, "min-h-56 gap-4 p-5")}
+                    >
+                      <CardFaceView card={card} side="front" heading muted={revealed} />
+                      {revealed ? (
+                        <>
+                          <Separator />
+                          <View accessibilityLiveRegion="polite">
+                            <CardFaceView card={card} side="back" />
+                          </View>
+                        </>
+                      ) : null}
+                    </Pressable>
+                  </Animated.View>
+                  {tablet ? null : actions}
+                  {rate.isError ? (
+                    <Text tone="destructive">Couldn't save that rating, try again.</Text>
+                  ) : null}
+                </>
+              )}
+            </View>
           </ScrollView>
         )}
+        {tablet && actions ? (
+          <View style={{ paddingHorizontal: SPACE.lg, paddingBottom: insets.bottom + SPACE.lg }}>
+            <View style={column}>{actions}</View>
+          </View>
+        ) : null}
       </View>
     </>
   );

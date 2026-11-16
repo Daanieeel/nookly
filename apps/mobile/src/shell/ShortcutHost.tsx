@@ -1,4 +1,5 @@
 import { useFindBar } from "../editor/FindBar.tsx";
+import { usePageKeys } from "./page-keys.ts";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import * as system from "../../modules/nookly-keys/src/index.ts";
@@ -40,12 +41,15 @@ export function ShortcutHost({
   const layered = useLayers((s) => s.stack.length > 0);
   // The arrow keys only while the newest layer keeps a selection: otherwise the page's.
   const moving = useLayers((s) => s.stack.at(-1)?.move !== undefined);
+  // A screen's own keys, while it is shown (a study session's).
+  const pageKeys = usePageKeys((s) => s.keys);
   useEffect(() => keys.setMenus(MENUS), [keys]);
   useEffect(() => {
     keys.setShortcuts([
       ...SHORTCUTS,
       ...(layered ? LAYER_SHORTCUTS : []),
       ...(moving ? MOVE_SHORTCUTS : []),
+      ...pageKeys,
     ]);
     const run = (id: ShortcutId) => {
       switch (id) {
@@ -95,6 +99,7 @@ export function ShortcutHost({
       if (id === "submit") return topLayer()?.submit?.();
       if (id === "moveUp") return topLayer()?.move?.(-1);
       if (id === "moveDown") return topLayer()?.move?.(1);
+      if (pageKeys.some((k) => k.id === id)) return usePageKeys.getState().run(id);
       const known = SHORTCUTS.find((s) => s.id === id);
       if (known) run(known.id);
     });
@@ -102,6 +107,6 @@ export function ShortcutHost({
       stop();
       keys.setShortcuts([]);
     };
-  }, [open, onAction, router, keys, layered, moving]);
+  }, [open, onAction, router, keys, layered, moving, pageKeys]);
   return null;
 }
