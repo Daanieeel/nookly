@@ -29,28 +29,33 @@ import { SpaceIconChoices } from "../../ui/SpaceIconChoices.tsx";
 /// Change Icon and Change Color as steps inside it, Labels and Space Settings as a page,
 /// Add Module as a step, and Delete Space asked for in a dialog.
 
-function Rename({ space }: { space: Space }) {
+/// A step that renames something in place: its name in a field, Rename to keep it.
+export function RenameStep({ name, onRename }: { name: string; onRename: (next: string) => void }) {
   const sheet = useSheet();
-  const update = useUpdateSpace(space.id);
-  const [name, setName] = useState(space.name);
+  const [text, setText] = useState(name);
   const save = () => {
-    if (name.trim() && name !== space.name) update.mutate({ name: name.trim() });
+    if (text.trim() && text !== name) onRename(text.trim());
     sheet?.close();
   };
   return (
     <View className="gap-3 p-1">
       <Field
         label="Name"
-        value={name}
-        onChangeText={setName}
+        value={text}
+        onChangeText={setText}
         autoFocus
         selectTextOnFocus
         returnKeyType="done"
         onSubmitEditing={save}
       />
-      <Button label="Rename" onPress={save} disabled={!name.trim()} />
+      <Button label="Rename" onPress={save} disabled={!text.trim()} />
     </View>
   );
+}
+
+function Rename({ space }: { space: Space }) {
+  const update = useUpdateSpace(space.id);
+  return <RenameStep name={space.name} onRename={(name) => update.mutate({ name })} />;
 }
 
 function ChangeIcon({ space }: { space: Space }) {

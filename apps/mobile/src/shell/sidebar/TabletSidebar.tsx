@@ -47,6 +47,7 @@ import { useTheme } from "../../ui/theme.ts";
 import { FACE } from "../../ui/tokens.ts";
 import { activePath } from "../workspace.ts";
 import { useWorkspace, workspace } from "../workspace-store.ts";
+import { useViewMenu } from "./view-menu.tsx";
 import { useSpaceMenu } from "./space-menu.tsx";
 import { useOnSpaceStep } from "./space-step.ts";
 import { SidebarItemsEditor } from "../../screens/settings/SidebarSettings.tsx";
@@ -83,37 +84,47 @@ function Row({
   accessibilityLabel?: string;
 }) {
   const theme = useTheme();
+  // The row's own controls (its count, Expand) sit beside its button, not in it, so
+  // VoiceOver reaches each of them.
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      onLongPress={onLongPress}
+    <View
       style={{ height: ROW_HEIGHT }}
       className={cn(
-        "flex-row items-center gap-2.5 rounded-md pr-1",
-        indent ? "pl-9" : "pl-2.5",
-        active ? "bg-sidebar-accent" : "active:bg-sidebar-accent/60",
+        "flex-row items-center rounded-md pr-1",
+        active ? "bg-sidebar-accent" : undefined,
       )}
     >
-      <View style={{ width: 22, alignItems: "center" }} pointerEvents="none">
-        {icon}
-      </View>
-      <Text
-        numberOfLines={1}
-        className="flex-1"
-        style={{
-          fontSize: 15,
-          lineHeight: 20,
-          fontFamily: FACE[active ? "600" : "500"],
-          color: active ? theme.colors.foreground : theme.colors.foreground,
-        }}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityState={{ selected: active }}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        style={{ height: ROW_HEIGHT }}
+        className={cn(
+          "min-w-0 flex-1 flex-row items-center gap-2.5 rounded-md",
+          indent ? "pl-9" : "pl-2.5",
+          !active && "active:bg-sidebar-accent/60",
+        )}
       >
-        {label}
-      </Text>
+        <View style={{ width: 22, alignItems: "center" }} pointerEvents="none">
+          {icon}
+        </View>
+        <Text
+          numberOfLines={1}
+          className="flex-1"
+          style={{
+            fontSize: 15,
+            lineHeight: 20,
+            fontFamily: FACE[active ? "600" : "500"],
+            color: active ? theme.colors.foreground : theme.colors.foreground,
+          }}
+        >
+          {label}
+        </Text>
+      </Pressable>
       {trailing}
-    </Pressable>
+    </View>
   );
 }
 
@@ -122,6 +133,8 @@ function ViewRows({ module, spaceId, base }: { module: string; spaceId?: string;
   const theme = useTheme();
   const path = useShownPath();
   const { data: views = [] } = useViews(spaceId ? { spaceId, module } : { module });
+  const menu = useMenu();
+  const viewMenu = useViewMenu();
   return (
     <>
       {views.map((view) => {
@@ -141,6 +154,7 @@ function ViewRows({ module, spaceId, base }: { module: string; spaceId?: string;
               />
             }
             onPress={() => workspace.open(href)}
+            onLongPress={() => menu.show(view.entity.title || "Untitled", viewMenu(view.entity))}
           />
         );
       })}
