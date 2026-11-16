@@ -17,8 +17,10 @@ describe("the tablet's pages", () => {
       courseId: "2",
       name: "Week 1",
     });
-    expect(matchPage("/settings/shortcuts")?.pattern).toBe("settings/shortcuts");
-    expect(matchPage("/settings/appearance")?.pattern).toBe("settings/[page]");
+    expect(matchPage("/moodle/file")?.pattern).toBe("moodle/file");
+    expect(matchPage("/moodle/7")?.pattern).toBe("moodle/[courseId]");
+    // Settings is a dialog over the window on a tablet, never a page in a tab (8.1).
+    expect(matchPage("/settings/shortcuts")).toBeNull();
     expect(matchPage("/")?.kind).toBe("list");
   });
 

@@ -244,11 +244,15 @@ export default function RootLayout() {
         name="space-settings/[id]"
         options={tablet ? SHEET_ROUTE : { title: "Space Settings" }}
       />
+      {/* A tablet's Settings is the desktop's dialog over the window (8.1). */}
       <Stack.Screen
         name="settings/index"
-        options={{ title: "Settings", ...groupedHeader, ...pageBar(tablet) }}
+        options={tablet ? SHEET_ROUTE : { title: "Settings", ...groupedHeader }}
       />
-      <Stack.Screen name="settings/[page]" options={{ title: "Settings", ...groupedHeader }} />
+      <Stack.Screen
+        name="settings/[page]"
+        options={tablet ? SHEET_ROUTE : { title: "Settings", ...groupedHeader }}
+      />
       <Stack.Screen name="pick/icon" options={SHEET_ROUTE} />
       <Stack.Screen name="new/recipe" options={SHEET_ROUTE} />
       <Stack.Screen name="new/session" options={SHEET_ROUTE} />
@@ -263,17 +267,20 @@ export default function RootLayout() {
       <Stack.Screen name="moodle/page/[cmid]" options={{ title: "Page" }} />
       <Stack.Screen name="moodle/file" options={{ title: "File" }} />
       <Stack.Screen name="moodle-signin" options={{ title: "Moodle", ...overWindow(tablet) }} />
-      <Stack.Screen name="settings/sidebar" options={{ title: "Sidebar" }} />
+      <Stack.Screen name="settings/sidebar" options={tablet ? SHEET_ROUTE : { title: "Sidebar" }} />
       <Stack.Screen
         name="settings/calendar-connections"
-        options={{ title: "Calendar Connections", ...groupedHeader }}
+        options={tablet ? SHEET_ROUTE : { title: "Calendar Connections", ...groupedHeader }}
       />
       <Stack.Screen name="calendar-event" options={SHEET_ROUTE} />
       <Stack.Screen
         name="settings/shortcuts"
-        options={{ title: "Keyboard Shortcuts", ...groupedHeader }}
+        options={tablet ? SHEET_ROUTE : { title: "Keyboard Shortcuts", ...groupedHeader }}
       />
-      <Stack.Screen name="settings/whats-new" options={{ title: "What's New" }} />
+      <Stack.Screen
+        name="settings/whats-new"
+        options={tablet ? SHEET_ROUTE : { title: "What's New" }}
+      />
       <Stack.Screen name="new/task" options={SHEET_ROUTE} />
       <Stack.Screen name="new/page" options={SHEET_ROUTE} />
       <Stack.Screen name="new/entry" options={SHEET_ROUTE} />

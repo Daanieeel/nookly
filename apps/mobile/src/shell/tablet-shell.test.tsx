@@ -18,6 +18,7 @@ const ROUTES = {
   _layout: () => <TabletShell stack={<Stack screenLayout={tabletScreen} />} />,
   index: () => null,
   tasks: () => null,
+  "moodle/forum/[id]": () => null,
   calendar: () => null,
   trash: () => null,
   pinned: () => null,
@@ -26,6 +27,7 @@ const ROUTES = {
   "new/task": () => null,
   conflicts: () => null,
   "settings/sidebar": () => null,
+  settings: () => null,
   "space-settings/[id]": () => null,
 };
 
@@ -223,8 +225,8 @@ describe("the tablet's window", () => {
 
   it("titles a page without a list header in its own header row, with no system bar", async () => {
     const screen = await setup(LANDSCAPE);
-    act(() => workspace.open("/settings/sidebar"));
-    expect(await screen.findByRole("header", { name: "Settings" })).toBeTruthy();
+    act(() => workspace.open("/moodle/forum/3?courseId=2&name=Announcements"));
+    expect(await screen.findByRole("header", { name: "Announcements" })).toBeTruthy();
   });
 
   // A Space's settings are the desktop's dialog over the window, not a page in a tab (6.12).
@@ -232,6 +234,14 @@ describe("the tablet's window", () => {
     const screen = await setup(LANDSCAPE);
     act(() => router.push(`/space-settings/${screen.space}`));
     await waitFor(() => expect(screen.getPathname()).toBe(`/space-settings/${screen.space}`));
+    expect(groups()).toEqual([["/"]]);
+  });
+
+  // Settings is the desktop's extra large dialog over the window, not a page in a tab (8.1).
+  it("opens Settings over the window, leaving the tabs as they were", async () => {
+    const screen = await setup(LANDSCAPE);
+    act(() => router.push("/settings"));
+    await waitFor(() => expect(screen.getPathname()).toBe("/settings"));
     expect(groups()).toEqual([["/"]]);
   });
 

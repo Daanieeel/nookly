@@ -1,6 +1,7 @@
 import { createSpace } from "@nookly/shared/data";
 import { fireEvent } from "expo-router/testing-library";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
+import SettingsPageRoute from "../app/settings/[page].tsx";
 import { barLabels, renderScreens, testData } from "../test/render.tsx";
 import { CalendarScreen } from "../screens/CalendarScreen.tsx";
 import { TasksScreen } from "../screens/TasksScreen.tsx";
@@ -66,6 +67,51 @@ describe("Settings on a tablet", () => {
     expect(await screen.findByRole("header", { name: "Appearance" })).toBeTruthy();
     expect(screen.getAllByRole("radio", { name: "Dark" }).length).toBeGreaterThan(0);
     expect(screen.queryByText("Pushed a page")).toBeNull();
+  });
+
+  // The desktop's Settings dialog lists every category (8.1): the account, connections and
+  // keyboard shortcuts show beside the list too, never as pages of their own.
+  it("shows the account, connections and shortcuts beside the list", async () => {
+    const screen = await renderScreens(
+      {
+        index: () => <SettingsScreen />,
+        "settings/[page]": () => <Text>Pushed a page</Text>,
+        "settings/shortcuts": () => <Text>Pushed a page</Text>,
+        "settings/calendar-connections": () => <Text>Pushed a page</Text>,
+      },
+      testData(),
+      "/",
+      IPAD,
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: /^Keyboard Shortcuts/ }));
+    expect(await screen.findByRole("header", { name: "Keyboard Shortcuts" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: /^Connections/ }));
+    expect(await screen.findByRole("header", { name: "Connections" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: /^Account/ }));
+    expect((await screen.findAllByRole("header", { name: "Account" })).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Pushed a page")).toBeNull();
+  });
+
+  it("is the desktop's extra large dialog, opened on the category of its route", async () => {
+    const screen = await renderScreens(
+      { index: () => <Text>Home</Text>, "settings/[page]": SettingsPageRoute },
+      testData(),
+      "/settings/backup",
+      IPAD,
+    );
+    const dialog = await screen.findByTestId("sheet-dialog");
+    expect(StyleSheet.flatten(dialog.props.style).width).toBe(960);
+    expect(await screen.findByRole("header", { name: "Backup" })).toBeTruthy();
+  });
+
+  it("opens on the category it was sent to", async () => {
+    const screen = await renderScreens(
+      { index: () => <SettingsScreen initial="backup" /> },
+      testData(),
+      "/",
+      IPAD,
+    );
+    expect(await screen.findByRole("header", { name: "Backup" })).toBeTruthy();
   });
 
   it("pushes each section as its own page on a phone", async () => {

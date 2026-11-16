@@ -16,7 +16,11 @@ import {
 } from "@tabler/icons-react-native";
 import { version } from "../../package.json";
 import { useRouter } from "expo-router";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { CalendarConnectionsPage } from "./settings/CalendarConnectionsPage.tsx";
+import { ShortcutsPage } from "./settings/ShortcutsPage.tsx";
+import { SidebarSettingsScreen } from "./settings/SidebarSettings.tsx";
+import { WhatsNewScreen } from "./WhatsNewScreen.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useState } from "react";
@@ -52,9 +56,15 @@ interface NavLink {
   badge: BadgeLook;
   /// Where it goes; About has nowhere to go and only says the version.
   href?: string;
-  /// A category of settings, which a tablet shows beside the list instead of going there.
-  page?: SettingsPage;
+  /// What a tablet shows beside the list instead of going there (a category of settings,
+  /// the account, the connections, the shortcuts).
+  pane?: Pane;
+  /// Only in a tablet's dialog, where the desktop lists it (the account, the connections).
+  tabletOnly?: boolean;
 }
+
+/// What a tablet's Settings shows beside its list, as the desktop's Settings dialog.
+export type Pane = SettingsPage | "account" | "connections" | "shortcuts" | "sidebar" | "whats-new";
 
 const pageLink = (id: SettingsPage): NavLink => {
   const page = PAGES.find((p) => p.id === id);
@@ -63,7 +73,7 @@ const pageLink = (id: SettingsPage): NavLink => {
     subtitle: page?.subtitle ?? "",
     badge: PAGE_BADGES[id],
     href: `/settings/${id}`,
-    page: id,
+    pane: id,
   };
 };
 
@@ -72,7 +82,28 @@ const pageLink = (id: SettingsPage): NavLink => {
 const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
   { label: null, links: [pageLink("general"), pageLink("appearance")] },
   { label: "Writing and study", links: [pageLink("editor"), pageLink("calendar")] },
-  { label: "Data and accounts", links: [pageLink("backup")] },
+  {
+    label: "Data and accounts",
+    links: [
+      {
+        title: "Account",
+        subtitle: "Who you are signed in as, and syncing",
+        badge: { glyph: IconUserCircle, tint: "blue" },
+        href: "/settings/account",
+        pane: "account",
+        tabletOnly: true,
+      },
+      pageLink("backup"),
+      {
+        title: "Connections",
+        subtitle: "Moodle's deadlines next to your sessions",
+        badge: { glyph: IconCalendarUser, tint: "blue" },
+        href: "/settings/calendar-connections",
+        pane: "connections",
+        tabletOnly: true,
+      },
+    ],
+  },
   {
     label: "Power tools",
     links: [
@@ -81,12 +112,14 @@ const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
         subtitle: "What it lists first, and in what order",
         badge: { glyph: IconLayoutSidebar, tint: "blue" },
         href: "/settings/sidebar",
+        pane: "sidebar",
       },
       {
         title: "Keyboard Shortcuts",
         subtitle: "For an iPad with a keyboard",
         badge: { glyph: IconKeyboard, tint: "gray" },
         href: "/settings/shortcuts",
+        pane: "shortcuts",
       },
       pageLink("latex"),
     ],
@@ -99,6 +132,7 @@ const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
         subtitle: "What changed in Nookly",
         badge: { glyph: IconSparkles, tint: "pink" },
         href: "/settings/whats-new",
+        pane: "whats-new",
       },
       {
         title: "About",
@@ -140,16 +174,21 @@ export function searchSettings(query: string): SharedSettingId[] {
 }
 
 /// Settings: the account, then every setting by category, the desktop's own, as iOS's
-/// Settings lays them out.
-export function SettingsScreen() {
+/// Settings lays them out. On a tablet the desktop's Settings dialog: the categories on the
+/// left (the account and connections among them), the picked one beside them, starting on
+/// `initial`.
+export function SettingsScreen({ initial = "general" }: { initial?: string }) {
   const router = useRouter();
   const tablet = useIsTablet();
   const [query, setQuery] = useState("");
-  // On a tablet, the category shown beside the list, as the desktop's Settings.
-  const [picked, setPicked] = useState<SettingsPage>("general");
+  const [picked, setPicked] = useState<Pane>(paneOf(initial));
   const found = query.trim() ? searchSettings(query) : [];
-  const beside = (link: NavLink): link is NavLink & { page: SettingsPage } =>
-    tablet && link.page !== undefined;
+  const beside = (link: NavLink): link is NavLink & { pane: Pane } =>
+    tablet && link.pane !== undefined;
+  const groups = NAV_GROUPS.map((group) => ({
+    ...group,
+    links: group.links.filter((link) => tablet || !link.tabletOnly),
+  }));
   const list = (
     <Screen grouped>
       <SearchField label="Search settings" value={query} onChangeText={setQuery} />
@@ -165,8 +204,8 @@ export function SettingsScreen() {
         )
       ) : (
         <>
-          <AccountCard />
-          {NAV_GROUPS.map((group, index) => (
+          {tablet ? null : <AccountCard />}
+          {groups.map((group, index) => (
             <GroupedSection
               key={group.label ?? `group-${index}`}
               title={group.label ?? undefined}
@@ -180,10 +219,10 @@ export function SettingsScreen() {
                   title={link.title}
                   subtitle={link.subtitle}
                   accessory={beside(link) ? "check" : link.href ? "chevron" : "none"}
-                  selected={beside(link) ? link.page === picked : undefined}
+                  selected={beside(link) ? link.pane === picked : undefined}
                   onPress={
                     beside(link)
-                      ? () => setPicked(link.page)
+                      ? () => setPicked(link.pane)
                       : link.href
                         ? // SAFETY: every `href` in NAV_GROUPS is a route under `src/app/settings`.
                           () => router.push(link.href as never)
@@ -200,17 +239,54 @@ export function SettingsScreen() {
   if (!tablet) return list;
   return (
     <View className="flex-1 flex-row">
-      <View style={{ width: SETTINGS_LIST_WIDTH }}>{list}</View>
-      <View className="flex-1 border-l border-border">
+      <ScrollView style={{ width: SETTINGS_LIST_WIDTH, flexGrow: 0 }}>{list}</ScrollView>
+      <ScrollView className="flex-1 border-l border-border">
         <View className="px-4 pt-4">
           <Text variant="title" accessibilityRole="header">
-            {settingsTitle(picked)}
+            {paneTitle(picked)}
           </Text>
         </View>
-        <SettingsCategoryScreen page={picked} />
-      </View>
+        <PaneView pane={picked} />
+      </ScrollView>
     </View>
   );
+}
+
+const PANES: Pane[] = [
+  ...PAGES.map((p) => p.id),
+  "account",
+  "connections",
+  "shortcuts",
+  "sidebar",
+  "whats-new",
+];
+
+/// The pane a route names (`/settings/backup`), General for anything else.
+export function paneOf(name: string): Pane {
+  return PANES.find((pane) => pane === name) ?? "general";
+}
+
+function paneTitle(pane: Pane): string {
+  if (pane === "connections") return "Connections";
+  if (pane === "shortcuts") return "Keyboard Shortcuts";
+  if (pane === "sidebar") return "Sidebar";
+  if (pane === "whats-new") return "What's New";
+  return settingsTitle(pane);
+}
+
+/// One pane of a tablet's Settings: a category's settings, or the page of the same name.
+function PaneView({ pane }: { pane: Pane }) {
+  if (pane === "connections") {
+    return (
+      <Screen grouped>
+        <CalendarConnectionsPage />
+      </Screen>
+    );
+  }
+  if (pane === "shortcuts") return <ShortcutsPage />;
+  if (pane === "sidebar") return <SidebarSettingsScreen />;
+  if (pane === "whats-new") return <WhatsNewScreen />;
+  return <SettingsCategoryScreen page={pane} />;
 }
 
 /// How wide a tablet's list of settings categories is, beside the category shown.
@@ -218,6 +294,7 @@ const SETTINGS_LIST_WIDTH = 340;
 
 /// One category's settings, in the desktop's words, under a small heading per section.
 export function SettingsCategoryScreen({ page }: { page: string }) {
+  const tablet = useIsTablet();
   if (page === "account") return <AccountPage />;
   const known = PAGES.find((p) => p.id === page);
   if (known?.id === "latex") {
@@ -255,7 +332,7 @@ export function SettingsCategoryScreen({ page }: { page: string }) {
           message="There is no such page in Settings."
         />
       )}
-      {known?.id === "calendar" && <CalendarConnectionsLink />}
+      {known?.id === "calendar" && !tablet ? <CalendarConnectionsLink /> : null}
       {known?.id === "appearance" && (
         <GroupedSection title="This phone" margin={0}>
           <HapticsRow />

@@ -67,8 +67,8 @@ function pageNavigation(
   return navigation;
 }
 
-/// Pages that title themselves: the calendar's header, Settings' list and detail.
-const OWN_TITLES = new Set(["calendar", "settings", "settings/[page]"]);
+/// Pages that title themselves: the calendar's header.
+const OWN_TITLES = new Set(["calendar"]);
 
 /// One page of a tab: the route's own component, given its params and a navigation of its
 /// own, so the phone's screens work unchanged as tablet pages.

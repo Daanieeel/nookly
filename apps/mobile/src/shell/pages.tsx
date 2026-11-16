@@ -18,12 +18,6 @@ import MoodleDiscussion from "../app/moodle/discussion/[id].tsx";
 import MoodleFile from "../app/moodle/file.tsx";
 import MoodleForum from "../app/moodle/forum/[id].tsx";
 import MoodlePage from "../app/moodle/page/[cmid].tsx";
-import SettingsPage from "../app/settings/[page].tsx";
-import CalendarConnections from "../app/settings/calendar-connections.tsx";
-import Settings from "../app/settings/index.tsx";
-import Shortcuts from "../app/settings/shortcuts.tsx";
-import SidebarSettings from "../app/settings/sidebar.tsx";
-import WhatsNew from "../app/settings/whats-new.tsx";
 
 /// What sort of page a path is: a list an item is picked from (an item then opens beside
 /// it, 1.6), an item, or any other page.
@@ -37,8 +31,9 @@ interface PageRoute {
 }
 
 /// Every route the tablet shows as a page in a tab, by the same route files the phone's
-/// stack shows. Create forms, pickers, the welcome, signing in, a Space's settings, Review
-/// Changes and a study session are not pages: they stay the router's, over the window.
+/// stack shows. Create forms, pickers, the welcome, signing in, Settings, a Space's
+/// settings, Review Changes and a study session are not pages: they stay the router's,
+/// over the window.
 const ROUTES: PageRoute[] = [
   { pattern: "", Component: Dashboard, kind: "list" },
   { pattern: "calendar", Component: Calendar, kind: "page" },
@@ -51,12 +46,6 @@ const ROUTES: PageRoute[] = [
   { pattern: "module/[spaceId]/[module]", Component: Module, kind: "list" },
   { pattern: "entity/[id]", Component: Entity, kind: "item" },
   { pattern: "file/[id]", Component: File, kind: "item" },
-  { pattern: "settings", Component: Settings, kind: "page" },
-  { pattern: "settings/calendar-connections", Component: CalendarConnections, kind: "page" },
-  { pattern: "settings/shortcuts", Component: Shortcuts, kind: "page" },
-  { pattern: "settings/sidebar", Component: SidebarSettings, kind: "page" },
-  { pattern: "settings/whats-new", Component: WhatsNew, kind: "page" },
-  { pattern: "settings/[page]", Component: SettingsPage, kind: "page" },
   { pattern: "moodle/assignment/[id]", Component: MoodleAssignment, kind: "page" },
   { pattern: "moodle/forum/[id]", Component: MoodleForum, kind: "page" },
   { pattern: "moodle/discussion/[id]", Component: MoodleDiscussion, kind: "page" },
