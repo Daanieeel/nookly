@@ -14,7 +14,7 @@ import {
 import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
 import {
   IconArrowUpRight,
-  IconSquarePlus,
+  IconPlus,
   IconCopyPlus,
   IconFileExport,
   IconFingerprint,
@@ -85,7 +85,7 @@ export function useEntityActions() {
               ? [
                   {
                     label: "Open in New Tab",
-                    icon: IconSquarePlus,
+                    icon: IconPlus,
                     onPress: () => split.newTab(`/entity/${entity.id}`),
                   },
                   {

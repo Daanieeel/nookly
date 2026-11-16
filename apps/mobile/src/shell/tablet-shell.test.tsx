@@ -190,4 +190,10 @@ describe("the tablet's window", () => {
       await narrow.findByLabelText("Show Details", { includeHiddenElements: true }),
     ).toBeTruthy();
   });
+
+  it("titles a page without a list header in its own header row, with no system bar", async () => {
+    const screen = await setup(LANDSCAPE);
+    act(() => workspace.open(`/space-settings/${screen.space}`));
+    expect(await screen.findByRole("header", { name: "Space Settings" })).toBeTruthy();
+  });
 });

@@ -67,7 +67,7 @@ export function SplitDivider({ left, area }: { left: number; area: number }) {
           alignItems: "center",
         }}
       >
-        <Animated.View style={guide} className="h-full w-0.5 rounded-full bg-primary" />
+        <Animated.View style={guide} className="h-full w-0.5 bg-primary" />
       </View>
     </GestureDetector>
   );

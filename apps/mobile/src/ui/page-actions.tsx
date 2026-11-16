@@ -46,6 +46,7 @@ export function usePageActionSlots() {
   );
   return {
     slots,
+    claimed: claims.shown.length > 0,
     unclaimed: claims.shown.length === 0 ? actions.shown : [],
   };
 }

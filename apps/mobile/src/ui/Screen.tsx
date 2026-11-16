@@ -18,6 +18,10 @@ import { PageGutterProvider } from "./row-edge.tsx";
 import { GUTTER } from "./tokens.ts";
 import { RevealContext, useReveal } from "./reveal.ts";
 import { PageActionsProvider, usePageActionSlots } from "./page-actions.tsx";
+import { PageFrameProvider, usePageFrame } from "./page-frame.ts";
+
+const INNER_FRAME = { title: "", header: false };
+import { Text } from "./Text.tsx";
 
 export { RevealProvider, useReveal } from "./reveal.ts";
 
@@ -79,6 +83,7 @@ function ScrollingScreen({
   const height = useRef(0);
   const top = useSlotStore();
   const pageActions = usePageActionSlots();
+  const frame = usePageFrame();
   // Whether the page has scrolled under its fixed top: a hairline then parts them.
   const [under, setUnder] = useState(false);
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -115,55 +120,69 @@ function ScrollingScreen({
   const pageBackground = grouped ? undefined : PAGE_BACKGROUND;
   return (
     <RevealContext.Provider value={reveal}>
-      <PageActionsProvider value={pageActions.slots}>
-        <FixedTopContext.Provider value={top.store}>
-          <FloatingLayer>
-            <View className={cn("flex-1", pageBackground)} style={background}>
-              {pageActions.unclaimed.length > 0 ? (
-                // A tablet's page without a list header: its actions at the top right.
-                <View className={cn("flex-row justify-end px-4 pt-3", column)}>
-                  {pageActions.unclaimed}
-                </View>
-              ) : null}
-              {top.shown.length > 0 ? (
-                <View
-                  style={{
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                    borderBottomColor: under ? separator : "transparent",
-                  }}
-                >
-                  <View className={cn("gap-3 px-4 pb-3 pt-4", column)}>
-                    <PageGutterProvider value={GUTTER}>{top.shown}</PageGutterProvider>
+      {/* A Screen inside this one (a settings page's detail) draws no title of its own. */}
+      <PageFrameProvider value={frame ? INNER_FRAME : null}>
+        <PageActionsProvider value={pageActions.slots}>
+          <FixedTopContext.Provider value={top.store}>
+            <FloatingLayer>
+              <View className={cn("flex-1", pageBackground)} style={background}>
+                {frame?.header && !pageActions.claimed ? (
+                  // A tablet's page without a list header: its title, and its actions at the
+                  // right, as the desktop's page header.
+                  <View
+                    className={cn("flex-row flex-wrap items-center gap-2 px-4 pb-1 pt-4", column)}
+                  >
+                    <Text variant="title" accessibilityRole="header" className="flex-1">
+                      {frame.title}
+                    </Text>
+                    {pageActions.unclaimed}
                   </View>
-                </View>
-              ) : null}
-              <ScrollView
-                ref={scroll}
-                className="flex-1"
-                contentInsetAdjustmentBehavior="automatic"
-                keyboardShouldPersistTaps="handled"
-                scrollEventThrottle={32}
-                onScroll={onScroll}
-                onLayout={onLayout}
-                refreshControl={
-                  onRefresh ? (
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                  ) : undefined
-                }
-              >
-                <View
-                  ref={content}
-                  collapsable={false}
-                  className={cn("gap-5 p-4 pb-12", top.shown.length > 0 && "pt-2", column)}
+                ) : pageActions.unclaimed.length > 0 ? (
+                  // A tablet's page without a list header: its actions at the top right.
+                  <View className={cn("flex-row justify-end px-4 pt-3", column)}>
+                    {pageActions.unclaimed}
+                  </View>
+                ) : null}
+                {top.shown.length > 0 ? (
+                  <View
+                    style={{
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: under ? separator : "transparent",
+                    }}
+                  >
+                    <View className={cn("gap-3 px-4 pb-3 pt-4", column)}>
+                      <PageGutterProvider value={GUTTER}>{top.shown}</PageGutterProvider>
+                    </View>
+                  </View>
+                ) : null}
+                <ScrollView
+                  ref={scroll}
+                  className="flex-1"
+                  contentInsetAdjustmentBehavior="automatic"
+                  keyboardShouldPersistTaps="handled"
+                  scrollEventThrottle={32}
+                  onScroll={onScroll}
+                  onLayout={onLayout}
+                  refreshControl={
+                    onRefresh ? (
+                      <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    ) : undefined
+                  }
                 >
-                  {/* p-4: list rows reach past it to the screen's edges. */}
-                  <PageGutterProvider value={GUTTER}>{children}</PageGutterProvider>
-                </View>
-              </ScrollView>
-            </View>
-          </FloatingLayer>
-        </FixedTopContext.Provider>
-      </PageActionsProvider>
+                  <View
+                    ref={content}
+                    collapsable={false}
+                    className={cn("gap-5 p-4 pb-12", top.shown.length > 0 && "pt-2", column)}
+                  >
+                    {/* p-4: list rows reach past it to the screen's edges. */}
+                    <PageGutterProvider value={GUTTER}>{children}</PageGutterProvider>
+                  </View>
+                </ScrollView>
+              </View>
+            </FloatingLayer>
+          </FixedTopContext.Provider>
+        </PageActionsProvider>
+      </PageFrameProvider>
     </RevealContext.Provider>
   );
 }

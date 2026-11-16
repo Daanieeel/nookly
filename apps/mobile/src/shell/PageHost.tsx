@@ -1,5 +1,7 @@
 import { router } from "expo-router";
 import { LocalRouteParamsContext } from "expo-router/build/Route";
+import { PageFrameProvider } from "../ui/page-frame.ts";
+import { usePathTitle } from "./Crumbs.tsx";
 import { NavigationContext, NavigationRouteContext } from "expo-router/react-navigation";
 import { type ReactNode, createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { create } from "zustand";
@@ -73,6 +75,9 @@ function pageNavigation(
   return navigation;
 }
 
+/// Pages that title themselves: the calendar's header, Settings' list and detail.
+const OWN_TITLES = new Set(["calendar", "settings", "settings/[page]"]);
+
 /// One page of a tab: the route's own component, given its params and a navigation of its
 /// own, so the phone's screens work unchanged as tablet pages.
 export function PageHost({ page, host }: { page: PageMatch; host: PageHostValue }) {
@@ -97,6 +102,10 @@ export function PageHost({ page, host }: { page: PageMatch; host: PageHostValue 
       listener({ type: host.active ? "focus" : "blur" });
     }
   }, [host.active, listeners]);
+  // Its title for its own header row, where it has no list header (a calendar has its own).
+  const title = usePathTitle(host.path, host.tabId);
+  const header = page.kind === "page" && !OWN_TITLES.has(page.pattern);
+  const frame = useMemo(() => ({ title, header }), [title, header]);
   const { Component } = page;
   // SAFETY: the page's navigation answers what screens ask of one (see above).
   const navigationValue = navigation as never;
@@ -107,7 +116,9 @@ export function PageHost({ page, host }: { page: PageMatch; host: PageHostValue 
       <NavigationContext.Provider value={navigationValue}>
         <NavigationRouteContext.Provider value={routeValue}>
           <LocalRouteParamsContext.Provider value={params}>
-            <Component />
+            <PageFrameProvider value={frame}>
+              <Component />
+            </PageFrameProvider>
           </LocalRouteParamsContext.Provider>
         </NavigationRouteContext.Provider>
       </NavigationContext.Provider>

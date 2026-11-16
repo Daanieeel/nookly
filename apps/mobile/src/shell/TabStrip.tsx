@@ -1,12 +1,14 @@
 import {
-  IconArrowsLeftRight,
+  IconArrowBarToLeft,
+  IconArrowBarToRight,
+  IconArrowsMaximize,
+  IconArrowsMinimize,
+  IconLayoutColumns,
   IconLayoutSidebar,
   IconLayoutSidebarRight,
-  IconMaximize,
   IconPin,
   IconPinnedOff,
   IconPlus,
-  IconSquareX,
   IconX,
 } from "@tabler/icons-react-native";
 import { Pressable, ScrollView, View } from "react-native";
@@ -27,6 +29,8 @@ function TabLabel({ tab, active, preview }: { tab: PageTab; active: boolean; pre
   const menu = useMenu();
   const anchor = useAnchor();
   const two = useWorkspace((s) => s.ws.layout.groups.length > 1);
+  const inLeft = useWorkspace((s) => s.ws.layout.groups[0]?.tabs.some((t) => t.id === tab.id));
+  const zoomed = useWorkspace((s) => s.ws.zoomed);
   // The desktop's tab menu, as a popover on the tab.
   const showMenu = () =>
     menu.show(
@@ -40,25 +44,29 @@ function TabLabel({ tab, active, preview }: { tab: PageTab; active: boolean; pre
         SEPARATOR,
         {
           label: "Split Right",
-          icon: IconLayoutSidebarRight,
+          icon: IconLayoutColumns,
           onPress: () => split(tab.id, "right"),
         },
         { label: "Split Left", icon: IconLayoutSidebar, onPress: () => split(tab.id, "left") },
         ...(two
           ? [
               {
-                label: "Move to Other Group",
-                icon: IconArrowsLeftRight,
+                label: inLeft ? "Move to Right Group" : "Move to Left Group",
+                icon: inLeft ? IconArrowBarToRight : IconArrowBarToLeft,
                 onPress: () => workspace.moveToOther(tab.id),
               },
-              { label: "Zoom Group", icon: IconMaximize, onPress: () => workspace.toggleZoom() },
+              {
+                label: zoomed ? "Show Both Groups" : "Zoom Group",
+                icon: zoomed ? IconArrowsMinimize : IconArrowsMaximize,
+                onPress: () => workspace.toggleZoom(),
+              },
             ]
           : []),
         SEPARATOR,
         { label: "Close Tab", icon: IconX, onPress: () => workspace.close(tab.id) },
         {
           label: "Close Other Tabs",
-          icon: IconSquareX,
+          icon: IconX,
           onPress: () => workspace.closeOthers(tab.id),
         },
       ],

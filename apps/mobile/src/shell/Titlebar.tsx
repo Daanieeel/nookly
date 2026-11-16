@@ -11,7 +11,6 @@ import {
   IconLayoutSidebarLeftExpand,
   IconSearch,
   IconSettings,
-  IconColumns,
   IconLayoutColumns,
   IconLayoutSidebar,
   IconLayoutSidebarRight,
@@ -254,7 +253,7 @@ function SplitButton({ onAction }: { onAction: (action: AppAction) => void }) {
     SEPARATOR,
     {
       label: "Open Items Beside the List",
-      icon: IconColumns,
+      icon: IconLayoutColumns,
       checked: beside,
       onPress: () => setBeside(!beside),
     },
