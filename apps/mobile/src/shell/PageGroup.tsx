@@ -1,7 +1,14 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { View } from "react-native";
 import { cn } from "../ui/classes.ts";
-import { GroupWidthProvider, INSPECTOR_MIN_PANE, InspectorShownProvider } from "../ui/pane.tsx";
+import {
+  GroupWidthProvider,
+  INSPECTOR_MIN_PANE,
+  INSPECTOR_WIDTH,
+  InspectorShownProvider,
+} from "../ui/pane.tsx";
+import { useDetailsOver } from "./details-over.ts";
+import { SidebarOverlay } from "./sidebar/SidebarOverlay.tsx";
 import { Text } from "../ui/Text.tsx";
 import { Inspector } from "./inspector.tsx";
 import { useInspectorCollapsed } from "./layout-prefs.ts";
@@ -77,7 +84,17 @@ export function PageGroupView({
     .slice(0, KEPT_TABS);
   const kept = group.tabs.filter((t) => recent.current.includes(t.id));
   const openId = /^\/entity\/([^/?]+)/.exec(active.view)?.[1];
-  const inspectorShown = Boolean(openId) && !inspectorCollapsed && width >= INSPECTOR_MIN_PANE;
+  const fits = width >= INSPECTOR_MIN_PANE;
+  const inspectorShown = Boolean(openId) && !inspectorCollapsed && fits;
+  // Too narrow for the details beside the page: they slide over it from the right.
+  const over = useDetailsOver((s) => s.open) && focused && !fits && Boolean(openId);
+  useEffect(() => {
+    if (focused) useDetailsOver.setState({ fits });
+  }, [focused, fits]);
+  // Another item, or none: the details over the page go.
+  useEffect(() => {
+    if (focused) useDetailsOver.setState({ open: false });
+  }, [focused, openId]);
   return (
     <View
       className="min-w-0 flex-1"
@@ -112,6 +129,18 @@ export function PageGroupView({
           </InspectorShownProvider>
         </GroupWidthProvider>
         {inspectorShown && openId ? <Inspector id={openId} /> : null}
+        {!fits && openId ? (
+          <SidebarOverlay
+            open={over}
+            onOpenChange={(open) => useDetailsOver.setState({ open })}
+            width={INSPECTOR_WIDTH}
+            top={0}
+            side="right"
+            label="Close Details"
+          >
+            <Inspector id={openId} />
+          </SidebarOverlay>
+        ) : null}
       </View>
     </View>
   );

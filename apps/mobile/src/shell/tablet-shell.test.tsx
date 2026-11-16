@@ -171,4 +171,23 @@ describe("the tablet's window", () => {
     act(() => router.push(`/entity/${screen.note}`));
     await waitFor(() => expect(groups()).toEqual([[`/entity/${screen.note}`]]));
   });
+
+  it("keeps an item's details beside it where they fit, and slides them over it where not", async () => {
+    const wide = await setup(LANDSCAPE);
+    act(() => workspace.open(`/entity/${wide.note}`));
+    expect(await wide.findByLabelText("Details")).toBeTruthy();
+    expect(wide.queryByRole("button", { name: "Close Details" })).toBeNull();
+    wide.unmount();
+
+    const narrow = await setup(MINI);
+    act(() => workspace.open(`/entity/${narrow.note}`));
+    await fireEvent.press(await narrow.findByRole("button", { name: "Show Details" }));
+    // The dim behind it closes it (VoiceOver reads only the pane, which is modal).
+    const dim = await narrow.findByLabelText("Close Details", { includeHiddenElements: true });
+    expect(narrow.getByLabelText("Hide Details", { includeHiddenElements: true })).toBeTruthy();
+    await fireEvent.press(dim);
+    expect(
+      await narrow.findByLabelText("Show Details", { includeHiddenElements: true }),
+    ).toBeTruthy();
+  });
 });

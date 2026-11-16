@@ -28,6 +28,7 @@ import { type MenuEntry, SEPARATOR, useMenu } from "../ui/menu.tsx";
 import { useAnchor } from "../ui/sheet/anchor.ts";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Crumbs } from "./Crumbs.tsx";
+import { useDetailsOver } from "./details-over.ts";
 import { useInspectorCollapsed, useOpenBeside } from "./layout-prefs.ts";
 import { useSyncState } from "../data/context.tsx";
 import { syncLine } from "../screens/sync-status.ts";
@@ -77,7 +78,10 @@ export function Titlebar({
   const canGoBack = tab.backStack.length > 0;
   const canGoForward = tab.forwardStack.length > 0;
   const item = /^\/(entity|file)\//.test(tab.view);
-  const [inspectorCollapsed] = useInspectorCollapsed();
+  const [collapsed] = useInspectorCollapsed();
+  const fits = useDetailsOver((s) => s.fits);
+  const overOpen = useDetailsOver((s) => s.open);
+  const inspectorCollapsed = fits ? collapsed : !overOpen;
   return (
     <View
       className="flex-row items-center gap-1 border-b border-border bg-background px-2"

@@ -1,6 +1,7 @@
 import { useAppData } from "../data/context.tsx";
 import type { PaletteCommand } from "./commands.ts";
 import { useInspectorCollapsed, useSidebarCollapsed } from "./layout-prefs.ts";
+import { useDetailsOver } from "./details-over.ts";
 import { focusedTab } from "./workspace.ts";
 import { useWorkspace, workspace } from "./workspace-store.ts";
 
@@ -20,9 +21,13 @@ export function useShellActions(toggleSidebar?: () => void): (action: AppAction)
         if (toggleSidebar) toggleSidebar();
         else setSidebarCollapsed(!sidebarCollapsed);
         break;
-      case "toggleInspector":
-        setInspectorCollapsed(!inspectorCollapsed);
+      case "toggleInspector": {
+        // Beside the page where it fits; over it where it does not.
+        const over = useDetailsOver.getState();
+        if (over.fits) setInspectorCollapsed(!inspectorCollapsed);
+        else useDetailsOver.setState({ open: !over.open });
         break;
+      }
       case "back":
         workspace.back();
         break;
