@@ -40,9 +40,9 @@ function compare(a: string | number, b: string | number): number {
 }
 
 /// The rows in `sort`'s order, the rest as given.
-export function sortRows<T>(rows: T[], columns: Column<T>[], sort: TableSort | null): T[] {
+export function sortRows<T>(rows: readonly T[], columns: Column<T>[], sort: TableSort | null): T[] {
   const by = columns.find((c) => c.id === sort?.id)?.sortValue;
-  if (!by || !sort) return rows;
+  if (!by || !sort) return [...rows];
   const sorted = [...rows].sort((a, b) => compare(by(a), by(b)));
   return sort.desc ? sorted.reverse() : sorted;
 }
@@ -62,9 +62,10 @@ export function DataTable<T>({
   selected,
   initialSort = null,
   wrapRow,
+  trailing,
 }: {
   label: string;
-  rows: T[];
+  rows: readonly T[];
   columns: Column<T>[];
   keyOf: (row: T) => string;
   /// What a row is called, for VoiceOver.
@@ -77,6 +78,9 @@ export function DataTable<T>({
   initialSort?: TableSort | null;
   /// Wraps a drawn row (its swipe actions, D76).
   wrapRow?: (row: T, node: ReactNode) => ReactNode;
+  /// A row's own buttons at its end (Restore, Delete Forever), beside the row's button
+  /// rather than in it, so VoiceOver reaches each; `width` keeps the headings over them.
+  trailing?: { width: number; render: (row: T) => ReactNode };
 }) {
   const width = usePageWidth();
   const { row: rowHeight } = useScale();
@@ -100,14 +104,14 @@ export function DataTable<T>({
               onPress={column.sortValue ? () => tap(column.id) : undefined}
             />
           ))}
+          {trailing ? <View style={{ width: trailing.width }} /> : null}
         </View>
       </FixedTop>
       {sorted.map((row) => {
         const key = keyOf(row);
         const on = key === selected;
-        const node = (
+        const button = (
           <Pressable
-            key={key}
             accessibilityRole="button"
             accessibilityLabel={titleOf(row)}
             accessibilityHint="Opens it"
@@ -115,10 +119,7 @@ export function DataTable<T>({
             onPress={() => onPress(row)}
             onLongPress={onLongPress ? () => onLongPress(row) : undefined}
             style={{ minHeight: rowHeight }}
-            className={cn(
-              "justify-center gap-0.5 rounded-md px-3 py-1",
-              on ? "bg-accent" : "active:bg-accent/50",
-            )}
+            className={cn("flex-1 justify-center gap-0.5 px-3 py-1", !on && "active:bg-accent/50")}
           >
             <View className="flex-row items-center gap-3">
               {inline.map((column) => (
@@ -135,6 +136,19 @@ export function DataTable<T>({
               </View>
             ) : null}
           </Pressable>
+        );
+        const node = (
+          <View
+            key={key}
+            className={cn("flex-row items-center overflow-hidden rounded-md", on && "bg-accent")}
+          >
+            {button}
+            {trailing ? (
+              <View className="flex-row justify-end" style={{ width: trailing.width }}>
+                {trailing.render(row)}
+              </View>
+            ) : null}
+          </View>
         );
         return wrapRow ? <View key={key}>{wrapRow(row, node)}</View> : node;
       })}

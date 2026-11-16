@@ -4,7 +4,11 @@ import { deleteForever, emptyTrash, restoreEntity } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
-import { Button, statusOf } from "../ui/Button.tsx";
+import { Button, IconButton, statusOf } from "../ui/Button.tsx";
+import type { EntityRecord } from "@nookly/shared/data";
+import { type Column, DataTable } from "../ui/DataTable.tsx";
+import { useIsTablet } from "../ui/pane.tsx";
+import { useTheme } from "../ui/theme.ts";
 import { Text } from "../ui/Text.tsx";
 import { useLocalWrite } from "../data/context.tsx";
 import { useEntities, useSpaces } from "../data/queries.ts";
@@ -12,7 +16,13 @@ import { EntityIcon } from "../ui/icons.tsx";
 import { FilterField } from "../ui/ListBar.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
 import { AGE_OPTIONS, ageBucket, useWeekStart } from "../ui/entity-filters.tsx";
-import { IconCategory, IconFolder, IconTrash } from "@tabler/icons-react-native";
+import {
+  IconArrowBackUp,
+  IconCategory,
+  IconFolder,
+  IconTrash,
+  IconTrashX,
+} from "@tabler/icons-react-native";
 import { spaceOption } from "./option-badges.tsx";
 import { Row, Section } from "../ui/Row.tsx";
 import { useMenu } from "../ui/menu.tsx";
@@ -60,6 +70,52 @@ export function TrashScreen() {
       actions: [{ label: "Delete Forever", destructive: true, onPress: () => forever.mutate(id) }],
     });
   const staged = useStaged(shown);
+  const tablet = useIsTablet();
+  const theme = useTheme();
+  // A tablet's Trash is the desktop's table (4.7), each row with its two ways out.
+  const columns: Column<EntityRecord>[] = [
+    {
+      id: "title",
+      label: "Title",
+      width: "fill",
+      sortValue: (e) => e.title,
+      render: (e) => (
+        <View className="flex-row items-center gap-2">
+          <EntityIcon type={e.type} icon={e.icon} size={16} />
+          <Text numberOfLines={1} className="flex-1 text-muted-foreground">
+            {e.title || "Untitled"}
+          </Text>
+        </View>
+      ),
+    },
+    {
+      id: "type",
+      label: "Type",
+      width: 120,
+      hideBelow: 560,
+      sortValue: (e) => typeLabel(e.type),
+      render: (e) => <Text tone="muted">{typeLabel(e.type)}</Text>,
+    },
+    {
+      id: "space",
+      label: "Space",
+      width: 140,
+      hideBelow: 680,
+      sortValue: (e) => spaceName(e.spaceId),
+      render: (e) => (
+        <Text tone="muted" numberOfLines={1}>
+          {spaceName(e.spaceId)}
+        </Text>
+      ),
+    },
+    {
+      id: "deleted",
+      label: "Deleted",
+      width: 110,
+      sortValue: (e) => e.deletedAt ?? "",
+      render: (e) => <Text tone="muted">{e.deletedAt ? ago(e.deletedAt) : ""}</Text>,
+    },
+  ];
   return (
     <Screen>
       <ListControls
@@ -139,7 +195,38 @@ export function TrashScreen() {
             filters.clear();
           }}
         />
-        {staged.map((entity) => (
+        {tablet ? (
+          <DataTable
+            label="Trash"
+            rows={staged}
+            columns={columns}
+            keyOf={(e) => e.id}
+            titleOf={(e) => e.title || "Untitled"}
+            onPress={(e) => router.push(`/entity/${e.id}`)}
+            onLongPress={(e) => entityMenu(e)}
+            initialSort={{ id: "deleted", desc: true }}
+            trailing={{
+              width: 88,
+              render: (e) => (
+                <>
+                  <IconButton
+                    label={`Restore ${e.title || "Untitled"}`}
+                    size="iconSm"
+                    icon={<IconArrowBackUp size={16} color={theme.colors.foreground} />}
+                    onPress={() => restore.mutate(e.id)}
+                  />
+                  <IconButton
+                    label={`Delete ${e.title || "Untitled"} Forever`}
+                    size="iconSm"
+                    icon={<IconTrashX size={16} color={theme.colors.destructive} />}
+                    onPress={() => askForever(e.id, e.title)}
+                  />
+                </>
+              ),
+            }}
+          />
+        ) : null}
+        {(tablet ? [] : staged).map((entity) => (
           <View key={entity.id}>
             <SwipeRow
               leading={[
