@@ -111,6 +111,25 @@ function TabLabel({ tab, active, preview }: { tab: PageTab; active: boolean; pre
   );
 }
 
+/// With two groups but room for one (a medium window, a zoomed group), the shown group's
+/// tab strip switches to the other, as the desktop's.
+function OtherGroupButton({ groupId }: { groupId: string }) {
+  const theme = useTheme();
+  const groups = useWorkspace((s) => s.ws.layout.groups);
+  const other = groups.find((g) => g.id !== groupId);
+  if (!other) return null;
+  const left = groups[0].id === other.id;
+  const Icon = left ? IconLayoutSidebar : IconLayoutSidebarRight;
+  return (
+    <IconButton
+      label={left ? "Show Left Group" : "Show Right Group"}
+      size="iconSm"
+      icon={<Icon size={16} color={theme.colors.mutedForeground} />}
+      onPress={() => workspace.focus(other.id)}
+    />
+  );
+}
+
 /// A tab copied into the group on its side, as the desktop's Split Right and Left.
 function split(tabId: string, side: "right" | "left") {
   workspace.select(tabId);
@@ -118,8 +137,9 @@ function split(tabId: string, side: "right" | "left") {
   else workspace.splitLeft();
 }
 
-/// A group's open tabs, with a button for a new one: the desktop's tab bar.
-export function TabStrip({ groupId }: { groupId: string }) {
+/// A group's open tabs, with a button for a new one: the desktop's tab bar. `alone` when the
+/// other group is hidden, to switch to it.
+export function TabStrip({ groupId, alone = false }: { groupId: string; alone?: boolean }) {
   const theme = useTheme();
   const group = useWorkspace((s) => s.ws.layout.groups.find((g) => g.id === groupId));
   const preview = useWorkspace((s) => s.ws.preview[groupId]);
@@ -144,6 +164,7 @@ export function TabStrip({ groupId }: { groupId: string }) {
           ),
         )}
       </ScrollView>
+      {alone ? <OtherGroupButton groupId={groupId} /> : null}
       <IconButton
         label="New Tab"
         size="iconSm"

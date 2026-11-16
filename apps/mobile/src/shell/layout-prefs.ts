@@ -13,6 +13,12 @@ export function useInspectorCollapsed() {
   return usePreference("shell.inspectorCollapsed", flag, false);
 }
 
+/// Whether an item picked from a list opens beside it (the right group's preview tab) while
+/// both fit, the iPad's list and detail (1.6); else in the list's place.
+export function useOpenBeside() {
+  return usePreference("shell.openBeside", flag, true);
+}
+
 /// Whether the sidebar stays beside the page in a medium window 900 wide or more, instead
 /// of sliding over it.
 export function useSidebarPinned() {

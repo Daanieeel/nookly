@@ -11,6 +11,7 @@ import {
   IconLayoutSidebarLeftExpand,
   IconSearch,
   IconSettings,
+  IconColumns,
   IconLayoutColumns,
   IconLayoutSidebar,
   IconLayoutSidebarRight,
@@ -23,11 +24,11 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { useAppData } from "../data/context.tsx";
 import { Button } from "../ui/Button.tsx";
-import { useMenu } from "../ui/menu.tsx";
+import { type MenuEntry, SEPARATOR, useMenu } from "../ui/menu.tsx";
 import { useAnchor } from "../ui/sheet/anchor.ts";
 import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { Crumbs } from "./Crumbs.tsx";
-import { useInspectorCollapsed } from "./layout-prefs.ts";
+import { useInspectorCollapsed, useOpenBeside } from "./layout-prefs.ts";
 import { useSyncState } from "../data/context.tsx";
 import { syncLine } from "../screens/sync-status.ts";
 import { IconButton } from "../ui/Button.tsx";
@@ -234,31 +235,32 @@ function SplitButton({ onAction }: { onAction: (action: AppAction) => void }) {
   const menu = useMenu();
   const anchor = useAnchor();
   const two = useWorkspace((s) => s.ws.layout.groups.length > 1);
+  const [beside, setBeside] = useOpenBeside();
+  const entries: MenuEntry[] = [
+    ...(two
+      ? [{ label: "Close Split", icon: IconX, onPress: () => onAction("closeSplit") }]
+      : [
+          {
+            label: "Split Right",
+            icon: IconLayoutSidebarRight,
+            onPress: () => onAction("splitRight"),
+          },
+          { label: "Split Left", icon: IconLayoutSidebar, onPress: () => onAction("splitLeft") },
+        ]),
+    SEPARATOR,
+    {
+      label: "Open Items Beside the List",
+      icon: IconColumns,
+      checked: beside,
+      onPress: () => setBeside(!beside),
+    },
+  ];
   return (
     <View ref={anchor.ref} collapsable={false}>
       <IconButton
         label="Split"
         icon={<IconLayoutColumns size={20} color={theme.colors.mutedForeground} />}
-        onPress={() =>
-          menu.show(
-            "Split",
-            two
-              ? [{ label: "Close Split", icon: IconX, onPress: () => onAction("closeSplit") }]
-              : [
-                  {
-                    label: "Split Right",
-                    icon: IconLayoutSidebarRight,
-                    onPress: () => onAction("splitRight"),
-                  },
-                  {
-                    label: "Split Left",
-                    icon: IconLayoutSidebar,
-                    onPress: () => onAction("splitLeft"),
-                  },
-                ],
-            { anchor },
-          )
-        }
+        onPress={() => menu.show("Split", entries, { anchor })}
       />
     </View>
   );

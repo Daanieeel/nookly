@@ -3,6 +3,7 @@ import { Stack, router } from "expo-router";
 import { act, fireEvent, waitFor, within } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
 import { resetRouterFollower } from "./follow-router.ts";
+import { ratioAt } from "./SplitDivider.tsx";
 import { TabletShell, tabletScreen } from "./TabletShell.tsx";
 import { newWorkspace } from "./workspace.ts";
 import { useWorkspace, workspace } from "./workspace-store.ts";
@@ -139,5 +140,35 @@ describe("the tablet's window", () => {
     expect(await screen.findByRole("tab", { name: "Trash, pinned" })).toBeTruthy();
     const tabs = screen.getAllByRole("tab").map((t) => t.props.accessibilityLabel);
     expect(tabs[0]).toBe("Trash, pinned");
+  });
+
+  it("shows one group in a medium window, with a button for the other", async () => {
+    const screen = await setup(MINI);
+    act(() => {
+      workspace.open("/trash");
+      workspace.splitRight();
+      workspace.open("/pinned");
+    });
+    expect(await screen.findByRole("button", { name: "Show Left Group" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Show Left Group" }));
+    expect(await screen.findByRole("button", { name: "Show Right Group" })).toBeTruthy();
+  });
+
+  it("splits where the divider is let go, each group keeping 360", () => {
+    expect(ratioAt(500, 1000)).toBe(0.5);
+    expect(ratioAt(100, 1000)).toBe(0.36);
+    expect(ratioAt(990, 1000)).toBe(0.64);
+  });
+
+  it("opens an item in place when Open Items Beside the List is off", async () => {
+    const screen = await setup(LANDSCAPE);
+    await fireEvent.press(screen.getByRole("button", { name: "Split" }));
+    await fireEvent.press(await screen.findByText("Open Items Beside the List"));
+    // It changes once the menu has gone.
+    await waitFor(() => expect(screen.queryByText("Open Items Beside the List")).toBeNull());
+    act(() => router.navigate(`/module/${screen.space}/notes`));
+    await waitFor(() => expect(groups()).toEqual([[`/module/${screen.space}/notes`]]));
+    act(() => router.push(`/entity/${screen.note}`));
+    await waitFor(() => expect(groups()).toEqual([[`/entity/${screen.note}`]]));
   });
 });

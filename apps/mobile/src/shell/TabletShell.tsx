@@ -12,7 +12,7 @@ import {
 import { CommandPalette } from "./CommandPalette.tsx";
 import { noteTouch } from "../ui/sheet/touch-point.ts";
 import { useFollowRouter } from "./follow-router.ts";
-import { useSidebarCollapsed, useSidebarPinned } from "./layout-prefs.ts";
+import { useOpenBeside, useSidebarCollapsed, useSidebarPinned } from "./layout-prefs.ts";
 import { SidebarOverlay } from "./sidebar/SidebarOverlay.tsx";
 import { TabletSidebar } from "./sidebar/TabletSidebar.tsx";
 import { PageGroupView } from "./PageGroup.tsx";
@@ -20,6 +20,7 @@ import { ShortcutHost } from "./ShortcutHost.tsx";
 import { SplitProvider } from "./split-context.ts";
 import { TabStrip } from "./TabStrip.tsx";
 import { TITLEBAR_HEIGHT, Titlebar } from "./Titlebar.tsx";
+import { SplitDivider } from "./SplitDivider.tsx";
 import { useWindowControlsInset } from "./window-controls.ts";
 import { useShellActions } from "./actions.ts";
 import { matchPage, parseRouteParams, pathOf } from "./pages.tsx";
@@ -45,7 +46,8 @@ export function tabletScreen({
 
 /// Where an item picked from the router goes: beside the list it was picked from when the
 /// window keeps room for both (list beside item, 1.6), else in the tab shown.
-export function whereToOpen(ws: Workspace, path: string, pageArea: number) {
+export function whereToOpen(ws: Workspace, path: string, pageArea: number, beside = true) {
+  if (!beside) return "here" as const;
   const opened = matchPage(path);
   const from = matchPage(activePath(ws));
   if (opened?.kind === "item" && from?.kind === "list" && pageArea >= SPLIT_MIN_GROUP * 2) {
@@ -70,6 +72,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
   const canPin = windowClass === "medium" && width >= 900;
   const beside = !collapsed && (windowClass === "expanded" || (canPin && pinned));
   const ws = useWorkspace((s) => s.ws);
+  const [openBeside] = useOpenBeside();
   const pageArea = width - GAP * 2 - (beside ? SIDEBAR_WIDTH + GAP : 0);
   // A medium window shows one group at a time, the desktop's rule for a narrow window.
   const splitRoom = windowClass === "expanded" ? pageArea : 0;
@@ -80,7 +83,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
   useFollowRouter({
     opened: (path) => {
       setOverlay(false);
-      workspace.open(path, whereToOpen(useWorkspace.getState().ws, path, splitRoom));
+      workspace.open(path, whereToOpen(useWorkspace.getState().ws, path, splitRoom, openBeside));
     },
     returned: (path) => {
       const tab = focusedTab(useWorkspace.getState().ws);
@@ -99,7 +102,12 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
   const controls = useWindowControlsInset();
   return (
     <SidebarBesideProvider value={beside}>
-      <SplitProvider value={{ show: (path) => workspace.open(path, "right") }}>
+      <SplitProvider
+        value={{
+          show: (path) => workspace.open(path, "right"),
+          newTab: (path) => workspace.open(path, "newTab"),
+        }}
+      >
         {/* Every touch is noted, so a menu or picker it opens floats there (D83, 2.3). */}
         <View className="flex-1" onTouchStart={noteTouch}>
           {/* The router's stack, behind the window: pages draw nothing in it on a tablet,
@@ -114,7 +122,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
               // The window controls sit over the titlebar's start while the window shows them.
               leading={controls.top < TITLEBAR_HEIGHT + insets.top ? controls.left : 0}
             />
-            {showTabBar && focusedGroup ? <TabStrip groupId={focusedGroup.id} /> : null}
+            {showTabBar && focusedGroup ? <TabStrip groupId={focusedGroup.id} alone /> : null}
             <View
               className="min-h-0 flex-1 flex-row"
               style={{
@@ -150,6 +158,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
                     />
                   </View>
                 ))}
+                {split ? <SplitDivider left={pageArea * ratio} area={pageArea} /> : null}
               </View>
             </View>
             {overlaid ? (

@@ -14,6 +14,7 @@ import {
 import { SHAREABLE_TYPES, isSharedSpace } from "@nookly/shared/api";
 import {
   IconArrowUpRight,
+  IconSquarePlus,
   IconCopyPlus,
   IconFileExport,
   IconFingerprint,
@@ -79,6 +80,21 @@ export function useEntityActions() {
     const view: MenuEntry[] =
       where === "context"
         ? [
+            // The desktop's Command click and split, first on a tablet (1.6).
+            ...(split
+              ? [
+                  {
+                    label: "Open in New Tab",
+                    icon: IconSquarePlus,
+                    onPress: () => split.newTab(`/entity/${entity.id}`),
+                  },
+                  {
+                    label: "Open on the Right",
+                    icon: IconLayoutColumns,
+                    onPress: () => split.show(`/entity/${entity.id}`),
+                  },
+                ]
+              : []),
             {
               label: "Open",
               icon: IconArrowUpRight,
@@ -92,7 +108,7 @@ export function useEntityActions() {
             ...(split
               ? [
                   {
-                    label: "Open Beside",
+                    label: "Open on the Right",
                     icon: IconLayoutColumns,
                     onPress: () => split.show(`/entity/${entity.id}`),
                   },
