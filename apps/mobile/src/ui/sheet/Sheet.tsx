@@ -40,6 +40,7 @@ import { CORNER, DEPTH, RADIUS, SPACE } from "../tokens.ts";
 import type { Anchor } from "./anchor.ts";
 import { recentTouch } from "./touch-point.ts";
 import { LayerContext, pushLayer } from "./layers.ts";
+import { type CloseGuard, CloseGuardContext } from "./close-guard.ts";
 import { CardPanel, DialogFrame, PopoverFrame, PopoverPanel } from "./Floating.tsx";
 import { type PinStore, PinnedSlot, makePinStore } from "./pins.tsx";
 import {
@@ -86,6 +87,9 @@ interface SheetHandle {
   /// Closes the whole sheet, then runs `then` once it is out of sight (an action that
   /// opens a page or another sheet waits for it).
   close(then?: () => void): void;
+  /// The person asks it to go (a Close button): what it holds may ask first
+  /// (`useCloseGuard`).
+  dismiss(): void;
   /// Shows a step on top of the current one, with a back button.
   push(page: SheetPage): void;
   /// Back to the step before.
@@ -243,6 +247,33 @@ function SheetFrame({
     closed.current = onClosed;
   });
   const after = useRef<(() => void) | null>(null);
+  // What the content asks before it goes at the person's request, and whether it is asking.
+  const guard = useRef<CloseGuard | null>(null);
+  const asking = useRef(false);
+  const setGuard = useCallback((next: CloseGuard | null) => {
+    guard.current = next;
+  }, []);
+  const requestClose = useCallback(() => {
+    if (asking.current) {
+      // Escape on the question goes back to what was being written.
+      pagesNow.current.at(-1)?.onPop?.();
+      setPages((now) => now.slice(0, -1));
+      return;
+    }
+    const step = guard.current?.();
+    if (!step) return onRequestClose();
+    asking.current = true;
+    setPages((now) => [
+      ...now,
+      {
+        title: title ? `Discard ${title}?` : "Discard Changes?",
+        content: step,
+        onPop: () => {
+          asking.current = false;
+        },
+      },
+    ]);
+  }, [onRequestClose, title]);
 
   // Opened again, it starts at its first step, even if it was still on its way down.
   useEffect(() => {
@@ -259,7 +290,7 @@ function SheetFrame({
   const presentation = resolved.presentation;
   const layer = useLayer(
     open && (presentation === "popover" || presentation === "dialog"),
-    onRequestClose,
+    requestClose,
   );
   /// A card's, dialog's or popover's way in: 0 gone, 1 shown.
   const shown = useSharedValue(0);
@@ -297,6 +328,7 @@ function SheetFrame({
         after.current = then ?? null;
         onRequestClose();
       },
+      dismiss: requestClose,
       push: (page) => setPages((now) => [...now, page]),
       back: () => {
         pagesNow.current.at(-1)?.onPop?.();
@@ -305,7 +337,7 @@ function SheetFrame({
       depth: pages.length + 1,
       presentation,
     }),
-    [onRequestClose, pages.length, presentation],
+    [onRequestClose, requestClose, pages.length, presentation],
   );
 
   const scroll = Gesture.Native();
@@ -388,7 +420,7 @@ function SheetFrame({
       title: shownTitle,
       stepped: pages.length > 0,
       onBack: handle.back,
-      onClose: onRequestClose,
+      onClose: requestClose,
       pin,
       footer,
       onScroll,
@@ -401,7 +433,7 @@ function SheetFrame({
           width={wide || size === "large" ? POPOVER_WIDTH.wide : POPOVER_WIDTH.list}
           title={shownTitle}
           shown={shown}
-          onRequestClose={onRequestClose}
+          onRequestClose={requestClose}
         >
           <PopoverPanel {...parts} />
         </PopoverFrame>
@@ -410,7 +442,7 @@ function SheetFrame({
           width={DIALOG_WIDTH[resolved.dialog]}
           title={shownTitle}
           shown={shown}
-          onRequestClose={onRequestClose}
+          onRequestClose={requestClose}
         >
           <CardPanel {...parts} header={header} />
         </DialogFrame>
@@ -447,7 +479,11 @@ function SheetFrame({
             <ScrollContext.Provider value={scrollY}>
               <InSheet.Provider value>
                 <InCard.Provider value>
-                  <LayerContext.Provider value={layer}>{floating}</LayerContext.Provider>
+                  <LayerContext.Provider value={layer}>
+                    <CloseGuardContext.Provider value={setGuard}>
+                      {floating}
+                    </CloseGuardContext.Provider>
+                  </LayerContext.Provider>
                 </InCard.Provider>
               </InSheet.Provider>
             </ScrollContext.Provider>
@@ -576,6 +612,7 @@ function LiveStep({ store, parent }: { store: ReturnType<typeof useLive>; parent
         parent.back();
         then?.();
       },
+      dismiss: parent.back,
       push: parent.push,
       back: parent.back,
       depth: parent.depth,
@@ -783,6 +820,7 @@ export function RouteSheet({
 export function SheetCloser({ close, children }: { close: () => void; children: ReactNode }) {
   const handle = useMemo<SheetHandle>(
     () => ({
+      dismiss: close,
       close: (then) => {
         close();
         then?.();

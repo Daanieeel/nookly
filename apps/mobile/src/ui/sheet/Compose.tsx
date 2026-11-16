@@ -1,6 +1,17 @@
 import { useSheetSubmit } from "./layers.ts";
+import { useCloseGuard } from "./close-guard.ts";
 import { IconArrowUp, IconX } from "@tabler/icons-react-native";
-import { type ComponentType, type ReactNode, type RefObject, useState } from "react";
+import {
+  type ComponentType,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { create } from "zustand";
+import { Button } from "../Button.tsx";
+import { useIsTablet } from "../pane.tsx";
 import { Pressable, ScrollView, TextInput, type TextInputProps, View } from "react-native";
 import { Glyph } from "../kit/Glyph.tsx";
 import { useScheme, useSemantic, useSemanticPair } from "../kit/scheme.ts";
@@ -15,6 +26,13 @@ import { RoundButton, Sheet, SheetFooter, SheetHeader, useSheet } from "./Sheet.
 /// round close button top left, what it goes into as a pill in the middle, a round send
 /// button top right that lights up once there is something to send; a big title; the body
 /// below; the properties as a row of pills riding on the keyboard.
+
+/// A tablet's send button, which sits in the footer (the desktop's Create at the bottom
+/// right) while the header that knows what it sends is at the top. One compose is open at a
+/// time.
+const useComposeSend = create<{
+  send: { label: string; canSend: boolean; onSend: () => void } | null;
+}>(() => ({ send: null }));
 
 /// The top of a compose sheet: close, context, send.
 export function ComposeHeader({
@@ -32,8 +50,37 @@ export function ComposeHeader({
 }) {
   const sheet = useSheet();
   const theme = useTheme();
+  const tablet = useIsTablet();
   // Command Return sends, in a tablet's dialog.
   useSheetSubmit(canSend ? onSend : undefined);
+  const latest = useRef(onSend);
+  latest.current = onSend;
+  // Something written asks before the dialog goes (a phone's sheet keeps its own ways).
+  useCloseGuard(tablet && canSend, () => <DiscardStep />);
+  useEffect(() => {
+    if (!tablet) return;
+    useComposeSend.setState({
+      send: { label: sendLabel, canSend, onSend: () => latest.current() },
+    });
+    return () => useComposeSend.setState({ send: null });
+  }, [tablet, sendLabel, canSend]);
+  if (tablet) {
+    // The desktop's dialog: what it goes into at the start, Close at the end.
+    return (
+      <SheetHeader>
+        <View
+          testID="compose-header"
+          className="flex-row items-center gap-2 px-4 pt-2"
+          style={{ paddingBottom: SPACE.md }}
+        >
+          <View className="flex-1 items-start">{context}</View>
+          <RoundButton label="Close" onPress={() => sheet?.dismiss()}>
+            <IconX size={22} color={theme.colors.foreground} />
+          </RoundButton>
+        </View>
+      </SheetHeader>
+    );
+  }
   return (
     <SheetHeader>
       <View
@@ -54,6 +101,20 @@ export function ComposeHeader({
         </RoundButton>
       </View>
     </SheetHeader>
+  );
+}
+
+/// What a half written form asks before its dialog goes: back to it, or let it go.
+function DiscardStep() {
+  const sheet = useSheet();
+  return (
+    <View style={{ gap: SPACE.lg }}>
+      <Text tone="muted">What you wrote here will be lost.</Text>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: SPACE.sm }}>
+        <Button label="Keep Editing" variant="ghost" onPress={() => sheet?.back()} />
+        <Button label="Discard" variant="destructive" onPress={() => sheet?.close()} />
+      </View>
+    </View>
   );
 }
 
@@ -197,6 +258,43 @@ export function ComposeFooter({
   children?: ReactNode;
   toolbar?: ReactNode;
 }) {
+  const tablet = useIsTablet();
+  const send = useComposeSend((s) => s.send);
+  if (tablet) {
+    // The desktop's quick create: the pills wrap under the fields, then Create at the right.
+    return (
+      <SheetFooter>
+        {children ? (
+          <View
+            testID="compose-pills"
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: SPACE.sm,
+              paddingHorizontal: SPACE.lg,
+              paddingTop: SPACE.sm,
+            }}
+          >
+            {children}
+          </View>
+        ) : null}
+        {toolbar}
+        {send ? (
+          <View
+            testID="compose-actions"
+            style={{
+              flexDirection: "row",
+              justifyContent: "flex-end",
+              paddingHorizontal: SPACE.lg,
+              paddingVertical: SPACE.md,
+            }}
+          >
+            <Button label={send.label} disabled={!send.canSend} onPress={send.onSend} />
+          </View>
+        ) : null}
+      </SheetFooter>
+    );
+  }
   return (
     <SheetFooter>
       {children ? (

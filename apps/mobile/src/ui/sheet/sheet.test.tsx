@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 import { useState } from "react";
 import { Modal, type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { Button, IconButton } from "../Button.tsx";
@@ -10,7 +10,9 @@ import { MenuList, SEPARATOR, menuGroups } from "./MenuList.tsx";
 import { FilterField } from "./DisplayParts.tsx";
 import { OptionList } from "./OptionList.tsx";
 import { Sheet, useSheet } from "./Sheet.tsx";
-import { ComposeHeader } from "./Compose.tsx";
+import { ComposeFooter, ComposeHeader } from "./Compose.tsx";
+import { topLayer } from "./layers.ts";
+import { WindowSizeProvider } from "../pane.tsx";
 import { SPACE } from "../tokens.ts";
 
 // The sheet animates in and out on timers, which take longer when every suite runs at once.
@@ -396,5 +398,61 @@ describe("a compose sheet's header", () => {
     );
     const header = StyleSheet.flatten((await screen.findByTestId("compose-header")).props.style);
     expect(header.paddingBottom).toBeGreaterThanOrEqual(SPACE.md);
+  });
+});
+
+// A tablet's compose form is the desktop's quick create dialog (7.2): the title on top, the
+// properties as pills under it that wrap, and the labelled main button at the bottom right.
+describe("a tablet's compose dialog", () => {
+  it("moves the send button to a labelled button at the bottom", async () => {
+    const sent: string[] = [];
+    const screen = render(
+      <WindowSizeProvider value={{ width: 1376, height: 1032 }}>
+        <Sheet open onOpenChange={() => {}} kind="form">
+          <ComposeHeader sendLabel="Create Task" canSend onSend={() => sent.push("sent")} />
+          <Text>Title</Text>
+          <ComposeFooter>
+            <Text>Status</Text>
+          </ComposeFooter>
+        </Sheet>
+      </WindowSizeProvider>,
+    );
+    const footer = await screen.findByTestId("compose-actions");
+    fireEvent.press(within(footer).getByText("Create Task"));
+    expect(sent).toEqual(["sent"]);
+    // The header keeps Close, not a second send.
+    expect(
+      within(await screen.findByTestId("compose-header")).queryByLabelText("Create Task"),
+    ).toBeNull();
+    expect(screen.getByTestId("compose-pills").props.style).toEqual(
+      expect.objectContaining({ flexWrap: "wrap" }),
+    );
+  });
+});
+
+// A half written form asks before its dialog goes, on a tablet (7.2, from 2.2): Close,
+// Escape and a tap outside all ask; Keep Editing goes back to it, Discard closes it.
+describe("a tablet's dirty compose dialog", () => {
+  function Dirty({ onClose }: { onClose: () => void }) {
+    return (
+      <WindowSizeProvider value={{ width: 1376, height: 1032 }}>
+        <Sheet open onOpenChange={(open) => !open && onClose()} kind="form" title="New Task">
+          <ComposeHeader sendLabel="Create Task" canSend onSend={() => {}} />
+          <Text>Title</Text>
+        </Sheet>
+      </WindowSizeProvider>
+    );
+  }
+
+  it("asks before Close or Escape, and closes only on Discard", async () => {
+    const closed: string[] = [];
+    const screen = render(<Dirty onClose={() => closed.push("closed")} />);
+    fireEvent.press(within(await screen.findByTestId("compose-header")).getByLabelText("Close"));
+    expect(await screen.findByText("Discard New Task?")).toBeTruthy();
+    fireEvent.press(screen.getByText("Keep Editing"));
+    expect(await screen.findByText("Title")).toBeTruthy();
+    act(() => topLayer()?.close());
+    fireEvent.press(await screen.findByText("Discard"));
+    expect(closed).toEqual(["closed"]);
   });
 });
