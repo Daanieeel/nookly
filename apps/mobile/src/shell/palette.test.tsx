@@ -3,6 +3,7 @@ import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
 import { useShell } from "./store.ts";
+import { topLayer } from "../ui/sheet/layers.ts";
 
 async function setup() {
   const data = testData();
@@ -16,6 +17,7 @@ async function setup() {
       index: () => <CommandPalette onAction={(action) => actions.push(action)} />,
       "entity/[id]": () => null,
       tasks: () => null,
+      calendar: () => null,
     },
     data,
   );
@@ -66,5 +68,35 @@ describe("the command palette", () => {
     act(() => useShell.getState().open("commands"));
     expect(await screen.findByRole("button", { name: /^New Task/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Milk and honey notes/ })).toBeNull();
+  });
+
+  it("moves its selection with the arrow keys and opens it with Return", async () => {
+    const screen = await setup();
+    act(() => useShell.getState().open("commands"));
+    const input = await screen.findByLabelText("Search everything");
+    fireEvent.changeText(input, "go to");
+    await screen.findByRole("button", { name: /^Go to Tasks/ });
+    const selected = () =>
+      screen
+        .getAllByRole("button", { name: /^Go to/ })
+        .map((b) => b.props.accessibilityState?.selected === true);
+    expect(selected().slice(0, 2)).toEqual([true, false]);
+    act(() => topLayer()?.move?.(1));
+    act(() => topLayer()?.move?.(1));
+    expect(selected().slice(0, 3)).toEqual([false, false, true]);
+    act(() => topLayer()?.move?.(-1));
+    const second = screen.getAllByRole("button", { name: /^Go to/ })[1];
+    expect(second.props.accessibilityState).toMatchObject({ selected: true });
+    fireEvent(input, "submitEditing");
+    await waitFor(() => expect(screen.getPathname()).toBe("/calendar"));
+  });
+
+  it("closes with Escape", async () => {
+    const screen = await setup();
+    act(() => useShell.getState().open("search"));
+    await screen.findByLabelText("Search everything");
+    act(() => topLayer()?.close());
+    expect(useShell.getState().palette).toBeNull();
+    expect(topLayer()).toBeUndefined();
   });
 });

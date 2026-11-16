@@ -1,4 +1,4 @@
-import { SHORTCUTS, shortcutLabel } from "./shortcuts.ts";
+import { MENUS, SHORTCUTS, shortcutLabel } from "./shortcuts.ts";
 
 describe("the keyboard shortcuts", () => {
   it("never give two actions the same keys", () => {
@@ -41,5 +41,11 @@ describe("the keyboard shortcuts", () => {
     expect(keysOf("splitLeft")).toBe("⌥⇧⌘←");
     expect(keysOf("focusLeftGroup")).toBe("⌘1");
     expect(keysOf("toggleGroupZoom")).toBe("⇧⌘↩");
+  });
+
+  it("are each listed once in the menu bar, under the desktop's menus", () => {
+    const listed = MENUS.flatMap((m) => m.ids);
+    expect([...listed].sort()).toEqual(SHORTCUTS.map((s) => s.id).sort());
+    expect(MENUS.map((m) => m.title)).toEqual(["File", "Edit", "View", "Go", "Window"]);
   });
 });

@@ -3,7 +3,14 @@ import { useEffect } from "react";
 import * as system from "../../modules/nookly-keys/src/index.ts";
 import type { PaletteCommand } from "./commands.ts";
 import { topLayer, useLayers } from "../ui/sheet/layers.ts";
-import { LAYER_SHORTCUTS, type Shortcut, SHORTCUTS, type ShortcutId } from "./shortcuts.ts";
+import {
+  LAYER_SHORTCUTS,
+  MENUS,
+  MOVE_SHORTCUTS,
+  type Shortcut,
+  SHORTCUTS,
+  type ShortcutId,
+} from "./shortcuts.ts";
 import { useShell } from "./store.ts";
 import { stepSpace } from "./sidebar/space-step.ts";
 
@@ -12,6 +19,7 @@ type AppAction = NonNullable<PaletteCommand["action"]>;
 /// What the host needs of the system's keyboard shortcuts (`modules/nookly-keys`).
 export interface KeySystem {
   setShortcuts(items: (Shortcut | (typeof LAYER_SHORTCUTS)[number])[]): void;
+  setMenus(items: { title: string; ids: string[] }[]): void;
   onShortcut(listener: (id: string) => void): () => void;
 }
 
@@ -29,8 +37,15 @@ export function ShortcutHost({
   // Escape and Command Return only while a popover or dialog is open: otherwise they are
   // the page's (the editor's).
   const layered = useLayers((s) => s.stack.length > 0);
+  // The arrow keys only while the newest layer keeps a selection: otherwise the page's.
+  const moving = useLayers((s) => s.stack.at(-1)?.move !== undefined);
+  useEffect(() => keys.setMenus(MENUS), [keys]);
   useEffect(() => {
-    keys.setShortcuts(layered ? [...SHORTCUTS, ...LAYER_SHORTCUTS] : SHORTCUTS);
+    keys.setShortcuts([
+      ...SHORTCUTS,
+      ...(layered ? LAYER_SHORTCUTS : []),
+      ...(moving ? MOVE_SHORTCUTS : []),
+    ]);
     const run = (id: ShortcutId) => {
       switch (id) {
         case "search":
@@ -75,6 +90,8 @@ export function ShortcutHost({
     const stop = keys.onShortcut((id) => {
       if (id === "dismiss") return topLayer()?.close();
       if (id === "submit") return topLayer()?.submit?.();
+      if (id === "moveUp") return topLayer()?.move?.(-1);
+      if (id === "moveDown") return topLayer()?.move?.(1);
       const known = SHORTCUTS.find((s) => s.id === id);
       if (known) run(known.id);
     });
@@ -82,6 +99,6 @@ export function ShortcutHost({
       stop();
       keys.setShortcuts([]);
     };
-  }, [open, onAction, router, keys, layered]);
+  }, [open, onAction, router, keys, layered, moving]);
   return null;
 }

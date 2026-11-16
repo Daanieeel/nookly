@@ -6,9 +6,11 @@ import { pushLayer } from "../ui/sheet/layers.ts";
 
 let listener: ((id: string) => void) | null = null;
 const registered: string[][] = [];
+const menus: { title: string; ids: string[] }[][] = [];
 
 const fakeKeys: KeySystem = {
   setShortcuts: (items) => void registered.push(items.map((i) => i.id)),
+  setMenus: (items) => void menus.push(items),
   onShortcut: (fn) => {
     listener = fn;
     return () => {
@@ -58,6 +60,37 @@ describe("keyboard shortcuts", () => {
     expect(close).toHaveBeenCalledTimes(1);
     act(() => layer.remove());
     await waitFor(() => expect(registered.at(-1)).not.toContain("dismiss"));
+  });
+
+  it("fill the menu bar with the desktop's menus", async () => {
+    await setup();
+    expect(menus.at(-1)?.map((m) => m.title)).toEqual(["File", "Edit", "View", "Go", "Window"]);
+  });
+
+  it("take the arrow keys only while the newest layer moves a selection", async () => {
+    await setup();
+    const move = jest.fn();
+    let plain!: ReturnType<typeof pushLayer>;
+    act(() => {
+      plain = pushLayer(() => {});
+    });
+    await waitFor(() => expect(registered.at(-1)).toContain("dismiss"));
+    expect(registered.at(-1)).not.toContain("moveDown");
+    let list!: ReturnType<typeof pushLayer>;
+    act(() => {
+      list = pushLayer(() => {}, { move });
+    });
+    await waitFor(() =>
+      expect(registered.at(-1)).toEqual(expect.arrayContaining(["moveUp", "moveDown"])),
+    );
+    press("moveDown");
+    press("moveUp");
+    expect(move.mock.calls).toEqual([[1], [-1]]);
+    act(() => {
+      list.remove();
+      plain.remove();
+    });
+    await waitFor(() => expect(registered.at(-1)).not.toContain("moveDown"));
   });
 
   it("open the palette in the mode they are named for", async () => {

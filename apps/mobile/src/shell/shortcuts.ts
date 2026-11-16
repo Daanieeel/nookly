@@ -152,6 +152,35 @@ export const LAYER_SHORTCUTS: KeyShortcut[] = [
   { id: "submit", key: "\r", modifiers: ["command"], title: "Done" },
 ];
 
+/// The arrow keys, taken while the newest layer keeps a selection (the palettes).
+export const MOVE_SHORTCUTS: KeyShortcut[] = [
+  { id: "moveUp", key: "UIKeyInputUpArrow", modifiers: [], title: "Previous" },
+  { id: "moveDown", key: "UIKeyInputDownArrow", modifiers: [], title: "Next" },
+];
+
+/// The iPadOS menu bar: every shortcut once, under the desktop's menus. File, Edit, View
+/// and Window join the system's own.
+export const MENUS: { title: string; ids: ShortcutId[] }[] = [
+  { title: "File", ids: ["newItem", "quickJot", "newTab", "closeTab", "closeOtherTabs"] },
+  { title: "Edit", ids: ["search", "commands"] },
+  {
+    title: "View",
+    ids: ["toggleSidebar", "toggleInspector", "splitRight", "splitLeft", "toggleGroupZoom"],
+  },
+  { title: "Go", ids: ["quickOpen", "back", "forward", "nextSpace", "previousSpace", "settings"] },
+  {
+    title: "Window",
+    ids: [
+      "nextTab",
+      "previousTab",
+      "nextTabAlt",
+      "previousTabAlt",
+      "focusLeftGroup",
+      "focusRightGroup",
+    ],
+  },
+];
+
 const SYMBOLS = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘" } as const;
 const ORDER = ["control", "option", "shift", "command"] as const;
 const NAMED = new Map([

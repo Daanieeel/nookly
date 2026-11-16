@@ -10,15 +10,18 @@ export interface Layer {
   close(): void;
   /// Its main button (a create form's Create), when it has one.
   submit?: () => void;
+  /// Moves its selection by a row (a palette's, with the arrow keys), when it keeps one.
+  move?: (delta: 1 | -1) => void;
 }
 
 export const useLayers = create<{ stack: Layer[] }>(() => ({ stack: [] }));
 
 let ids = 0;
 
-/// Adds a layer; returns how to take it away and to name its main button.
-export function pushLayer(close: () => void) {
-  const layer: Layer = { id: ++ids, close };
+/// Adds a layer; returns how to take it away and to name its main button. `move` makes the
+/// arrow keys its while it is the newest.
+export function pushLayer(close: () => void, options: { move?: Layer["move"] } = {}) {
+  const layer: Layer = { id: ++ids, close, move: options.move };
   useLayers.setState((s) => ({ stack: [...s.stack, layer] }));
   return {
     remove: () => useLayers.setState((s) => ({ stack: s.stack.filter((l) => l !== layer) })),

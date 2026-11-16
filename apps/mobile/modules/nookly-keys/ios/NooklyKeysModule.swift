@@ -120,7 +120,7 @@ public class NooklyKeysModule: Module {
 
     Function("setShortcuts") { (items: [Shortcut]) in
       commands = items.map { item in
-        UIKeyCommand(
+        let command = UIKeyCommand(
           title: item.title,
           image: nil,
           action: action,
@@ -128,6 +128,12 @@ public class NooklyKeysModule: Module {
           modifierFlags: flags(item.modifiers),
           propertyList: item.id
         )
+        // A plain arrow is the focused text field's otherwise; ours are only given while a
+        // palette keeps a selection, so they win over moving the caret.
+        if item.modifiers.isEmpty && item.input.hasPrefix("UIKeyInput") {
+          command.wantsPriorityOverSystemBehavior = true
+        }
+        return command
       }
     }
 
