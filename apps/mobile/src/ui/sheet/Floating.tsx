@@ -287,7 +287,7 @@ export function DialogFrame({
 
 /// The software keyboard's height over the window, for placing a popover above it, and a
 /// count that goes up each time it has finished coming or going (what is under it moved).
-function useKeyboardTop() {
+export function useKeyboardTop() {
   const [height, setHeight] = useState(0);
   const [settled, setSettled] = useState(0);
   useEffect(() => {

@@ -40,6 +40,7 @@ import { useDetails } from "../shell/details-context.ts";
 import { useSplit } from "../shell/split-context.ts";
 import { useClipboard } from "../ui/clipboard.tsx";
 import { type MenuEntry, SEPARATOR, useMenu } from "../ui/menu.tsx";
+import { toast } from "../ui/toast.ts";
 import { LabelPicker, MovePicker } from "./EntityPickers.tsx";
 import { LinkPicker } from "./RelatedSection.tsx";
 
@@ -206,7 +207,14 @@ export function useEntityActions() {
       label: "Move to Trash",
       icon: IconTrash,
       destructive: true,
-      onPress: () => write((db) => trashEntity(db, entity.id)),
+      onPress: () => {
+        write((db) => trashEntity(db, entity.id));
+        // Its row goes with it, so a tablet says so, with Undo (3.7).
+        toast({
+          title: `Moved "${entity.title || entity.key}" to Trash`,
+          action: { label: "Undo", onPress: () => write((db) => restoreEntity(db, entity.id)) },
+        });
+      },
     };
     return [view, refine, edit, organize, share]
       .filter((group) => group.length > 0)

@@ -10,6 +10,7 @@ import {
   useWindowSize,
 } from "../ui/pane.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
+import { ToastHost } from "../ui/ToastHost.tsx";
 import { noteTouch } from "../ui/sheet/touch-point.ts";
 import { useFollowRouter } from "./follow-router.ts";
 import { useOpenBeside, useSidebarCollapsed, useSidebarPinned } from "./layout-prefs.ts";
@@ -187,6 +188,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
             ) : null}
           </View>
           <ShortcutHost onAction={onAction} />
+          <ToastHost />
           <CommandPalette onAction={onAction} />
         </View>
       </SplitProvider>
