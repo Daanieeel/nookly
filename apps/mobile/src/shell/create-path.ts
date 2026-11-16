@@ -1,21 +1,19 @@
-import { type ModuleKey, isModuleKey } from "@nookly/shared/modules";
-
 /// The create form of each module's list, by its route under `app/new`.
-const CREATE: Partial<Record<ModuleKey, string>> = {
-  tasks: "task",
-  notes: "page",
-  jots: "jot",
-  courses: "course",
-  semesters: "semester",
-  sessions: "session",
-  calendar: "entry",
-  exams: "exam",
-  decks: "deck",
-  assignments: "assignment",
-  files: "import",
-  bookmarks: "bookmark",
-  recipes: "recipe",
-};
+const CREATE = new Map([
+  ["tasks", "task"],
+  ["notes", "page"],
+  ["jots", "jot"],
+  ["courses", "course"],
+  ["semesters", "semester"],
+  ["sessions", "session"],
+  ["calendar", "entry"],
+  ["exams", "exam"],
+  ["decks", "deck"],
+  ["assignments", "assignment"],
+  ["files", "import"],
+  ["bookmarks", "bookmark"],
+  ["recipes", "recipe"],
+]);
 
 const PAGES = new Map([
   ["/tasks", "/new/task"],
@@ -31,6 +29,6 @@ export function createPathFor(path: string): string {
   if (page) return page;
   const [, spaceId, module] = /^\/module\/([^/]+)\/([^/]+)/.exec(base) ?? [];
   if (!spaceId) return "/new/page";
-  const form = module && isModuleKey(module) ? CREATE[module] : undefined;
+  const form = module ? CREATE.get(module) : undefined;
   return `/new/${form ?? "page"}?spaceId=${spaceId}`;
 }

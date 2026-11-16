@@ -54,38 +54,39 @@ describe("the keyboard shortcuts", () => {
 // Every shortcut the tablet shares with the desktop has the desktop's keys, read from its
 // own key map (`packages/frontend/src/lib/hotkeys.ts`), so the two can't drift (10.1).
 describe("the tablet's shortcuts against the desktop's", () => {
-  const DESKTOP_ID: Record<string, string> = {
-    quickOpen: "quickSwitcher",
-    toggleInspector: "toggleDetailSidebar",
-    find: "findInPage",
-  };
-  const MODS: Record<string, string> = {
-    Mod: "command",
-    Alt: "option",
-    Shift: "shift",
-    Control: "control",
-  };
-  const KEYS: Record<string, string> = {
-    ArrowLeft: "UIKeyInputLeftArrow",
-    ArrowRight: "UIKeyInputRightArrow",
-    ArrowUp: "UIKeyInputUpArrow",
-    ArrowDown: "UIKeyInputDownArrow",
-    Enter: "\r",
-    Tab: "\t",
-  };
+  const DESKTOP_ID = new Map([
+    ["quickOpen", "quickSwitcher"],
+    ["toggleInspector", "toggleDetailSidebar"],
+    ["find", "findInPage"],
+  ]);
+  const MODS = new Map([
+    ["Mod", "command"],
+    ["Alt", "option"],
+    ["Shift", "shift"],
+    ["Control", "control"],
+  ]);
+  const KEYS = new Map([
+    ["ArrowLeft", "UIKeyInputLeftArrow"],
+    ["ArrowRight", "UIKeyInputRightArrow"],
+    ["ArrowUp", "UIKeyInputUpArrow"],
+    ["ArrowDown", "UIKeyInputDownArrow"],
+    ["Enter", "\r"],
+    ["Tab", "\t"],
+  ]);
+  const DESKTOP = new Map(Object.entries(HOTKEYS));
   /// "Mod+Alt+ArrowRight" as the tablet writes it.
   const tabletKeys = (desktop: string) => {
     const parts = desktop.split("+");
     const key = parts.pop() ?? "";
     return {
-      key: KEYS[key] ?? key.toLowerCase(),
-      modifiers: parts.map((m) => MODS[m]).sort(),
+      key: KEYS.get(key) ?? key.toLowerCase(),
+      modifiers: parts.map((m) => MODS.get(m)).sort(),
     };
   };
 
   it("uses the desktop's keys for every action both have", () => {
     for (const s of SHORTCUTS) {
-      const desktop = HOTKEYS[(DESKTOP_ID[s.id] ?? s.id) as keyof typeof HOTKEYS];
+      const desktop = DESKTOP.get(DESKTOP_ID.get(s.id) ?? s.id);
       if (!desktop) continue;
       expect({ id: s.id, ...tabletKeys(String(desktop)) }).toEqual({
         id: s.id,
