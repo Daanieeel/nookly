@@ -1,3 +1,4 @@
+import { useAnchor } from "../ui/sheet/anchor.ts";
 import { type EntityRecord, markOpened, renameEntity } from "@nookly/shared/data";
 import { IconDots } from "@tabler/icons-react-native";
 import { Stack } from "expo-router";
@@ -115,6 +116,7 @@ function OpenEntity({
   const more = useCallback(() => latestMore.current(), []);
   useDetailsFor(details ? { id: entity.id, more: menu.length > 0 ? more : undefined } : null);
   const tablet = useIsTablet();
+  const moreAnchor = useAnchor();
   const space = spaces.find((s) => s.id === entity.spaceId);
   // On a phone the system's bar over the page carries back, the details and the more
   // menu; beside the details pane (tablet, split view) they sit in the page's first row.
@@ -144,11 +146,16 @@ function OpenEntity({
             <ConflictBadge entityId={entity.id} />
             <View className="flex-1" />
             {!bar && menu.length > 0 ? (
-              <IconButton
-                label="More"
-                icon={<IconDots size={22} color={theme.colors.mutedForeground} />}
-                onPress={() => present.show(entity.title || entity.key, menu)}
-              />
+              // The item's menu hangs from this button on a tablet (6).
+              <View ref={moreAnchor.ref} collapsable={false}>
+                <IconButton
+                  label="More"
+                  icon={<IconDots size={22} color={theme.colors.mutedForeground} />}
+                  onPress={() =>
+                    present.show(entity.title || entity.key, menu, { anchor: moreAnchor })
+                  }
+                />
+              </View>
             ) : null}
           </View>
           <TitleField entity={entity} readOnly={readOnly} />
