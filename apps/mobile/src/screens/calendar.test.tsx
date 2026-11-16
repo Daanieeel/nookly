@@ -125,6 +125,35 @@ describe("the calendar", () => {
     expect(screen.getByRole("button", { name: /^Lecture 1/ })).toBeTruthy();
   });
 
+  // A tablet opens on Week in landscape and in a 13-inch portrait, on 3 Days in a narrower
+  // portrait window, each orientation remembering its own (4.2).
+  it("opens on the view that fits the window, remembered per orientation", async () => {
+    const selected = (screen: Awaited<ReturnType<typeof renderScreens>>, name: string) =>
+      screen.getByRole("radio", { name }).props.accessibilityState?.checked;
+    const data = testData();
+    const portrait = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: 744,
+      height: 1133,
+    });
+    expect(await portrait.findByRole("radio", { name: "3 Days" })).toBeTruthy();
+    expect(selected(portrait, "3 Days")).toBe(true);
+    await fireEvent.press(portrait.getByRole("radio", { name: "Day" }));
+    portrait.unmount();
+    const landscape = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: 1376,
+      height: 1032,
+    });
+    await landscape.findByRole("radio", { name: "Week" });
+    expect(selected(landscape, "Week")).toBe(true);
+    landscape.unmount();
+    const again = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: 744,
+      height: 1133,
+    });
+    await again.findByRole("radio", { name: "Day" });
+    expect(selected(again, "Day")).toBe(true);
+  });
+
   it("shows a month as a grid, marks the busy days and lists the day picked", async () => {
     const { data, today } = await planned();
     const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {

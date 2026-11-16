@@ -26,7 +26,7 @@ import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
-import { usePageWidth } from "../ui/pane.tsx";
+import { useIsTablet, usePageWidth, useWindowClass, useWindowSize } from "../ui/pane.tsx";
 import { useSidebarEdgeOnly } from "../shell/panes.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { addDays, dayLabel, localDay, periodHeader, periodParts } from "./dates.ts";
@@ -57,6 +57,7 @@ const PHONE_VIEWS: { id: CalendarView; label: string }[] = [
 const WIDE_VIEWS: { id: CalendarView; label: string }[] = [
   { id: "agenda", label: "Agenda" },
   { id: "day", label: "Day" },
+  { id: "threeDay", label: "3 Days" },
   { id: "workWeek", label: "Work Week" },
   { id: "week", label: "Week" },
   { id: "month", label: "Month" },
@@ -267,13 +268,24 @@ export function CalendarScreen({
   const width = usePageWidth();
   const wide = width >= WIDE;
   const available = wide ? WIDE_VIEWS : PHONE_VIEWS;
-  const [stored, setStored] = usePreference("calendar.view", viewSchema, wide ? "week" : "agenda");
+  // A tablet keeps a view per orientation: Week in landscape and in a 13-inch portrait,
+  // 3 Days in a narrower portrait window (4.2).
+  const tablet = useIsTablet();
+  const windowClass = useWindowClass();
+  const windowSize = useWindowSize();
+  const portrait = tablet && windowSize.height > windowSize.width;
+  const opening: CalendarView = !wide
+    ? "agenda"
+    : portrait && windowClass === "medium"
+      ? "threeDay"
+      : "week";
+  const [stored, setStored] = usePreference(
+    portrait ? "calendar.view.portrait" : "calendar.view",
+    viewSchema,
+    opening,
+  );
   // A view the screen does not have at this width (a month on a phone) falls back.
-  const view: CalendarView = available.some((v) => v.id === stored)
-    ? stored
-    : wide
-      ? "week"
-      : "agenda";
+  const view: CalendarView = available.some((v) => v.id === stored) ? stored : opening;
   const [anchor, setAnchor] = useState(today);
   const range = useRange(view, anchor);
   // On a phone there is no bar of arrows: a swipe over the hours moves on, with the pages
