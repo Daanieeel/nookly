@@ -14,7 +14,7 @@ import {
 } from "../data/queries.ts";
 import { useSetting } from "../data/settings.ts";
 import { Screen } from "../ui/Screen.tsx";
-import { usePageWidth } from "../ui/pane.tsx";
+import { useIsTablet, usePageWidth, useWindowClass } from "../ui/pane.tsx";
 import { ASSIGNMENT_DONE } from "./AssignmentsScreen.tsx";
 import { DashboardGreeting, useOpenTarget } from "./DashboardBriefing.tsx";
 import { HomeScreen } from "./HomeScreen.tsx";
@@ -153,26 +153,55 @@ export type Dashboard = ReturnType<typeof useDashboard>;
 /// and today's hours beside them. On a phone a Home of shortcuts (`HomeScreen`).
 export function DashboardScreen() {
   const d = useDashboard();
-  const wide = usePageWidth() >= WIDE_DASHBOARD;
-  return wide ? <DesktopDashboard d={d} /> : <HomeScreen d={d} />;
+  const pageWidth = usePageWidth();
+  const tablet = useIsTablet();
+  return tablet || pageWidth >= WIDE_DASHBOARD ? <DesktopDashboard d={d} /> : <HomeScreen d={d} />;
 }
+
+/// The narrowest a column of panels gets beside another.
+const PANEL_COLUMN = 320;
 
 function DesktopDashboard({ d }: { d: Dashboard }) {
   const { today, items, tasks, statuses, spaces, assignments, decks, jots } = d;
+  const pageWidth = usePageWidth();
+  const windowClass = useWindowClass();
+  // Today's hours beside the panels where the page is wide; the panels in two columns in an
+  // expanded window with room for both, one otherwise (4.1).
+  const besideToday = pageWidth >= WIDE_DASHBOARD;
+  const panelsWidth = pageWidth - (besideToday ? TODAY_WIDTH : 0);
+  const two = windowClass === "expanded" && panelsWidth >= PANEL_COLUMN * 2;
+  const assignmentsPanel = (
+    <AssignmentsPanel
+      assignments={assignments}
+      spaces={spaces}
+      courseName={d.courseName}
+      today={today}
+    />
+  );
+  const tasksPanel = <TasksPanel tasks={tasks} statuses={statuses} spaces={spaces} today={today} />;
+  const decksPanel = <DecksPanel decks={decks} examName={d.examName} />;
+  const jotsPanel = <JotsPanel jots={jots} spaces={spaces} />;
+  const columns = two
+    ? [
+        [assignmentsPanel, decksPanel],
+        [tasksPanel, jotsPanel],
+      ]
+    : [[assignmentsPanel, tasksPanel, decksPanel, jotsPanel]];
   const page = (
     <Screen onRefresh={d.onRefresh} refreshing={d.refreshing} wide>
       <DashboardGreeting date={d.date} offline={d.offline} briefing={d.briefing} open={d.open} />
-      <AssignmentsPanel
-        assignments={assignments}
-        spaces={spaces}
-        courseName={d.courseName}
-        today={today}
-      />
-      <TasksPanel tasks={tasks} statuses={statuses} spaces={spaces} today={today} />
-      <DecksPanel decks={decks} examName={d.examName} />
-      <JotsPanel jots={jots} spaces={spaces} />
+      <View testID="dashboard-panels" className="flex-row items-start gap-5">
+        {columns.map((panels, i) => (
+          <View key={i} testID="dashboard-column" className="min-w-0 flex-1 gap-5">
+            {panels.map((panel, j) => (
+              <View key={j}>{panel}</View>
+            ))}
+          </View>
+        ))}
+      </View>
     </Screen>
   );
+  if (!besideToday) return page;
   // The desktop's Dashboard on an iPad: the lists on the left, today's hours on the right.
   return (
     <View className="flex-1 flex-row">

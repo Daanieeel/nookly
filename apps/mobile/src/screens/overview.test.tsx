@@ -71,6 +71,25 @@ describe("the dashboard", () => {
     expect(await screen.findByRole("button", { name: "Sheet 3" })).toBeTruthy();
   });
 
+  // A tablet is the desktop made for touch (4.1): its Dashboard in every window, two
+  // columns of panels where they fit, one in a narrow one, never the phone's Home.
+  it("is the desktop's dashboard on any tablet, its panels in columns where they fit", async () => {
+    const mini = await renderScreens({ index: () => <DashboardScreen /> }, testData(), "/", {
+      width: 744,
+      height: 1133,
+    });
+    expect(await mini.findByTestId("dashboard-panels")).toBeTruthy();
+    expect(mini.queryByText("At a glance")).toBeNull();
+    expect(mini.getAllByTestId("dashboard-column")).toHaveLength(1);
+    mini.unmount();
+    const wide = await renderScreens({ index: () => <DashboardScreen /> }, testData(), "/", {
+      width: 1376,
+      height: 1032,
+    });
+    await wide.findByTestId("dashboard-panels");
+    expect(wide.getAllByTestId("dashboard-column")).toHaveLength(2);
+  });
+
   // The desktop's Dashboard has the mascot in its top right corner.
   it("greets with the mascot", async () => {
     const screen = await renderScreens({ index: () => <DashboardScreen /> }, testData());
