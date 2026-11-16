@@ -1,3 +1,6 @@
+import { Grid } from "../ui/Grid.tsx";
+import { SessionWeek } from "./WeekCutout.tsx";
+import { useIsTablet } from "../ui/pane.tsx";
 import { termOptions } from "./term-options.ts";
 import {
   ACADEMIC_SYSTEMS,
@@ -36,7 +39,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useDb, useLocalWrite } from "../data/context.tsx";
 import {
   useCourseSemester,
@@ -86,6 +89,7 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
   const theme = useTheme();
   const muted = theme.colors.mutedForeground;
   const router = useRouter();
+  const tablet = useIsTablet();
   const { data: session } = useSession(id);
   const patch = useLocalWrite((db, p: Parameters<typeof overrideSession>[2]) =>
     overrideSession(db, id, p),
@@ -139,6 +143,8 @@ export function SessionDetail({ id, readOnly }: { id: string; readOnly: boolean 
           readOnly={readOnly}
           onSave={(notes) => patch.mutate({ notes })}
         />
+        {/* Where it sits in its week, the desktop's cutout (6.10). */}
+        {tablet ? <SessionWeek id={id} day={session.date} startTime={session.startTime} /> : null}
         <SessionPages sessionId={id} readOnly={readOnly} />
       </MainPart>
       <DetailsPart>
@@ -307,6 +313,7 @@ export function NewSessionScreen({
 
 /// A semester: its dates, whether it is the current one, its notes and its courses.
 export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const tablet = useIsTablet();
   const entityMenu = useEntityMenu();
   const theme = useTheme();
   const muted = theme.colors.mutedForeground;
@@ -331,7 +338,35 @@ export function SemesterDetail({ id, readOnly }: { id: string; readOnly: boolean
         <SemesterStats spaceId={semester.entity.spaceId} courseIds={members} />
         <Section title="Courses">
           {members.length === 0 ? <Empty text="No courses in this semester." /> : null}
-          {courses
+          {tablet ? (
+            // The desktop's grid of course cards (6.10).
+            <Grid min={220} max={3}>
+              {courses
+                .filter((c) => members.includes(c.entity.id))
+                .map((c) => (
+                  <Pressable
+                    key={c.entity.id}
+                    testID="semester-course"
+                    accessibilityRole="button"
+                    accessibilityLabel={c.entity.title || "Untitled"}
+                    onPress={() => router.push(`/entity/${c.entity.id}`)}
+                    onLongPress={() => entityMenu(c.entity)}
+                    className="gap-2 rounded-xl border border-border bg-card p-3 active:opacity-70"
+                  >
+                    <EntityIcon type="course" icon={c.entity.icon} />
+                    <View className="gap-0.5">
+                      <Text numberOfLines={2} className="font-medium">
+                        {c.entity.title || "Untitled"}
+                      </Text>
+                      <Text variant="small" tone="muted" numberOfLines={1}>
+                        {[c.professor, c.room].filter(Boolean).join(" · ") || c.entity.key}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+            </Grid>
+          ) : null}
+          {(tablet ? [] : courses)
             .filter((c) => members.includes(c.entity.id))
             .map((c) => (
               <View key={c.entity.id}>

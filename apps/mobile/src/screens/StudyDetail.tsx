@@ -74,7 +74,7 @@ import { useTheme } from "../ui/theme.ts";
 import { clockText, useTwelveHour } from "../ui/TimeInput.tsx";
 import { dayLabel, localDay } from "./dates.ts";
 import { AssignmentRows, ExamRows } from "./StudyLists.tsx";
-import { CourseWeek } from "./CourseWeek.tsx";
+import { CourseWeek } from "./WeekCutout.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
 import { CourseSemesterPicker } from "./PlannerScreens.tsx";
 import { CourseProperty } from "./StudyPickers.tsx";

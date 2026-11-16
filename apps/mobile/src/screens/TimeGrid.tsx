@@ -107,6 +107,7 @@ export function TimeGrid({
   colorOf,
   onCreateAt,
   faded,
+  scrollTo,
 }: {
   /// A finger resting on a day's hours: a new entry on that day, at that quarter hour.
   onCreateAt?: (day: string, time: string) => void;
@@ -118,6 +119,8 @@ export function TimeGrid({
   colorOf: (spaceId: string) => string | undefined;
   /// What is drawn faded behind the rest (a course's week: everything not the course's).
   faded?: (item: AgendaItem) => boolean;
+  /// The minute of the day the hours open scrolled to, instead of the day's start.
+  scrollTo?: number;
 }) {
   const router = useRouter();
   const fade = (item: AgendaItem) => (faded?.(item) ? FADED : 1);
@@ -147,7 +150,10 @@ export function TimeGrid({
   ];
   // The hours open at the hour the day starts: set as the starting offset, and again
   // when the setting or the number of days changes (the content is laid out by then).
-  const startY = Math.max(0, startHour * HOUR_PX - 4);
+  const startY =
+    scrollTo === undefined
+      ? Math.max(0, startHour * HOUR_PX - 4)
+      : Math.round((scrollTo / 60) * HOUR_PX);
   useEffect(() => {
     scroll.current?.scrollTo({ y: startY, animated: false });
   }, [startY, days.length]);
