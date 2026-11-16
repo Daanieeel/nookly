@@ -3,6 +3,7 @@ import { useState } from "react";
 import { StyleSheet } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
 import { ListHeader, type ListPanel } from "./ListBar.tsx";
+import { ListControls } from "./ListControls.tsx";
 
 function Header() {
   const [panel, setPanel] = useState<ListPanel>(null);
@@ -20,5 +21,17 @@ describe("a list's header", () => {
     expect([filled("Filter"), filled("Display")]).toEqual([true, true]);
     await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
     expect([filled("Filter"), filled("Display")]).toEqual([true, true]);
+  });
+
+  // A tablet's Filter and Display are the desktop's popovers, under their buttons (3.2).
+  it("opens Filter and Display as popovers on a tablet and as sheets on a phone", async () => {
+    const controls = () => <ListControls title="Tasks" count={3} filters={[]} display={null} />;
+    const tablet = await renderScreens({ index: controls }, testData(), "/", { width: 1032 });
+    await fireEvent.press(await tablet.findByRole("button", { name: "Filter" }));
+    expect(await tablet.findByTestId("sheet-popover")).toBeTruthy();
+    tablet.unmount();
+    const phone = await renderScreens({ index: controls }, testData());
+    await fireEvent.press(await phone.findByRole("button", { name: "Display" }));
+    expect(phone.queryByTestId("sheet-popover")).toBeNull();
   });
 });

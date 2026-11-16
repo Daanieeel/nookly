@@ -1,6 +1,7 @@
 import { IconAdjustmentsHorizontal, IconFilter } from "@tabler/icons-react-native";
 import { useClaimedPageActions } from "./page-actions.tsx";
 import { Button } from "./Button.tsx";
+import type { Ref } from "react";
 import { View } from "react-native";
 import { SearchField } from "./kit/SearchField.tsx";
 import { PageTabs } from "./PageTabs.tsx";
@@ -43,6 +44,7 @@ export function ListHeader({
   panel,
   onPanel,
   display = true,
+  anchors,
 }: {
   title: string;
   count: number;
@@ -50,6 +52,8 @@ export function ListHeader({
   onPanel: (next: ListPanel) => void;
   /// Whether the page has display options; without, only Filter shows.
   display?: boolean;
+  /// Where Filter's and Display's popovers hang from on a tablet.
+  anchors?: { filter: Ref<View>; display: Ref<View> };
 }) {
   const theme = useTheme();
   const actions = useClaimedPageActions();
@@ -60,21 +64,25 @@ export function ListHeader({
       <View style={{ flexGrow: 1, flexShrink: 0, maxWidth: "100%" }}>
         <ListTitle title={title} count={count} />
       </View>
-      <Button
-        label="Filter"
-        variant="secondary"
-        size="sm"
-        icon={<IconFilter size={16} color={theme.colors.foreground} />}
-        onPress={() => toggle("filter")}
-      />
-      {display ? (
+      <View ref={anchors?.filter} collapsable={false}>
         <Button
-          label="Display"
+          label="Filter"
           variant="secondary"
           size="sm"
-          icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
-          onPress={() => toggle("display")}
+          icon={<IconFilter size={16} color={theme.colors.foreground} />}
+          onPress={() => toggle("filter")}
         />
+      </View>
+      {display ? (
+        <View ref={anchors?.display} collapsable={false}>
+          <Button
+            label="Display"
+            variant="secondary"
+            size="sm"
+            icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
+            onPress={() => toggle("display")}
+          />
+        </View>
       ) : null}
       {/* A tablet's page actions, after Filter and Display as on the desktop. */}
       {actions}

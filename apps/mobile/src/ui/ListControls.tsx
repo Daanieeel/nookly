@@ -6,6 +6,7 @@ import { ListHeader, type ListPanel } from "./ListBar.tsx";
 import { DisplayGroup, FilterField } from "./sheet/DisplayParts.tsx";
 import type { Option } from "./sheet/OptionList.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
+import { useAnchor } from "./sheet/anchor.ts";
 
 /// One field of a list's Filter sheet: its name and icon, what it offers, what is ticked.
 export interface ListFilter {
@@ -39,6 +40,8 @@ export function ListControls({
 }) {
   const [panel, setPanel] = useState<ListPanel>(null);
   const close = (open: boolean) => !open && setPanel(null);
+  const filterAnchor = useAnchor();
+  const displayAnchor = useAnchor();
   return (
     <>
       <FixedTop>
@@ -48,18 +51,33 @@ export function ListControls({
           panel={panel}
           onPanel={setPanel}
           display={display !== undefined}
+          anchors={{ filter: filterAnchor.ref, display: displayAnchor.ref }}
         />
         {tabs}
         <ActiveFilters filters={filters} />
       </FixedTop>
-      <Sheet open={panel === "filter"} onOpenChange={close} title="Filter" kind="picker" wide>
+      <Sheet
+        open={panel === "filter"}
+        onOpenChange={close}
+        title="Filter"
+        kind="picker"
+        anchor={filterAnchor}
+        wide
+      >
         <DisplayGroup>
           {filters.map((field) => (
             <FilterField key={field.label} {...field} />
           ))}
         </DisplayGroup>
       </Sheet>
-      <Sheet open={panel === "display"} onOpenChange={close} title="Display" kind="picker" wide>
+      <Sheet
+        open={panel === "display"}
+        onOpenChange={close}
+        title="Display"
+        kind="picker"
+        anchor={displayAnchor}
+        wide
+      >
         {display}
       </Sheet>
     </>
