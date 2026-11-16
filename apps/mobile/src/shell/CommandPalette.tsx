@@ -217,6 +217,19 @@ export function CommandPalette({ onAction }: { onAction: (action: AppAction) => 
                   )}
                 </Section>
               ) : null}
+              {mode === "search" && trimmed ? (
+                <PaletteRow
+                  title="Show All Results"
+                  detail={null}
+                  icon={<IconSearch size={16} color={theme.colors.mutedForeground} />}
+                  selected={false}
+                  rowRef={selectedRow}
+                  onPress={() => {
+                    close();
+                    router.push({ pathname: "/search", params: { q: trimmed } });
+                  }}
+                />
+              ) : null}
               {commands.length > 0 ? (
                 <Section title="Commands">
                   {commands.map((command, i) => (

@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { EntitySwipe } from "./EntitySwipe.tsx";
 import { useState } from "react";
@@ -49,7 +49,9 @@ function byName(labels: LabelRecord[]): LabelRecord[] {
 /// Search across every Space, like the desktop's Cmd+K: its type tabs, and a Filter sheet
 /// for what it types as `in:` (Spaces) and `#` (labels). Before typing, Recents.
 export function SearchScreen() {
-  const [query, setQuery] = useState("");
+  // The search palette's Show All Results opens here with what was typed (4.6).
+  const { q } = useLocalSearchParams<{ q?: string }>();
+  const [query, setQuery] = useState(q ?? "");
   const [tab, setTab] = useState<string | null>(null);
   const [spaceIds, setSpaceIds] = useState<string[]>([]);
   const [labels, setLabels] = useState<string[]>([]);

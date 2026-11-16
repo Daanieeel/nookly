@@ -18,6 +18,7 @@ async function setup() {
       "entity/[id]": () => null,
       tasks: () => null,
       calendar: () => null,
+      search: () => null,
     },
     data,
   );
@@ -98,5 +99,15 @@ describe("the command palette", () => {
     act(() => topLayer()?.close());
     expect(useShell.getState().palette).toBeNull();
     expect(topLayer()).toBeUndefined();
+  });
+
+  it("shows every result of a search on the Search page", async () => {
+    const screen = await setup();
+    act(() => useShell.getState().open("search"));
+    fireEvent.changeText(await screen.findByLabelText("Search everything"), "milk");
+    await fireEvent.press(await screen.findByRole("button", { name: "Show All Results" }));
+    await waitFor(() => expect(screen.getPathname()).toBe("/search"));
+    expect(screen.getSearchParams()).toMatchObject({ q: "milk" });
+    expect(useShell.getState().palette).toBeNull();
   });
 });
