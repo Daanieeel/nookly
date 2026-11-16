@@ -132,6 +132,21 @@ describe("Moodle on the phone", () => {
     expect(screen.getAllByTestId("course-art", { includeHiddenElements: true })).toHaveLength(2);
   });
 
+  // A tablet's courses are the desktop's grid of cards with their art (5.15).
+  it("shows the courses as a grid of cards on a tablet", async () => {
+    const moodle = connected({
+      core_enrol_get_users_courses: [
+        { id: 1, shortname: "ALG", fullname: "Algorithms", progress: 40 },
+        { id: 4, shortname: "DB", fullname: "Databases" },
+      ],
+    });
+    const screen = await renderScreens({ index: moodle.wrap(<MoodleModule />) }, testData(), "/", {
+      width: 1032,
+    });
+    expect(await screen.findByRole("button", { name: "Algorithms, ALG · 40% done" })).toBeTruthy();
+    expect(screen.getAllByTestId("course-card")).toHaveLength(2);
+  });
+
   it("opens every page of the module on the Moodle website too", async () => {
     const moodle = connected(COURSE_CONTENTS);
     const screen = await renderScreens({ index: moodle.wrap(<MoodleModule />) }, testData());

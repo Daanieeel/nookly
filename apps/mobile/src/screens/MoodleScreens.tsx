@@ -1,10 +1,12 @@
+import { Grid } from "../ui/Grid.tsx";
+import { useIsTablet } from "../ui/pane.tsx";
 import { moodleWebUrl } from "@nookly/shared/moodle/path";
 import { firstNameOf } from "@nookly/shared/moodle/format";
 import { IconLock, IconSchool, IconWorld } from "@tabler/icons-react-native";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import type { Connection, MoodleCourse } from "../moodle/api.ts";
 import { splitCourses } from "../moodle/format.ts";
 import { signInPath } from "../moodle/intent.ts";
@@ -96,24 +98,56 @@ function CourseGroup({
   spaceId: string;
 }) {
   const router = useRouter();
+  const tablet = useIsTablet();
   if (courses.length === 0) return null;
+  const detail = (course: MoodleCourse) =>
+    course.progress == null
+      ? course.shortname
+      : `${course.shortname} · ${Math.round(course.progress)}% done`;
+  const open = (course: MoodleCourse) =>
+    router.push(
+      `/moodle/${course.id}?name=${encodeURIComponent(course.fullname)}&spaceId=${spaceId}`,
+    );
+  // A tablet's are the desktop's course cards, the art across the top (5.15).
+  if (tablet) {
+    return (
+      <Section title={title}>
+        <Grid min={220} max={4}>
+          {courses.map((course) => (
+            <Pressable
+              key={course.id}
+              testID="course-card"
+              accessibilityRole="button"
+              accessibilityLabel={`${course.fullname}, ${detail(course)}`}
+              onPress={() => open(course)}
+              className="overflow-hidden rounded-xl border border-border bg-card active:opacity-70"
+            >
+              <View className="h-24 overflow-hidden">
+                <CourseArt course={course} size={320} />
+              </View>
+              <View className="gap-0.5 p-3">
+                <Text numberOfLines={2} className="font-medium">
+                  {course.fullname}
+                </Text>
+                <Text variant="small" tone="muted">
+                  {detail(course)}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </Grid>
+      </Section>
+    );
+  }
   return (
     <Section title={title}>
       {courses.map((course) => (
         <Row
           key={course.id}
           title={course.fullname}
-          subtitle={
-            course.progress == null
-              ? course.shortname
-              : `${course.shortname} · ${Math.round(course.progress)}% done`
-          }
+          subtitle={detail(course)}
           icon={<CourseArt course={course} />}
-          onPress={() =>
-            router.push(
-              `/moodle/${course.id}?name=${encodeURIComponent(course.fullname)}&spaceId=${spaceId}`,
-            )
-          }
+          onPress={() => open(course)}
         />
       ))}
     </Section>
