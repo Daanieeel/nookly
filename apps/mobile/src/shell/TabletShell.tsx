@@ -155,6 +155,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
                       }
                       tabs={split}
                       card={beside}
+                      onEdge={overlaid ? () => setOverlay(true) : undefined}
                     />
                   </View>
                 ))}

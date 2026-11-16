@@ -1,6 +1,8 @@
 import { createPage, createSpace } from "@nookly/shared/data";
 import { Stack, router } from "expo-router";
 import { act, fireEvent, waitFor, within } from "expo-router/testing-library";
+import { State } from "react-native-gesture-handler";
+import { fireGestureHandler, getByGestureTestId } from "react-native-gesture-handler/jest-utils";
 import { renderScreens, testData } from "../test/render.tsx";
 import { resetRouterFollower } from "./follow-router.ts";
 import { ratioAt } from "./SplitDivider.tsx";
@@ -196,4 +198,30 @@ describe("the tablet's window", () => {
     act(() => workspace.open(`/space-settings/${screen.space}`));
     expect(await screen.findByRole("header", { name: "Space Settings" })).toBeTruthy();
   });
+
+  it("goes back in the tab's history on a swipe from the page's left edge", async () => {
+    await setup(LANDSCAPE);
+    act(() => workspace.open("/trash"));
+    await waitFor(() => expect(groups()).toEqual([["/trash"]]));
+    swipeFromEdge(600);
+    await waitFor(() => expect(groups()).toEqual([["/"]]));
+  });
+
+  it("opens the sidebar on a swipe from the edge with nothing to go back to", async () => {
+    const screen = await setup(MINI);
+    expect(screen.getByLabelText("Expand Sidebar")).toBeTruthy();
+    swipeFromEdge(300);
+    expect(
+      await screen.findByLabelText("Collapse Sidebar", { includeHiddenElements: true }),
+    ).toBeTruthy();
+  });
 });
+
+const swipeFromEdge = (translationX: number) =>
+  act(() => {
+    fireGestureHandler(getByGestureTestId("edge-back"), [
+      { state: State.BEGAN },
+      { state: State.ACTIVE, translationX: translationX / 2 },
+      { state: State.END, translationX, velocityX: translationX * 3 },
+    ]);
+  });

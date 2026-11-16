@@ -10,6 +10,7 @@ import {
 import { useDetailsOver } from "./details-over.ts";
 import { SidebarOverlay } from "./sidebar/SidebarOverlay.tsx";
 import { Text } from "../ui/Text.tsx";
+import { EdgeBack } from "./EdgeBack.tsx";
 import { Inspector } from "./inspector.tsx";
 import { useInspectorCollapsed } from "./layout-prefs.ts";
 import { PageHost } from "./PageHost.tsx";
@@ -22,37 +23,67 @@ import { workspace } from "./workspace-store.ts";
 /// was (scrolled, half typed): the ones shown most recently.
 const KEPT_TABS = 4;
 
-/// One tab's page. Hidden tabs stay drawn, out of sight.
+/// One tab's page. Hidden tabs stay drawn, out of sight. A swipe from its left edge goes
+/// back in the tab's history (1.10).
 function TabPage({
   tab,
   shown,
   groupId,
   focused,
+  width,
+  onEdge,
 }: {
   tab: PageTab;
   shown: boolean;
   groupId: string;
   focused: boolean;
+  width: number;
+  onEdge?: () => void;
 }) {
   const page = useMemo(() => matchPage(tab.view), [tab.view]);
   const host = useMemo(
     () => ({ tabId: tab.id, groupId, path: tab.view, active: shown, focused }),
     [tab.id, groupId, tab.view, shown, focused],
   );
+  const previous = tab.backStack.at(-1);
+  const before = useMemo(() => (previous ? matchPage(previous) : undefined), [previous]);
+  const beforeHost = useMemo(
+    () => ({ tabId: tab.id, groupId, path: previous ?? "", active: false, focused: false }),
+    [tab.id, groupId, previous],
+  );
   return (
     <View className="flex-1" style={shown ? undefined : { display: "none" }}>
-      {page ? (
-        <PageHost
-          // A step to another page is a page of its own; Back shows the earlier one again.
-          key={`${tab.backStack.length} ${tab.view}`}
-          page={page}
-          host={host}
-        />
-      ) : (
-        <View className="flex-1 items-center justify-center">
-          <Text tone="muted">This page can't be shown in a tab.</Text>
-        </View>
-      )}
+      <EdgeBack
+        width={width}
+        canGoBack={previous !== undefined}
+        onBack={() => {
+          workspace.focus(groupId);
+          workspace.back();
+        }}
+        onEdge={onEdge}
+        behind={
+          before ? (
+            <PageHost
+              key={`${tab.backStack.length - 1} ${previous}`}
+              page={before}
+              host={beforeHost}
+            />
+          ) : null
+        }
+      >
+        {page ? (
+          <PageHost
+            // A step to another page is a page of its own; Back shows the earlier one again.
+            key={`${tab.backStack.length} ${tab.view}`}
+            page={page}
+            host={host}
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center">
+            <Text tone="muted">This page can't be shown in a tab.</Text>
+          </View>
+        )}
+      </EdgeBack>
     </View>
   );
 }
@@ -66,6 +97,7 @@ export function PageGroupView({
   width,
   tabs,
   card,
+  onEdge,
 }: {
   group: Group;
   focused: boolean;
@@ -75,6 +107,9 @@ export function PageGroupView({
   tabs: boolean;
   /// The desktop's page card (rounded, outlined): off with the sidebar folded away.
   card: boolean;
+  /// A swipe from the page's left edge with nothing to go back to (a medium window's
+  /// sidebar comes in).
+  onEdge?: () => void;
 }) {
   const [inspectorCollapsed] = useInspectorCollapsed();
   const active = group.tabs.find((t) => t.id === group.activeTabId) ?? group.tabs[0];
@@ -123,6 +158,8 @@ export function PageGroupView({
                   shown={tab.id === active.id}
                   groupId={group.id}
                   focused={focused}
+                  width={width}
+                  onEdge={onEdge}
                 />
               ))}
             </View>

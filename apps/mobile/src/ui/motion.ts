@@ -173,3 +173,23 @@ export function settleSwipe({
   }
   return { to: "closed", velocity };
 }
+
+/// A swipe from a tablet page's left edge back to the page before, as iOS's: how wide the
+/// edge is that starts it (points), the share of the page past which letting go goes back,
+/// and how fast a flick to the right goes back from a short pull.
+export const EDGE_BACK = { edge: 24, past: 1 / 3, flick: 600 } as const;
+
+/// Whether a page swiped `offset` from its place goes back when let go.
+export function settleEdgeBack({
+  offset,
+  velocity,
+  width,
+}: {
+  offset: number;
+  velocity: number;
+  width: number;
+}): boolean {
+  "worklet";
+  if (velocity < -EDGE_BACK.flick) return false;
+  return offset > width * EDGE_BACK.past || velocity > EDGE_BACK.flick;
+}

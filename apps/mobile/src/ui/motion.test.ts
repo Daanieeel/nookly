@@ -1,9 +1,11 @@
 import {
+  EDGE_BACK,
   SPRING,
   SWIPE,
   dragFrom,
   rubberBand,
   settleDetent,
+  settleEdgeBack,
   settleSheet,
   settleSwipe,
   swipeDrag,
@@ -105,5 +107,20 @@ describe("a row's swipe", () => {
   it("names the point where letting go would act", () => {
     expect(SWIPE.full).toBeGreaterThan(0.4);
     expect(SWIPE.full).toBeLessThan(0.8);
+  });
+});
+
+describe("a swipe back from a page's left edge", () => {
+  const width = 800;
+  it("goes back past a third of the page, or on a flick to the right", () => {
+    expect(settleEdgeBack({ offset: width * 0.5, velocity: 0, width })).toBe(true);
+    expect(settleEdgeBack({ offset: 40, velocity: EDGE_BACK.flick * 2, width })).toBe(true);
+  });
+
+  it("stays on a short pull, or one flicked back to the left", () => {
+    expect(settleEdgeBack({ offset: 60, velocity: 0, width })).toBe(false);
+    expect(settleEdgeBack({ offset: width * 0.6, velocity: -EDGE_BACK.flick * 2, width })).toBe(
+      false,
+    );
   });
 });
