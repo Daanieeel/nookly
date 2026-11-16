@@ -28,7 +28,7 @@ import { usePageEditorView } from "./editor-view.tsx";
 import { type EditorAction, editorStateSchema } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
 import { FindBar, type FindResult, useFindBar } from "./FindBar.tsx";
-import { usePageHost } from "../shell/PageHost.tsx";
+import { usePageHost } from "../shell/page-host.ts";
 import { usePresence } from "@nookly/frontend/lib/presence";
 import { useIsTablet } from "../ui/pane.tsx";
 import { PresenceRow } from "./PresenceRow.tsx";

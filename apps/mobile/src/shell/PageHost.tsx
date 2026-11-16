@@ -3,29 +3,12 @@ import { LocalRouteParamsContext } from "expo-router/build/Route";
 import { PageFrameProvider } from "../ui/page-frame.ts";
 import { usePathTitle } from "./Crumbs.tsx";
 import { NavigationContext, NavigationRouteContext } from "expo-router/react-navigation";
-import { type ReactNode, createContext, useContext, useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useEffect, useMemo, useRef } from "react";
 import { create } from "zustand";
 import type { PageMatch } from "./pages.tsx";
 import { activePath } from "./workspace.ts";
 import { useWorkspace } from "./workspace-store.ts";
-
-/// Where a page sits in the tablet's window: its tab and group, and whether it shows.
-export interface PageHostValue {
-  tabId: string;
-  groupId: string;
-  path: string;
-  /// The tab is the one its group shows, and the group is on screen.
-  active: boolean;
-  /// Its group is the focused one (the one the sidebar and shortcuts act on).
-  focused: boolean;
-}
-
-const PageHostContext = createContext<PageHostValue | null>(null);
-
-/// The tablet page this is in, or null on a phone (or over the window, in a sheet).
-export function usePageHost(): PageHostValue | null {
-  return useContext(PageHostContext);
-}
+import { PageHostContext, type PageHostValue, usePageHost } from "./page-host.ts";
 
 /// Whether this page is also the one the focused group shows, while its own group is not
 /// focused: as on the desktop, the same page in both groups is edited in the focused one only.
