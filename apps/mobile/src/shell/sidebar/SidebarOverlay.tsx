@@ -26,6 +26,7 @@ export function SidebarOverlay({
   top,
   side = "left",
   label = "Close Sidebar",
+  edgeTestId,
   children,
 }: {
   open: boolean;
@@ -36,6 +37,9 @@ export function SidebarOverlay({
   side?: "left" | "right";
   /// What the dim says it does.
   label?: string;
+  /// With it, a swipe in from its edge while closed brings it in, following the finger
+  /// (the details pane's right edge, 10.4). The sidebar's own edge is the page's back swipe.
+  edgeTestId?: string;
   children: ReactNode;
 }) {
   // Away from its edge is negative on the left and positive on the right.
@@ -76,12 +80,37 @@ export function SidebarOverlay({
       });
       if (close) runOnJS(setOpen)(false);
     });
+  // In from the edge: as far as the finger has come, then open past a third or on a flick.
+  const edge = Gesture.Pan()
+    .withTestId(edgeTestId ?? "overlay-edge")
+    .enabled(edgeTestId !== undefined && !open)
+    .activeOffsetX(side === "left" ? 10 : -10)
+    .failOffsetY([-12, 12])
+    .onUpdate((event) => {
+      const toward = event.translationX * sign;
+      progress.value = Math.max(0, Math.min(1, toward / width));
+    })
+    .onEnd((event) => {
+      const toward = event.translationX * sign;
+      const speed = event.velocityX * sign;
+      const opens = speed > 500 || (toward > width / 3 && speed > -300);
+      progress.value = withSpring(opens ? 1 : 0, { ...SPRING.sheet, velocity: speed / width });
+      if (opens) runOnJS(setOpen)(true);
+    });
   const panel = useAnimatedStyle(() => ({
     transform: [{ translateX: interpolate(progress.value, [0, 1], [-sign * (width + 16), 0]) }],
   }));
   const dim = useAnimatedStyle(() => ({ opacity: Math.min(1, progress.value) }));
   return (
     <View pointerEvents={open ? "auto" : "box-none"} style={[StyleSheet.absoluteFill, { top }]}>
+      {edgeTestId && !open ? (
+        <GestureDetector gesture={edge}>
+          <View
+            className={side === "left" ? "absolute bottom-0 left-0" : "absolute bottom-0 right-0"}
+            style={{ top: 0, width: EDGE }}
+          />
+        </GestureDetector>
+      ) : null}
       <Animated.View pointerEvents={open ? "auto" : "none"} style={[StyleSheet.absoluteFill, dim]}>
         <Pressable
           accessibilityRole="button"

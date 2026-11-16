@@ -223,6 +223,20 @@ describe("the tablet's window", () => {
     ).toBeTruthy();
   });
 
+  // 10.4: from 1.7, a swipe in from the right edge brings an item's details over a narrow page.
+  it("opens an item's details over a narrow page on a swipe from the right edge", async () => {
+    const narrow = await setup(MINI);
+    act(() => workspace.open(`/entity/${narrow.note}`));
+    expect(await narrow.findByRole("button", { name: "Show Details" })).toBeTruthy();
+    // A short drag springs back.
+    swipe("edge-details", -30, -100);
+    expect(narrow.getByRole("button", { name: "Show Details" })).toBeTruthy();
+    swipe("edge-details", -200, -900);
+    expect(
+      await narrow.findByLabelText("Hide Details", { includeHiddenElements: true }),
+    ).toBeTruthy();
+  });
+
   it("titles a page without a list header in its own header row, with no system bar", async () => {
     const screen = await setup(LANDSCAPE);
     act(() => workspace.open("/moodle/forum/3?courseId=2&name=Announcements"));
@@ -270,6 +284,15 @@ describe("the tablet's window", () => {
     ).toBeTruthy();
   });
 });
+
+const swipe = (id: string, translationX: number, velocityX: number) =>
+  act(() => {
+    fireGestureHandler(getByGestureTestId(id), [
+      { state: State.BEGAN },
+      { state: State.ACTIVE, translationX: translationX / 2 },
+      { state: State.END, translationX, velocityX },
+    ]);
+  });
 
 const swipeFromEdge = (translationX: number) =>
   act(() => {

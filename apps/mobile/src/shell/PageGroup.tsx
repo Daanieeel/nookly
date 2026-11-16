@@ -174,6 +174,7 @@ export function PageGroupView({
             top={0}
             side="right"
             label="Close Details"
+            edgeTestId="edge-details"
           >
             <Inspector id={openId} />
           </SidebarOverlay>
