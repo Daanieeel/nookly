@@ -12,6 +12,7 @@ import {
 import { Fragment, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { useEntity, useParentTask, useSpaces } from "../data/queries.ts";
+import { useMoodleCourses } from "../moodle/queries.ts";
 import { SpaceIcon } from "../screens/SpaceIcon.tsx";
 import { TOP_ICONS } from "../screens/Sidebar.tsx";
 import { cn } from "../ui/classes.ts";
@@ -58,6 +59,7 @@ function useCrumbs(path: string): Crumb[] {
   const { data: item } = useEntity(itemId ?? "");
   const { data: view } = useEntity(params.view ?? "");
   const { data: parent } = useParentTask(item?.type === "sub_task" ? item.id : "");
+  const { data: moodleCourses } = useMoodleCourses();
   const { data: spaces = [] } = useSpaces();
   const fallback = usePathTitle(path);
   const spaceCrumb = (spaceId: string | undefined): Crumb[] => {
@@ -139,9 +141,27 @@ function useCrumbs(path: string): Crumb[] {
         ];
   }
   if (pattern.startsWith("moodle")) {
+    // The course before its page, a way back to it (9.2).
+    const course = moodleCourses?.data.find((c) => String(c.id) === params.courseId);
+    const onCourse = pattern === "moodle/[courseId]";
+    const courseCrumb: Crumb[] = course
+      ? [
+          {
+            key: `course ${course.id}`,
+            icon: null,
+            label: course.fullname,
+            to: onCourse
+              ? undefined
+              : `/moodle/${course.id}?name=${encodeURIComponent(course.fullname)}${
+                  params.spaceId ? `&spaceId=${params.spaceId}` : ""
+                }`,
+          },
+        ]
+      : [];
     return [
       { key: "moodle", icon: <IconSchool size={ICON} color={muted} />, label: "Moodle" },
-      ...(pattern === "moodle/[courseId]" ? [] : [{ key: "page", icon: null, label: fallback }]),
+      ...courseCrumb,
+      ...(onCourse ? [] : [{ key: "page", icon: null, label: fallback }]),
     ];
   }
   const Glyph =
