@@ -1,19 +1,19 @@
 import { createSpace } from "@nookly/shared/data";
 import { StyleSheet } from "react-native";
-import { renderScreens, testData } from "../../test/render.tsx";
-import Assignment from "./assignment.tsx";
-import Bookmark from "./bookmark.tsx";
-import Course from "./course.tsx";
-import Deck from "./deck.tsx";
-import Entry from "./entry.tsx";
-import Exam from "./exam.tsx";
-import Page from "./page.tsx";
-import Recipe from "./recipe.tsx";
-import Semester from "./semester.tsx";
-import Session from "./session.tsx";
-import Share from "./share.tsx";
-import Space from "./space.tsx";
-import Task from "./task.tsx";
+import { renderScreens, testData } from "../test/render.tsx";
+import Assignment from "../app/new/assignment.tsx";
+import Bookmark from "../app/new/bookmark.tsx";
+import Course from "../app/new/course.tsx";
+import Deck from "../app/new/deck.tsx";
+import Entry from "../app/new/entry.tsx";
+import Exam from "../app/new/exam.tsx";
+import Page from "../app/new/page.tsx";
+import Recipe from "../app/new/recipe.tsx";
+import Semester from "../app/new/semester.tsx";
+import Session from "../app/new/session.tsx";
+import Share from "../app/new/share.tsx";
+import Space from "../app/new/space.tsx";
+import Task from "../app/new/task.tsx";
 
 const FORMS = {
   assignment: Assignment,
