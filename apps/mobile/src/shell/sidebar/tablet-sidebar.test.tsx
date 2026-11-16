@@ -14,7 +14,7 @@ import { TabletSidebar } from "./TabletSidebar.tsx";
 jest.setTimeout(30_000);
 
 async function setup(
-  before?: (db: ReturnType<typeof testData>["db"], work: string) => Promise<unknown>,
+  before?: (db: ReturnType<typeof testData>["db"], work: string) => Promise<void>,
 ) {
   const data = testData();
   const work = await createSpace(data.db, "Work", "#0070f3");
