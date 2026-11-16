@@ -1,7 +1,9 @@
 import { createAssignment, createCourse, createSpace, createTask } from "@nookly/shared/data";
 import { AssignmentsScreen } from "./AssignmentsScreen.tsx";
 import { addDays, localDay } from "./dates.ts";
-import { fireEvent } from "expo-router/testing-library";
+import { fireEvent, waitFor } from "expo-router/testing-library";
+import { forgetPreferences, writePreference } from "../data/preferences.ts";
+import { DEFAULT_DISPLAY } from "./task-view.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { TasksScreen } from "./TasksScreen.tsx";
 
@@ -20,6 +22,29 @@ describe("Tasks on a tablet", () => {
     expect(screen.getByRole("button", { name: /^Write report/ })).toBeTruthy();
     await fireEvent.press(header);
     expect(screen.queryByRole("button", { name: /^Write report/ })).toBeNull();
+  });
+});
+
+describe("a Space's Tasks on a tablet", () => {
+  afterEach(() => forgetPreferences());
+
+  it("makes a task in a status from its group's header (5.1)", async () => {
+    const data = testData();
+    const work = await createSpace(data.db, "Work", "#3b82f6");
+    await createTask(data.db, work, "Write report");
+    // The list rather than the board a Space's tasks open on.
+    writePreference(`tasks.display.${work}`, { ...DEFAULT_DISPLAY, layout: "list" });
+    const screen = await renderScreens(
+      { index: () => <TasksScreen spaceId={work} />, "new/task": () => null },
+      data,
+      "/",
+      { width: 1032 },
+    );
+    const [create] = await screen.findAllByRole("button", { name: /^New Task in / });
+    await fireEvent.press(create);
+    await waitFor(() => expect(screen.getPathname()).toBe("/new/task"));
+    expect(screen.getSearchParams()).toMatchObject({ spaceId: work });
+    expect(screen.getSearchParams().statusId).toBeTruthy();
   });
 });
 

@@ -381,6 +381,11 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
             }))}
             keyOf={(task) => task.entity.id}
             renderRow={row}
+            // A status group makes its task in that status, as the desktop's header (5.1).
+            onCreateIn={
+              display.grouping === "status" ? (group) => () => newTask(group.id) : undefined
+            }
+            createLabel={(name) => `New Task in ${name}`}
           />
         ) : (
           <>
