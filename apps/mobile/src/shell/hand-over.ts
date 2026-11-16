@@ -15,8 +15,9 @@ export function useHandOver(tablet: boolean, pathname: string) {
     was.current = tablet;
     if (!before || tablet) return;
     const path = activePath(useWorkspace.getState().ws);
+    if (path === pathname) return;
     // SAFETY: a tab only ever holds a page route's path (`pages.tsx`).
-    if (path !== pathname) router.navigate(path as never);
+    router.navigate(path as never);
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- only a change of shell hands over
   }, [tablet]);
 }
