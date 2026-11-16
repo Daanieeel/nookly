@@ -12,6 +12,7 @@ import {
   LAYER_SHORTCUTS,
   MENUS,
   MOVE_SHORTCUTS,
+  CHOOSE_SHORTCUT,
   type Shortcut,
   SHORTCUTS,
   type ShortcutId,
@@ -44,6 +45,7 @@ export function ShortcutHost({
   const layered = useLayers((s) => s.stack.length > 0);
   // The arrow keys only while the newest layer keeps a selection: otherwise the page's.
   const moving = useLayers((s) => s.stack.at(-1)?.move !== undefined);
+  const choosing = useLayers((s) => s.stack.at(-1)?.choose !== undefined);
   // A screen's own keys, while it is shown (a study session's).
   const pageKeys = usePageKeys((s) => s.keys);
   useEffect(() => keys.setMenus(MENUS), [keys]);
@@ -52,6 +54,7 @@ export function ShortcutHost({
       ...SHORTCUTS,
       ...(layered ? LAYER_SHORTCUTS : []),
       ...(moving ? MOVE_SHORTCUTS : []),
+      ...(choosing ? [CHOOSE_SHORTCUT] : []),
       ...pageKeys,
     ]);
     const run = (id: ShortcutId) => {
@@ -109,6 +112,7 @@ export function ShortcutHost({
       if (id === "submit") return topLayer()?.submit?.();
       if (id === "moveUp") return topLayer()?.move?.(-1);
       if (id === "moveDown") return topLayer()?.move?.(1);
+      if (id === "choose") return topLayer()?.choose?.();
       if (pageKeys.some((k) => k.id === id)) return usePageKeys.getState().run(id);
       const known = SHORTCUTS.find((s) => s.id === id);
       if (known) run(known.id);
@@ -117,6 +121,6 @@ export function ShortcutHost({
       stop();
       keys.setShortcuts([]);
     };
-  }, [open, onAction, router, keys, layered, moving, pageKeys]);
+  }, [open, onAction, router, keys, layered, moving, choosing, pageKeys]);
   return null;
 }

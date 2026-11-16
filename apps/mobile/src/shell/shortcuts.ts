@@ -178,6 +178,14 @@ export const MOVE_SHORTCUTS: KeyShortcut[] = [
   { id: "moveDown", key: "UIKeyInputDownArrow", modifiers: [], title: "Next" },
 ];
 
+/// Return, taken while the newest layer's list picks with it (a popover's options).
+export const CHOOSE_SHORTCUT: KeyShortcut = {
+  id: "choose",
+  key: "\r",
+  modifiers: [],
+  title: "Choose",
+};
+
 /// The iPadOS menu bar: every shortcut once, under the desktop's menus. File, Edit, View
 /// and Window join the system's own.
 export const MENUS: { title: string; ids: ShortcutId[] }[] = [

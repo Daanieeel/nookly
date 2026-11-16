@@ -313,3 +313,38 @@ describe("how a sheet shows by the window", () => {
     forgetTouch();
   });
 });
+
+// A popover's list goes with the arrow keys and Return picks, as on the desktop (10.1, 2.1).
+describe("a tablet's list with a keyboard", () => {
+  it("moves the highlight with the arrows and picks with Return", async () => {
+    const picked: string[] = [];
+    render(
+      <At size={LANDSCAPE}>
+        <Sheet
+          open
+          onOpenChange={() => {}}
+          title="Letter"
+          anchor={{ x: 300, y: 200, width: 160, height: 44 }}
+          kind="picker"
+        >
+          <OptionList
+            label="Letter"
+            options={OPTIONS}
+            value="a"
+            onChange={(id) => picked.push(id)}
+          />
+        </Sheet>
+      </At>,
+    );
+    await screen.findByTestId("sheet-popover");
+    await waitFor(() => expect(topLayer()?.choose).toBeDefined());
+    act(() => topLayer()?.move?.(1));
+    act(() => topLayer()?.move?.(1));
+    expect(screen.getByRole("radio", { name: "Beta" }).props.accessibilityState.selected).toBe(
+      false,
+    );
+    expect(screen.getByTestId("highlighted").props.accessibilityLabel).toBe("Beta");
+    act(() => topLayer()?.choose?.());
+    expect(picked).toEqual(["b"]);
+  });
+});

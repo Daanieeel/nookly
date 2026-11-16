@@ -1,6 +1,9 @@
 import { MIN_TOUCH } from "../touch.ts";
 import { IconCheck, IconPlus, IconSearch } from "@tabler/icons-react-native";
-import { type ReactNode, useContext, useState } from "react";
+import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { cn } from "../classes.ts";
+import { useIsTablet } from "../pane.tsx";
+import { LayerContext } from "./layers.ts";
 import { Pressable, View } from "react-native";
 import { runOnJS, useAnimatedReaction, useSharedValue } from "react-native-reanimated";
 import { haptic } from "../haptics.ts";
@@ -89,6 +92,7 @@ function PickerRow({
   onPress,
   accessibilityLabel,
   dense = false,
+  highlighted = false,
 }: {
   option: Option;
   selected: boolean;
@@ -96,10 +100,13 @@ function PickerRow({
   onPress: () => void;
   accessibilityLabel?: string;
   dense?: boolean;
+  /// Where the arrow keys are (a tablet with a keyboard).
+  highlighted?: boolean;
 }) {
   const theme = useTheme();
   return (
     <Pressable
+      testID={highlighted ? "highlighted" : undefined}
       accessibilityRole={role}
       accessibilityLabel={
         accessibilityLabel ??
@@ -108,7 +115,10 @@ function PickerRow({
       accessibilityState={role === "button" ? undefined : { checked: selected, selected }}
       onPress={onPress}
       style={[CORNER, { minHeight: dense ? MIN_TOUCH : ROW_HEIGHT }]}
-      className="flex-row items-center gap-3.5 rounded-xl px-3 active:bg-accent"
+      className={cn(
+        "flex-row items-center gap-3.5 rounded-xl px-3 active:bg-accent",
+        highlighted && "bg-accent",
+      )}
     >
       <LeadingIcon option={option} />
       <View className={dense ? "flex-1 py-1" : "flex-1 py-2"}>
@@ -181,8 +191,10 @@ export function OptionList<Id extends string>(
   const inCard = useContext(InCard);
   const [query, setQuery] = useState("");
   const words = query.trim().toLowerCase();
+  const [active, setActive] = useState(-1);
   const search = (next: string) => {
     setQuery(next);
+    setActive(-1);
     props.onQueryChange?.(next);
   };
   const shown =
@@ -218,6 +230,15 @@ export function OptionList<Id extends string>(
     search("");
   };
   const stuck = current.index === null ? undefined : groups[current.index]?.title;
+  // Return with nothing highlighted is still the field's (Create "…").
+  useListKeys(
+    groups.flatMap((g) => g.options),
+    active,
+    setActive,
+    pick,
+    create,
+  );
+  const activeId = groups.flatMap((g) => g.options)[active]?.id;
 
   return (
     <View onLayout={current.onRootLayout}>
@@ -265,6 +286,7 @@ export function OptionList<Id extends string>(
                 selected={chosen(option.id)}
                 onPress={() => pick(option)}
                 dense={props.dense}
+                highlighted={option.id === activeId}
               />
             ))}
           </View>
@@ -296,6 +318,37 @@ export function OptionList<Id extends string>(
       </View>
     </View>
   );
+}
+
+/// The arrow keys and Return for a list in a tablet's popover or dialog: the arrows move the
+/// highlight through `rows`, Return picks the highlighted one (10.1, from 2.1).
+function useListKeys<T>(
+  rows: T[],
+  active: number,
+  setActive: (update: (at: number) => number) => void,
+  pick: (row: T) => void,
+  otherwise: () => void,
+) {
+  const layer = useContext(LayerContext);
+  const tablet = useIsTablet();
+  const latest = useRef({ rows, active, pick, otherwise });
+  useEffect(() => {
+    latest.current = { rows, active, pick, otherwise };
+  });
+  const count = rows.length;
+  useEffect(() => {
+    if (!layer || !tablet || count === 0) return;
+    layer.setNavigation({
+      move: (delta) => setActive((at) => Math.max(0, Math.min(count - 1, at + delta))),
+      choose: () => {
+        const { rows: now, active: at, pick: choose, otherwise: fallback } = latest.current;
+        const row = now[at];
+        if (row === undefined) fallback();
+        else choose(row);
+      },
+    });
+    return () => layer.setNavigation(undefined);
+  }, [layer, tablet, count, setActive]);
 }
 
 /// Which section's header has scrolled up under the pinned search, so it stays shown

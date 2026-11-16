@@ -12,6 +12,9 @@ export interface Layer {
   submit?: () => void;
   /// Moves its selection by a row (a palette's, with the arrow keys), when it keeps one.
   move?: (delta: 1 | -1) => void;
+  /// Picks the row the arrow keys moved to (Return), in a list that has no field of its own
+  /// to take Return.
+  choose?: () => void;
 }
 
 export const useLayers = create<{ stack: Layer[] }>(() => ({ stack: [] }));
@@ -27,6 +30,13 @@ export function pushLayer(close: () => void, options: { move?: Layer["move"] } =
     remove: () => useLayers.setState((s) => ({ stack: s.stack.filter((l) => l !== layer) })),
     setSubmit: (submit: (() => void) | undefined) => {
       layer.submit = submit;
+    },
+    /// A list inside it takes the arrow keys and Return while it is shown (`OptionList`).
+    setNavigation: (navigation: Pick<Layer, "move" | "choose"> | undefined) => {
+      layer.move = navigation?.move;
+      layer.choose = navigation?.choose;
+      // The keys the host takes follow the newest layer's.
+      useLayers.setState((s) => ({ stack: [...s.stack] }));
     },
   };
 }
