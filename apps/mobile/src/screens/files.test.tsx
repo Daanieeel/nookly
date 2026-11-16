@@ -19,6 +19,8 @@ import { choose, openRow } from "../test/sheet.ts";
 import type { DocumentScanner } from "../ui/scanner.tsx";
 import { EntityScreen } from "./EntityScreen.tsx";
 import { FilePasteBar, FileRows } from "./FileScreens.tsx";
+import { FILE_DEFAULT } from "./file-view.ts";
+import { forgetPreferences, writePreference } from "../data/preferences.ts";
 import { ModuleScreen } from "./ModuleScreen.tsx";
 
 describe("files", () => {
@@ -42,6 +44,21 @@ describe("files", () => {
     expect(screen.getByText(/^PDF · /)).toBeTruthy();
     expect(screen.getByRole("button", { name: "slides.pptx" })).toBeTruthy();
     expect(screen.getByText(/^Downloading from your account · /)).toBeTruthy();
+  });
+
+  // A tablet's list of files is the desktop's table (5.5): name, kind, where it is, added.
+  it("lists files as a table on a tablet", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    await addFile(data.db, space, "notes.pdf", "file:///docs/files/aaa-notes.pdf");
+    writePreference(`files.display.${space}`, { ...FILE_DEFAULT, layout: "list" });
+    const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data, "/", {
+      width: 1032,
+    });
+    expect(await screen.findByRole("button", { name: "notes.pdf" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Added/ })).toBeTruthy();
+    expect(screen.getByText("PDF")).toBeTruthy();
+    forgetPreferences();
   });
 
   // The desktop's Filter (kind, labels) and Display (layout, grouping, ordering), D65.

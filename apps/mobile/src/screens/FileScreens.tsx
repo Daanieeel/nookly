@@ -1,3 +1,5 @@
+import { type Column, DataTable } from "../ui/DataTable.tsx";
+import { useIsTablet } from "../ui/pane.tsx";
 import { FixedTop } from "../ui/fixed-top.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
@@ -60,7 +62,7 @@ import { labelOption } from "./option-badges.tsx";
 import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
-import { dayLabel, localDay } from "./dates.ts";
+import { ago, dayLabel, localDay } from "./dates.ts";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { useRouter } from "expo-router";
@@ -222,6 +224,70 @@ const kindOf = (f: FileRecord): FileKindId | "link" =>
   isLinkOnly(f) ? "link" : fileKindOf(nameOf(f));
 const kindLabel = (k: FileKindId | "link") => (k === "link" ? "Links" : KIND_LABELS[k]);
 
+/// A file's kind as its icon, where it has no thumbnail.
+function KindIcon({ file }: { file: FileRecord }) {
+  const theme = useTheme();
+  const Glyph = KIND_ICONS[fileKindOf(nameOf(file))];
+  return <Glyph size={14} color={theme.colors.mutedForeground} strokeWidth={1.75} />;
+}
+
+/// A tablet's list of files, the desktop's table (5.5): the file with its thumbnail, what
+/// kind or where it is, and when it was added; swipe actions and the menu kept (D76).
+function FileTable({ files }: { files: readonly FileRecord[] }) {
+  const entityMenu = useEntityMenu();
+  const router = useRouter();
+  const theme = useTheme();
+  const columns: Column<FileRecord>[] = [
+    {
+      id: "name",
+      label: "Name",
+      width: "fill",
+      sortValue: nameOf,
+      render: (file) => (
+        <View className="flex-row items-center gap-2">
+          <View className="size-7 items-center justify-center overflow-hidden rounded-md border border-border bg-secondary">
+            <FileThumb file={file} size={64} fallback={<KindIcon file={file} />} />
+          </View>
+          <Text numberOfLines={1} className="flex-1">
+            {nameOf(file)}
+          </Text>
+        </View>
+      ),
+    },
+    {
+      id: "kind",
+      label: "Kind",
+      width: 200,
+      hideBelow: 600,
+      sortValue: state,
+      render: (file) => (
+        <Text tone="muted" numberOfLines={1}>
+          {state(file)}
+        </Text>
+      ),
+    },
+    {
+      id: "added",
+      label: "Added",
+      width: 110,
+      sortValue: (file) => file.entity.createdAt,
+      render: (file) => <Text tone="muted">{ago(file.entity.createdAt)}</Text>,
+    },
+  ];
+  return (
+    <DataTable
+      label="Files"
+      rows={files}
+      columns={columns}
+      keyOf={(file) => file.entity.id}
+      titleOf={nameOf}
+      onPress={(file) => router.push(`/entity/${file.entity.id}`)}
+      onLongPress={(file) => entityMenu(file.entity)}
+      wrapRow={(file, node) => <EntitySwipe entity={file.entity}>{node}</EntitySwipe>}
+    />
+  );
+}
+
 /// "Today", "This week", "This month", "Earlier": when a file was added, by whole days.
 function addedGroup(f: FileRecord, today = localDay()): string {
   const days = Math.round(
@@ -274,6 +340,7 @@ export function FileRows({ spaceId }: { spaceId: string }) {
   );
   const display = draft.value;
   const setDisplay = draft.set;
+  const tablet = useIsTablet();
   const view = draft.viewId ?? "all";
   const [note, setNote] = useState<string | null>(null);
   const kinds = [...new Set(files.map(kindOf))];
@@ -415,6 +482,8 @@ export function FileRows({ spaceId }: { spaceId: string }) {
                     <FileTile key={file.entity.id} file={file} />
                   ))}
                 </Grid>
+              ) : tablet ? (
+                <FileTable files={group.items} />
               ) : (
                 group.items.map((file) => <FileTile key={file.entity.id} file={file} row />)
               )}
