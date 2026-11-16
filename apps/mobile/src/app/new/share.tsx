@@ -7,4 +7,5 @@ function Share() {
   return <ShareScreen entityId={entityId} />;
 }
 
-export default sheetRoute("Share", Share, "large", "flow");
+// The desktop's Share dialog is a medium one (8.9).
+export default sheetRoute("Share", Share, "large", "form");

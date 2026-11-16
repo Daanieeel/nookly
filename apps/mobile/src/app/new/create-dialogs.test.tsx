@@ -11,6 +11,7 @@ import Page from "./page.tsx";
 import Recipe from "./recipe.tsx";
 import Semester from "./semester.tsx";
 import Session from "./session.tsx";
+import Share from "./share.tsx";
 import Space from "./space.tsx";
 import Task from "./task.tsx";
 
@@ -25,6 +26,8 @@ const FORMS = {
   recipe: Recipe,
   semester: Semester,
   session: Session,
+  // Not a create form, but the desktop's Share dialog is medium as well (8.9).
+  share: Share,
   space: Space,
   task: Task,
 };
