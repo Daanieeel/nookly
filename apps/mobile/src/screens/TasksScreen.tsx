@@ -33,6 +33,7 @@ import {
   useViews,
 } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
+import { GroupedList } from "../ui/GroupedList.tsx";
 import { Button } from "../ui/Button.tsx";
 import { ListHeader, Presets } from "../ui/ListBar.tsx";
 import { ActiveFilters } from "../ui/ActiveFilters.tsx";
@@ -367,31 +368,48 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
   const listBlock = useMemo(
     () =>
       built.includes("list") ? (
-        <>
-          {groups.map((group) => {
-            const shown =
-              display.grouping === "status" && finishedGroup(group.id)
-                ? group.tasks.slice(0, FINISHED_SHOWN)
-                : group.tasks;
-            return (
-              <Band
-                key={group.id}
-                icon={null}
-                title={group.title}
-                count={group.tasks.length}
-                initiallyOpen={
-                  !(display.grouping === "status" && finishedGroup(group.id)) && group.id !== "done"
-                }
-              >
-                <View>
-                  {shown.map((task) => (
-                    <View key={task.entity.id}>{row(task)}</View>
-                  ))}
-                </View>
-              </Band>
-            );
-          })}
-        </>
+        tablet ? (
+          // The desktop's grouped list: headers with counts that fold (3.4).
+          <GroupedList
+            groups={groups.map((group) => ({
+              id: group.id,
+              name: group.title,
+              defaultCollapsed:
+                (display.grouping === "status" && finishedGroup(group.id)) || group.id === "done",
+              items: group.tasks,
+              subgroups: null,
+            }))}
+            keyOf={(task) => task.entity.id}
+            renderRow={row}
+          />
+        ) : (
+          <>
+            {groups.map((group) => {
+              const shown =
+                display.grouping === "status" && finishedGroup(group.id)
+                  ? group.tasks.slice(0, FINISHED_SHOWN)
+                  : group.tasks;
+              return (
+                <Band
+                  key={group.id}
+                  icon={null}
+                  title={group.title}
+                  count={group.tasks.length}
+                  initiallyOpen={
+                    !(display.grouping === "status" && finishedGroup(group.id)) &&
+                    group.id !== "done"
+                  }
+                >
+                  <View>
+                    {shown.map((task) => (
+                      <View key={task.entity.id}>{row(task)}</View>
+                    ))}
+                  </View>
+                </Band>
+              );
+            })}
+          </>
+        )
       ) : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [built, groups, contentKey, statuses, labels, labelMap, spaces],
