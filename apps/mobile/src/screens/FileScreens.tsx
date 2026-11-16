@@ -236,7 +236,6 @@ function KindIcon({ file }: { file: FileRecord }) {
 function FileTable({ files }: { files: readonly FileRecord[] }) {
   const entityMenu = useEntityMenu();
   const router = useRouter();
-  const theme = useTheme();
   const columns: Column<FileRecord>[] = [
     {
       id: "name",
