@@ -31,9 +31,7 @@ describe("Trash on a tablet", () => {
 
   it("asks before deleting a row forever", async () => {
     const { screen } = await setup();
-    await fireEvent.press(
-      await screen.findByRole("button", { name: "Delete Old report Forever" }),
-    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Delete Old report Forever" }));
     expect(await screen.findByText('Delete "Old report" forever?')).toBeTruthy();
   });
 });
