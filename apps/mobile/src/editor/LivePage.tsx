@@ -250,6 +250,8 @@ export function PageDocEditor({
       host?.present({
         title: "Language",
         size: "large",
+        // A select: on a tablet a popover where the button was touched (6.1).
+        kind: "picker",
         content: (
           <OptionList
             label="Language"

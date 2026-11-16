@@ -7,6 +7,7 @@ import { renderScreens, testData } from "../test/render.tsx";
 import { PageEditorViewProvider } from "./editor-view.tsx";
 import { PageDocEditor } from "./LivePage.tsx";
 import { useFindBar } from "./FindBar.tsx";
+import { noteTouch } from "../ui/sheet/touch-point.ts";
 import type { EditorHandle } from "./PageEditorDom.tsx";
 import type { PageEditorViewProps as EditorViewProps } from "./editor-view.tsx";
 
@@ -94,6 +95,15 @@ describe("a page's editor", () => {
     await act(() => props?.onPickLanguage(12, "plaintext"));
     await fireEvent.press(await screen.findByRole("radio", { name: "Python" }));
     await waitFor(() => expect(ran).toContain("language 12 python"));
+  });
+
+  // A tablet's language list is a picker: a popover where the button was touched (6.1).
+  it("lists a tablet's languages in a popover where the button was touched", async () => {
+    const screen = await renderScreens({ index: editor }, testData(), "/", { width: 1194 });
+    await screen.findByLabelText("Page editor");
+    noteTouch({ nativeEvent: { pageX: 300, pageY: 400 } });
+    await act(() => props?.onPickLanguage(12, "plaintext"));
+    expect(await screen.findByTestId("sheet-popover")).toBeTruthy();
   });
 
   it("copies a code block's code to the clipboard", async () => {
