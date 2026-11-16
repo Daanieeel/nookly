@@ -59,6 +59,7 @@ import {
   typingKeys,
 } from "./commands.ts";
 import { loadGate } from "./load-gate.ts";
+import { findPlugin, findQuery, findResult, findStep } from "./find.ts";
 import { pageSchema } from "./schema.ts";
 import { PLACEHOLDER_CSS, isEmptyPage } from "./typography.ts";
 
@@ -90,6 +91,10 @@ export interface EditorHandle {
   closeVimHelp(): void;
   /// The language picked on the phone's side for the code block at `pos`.
   setCodeLanguage(pos: number, language: string): void;
+  /// Finds `query` in the page (empty clears it), selecting the first match.
+  find(query: string): void;
+  /// Moves to the next (1) or previous (-1) match.
+  findStep(step: number): void;
 }
 
 export interface EditorColors {
@@ -137,6 +142,8 @@ interface Props {
   onPickLanguage: (pos: number, language: string) => Promise<void>;
   /// A code block's copy button: the code, for the phone's clipboard.
   onCopy: (text: string) => Promise<void>;
+  /// What a search found, as JSON: `{ count, index }`.
+  onFound: (result: string) => Promise<void>;
 }
 
 const COMMANDS = {
@@ -170,6 +177,8 @@ const CSS = `
 html, body { margin: 0; height: auto; min-height: 0; background: transparent; -webkit-text-size-adjust: 100%; }
 .root { flex: 1; min-width: 0; font: calc(17px * var(--page-scale, 1))/1.55 var(--page-font, -apple-system, system-ui, "Inter", sans-serif); color: var(--fg); }
 .host { display: flex; flex-direction: column; }
+.find { background: color-mix(in srgb, var(--accent-yellow) 30%, transparent); border-radius: 2px; }
+.find-current { background: color-mix(in srgb, var(--accent-yellow) 70%, transparent); border-radius: 2px; }
 .pm { flex: 1; outline: none; padding: 0 0 24px; min-height: 120px; word-break: break-word; position: relative; }
 .compact .pm { padding-bottom: 0; min-height: 0; }
 .compact .pm > :last-child { margin-bottom: 0; }
@@ -252,6 +261,7 @@ export default function PageEditorDom({
   onOpen,
   onPickLanguage,
   onCopy,
+  onFound,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -294,6 +304,14 @@ export default function PageEditorDom({
         editor.focus();
       }
     },
+    find: (query: string) => {
+      const editor = view.current;
+      if (editor) findQuery(String(query))(editor.state, editor.dispatch);
+    },
+    findStep: (step: number) => {
+      const editor = view.current;
+      if (editor) findStep(Number(step) < 0 ? -1 : 1)(editor.state, editor.dispatch);
+    },
     setCodeLanguage: (pos: number, language: string) => {
       const editor = view.current;
       const node = editor?.state.doc.nodeAt(Number(pos));
@@ -334,7 +352,13 @@ export default function PageEditorDom({
   useEffect(() => {
     if (!host.current || !loaded) return;
     const fragment = doc.current.getXmlFragment("default");
+    let lastFound = "";
     const report = (e: EditorView) => {
+      const found = JSON.stringify(findResult(e.state));
+      if (found !== lastFound) {
+        lastFound = found;
+        void onFound(found);
+      }
       const a = active(e.state);
       const keys = vimState(e.state);
       setVimLabel(
@@ -396,6 +420,7 @@ export default function PageEditorDom({
           dropCursor(),
           gapCursor(),
           codeHighlightPlugin(codeSpans),
+          findPlugin(),
         ],
       }),
       nodeViews: {

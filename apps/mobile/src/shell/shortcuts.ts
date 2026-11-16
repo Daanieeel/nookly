@@ -27,7 +27,8 @@ export type ShortcutId =
   | "focusRightGroup"
   | "toggleGroupZoom"
   | "nextSpace"
-  | "previousSpace";
+  | "previousSpace"
+  | "find";
 
 export interface Shortcut extends KeyShortcut {
   id: ShortcutId;
@@ -141,6 +142,7 @@ export const SHORTCUTS: Shortcut[] = [
     title: "Next Space",
     section: "Navigation",
   },
+  { id: "find", key: "f", modifiers: ["command"], title: "Find in Page", section: "Navigation" },
   { id: "quickJot", key: "j", modifiers: ["command"], title: "Quick Jot", section: "Create" },
   { id: "newItem", key: "n", modifiers: ["command"], title: "New Item", section: "Create" },
 ];
@@ -162,7 +164,7 @@ export const MOVE_SHORTCUTS: KeyShortcut[] = [
 /// and Window join the system's own.
 export const MENUS: { title: string; ids: ShortcutId[] }[] = [
   { title: "File", ids: ["newItem", "quickJot", "newTab", "closeTab", "closeOtherTabs"] },
-  { title: "Edit", ids: ["search", "commands"] },
+  { title: "Edit", ids: ["find", "search", "commands"] },
   {
     title: "View",
     ids: ["toggleSidebar", "toggleInspector", "splitRight", "splitLeft", "toggleGroupZoom"],

@@ -1,3 +1,4 @@
+import { useFindBar } from "../editor/FindBar.tsx";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import * as system from "../../modules/nookly-keys/src/index.ts";
@@ -85,6 +86,8 @@ export function ShortcutHost({
           return onAction("nextTab");
         case "previousTab":
           return onAction("previousTab");
+        case "find":
+          return useFindBar.setState({ open: true });
       }
     };
     const stop = keys.onShortcut((id) => {

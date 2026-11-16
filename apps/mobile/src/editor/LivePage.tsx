@@ -27,6 +27,8 @@ import { runOn } from "./handle.ts";
 import { usePageEditorView } from "./editor-view.tsx";
 import { type EditorAction, editorStateSchema } from "./toolbar.ts";
 import { useToolbar } from "./toolbar-store.ts";
+import { FindBar, type FindResult, useFindBar } from "./FindBar.tsx";
+import { usePageHost } from "../shell/PageHost.tsx";
 
 /// How tall an item's description is at least: the region a tap starts typing in.
 /// How tall a page's editor is at least: a page reaches the bottom of the screen; an item's
@@ -92,6 +94,16 @@ export function PageDocEditor({
   const reveal = useReveal();
   const handle = useRef<EditorHandle>(null);
   const anchor = useRef<View>(null);
+  // The find bar sits over the page the focused group shows (a page, not a description).
+  const pageHost = usePageHost();
+  const finding =
+    useFindBar((s) => s.open) && fill && (!pageHost || (pageHost.focused && pageHost.active));
+  const [found, setFound] = useState<FindResult>({ count: 0, index: 0 });
+  const onFound = useCallback(async (result: string) => {
+    // SAFETY: the editor sends the result it computed (`findResult`) as JSON.
+    const parsed = JSON.parse(result) as FindResult;
+    setFound(parsed);
+  }, []);
   const ready = useRef(false);
   const user = useSyncState((s) => s.user);
   const [displayName] = useSetting("general.displayName");
@@ -257,6 +269,13 @@ export function PageDocEditor({
       style={{ minHeight }}
       onLayout={() => anchor.current?.measureInWindow((_x, y) => setTop(y))}
     >
+      {finding ? (
+        <FindBar
+          result={found}
+          onFind={(query) => handle.current?.find(query)}
+          onStep={(step) => handle.current?.findStep(step)}
+        />
+      ) : null}
       <EditorView
         ref={handle}
         // The system's bar over the keyboard (up, down, done) gives way to the app's toolbar.
@@ -298,6 +317,7 @@ export function PageDocEditor({
         onOpen={onOpen}
         onPickLanguage={onPickLanguage}
         onCopy={onCopy}
+        onFound={onFound}
       />
       <Sheet
         open={vimHelp}

@@ -6,16 +6,21 @@ import * as Y from "yjs";
 import { renderScreens, testData } from "../test/render.tsx";
 import { PageEditorViewProvider } from "./editor-view.tsx";
 import { PageDocEditor } from "./LivePage.tsx";
+import { useFindBar } from "./FindBar.tsx";
 import type { EditorHandle } from "./PageEditorDom.tsx";
 import type { PageEditorViewProps as EditorViewProps } from "./editor-view.tsx";
 
 const ran: string[] = [];
-let props: Pick<EditorViewProps, "onPickLanguage" | "onCopy"> | null = null;
+let props: Pick<EditorViewProps, "onPickLanguage" | "onCopy" | "onFound"> | null = null;
 
 /// The web view's stand in, keeping what the page asked of it.
 function RecordingEditor(given: Partial<EditorViewProps> & { ref?: Ref<EditorHandle> }) {
   useImperativeHandle(given.ref, () => {
-    props = { onPickLanguage: given.onPickLanguage!, onCopy: given.onCopy! };
+    props = {
+      onPickLanguage: given.onPickLanguage!,
+      onCopy: given.onCopy!,
+      onFound: given.onFound!,
+    };
     return {
       applyUpdate: () => {},
       applyAwareness: () => {},
@@ -25,6 +30,12 @@ function RecordingEditor(given: Partial<EditorViewProps> & { ref?: Ref<EditorHan
       closeVimHelp: () => {},
       setCodeLanguage: (pos: number, language: string) => {
         ran.push(`language ${pos} ${language}`);
+      },
+      find: (query: string) => {
+        ran.push(`find ${query}`);
+      },
+      findStep: (step: number) => {
+        ran.push(`step ${step}`);
       },
     };
   });
@@ -39,6 +50,29 @@ const editor = () => (
 );
 
 describe("a page's editor", () => {
+  // The desktop's find in page (Cmd+F) over a tablet's page (6.1): what is typed is found
+  // in the editor, which says how many; Next and Previous step through; Close clears it.
+  it("finds in the page from the find bar, and clears it on close", async () => {
+    ran.length = 0;
+    act(() => useFindBar.setState({ open: true }));
+    const page = () => (
+      // SAFETY: the stand in takes the props it uses; the rest of the editor's are ignored.
+      <PageEditorViewProvider value={RecordingEditor as never}>
+        <PageDocEditor doc={new Y.Doc()} awareness={null} entityId="a" editable fill />
+      </PageEditorViewProvider>
+    );
+    const screen = await renderScreens({ index: page }, testData(), "/", { width: 1194 });
+    await fireEvent.changeText(await screen.findByLabelText("Find in Page"), "trip");
+    expect(ran).toContain("find trip");
+    await act(() => props?.onFound(JSON.stringify({ count: 3, index: 1 })));
+    expect(await screen.findByText("1 of 3")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Next Match" }));
+    expect(ran).toContain("step 1");
+    await fireEvent.press(screen.getByRole("button", { name: "Close Find" }));
+    expect(useFindBar.getState().open).toBe(false);
+    expect(ran.at(-1)).toBe("find ");
+  });
+
   // A page opened from another kept its editor under it in the stack, still holding the
   // keyboard, so the editor's toolbar showed over the new page.
   it("lets go of the keyboard when another page opens over it", async () => {

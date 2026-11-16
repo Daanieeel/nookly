@@ -18,6 +18,8 @@ export function EditorStandIn({ ref, placeholder, onReady, onUpdate }: PageEdito
     run: () => {},
     closeVimHelp: () => {},
     setCodeLanguage: () => {},
+    find: () => {},
+    findStep: () => {},
   }));
   useEffect(() => {
     void onReady();
