@@ -14,9 +14,15 @@ interface NativeProps extends ViewProps {
   children?: ReactNode;
 }
 
-const Native: ComponentType<NativeProps> | null = windowModuleAvailable
+/// Where nothing can be dragged in, a plain view: its two handlers are never called (a test
+/// calls them as the native view would).
+function Plain(props: NativeProps) {
+  return <View {...props} />;
+}
+
+const Native: ComponentType<NativeProps> = windowModuleAvailable
   ? requireNativeView<NativeProps>("NooklyWindow", "NooklyFileDropView")
-  : null;
+  : Plain;
 
 /// Children that take files dragged in from another app, each copied into the app's
 /// temporary folder first; a plain view where nothing can be dragged in.
@@ -29,7 +35,6 @@ export function FileDrop({
   onActive?: (active: boolean) => void;
   children?: ReactNode;
 }) {
-  if (!Native) return <View {...props} />;
   return (
     <Native
       {...props}

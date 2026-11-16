@@ -19,6 +19,7 @@ import { TabletSidebar } from "./sidebar/TabletSidebar.tsx";
 import { PageGroupView } from "./PageGroup.tsx";
 import { ShortcutHost } from "./ShortcutHost.tsx";
 import { SplitProvider } from "./split-context.ts";
+import { SplitDropZone } from "./SplitDropZone.tsx";
 import { TabStrip } from "./TabStrip.tsx";
 import { TITLEBAR_HEIGHT, Titlebar } from "./Titlebar.tsx";
 import { SplitDivider } from "./SplitDivider.tsx";
@@ -163,6 +164,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
                 {split ? <SplitDivider left={pageArea * ratio} area={pageArea} /> : null}
               </View>
             </View>
+            <SplitDropZone top={insets.top + TITLEBAR_HEIGHT} />
             {overlaid ? (
               <SidebarOverlay
                 open={overlay}

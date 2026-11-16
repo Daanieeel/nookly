@@ -36,7 +36,7 @@ import { Image, Linking, Pressable, View } from "react-native";
 import { IconLayoutGrid, IconList, IconPlus, IconTag } from "@tabler/icons-react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
-import { useFile, useFiles, useLabels, useViews } from "../data/queries.ts";
+import { useFile, useFiles, useLabels, useSpaces, useViews } from "../data/queries.ts";
 import { labelShelf } from "@nookly/shared/label-shelf";
 import { NewFileView, PickedLabels, fileLabelCounts } from "./FileViewSheets.tsx";
 import { FloatingField, PASTE_BAR_MARGIN, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
@@ -66,6 +66,7 @@ import { ago, dayLabel, localDay } from "./dates.ts";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { useRouter } from "expo-router";
+import { type DroppedFile, FileDrop } from "../../modules/nookly-window/src/FileDrop.tsx";
 
 function state(file: FileRecord): string {
   if (isDownloading(file)) return "Downloading from your account";
@@ -85,6 +86,50 @@ export function useAddFiles(spaceId: string) {
     }
     return picked.result.length;
   });
+}
+
+/// Stores files dragged in from another app (each already copied into the temporary
+/// folder) in the Space, as picked ones.
+function useDropFiles(spaceId: string) {
+  return useLocalWrite(async (db, files: DroppedFile[]) => {
+    for (const file of files) {
+      const stored = await storePicked(new File(file.uri));
+      await addFile(db, spaceId, file.name || stored.name, stored.uri);
+    }
+    return files.length;
+  });
+}
+
+/// A tablet's Files page takes files dragged in from another app (D86), marked while a
+/// drag hovers over it. The phone's stays as it is.
+function FilesDropTarget({ spaceId, children }: { spaceId: string; children: ReactNode }) {
+  const tablet = useIsTablet();
+  const { data: spaces = [] } = useSpaces();
+  const drop = useDropFiles(spaceId);
+  const [active, setActive] = useState(false);
+  if (!tablet) return <>{children}</>;
+  const name = spaces.find((s) => s.id === spaceId)?.name ?? "this Space";
+  return (
+    <FileDrop
+      testID="file-drop"
+      accessibilityHint="Drop files from another app here to add them"
+      onActive={setActive}
+      onFiles={(files) => {
+        setActive(false);
+        drop.mutate(files);
+      }}
+    >
+      {children}
+      {active ? (
+        <View
+          pointerEvents="none"
+          className="absolute inset-0 items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10"
+        >
+          <Text variant="heading">{`Drop to Add to ${name}`}</Text>
+        </View>
+      ) : null}
+    </FileDrop>
+  );
 }
 
 /// "PDF", "TXT": the type badge on a tile.
@@ -387,129 +432,131 @@ export function FileRows({ spaceId }: { spaceId: string }) {
     }
   };
   return (
-    <View className="gap-4">
-      <ListControls
-        title="Files"
-        count={files.length}
-        filters={[
-          {
-            label: "Kind",
-            icon: IconCategory,
-            values: display.kinds,
-            options: kinds.map((k) => ({
-              id: k,
-              label: kindLabel(k),
-              glyph: k === "link" ? IconLink : KIND_ICONS[k],
-            })),
-            onChange: (next) => setDisplay({ ...display, kinds: next }),
-          },
-          {
-            label: "Labels",
-            icon: IconTag,
-            values: display.labels,
-            options: used.map(labelOption),
-            onChange: (next) => setDisplay({ ...display, labels: next }),
-          },
-          ...own.fields,
-        ]}
-        display={<FileDisplayPanel display={display} onChange={setDisplay} />}
-      />
-      {files.length > 0 ? (
-        <FixedTop>
-          <View className="flex-row items-center gap-2">
-            <View className="flex-1">
-              <Presets
-                label="Views"
-                value={view}
-                onChange={openView}
-                options={[
-                  { id: "all", label: "All" },
-                  ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
-                ]}
+    <FilesDropTarget spaceId={spaceId}>
+      <View className="gap-4">
+        <ListControls
+          title="Files"
+          count={files.length}
+          filters={[
+            {
+              label: "Kind",
+              icon: IconCategory,
+              values: display.kinds,
+              options: kinds.map((k) => ({
+                id: k,
+                label: kindLabel(k),
+                glyph: k === "link" ? IconLink : KIND_ICONS[k],
+              })),
+              onChange: (next) => setDisplay({ ...display, kinds: next }),
+            },
+            {
+              label: "Labels",
+              icon: IconTag,
+              values: display.labels,
+              options: used.map(labelOption),
+              onChange: (next) => setDisplay({ ...display, labels: next }),
+            },
+            ...own.fields,
+          ]}
+          display={<FileDisplayPanel display={display} onChange={setDisplay} />}
+        />
+        {files.length > 0 ? (
+          <FixedTop>
+            <View className="flex-row items-center gap-2">
+              <View className="flex-1">
+                <Presets
+                  label="Views"
+                  value={view}
+                  onChange={openView}
+                  options={[
+                    { id: "all", label: "All" },
+                    ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
+                  ]}
+                />
+              </View>
+              <IconButton
+                label="New View"
+                variant="secondary"
+                icon={<IconPlus size={18} color={theme.colors.foreground} />}
+                onPress={() => setMaking(true)}
               />
             </View>
-            <IconButton
-              label="New View"
-              variant="secondary"
-              icon={<IconPlus size={18} color={theme.colors.foreground} />}
-              onPress={() => setMaking(true)}
-            />
-          </View>
-        </FixedTop>
-      ) : null}
-      <PickedLabels
-        picked={display.shelf}
-        labels={labels}
-        counts={counts}
-        onChange={(picked) => setDisplay({ ...display, shelf: picked })}
-        showsFiles={shelf.shown.length > 0}
-      />
-      <NewFileView
-        open={making}
-        onOpenChange={setMaking}
-        labels={labels}
-        counts={counts}
-        picked={display.shelf}
-        onCreate={async (title, picked) => {
-          const value = { ...display, shelf: picked };
-          const id = await saveAsView.mutateAsync({ title, value });
-          setNote(null);
-          draft.open({ id, value });
-        }}
-      />
-      {note ? (
-        <Text variant="small" tone="muted">
-          {note}
-        </Text>
-      ) : null}
-      <ListEmpty
-        glyph={MODULE_ICONS.files}
-        total={files.length}
-        shown={groups.length}
-        nothingYet={{ title: "No Files", message: "Tap + to add some, or paste a link below." }}
-        onClear={() =>
-          setDisplay({ ...display, kinds: [], labels: [], shelf: [], ...ENTITY_FILTERS_NONE })
-        }
-      />
-      {groups.length === 0
-        ? null
-        : groups.map((group) => (
-            <Section key={group.title || "all"} title={group.title || undefined}>
-              {display.layout === "grid" ? (
-                <Grid min={140} max={6}>
-                  {group.items.map((file) => (
-                    <FileTile key={file.entity.id} file={file} />
-                  ))}
-                </Grid>
-              ) : tablet ? (
-                <FileTable files={group.items} />
-              ) : (
-                group.items.map((file) => <FileTile key={file.entity.id} file={file} row />)
-              )}
-            </Section>
-          ))}
-      {/* Room for the paste bar floating over the end of the list. */}
-      <View style={{ height: PASTE_BAR_ROOM }} />
-      <SaveBar
-        dirty={draft.dirty}
-        above={PASTE_BAR_ROOM - PASTE_BAR_MARGIN}
-        onDiscard={draft.discard}
-        onSave={async () => {
-          if (draft.viewId) {
-            await saveView.mutateAsync(draft.viewId);
-            draft.commit();
-          } else draft.save();
-        }}
-        onSaveAsView={
-          draft.viewId
-            ? undefined
-            : async (title) => {
-                const id = await saveAsView.mutateAsync({ title, value: display });
-                draft.open({ id, value: display });
-              }
-        }
-      />
-    </View>
+          </FixedTop>
+        ) : null}
+        <PickedLabels
+          picked={display.shelf}
+          labels={labels}
+          counts={counts}
+          onChange={(picked) => setDisplay({ ...display, shelf: picked })}
+          showsFiles={shelf.shown.length > 0}
+        />
+        <NewFileView
+          open={making}
+          onOpenChange={setMaking}
+          labels={labels}
+          counts={counts}
+          picked={display.shelf}
+          onCreate={async (title, picked) => {
+            const value = { ...display, shelf: picked };
+            const id = await saveAsView.mutateAsync({ title, value });
+            setNote(null);
+            draft.open({ id, value });
+          }}
+        />
+        {note ? (
+          <Text variant="small" tone="muted">
+            {note}
+          </Text>
+        ) : null}
+        <ListEmpty
+          glyph={MODULE_ICONS.files}
+          total={files.length}
+          shown={groups.length}
+          nothingYet={{ title: "No Files", message: "Tap + to add some, or paste a link below." }}
+          onClear={() =>
+            setDisplay({ ...display, kinds: [], labels: [], shelf: [], ...ENTITY_FILTERS_NONE })
+          }
+        />
+        {groups.length === 0
+          ? null
+          : groups.map((group) => (
+              <Section key={group.title || "all"} title={group.title || undefined}>
+                {display.layout === "grid" ? (
+                  <Grid min={140} max={6}>
+                    {group.items.map((file) => (
+                      <FileTile key={file.entity.id} file={file} />
+                    ))}
+                  </Grid>
+                ) : tablet ? (
+                  <FileTable files={group.items} />
+                ) : (
+                  group.items.map((file) => <FileTile key={file.entity.id} file={file} row />)
+                )}
+              </Section>
+            ))}
+        {/* Room for the paste bar floating over the end of the list. */}
+        <View style={{ height: PASTE_BAR_ROOM }} />
+        <SaveBar
+          dirty={draft.dirty}
+          above={PASTE_BAR_ROOM - PASTE_BAR_MARGIN}
+          onDiscard={draft.discard}
+          onSave={async () => {
+            if (draft.viewId) {
+              await saveView.mutateAsync(draft.viewId);
+              draft.commit();
+            } else draft.save();
+          }}
+          onSaveAsView={
+            draft.viewId
+              ? undefined
+              : async (title) => {
+                  const id = await saveAsView.mutateAsync({ title, value: display });
+                  draft.open({ id, value: display });
+                }
+          }
+        />
+      </View>
+    </FilesDropTarget>
   );
 }
 

@@ -12,7 +12,19 @@ import {
   IconPlus,
   IconX,
 } from "@tabler/icons-react-native";
+import { type MutableRefObject, useRef } from "react";
 import { ScrollView, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import { LIFT_DELAY, LIFT_SCALE, SPRING } from "../ui/motion.ts";
+import { useReduceMotion } from "../ui/reduce-motion.ts";
+import { useWindowSize } from "../ui/pane.tsx";
+import { SPLIT_EDGE, type TabSlot, tabDrop, useTabDrag } from "./tab-drag.ts";
 import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Text } from "../ui/Text.tsx";
@@ -24,8 +36,31 @@ import { PathIcon, usePathTitle } from "./Crumbs.tsx";
 import type { PageTab } from "./workspace.ts";
 import { useWorkspace, workspace } from "./workspace-store.ts";
 
-function TabLabel({ tab, active, preview }: { tab: PageTab; active: boolean; preview: boolean }) {
+/// Screen reader moves for a tab, which cannot be dragged.
+const TAB_ACTIONS = [
+  { name: "longpress", label: "Tab Menu" },
+  { name: "moveLeft", label: "Move Left" },
+  { name: "moveRight", label: "Move Right" },
+];
+
+function TabLabel({
+  tab,
+  index,
+  count,
+  slots,
+  active,
+  preview,
+}: {
+  tab: PageTab;
+  index: number;
+  count: number;
+  slots: MutableRefObject<(TabSlot | undefined)[]>;
+  active: boolean;
+  preview: boolean;
+}) {
   const theme = useTheme();
+  const reduce = useReduceMotion();
+  const { width: windowWidth } = useWindowSize();
   const title = usePathTitle(tab.view, tab.id);
   const menu = useMenu();
   const anchor = useAnchor();
@@ -73,52 +108,125 @@ function TabLabel({ tab, active, preview }: { tab: PageTab; active: boolean; pre
       ],
       { anchor },
     );
+  // Held, a tab lifts and follows the finger (D86): along the strip to a new place, or to
+  // the window's right edge for a group of its own. Let go where it was, its menu opens.
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const lifted = useSharedValue(false);
+  const overEdge = useSharedValue(false);
+  const land = (dx: number, dy: number, x: number) => {
+    dragged(false, false);
+    const drop = tabDrop({ slots: slots.current, count, from: index, dx, dy, x, windowWidth });
+    if (drop.kind === "menu") showMenu();
+    else if (drop.kind === "right") workspace.move(tab.id, "new-right");
+    else if (drop.kind === "reorder") workspace.reorder(tab.id, drop.to);
+  };
+  const dragged = (dragging: boolean, over: boolean) =>
+    useTabDrag.setState({ dragging, overEdge: over });
+  const pan = Gesture.Pan()
+    .activateAfterLongPress(LIFT_DELAY)
+    .withTestId(`tab-drag-${tab.id}`)
+    .onStart(() => {
+      "worklet";
+      lifted.value = true;
+      runOnJS(dragged)(true, false);
+    })
+    .onUpdate((event) => {
+      "worklet";
+      tx.value = event.translationX;
+      ty.value = event.translationY;
+      const over = event.absoluteX >= windowWidth - SPLIT_EDGE;
+      if (over !== overEdge.value) {
+        overEdge.value = over;
+        runOnJS(dragged)(true, over);
+      }
+    })
+    .onEnd((event) => {
+      "worklet";
+      runOnJS(land)(event.translationX, event.translationY, event.absoluteX);
+    })
+    .onFinalize(() => {
+      "worklet";
+      lifted.value = false;
+      overEdge.value = false;
+      tx.value = withSpring(0, SPRING.lift);
+      ty.value = withSpring(0, SPRING.lift);
+    });
+  const style = useAnimatedStyle(() => ({
+    zIndex: lifted.value ? 10 : 0,
+    transform: [
+      { translateX: tx.value },
+      { translateY: ty.value },
+      { scale: withSpring(lifted.value && !reduce ? LIFT_SCALE : 1, SPRING.lift) },
+    ],
+  }));
+  const moveBy = (step: number) => {
+    const to = index + step;
+    if (to >= 0 && to < count) workspace.reorder(tab.id, to);
+  };
   return (
-    <View
-      ref={anchor.ref}
-      collapsable={false}
-      className={cn(
-        "h-9 max-w-56 flex-row items-center rounded-md",
-        tab.pinned ? "px-1" : "pl-3",
-        active ? "bg-accent" : "active:bg-accent/50",
-      )}
-    >
-      <PointerPressable
-        onSecondary={showMenu}
-        hoverClassName="opacity-80"
-        accessibilityRole="tab"
-        accessibilityLabel={tab.pinned ? `${title}, pinned` : title}
-        accessibilityState={{ selected: active }}
-        accessibilityActions={[{ name: "longpress", label: "Tab Menu" }]}
-        onAccessibilityAction={showMenu}
-        onPress={() => workspace.select(tab.id)}
-        onLongPress={showMenu}
-        hitSlop={{ top: touchSlop(CONTROL_SIZE.sm).top, bottom: touchSlop(CONTROL_SIZE.sm).bottom }}
-        className={cn(
-          "min-w-0 flex-shrink active:opacity-60",
-          tab.pinned && "size-9 items-center justify-center",
-        )}
+    <GestureDetector gesture={pan}>
+      <Animated.View
+        style={style}
+        onLayout={(e) => {
+          slots.current[index] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width };
+        }}
       >
-        {tab.pinned ? (
-          <PathIcon path={tab.view} />
-        ) : (
-          <Text
-            numberOfLines={1}
-            className={cn(!active && "text-muted-foreground", preview && "italic")}
+        <View
+          ref={anchor.ref}
+          collapsable={false}
+          className={cn(
+            "h-9 max-w-56 flex-row items-center rounded-md",
+            tab.pinned ? "px-1" : "pl-3",
+            active ? "bg-accent" : "active:bg-accent/50",
+          )}
+        >
+          <PointerPressable
+            onSecondary={showMenu}
+            hoverClassName="opacity-80"
+            accessibilityRole="tab"
+            accessibilityLabel={tab.pinned ? `${title}, pinned` : title}
+            accessibilityState={{ selected: active }}
+            accessibilityActions={TAB_ACTIONS}
+            onAccessibilityAction={(event) => {
+              const action = event.nativeEvent.actionName;
+              if (action === "moveLeft") moveBy(-1);
+              else if (action === "moveRight") moveBy(1);
+              else showMenu();
+            }}
+            onPress={() => workspace.select(tab.id)}
+            onLongPress={showMenu}
+            hitSlop={{
+              top: touchSlop(CONTROL_SIZE.sm).top,
+              bottom: touchSlop(CONTROL_SIZE.sm).bottom,
+            }}
+            className={cn(
+              "min-w-0 flex-shrink active:opacity-60",
+              tab.pinned && "size-9 items-center justify-center",
+            )}
           >
-            {title}
-          </Text>
-        )}
-      </PointerPressable>
-      {tab.pinned ? null : (
-        <IconButton
-          label={`Close ${title}`}
-          size="iconSm"
-          icon={<IconX size={14} color={theme.colors.mutedForeground} />}
-          onPress={() => workspace.close(tab.id)}
-        />
-      )}
-    </View>
+            {tab.pinned ? (
+              <PathIcon path={tab.view} />
+            ) : (
+              <Text
+                numberOfLines={1}
+                className={cn(!active && "text-muted-foreground", preview && "italic")}
+              >
+                {title}
+              </Text>
+            )}
+          </PointerPressable>
+          {tab.pinned ? null : (
+            <IconButton
+              label={`Close ${title}`}
+              size="iconSm"
+              icon={<IconX size={14} color={theme.colors.mutedForeground} />}
+              onPress={() => workspace.close(tab.id)}
+            />
+          )}
+        </View>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -154,7 +262,10 @@ export function TabStrip({ groupId, alone = false }: { groupId: string; alone?: 
   const theme = useTheme();
   const group = useWorkspace((s) => s.ws.layout.groups.find((g) => g.id === groupId));
   const preview = useWorkspace((s) => s.ws.preview[groupId]);
+  const slots = useRef<(TabSlot | undefined)[]>([]);
   if (!group) return null;
+  // Pinned tabs first, as icons, as on the desktop.
+  const tabs = [...group.tabs.filter((t) => t.pinned), ...group.tabs.filter((t) => !t.pinned)];
   return (
     <View className="h-11 flex-row items-center px-1">
       <ScrollView
@@ -163,17 +274,17 @@ export function TabStrip({ groupId, alone = false }: { groupId: string; alone?: 
         accessibilityRole="tablist"
         contentContainerClassName="items-center gap-1"
       >
-        {/* Pinned tabs first, as icons, as on the desktop. */}
-        {[...group.tabs.filter((t) => t.pinned), ...group.tabs.filter((t) => !t.pinned)].map(
-          (tab) => (
-            <TabLabel
-              key={tab.id}
-              tab={tab}
-              active={tab.id === group.activeTabId}
-              preview={tab.id === preview}
-            />
-          ),
-        )}
+        {tabs.map((tab, index) => (
+          <TabLabel
+            key={tab.id}
+            tab={tab}
+            index={index}
+            count={tabs.length}
+            slots={slots}
+            active={tab.id === group.activeTabId}
+            preview={tab.id === preview}
+          />
+        ))}
       </ScrollView>
       {alone ? <OtherGroupButton groupId={groupId} /> : null}
       <IconButton
