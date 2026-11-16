@@ -52,7 +52,16 @@ export function ShortcutHost({
         case "newTab":
         case "closeTab":
         case "splitRight":
+        case "splitLeft":
+        case "closeOtherTabs":
+        case "focusLeftGroup":
+        case "focusRightGroup":
+        case "toggleGroupZoom":
           return onAction(id);
+        case "nextTabAlt":
+          return onAction("nextTab");
+        case "previousTabAlt":
+          return onAction("previousTab");
         case "nextSpace":
           return stepSpace(1);
         case "previousSpace":

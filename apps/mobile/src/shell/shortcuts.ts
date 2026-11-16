@@ -19,6 +19,13 @@ export type ShortcutId =
   | "nextTab"
   | "previousTab"
   | "splitRight"
+  | "splitLeft"
+  | "closeOtherTabs"
+  | "nextTabAlt"
+  | "previousTabAlt"
+  | "focusLeftGroup"
+  | "focusRightGroup"
+  | "toggleGroupZoom"
   | "nextSpace"
   | "previousSpace";
 
@@ -64,7 +71,62 @@ export const SHORTCUTS: Shortcut[] = [
     title: "Previous Tab",
     section: "Tabs",
   },
-  { id: "splitRight", key: "\\", modifiers: ["command"], title: "Split Right", section: "Tabs" },
+  {
+    id: "closeOtherTabs",
+    key: "w",
+    modifiers: ["command", "shift"],
+    title: "Close Other Tabs",
+    section: "Tabs",
+  },
+  {
+    id: "nextTabAlt",
+    key: "UIKeyInputRightArrow",
+    modifiers: ["command", "option"],
+    title: "Go to Next Tab",
+    section: "Tabs",
+  },
+  {
+    id: "previousTabAlt",
+    key: "UIKeyInputLeftArrow",
+    modifiers: ["command", "option"],
+    title: "Go to Previous Tab",
+    section: "Tabs",
+  },
+  {
+    id: "splitRight",
+    key: "UIKeyInputRightArrow",
+    modifiers: ["command", "option", "shift"],
+    title: "Split Right",
+    section: "Tabs",
+  },
+  {
+    id: "splitLeft",
+    key: "UIKeyInputLeftArrow",
+    modifiers: ["command", "option", "shift"],
+    title: "Split Left",
+    section: "Tabs",
+  },
+  {
+    id: "focusLeftGroup",
+    key: "1",
+    modifiers: ["command"],
+    title: "Focus Left Group",
+    section: "Tabs",
+  },
+  {
+    id: "focusRightGroup",
+    key: "2",
+    modifiers: ["command"],
+    title: "Focus Right Group",
+    section: "Tabs",
+  },
+  {
+    id: "toggleGroupZoom",
+    key: "\r",
+    modifiers: ["command", "shift"],
+    title: "Zoom Group",
+    section: "Tabs",
+  },
   {
     id: "previousSpace",
     key: "UIKeyInputUpArrow",
@@ -97,6 +159,8 @@ const NAMED = new Map([
   ["\\", "\\"],
   ["UIKeyInputUpArrow", "↑"],
   ["UIKeyInputDownArrow", "↓"],
+  ["UIKeyInputLeftArrow", "←"],
+  ["UIKeyInputRightArrow", "→"],
   ["UIKeyInputEscape", "⎋"],
   ["\r", "↩"],
 ]);

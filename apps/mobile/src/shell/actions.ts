@@ -41,6 +41,19 @@ export function useShellActions(toggleSidebar?: () => void): (action: AppAction)
       case "splitLeft":
         workspace.splitLeft();
         break;
+      case "closeOtherTabs":
+        workspace.closeOthers(focusedTab(useWorkspace.getState().ws).id);
+        break;
+      case "focusLeftGroup":
+      case "focusRightGroup": {
+        const { groups } = useWorkspace.getState().ws.layout;
+        const group = groups[action === "focusLeftGroup" ? 0 : 1];
+        if (group) workspace.focus(group.id);
+        break;
+      }
+      case "toggleGroupZoom":
+        workspace.toggleZoom();
+        break;
       case "nextTab":
         workspace.cycle(1);
         break;

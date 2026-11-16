@@ -1,59 +1,121 @@
-import { IconPlus, IconX } from "@tabler/icons-react-native";
+import {
+  IconArrowsLeftRight,
+  IconLayoutSidebar,
+  IconLayoutSidebarRight,
+  IconMaximize,
+  IconPin,
+  IconPinnedOff,
+  IconPlus,
+  IconSquareX,
+  IconX,
+} from "@tabler/icons-react-native";
 import { Pressable, ScrollView, View } from "react-native";
-import { useEntity } from "../data/queries.ts";
 import { IconButton } from "../ui/Button.tsx";
 import { cn } from "../ui/classes.ts";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { CONTROL_SIZE, touchSlop } from "../ui/touch.ts";
-import { titleKey, usePageTitles } from "./PageHost.tsx";
-import { titleOfPath } from "./titles.ts";
+import { SEPARATOR, useMenu } from "../ui/menu.tsx";
+import { useAnchor } from "../ui/sheet/anchor.ts";
+import { PathIcon, usePathTitle } from "./Crumbs.tsx";
 import type { PageTab } from "./workspace.ts";
 import { useWorkspace, workspace } from "./workspace-store.ts";
-
-/// A page's name for its tab: the item's own title, what the page called itself, or the
-/// page's name.
-export function usePathTitle(path: string, tabId?: string): string {
-  const id = /^\/entity\/([^/?]+)/.exec(path)?.[1];
-  const { data: entity } = useEntity(id ?? "");
-  const own = usePageTitles((s) => (tabId ? s.titles[titleKey(tabId, path)] : undefined));
-  if (entity) return entity.title || entity.key;
-  return own ?? titleOfPath(path) ?? "Untitled";
-}
 
 function TabLabel({ tab, active, preview }: { tab: PageTab; active: boolean; preview: boolean }) {
   const theme = useTheme();
   const title = usePathTitle(tab.view, tab.id);
+  const menu = useMenu();
+  const anchor = useAnchor();
+  const two = useWorkspace((s) => s.ws.layout.groups.length > 1);
+  // The desktop's tab menu, as a popover on the tab.
+  const showMenu = () =>
+    menu.show(
+      title,
+      [
+        {
+          label: tab.pinned ? "Unpin Tab" : "Pin Tab",
+          icon: tab.pinned ? IconPinnedOff : IconPin,
+          onPress: () => workspace.pin(tab.id, !tab.pinned),
+        },
+        SEPARATOR,
+        {
+          label: "Split Right",
+          icon: IconLayoutSidebarRight,
+          onPress: () => split(tab.id, "right"),
+        },
+        { label: "Split Left", icon: IconLayoutSidebar, onPress: () => split(tab.id, "left") },
+        ...(two
+          ? [
+              {
+                label: "Move to Other Group",
+                icon: IconArrowsLeftRight,
+                onPress: () => workspace.moveToOther(tab.id),
+              },
+              { label: "Zoom Group", icon: IconMaximize, onPress: () => workspace.toggleZoom() },
+            ]
+          : []),
+        SEPARATOR,
+        { label: "Close Tab", icon: IconX, onPress: () => workspace.close(tab.id) },
+        {
+          label: "Close Other Tabs",
+          icon: IconSquareX,
+          onPress: () => workspace.closeOthers(tab.id),
+        },
+      ],
+      { anchor },
+    );
   return (
     <View
+      ref={anchor.ref}
+      collapsable={false}
       className={cn(
-        "h-9 max-w-56 flex-row items-center rounded-md pl-3",
+        "h-9 max-w-56 flex-row items-center rounded-md",
+        tab.pinned ? "px-1" : "pl-3",
         active ? "bg-accent" : "active:bg-accent/50",
       )}
     >
       <Pressable
         accessibilityRole="tab"
-        accessibilityLabel={title}
+        accessibilityLabel={tab.pinned ? `${title}, pinned` : title}
         accessibilityState={{ selected: active }}
+        accessibilityActions={[{ name: "longpress", label: "Tab Menu" }]}
+        onAccessibilityAction={showMenu}
         onPress={() => workspace.select(tab.id)}
+        onLongPress={showMenu}
         hitSlop={{ top: touchSlop(CONTROL_SIZE.sm).top, bottom: touchSlop(CONTROL_SIZE.sm).bottom }}
-        className="min-w-0 flex-shrink active:opacity-60"
+        className={cn(
+          "min-w-0 flex-shrink active:opacity-60",
+          tab.pinned && "size-9 items-center justify-center",
+        )}
       >
-        <Text
-          numberOfLines={1}
-          className={cn(!active && "text-muted-foreground", preview && "italic")}
-        >
-          {title}
-        </Text>
+        {tab.pinned ? (
+          <PathIcon path={tab.view} />
+        ) : (
+          <Text
+            numberOfLines={1}
+            className={cn(!active && "text-muted-foreground", preview && "italic")}
+          >
+            {title}
+          </Text>
+        )}
       </Pressable>
-      <IconButton
-        label={`Close ${title}`}
-        size="iconSm"
-        icon={<IconX size={14} color={theme.colors.mutedForeground} />}
-        onPress={() => workspace.close(tab.id)}
-      />
+      {tab.pinned ? null : (
+        <IconButton
+          label={`Close ${title}`}
+          size="iconSm"
+          icon={<IconX size={14} color={theme.colors.mutedForeground} />}
+          onPress={() => workspace.close(tab.id)}
+        />
+      )}
     </View>
   );
+}
+
+/// A tab copied into the group on its side, as the desktop's Split Right and Left.
+function split(tabId: string, side: "right" | "left") {
+  workspace.select(tabId);
+  if (side === "right") workspace.splitRight();
+  else workspace.splitLeft();
 }
 
 /// A group's open tabs, with a button for a new one: the desktop's tab bar.
@@ -70,14 +132,17 @@ export function TabStrip({ groupId }: { groupId: string }) {
         accessibilityRole="tablist"
         contentContainerClassName="items-center gap-1"
       >
-        {group.tabs.map((tab) => (
-          <TabLabel
-            key={tab.id}
-            tab={tab}
-            active={tab.id === group.activeTabId}
-            preview={tab.id === preview}
-          />
-        ))}
+        {/* Pinned tabs first, as icons, as on the desktop. */}
+        {[...group.tabs.filter((t) => t.pinned), ...group.tabs.filter((t) => !t.pinned)].map(
+          (tab) => (
+            <TabLabel
+              key={tab.id}
+              tab={tab}
+              active={tab.id === group.activeTabId}
+              preview={tab.id === preview}
+            />
+          ),
+        )}
       </ScrollView>
       <IconButton
         label="New Tab"

@@ -21,7 +21,7 @@ import { useTheme } from "../ui/theme.ts";
 import { MIN_TOUCH } from "../ui/touch.ts";
 import { matchPage } from "./pages.tsx";
 import { titleOfPath } from "./titles.ts";
-import { usePathTitle } from "./TabStrip.tsx";
+import { titleKey, usePageTitles } from "./PageHost.tsx";
 import { workspace } from "./workspace-store.ts";
 
 /// The desktop titlebar's crumbs (`titlebar.tsx`) for the focused tab: the Space's icon
@@ -144,6 +144,21 @@ function useCrumbs(path: string): Crumb[] {
     },
     ...viewCrumb,
   ];
+}
+
+/// A page's name for its tab: the item's own title, what the page called itself, or the
+/// page's name.
+export function usePathTitle(path: string, tabId?: string): string {
+  const id = /^\/entity\/([^/?]+)/.exec(path)?.[1];
+  const { data: entity } = useEntity(id ?? "");
+  const own = usePageTitles((s) => (tabId ? s.titles[titleKey(tabId, path)] : undefined));
+  if (entity) return entity.title || entity.key;
+  return own ?? titleOfPath(path) ?? "Untitled";
+}
+
+/// The icon of what `path` shows: its last crumb's (a pinned tab's face).
+export function PathIcon({ path }: { path: string }) {
+  return <>{useCrumbs(path).at(-1)?.icon ?? null}</>;
 }
 
 /// The crumbs of `path`; `short` keeps only the last (a medium window's titlebar).

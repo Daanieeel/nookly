@@ -17,6 +17,7 @@ const ROUTES = {
   tasks: () => null,
   calendar: () => null,
   trash: () => null,
+  pinned: () => null,
   "entity/[id]": () => null,
   "module/[spaceId]/[module]": () => null,
   "new/task": () => null,
@@ -124,5 +125,19 @@ describe("the tablet's window", () => {
     expect(await screen.findByText("Split Left")).toBeTruthy();
     await fireEvent.press(screen.getByText("Split Right"));
     await waitFor(() => expect(groups()).toEqual([["/trash"], ["/trash"]]));
+  });
+
+  it("pins a tab from its menu, shown as an icon first", async () => {
+    const screen = await setup(LANDSCAPE);
+    act(() => {
+      workspace.open("/trash");
+      workspace.open("/pinned", "newTab");
+      workspace.open("/", "newTab");
+    });
+    await fireEvent(await screen.findByRole("tab", { name: "Trash" }), "longPress");
+    await fireEvent.press(await screen.findByText("Pin Tab"));
+    expect(await screen.findByRole("tab", { name: "Trash, pinned" })).toBeTruthy();
+    const tabs = screen.getAllByRole("tab").map((t) => t.props.accessibilityLabel);
+    expect(tabs[0]).toBe("Trash, pinned");
   });
 });

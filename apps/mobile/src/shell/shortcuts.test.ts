@@ -35,5 +35,11 @@ describe("the keyboard shortcuts", () => {
     expect(keysOf("settings")).toBe("⌘,");
     expect(keysOf("toggleSidebar")).toBe("⌘S");
     expect(keysOf("quickJot")).toBe("⌘J");
+    expect(keysOf("closeOtherTabs")).toBe("⇧⌘W");
+    expect(keysOf("nextTabAlt")).toBe("⌥⌘→");
+    expect(keysOf("splitRight")).toBe("⌥⇧⌘→");
+    expect(keysOf("splitLeft")).toBe("⌥⇧⌘←");
+    expect(keysOf("focusLeftGroup")).toBe("⌘1");
+    expect(keysOf("toggleGroupZoom")).toBe("⇧⌘↩");
   });
 });

@@ -62,6 +62,12 @@ export const workspace = {
   reorder: (tabId: string, toIndex: number) => update((ws) => reorderTab(ws, tabId, toIndex)),
   move: (tabId: string, target: GroupTarget, toIndex?: number) =>
     update((ws) => moveTab(ws, tabId, target, toIndex)),
+  /// Into the other group, as the desktop's Move to Other Group.
+  moveToOther: (tabId: string) =>
+    update((ws) => {
+      const other = ws.layout.groups.find((g) => !g.tabs.some((t) => t.id === tabId));
+      return other ? moveTab(ws, tabId, { groupId: other.id }) : ws;
+    }),
   keep: (tabId: string) => update((ws) => keepPreview(ws, tabId)),
   splitRight: () => update((ws) => splitRight(ws, randomUUID)),
   splitLeft: () => update((ws) => splitLeft(ws, randomUUID)),

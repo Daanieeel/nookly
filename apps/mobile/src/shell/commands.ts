@@ -19,6 +19,10 @@ export interface PaletteCommand {
     | "previousTab"
     | "splitRight"
     | "splitLeft"
+    | "closeOtherTabs"
+    | "focusLeftGroup"
+    | "focusRightGroup"
+    | "toggleGroupZoom"
     | "closeSplit";
   /// Other words someone might type.
   keywords: string[];

@@ -2,6 +2,7 @@ import {
   type Workspace,
   activePath,
   back,
+  closeOtherTabs,
   closeTab,
   forward,
   keepPreview,
@@ -22,6 +23,16 @@ const focusedTabs = (ws: Workspace) =>
 // The tablet's window is the desktop's: groups of tabs side by side, each tab with its own
 // Back and Forward, so a tab's history is the navigation (D83, 1.4 to 1.6, 1.10).
 describe("the tablet's workspace", () => {
+  it("closes the other tabs but keeps the pinned ones, as the desktop's tab menu does", () => {
+    let ws = open(start(), "/trash", "here", ids);
+    ws = open(ws, "/pinned", "newTab", ids);
+    ws = open(ws, "/calendar", "newTab", ids);
+    const [trash, , calendar] = focusedTabs(ws);
+    ws = pinTab(ws, trash.id, true);
+    ws = closeOtherTabs(ws, calendar.id);
+    expect(focusedTabs(ws).map((t) => t.view)).toEqual(["/trash", "/calendar"]);
+  });
+
   it("opens a page in the tab shown, and goes back and forward in that tab only", () => {
     let ws = open(start(), "/tasks", "here", ids);
     ws = open(ws, "/entity/a", "here", ids);
