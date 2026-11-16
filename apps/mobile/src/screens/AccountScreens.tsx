@@ -30,6 +30,7 @@ import { useSemantic } from "../ui/kit/scheme.ts";
 import { RADIUS, SPACE } from "../ui/tokens.ts";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
 import { Screen } from "../ui/Screen.tsx";
+import { RouteSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
@@ -62,36 +63,59 @@ export function WelcomeScreen() {
     onboarded.set("1");
     router.dismissTo("/");
   };
+  const brand = (
+    <View className="items-center justify-center gap-5">
+      <View className="size-16 items-center justify-center rounded-2xl bg-primary">
+        <IconNotebook size={32} color={theme.colors.primaryForeground} />
+      </View>
+      <Text variant="title" className="text-3xl">
+        Nookly
+      </Text>
+      <Text tone="muted" className="max-w-72 text-center text-base">
+        Your tasks, notes, studies and plans, in one calm place, on every device.
+      </Text>
+    </View>
+  );
+  const choices = (
+    <View className="w-full max-w-md gap-3 self-center">
+      <Button label="Create Account" size="lg" onPress={() => router.push("/account/sign-up")} />
+      <Button
+        label="Sign In"
+        variant="secondary"
+        size="lg"
+        onPress={() => router.push("/account/sign-in")}
+      />
+      <Button label="Continue Without an Account" variant="ghost" onPress={continueAlone} />
+      <Text variant="small" tone="muted" className="px-4 pt-1 text-center">
+        Nookly works fully offline, on this {device} alone. An account keeps your phone, tablet and
+        computer in step, live.
+      </Text>
+    </View>
+  );
+  // A tablet's is a card in the middle of the window, as the desktop's account dialog.
+  if (device === "tablet") {
+    return (
+      <View
+        className={cn("flex-1 items-center justify-center px-6", PAGE_BACKGROUND)}
+        style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
+      >
+        <View
+          testID="welcome-card"
+          className="w-full max-w-md gap-8 rounded-xl border border-border bg-card px-8 py-10 shadow-md"
+        >
+          {brand}
+          {choices}
+        </View>
+      </View>
+    );
+  }
   return (
     <View
       className={cn("flex-1 px-6", PAGE_BACKGROUND)}
       style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
     >
-      <View className="flex-1 items-center justify-center gap-5">
-        <View className="size-16 items-center justify-center rounded-2xl bg-primary">
-          <IconNotebook size={32} color={theme.colors.primaryForeground} />
-        </View>
-        <Text variant="title" className="text-3xl">
-          Nookly
-        </Text>
-        <Text tone="muted" className="max-w-72 text-center text-base">
-          Your tasks, notes, studies and plans, in one calm place, on every device.
-        </Text>
-      </View>
-      <View className="w-full max-w-md gap-3 self-center">
-        <Button label="Create Account" size="lg" onPress={() => router.push("/account/sign-up")} />
-        <Button
-          label="Sign In"
-          variant="secondary"
-          size="lg"
-          onPress={() => router.push("/account/sign-in")}
-        />
-        <Button label="Continue Without an Account" variant="ghost" onPress={continueAlone} />
-        <Text variant="small" tone="muted" className="px-4 pt-1 text-center">
-          Nookly works fully offline, on this {device} alone. An account keeps your phone, tablet
-          and computer in step, live.
-        </Text>
-      </View>
+      <View className="flex-1 items-center justify-center">{brand}</View>
+      {choices}
     </View>
   );
 }
@@ -183,28 +207,34 @@ function useLocalData() {
   };
 }
 
-const LOCAL_DATA_CHOICES: { value: LocalData; label: string; description: string }[] = [
+const LOCAL_DATA_CHOICES: {
+  value: LocalData;
+  label: string;
+  description: (device: string) => string;
+}[] = [
   {
     value: "add",
     label: "Add to the account",
-    description:
+    description: () =>
       "They join what the account already has and show on every device. A backup is made first.",
   },
   {
     value: "setAside",
     label: "Keep out of the account",
-    description:
-      "They are saved as a backup on this phone and cleared from Nookly, so only the account's data shows.",
+    description: (device) =>
+      `They are saved as a backup on this ${device} and cleared from Nookly, so only the account's data shows.`,
   },
 ];
 
 function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) {
+  const device = useIsTablet() ? "tablet" : "phone";
   if (data.count === 0) return null;
   const items = data.count === 1 ? "1 item" : `${data.count.toLocaleString()} items`;
   return (
     <View className="gap-2" accessibilityRole="radiogroup">
       <Text tone="muted">
-        This phone already holds {items}. What should happen to {data.count === 1 ? "it" : "them"}?
+        This {device} already holds {items}. What should happen to{" "}
+        {data.count === 1 ? "it" : "them"}?
       </Text>
       {LOCAL_DATA_CHOICES.map((option) => {
         const selected = data.choice === option.value;
@@ -223,7 +253,7 @@ function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) 
           >
             <Text className="font-medium">{option.label}</Text>
             <Text variant="small" tone="muted">
-              {option.description}
+              {option.description(device)}
             </Text>
           </Pressable>
         );
@@ -259,6 +289,20 @@ function Page({
   beta?: boolean;
   children: React.ReactNode;
 }) {
+  const tablet = useIsTablet();
+  const router = useRouter();
+  // A tablet's is the desktop's account dialog, titled for what it does.
+  if (tablet) {
+    return (
+      <RouteSheet title={title} kind="form" onClosed={() => router.canGoBack() && router.back()}>
+        <Screen>
+          {beta ? <Badge label="Closed beta" /> : null}
+          <Text tone="muted">{intro}</Text>
+          {children}
+        </Screen>
+      </RouteSheet>
+    );
+  }
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}

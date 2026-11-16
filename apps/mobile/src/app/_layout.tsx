@@ -228,14 +228,15 @@ export default function RootLayout() {
           gestureEnabled: false,
         }}
       />
-      <Stack.Screen name="account/sign-in" options={{ title: "Sign In", ...overWindow(tablet) }} />
+      {/* A tablet's are the desktop's account dialog, drawn by the screens themselves. */}
+      <Stack.Screen name="account/sign-in" options={tablet ? SHEET_ROUTE : { title: "Sign In" }} />
       <Stack.Screen
         name="account/sign-up"
-        options={{ title: "Create Account", ...overWindow(tablet) }}
+        options={tablet ? SHEET_ROUTE : { title: "Create Account" }}
       />
       <Stack.Screen
         name="account/forgot"
-        options={{ title: "Reset Password", ...overWindow(tablet) }}
+        options={tablet ? SHEET_ROUTE : { title: "Reset Password" }}
       />
       <Stack.Screen name="entity/[id]" options={{ title: "", ...pageBar(tablet) }} />
       <Stack.Screen name="file/[id]" options={{ title: "", ...pageBar(tablet) }} />

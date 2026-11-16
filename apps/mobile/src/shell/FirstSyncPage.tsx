@@ -11,6 +11,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { SPACE, TINT } from "../ui/tokens.ts";
 import { useScheme } from "../ui/kit/scheme.ts";
+import { useIsTablet } from "../ui/pane.tsx";
 
 /// The desktop's first sync page (`FirstSyncDialog.tsx`) on the phone: the backup, the items
 /// and files going up, and the check with the server, over the whole app while it runs so
@@ -103,6 +104,9 @@ export function FirstSyncPage() {
   const migration = useSyncState((state) => state.migration);
   const insets = useSafeAreaInsets();
   const background = useSemantic("background");
+  // A tablet's is the desktop's first sync dialog: a card over the dimmed app.
+  const tablet = useIsTablet();
+  const device = tablet ? "tablet" : "phone";
   const retry = useMutation({ mutationFn: () => sync.retryFirstSync() });
   const running = migration !== null && migration.phase !== "done" && migration.phase !== "failed";
   // Up as soon as it starts, and kept up until its end has been read.
@@ -118,10 +122,11 @@ export function FirstSyncPage() {
   return (
     <View
       accessibilityViewIsModal
+      className={tablet ? "bg-black/40" : undefined}
       style={[
         StyleSheet.absoluteFill,
         {
-          backgroundColor: background,
+          backgroundColor: tablet ? undefined : background,
           paddingTop: insets.top + SPACE.xl,
           paddingBottom: insets.bottom + SPACE.lg,
           paddingHorizontal: SPACE.xl,
@@ -130,10 +135,20 @@ export function FirstSyncPage() {
         },
       ]}
     >
-      <View style={{ gap: SPACE.xl, width: "100%", maxWidth: 480, alignSelf: "center" }}>
+      <View
+        testID={tablet ? "first-sync-card" : undefined}
+        className={tablet ? "rounded-xl border border-border bg-card shadow-md" : undefined}
+        style={{
+          gap: SPACE.xl,
+          width: "100%",
+          maxWidth: 480,
+          alignSelf: "center",
+          padding: tablet ? SPACE.xl : 0,
+        }}
+      >
         <View style={{ gap: SPACE.sm }}>
           <Text variant="title" accessibilityRole="header">
-            Bringing this phone into your account
+            {`Bringing this ${device} into your account`}
           </Text>
           <Text tone="muted">
             Everything here goes into your account, and stays here too. Nookly is ready again when
@@ -143,7 +158,9 @@ export function FirstSyncPage() {
         <View style={{ gap: SPACE.lg }}>
           <Step
             state={state.backup}
-            title={state.backup === "done" ? "Backed up this phone" : "Backing up this phone"}
+            title={
+              state.backup === "done" ? `Backed up this ${device}` : `Backing up this ${device}`
+            }
           />
           <Step
             state={state.sending}
@@ -167,7 +184,7 @@ export function FirstSyncPage() {
           <View accessibilityLiveRegion="polite" style={{ gap: SPACE.xs }}>
             <Text>{`All ${plural(migration.items, "item", "items")}${files} are in your account, checked with the server.`}</Text>
             <Text variant="small" tone="muted">
-              Nothing on this phone was removed, and the backup from before stays where it is.
+              Nothing on this {device} was removed, and the backup from before stays where it is.
             </Text>
           </View>
         ) : null}
