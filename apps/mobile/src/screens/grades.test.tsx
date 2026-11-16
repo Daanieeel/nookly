@@ -38,6 +38,24 @@ describe("the grade report", () => {
     expect(screen.getByRole("button", { name: "Algorithms, 1 of 2 graded" })).toBeTruthy();
   });
 
+  // A tablet's report is the desktop's table (5.14): a row per item with its day, weight and
+  // grade beside each other, under one heading row a course.
+  it("lays a course's items out as a table on a tablet", async () => {
+    const { data, space } = await seeded();
+    const screen = await renderScreens(
+      { index: () => <GradesScreen spaceId={space} /> },
+      data,
+      "/",
+      {
+        width: 1032,
+      },
+    );
+    expect(await screen.findByLabelText("Grade of Final")).toBeTruthy();
+    expect(screen.getAllByText("Weight %")).toHaveLength(1);
+    expect(screen.getAllByText("Grade")).toHaveLength(1);
+    expect(screen.getByLabelText("Weight of Sheet 1")).toBeTruthy();
+  });
+
   it("changes an exam's grade and weight in place", async () => {
     const { data, space, exam } = await seeded();
     const screen = await renderScreens({ index: () => <GradesScreen spaceId={space} /> }, data);

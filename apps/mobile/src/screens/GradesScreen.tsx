@@ -1,3 +1,4 @@
+import { useIsTablet } from "../ui/pane.tsx";
 import {
   type CourseReport,
   type GradeItem,
@@ -72,7 +73,7 @@ function Cell({
 
 /// An exam or assignment of a course in the table: its day, its weight (blank is "auto":
 /// an even share of what is left) and its grade, both edited in place.
-function ItemRow({ item }: { item: GradeItem }) {
+function ItemRow({ item, table }: { item: GradeItem; table: boolean }) {
   const entityMenu = useEntityMenu();
   const router = useRouter();
   const title = item.entity.title || (item.kind === "exam" ? "Exam" : "Assignment");
@@ -81,45 +82,71 @@ function ItemRow({ item }: { item: GradeItem }) {
       ? updateExam(db, item.entity.id, patch)
       : updateAssignment(db, item.entity.id, patch),
   );
+  const weight = (
+    <Cell
+      label={`Weight of ${title}`}
+      value={item.weight === null ? null : item.weight > 1 ? item.weight : item.weight * 100}
+      placeholder="auto"
+      onSave={(percent) => save.mutate({ weight: percent === null ? null : percent / 100 })}
+    />
+  );
+  const grade = (
+    <Cell
+      label={`Grade of ${title}`}
+      value={item.grade}
+      placeholder="None"
+      onSave={(grade) => save.mutate({ grade })}
+    />
+  );
+  const name = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${item.kind === "exam" ? "Exam" : "Assignment"}`}
+      onPress={() => router.push(`/entity/${item.entity.id}`)}
+      onLongPress={() => entityMenu(item.entity)}
+      className="min-w-0 flex-1 flex-row items-baseline gap-2 active:opacity-60"
+    >
+      <Text numberOfLines={1} className="flex-1">
+        {title}
+      </Text>
+      <Text variant="small" tone="muted">
+        {item.date ? dayLabel(item.date) : "No day"}
+      </Text>
+    </Pressable>
+  );
+  // A tablet's row of the desktop's table: the item, then its weight and grade (5.14).
+  if (table) {
+    return (
+      <View className="min-h-11 flex-row items-center gap-3 border-t border-border/60 px-3 py-1">
+        {name}
+        <View style={{ width: GRADE_COLUMN }} className="items-end">
+          {weight}
+        </View>
+        <View style={{ width: GRADE_COLUMN }} className="items-end">
+          {grade}
+        </View>
+      </View>
+    );
+  }
   return (
     <View className="gap-1 border-t border-border/60 px-3 py-2">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${title}, ${item.kind === "exam" ? "Exam" : "Assignment"}`}
-        onPress={() => router.push(`/entity/${item.entity.id}`)}
-        onLongPress={() => entityMenu(item.entity)}
-        className="flex-row items-baseline gap-2 active:opacity-60"
-      >
-        <Text numberOfLines={1} className="flex-1">
-          {title}
-        </Text>
-        <Text variant="small" tone="muted">
-          {item.date ? dayLabel(item.date) : "No day"}
-        </Text>
-      </Pressable>
+      {name}
       <View className="flex-row items-center justify-end gap-3">
         <Text variant="small" tone="muted">
           Weight %
         </Text>
-        <Cell
-          label={`Weight of ${title}`}
-          value={item.weight === null ? null : item.weight > 1 ? item.weight : item.weight * 100}
-          placeholder="auto"
-          onSave={(percent) => save.mutate({ weight: percent === null ? null : percent / 100 })}
-        />
+        {weight}
         <Text variant="small" tone="muted">
           Grade
         </Text>
-        <Cell
-          label={`Grade of ${title}`}
-          value={item.grade}
-          placeholder="None"
-          onSave={(grade) => save.mutate({ grade })}
-        />
+        {grade}
       </View>
     </View>
   );
 }
+
+/// The width of a tablet's weight and grade columns.
+const GRADE_COLUMN = 88;
 
 /// How a course's grade is made: one segment per item, as wide as its weight, filled once
 /// it is graded.
@@ -140,6 +167,7 @@ function SegmentedBar({ items }: { items: GradeItem[] }) {
 
 function CourseCard({ report }: { report: CourseReport }) {
   const router = useRouter();
+  const table = useIsTablet();
   const { grades } = report;
   return (
     <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0")}>
@@ -160,8 +188,21 @@ function CourseCard({ report }: { report: CourseReport }) {
         </Text>
         <SegmentedBar items={report.items} />
       </Pressable>
+      {table && report.items.length > 0 ? (
+        <View className="flex-row items-center gap-3 border-t border-border/60 px-3 py-1.5">
+          <Text variant="label" tone="muted" className="flex-1">
+            Item
+          </Text>
+          <Text variant="label" tone="muted" className="text-right" style={{ width: GRADE_COLUMN }}>
+            Weight %
+          </Text>
+          <Text variant="label" tone="muted" className="text-right" style={{ width: GRADE_COLUMN }}>
+            Grade
+          </Text>
+        </View>
+      ) : null}
       {report.items.map((item) => (
-        <ItemRow key={item.entity.id} item={item} />
+        <ItemRow key={item.entity.id} item={item} table={table} />
       ))}
     </View>
   );
