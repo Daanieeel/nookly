@@ -1,3 +1,4 @@
+import { useIsTablet } from "./pane.tsx";
 import { type ReactNode, useRef, useState } from "react";
 import {
   type LayoutChangeEvent,
@@ -59,6 +60,8 @@ export function Field({
   const radius = useSectionRadius();
   const inForm = useInForm();
   const [focused, setFocused] = useState(false);
+  // A tablet's field is the desktop's, at the touch minimum (3.8).
+  const tablet = useIsTablet();
   const field = useRef<TextInput>(null);
   // What the page keeps above the keyboard while typing: the whole field, its name too.
   const box = useRef<View>(null);
@@ -158,7 +161,7 @@ export function Field({
             alignItems: multiline ? "flex-start" : "center",
             gap: SPACE.md,
             paddingHorizontal: SPACE.md + 2,
-            minHeight: MIN_TOUCH + 6,
+            minHeight: tablet ? MIN_TOUCH : MIN_TOUCH + 6,
             borderRadius: radius,
             borderWidth: focused || error ? 1.5 : 1,
             borderColor: border,

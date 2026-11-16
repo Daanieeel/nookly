@@ -3,6 +3,7 @@ import { StyleSheet } from "react-native";
 import { Label } from "./kit/Label.tsx";
 import { WindowSizeProvider } from "./pane.tsx";
 import { Row } from "./Row.tsx";
+import { Field } from "./Field.tsx";
 import { useScale } from "./scale.ts";
 import { TYPE } from "./tokens.ts";
 
@@ -45,5 +46,14 @@ describe("the tablet's scale", () => {
     );
     expect(tablet.getByText("24")).toBeTruthy();
     expect(render(<Gutter />).getByText("16")).toBeTruthy();
+  });
+
+  it("draws a field at the touch minimum on a tablet", () => {
+    const field = <Field label="Name" value="" onChangeText={() => {}} />;
+    const tablet = render(<WindowSizeProvider value={TABLET}>{field}</WindowSizeProvider>);
+    expect(StyleSheet.flatten(tablet.getByTestId("field-box").props.style).minHeight).toBe(44);
+    expect(StyleSheet.flatten(render(field).getByTestId("field-box").props.style).minHeight).toBe(
+      50,
+    );
   });
 });
