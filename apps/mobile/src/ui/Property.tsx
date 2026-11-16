@@ -6,7 +6,8 @@ import { Label } from "./kit/Label.tsx";
 import { useScheme, useSemantic, useSemanticPair } from "./kit/scheme.ts";
 import { CORNER, RADIUS, SPACE, TINT } from "./tokens.ts";
 import { usePropertyLook } from "./parts.tsx";
-import { CONTROL_SIZE, LIST_ROW, MIN_TOUCH, touchSlop } from "./touch.ts";
+import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
+import { useScale } from "./scale.ts";
 
 /// An item's properties as rows, like the desktop's details: each row a name and its value,
 /// hairlines between them, flat on the page. A row that can change opens its picker.
@@ -86,6 +87,7 @@ export function Property({
   const pressedFill = useSemantic("pressed");
   const muted = useSemanticPair("tertiaryLabel");
   const interactive = Boolean(onPress) && !disabled;
+  const { row } = useScale();
   const tint = valueTone === "destructive" ? TINT.red[scheme] : undefined;
   if (usePropertyLook() === "chip") {
     return (
@@ -134,7 +136,7 @@ export function Property({
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => ({
-        minHeight: LIST_ROW.minHeight,
+        minHeight: row,
         flexDirection: "row",
         alignItems: "center",
         gap: SPACE.md,

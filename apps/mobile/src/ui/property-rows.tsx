@@ -10,6 +10,7 @@ import { DayPicker } from "./sheet/DayPicker.tsx";
 import { type Option, OptionList } from "./sheet/OptionList.tsx";
 import { YearInput } from "./YearInput.tsx";
 import { DialogActions, Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
+import { useAnchor } from "./sheet/anchor.ts";
 import { TimeInput, useTwelveHour } from "./TimeInput.tsx";
 import { LIST_ROW } from "./touch.ts";
 import { Label } from "./kit/Label.tsx";
@@ -44,9 +45,12 @@ export function SheetProperty({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // A tablet's picker hangs from the row (3.5).
+  const anchor = useAnchor();
   return (
     <>
       <Property
+        ref={anchor.ref}
         icon={icon}
         label={label}
         value={value}
@@ -56,7 +60,15 @@ export function SheetProperty({
         disabled={readOnly}
         onPress={() => setOpen(true)}
       />
-      <Sheet open={open} onOpenChange={setOpen} title={label} size={size} presentation="card">
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title={label}
+        size={size}
+        presentation="card"
+        kind="picker"
+        anchor={anchor}
+      >
         {children}
       </Sheet>
     </>
