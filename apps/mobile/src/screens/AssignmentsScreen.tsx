@@ -25,6 +25,8 @@ import { useLocalWrite } from "../data/context.tsx";
 import { useDraftPreference } from "../data/preferences.ts";
 import { useAssignments, useCourses, useSpaces } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
+import { GroupedList } from "../ui/GroupedList.tsx";
+import { useIsTablet } from "../ui/pane.tsx";
 import { SpaceDot } from "../ui/Badge.tsx";
 import { cn } from "../ui/classes.ts";
 import { type ListFilter, ListControls } from "../ui/ListControls.tsx";
@@ -196,6 +198,7 @@ function Row({ card = false, ...props }: RowProps & { card?: boolean }) {
 /// course, status or Space, narrowed by course and status, or laid out as a board by status.
 export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null }) {
   const router = useRouter();
+  const tablet = useIsTablet();
   const today = localDay();
   const { data: all = [] } = useAssignments(spaceId ? { spaceId } : {});
   const { data: courses = [] } = useCourses(spaceId);
@@ -365,6 +368,19 @@ export function AssignmentsScreen({ spaceId = null }: { spaceId?: string | null 
             onOpen={(a) => router.push(`/entity/${a.entity.id}`)}
             onMove={(a, status) => moveTo.mutate({ id: a.entity.id, status })}
             renderCard={(a) => row(a, true)}
+          />
+        ) : tablet ? (
+          // The desktop's grouped list: headers with counts that fold (3.4).
+          <GroupedList
+            groups={groups.map((group) => ({
+              id: group.id,
+              name: group.title,
+              defaultCollapsed: group.id === "done",
+              items: group.items,
+              subgroups: null,
+            }))}
+            keyOf={(a) => a.entity.id}
+            renderRow={(a) => row(a)}
           />
         ) : (
           groups.map((group) => (
