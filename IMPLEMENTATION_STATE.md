@@ -269,7 +269,7 @@ All: a medium dialog over the page that opened them (2.4), the desktop's fields 
 
 - [ ] 11.1 **The device's name in copy**: one helper (`deviceName()`: "iPhone", "iPad", "phone", "tablet" on Android) and every text that says "this phone" (about 70 in 31 files: Backup, Haptics, sync, the welcome, the account) reads it. Test that no text names a phone on a tablet.
 - [ ] 11.2 **Docs**: `docs/04-navigation-spaces.md` gets a tablet section (window classes, sidebar over or beside, list beside item, back); `docs/05-ui-ux-direction.md`'s Responsiveness gets the presentation table; `DECISIONS.md` gets every decision taken on the way (D84 on).
-- [ ] 11.3 **Haptics**: iPads have no Taptic Engine; the haptics setting hides on a tablet (`HapticsRow`), and nothing relies on a haptic to confirm an action.
+- [x] 11.3 Done: Appearance shows the Haptics switch on a phone only, and a tablet's Settings says "Theme and file viewer" for it (`settings-pages.test.tsx`). Every haptic sits beside something seen: a button's success and error change its label, a swipe's arming grows its action, picks and toggles move what was picked; copying in a page is silent like the system's own Copy. Was: **Haptics**: iPads have no Taptic Engine; the haptics setting hides on a tablet (`HapticsRow`), and nothing relies on a haptic to confirm an action.
 
 ### 12. Checks and report
 

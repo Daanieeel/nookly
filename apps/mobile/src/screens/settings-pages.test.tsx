@@ -61,6 +61,34 @@ describe("Settings", () => {
     expect(await screen.findByText("What changed")).toBeTruthy();
   });
 
+  // iPads have no Taptic Engine (11.3): a switch for haptics there would do nothing.
+  it("offers haptics on a phone only", async () => {
+    const phone = await renderScreens(
+      { index: () => <SettingsCategoryScreen page="appearance" /> },
+      testData(),
+      "/",
+      { width: 390 },
+    );
+    expect(await phone.findByRole("switch", { name: "Haptics" })).toBeTruthy();
+    phone.unmount();
+    const tablet = await renderScreens(
+      { index: () => <SettingsCategoryScreen page="appearance" /> },
+      testData(),
+      "/",
+      { width: 1194 },
+    );
+    expect(await tablet.findByText("Theme")).toBeTruthy();
+    expect(tablet.queryByRole("switch", { name: "Haptics" })).toBeNull();
+  });
+
+  it("does not promise haptics in Appearance's line on a tablet", async () => {
+    const tablet = await renderScreens({ index: () => <SettingsScreen /> }, testData(), "/", {
+      width: 1194,
+    });
+    expect(await tablet.findByText("Theme and file viewer")).toBeTruthy();
+    expect(tablet.queryByText(/haptics/)).toBeNull();
+  });
+
   it("groups a category's settings under the desktop's headings", async () => {
     const screen = await renderScreens(
       { index: () => <SettingsCategoryScreen page="general" /> },

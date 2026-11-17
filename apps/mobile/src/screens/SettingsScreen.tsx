@@ -61,6 +61,8 @@ const PAGE_BADGES = {
 interface NavLink {
   title: string;
   subtitle: string;
+  /// What a tablet says instead, where the phone's line names something it lacks (haptics).
+  tabletSubtitle?: string;
   badge: BadgeLook;
   /// Where it goes; About has nowhere to go and only says the version.
   href?: string;
@@ -79,6 +81,7 @@ const pageLink = (id: SettingsPage): NavLink => {
   return {
     title: page?.title ?? id,
     subtitle: page?.subtitle ?? "",
+    tabletSubtitle: id === "appearance" ? "Theme and file viewer" : undefined,
     badge: PAGE_BADGES[id],
     href: `/settings/${id}`,
     pane: id,
@@ -306,7 +309,11 @@ export function SettingsScreen({ initial = "general" }: { initial?: string }) {
     tablet && link.pane !== undefined;
   const groups = NAV_GROUPS.map((group) => ({
     ...group,
-    links: group.links.filter((link) => tablet || !link.tabletOnly),
+    links: group.links
+      .filter((link) => tablet || !link.tabletOnly)
+      .map((link) =>
+        tablet && link.tabletSubtitle ? { ...link, subtitle: link.tabletSubtitle } : link,
+      ),
   }));
   const list = (
     <Screen grouped={tablet}>
@@ -455,7 +462,8 @@ export function SettingsCategoryScreen({ page }: { page: string }) {
         />
       )}
       {known?.id === "calendar" && !tablet ? <CalendarConnectionsLink /> : null}
-      {known?.id === "appearance" && (
+      {/* An iPad has no Taptic Engine (11.3). */}
+      {known?.id === "appearance" && !tablet && (
         <GroupedSection title="This phone" margin={0}>
           <HapticsRow />
         </GroupedSection>
