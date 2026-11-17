@@ -130,6 +130,33 @@ describe("a page document", () => {
     expect(editorNodes(left)).toEqual(editorNodes(right));
   });
 
+  it("keeps line breaks inside a paragraph, heading and callout", () => {
+    const doc = new Y.Doc();
+    const lines = [
+      makeBlock({ id: "l1", position: 0, blockType: "paragraph", content: "one\ntwo" }),
+      makeBlock({ id: "l2", position: 1, blockType: "heading2", content: "Week\n**one**" }),
+      makeBlock({
+        id: "l3",
+        position: 2,
+        blockType: "callout",
+        content: "Careful\n\nafter a gap",
+        attrs: { variant: "tip" },
+      }),
+    ];
+    seedPage(doc, lines);
+    const editor = bound(doc);
+    const [paragraph] = editorNodes(editor);
+    expect(paragraph?.content).toEqual([
+      { type: "text", text: "one" },
+      { type: "hardBreak" },
+      { type: "text", text: "two" },
+    ]);
+    expect(inputs(editorNodes(editor)).map((i) => i?.content)).toEqual(lines.map((b) => b.content));
+    editor.commands.setTextSelection(4);
+    editor.commands.setHardBreak();
+    expect(pageBlocks(doc)[0]?.content).toBe("one\n\ntwo");
+  });
+
   it("takes a row changed outside the editor into an open editor", () => {
     const doc = new Y.Doc();
     seedPage(doc, BLOCKS);

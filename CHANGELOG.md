@@ -33,6 +33,12 @@ All notable changes to Nookly are listed here.
 - **Names next to other people's cursors stay visible** in the first line of a page.
 - **An empty Notes or Jots page has room around it** instead of touching the edges.
 
+## 0.75.3 (2026-11-17)
+
+### Fixed
+
+- Fixed line breaks in callouts, paragraphs and headings disappearing after you leave a note and come back.
+
 ## 0.75.2 (2026-11-13)
 
 ### Fixed

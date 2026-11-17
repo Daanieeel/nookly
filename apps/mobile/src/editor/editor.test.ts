@@ -114,6 +114,25 @@ describe("the phone's page schema", () => {
     expect(blocks(copy)).toEqual(blocks(original));
     expect(blocks(copy).map((b) => b?.blockId)).toEqual(BLOCKS.map((b) => b.id));
   });
+
+  it("keeps line breaks inside a paragraph, heading and callout", () => {
+    const doc = new Y.Doc();
+    const lines = [
+      block({ id: "l1", blockType: "paragraph", content: "one\ntwo" }),
+      block({ id: "l2", position: 1, blockType: "heading2", content: "Week\n**one**" }),
+      block({ id: "l3", position: 2, blockType: "callout", content: "Careful\n\nafter a gap" }),
+    ];
+    seedPage(doc, lines);
+    const root = yXmlFragmentToProseMirrorRootNode(doc.getXmlFragment(PAGE_FRAGMENT), pageSchema);
+    root.check();
+    expect(root.child(0).child(1).type.name).toBe("hardBreak");
+    const copy = new Y.Doc();
+    prosemirrorToYXmlFragment(root, copy.getXmlFragment(PAGE_FRAGMENT));
+    const contents = readNodes(copy.getXmlFragment(PAGE_FRAGMENT)).map(
+      (n) => nodeToBlockInput(n)?.content,
+    );
+    expect(contents).toEqual(lines.map((b) => b.content));
+  });
 });
 
 describe("swapping updates as text", () => {
