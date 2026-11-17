@@ -575,7 +575,9 @@ describe("showing a hidden sidebar from the edge", () => {
         css,
       )?.[1] ?? "";
     const shadow = /box-shadow:([^;]*);/.exec(rule)?.[1] ?? "";
-    const blurs = [...shadow.matchAll(/-?\d+(?:px)? -?\d+(?:px)? (\d+)px/g)].map((m) => Number(m[1]));
+    const blurs = [...shadow.matchAll(/-?\d+(?:px)? -?\d+(?:px)? (\d+)px/g)].map((m) =>
+      Number(m[1]),
+    );
     const alphas = [...shadow.matchAll(/\/ (0?\.\d+)\)/g)].map((m) => Number(m[1]));
     expect(Math.max(0, ...blurs)).toBeGreaterThanOrEqual(48);
     expect(Math.max(0, ...alphas)).toBeGreaterThanOrEqual(0.4);
