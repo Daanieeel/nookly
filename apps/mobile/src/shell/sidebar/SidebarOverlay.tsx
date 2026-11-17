@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { fingersOnly } from "../../ui/pencil.ts";
 import Animated, {
   interpolate,
   runOnJS,
@@ -63,7 +64,9 @@ export function SidebarOverlay({
     const layer = pushLayer(() => close.current());
     return layer.remove;
   }, [open]);
-  const drag = Gesture.Pan()
+  // The details pane holds fields: a Pencil stroke there is Scribble's (10.5).
+  const drag = fingersOnly(Gesture.Pan())
+    .withTestId(`${edgeTestId ?? "overlay"}-drag`)
     .activeOffsetX([-12, 12])
     .onUpdate((event) => {
       const toward = event.translationX * sign;
