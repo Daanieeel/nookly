@@ -276,7 +276,7 @@ All: a medium dialog over the page that opened them (2.4), the desktop's fields 
 - [ ] 12.1 **The matrix**: every route of the app (the list in "Routes" below) on the iPad Pro 13-inch landscape and portrait, the iPad Pro 11-inch landscape and portrait, the iPad mini portrait, and once at a compact width (Slide Over, the phone layout); each screenshot looked at; a page that looks like a phone page is a failure.
 - [ ] 12.2 **Rotation under load**: rotate with a popover open, a dialog with a half typed form, the keyboard up in a note, both split groups open, the sidebar over the page, the details pane over the page, a study session, a drag held. Nothing is lost, nothing ends up off screen.
 - [ ] 12.3 **The phone unchanged**: the phone's full jest suite, and screenshots of the main phone screens next to the ones from before the rework.
-- [ ] 12.4 lint, format:check, typecheck, test, cargo test (if Rust changed), duplication under 1%; report only checks read (`coverage`, `unused`, `audit`, `lint:rust:strict`).
+- [x] 12.4 Done 2026-11-17: lint, format:check, typecheck, the frontend (3590), shared (392) and phone (892) suites, cargo test (1567; the search budget test failed once under the full run's load and passes alone), duplication 0.15%. Read, report only: `unused` lists older exports and a few files and dependencies (the briefing's own helpers made private); `audit` flags Rust advisories (chrono and chrono-tz unmaintained, RUSTSEC-2026-0385), none new from this work. Was: lint, format:check, typecheck, test, cargo test (if Rust changed), duplication under 1%; report only checks read (`coverage`, `unused`, `audit`, `lint:rust:strict`).
 - [ ] 12.5 CI on this branch's open PR green at the end. Never merge it.
 - [ ] 12.6 Final report below.
 

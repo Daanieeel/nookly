@@ -21,7 +21,7 @@ interface Piece {
 }
 
 /// The sentence as one list of pieces, in reading order.
-export function briefingPieces(briefing: Briefing): Piece[] {
+function briefingPieces(briefing: Briefing): Piece[] {
   const runs = (list: Briefing["lead"]): Piece[] =>
     list.map((run) =>
       run.kind === "text"
@@ -44,7 +44,7 @@ export function briefingPieces(briefing: Briefing): Piece[] {
 }
 
 /// The pieces between two character offsets of the sentence, cut where needed.
-export function slicePieces(pieces: Piece[], from: number, to = Infinity): Piece[] {
+function slicePieces(pieces: Piece[], from: number, to = Infinity): Piece[] {
   const out: Piece[] = [];
   let at = 0;
   for (const piece of pieces) {
@@ -92,7 +92,7 @@ function Runs({ pieces, open }: { pieces: Piece[]; open?: (target: LinkTarget) =
 /// eye lands on what the day holds. Every count, time and name is tappable: it opens the
 /// list or the item it speaks of. The mascot sits in the sentence's first lines, the text
 /// flowing around it and on under it at full width.
-export function DashboardBriefing({
+function DashboardBriefing({
   briefing,
   open,
   compact = false,
@@ -187,7 +187,7 @@ export function DashboardGreeting({
 }
 
 /// Today as "Tuesday, 17 November".
-export function todayText(): string {
+function todayText(): string {
   return new Date().toLocaleDateString(undefined, {
     weekday: "long",
     day: "numeric",
