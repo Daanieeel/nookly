@@ -170,6 +170,10 @@ const swipe = async (deltaX: number) => fireEvent.wheel(await slot("Uni"), { del
 /// loaded CI machine stretched past 3 seconds. A swipe that works settles far sooner.
 const settled = { timeout: 10_000 };
 
+/// A swipe test waits up to `settled` twice, longer than a test's default 5 seconds: the
+/// test gave up first on a loaded CI machine, before its own wait ran out.
+const swipeTests = { timeout: 25_000 };
+
 /// Fires a trackpad glide on a clock that only moves by hand, 8ms an event: real time passing
 /// between events (a slow machine in CI) made a glide look like two swipes. The slide after it
 /// runs on the real clock again, which its animation frames read.
@@ -184,7 +188,7 @@ function glide(target: Element, sizes: number[]) {
   now.mockRestore();
 }
 
-describe("swiping between Spaces", () => {
+describe("swiping between Spaces", swipeTests, () => {
   it("moves the list with the fingers, the next Space coming in beside it", async () => {
     setup();
     await swipe(60);
@@ -390,7 +394,7 @@ describe("swiping between Spaces", () => {
   });
 });
 
-describe("the swipe hint", () => {
+describe("the swipe hint", swipeTests, () => {
   const hint = () => screen.queryByText(/Swipe to switch Spaces/);
 
   it("teases the swipe at the bottom while there is more than one Space", async () => {
