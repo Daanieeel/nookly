@@ -1,6 +1,7 @@
 import { IconCheck, IconSelector } from "@tabler/icons-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
+import { ANY_ORIENTATION } from "./orientations.ts";
 import { BlurView } from "expo-blur";
 import Animated, {
   useAnimatedStyle,
@@ -158,7 +159,13 @@ function FloatingMenu<T extends string>({
     transform: [{ scale: 0.85 + 0.15 * shown.value }],
   }));
   return (
-    <Modal transparent visible animationType="none" onRequestClose={onClose}>
+    <Modal
+      transparent
+      visible
+      animationType="none"
+      supportedOrientations={ANY_ORIENTATION}
+      onRequestClose={onClose}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Close Menu"

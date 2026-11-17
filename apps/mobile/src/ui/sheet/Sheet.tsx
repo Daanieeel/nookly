@@ -13,6 +13,7 @@ import {
 } from "react";
 import { BlurView } from "expo-blur";
 import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
+import { ANY_ORIENTATION } from "./orientations.ts";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
@@ -754,6 +755,7 @@ function WindowSheet({
       transparent
       visible
       animationType="none"
+      supportedOrientations={ANY_ORIENTATION}
       statusBarTranslucent
       navigationBarTranslucent
       onRequestClose={requestClose}
