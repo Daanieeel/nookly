@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { act, waitFor } from "expo-router/testing-library";
 import { renderScreens } from "../test/render.tsx";
 import { type KeySystem, ShortcutHost } from "./ShortcutHost.tsx";
@@ -30,6 +31,15 @@ const fakeKeys: KeySystem = {
 
 const press = (id: string) => act(() => listener?.(id));
 
+interface RouteState {
+  routes: { name: string; state?: RouteState }[];
+}
+
+/// Every route's name in the router's stacks, nested ones included.
+function stackNames(state: RouteState | undefined): string[] {
+  return (state?.routes ?? []).flatMap((r) => [r.name, ...stackNames(r.state)]);
+}
+
 async function setup() {
   const actions: string[] = [];
   const screen = await renderScreens({
@@ -37,6 +47,7 @@ async function setup() {
     settings: () => null,
     "new/jot": () => null,
     "new/task": () => null,
+    "settings/[page]": () => null,
   });
   return { ...screen, actions };
 }
@@ -154,6 +165,30 @@ describe("keyboard shortcuts", () => {
     const screen = await setup();
     press("settings");
     await waitFor(() => expect(screen.getPathname()).toBe("/settings"));
+  });
+
+  // Pressing Command Comma again while Settings was open stacked a second Settings dialog
+  // over the first (12.1); New Task and the others did the same.
+  it("open a page or sheet once, however often its keys are pressed", async () => {
+    const screen = await setup();
+    press("settings");
+    await waitFor(() => expect(screen.getPathname()).toBe("/settings"));
+    press("settings");
+    press("quickJot");
+    await waitFor(() => expect(screen.getPathname()).toBe("/new/jot"));
+    press("quickJot");
+    const names = stackNames(screen.getRouterState());
+    expect(names.filter((n) => n === "settings")).toHaveLength(1);
+    expect(names.filter((n) => n === "new/jot")).toHaveLength(1);
+  });
+
+  it("leave Settings on its category when Command Comma is pressed there", async () => {
+    const screen = await setup();
+    act(() => router.push("/settings/appearance"));
+    await waitFor(() => expect(screen.getPathname()).toBe("/settings/appearance"));
+    press("settings");
+    expect(stackNames(screen.getRouterState())).not.toContain("settings");
+    expect(screen.getPathname()).toBe("/settings/appearance");
   });
 
   it("hand what only the window can do to the window", async () => {

@@ -3,8 +3,8 @@ import { usePageKeys } from "./page-keys.ts";
 import { createPathFor } from "./create-path.ts";
 import { activePath } from "./workspace.ts";
 import { useWorkspace } from "./workspace-store.ts";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { usePathname, useRouter } from "expo-router";
+import { useEffect, useMemo, useRef } from "react";
 import * as system from "../../modules/nookly-keys/src/index.ts";
 import type { PaletteCommand } from "./commands.ts";
 import { topLayer, useLayers } from "../ui/sheet/layers.ts";
@@ -40,6 +40,9 @@ export function ShortcutHost({
   keys?: KeySystem;
 }) {
   const router = useRouter();
+  // Read when a key is pressed, so a page or sheet already shown is not opened again.
+  const pathname = useRef("");
+  pathname.current = usePathname();
   const open = useShell((s) => s.open);
   // Escape and Command Return only while a popover or dialog is open: otherwise they are
   // the page's (the editor's).
@@ -61,6 +64,14 @@ export function ShortcutHost({
       ...(choosing ? [CHOOSE_SHORTCUT] : []),
       ...pageKeys,
     ]);
+    /// Opens `path`, unless it (or a page of it, a category of Settings) is what is shown:
+    /// a second press of Command Comma left two Settings dialogs stacked.
+    const go = (path: string) => {
+      const shown = pathname.current;
+      if (shown === path || shown.startsWith(`${path}/`)) return;
+      // SAFETY: every caller passes a route of `app/`.
+      router.push(path as never);
+    };
     const run = (id: ShortcutId) => {
       switch (id) {
         case "search":
@@ -70,12 +81,11 @@ export function ShortcutHost({
         case "commands":
           return open("commands");
         case "settings":
-          return router.push("/settings");
+          return go("/settings");
         case "quickJot":
-          return router.push("/new/jot");
+          return go("/new/jot");
         case "newItem":
-          // SAFETY: `createPathFor` gives a route under `app/new`.
-          return router.push(createPathFor(activePath(useWorkspace.getState().ws)) as never);
+          return go(createPathFor(activePath(useWorkspace.getState().ws)));
         case "toggleSidebar":
         case "toggleInspector":
         case "back":
@@ -104,11 +114,11 @@ export function ShortcutHost({
         case "find":
           return useFindBar.setState({ open: true });
         case "newTask":
-          return router.push("/new/task");
+          return go("/new/task");
         case "quickAssignment":
-          return router.push("/new/assignment");
+          return go("/new/assignment");
         case "import":
-          return router.push("/new/import");
+          return go("/new/import");
       }
     };
     const stop = keys.onShortcut((id) => {
