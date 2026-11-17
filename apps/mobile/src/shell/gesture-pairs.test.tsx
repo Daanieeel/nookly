@@ -1,20 +1,19 @@
 import { render } from "@testing-library/react-native";
 import { Text } from "react-native";
 import { getByGestureTestId } from "react-native-gesture-handler/jest-utils";
+import { z } from "zod";
 import { SwipeRow } from "../ui/SwipeRow.tsx";
 import { EdgeBack } from "./EdgeBack.tsx";
 import { SidebarOverlay } from "./sidebar/SidebarOverlay.tsx";
 
 /// The parts of a pan's set up that decide who gets a touch.
-interface PanConfig {
-  activeOffsetXStart?: number;
-  activeOffsetXEnd?: number;
-  failOffsetYStart?: number;
-  failOffsetYEnd?: number;
-}
-const configOf = (id: string): PanConfig =>
-  // SAFETY: the test helpers hand back the handler with the config it was built from.
-  (getByGestureTestId(id) as unknown as { config: PanConfig }).config;
+const panConfig = z.object({
+  activeOffsetXStart: z.number().optional(),
+  activeOffsetXEnd: z.number().optional(),
+  failOffsetYStart: z.number().optional(),
+  failOffsetYEnd: z.number().optional(),
+});
+const configOf = (id: string) => panConfig.parse(getByGestureTestId(id).config);
 
 // The gestures that share an edge of a tablet's page (10.4): the left edge goes back (or
 // brings the sidebar in a medium window), the right edge brings the details over a narrow
