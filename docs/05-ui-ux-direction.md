@@ -162,6 +162,17 @@ Nookly runs in a resizable desktop window, not a fixed canvas, so every view mus
 - At narrow widths, list and table views reflow their columns or switch to a card layout. Do not fall back to clipping or horizontal scrolling.
 - Nothing may assume a single fixed viewport size.
 
+On a tablet window (600 wide and up) the one sheet shows as the desktop shows the same thing (D83). A compact window keeps the phone's sheets.
+
+| What                                              | Tablet                                             |
+| ------------------------------------------------- | -------------------------------------------------- |
+| Picker, select, a button's menu, long press menu  | Popover on what opened it (320, 360 for wide ones) |
+| The same with nothing to anchor to                | Small dialog (420)                                 |
+| Confirmation                                      | Small dialog (420)                                 |
+| Create form                                       | Medium dialog (560)                                |
+| Big flow (Import, Space Settings, semester setup) | Large dialog (720)                                 |
+| Settings, Review Changes                          | Extra large dialog (960)                           |
+
 ## Process Expectations
 
 1. Do a full pass, not spot fixes. Every page that shares the generic layout template needs a redesign specific to its module.

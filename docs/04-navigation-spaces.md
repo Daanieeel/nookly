@@ -77,6 +77,20 @@ Split view puts two groups of tabs side by side, like editor groups in VS Code. 
 
 Closing the last tab leaves a fresh Dashboard tab.
 
+## On a Tablet
+
+The iPad is the desktop made for touch (D83): the same sidebar, titlebar, tabs and split view, in the same app as the phone. The window's width picks the layout and changes it live, keeping tabs, scroll and drafts.
+
+| Window   | Width      | Layout                                                                                         |
+| -------- | ---------- | ---------------------------------------------------------------------------------------------- |
+| Compact  | under 600  | The phone's layout (Slide Over, a narrow window). The focused tab's page carries over          |
+| Medium   | 600 to 999 | Sidebar over the page, slid in from the titlebar or the left edge; pinned beside from 900 wide |
+| Expanded | 1000 up    | Sidebar beside the page, as on the desktop; two groups side by side                            |
+
+- **List and item:** an item picked from a list opens beside it in the right group as a preview tab while both keep 360 (D87), else in the list's place.
+- **Details:** beside an item while the page keeps 600, else over it, swiped in from the right edge.
+- **Back:** the titlebar's arrows, `Cmd+[`, or a swipe from the left edge of the page, which follows the finger.
+
 ## Shared Pages
 
 A page someone shared with you lives in a Space of its own, "Shared by <their email>", which only exists on your devices. It shows nothing else of theirs. A page shared to view is read only.

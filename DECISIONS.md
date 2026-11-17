@@ -511,3 +511,35 @@ Files dragged in from another app (Files, Mail, Safari) land through a native dr
 ## D87. A list and its item side by side on a tablet
 
 On a tablet, an item picked from a list opens in the right group as a preview tab while the window has room for both groups (each keeping 360), so the list stays on the left and the item shows beside it: the iPad's list and detail, built from the desktop's split view rather than a separate layout. The next item picked the same way replaces the preview, as an editor group's preview tab in VS Code, until the item is edited or its tab pinned. Where both do not fit, the item opens in the list's place. "Open Items Beside the List" in the titlebar's split menu turns it off (a device preference, on by default). A long press on any item also offers Open in New Tab and Open on the Right first, the desktop's Command click and split. Flagged for the user's feedback after trying it on an iPad.
+
+## D88. Settings on a tablet is the desktop's Settings dialog
+
+This replaces D82's last paragraph. On a tablet every settings route opens one extra large dialog (960) over the window, the categories on the left under the desktop's groups, the one picked beside them, `Cmd+,` to open it. The account, Backup, Connections, Sidebar, Keyboard Shortcuts and What's New are categories in it, not pages of their own. A phone keeps its pages.
+
+## D89. A calmer Settings and Home on the phone
+
+The phone's Settings top page was a column of boxed rows, each with its own colour. Its categories are now tiles in one quiet style under plain headings, the account a card of its own with a dot for how syncing goes, and What's New with the version in a quiet line at the end. Home uses one grey tint for its badges, the page's own background, no Create row, and the desktop's tabbed panels after Coming Up. Surfaces on a plain page take a card's tone (`OnPage`) so they show in light mode. Requested by the user on 2026-11-17.
+
+## D90. Clipping cards keep plain rounded corners on the desktop
+
+WebKit keeps the clip of an element with `corner-shape` and an `overflow` clip at the size it first had. The page card of Tasks, Calendar and Assignments clipped there, so the page was painted only partway across a wider window. The squircle (D67) now leaves any element with an `overflow-` class; those keep plain rounding.
+
+## D91. Finding the server again within seconds
+
+A device that loses the server comes back on its own, with full sync: a request gives up after 45 seconds, the live channel after 10 without opening, and every failure reports its end so the retry runs. Beyond the backoff, sync resumes at once when the device is back online, comes to the front, or wakes (the desktop notices a clock jump), retrying from the start with the live channel and page sessions reopened.
+
+## D92. The copy names the device in hand
+
+Text that names the device says "iPhone" or "iPad" on iOS and "phone" or "tablet" on Android (`useDeviceWord`). The window decides, so a tablet window says tablet, but an iPad stays an iPad in a narrow window. Lists of every kind of device ("your phone, tablet and computer") stay as they are.
+
+## D93. No haptics setting on an iPad
+
+iPads have no Taptic Engine, so Appearance shows the Haptics switch on a phone only. Nothing relies on a haptic alone: each sits beside something seen.
+
+## D94. Keyboard shortcuts change on the device they are used on
+
+With a hardware keyboard, Settings changes a tablet's shortcuts as the desktop's: press a row, press the new keys. The desktop's rules apply: Command, Control or Option must be held, keys with a fixed meaning (the system's editing keys, Escape, Command Return) are refused, and keys another shortcut holds are moved only after asking, leaving that one without keys. The changes stay on the device, as the desktop's stay on the computer; the defaults remain the desktop's keys (10.1). Without a keyboard the list is read only.
+
+## D95. Touch on a tablet: pinch, edges and the Pencil
+
+A tablet's calendar hours zoom with a pinch (32 to 128 points an hour), kept while the app runs; the phone keeps its fixed scale. Each edge gesture starts before a row's swipe, only in its own direction, and none takes a vertical drag. Nothing turns Scribble off; the one pan that lies over fields (the details pane's drag) lets a Pencil stroke through to it.
