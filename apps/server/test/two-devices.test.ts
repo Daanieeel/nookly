@@ -363,6 +363,10 @@ describe("a page open on two devices", () => {
     addNote(desktop, "p1", ["Pack the tent", "Book the train"]);
     desktop.sync.notifyLocalChange();
     await soon(() => title(phone, "p1") === "Trip", "the note on the phone");
+    // The phone can have the note before the desktop has stored the server's answer to its
+    // own push, and a page the server has not confirmed opens on its rows, not live (it
+    // raced, failing in CI).
+    await desktop.sync.settled();
     const onDesktop = await openPage(desktop, "p1");
     const onPhone = await openPage(phone, "p1");
     expect(body(onPhone)).toEqual(["Pack the tent", "Book the train"]);
