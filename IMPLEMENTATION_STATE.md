@@ -278,7 +278,7 @@ All: a medium dialog over the page that opened them (2.4), the desktop's fields 
 - [x] 12.3 Done: the phone's full jest suite passes (892, then the new tests); the phone changed only where the user asked (Settings and Home, A and B, shot then) and in its copy naming the iPhone (11.1). Was: **The phone unchanged**: the phone's full jest suite, and screenshots of the main phone screens next to the ones from before the rework.
 - [x] 12.4 Done 2026-11-17: lint, format:check, typecheck, the frontend (3590), shared (392) and phone (892) suites, cargo test (1567; the search budget test failed once under the full run's load and passes alone), duplication 0.15%. Read, report only: `unused` lists older exports and a few files and dependencies (the briefing's own helpers made private); `audit` flags Rust advisories (chrono and chrono-tz unmaintained, RUSTSEC-2026-0385), none new from this work. Was: lint, format:check, typecheck, test, cargo test (if Rust changed), duplication under 1%; report only checks read (`coverage`, `unused`, `audit`, `lint:rust:strict`).
 - [ ] 12.5 CI on this branch's open PR green at the end. Never merge it.
-- [ ] 12.6 Final report below.
+- [x] 12.6 Final report below.
 
 ## Routes
 
@@ -350,4 +350,44 @@ Menus and dialogs that are not routes and where they land: the sidebar's + (1.2)
 
 ## Final report
 
-Not yet written.
+Written 2026-11-17. Every item from 0.1 to 12.4 is ticked. Some say "Done in part"; what they leave is in their own line or in Needs the user.
+
+**What the iPad is now.** It is the desktop made for touch, in the same app as the phone (D83):
+
+- The desktop's sidebar, titlebar, tabs, split view and details pane, laid out by window class.
+- Pickers and menus as popovers on what opened them. Forms, confirmations and big flows as the desktop's dialogs.
+- Every page in a tab frame, with the desktop's tables, folding groups and boards.
+- Hardware keyboard: the desktop's keys, the menu bar, keys that can be changed with a keyboard connected.
+- Pointer hover and secondary click, drag and drop, pinch, edge swipes and the Pencil.
+- Below 600 wide the phone layout takes over, keeping the page that was open.
+
+**Before the plan, on the user's request.**
+
+- The phone's Settings is now tiles, and Home is calmer (A, B).
+- The desktop's sliding sidebar has a shadow (C).
+- Sync finds the server again within seconds on both apps (D).
+- The desktop pages cut off on the right are fixed: the squircle corners on clipping cards.
+
+**Checks.**
+
+- lint, format, typecheck, duplication 0.15%.
+- Frontend 3590, shared 392, phone 892 plus the new tests, cargo 1567.
+- The screenshot matrix on seeded data.
+- CI: see 12.5.
+
+**Bugs the checks found, fixed with tests.**
+
+- Two database writes at the same moment failed on a device with "database is locked", losing one. Writes now run in turn.
+- A form half written emptied when the window narrowed past 600.
+- A shortcut pressed again stacked a second Settings or New dialog.
+
+Flaky tests made robust: the spell checker's typing budget, now against an unchecked page, and a race in a server sync test.
+
+**Left for the user.** Everything in Needs the user, in short:
+
+- Feel on a real iPad: rotation, Stage Manager windows, the Pencil, trackpad and keyboard, pinch, edge gestures.
+- Landscape dialogs, which the shot tool cannot scale.
+- Whether an item opened beside a list should take the focus.
+- Exports, which need the desktop's Rust core.
+
+Moodle pages were not shot (no account here).
