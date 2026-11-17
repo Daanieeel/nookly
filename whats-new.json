@@ -51,7 +51,7 @@
           "Your coding agent can read and change Nookly's settings, make backups, check how syncing is going and see your connected calendars through the command line, and the open app shows a changed setting within a few seconds."
         ],
         "Fixed": [
-          "The hidden sidebar slides in on a solid background when you rest the pointer on the left edge.",
+          "The hidden sidebar slides in on a solid background with a clear shadow when you rest the pointer on the left edge.",
           "In Vim's normal and visual mode the cursor is a block over the character it is on again.",
           "Your cursor stays in its word while someone on another device types earlier in the same line.",
           "Names next to other people's cursors stay visible in the first line of a page.",

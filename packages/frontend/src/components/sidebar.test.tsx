@@ -565,4 +565,20 @@ describe("showing a hidden sidebar from the edge", () => {
       /\[data-slot="sidebar-container"\]\[data-peek\] > \[data-slot="sidebar-inner"\] \{[^}]*background-color: var\(--popover\)/,
     );
   });
+
+  // A faint shadow (30px at 35%) barely parted the panel from the page, least of all in dark
+  // mode: it floats over the page with a clear, wide shadow.
+  it("lifts the sidebar off the page with a clear shadow", () => {
+    const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
+    const rule =
+      /\[data-slot="sidebar-container"\]\[data-peek\] > \[data-slot="sidebar-inner"\] \{([^}]*)\}/.exec(
+        css,
+      )?.[1] ?? "";
+    const shadow = /box-shadow:([^;]*);/.exec(rule)?.[1] ?? "";
+    const blurs = [...shadow.matchAll(/-?\d+(?:px)? -?\d+(?:px)? (\d+)px/g)].map((m) => Number(m[1]));
+    const alphas = [...shadow.matchAll(/\/ (0?\.\d+)\)/g)].map((m) => Number(m[1]));
+    expect(Math.max(0, ...blurs)).toBeGreaterThanOrEqual(48);
+    expect(Math.max(0, ...alphas)).toBeGreaterThanOrEqual(0.4);
+    expect(blurs.length).toBeGreaterThanOrEqual(2);
+  });
 });

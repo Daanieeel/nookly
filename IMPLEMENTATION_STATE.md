@@ -111,7 +111,7 @@ These come before every open item below. They change the phone too, by the user'
   - Sections in this order: At a Glance, Today, Coming Up, Tasks, Assignments, Cards, Jots. Tasks to Jots work like the desktop: each its panel with tabs. At a Glance, Today and Coming Up stay as they are.
   - The blobatar sits inside the summary sentence at the top, the text wrapping around it.
   - The page header no longer says "Dashboard": it holds the date and the connection state, a subtle green icon while online, a red "Offline" label with an icon while offline.
-- [ ] C **Desktop: the floating sidebar's shadow.** The sidebar that slides in when it is collapsed and the pointer rests on the left edge gets a clear shadow (a stronger one if it has one already).
+- [x] C **Desktop: the floating sidebar's shadow.** Done: a wide soft shadow and a tight one at its edge (`styles.css`, `[data-peek]`), tested in `sidebar.test.tsx`. The sidebar that slides in when it is collapsed and the pointer rests on the left edge gets a clear shadow (a stronger one if it has one already).
 
 Order: foundations, then the shell, then presentations, then shared parts, then every page, then input, copy and the checks. Each milestone ends with screenshots of what it changed in the progress log.
 

@@ -1141,7 +1141,11 @@
 [data-slot="sidebar-container"][data-peek] > [data-slot="sidebar-inner"] {
   background-color: var(--popover);
   border: 1px solid var(--border);
-  box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.35);
+  /* A wide soft shadow lifts it off the page, a tight one marks its edge; strong enough to
+     read on a dark page too. */
+  box-shadow:
+    0 24px 64px -12px rgb(0 0 0 / 0.45),
+    0 6px 16px -4px rgb(0 0 0 / 0.25);
 }
 
 /* Thin steps of backdrop blur, finer toward the top. Several stacked, each shorter than the one
