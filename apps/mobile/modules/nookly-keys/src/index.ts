@@ -10,16 +10,23 @@ export interface KeyShortcut {
   title: string;
 }
 
+interface Subscription {
+  remove(): void;
+}
+
 interface NativeKeys {
   setShortcuts(items: { id: string; input: string; modifiers: string[]; title: string }[]): void;
   emit(id: string): void;
   setMenus(items: { title: string; ids: string[] }[]): void;
+  hasKeyboard(): boolean;
+  startRecording(): void;
+  stopRecording(): void;
+  addListener(event: "onShortcut", listener: (event: { id: string }) => void): Subscription;
+  addListener(event: "onKeyboard", listener: (event: { connected: boolean }) => void): Subscription;
   addListener(
-    event: "onShortcut",
-    listener: (event: { id: string }) => void,
-  ): {
-    remove(): void;
-  };
+    event: "onRecorded",
+    listener: (event: { input: string; modifiers: KeyShortcut["modifiers"] }) => void,
+  ): Subscription;
 }
 
 // Missing in a build without the module (Expo Go, tests, a phone with no keyboard to speak of).
@@ -50,4 +57,30 @@ export function onShortcut(listener: (id: string) => void): () => void {
 /// Acts as if the shortcut was pressed (checks that cannot press keys).
 export function emitShortcut(id: string): void {
   native?.emit(id);
+}
+
+/// Whether a hardware keyboard is connected.
+export function hasKeyboard(): boolean {
+  return native?.hasKeyboard() ?? false;
+}
+
+/// Calls `listener` when a keyboard connects or disconnects. Returns how to stop.
+export function onKeyboardChange(listener: (connected: boolean) => void): () => void {
+  const subscription = native?.addListener("onKeyboard", (event) => listener(event.connected));
+  return () => subscription?.remove();
+}
+
+/// Hands each key pressed (with the modifiers held) to `listener` instead of the app's own
+/// shortcuts, until the returned stop is called. A modifier on its own is not a press.
+export function record(
+  listener: (keys: { key: string; modifiers: KeyShortcut["modifiers"] }) => void,
+): () => void {
+  const subscription = native?.addListener("onRecorded", (event) =>
+    listener({ key: event.input, modifiers: event.modifiers }),
+  );
+  native?.startRecording();
+  return () => {
+    subscription?.remove();
+    native?.stopRecording();
+  };
 }

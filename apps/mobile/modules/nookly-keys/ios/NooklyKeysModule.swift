@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import GameController
 import ObjectiveC
 import UIKit
 
@@ -94,7 +95,10 @@ private func flags(_ names: [String]) -> UIKeyModifierFlags {
 private func install() {
   if installed { return }
   installed = true
-  let list: @convention(block) (AnyObject) -> [UIKeyCommand]? = { _ in commands }
+  // None while Settings records new keys, so a press reaches the recorder, not a shortcut.
+  let list: @convention(block) (AnyObject) -> [UIKeyCommand]? = { _ in
+    recorder == nil ? commands : []
+  }
   class_replaceMethod(
     UIApplication.self,
     #selector(getter: UIResponder.keyCommands),
@@ -102,20 +106,112 @@ private func install() {
     "@@:"
   )
   let handle: @convention(block) (AnyObject, UIKeyCommand) -> Void = { _, command in
+    // The menu bar still answers its keys while Settings records: those are a press too.
+    if recorder != nil, let input = command.input {
+      receiver?.recorded(input, modifierNames(command.modifierFlags))
+      return
+    }
     if let id = command.propertyList as? String { receiver?.fire(id) }
   }
   class_addMethod(UIApplication.self, action, imp_implementationWithBlock(handle), "v@:@")
 }
 
+/// The keys the system names, by the key's code; a modifier on its own is no press.
+private let namedKeys: [UIKeyboardHIDUsage: String] = [
+  .keyboardEscape: UIKeyCommand.inputEscape,
+  .keyboardUpArrow: UIKeyCommand.inputUpArrow,
+  .keyboardDownArrow: UIKeyCommand.inputDownArrow,
+  .keyboardLeftArrow: UIKeyCommand.inputLeftArrow,
+  .keyboardRightArrow: UIKeyCommand.inputRightArrow,
+  .keyboardReturnOrEnter: "\r",
+  .keypadEnter: "\r",
+  .keyboardTab: "\t",
+]
+private let modifierKeys: Set<UIKeyboardHIDUsage> = [
+  .keyboardLeftGUI, .keyboardRightGUI, .keyboardLeftShift, .keyboardRightShift,
+  .keyboardLeftAlt, .keyboardRightAlt, .keyboardLeftControl, .keyboardRightControl,
+  .keyboardCapsLock,
+]
+
+private func modifierNames(_ flags: UIKeyModifierFlags) -> [String] {
+  var names: [String] = []
+  if flags.contains(.command) { names.append("command") }
+  if flags.contains(.shift) { names.append("shift") }
+  if flags.contains(.alternate) { names.append("option") }
+  if flags.contains(.control) { names.append("control") }
+  return names
+}
+
+/// Takes the focus while Settings records new keys and hands each press on, written as
+/// `setShortcuts` takes them.
+private final class KeyRecorder: UIView {
+  override var canBecomeFirstResponder: Bool { true }
+
+  override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+    guard let key = presses.first?.key else { return super.pressesBegan(presses, with: event) }
+    if modifierKeys.contains(key.keyCode) { return }
+    let input = namedKeys[key.keyCode] ?? key.charactersIgnoringModifiers.lowercased()
+    if input.isEmpty { return }
+    receiver?.recorded(input, modifierNames(key.modifierFlags))
+  }
+
+  override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {}
+}
+
+private var recorder: KeyRecorder?
+
+private func keyWindow() -> UIWindow? {
+  UIApplication.shared.connectedScenes
+    .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+    .first
+}
+
 public class NooklyKeysModule: Module {
+  private var observers: [NSObjectProtocol] = []
+
   public func definition() -> ModuleDefinition {
     Name("NooklyKeys")
 
-    Events("onShortcut")
+    Events("onShortcut", "onKeyboard", "onRecorded")
 
     OnCreate {
       receiver = self
       install()
+      let center = NotificationCenter.default
+      self.observers = [.GCKeyboardDidConnect, .GCKeyboardDidDisconnect].map { name in
+        center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+          self?.sendEvent("onKeyboard", ["connected": GCKeyboard.coalesced != nil])
+        }
+      }
+    }
+
+    OnDestroy {
+      self.observers.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+
+    /// Whether a hardware keyboard is connected.
+    Function("hasKeyboard") { () -> Bool in
+      GCKeyboard.coalesced != nil
+    }
+
+    /// Hands every key press to "onRecorded" until `stopRecording`.
+    Function("startRecording") {
+      DispatchQueue.main.async {
+        recorder?.removeFromSuperview()
+        guard let window = keyWindow() else { return }
+        let view = KeyRecorder(frame: .zero)
+        window.addSubview(view)
+        recorder = view
+        view.becomeFirstResponder()
+      }
+    }
+
+    Function("stopRecording") {
+      DispatchQueue.main.async {
+        recorder?.resignFirstResponder()
+        recorder?.removeFromSuperview()
+        recorder = nil
+      }
     }
 
     Function("setShortcuts") { (items: [Shortcut]) in
@@ -155,4 +251,9 @@ public class NooklyKeysModule: Module {
   func fire(_ id: String) {
     sendEvent("onShortcut", ["id": id])
   }
+
+  func recorded(_ input: String, _ modifiers: [String]) {
+    sendEvent("onRecorded", ["input": input, "modifiers": modifiers])
+  }
+
 }

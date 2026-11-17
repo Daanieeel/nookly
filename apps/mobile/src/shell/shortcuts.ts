@@ -235,7 +235,7 @@ const NAMED = new Map([
 ]);
 
 /// "⇧⌘P": modifiers in the system's order, then the key.
-export function shortcutLabel(shortcut: KeyShortcut): string {
+export function shortcutLabel(shortcut: Pick<KeyShortcut, "key" | "modifiers">): string {
   const mods = ORDER.filter((m) => shortcut.modifiers.includes(m))
     .map((m) => SYMBOLS[m])
     .join("");

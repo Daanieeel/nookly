@@ -15,7 +15,8 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { MIN_TOUCH } from "../ui/touch.ts";
 import { COMMANDS, type PaletteCommand, filterCommands } from "./commands.ts";
-import { type Shortcut, SHORTCUTS, shortcutLabel } from "./shortcuts.ts";
+import { shortcutLabel } from "./shortcuts.ts";
+import { type KeyChange, keysOf, useKeyChanges } from "./shortcut-keys.ts";
 import { type PaletteMode, useShell } from "./store.ts";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
@@ -26,9 +27,10 @@ const PLACEHOLDER = {
   commands: "Command",
 } satisfies Record<PaletteMode, string>;
 
-function shortcutOf(command: PaletteCommand): string | null {
-  const shortcut = SHORTCUTS.find((s: Shortcut) => s.id === command.shortcut);
-  return shortcut ? shortcutLabel(shortcut) : null;
+/// A command's keys, as changed in Settings.
+function shortcutOf(command: PaletteCommand, changes: KeyChange[]): string | null {
+  const keys = command.shortcut ? keysOf(changes, command.shortcut) : null;
+  return keys ? shortcutLabel(keys) : null;
 }
 
 /// One row: an item with its key beside the title, or a command with its keys. The
@@ -79,6 +81,7 @@ function PaletteRow({
 /// Return opening the chosen one. `onAction` carries out what only the window knows how
 /// to do (collapse the sidebar, go back).
 export function CommandPalette({ onAction }: { onAction: (action: AppAction) => void }) {
+  const [changes] = useKeyChanges();
   const mode = useShell((s) => s.palette);
   const close = useShell((s) => s.close);
   const router = useRouter();
@@ -236,7 +239,7 @@ export function CommandPalette({ onAction }: { onAction: (action: AppAction) => 
                     <PaletteRow
                       key={command.id}
                       title={command.title}
-                      detail={shortcutOf(command)}
+                      detail={shortcutOf(command, changes)}
                       selected={entities.length + i === at}
                       rowRef={selectedRow}
                       onPress={() => run(command)}

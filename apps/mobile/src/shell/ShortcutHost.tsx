@@ -4,7 +4,7 @@ import { createPathFor } from "./create-path.ts";
 import { activePath } from "./workspace.ts";
 import { useWorkspace } from "./workspace-store.ts";
 import { useRouter } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import * as system from "../../modules/nookly-keys/src/index.ts";
 import type { PaletteCommand } from "./commands.ts";
 import { topLayer, useLayers } from "../ui/sheet/layers.ts";
@@ -19,6 +19,7 @@ import {
 } from "./shortcuts.ts";
 import { useShell } from "./store.ts";
 import { stepSpace } from "./sidebar/space-step.ts";
+import { shortcutsWith, useKeyChanges } from "./shortcut-keys.ts";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
 
@@ -48,10 +49,13 @@ export function ShortcutHost({
   const choosing = useLayers((s) => s.stack.at(-1)?.choose !== undefined);
   // A screen's own keys, while it is shown (a study session's).
   const pageKeys = usePageKeys((s) => s.keys);
+  // With the keys changed in Settings (8.6).
+  const [changes] = useKeyChanges();
+  const shortcuts = useMemo(() => shortcutsWith(changes), [changes]);
   useEffect(() => keys.setMenus(MENUS), [keys]);
   useEffect(() => {
     keys.setShortcuts([
-      ...SHORTCUTS,
+      ...shortcuts,
       ...(layered ? LAYER_SHORTCUTS : []),
       ...(moving ? MOVE_SHORTCUTS : []),
       ...(choosing ? [CHOOSE_SHORTCUT] : []),
@@ -121,6 +125,6 @@ export function ShortcutHost({
       stop();
       keys.setShortcuts([]);
     };
-  }, [open, onAction, router, keys, layered, moving, choosing, pageKeys]);
+  }, [open, onAction, router, keys, layered, moving, choosing, pageKeys, shortcuts]);
   return null;
 }

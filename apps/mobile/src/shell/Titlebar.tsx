@@ -38,13 +38,12 @@ import { useTheme } from "../ui/theme.ts";
 import type { PaletteCommand } from "./commands.ts";
 import { focusedTab } from "./workspace.ts";
 import { useWorkspace } from "./workspace-store.ts";
-import { SHORTCUTS, shortcutLabel } from "./shortcuts.ts";
+import { shortcutLabel } from "./shortcuts.ts";
+import { keysOf, useKeyChanges } from "./shortcut-keys.ts";
 import { useShell } from "./store.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "../ui/touch.ts";
 
 type AppAction = NonNullable<PaletteCommand["action"]>;
-
-const search = SHORTCUTS.find((s) => s.id === "search");
 
 /// How tall the titlebar is under the status bar: 52, its controls a finger tall.
 export const TITLEBAR_HEIGHT = 52;
@@ -73,6 +72,8 @@ export function Titlebar({
   const router = useRouter();
   const open = useShell((s) => s.open);
   const muted = theme.colors.mutedForeground;
+  // Search's keys, as changed in Settings.
+  const search = keysOf(useKeyChanges()[0], "search");
   const tab = useWorkspace((s) => focusedTab(s.ws));
   const canGoBack = tab.backStack.length > 0;
   const canGoForward = tab.forwardStack.length > 0;

@@ -5,13 +5,20 @@ import { useShell } from "./store.ts";
 import { pushLayer } from "../ui/sheet/layers.ts";
 import { setPageKeys } from "./page-keys.ts";
 import { workspace } from "./workspace-store.ts";
+import { writePreference } from "../data/preferences.ts";
+import type { KeyShortcut } from "../../modules/nookly-keys/src/index.ts";
+import { KEY_CHANGES } from "./shortcut-keys.ts";
 
 let listener: ((id: string) => void) | null = null;
 const registered: string[][] = [];
 const menus: { title: string; ids: string[] }[][] = [];
+const given: KeyShortcut[][] = [];
 
 const fakeKeys: KeySystem = {
-  setShortcuts: (items) => void registered.push(items.map((i) => i.id)),
+  setShortcuts: (items) => {
+    registered.push(items.map((i) => i.id));
+    given.push(items);
+  },
   setMenus: (items) => void menus.push(items),
   onShortcut: (fn) => {
     listener = fn;
@@ -86,6 +93,20 @@ describe("keyboard shortcuts", () => {
     expect(close).toHaveBeenCalledTimes(1);
     act(() => layer.remove());
     await waitFor(() => expect(registered.at(-1)).not.toContain("dismiss"));
+  });
+
+  // Keys changed in Settings (8.6) are the ones the system is told about; one left without
+  // a key is not registered at all.
+  it("register the keys changed in Settings", async () => {
+    writePreference(KEY_CHANGES, [
+      { id: "search", keys: { key: "j", modifiers: ["command", "shift"] } },
+      { id: "quickOpen", keys: null },
+    ]);
+    await setup();
+    const search = given.at(-1)?.find((s) => s.id === "search");
+    expect(search).toMatchObject({ key: "j", modifiers: ["command", "shift"] });
+    expect(registered.at(-1)).not.toContain("quickOpen");
+    writePreference(KEY_CHANGES, []);
   });
 
   it("fill the menu bar with the desktop's menus", async () => {
