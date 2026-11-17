@@ -70,3 +70,39 @@ describe("the desktop's corners", () => {
     expect(circles).toEqual([]);
   });
 });
+
+// The squircle (`corner-shape` in `styles.css`) on an element that clips what is inside it
+// made WebKit keep the clip from the element's first, narrower size: the Tasks, Calendar and
+// Assignments pages were cut off partway across the window. Clipping elements keep plain
+// rounding.
+describe("the squircle corners", () => {
+  const css = readFileSync(join(root, "styles.css"), "utf8");
+  const selector =
+    /@supports \(corner-shape: superellipse\([\d.]+\)\) \{\s*([^{]+)\{/.exec(css)?.[1]?.trim() ??
+    "";
+  const squircled = (className: string) => {
+    const el = document.createElement("div");
+    el.className = className;
+    return el.matches(selector);
+  };
+
+  it("round cards, buttons and chips", () => {
+    expect(squircled("rounded-lg border")).toBe(true);
+    expect(squircled("rounded-md px-2")).toBe(true);
+  });
+
+  it("leave pills, circles and whatever clips its content plainly rounded", () => {
+    expect(squircled("size-2 rounded-full")).toBe(false);
+    for (const clip of [
+      "overflow-hidden",
+      "overflow-auto",
+      "overflow-clip",
+      "overflow-x-auto",
+      "overflow-y-auto",
+      "overflow-x-hidden",
+      "overflow-y-scroll",
+    ]) {
+      expect(squircled(`relative flex rounded-xl ${clip} border`)).toBe(false);
+    }
+  });
+});

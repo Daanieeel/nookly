@@ -336,6 +336,7 @@ Menus and dialogs that are not routes and where they land: the sidebar's + (1.2)
 - 2026-11-15: file cleared and refilled with the tablet rework plan (D83); `AGENTS.md`'s mobile rules now name the tablet's popovers and dialogs.
 - 2026-11-15: 0.1 to 0.3 (window classes, the dev window override D84, iPad simulators and `tablet-shots.ts`); the shell draws its pages in tabs and groups from the router (`workspace.ts`, `pages.tsx`, `PageHost`, `follow-router.ts`); the sidebar rebuilt from the desktop's (`shell/sidebar/`).
 - 2026-11-16: milestone 2: popovers and dialogs (`ui/sheet/Floating.tsx`, `placement.ts`, `presentation.ts`, `touch-point.ts`, `layers.ts`), Escape and Command Return; checked on the iPad Pro 13-inch (New Task dialog, status popover over it, a task's long press menu with its Labels step). Lint errors from the earlier tablet commits fixed (CI's `lint:js` failed on them).
+- 2026-11-17: the user's requests before the plan: A (Settings as tiles), B (calmer Dashboard), C (the desktop's sliding sidebar shadow), D (finding the server again within seconds), and a desktop bug: Tasks, Calendar, Assignments and other pages were painted only partway across the window. Cause: the squircle corners (D67, `corner-shape` in `styles.css`) on the page card, which clips its content; WebKit kept that clip at the card's first, narrower size. Elements with an `overflow-` class now keep plain rounding (`corners.test.ts`); checked in the debug app on a fixture after clean reloads.
 
 ## Final report
 

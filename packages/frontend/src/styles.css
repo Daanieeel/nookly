@@ -1184,9 +1184,11 @@
 }
 
 /* Rounded corners as gentle squircles where the web view draws them; plain rounding elsewhere
-   (D67). A pill or a circle stays round. */
+   (D67). A pill or a circle stays round, and so does whatever clips its content: WebKit keeps
+   such an element's squircle clip at its first size, so a page card that grew after it was
+   drawn cut its page off partway across the window. */
 @supports (corner-shape: superellipse(1.6)) {
-  [class*="rounded"]:not([class*="rounded-full"]) {
+  [class*="rounded"]:not([class*="rounded-full"], [class*="overflow-"]) {
     corner-shape: superellipse(1.6);
   }
 }
