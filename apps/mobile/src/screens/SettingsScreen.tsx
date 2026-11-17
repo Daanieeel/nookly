@@ -23,6 +23,7 @@ import { ShortcutsPage } from "./settings/ShortcutsPage.tsx";
 import { SidebarSettingsScreen } from "./settings/SidebarSettings.tsx";
 import { WhatsNewScreen } from "./WhatsNewScreen.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
+import { type DeviceWord, useDeviceWord } from "../ui/device-word.ts";
 import { Text } from "../ui/Text.tsx";
 import { useState } from "react";
 import { useSyncState } from "../data/context.tsx";
@@ -61,8 +62,8 @@ const PAGE_BADGES = {
 interface NavLink {
   title: string;
   subtitle: string;
-  /// What a tablet says instead, where the phone's line names something it lacks (haptics).
-  tabletSubtitle?: string;
+  /// Its line on the device in hand, where it names the device or what only some have.
+  subtitleOn?: (device: DeviceWord) => string;
   badge: BadgeLook;
   /// Where it goes; About has nowhere to go and only says the version.
   href?: string;
@@ -80,8 +81,8 @@ const pageLink = (id: SettingsPage): NavLink => {
   const page = PAGES.find((p) => p.id === id);
   return {
     title: page?.title ?? id,
-    subtitle: page?.subtitle ?? "",
-    tabletSubtitle: id === "appearance" ? "Theme and file viewer" : undefined,
+    subtitle: "",
+    subtitleOn: page?.subtitle,
     badge: PAGE_BADGES[id],
     href: `/settings/${id}`,
     pane: id,
@@ -302,6 +303,7 @@ export function searchSettings(query: string): SharedSettingId[] {
 export function SettingsScreen({ initial = "general" }: { initial?: string }) {
   const router = useRouter();
   const tablet = useIsTablet();
+  const device = useDeviceWord();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Pane>(paneOf(initial));
   const found = query.trim() ? searchSettings(query) : [];
@@ -311,9 +313,7 @@ export function SettingsScreen({ initial = "general" }: { initial?: string }) {
     ...group,
     links: group.links
       .filter((link) => tablet || !link.tabletOnly)
-      .map((link) =>
-        tablet && link.tabletSubtitle ? { ...link, subtitle: link.tabletSubtitle } : link,
-      ),
+      .map((link) => (link.subtitleOn ? { ...link, subtitle: link.subtitleOn(device) } : link)),
   }));
   const list = (
     <Screen grouped={tablet}>
@@ -424,6 +424,7 @@ const SETTINGS_LIST_WIDTH = 340;
 /// One category's settings, in the desktop's words, under a small heading per section.
 export function SettingsCategoryScreen({ page }: { page: string }) {
   const tablet = useIsTablet();
+  const device = useDeviceWord();
   if (page === "account") return <AccountPage />;
   const known = PAGES.find((p) => p.id === page);
   if (known?.id === "latex") {
@@ -463,8 +464,8 @@ export function SettingsCategoryScreen({ page }: { page: string }) {
       )}
       {known?.id === "calendar" && !tablet ? <CalendarConnectionsLink /> : null}
       {/* An iPad has no Taptic Engine (11.3). */}
-      {known?.id === "appearance" && !tablet && (
-        <GroupedSection title="This phone" margin={0}>
+      {known?.id === "appearance" && (device === "iPhone" || device === "phone") && (
+        <GroupedSection title={`This ${device}`} margin={0}>
           <HapticsRow />
         </GroupedSection>
       )}

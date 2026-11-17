@@ -1,3 +1,4 @@
+import { useDeviceWord } from "../ui/device-word.ts";
 import { usePageWidth } from "../ui/pane.tsx";
 import { usePageFilters } from "../ui/page-filters.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
@@ -406,6 +407,7 @@ function AddLine({ noun, onAdd }: { noun: "Ingredient" | "Step"; onAdd: (text: s
 /// The banner across the top, as on the desktop: the picture, or a quiet placeholder with
 /// the kitchen icon; a small camera button in its corner adds or changes it.
 function RecipeBanner({ id, readOnly }: { id: string; readOnly: boolean }) {
+  const device = useDeviceWord();
   const theme = useTheme();
   const { data: recipe } = useRecipe(id);
   const menu = useMenu();
@@ -434,7 +436,7 @@ function RecipeBanner({ id, readOnly }: { id: string; readOnly: boolean }) {
         ) : (
           <View
             accessibilityLabel={
-              recipe?.bannerBlob ? "The banner arrives when this phone has synced" : "No banner"
+              recipe?.bannerBlob ? `The banner arrives when this ${device} has synced` : "No banner"
             }
             className="size-full items-center justify-center"
           >

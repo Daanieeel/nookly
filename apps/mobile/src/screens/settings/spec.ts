@@ -1,4 +1,5 @@
 import type { SharedSettingId } from "@nookly/shared/settings";
+import type { DeviceWord } from "../../ui/device-word.ts";
 
 /// How each shared setting is edited on the phone. The table is exhaustive (it
 /// `satisfies` a record of every shared setting), so a setting added to
@@ -20,13 +21,31 @@ export type Control =
   | { kind: "text"; placeholder?: string; multiline?: boolean; allowEmpty?: boolean }
   | { kind: "stepper"; min: number; max: number; step: number; increments?: number; unit?: string };
 
-export const PAGES: { id: SettingsPage; title: string; subtitle: string }[] = [
-  { id: "general", title: "General", subtitle: "Your name, time zone and formats" },
-  { id: "appearance", title: "Appearance", subtitle: "Theme, file viewer and haptics" },
-  { id: "calendar", title: "Calendar", subtitle: "Week, day and new entries" },
-  { id: "editor", title: "Editor", subtitle: "Pages and code" },
-  { id: "latex", title: "LaTeX", subtitle: "Your own math commands" },
-  { id: "backup", title: "Backup", subtitle: "A copy of everything on this phone" },
+/// A big device: an iPad or an Android tablet.
+const big = (device: DeviceWord) => device === "iPad" || device === "tablet";
+
+export const PAGES: {
+  id: SettingsPage;
+  title: string;
+  /// Its line in the list, naming the device in hand or only what it has.
+  subtitle: (device: DeviceWord) => string;
+}[] = [
+  { id: "general", title: "General", subtitle: () => "Your name, time zone and formats" },
+  {
+    id: "appearance",
+    title: "Appearance",
+    // An iPad has no Taptic Engine (11.3).
+    subtitle: (device) =>
+      big(device) ? "Theme and file viewer" : "Theme, file viewer and haptics",
+  },
+  { id: "calendar", title: "Calendar", subtitle: () => "Week, day and new entries" },
+  { id: "editor", title: "Editor", subtitle: () => "Pages and code" },
+  { id: "latex", title: "LaTeX", subtitle: () => "Your own math commands" },
+  {
+    id: "backup",
+    title: "Backup",
+    subtitle: (device) => `A copy of everything on this ${device}`,
+  },
 ];
 
 export const SETTING_UI = {

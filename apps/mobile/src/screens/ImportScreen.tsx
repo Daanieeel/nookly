@@ -1,3 +1,4 @@
+import { useDeviceWord } from "../ui/device-word.ts";
 import { type ImportPreview, importNooklyFile, previewNooklyFile } from "@nookly/shared/data";
 import { useMutation } from "@tanstack/react-query";
 import { FormSection } from "../ui/kit/Form.tsx";
@@ -18,6 +19,7 @@ import { storeBase64 } from "../data/files.ts";
 
 /// What an import would make, as the desktop's import dialog lists it.
 function PreviewCard({ preview }: { preview: ImportPreview }) {
+  const device = useDeviceWord();
   return (
     <Section title="This file holds">
       <View className="gap-1 p-4">
@@ -46,7 +48,7 @@ function PreviewCard({ preview }: { preview: ImportPreview }) {
         {preview.converted > 0 ? (
           <Text variant="small" tone="caution">
             {preview.converted} {preview.converted === 1 ? "part arrives" : "parts arrive"} as plain
-            text, since this phone has no editor for {preview.converted === 1 ? "it" : "them"}.
+            text, since this {device} has no editor for {preview.converted === 1 ? "it" : "them"}.
           </Text>
         ) : null}
       </View>

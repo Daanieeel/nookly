@@ -1,3 +1,4 @@
+import { useDeviceWord } from "../ui/device-word.ts";
 import { fileKindOf } from "@nookly/shared/data";
 import {
   IconChevronDown,
@@ -197,6 +198,7 @@ export function FileContents({
   missing: string;
   actions?: ReturnType<typeof barButton>[];
 }) {
+  const device = useDeviceWord();
   const { available, View: FileView } = useFileViewer();
   const viewer = useRef<FileViewHandle>(null);
   const [searching, setSearching] = useState(false);
@@ -252,8 +254,8 @@ export function FileContents({
       {!path || !shown ? (
         <EmptyState
           glyph={KIND_ICONS[fileKindOf(name)]}
-          title={path ? "Open it in another app" : "Not on this phone yet"}
-          message={path ? "This phone cannot show this kind of file itself." : missing}
+          title={path ? "Open it in another app" : `Not on this ${device} yet`}
+          message={path ? `This ${device} cannot show this kind of file itself.` : missing}
           action={path ? { label: "Open In…", onPress: () => void shareFile(path) } : undefined}
         />
       ) : kind === "text" ? (
@@ -298,6 +300,7 @@ export function FileContents({
 /// images, video and sound as the system shows them, text and code as text. Anything this
 /// phone cannot show is offered to other apps.
 export function FileViewerScreen({ id }: { id: string }) {
+  const device = useDeviceWord();
   const { data: file, isPending } = useFile(id);
   if (isPending) return <LoadingState />;
   if (!file) return <EmptyState title="This file is gone" />;
@@ -306,7 +309,7 @@ export function FileViewerScreen({ id }: { id: string }) {
       name={nameOf(file)}
       path={pathOf(file)}
       kind={viewerFor(file)}
-      missing="The contents arrive when this phone has synced."
+      missing={`The contents arrive when this ${device} has synced.`}
     />
   );
 }

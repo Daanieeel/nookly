@@ -51,7 +51,7 @@ describe("signing in on a tablet", () => {
     };
     data.sync.store.setState({ migration });
     const screen = await renderScreens({ index: () => <FirstSyncPage /> }, data, "/", TABLET);
-    expect(await screen.findByText("Bringing this tablet into your account")).toBeTruthy();
+    expect(await screen.findByText("Bringing this iPad into your account")).toBeTruthy();
     expect(screen.getByTestId("first-sync-card")).toBeTruthy();
   });
 

@@ -6,6 +6,7 @@ import { useAppData } from "../../data/context.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { SectionHeader } from "../../ui/kit/GroupedSection.tsx";
 import { Label } from "../../ui/kit/Label.tsx";
+import { useDeviceWord } from "../../ui/device-word.ts";
 import { SPACE } from "../../ui/tokens.ts";
 import { CardActions, CardHead, type CardTone, SettingsCard } from "./cards.tsx";
 
@@ -14,6 +15,7 @@ import { CardActions, CardHead, type CardTone, SettingsCard } from "./cards.tsx"
 /// account holds everything, and nothing on the phone is replaced.
 export function BackupPage() {
   const { backup } = useAppData();
+  const device = useDeviceWord();
   const [state, setState] = useState<"idle" | "working" | "done" | "failed">("idle");
   const [message, setMessage] = useState("");
   const run = async () => {
@@ -37,11 +39,11 @@ export function BackupPage() {
         <CardHead
           icon={IconArchive}
           tone={tone}
-          title="A backup of this phone"
+          title={`A backup of this ${device}`}
           detail={
             state === "done" || state === "failed"
               ? message
-              : "One file with every Space, note, file record, deck and setting on this phone. The newest three stay on the phone too."
+              : `One file with every Space, note, file record, deck and setting on this ${device}. The newest three stay on the ${device} too.`
           }
         />
         <CardActions>
@@ -53,8 +55,8 @@ export function BackupPage() {
         </CardActions>
       </SettingsCard>
       <Label type="footnote" color="secondaryLabel" style={{ paddingHorizontal: SPACE.lg }}>
-        To restore, sign in on a new phone: your account brings everything back and never replaces
-        what is already here.
+        To restore, sign in on a new {device}: your account brings everything back and never
+        replaces what is already here.
       </Label>
     </View>
   );

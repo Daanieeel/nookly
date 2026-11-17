@@ -23,6 +23,7 @@ import { useAppData, useSyncState } from "../../data/context.tsx";
 import { keys } from "../../data/keys.ts";
 import { Badge } from "../../ui/Badge.tsx";
 import { Button, statusOf } from "../../ui/Button.tsx";
+import { useDeviceWord } from "../../ui/device-word.ts";
 import { Field } from "../../ui/Field.tsx";
 import { Section } from "../../ui/Row.tsx";
 import { Screen } from "../../ui/Screen.tsx";
@@ -85,15 +86,16 @@ const plural = (n: number, one: string, many: string) =>
 
 /// How the first sync of this phone went, or how far it is.
 function FirstSyncLine() {
+  const device = useDeviceWord();
   const migration = useSyncState((state) => state.migration);
   if (!migration) return null;
   const files = migration.files > 0 ? ` and ${plural(migration.files, "file", "files")}` : "";
   const text =
     migration.phase === "done"
-      ? `All ${plural(migration.items, "item", "items")}${files} from this phone reached your account, checked with the server.`
+      ? `All ${plural(migration.items, "item", "items")}${files} from this ${device} reached your account, checked with the server.`
       : migration.phase === "failed"
         ? (migration.error ?? "The first sync stopped.")
-        : `Bringing this phone into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
+        : `Bringing this ${device} into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
   return (
     <CardFoot>
       <Text variant="small" tone={migration.phase === "failed" ? "destructive" : "muted"}>
@@ -125,6 +127,7 @@ function FilesLine() {
 
 /// Signed in: who, how sync is doing, and the way out.
 function SignedInCard() {
+  const device = useDeviceWord();
   const menu = useMenu();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
@@ -149,10 +152,10 @@ function SignedInCard() {
     const waiting =
       unsent === 0
         ? ""
-        : ` ${unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`} not reached the account yet. Nookly tries once more and saves a backup of this phone first.`;
+        : ` ${unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`} not reached the account yet. Nookly tries once more and saves a backup of this ${device} first.`;
     menu.confirm({
-      title: "Sign out of this phone?",
-      description: `Everything stays in your account and on your other devices. It is removed from this phone, and comes back when you sign in again.${waiting}`,
+      title: `Sign out of this ${device}?`,
+      description: `Everything stays in your account and on your other devices. It is removed from this ${device}, and comes back when you sign in again.${waiting}`,
       actions: [{ label: "Sign Out", onPress: () => signOut.mutate() }],
     });
   };
@@ -210,6 +213,7 @@ function SignedInCard() {
 
 /// Signed out: what an account is for, and the ways in.
 function SignedOutCard() {
+  const device = useDeviceWord();
   const router = useRouter();
   const reason = useSyncState((state) => state.signedOutReason);
   return (
@@ -218,7 +222,7 @@ function SignedOutCard() {
         icon={reason ? IconAlertTriangle : IconCloudOff}
         tone={reason ? "caution" : "idle"}
         title="Not signed in"
-        detail={reason ?? "Everything stays on this phone."}
+        detail={reason ?? `Everything stays on this ${device}.`}
       />
       <CardActions>
         <Button size="sm" label="Sign In" onPress={() => router.push("/account/sign-in")} />
@@ -286,6 +290,7 @@ function DeviceCard({ session }: { session: Session }) {
 
 /// Every device signed in to the account, this one first.
 function DeviceCards() {
+  const device = useDeviceWord();
   const { sync } = useAppData();
   const { data: sessions = [] } = useQuery({
     queryKey: keys.sync.sessions,
@@ -295,7 +300,7 @@ function DeviceCards() {
   if (ordered.length === 0) {
     return (
       <Text variant="small" tone="muted" className="px-1">
-        Your devices show once this phone reaches the server.
+        Your devices show once this {device} reaches the server.
       </Text>
     );
   }
@@ -487,6 +492,7 @@ function ChangePassword() {
 
 /// Deleting the account removes it and everything on the server. This phone keeps its data.
 function DeleteAccount() {
+  const device = useDeviceWord();
   const menu = useMenu();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
@@ -502,8 +508,7 @@ function DeleteAccount() {
   const confirmDelete = () =>
     menu.confirm({
       title: "Delete your sync account forever?",
-      description:
-        "The account, its synced data, its devices and its shares are removed from the server. This can't be undone. Everything on this phone stays.",
+      description: `The account, its synced data, its devices and its shares are removed from the server. This can't be undone. Everything on this ${device} stays.`,
       actions: [{ label: "Delete Account", destructive: true, onPress: () => remove.mutate() }],
     });
   return (
@@ -573,6 +578,7 @@ function Description({ children }: { children: string }) {
 
 /// Settings, Account.
 export function AccountPage() {
+  const device = useDeviceWord();
   const signedIn = useSyncState((s) => s.user !== null);
   return (
     <Screen grouped>
@@ -591,8 +597,7 @@ export function AccountPage() {
       </Section>
       <Section title="Shared with me">
         <Description>
-          Pages and tasks people shared with you. Accepted ones sync to this phone in a Space of
-          their own.
+          {`Pages and tasks people shared with you. Accepted ones sync to this ${device} in a Space of their own.`}
         </Description>
         <SignedInOnly what="what is shared with you">
           <SharedCards />
@@ -605,8 +610,7 @@ export function AccountPage() {
           </Description>
           <ChangePassword />
           <Description>
-            Deleting the account removes it and everything in it from the server, for good. What is
-            on this phone stays here.
+            {`Deleting the account removes it and everything in it from the server, for good. What is on this ${device} stays here.`}
           </Description>
           <DeleteAccount />
         </Section>

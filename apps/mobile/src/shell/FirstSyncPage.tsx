@@ -12,6 +12,7 @@ import { useTheme } from "../ui/theme.ts";
 import { SPACE, TINT } from "../ui/tokens.ts";
 import { useScheme } from "../ui/kit/scheme.ts";
 import { useIsTablet } from "../ui/pane.tsx";
+import { useDeviceWord } from "../ui/device-word.ts";
 
 /// The desktop's first sync page (`FirstSyncDialog.tsx`) on the phone: the backup, the items
 /// and files going up, and the check with the server, over the whole app while it runs so
@@ -106,7 +107,7 @@ export function FirstSyncPage() {
   const background = useSemantic("background");
   // A tablet's is the desktop's first sync dialog: a card over the dimmed app.
   const tablet = useIsTablet();
-  const device = tablet ? "tablet" : "phone";
+  const device = useDeviceWord();
   const retry = useMutation({ mutationFn: () => sync.retryFirstSync() });
   const running = migration !== null && migration.phase !== "done" && migration.phase !== "failed";
   // Up as soon as it starts, and kept up until its end has been read.

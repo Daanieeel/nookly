@@ -1,3 +1,4 @@
+import { useDeviceWord } from "../ui/device-word.ts";
 import { type Column, DataTable } from "../ui/DataTable.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
 import { FixedTop } from "../ui/fixed-top.tsx";
@@ -373,6 +374,7 @@ function fileGroups(files: FileRecord[], display: FileDisplay, labels: LabelReco
 /// A Space's files as tiles or a list, filtered by kind and label, grouped and ordered as
 /// on the desktop; the bar to paste a link floats over its end (`FilePasteBar`).
 export function FileRows({ spaceId }: { spaceId: string }) {
+  const device = useDeviceWord();
   const { data: files = [] } = useFiles(spaceId);
   const { data: labels = [] } = useLabels(spaceId);
   const { data: views = [] } = useViews({ spaceId, module: "files" });
@@ -427,7 +429,7 @@ export function FileRows({ spaceId }: { spaceId: string }) {
     draft.open({ id, value: opened.display });
     if (opened.ignored.length > 0) {
       setNote(
-        `This view also uses ${opened.ignored.join(", ")}, which the phone doesn't show yet.`,
+        `This view also uses ${opened.ignored.join(", ")}, which the ${device} doesn't show yet.`,
       );
     }
   };
@@ -643,6 +645,7 @@ function Preview({ file }: { file: FileRecord }) {
 /// A file's own page: the file in the page, as far as the phone can show it; what it is
 /// and where it came from in the details.
 export function FileDetail({ id }: { id: string }) {
+  const device = useDeviceWord();
   const theme = useTheme();
   const muted = theme.colors.mutedForeground;
   const { data: file } = useFile(id);
@@ -684,7 +687,7 @@ export function FileDetail({ id }: { id: string }) {
           ) : null}
           {isDownloading(file) ? (
             <Text tone="muted">
-              The contents are in your account. They arrive when this phone has synced.
+              The contents are in your account. They arrive when this {device} has synced.
             </Text>
           ) : null}
         </View>

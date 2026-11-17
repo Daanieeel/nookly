@@ -1,3 +1,4 @@
+import { useDeviceWord } from "../ui/device-word.ts";
 import { FixedTop } from "../ui/fixed-top.tsx";
 import { PageActions } from "../ui/page-actions.tsx";
 import { SaveBar } from "../ui/SaveBar.tsx";
@@ -180,6 +181,7 @@ function FilterPanel({ filters }: { filters: ListFilter[] }) {
 /// board, grouped, ordered and filtered the way the person chose. The overview opens as a list
 /// by due date; a Space's tasks as a board where there is room (an iPad), else a list by status.
 export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
+  const device = useDeviceWord();
   const router = useRouter();
   const tablet = useIsTablet();
   const { data: tasks = [] } = useTasks(spaceId);
@@ -266,7 +268,7 @@ export function TasksScreen({ spaceId = null }: { spaceId?: string | null }) {
     draft.open({ id, value: next });
     setNote(
       ignored.length > 0
-        ? `This view also uses ${ignored.join(", ")}, which the phone doesn't show yet.`
+        ? `This view also uses ${ignored.join(", ")}, which the ${device} doesn't show yet.`
         : null,
     );
   };

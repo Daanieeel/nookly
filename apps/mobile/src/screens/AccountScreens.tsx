@@ -1,5 +1,6 @@
 import { ApiClient, emailSchema, signInSchema, usernameSchema } from "@nookly/shared/api";
 import { useIsTablet } from "../ui/pane.tsx";
+import { useDeviceWord } from "../ui/device-word.ts";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import {
   type Icon,
@@ -54,7 +55,8 @@ const resetForm = z.object({ email: z.email("Enter the email address of your acc
 /// The first thing on a new phone, like the apps it sits beside: what Nookly is, and
 /// the three ways in. An account is optional: Nookly works fully on its own.
 export function WelcomeScreen() {
-  const device = useIsTablet() ? "tablet" : "phone";
+  const tablet = useIsTablet();
+  const device = useDeviceWord();
   const router = useRouter();
   const { onboarded } = useAppData();
   const theme = useTheme();
@@ -93,7 +95,7 @@ export function WelcomeScreen() {
     </View>
   );
   // A tablet's is a card in the middle of the window, as the desktop's account dialog.
-  if (device === "tablet") {
+  if (tablet) {
     return (
       <View
         className={cn("flex-1 items-center justify-center px-6", PAGE_BACKGROUND)}
@@ -227,7 +229,7 @@ const LOCAL_DATA_CHOICES: {
 ];
 
 function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) {
-  const device = useIsTablet() ? "tablet" : "phone";
+  const device = useDeviceWord();
   if (data.count === 0) return null;
   const items = data.count === 1 ? "1 item" : `${data.count.toLocaleString()} items`;
   return (

@@ -207,7 +207,7 @@ describe("Settings", () => {
       { index: () => <SettingsCategoryScreen page="appearance" /> },
       testData(),
     );
-    expect(await screen.findByRole("header", { name: "This phone" })).toBeTruthy();
+    expect(await screen.findByRole("header", { name: "This iPhone" })).toBeTruthy();
     const toggle = screen.getByLabelText("Haptics");
     expect(toggle.props.value).toBe(true);
     await fireEvent(toggle, "valueChange", false);

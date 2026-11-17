@@ -80,7 +80,7 @@ describe("signing in", () => {
     jest.spyOn(data.sync, "localDataCount").mockResolvedValue(12);
     const signIn = jest.spyOn(data.sync, "signIn").mockResolvedValue(ADA);
     const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
-    expect(await screen.findByText(/This phone already holds 12 items/)).toBeTruthy();
+    expect(await screen.findByText(/This iPhone already holds 12 items/)).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText("Username or email"), "ada");
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
     // Nothing joins an account, and nothing is cleared, without an answer.

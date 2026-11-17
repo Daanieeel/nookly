@@ -21,8 +21,8 @@ describe("bringing this phone into an account", () => {
     const data = testData();
     data.sync.store.setState({ migration: BASE });
     const screen = await renderScreens({ index: () => <FirstSyncPage /> }, data);
-    expect(await screen.findByText("Bringing this phone into your account")).toBeTruthy();
-    expect(screen.getByText("Backed up this phone")).toBeTruthy();
+    expect(await screen.findByText("Bringing this iPhone into your account")).toBeTruthy();
+    expect(screen.getByText("Backed up this iPhone")).toBeTruthy();
     expect(screen.getByText("400 of 1,204 items")).toBeTruthy();
     expect(screen.getByText("12 of 37 files")).toBeTruthy();
     expect(screen.getByRole("progressbar", { name: "Items sent" })).toHaveAccessibilityValue({
@@ -38,7 +38,7 @@ describe("bringing this phone into an account", () => {
     const data = testData();
     data.sync.store.setState({ migration: BASE });
     const screen = await renderScreens({ index: () => <FirstSyncPage /> }, data);
-    await screen.findByText("Bringing this phone into your account");
+    await screen.findByText("Bringing this iPhone into your account");
     act(() =>
       data.sync.store.setState({
         migration: { ...BASE, phase: "done", itemsSent: 1204, filesSent: 37 },
@@ -50,7 +50,7 @@ describe("bringing this phone into an account", () => {
       ),
     ).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Done" }));
-    expect(screen.queryByText("Bringing this phone into your account")).toBeNull();
+    expect(screen.queryByText("Bringing this iPhone into your account")).toBeNull();
   });
 
   it("explains a failure and tries again on request", async () => {
@@ -58,7 +58,7 @@ describe("bringing this phone into an account", () => {
     const retry = jest.spyOn(data.sync, "retryFirstSync").mockResolvedValue();
     data.sync.store.setState({ migration: BASE });
     const screen = await renderScreens({ index: () => <FirstSyncPage /> }, data);
-    await screen.findByText("Bringing this phone into your account");
+    await screen.findByText("Bringing this iPhone into your account");
     act(() =>
       data.sync.store.setState({
         migration: { ...BASE, phase: "failed", itemsSent: 0, error: "The disk is full." },
@@ -71,6 +71,6 @@ describe("bringing this phone into an account", () => {
 
   it("shows nothing when there is no first sync", async () => {
     const screen = await renderScreens({ index: () => <FirstSyncPage /> }, testData());
-    expect(screen.queryByText("Bringing this phone into your account")).toBeNull();
+    expect(screen.queryByText("Bringing this iPhone into your account")).toBeNull();
   });
 });
