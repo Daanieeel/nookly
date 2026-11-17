@@ -280,13 +280,20 @@ function SheetFrame({
     if (open) setPages([]);
   }, [open]);
 
-  const resolved = usePresentation({
+  const live = usePresentation({
     kind,
     anchored: anchor !== undefined && !touched,
     touched: anchor !== undefined && touched,
     requested,
     large: size === "large",
   });
+  // While open it keeps the way it opened: a window turned or narrowed past 600 would draw
+  // the content in another frame, remounting it and losing what was typed (12.2). A dialog
+  // in a narrow window shrinks to fit it.
+  const [kept, setKept] = useState<typeof live | null>(open ? live : null);
+  if (open && kept === null) setKept(live);
+  if (!open && kept !== null) setKept(null);
+  const resolved = kept ?? live;
   const presentation = resolved.presentation;
   const layer = useLayer(
     open && (presentation === "popover" || presentation === "dialog"),
