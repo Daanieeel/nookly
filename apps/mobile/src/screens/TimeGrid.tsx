@@ -14,18 +14,28 @@ import { itemHref } from "./ExternalEventScreen.tsx";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { type AnimatedStyle } from "react-native-reanimated";
 import type { StyleProp, ViewStyle } from "react-native";
 import { useSetting } from "../data/settings.ts";
 import { cn } from "../ui/classes.ts";
 import { haptic } from "../ui/haptics.ts";
 import { LIFT_DELAY } from "../ui/motion.ts";
+import { useIsTablet } from "../ui/pane.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useCalendarColors } from "./calendar-colors.ts";
 import { localDay } from "./dates.ts";
 
 /// Pixels per hour, and the least a block is drawn tall (a short item stays tappable).
 export const HOUR_PX = 52;
+/// How far a tablet's pinch zooms the hours: about the whole day on screen, and a quarter
+/// hour as tall as a finger.
+export const MIN_HOUR_PX = 32;
+export const MAX_HOUR_PX = 128;
+
+/// The scale a tablet's pinch left the hours at, kept while the app runs, as iOS's Calendar
+/// keeps its zoom between days and views.
+let zoomedHourPx = HOUR_PX;
 
 /// How strongly a faded item still shows (the desktop's cutout dims the rest of the week).
 const FADED = 0.4;
@@ -66,8 +76,8 @@ function hourLabel(hour: number, twelve: boolean): string {
 }
 
 /// The quarter hour at `y` points down a day's hours, as `HH:mm`.
-export function quarterAt(y: number): string {
-  const minutes = Math.max(0, Math.min(DAY_MINUTES - 15, Math.floor((y / HOUR_PX) * 4) * 15));
+export function quarterAt(y: number, hourPx = HOUR_PX): string {
+  const minutes = Math.max(0, Math.min(DAY_MINUTES - 15, Math.floor((y / hourPx) * 4) * 15));
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
 }
@@ -131,6 +141,32 @@ export function TimeGrid({
   const today = localDay();
   const scroll = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
+  const tablet = useIsTablet();
+  const [hourPx, setHourPx] = useState(tablet ? zoomedHourPx : HOUR_PX);
+  const hourRef = useRef(hourPx);
+  const pinchFrom = useRef(hourPx);
+  const offset = useRef(0);
+  /// Zooms to `next` pixels an hour, keeping the time under the fingers (`focalY`, down the
+  /// day's hours) where it is on screen.
+  const zoomTo = (next: number, focalY: number) => {
+    const clamped = Math.round(Math.min(MAX_HOUR_PX, Math.max(MIN_HOUR_PX, next)));
+    const previous = hourRef.current;
+    if (clamped === previous) return;
+    hourRef.current = clamped;
+    zoomedHourPx = clamped;
+    setHourPx(clamped);
+    const onScreen = focalY - offset.current;
+    const y = Math.max(0, focalY * (clamped / previous) - onScreen);
+    offset.current = y;
+    scroll.current?.scrollTo({ y, animated: false });
+  };
+  const pinch = Gesture.Pinch()
+    .withTestId("hours-pinch")
+    .runOnJS(true)
+    .onStart(() => {
+      pinchFrom.current = hourRef.current;
+    })
+    .onUpdate((event) => zoomTo(pinchFrom.current * event.scale, event.focalY));
   const gutter = gutterFor(width);
   const area = width - gutter;
   const column = area / days.length;
@@ -150,13 +186,16 @@ export function TimeGrid({
   ];
   // The hours open at the hour the day starts: set as the starting offset, and again
   // when the setting or the number of days changes (the content is laid out by then).
-  const startY =
-    scrollTo === undefined
-      ? Math.max(0, startHour * HOUR_PX - 4)
-      : Math.round((scrollTo / 60) * HOUR_PX);
+  const startAt = (px: number) =>
+    scrollTo === undefined ? Math.max(0, startHour * px - 4) : Math.round((scrollTo / 60) * px);
+  const startY = startAt(hourPx);
+  // Not on a zoom: a pinch keeps the time under the fingers instead.
   useEffect(() => {
-    scroll.current?.scrollTo({ y: startY, animated: false });
-  }, [startY, days.length]);
+    const y = startAt(hourRef.current);
+    offset.current = y;
+    scroll.current?.scrollTo({ y, animated: false });
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `startAt` reads only these
+  }, [startHour, scrollTo, days.length]);
 
   // SAFETY: `itemHref` gives an entity's page or the calendar event sheet, both routes.
   const open = (id: string) => router.push(itemHref(id) as never);
@@ -279,17 +318,17 @@ export function TimeGrid({
   const renderColumns = (pageDays: string[]) => {
     const content = pageDays.map((day) => ({ day, ...segmentsForDay(items, day) }));
     return (
-      <View key={pageDays[0]} style={{ width: area, height: 24 * HOUR_PX }}>
+      <View key={pageDays[0]} style={{ width: area, height: 24 * hourPx }}>
         {HOURS.map((hour) => (
           <View
             key={hour}
             testID="gridline"
             className="absolute inset-x-0 border-t"
-            style={{ top: hour * HOUR_PX, borderColor: colors.gridline }}
+            style={{ top: hour * hourPx, borderColor: colors.gridline }}
           />
         ))}
         {content.map(({ day, timed }, index) => {
-          const lanes = layoutLanes(timed, (MIN_BLOCK_PX / HOUR_PX) * 60);
+          const lanes = layoutLanes(timed, (MIN_BLOCK_PX / hourPx) * 60);
           return (
             <Pressable
               key={day}
@@ -299,7 +338,7 @@ export function TimeGrid({
               delayLongPress={LIFT_DELAY}
               onLongPress={(event) => {
                 haptic("select");
-                onCreateAt?.(day, quarterAt(event.nativeEvent.locationY));
+                onCreateAt?.(day, quarterAt(event.nativeEvent.locationY, hourPx));
               }}
               className={cn(
                 "absolute inset-y-0 border-l",
@@ -319,7 +358,7 @@ export function TimeGrid({
                 const { item } = segment;
                 const lane = lanes.get(segment);
                 if (!lane) return null;
-                const g = blockGeometry(segment, lane, HOUR_PX, MIN_BLOCK_PX);
+                const g = blockGeometry(segment, lane, hourPx, MIN_BLOCK_PX);
                 const w = g.width * column - 2;
                 const look = blockLook(item.kind);
                 const color = colors.accent(item.kind, colorOf(item.spaceId));
@@ -369,7 +408,7 @@ export function TimeGrid({
                 <View
                   pointerEvents="none"
                   className="absolute inset-x-0 h-0.5 bg-destructive"
-                  style={{ top: (now / DAY_MINUTES) * 24 * HOUR_PX - 1 }}
+                  style={{ top: (now / DAY_MINUTES) * 24 * hourPx - 1 }}
                 />
               ) : null}
             </Pressable>
@@ -401,29 +440,53 @@ export function TimeGrid({
         // The last hour clears the home bar instead of sitting under it.
         contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
         directionalLockEnabled
+        onScroll={(event) => {
+          offset.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
-        <View style={{ height: 24 * HOUR_PX }} className="flex-row">
-          <View style={{ width: gutter }}>
-            {HOURS.map((hour) => (
-              <Text
-                key={hour}
-                variant="small"
-                tone="muted"
-                numberOfLines={1}
-                className="absolute right-1 text-right"
-                style={{ top: hour * HOUR_PX - 7, fontSize: 10, opacity: hour === 0 ? 0 : 1 }}
-              >
-                {hourLabel(hour, twelve)}
-              </Text>
-            ))}
+        <Zoomable gesture={tablet ? pinch : null}>
+          <View testID="hours-content" style={{ height: 24 * hourPx }} className="flex-row">
+            <View style={{ width: gutter }}>
+              {HOURS.map((hour) => (
+                <Text
+                  key={hour}
+                  variant="small"
+                  tone="muted"
+                  numberOfLines={1}
+                  className="absolute right-1 text-right"
+                  style={{ top: hour * hourPx - 7, fontSize: 10, opacity: hour === 0 ? 0 : 1 }}
+                >
+                  {hourLabel(hour, twelve)}
+                </Text>
+              ))}
+            </View>
+            <View style={{ width: area, overflow: "hidden" }}>
+              <Animated.View testID="page-strip" style={strip}>
+                {pages.map(renderColumns)}
+              </Animated.View>
+            </View>
           </View>
-          <View style={{ width: area, overflow: "hidden" }}>
-            <Animated.View testID="page-strip" style={strip}>
-              {pages.map(renderColumns)}
-            </Animated.View>
-          </View>
-        </View>
+        </Zoomable>
       </ScrollView>
     </View>
+  );
+}
+
+/// The day's hours under a tablet's pinch; a phone's as they are.
+function Zoomable({
+  gesture,
+  children,
+}: {
+  gesture: ReturnType<typeof Gesture.Pinch> | null;
+  children: React.ReactNode;
+}) {
+  if (!gesture) return children;
+  return (
+    <GestureDetector gesture={gesture}>
+      <View testID="hours-pinch-area" collapsable={false}>
+        {children}
+      </View>
+    </GestureDetector>
   );
 }

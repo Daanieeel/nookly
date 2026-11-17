@@ -25,7 +25,7 @@ import {
 } from "../test/render.tsx";
 import { addDays, isoWeek, localDay, periodTitle } from "./dates.ts";
 import { CalendarScreen } from "./CalendarScreen.tsx";
-import { HOUR_PX } from "./TimeGrid.tsx";
+import { HOUR_PX, MAX_HOUR_PX, MIN_HOUR_PX } from "./TimeGrid.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
 import { NewEntryScreen, entryProblem } from "./NewScreens.tsx";
 import { openRow } from "../test/sheet.ts";
@@ -381,6 +381,59 @@ describe("the calendar on a phone", () => {
       const height = ReactNative.StyleSheet.flatten(holder?.props.style)?.height;
       expect(height).toBe(24 * HOUR_PX);
     }
+  });
+
+  // A tablet's hours zoom with two fingers, as iOS's Calendar does: spread for more room per
+  // hour, pinch to see more of the day. The phone keeps its fixed scale.
+  it("zooms the hours with a pinch on a tablet, within limits", async () => {
+    const { data } = await planned();
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: IPAD,
+    });
+    const hours = await screen.findByTestId("hours-content");
+    const height = () => StyleSheet.flatten(hours.props.style).height;
+    expect(height()).toBe(24 * HOUR_PX);
+    act(() =>
+      fireGestureHandler(getByGestureTestId("hours-pinch"), [
+        { scale: 1, focalY: 400 },
+        { scale: 1.5, focalY: 400 },
+        { scale: 2, focalY: 400 },
+      ]),
+    );
+    expect(height()).toBe(24 * HOUR_PX * 2);
+    act(() =>
+      fireGestureHandler(getByGestureTestId("hours-pinch"), [
+        { scale: 1, focalY: 400 },
+        { scale: 10, focalY: 400 },
+      ]),
+    );
+    expect(height()).toBe(24 * MAX_HOUR_PX);
+    act(() =>
+      fireGestureHandler(getByGestureTestId("hours-pinch"), [
+        { scale: 1, focalY: 400 },
+        { scale: 0.01, focalY: 400 },
+      ]),
+    );
+    expect(height()).toBe(24 * MIN_HOUR_PX);
+    // Back to the usual scale, which the app keeps for the next calendar shown.
+    act(() =>
+      fireGestureHandler(getByGestureTestId("hours-pinch"), [
+        { scale: 1, focalY: 0 },
+        { scale: HOUR_PX / MIN_HOUR_PX, focalY: 0 },
+      ]),
+    );
+    expect(height()).toBe(24 * HOUR_PX);
+  });
+
+  it("keeps the phone's hours at their fixed scale", async () => {
+    const { data } = await planned();
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: PHONE,
+    });
+    await showView(screen, "3 Days");
+    const hours = await screen.findByTestId("hours-content");
+    expect(StyleSheet.flatten(hours.props.style).height).toBe(24 * HOUR_PX);
+    expect(screen.queryByTestId("hours-pinch-area")).toBeNull();
   });
 
   it("opens at the hour the day starts, and scrolls on to midnight past the home bar", async () => {
