@@ -319,10 +319,9 @@ describe("swiping between Spaces", swipeTests, () => {
 
   it("a swipe that goes back puts the bottom row back too", async () => {
     setup();
-    // Lets go past halfway, so the bottom row switches at once.
-    for (const dx of [40, 40, 30, 22, 16, 11]) {
-      fireEvent.wheel(await slot("Uni"), { deltaX: dx, deltaY: 0 });
-    }
+    // Lets go past halfway, so the bottom row switches at once. One glide on the test's own
+    // clock: real time between its events on a slow CI machine made it two short swipes.
+    glide(await slot("Uni"), [40, 40, 30, 22, 16, 11]);
     expect(useNavStore.getState().activeSpaceId).toBe("space-2");
     // Then takes hold of the list and drags it back to where it was, slowly, and lets go.
     const realNow = performance.now.bind(performance);
