@@ -4,6 +4,7 @@ import { View } from "react-native";
 import { Grid } from "../ui/Grid.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { Label } from "../ui/kit/Label.tsx";
+import { OnPage } from "../ui/kit/on-page.ts";
 import { type BadgeLook, MODULE_BADGES } from "../ui/kit/badges.ts";
 import { RowsCard } from "../ui/kit/Surface.tsx";
 import { CountTile, Tile } from "../ui/kit/Tile.tsx";
@@ -116,57 +117,59 @@ export function HomeScreen({ d }: { d: Dashboard }) {
   }
   return (
     <Screen onRefresh={d.onRefresh} refreshing={d.refreshing}>
-      <DashboardGreeting briefing={d.briefing} open={d.open} compact />
-      {next ? <UpNextCard next={next} color={spaceOf(next.item.spaceId)?.color} /> : null}
-      <Section title="At a glance">
-        <Grid min={150} max={2}>
-          {counts}
-        </Grid>
-      </Section>
-      <Section title="Today">
-        <RowsCard>
-          {d.items.length === 0 ? (
-            <Empty text="Nothing on the calendar today." />
-          ) : (
-            d.items.map((item) => (
-              <View key={item.id}>
-                <AgendaRow item={item} color={d.colorOf(item.spaceId)} />
-              </View>
-            ))
-          )}
-        </RowsCard>
-      </Section>
-      {d.deadlines.length > 0 ? (
-        <Section title="Coming up">
+      <OnPage.Provider value>
+        <DashboardGreeting briefing={d.briefing} open={d.open} compact />
+        {next ? <UpNextCard next={next} color={spaceOf(next.item.spaceId)?.color} /> : null}
+        <Section title="At a glance">
+          <Grid min={150} max={2}>
+            {counts}
+          </Grid>
+        </Section>
+        <Section title="Today">
           <RowsCard>
-            {d.deadlines.slice(0, HOME_LIMIT).map((x) => {
-              const due = dueText(x.date, d.today);
-              return (
-                <Row
-                  key={x.id}
-                  title={x.title || "Untitled"}
-                  subtitle={`${x.kind === "exam" ? "Exam" : "Assignment"}, ${due.text}`}
-                  icon={
-                    <IconBadge
-                      {...quiet(MODULE_BADGES[x.kind === "exam" ? "exams" : "assignments"])}
-                    />
-                  }
-                  onPress={() => router.push(`/entity/${x.id}`)}
-                />
-              );
-            })}
+            {d.items.length === 0 ? (
+              <Empty text="Nothing on the calendar today." />
+            ) : (
+              d.items.map((item) => (
+                <View key={item.id}>
+                  <AgendaRow item={item} color={d.colorOf(item.spaceId)} />
+                </View>
+              ))
+            )}
           </RowsCard>
         </Section>
-      ) : null}
-      <TasksPanel tasks={d.tasks} statuses={d.statuses} spaces={spaces} today={d.today} />
-      <AssignmentsPanel
-        assignments={d.assignments}
-        spaces={spaces}
-        courseName={d.courseName}
-        today={d.today}
-      />
-      <DecksPanel title="Cards" decks={d.decks} examName={d.examName} />
-      <JotsPanel jots={d.jots} spaces={spaces} />
+        {d.deadlines.length > 0 ? (
+          <Section title="Coming up">
+            <RowsCard>
+              {d.deadlines.slice(0, HOME_LIMIT).map((x) => {
+                const due = dueText(x.date, d.today);
+                return (
+                  <Row
+                    key={x.id}
+                    title={x.title || "Untitled"}
+                    subtitle={`${x.kind === "exam" ? "Exam" : "Assignment"}, ${due.text}`}
+                    icon={
+                      <IconBadge
+                        {...quiet(MODULE_BADGES[x.kind === "exam" ? "exams" : "assignments"])}
+                      />
+                    }
+                    onPress={() => router.push(`/entity/${x.id}`)}
+                  />
+                );
+              })}
+            </RowsCard>
+          </Section>
+        ) : null}
+        <TasksPanel tasks={d.tasks} statuses={d.statuses} spaces={spaces} today={d.today} />
+        <AssignmentsPanel
+          assignments={d.assignments}
+          spaces={spaces}
+          courseName={d.courseName}
+          today={d.today}
+        />
+        <DecksPanel title="Cards" decks={d.decks} examName={d.examName} />
+        <JotsPanel jots={d.jots} spaces={spaces} />
+      </OnPage.Provider>
     </Screen>
   );
 }

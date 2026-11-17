@@ -1,5 +1,6 @@
 import { SHARED_SETTINGS, type SharedSettingId } from "@nookly/shared/settings";
 import {
+  IconChevronRight,
   IconCalendar,
   IconCalendarUser,
   IconArchive,
@@ -27,7 +28,14 @@ import { useState } from "react";
 import { useSyncState } from "../data/context.tsx";
 import { GroupedSection, INSET } from "../ui/kit/GroupedSection.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
+import { Label } from "../ui/kit/Label.tsx";
+import { OnPage } from "../ui/kit/on-page.ts";
 import { ListRow } from "../ui/kit/ListRow.tsx";
+import { useSemanticPair } from "../ui/kit/scheme.ts";
+import { Tile } from "../ui/kit/Tile.tsx";
+import { Button } from "../ui/Button.tsx";
+import { SPACE } from "../ui/tokens.ts";
+import { useTheme } from "../ui/theme.ts";
 import { SearchField } from "../ui/kit/SearchField.tsx";
 import { EmptyState } from "../ui/kit/States.tsx";
 import type { BadgeLook } from "../ui/kit/badges.ts";
@@ -143,23 +151,134 @@ const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
   },
 ];
 
-/// Who is signed in (or the way in), at the top of Settings like the apps beside it.
+/// Who is signed in (or the way in), at the top of Settings: a card of its own with how
+/// syncing goes, a dot in its colour (green synced, red offline or failing).
 function AccountCard() {
   const router = useRouter();
+  const theme = useTheme();
+  const chevron = useSemanticPair("tertiaryLabel");
   const user = useSyncState((s) => s.user);
   const status = useSyncState((s) => s.status);
   const conflicts = status.conflicts;
+  const line = user ? statusText(status) : "Keep your phone, tablet and computer in step";
+  const dot =
+    status.state === "offline" || status.state === "error"
+      ? theme.colors.destructive
+      : status.state === "idle" || status.state === "syncing"
+        ? theme.colors.positive
+        : null;
+  const title = user ? user.username : "Sign in to sync";
   return (
-    <GroupedSection margin={0} inset={INSET.badge}>
-      <ListRow
-        badge={<IconBadge glyph={IconUserCircle} tint="blue" size={44} />}
-        title={user ? user.username : "Sign in to sync"}
-        subtitle={user ? statusText(status) : "Keep your phone, tablet and computer in step"}
-        detail={conflicts > 0 ? `${conflicts} to review` : undefined}
-        accessory="chevron"
-        onPress={() => router.push("/settings/account")}
-      />
-    </GroupedSection>
+    <Tile
+      accessibilityLabel={[title, line, conflicts > 0 ? `${conflicts} to review` : null]
+        .filter(Boolean)
+        .join(", ")}
+      onPress={() => router.push("/settings/account")}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.md }}>
+        <IconBadge glyph={IconUserCircle} tint="gray" size={52} />
+        <View style={{ flex: 1, gap: SPACE.xxs }}>
+          <Label type="title3" numberOfLines={1}>
+            {title}
+          </Label>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.xs }}>
+            {user && dot ? (
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dot }} />
+            ) : null}
+            <Label type="footnote" color="secondaryLabel" numberOfLines={2} style={{ flex: 1 }}>
+              {line}
+            </Label>
+          </View>
+          {conflicts > 0 ? (
+            <Label type="footnote" weight="600" tint={theme.colors.caution}>
+              {`${conflicts} to review`}
+            </Label>
+          ) : null}
+        </View>
+        <IconChevronRight size={18} color={chevron.hex} />
+      </View>
+    </Tile>
+  );
+}
+
+/// A category of settings as a tile: its icon, its name and what is in it.
+function SettingsTile({ link }: { link: NavLink }) {
+  const router = useRouter();
+  const icon = useSemanticPair("secondaryLabel");
+  const Glyph = link.badge.glyph;
+  return (
+    <Tile
+      accessibilityLabel={`${link.title}, ${link.subtitle}`}
+      // SAFETY: every `href` in NAV_GROUPS is a route under `src/app/settings`.
+      onPress={() => router.push(link.href as never)}
+    >
+      <View testID="settings-tile" style={{ minHeight: 92, gap: SPACE.xxs }}>
+        <Glyph size={22} color={icon.hex} />
+        <View style={{ flex: 1, minHeight: SPACE.sm }} />
+        <Label type="headline" numberOfLines={2}>
+          {link.title}
+        </Label>
+        <Label type="footnote" color="secondaryLabel" numberOfLines={2}>
+          {link.subtitle}
+        </Label>
+      </View>
+    </Tile>
+  );
+}
+
+/// The tiles of a group two to a row; one left over takes the whole row.
+function TileRows({ links }: { links: NavLink[] }) {
+  const rows = links.flatMap((_link, i) => (i % 2 === 0 ? [links.slice(i, i + 2)] : []));
+  return (
+    <View style={{ gap: SPACE.sm }}>
+      {rows.map((row) => (
+        <View key={row[0]?.title} style={{ flexDirection: "row", gap: SPACE.sm }}>
+          {row.map((link) => (
+            <SettingsTile key={link.title} link={link} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/// A phone's Settings: the account's card, the categories as tiles under plain headings, and
+/// What's New and the version in a quiet line at the end.
+function PhoneSettingsHome({ groups }: { groups: typeof NAV_GROUPS }) {
+  const router = useRouter();
+  const withPages = groups.filter((group) =>
+    group.links.every((link) => link.pane !== "whats-new"),
+  );
+  return (
+    <>
+      <AccountCard />
+      {withPages.map((group, index) => (
+        <View key={group.label ?? `group-${index}`} style={{ gap: SPACE.sm }}>
+          {group.label ? (
+            <Label
+              type="headline"
+              accessibilityRole="header"
+              accessibilityLabel={group.label}
+              style={{ paddingHorizontal: SPACE.xs }}
+            >
+              {group.label}
+            </Label>
+          ) : null}
+          <TileRows links={group.links.filter((link) => link.href !== undefined)} />
+        </View>
+      ))}
+      <View style={{ alignItems: "center", gap: SPACE.xxs }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          label="What's New"
+          onPress={() => router.push("/settings/whats-new")}
+        />
+        <Label type="footnote" color="tertiaryLabel">
+          {`Nookly ${version}`}
+        </Label>
+      </View>
+    </>
   );
 }
 
@@ -190,50 +309,53 @@ export function SettingsScreen({ initial = "general" }: { initial?: string }) {
     links: group.links.filter((link) => tablet || !link.tabletOnly),
   }));
   const list = (
-    <Screen grouped>
-      <SearchField label="Search settings" value={query} onChangeText={setQuery} />
-      {query.trim() ? (
-        found.length === 0 ? (
-          <EmptyState glyph={IconSearch} title="No Results" message="No setting matches." />
-        ) : (
-          <GroupedSection margin={0}>
-            {found.map((id) => (
-              <SettingRow key={id} id={id} />
-            ))}
-          </GroupedSection>
-        )
-      ) : (
-        <>
-          {tablet ? null : <AccountCard />}
-          {groups.map((group, index) => (
-            <GroupedSection
-              key={group.label ?? `group-${index}`}
-              title={group.label ?? undefined}
-              margin={0}
-              inset={INSET.badge}
-            >
-              {group.links.map((link) => (
-                <ListRow
-                  key={link.title}
-                  badge={<IconBadge glyph={link.badge.glyph} tint={link.badge.tint} />}
-                  title={link.title}
-                  subtitle={link.subtitle}
-                  accessory={beside(link) ? "check" : link.href ? "chevron" : "none"}
-                  selected={beside(link) ? link.pane === picked : undefined}
-                  onPress={
-                    beside(link)
-                      ? () => setPicked(link.pane)
-                      : link.href
-                        ? // SAFETY: every `href` in NAV_GROUPS is a route under `src/app/settings`.
-                          () => router.push(link.href as never)
-                        : undefined
-                  }
-                />
+    <Screen grouped={tablet}>
+      <OnPage.Provider value={!tablet}>
+        <SearchField label="Search settings" value={query} onChangeText={setQuery} />
+        {query.trim() ? (
+          found.length === 0 ? (
+            <EmptyState glyph={IconSearch} title="No Results" message="No setting matches." />
+          ) : (
+            <GroupedSection margin={0}>
+              {found.map((id) => (
+                <SettingRow key={id} id={id} />
               ))}
             </GroupedSection>
-          ))}
-        </>
-      )}
+          )
+        ) : !tablet ? (
+          <PhoneSettingsHome groups={groups} />
+        ) : (
+          <>
+            {groups.map((group, index) => (
+              <GroupedSection
+                key={group.label ?? `group-${index}`}
+                title={group.label ?? undefined}
+                margin={0}
+                inset={INSET.badge}
+              >
+                {group.links.map((link) => (
+                  <ListRow
+                    key={link.title}
+                    badge={<IconBadge glyph={link.badge.glyph} tint={link.badge.tint} />}
+                    title={link.title}
+                    subtitle={link.subtitle}
+                    accessory={beside(link) ? "check" : link.href ? "chevron" : "none"}
+                    selected={beside(link) ? link.pane === picked : undefined}
+                    onPress={
+                      beside(link)
+                        ? () => setPicked(link.pane)
+                        : link.href
+                          ? // SAFETY: every `href` in NAV_GROUPS is a route under `src/app/settings`.
+                            () => router.push(link.href as never)
+                          : undefined
+                    }
+                  />
+                ))}
+              </GroupedSection>
+            ))}
+          </>
+        )}
+      </OnPage.Provider>
     </Screen>
   );
   if (!tablet) return list;

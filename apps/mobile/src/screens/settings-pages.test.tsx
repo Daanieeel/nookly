@@ -1,6 +1,8 @@
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { isSyncedSetting } from "@nookly/shared/sync";
 import { render } from "@testing-library/react-native";
+import { Text } from "react-native";
+import { version } from "../../package.json";
 import { readPreference, writePreference } from "../data/preferences.ts";
 import { phoneSettings } from "../data/settings.ts";
 import { HAPTICS_PREFERENCE, hapticsPreference } from "../ui/haptics.ts";
@@ -25,6 +27,38 @@ describe("Settings", () => {
     for (const title of ["General", "Appearance", "Calendar", "Editor", "LaTeX", "Backup"]) {
       expect(await screen.findByText(title)).toBeTruthy();
     }
+  });
+
+  // The phone's Settings was a column of boxed rows with a coloured badge each, an old
+  // iOS page. Now its categories are tiles in one quiet style under plain headings.
+  it("lays the categories out as tiles under plain headings", async () => {
+    const screen = await renderScreens(
+      {
+        index: () => <SettingsScreen />,
+        "settings/[page]": () => <Text>The editor's settings</Text>,
+      },
+      testData(),
+    );
+    const tiles = await screen.findAllByTestId("settings-tile");
+    expect(tiles).toHaveLength(8);
+    for (const heading of ["Writing and study", "Data and accounts", "Power tools"]) {
+      expect(screen.getByRole("header", { name: heading })).toBeTruthy();
+    }
+    await fireEvent.press(screen.getByRole("button", { name: "Editor, Pages and code" }));
+    expect(await screen.findByText("The editor's settings")).toBeTruthy();
+  });
+
+  it("ends with What's New and the version in a quiet line", async () => {
+    const screen = await renderScreens(
+      {
+        index: () => <SettingsScreen />,
+        "settings/whats-new": () => <Text>What changed</Text>,
+      },
+      testData(),
+    );
+    expect(await screen.findByText(`Nookly ${version}`)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "What's New" }));
+    expect(await screen.findByText("What changed")).toBeTruthy();
   });
 
   it("groups a category's settings under the desktop's headings", async () => {

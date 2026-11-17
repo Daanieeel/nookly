@@ -48,6 +48,14 @@ export const SEMANTIC = {
     dark: "#38383a",
     ownDark: true,
   },
+  /// A card on a plain page (Home, Settings): a step off the page's white in light mode and off
+  /// its `#1a1a1a` in dark.
+  pageCard: {
+    ios: "secondarySystemBackground",
+    light: "#f2f2f7",
+    dark: "#262626",
+    ownDark: true,
+  },
   /// Something on a surface: a field, a search bar, a raised card.
   surfaceRaised: { ios: "tertiarySystemGroupedBackground", light: "#f2f2f7", dark: "#2c2c2e" },
   label: { ios: "label", light: "#000000", dark: "#ffffff" },
