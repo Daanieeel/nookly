@@ -168,10 +168,10 @@ describe("search", () => {
 describe("the Dashboard", () => {
   it("lists what is due today and before", async () => {
     const { data, space } = await seeded();
-    await createTask(data.db, space, "Due today", localDay());
+    await createTask(data.db, space, "Water plants", localDay());
     await createTask(data.db, space, "Some day");
     const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
-    expect(await screen.findByRole("button", { name: /^Due today,/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Water plants" })).toBeTruthy();
     expect(screen.queryByText("Some day")).toBeNull();
     expect(screen.getByText("Nothing on the calendar today.")).toBeTruthy();
   });

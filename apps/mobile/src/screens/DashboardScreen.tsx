@@ -1,5 +1,4 @@
 import { View } from "react-native";
-import { useSyncState } from "../data/context.tsx";
 import {
   useAgenda,
   useAssignments,
@@ -46,7 +45,6 @@ export function useDashboard() {
   const { data: sessions = [] } = useSessions({});
   const { data: jots = [] } = useUnrefinedJots(50);
   const [name] = useSetting("general.displayName");
-  const syncState = useSyncState((s) => s.status.state);
   const { refreshing, onRefresh } = useSyncRefresh();
   const open = useOpenTarget(spaces[0]?.id);
   const colorOf = (spaceId: string) => spaces.find((s) => s.id === spaceId)?.color;
@@ -117,11 +115,6 @@ export function useDashboard() {
     oldestJotAt: jots[0]?.entity.createdAt ?? null,
     jotSpaceIds: [...new Set(jots.map((j) => j.entity.spaceId))],
   });
-  const date = new Date().toLocaleDateString(undefined, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
   return {
     today,
     items,
@@ -135,8 +128,6 @@ export function useDashboard() {
     readyDecks,
     dueTasks,
     briefing,
-    date,
-    offline: syncState === "offline",
     refreshing,
     onRefresh,
     open,
@@ -189,7 +180,7 @@ function DesktopDashboard({ d }: { d: Dashboard }) {
     : [[assignmentsPanel, tasksPanel, decksPanel, jotsPanel]];
   const page = (
     <Screen onRefresh={d.onRefresh} refreshing={d.refreshing} wide>
-      <DashboardGreeting date={d.date} offline={d.offline} briefing={d.briefing} open={d.open} />
+      <DashboardGreeting briefing={d.briefing} open={d.open} status />
       <View testID="dashboard-panels" className="flex-row items-start gap-5">
         {columns.map((panels, i) => (
           <View key={i} testID="dashboard-column" className="min-w-0 flex-1 gap-5">

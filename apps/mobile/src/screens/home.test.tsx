@@ -7,9 +7,10 @@ import {
   createSpace,
   createTask,
 } from "@nookly/shared/data";
-import { fireEvent } from "expo-router/testing-library";
+import { fireEvent, within } from "expo-router/testing-library";
 import { Text } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
+import { DashboardHeaderTitle } from "./DashboardBriefing.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
 import { addDays, localDay } from "./dates.ts";
 
@@ -19,17 +20,14 @@ const home = (
   routes: Parameters<typeof renderScreens>[0] = {},
 ) => renderScreens({ index: () => <DashboardScreen />, ...routes }, data, "/", { width: PHONE });
 
-// The desktop's panels did not fit a phone. Its Home is a page of shortcuts: what is on
-// now, one tap to make something, tiles counting what waits, today's tasks and the
-// calendar, the deadlines coming up and every Space.
+// The phone's Home: what is on now, tiles counting what waits, the calendar and the
+// deadlines coming up, then the desktop's tabbed lists of tasks, assignments, cards and jots.
 describe("the phone's Home", () => {
-  it("makes a task, a jot, an entry or a bookmark in one tap", async () => {
-    const screen = await home(testData(), { "new/task": () => <Text>New task form</Text> });
-    for (const name of ["Quick Jot", "New Calendar Entry", "New Bookmark"]) {
-      expect(await screen.findByRole("button", { name })).toBeTruthy();
-    }
-    await fireEvent.press(screen.getByRole("button", { name: "New Task" }));
-    expect(await screen.findByText("New task form")).toBeTruthy();
+  it("has no row of things to create", async () => {
+    const screen = await home(testData());
+    expect(await screen.findByRole("header", { name: "At a glance" })).toBeTruthy();
+    expect(screen.queryByRole("header", { name: "Create" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "New Task" })).toBeNull();
   });
 
   it("counts what waits, each tile opening its list", async () => {
@@ -62,19 +60,34 @@ describe("the phone's Home", () => {
     expect(screen.getByRole("button", { name: /^Calendar,/ })).toBeTruthy();
   });
 
-  it("lists today's tasks to tick off and the deadlines coming up", async () => {
+  it("orders its sections from a glance down to the jots", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    await createAssignment(data.db, space, "Sheet 3", course, addDays(localDay(), 3));
+    const screen = await home(data);
+    await screen.findByText("Assignment, in 3 days");
+    const order = ["At a glance", "Today", "Coming up", "Tasks", "Assignments", "Cards", "Jots"];
+    const headers = screen
+      .getAllByRole("header")
+      .map((h) => h.props.accessibilityLabel)
+      .filter((name) => order.includes(name));
+    expect(headers).toEqual(order);
+  });
+
+  it("lists tasks under the desktop's tabs", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
     await createTask(data.db, space, "Send report", localDay());
     await createTask(data.db, space, "Some day", null);
-    const course = await createCourse(data.db, space, "Algorithms");
-    await createAssignment(data.db, space, "Sheet 3", course, addDays(localDay(), 3));
     const screen = await home(data);
-    expect(await screen.findByRole("header", { name: "Tasks for today" })).toBeTruthy();
-    expect(await screen.findByRole("button", { name: /^Send report,/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^Some day,/ })).toBeNull();
-    expect(screen.getByRole("header", { name: "Coming up" })).toBeTruthy();
-    expect(screen.getByText("Assignment, in 3 days")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Send report" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Some day" })).toBeNull();
+    await fireEvent.press(screen.getByRole("tab", { name: "No date 1" }));
+    expect(await screen.findByRole("button", { name: "Some day" })).toBeTruthy();
+    for (const tabs of ["Tasks tabs", "Assignments tabs", "Cards tabs", "Jots tabs"]) {
+      expect(screen.getByLabelText(tabs)).toBeTruthy();
+    }
   });
 
   it("leads with what is on the calendar now", async () => {
@@ -94,16 +107,32 @@ describe("the phone's Home", () => {
     ).toBeTruthy();
   });
 
-  it("opens a Space from the row of Spaces", async () => {
-    const data = testData();
-    await createSpace(data.db, "Uni", "#3b82f6");
-    const screen = await home(data, { "space/[id]": () => <Text>The Space</Text> });
-    await fireEvent.press(await screen.findByRole("button", { name: "Uni" }));
-    expect(await screen.findByText("The Space")).toBeTruthy();
+  it("keeps the mascot greeting the day, inside the sentence about it", async () => {
+    const screen = await home(testData());
+    const briefing = await screen.findByTestId("briefing");
+    expect(within(briefing).getByTestId("mascot", { includeHiddenElements: true })).toBeTruthy();
   });
 
-  it("keeps the mascot greeting the day", async () => {
-    const screen = await home(testData());
-    expect(await screen.findByTestId("mascot", { includeHiddenElements: true })).toBeTruthy();
+  it("says the date and that it is online in the page header, not Dashboard", async () => {
+    const data = testData();
+    data.sync.store.setState((state) => ({ status: { ...state.status, state: "idle" } }));
+    const screen = await renderScreens({ index: () => <DashboardHeaderTitle /> }, data);
+    const date = new Date().toLocaleDateString(undefined, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+    expect(await screen.findByText(date)).toBeTruthy();
+    expect(screen.getByLabelText("Online")).toBeTruthy();
+    expect(screen.queryByText("Offline")).toBeNull();
+    expect(screen.queryByText("Dashboard")).toBeNull();
+  });
+
+  it("says Offline in the page header while offline", async () => {
+    const data = testData();
+    data.sync.store.setState((state) => ({ status: { ...state.status, state: "offline" } }));
+    const screen = await renderScreens({ index: () => <DashboardHeaderTitle /> }, data);
+    expect(await screen.findByText("Offline")).toBeTruthy();
+    expect(screen.queryByLabelText("Online")).toBeNull();
   });
 });

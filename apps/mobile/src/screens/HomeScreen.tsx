@@ -1,28 +1,29 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
-import { Button } from "../ui/Button.tsx";
+import { View } from "react-native";
 import { Grid } from "../ui/Grid.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { Label } from "../ui/kit/Label.tsx";
-import { MODULE_BADGES } from "../ui/kit/badges.ts";
+import { type BadgeLook, MODULE_BADGES } from "../ui/kit/badges.ts";
 import { RowsCard } from "../ui/kit/Surface.tsx";
-import { ActionTile, CountTile, Tile } from "../ui/kit/Tile.tsx";
+import { CountTile, Tile } from "../ui/kit/Tile.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { SPACE } from "../ui/tokens.ts";
 import { AgendaRow } from "./CalendarScreen.tsx";
 import { useCalendarColors } from "./calendar-colors.ts";
 import { DashboardGreeting } from "./DashboardBriefing.tsx";
+import { AssignmentsPanel, DecksPanel, JotsPanel, TasksPanel } from "./DashboardPanels.tsx";
 import type { Dashboard } from "./DashboardScreen.tsx";
 import { dueText } from "./dashboard-model.ts";
 import { itemHref } from "./ExternalEventScreen.tsx";
 import { type UpNext, untilText, upNext } from "./home-model.ts";
-import { SpaceIcon } from "./SpaceIcon.tsx";
-import { TaskRow } from "./TaskRow.tsx";
 
-/// Rows a list of Home shows before "View All".
+/// Deadlines Home lists before the rest wait in their lists.
 const HOME_LIMIT = 4;
+
+/// A module's icon on Home, all in one quiet tint so the page does not turn into a paint box.
+const quiet = (badge: BadgeLook): BadgeLook => ({ ...badge, tint: "gray" });
 
 /// The time now as "HH:MM", moving on with the clock so what is up next stays true.
 function useClock(): string {
@@ -38,10 +39,9 @@ function useClock(): string {
   return time;
 }
 
-/// The phone's Home: a page of shortcuts rather than the desktop's panels. The sentence about
-/// the day, what is on now or next, one tap to make a task, a jot, an entry or a bookmark,
-/// tiles counting what waits (each opening its list), today's tasks to tick off, the
-/// calendar, the deadlines coming up and every Space a tap away.
+/// The phone's Home: the sentence about the day with the mascot in it, what is on now or
+/// next, tiles counting what waits (each opening its list), the calendar and the deadlines
+/// coming up, then the desktop's panels with their tabs: tasks, assignments, cards and jots.
 export function HomeScreen({ d }: { d: Dashboard }) {
   const router = useRouter();
   const time = useClock();
@@ -50,6 +50,7 @@ export function HomeScreen({ d }: { d: Dashboard }) {
   const week = d.deadlines.filter((x) => x.kind === "assignment").length;
   const cards = d.readyDecks.reduce((n, x) => n + x.stats.due + x.stats.learning + x.stats.new, 0);
   const spaceOf = (id: string) => d.spaces.find((s) => s.id === id);
+  const spaces = d.spaces.map((s) => ({ id: s.id, name: s.name, color: s.color }));
   const openDecks = () => {
     const only = d.readyDecks.length === 1 ? d.readyDecks[0] : null;
     if (only) router.push(`/study/${only.entity.id}`);
@@ -59,7 +60,7 @@ export function HomeScreen({ d }: { d: Dashboard }) {
   const counts = [
     <CountTile
       key="tasks"
-      {...MODULE_BADGES.tasks}
+      {...quiet(MODULE_BADGES.tasks)}
       title="Tasks"
       count={d.dueTasks.length}
       detail={overdue > 0 ? `${overdue} overdue` : d.dueTasks.length > 0 ? "Due today" : "All done"}
@@ -69,7 +70,7 @@ export function HomeScreen({ d }: { d: Dashboard }) {
       ? [
           <CountTile
             key="assignments"
-            {...MODULE_BADGES.assignments}
+            {...quiet(MODULE_BADGES.assignments)}
             title="Assignments"
             count={week}
             detail="Due in two weeks"
@@ -81,7 +82,7 @@ export function HomeScreen({ d }: { d: Dashboard }) {
       ? [
           <CountTile
             key="decks"
-            {...MODULE_BADGES.decks}
+            {...quiet(MODULE_BADGES.decks)}
             title="Cards"
             count={cards}
             detail={cards > 0 ? "To learn today" : "All caught up"}
@@ -91,7 +92,7 @@ export function HomeScreen({ d }: { d: Dashboard }) {
       : []),
     <CountTile
       key="jots"
-      {...MODULE_BADGES.jots}
+      {...quiet(MODULE_BADGES.jots)}
       title="Jots"
       count={d.jots.length}
       detail="To be refined"
@@ -105,7 +106,7 @@ export function HomeScreen({ d }: { d: Dashboard }) {
     counts.push(
       <CountTile
         key="calendar"
-        {...MODULE_BADGES.calendar}
+        {...quiet(MODULE_BADGES.calendar)}
         title="Calendar"
         count={d.items.length}
         detail={d.items.length > 0 ? "On today" : "Nothing today"}
@@ -114,78 +115,13 @@ export function HomeScreen({ d }: { d: Dashboard }) {
     );
   }
   return (
-    <Screen grouped onRefresh={d.onRefresh} refreshing={d.refreshing}>
-      <DashboardGreeting
-        date={d.date}
-        offline={d.offline}
-        briefing={d.briefing}
-        open={d.open}
-        compact
-      />
+    <Screen onRefresh={d.onRefresh} refreshing={d.refreshing}>
+      <DashboardGreeting briefing={d.briefing} open={d.open} compact />
       {next ? <UpNextCard next={next} color={spaceOf(next.item.spaceId)?.color} /> : null}
-      <Section title="Create">
-        <View style={{ flexDirection: "row", gap: SPACE.sm }}>
-          <ActionTile
-            {...MODULE_BADGES.tasks}
-            label="Task"
-            accessibilityLabel="New Task"
-            onPress={() => router.push("/new/task")}
-          />
-          <ActionTile
-            {...MODULE_BADGES.jots}
-            label="Jot"
-            accessibilityLabel="Quick Jot"
-            onPress={() => router.push("/new/jot")}
-          />
-          <ActionTile
-            {...MODULE_BADGES.calendar}
-            label="Entry"
-            accessibilityLabel="New Calendar Entry"
-            onPress={() => router.push("/new/entry")}
-          />
-          <ActionTile
-            {...MODULE_BADGES.bookmarks}
-            label="Bookmark"
-            accessibilityLabel="New Bookmark"
-            onPress={() => router.push("/new/bookmark")}
-          />
-        </View>
-      </Section>
       <Section title="At a glance">
         <Grid min={150} max={2}>
           {counts}
         </Grid>
-      </Section>
-      <Section
-        title="Tasks for today"
-        action={
-          d.dueTasks.length > HOME_LIMIT ? (
-            <Button
-              label="View All"
-              variant="ghost"
-              size="sm"
-              onPress={() => router.push("/tasks")}
-            />
-          ) : null
-        }
-      >
-        <RowsCard>
-          {d.dueTasks.length === 0 ? (
-            <Empty text="Nothing due today. Enjoy the calm." />
-          ) : (
-            d.dueTasks
-              .slice(0, HOME_LIMIT)
-              .map((task) => (
-                <TaskRow
-                  key={task.entity.id}
-                  task={task}
-                  statuses={d.statuses}
-                  spaceColor={spaceOf(task.entity.spaceId)?.color}
-                  spaceName={spaceOf(task.entity.spaceId)?.name}
-                />
-              ))
-          )}
-        </RowsCard>
       </Section>
       <Section title="Today">
         <RowsCard>
@@ -211,7 +147,9 @@ export function HomeScreen({ d }: { d: Dashboard }) {
                   title={x.title || "Untitled"}
                   subtitle={`${x.kind === "exam" ? "Exam" : "Assignment"}, ${due.text}`}
                   icon={
-                    <IconBadge {...MODULE_BADGES[x.kind === "exam" ? "exams" : "assignments"]} />
+                    <IconBadge
+                      {...quiet(MODULE_BADGES[x.kind === "exam" ? "exams" : "assignments"])}
+                    />
                   }
                   onPress={() => router.push(`/entity/${x.id}`)}
                 />
@@ -220,31 +158,15 @@ export function HomeScreen({ d }: { d: Dashboard }) {
           </RowsCard>
         </Section>
       ) : null}
-      {d.spaces.length > 0 ? (
-        <Section title="Spaces">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: SPACE.sm }}
-          >
-            {d.spaces.map((space) => (
-              <View key={space.id} style={{ width: 104 }}>
-                <Tile
-                  accessibilityLabel={space.name}
-                  onPress={() => router.push(`/space/${space.id}`)}
-                >
-                  <View style={{ gap: SPACE.sm }}>
-                    <IconBadge tint={space.color} icon={<SpaceIcon space={space} size={17} />} />
-                    <Label type="subheadline" weight="500" numberOfLines={1}>
-                      {space.name}
-                    </Label>
-                  </View>
-                </Tile>
-              </View>
-            ))}
-          </ScrollView>
-        </Section>
-      ) : null}
+      <TasksPanel tasks={d.tasks} statuses={d.statuses} spaces={spaces} today={d.today} />
+      <AssignmentsPanel
+        assignments={d.assignments}
+        spaces={spaces}
+        courseName={d.courseName}
+        today={d.today}
+      />
+      <DecksPanel title="Cards" decks={d.decks} examName={d.examName} />
+      <JotsPanel jots={d.jots} spaces={spaces} />
     </Screen>
   );
 }

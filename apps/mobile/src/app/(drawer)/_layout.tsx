@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import { DashboardHeaderTitle } from "../../screens/DashboardBriefing.tsx";
 import { useIsTablet, useSidebarBeside } from "../../ui/pane.tsx";
 import { useSidebarDrawer } from "../../shell/SidebarDrawer.tsx";
 import { useTheme } from "../../ui/theme.ts";
@@ -36,7 +37,11 @@ export default function TopLevelLayout() {
               ],
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Dashboard" }} />
+      {/* The date and the connection stand in the bar, not the page's name. */}
+      <Stack.Screen
+        name="index"
+        options={{ title: "Dashboard", headerTitle: DashboardHeaderTitle }}
+      />
       <Stack.Screen name="calendar" options={{ title: "Calendar" }} />
       <Stack.Screen name="tasks" options={{ title: "Tasks" }} />
       <Stack.Screen name="search" options={{ title: "Search" }} />

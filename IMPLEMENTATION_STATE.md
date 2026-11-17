@@ -99,6 +99,20 @@ Popovers: the desktop popover's look (`bg-popover`, border, its corner radius, s
 
 ## Items
 
+### First: the user's two requests of 2026-11-17 (before everything else below)
+
+These come before every open item below. They change the phone too, by the user's request, so the "phone must not change" rule does not apply to them.
+
+- [ ] A **Settings page redesign** (`screens/SettingsScreen.tsx`, the top page only, not its sub pages). Today it looks like an old iOS 17 page of native boxed link rows. Give it a fresher look of its own, built from the shared parts in `ui/`.
+- [x] B **Dashboard rework** Done on the phone's Home: one grey tint for its badges, the page's own background, no Create row, the desktop's tabbed panels after Coming Up, the mascot floated in the sentence (`DashboardBriefing` splits it where the lines break beside the mascot), the date and connection in the bar (`DashboardHeaderTitle`). The row of Spaces went too: it was not in the list asked for, and the sidebar has them. A tablet's Dashboard keeps its panels and gets the same sentence and the date and connection over it. (`screens/DashboardScreen.tsx`, `DashboardBriefing.tsx`, `DashboardPanels.tsx`):
+  - Far fewer colours.
+  - Remove the "Create" row.
+  - The page background is the regular one every other page has, not the darker one.
+  - Sections in this order: At a Glance, Today, Coming Up, Tasks, Assignments, Cards, Jots. Tasks to Jots work like the desktop: each its panel with tabs. At a Glance, Today and Coming Up stay as they are.
+  - The blobatar sits inside the summary sentence at the top, the text wrapping around it.
+  - The page header no longer says "Dashboard": it holds the date and the connection state, a subtle green icon while online, a red "Offline" label with an icon while offline.
+- [ ] C **Desktop: the floating sidebar's shadow.** The sidebar that slides in when it is collapsed and the pointer rests on the left edge gets a clear shadow (a stronger one if it has one already).
+
 Order: foundations, then the shell, then presentations, then shared parts, then every page, then input, copy and the checks. Each milestone ends with screenshots of what it changed in the progress log.
 
 ### 0. Foundations

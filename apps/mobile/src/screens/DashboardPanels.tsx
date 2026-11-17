@@ -60,7 +60,11 @@ function Panel<Id extends string>({
     <View accessibilityLabel={title} className="gap-1">
       <View className="flex-row items-center gap-2">
         {icon}
-        <Text accessibilityRole="header" className="text-base font-semibold">
+        <Text
+          accessibilityRole="header"
+          accessibilityLabel={title}
+          className="text-base font-semibold"
+        >
           {title}
         </Text>
       </View>
@@ -304,9 +308,12 @@ export function AssignmentsPanel({
 
 /// Decks with cards to learn today: tiles with the stack, the figures and a play button.
 export function DecksPanel({
+  title = "Decks",
   decks,
   examName,
 }: {
+  /// What the panel is called: "Cards" on a phone's Home, beside its count of cards.
+  title?: string;
   decks: DeckRecord[];
   examName: (id: string | null) => string | undefined;
 }) {
@@ -317,7 +324,7 @@ export function DecksPanel({
   return (
     <Panel
       icon={<IconCards size={16} color={theme.colors.mutedForeground} />}
-      title="Decks"
+      title={title}
       tabs={[{ id: "today", label: "Learn today", count: ready.length }]}
     >
       {() => (

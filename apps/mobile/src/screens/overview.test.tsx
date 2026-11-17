@@ -101,7 +101,7 @@ describe("the dashboard", () => {
   it("has no New Task button in its bar", async () => {
     const data = testData();
     const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
-    expect(await screen.findByRole("button", { name: "Quick Jot" })).toBeTruthy();
+    expect(await screen.findByRole("header", { name: "At a glance" })).toBeTruthy();
     expect(barLabels(screen)).not.toContain("New Task");
   });
 
