@@ -67,6 +67,8 @@ class FakeAccount implements AccountApi {
   async sessionToken() {
     return this.signedIn ? "token" : null;
   }
+  /// Every request fails, like a server that is down.
+  offline = false;
   /// Pushes fail from this many on, like a connection that drops mid sync.
   failPushesAfter = Number.POSITIVE_INFINITY;
   pushes = 0;
@@ -81,6 +83,7 @@ class FakeAccount implements AccountApi {
       },
       pull: async (r) => {
         this.pulls += 1;
+        if (this.offline) throw new NetworkError("Can't reach the server.");
         return this.server.pull(r);
       },
     };
@@ -322,6 +325,29 @@ describe("the desktop's sync", () => {
     };
     await second.sync.restore("https://sync.example.com");
     expect(second.sync.store.getState().user).toEqual(ADA);
+    second.sync.stop();
+  });
+
+  it("is back to full sync as soon as it is told the server can be reached again", async () => {
+    // Launched while the server was down, then the server came back: the device must not
+    // stay offline until its next retry or the next launch.
+    const server = new MemoryServer();
+    const driver = new NodeSqliteDriver();
+    const first = runtime(server, driver);
+    await first.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await first.sync.settled();
+    first.sync.stop();
+    const second = runtime(server, driver);
+    second.account.signedIn = true;
+    second.account.offline = true;
+    second.account.me = async () => {
+      throw new NetworkError("Can't reach the server.");
+    };
+    await second.sync.restore("https://sync.example.com");
+    expect(second.sync.store.getState().status.state).toBe("offline");
+    second.account.offline = false;
+    second.sync.resume();
+    await vi.waitFor(() => expect(second.sync.store.getState().status.state).toBe("idle"));
     second.sync.stop();
   });
 

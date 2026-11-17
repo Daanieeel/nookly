@@ -90,6 +90,13 @@ export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 /// for dead.
 const LIVE_PING_MS = 15_000;
 const LIVE_SILENCE_MS = 40_000;
+/// How long the live channel may take to open and be let in before it is tried again: a
+/// network that changed can leave an attempt hanging for minutes.
+const LIVE_CONNECT_MS = 10_000;
+/// How long a request may take before it counts as unreachable. A connection that died
+/// without a word (a laptop that slept, a phone that changed network) never answers, and
+/// sync waits for each request before the next.
+const REQUEST_TIMEOUT_MS = 45_000;
 
 /// The parts of a `WebSocket` the live channel uses.
 export interface LiveSocket {
@@ -159,31 +166,44 @@ export class ApiClient {
     const token = authed ? await this.sessionToken() : null;
     if (authed && !token) throw new ApiRequestError(401, "unauthorized", "Sign in first.");
     if (token) headers.set("authorization", `Bearer ${token}`);
-    let response: Response;
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
     try {
-      response = await this.fetchImpl(`${this.baseUrl}${path}`, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-        // The token is the credential; a cookie jar's leftovers must not ride along.
-        credentials: "omit",
-      });
-    } catch (error) {
-      throw NetworkError.unreachable(error);
+      let response: Response;
+      try {
+        response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+          // The token is the credential; a cookie jar's leftovers must not ride along.
+          credentials: "omit",
+          signal: abort.signal,
+        });
+      } catch (error) {
+        throw NetworkError.unreachable(error);
+      }
+      if (authed && response.status === 401 && token) await this.ended(token);
+      if (!response.ok) {
+        const parsed = errorBodySchema.safeParse(await response.json().catch(() => null));
+        const data = parsed.success ? parsed.data : {};
+        const code = (data.error ?? data.code ?? "http_error").toLowerCase();
+        throw new ApiRequestError(
+          response.status,
+          code,
+          FRIENDLY.get(code) ?? data.message ?? `Request failed (${response.status})`,
+        );
+      }
+      if (!schema) return null;
+      try {
+        return schema.parse(await response.json());
+      } catch (error) {
+        // The body stopped coming: the connection went while it was read.
+        if (abort.signal.aborted) throw NetworkError.unreachable(error);
+        throw error;
+      }
+    } finally {
+      clearTimeout(timer);
     }
-    if (authed && response.status === 401 && token) await this.ended(token);
-    if (!response.ok) {
-      const parsed = errorBodySchema.safeParse(await response.json().catch(() => null));
-      const data = parsed.success ? parsed.data : {};
-      const code = (data.error ?? data.code ?? "http_error").toLowerCase();
-      throw new ApiRequestError(
-        response.status,
-        code,
-        FRIENDLY.get(code) ?? data.message ?? `Request failed (${response.status})`,
-      );
-    }
-    if (!schema) return null;
-    return schema.parse(await response.json());
   }
 
   private async call<T>(
@@ -493,18 +513,33 @@ export class ApiClient {
     let socket: LiveSocket | null = null;
     let closed = false;
     let heartbeat: ReturnType<typeof setInterval> | null = null;
-    // Told once whichever way the connection ends, by the server or by us.
-    const ended = () => {
+    let opening: ReturnType<typeof setTimeout> | null = null;
+    const stopTimers = () => {
       if (heartbeat) clearInterval(heartbeat);
-      heartbeat = null;
+      if (opening) clearTimeout(opening);
+      heartbeat = opening = null;
+    };
+    // Told once whichever way the connection ends, by the server or by us. Whatever kept it
+    // from starting counts too, so the sync client tries again.
+    const ended = () => {
+      stopTimers();
       if (closed) return;
       closed = true;
       handlers.onClose();
     };
     void (async () => {
-      const token = await this.sessionToken();
-      if (closed || !token) return;
-      socket = this.webSocket(url);
+      const token = await this.sessionToken().catch(() => null);
+      if (closed) return;
+      if (!token) return ended();
+      try {
+        socket = this.webSocket(url);
+      } catch {
+        return ended();
+      }
+      opening = setTimeout(() => {
+        socket?.close();
+        ended();
+      }, LIVE_CONNECT_MS);
       let heardAt = Date.now();
       socket.addEventListener("open", () => {
         heardAt = Date.now();
@@ -529,8 +564,11 @@ export class ApiClient {
         } catch {
           return;
         }
-        if (message.type === "ready") handlers.onOpen();
-        else if (message.type === "changes" || message.type === "datasets") handlers.onChanges();
+        if (message.type === "ready") {
+          if (opening) clearTimeout(opening);
+          opening = null;
+          handlers.onOpen();
+        } else if (message.type === "changes" || message.type === "datasets") handlers.onChanges();
         else if (message.type === "error" && message.code === "unauthorized") {
           // The session ended on the server: this device is signed out.
           void this.ended(token);
@@ -540,8 +578,7 @@ export class ApiClient {
     })();
     return () => {
       closed = true;
-      if (heartbeat) clearInterval(heartbeat);
-      heartbeat = null;
+      stopTimers();
       socket?.close();
     };
   }

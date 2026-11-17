@@ -224,6 +224,43 @@ describe("the sync client", () => {
     b.client.stop();
   });
 
+  it("is back at once when the device says it is back, without waiting out its retries", async () => {
+    // The app came to the front, the laptop woke or the network returned: there is no
+    // reason to sit out a retry drawn during the outage.
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    network.cut();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(a.client.current()).toMatchObject({ state: "offline", live: false });
+    network.online = true;
+    a.client.resume();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(network.live()).toBe(1);
+    expect(a.client.current()).toMatchObject({ state: "idle", live: true });
+    random.mockRestore();
+    a.client.stop();
+  });
+
+  it("opens only one live channel however often it is told it is back", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    await vi.advanceTimersByTimeAsync(100);
+    a.client.resume();
+    a.client.resume();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(network.live()).toBe(1);
+    network.cut();
+    network.online = true;
+    a.client.resume();
+    a.client.resume();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(network.live()).toBe(1);
+    a.client.stop();
+  });
+
   it("leaves nothing behind when it is stopped in the middle of a sync", async () => {
     // Signing out wipes what the device knew of the server; a pull still on its way
     // must not write a cursor or rows afterwards, or the next account starts from

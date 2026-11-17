@@ -162,6 +162,23 @@ export class SyncClient {
     await this.running?.catch(() => {});
   }
 
+  /// The device is back: the app came to the front, the computer woke or the network
+  /// returned. Syncs now and opens the live channel if it is down, instead of sitting out a
+  /// retry drawn during the outage. Safe to call as often as wanted.
+  resume() {
+    if (!this.started) return;
+    if (this.retry) clearTimeout(this.retry);
+    this.retry = null;
+    this.failures = 0;
+    if (!this.closeLive) {
+      if (this.reconnect) clearTimeout(this.reconnect);
+      this.reconnect = null;
+      this.liveAttempts = 0;
+      this.openLive();
+    }
+    void this.syncNow();
+  }
+
   /// Something changed locally; what is waiting goes out shortly. A change with nothing
   /// to send (text typed in a live page is kept as rows that are not edits) starts no
   /// round trip: what others change reaches this device over the live channel.

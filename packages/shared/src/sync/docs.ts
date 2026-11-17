@@ -1,4 +1,8 @@
-import { HocuspocusProvider, HocuspocusProviderWebsocket } from "@hocuspocus/provider";
+import {
+  HocuspocusProvider,
+  HocuspocusProviderWebsocket,
+  WebSocketStatus,
+} from "@hocuspocus/provider";
 import * as Y from "yjs";
 import { PAGE_SCHEMA_VERSION, attrsKey, pageBlocks, pageSchemaVersion } from "../blocks/index.ts";
 import { type SqlDriver, type SqlStatement, run } from "./sql.ts";
@@ -70,9 +74,18 @@ export class PageDocs {
     this.socket = new HocuspocusProviderWebsocket({
       url: `${options.serverUrl.replace(/^http/, "ws").replace(/\/+$/, "")}/v1/collab`,
       WebSocketPolyfill: options.webSocket,
-      // Reconnects on its own with backoff; documents carry on offline meanwhile.
+      // Reconnects on its own with backoff, at least every ten seconds like the rows' live
+      // channel; documents carry on offline meanwhile.
       maxAttempts: 0,
+      maxDelay: 10_000,
     });
+  }
+
+  /// The device is back (`SyncRuntime.resume`): connects at once instead of waiting out the
+  /// backoff drawn while the server was away.
+  resume() {
+    if (this.closed || this.socket.status === WebSocketStatus.Connected) return;
+    void this.socket.connect().catch(() => {});
   }
 
   private async loadLocal(entityId: string): Promise<Uint8Array | null> {

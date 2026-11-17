@@ -10,6 +10,7 @@ import {
   tauriBlobs,
   tauriSqlDriver,
 } from "#/lib/api/sync.ts";
+import { resumeWhenBack } from "./resume-when-back.ts";
 import { settingsBridge } from "./settings-bridge.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { settings } from "#/lib/settings/settings.ts";
@@ -78,12 +79,14 @@ export function useSyncBootstrap() {
       void queryClient.invalidateQueries();
     };
     const stop = watchLocalChanges(queryClient);
+    const stopResuming = resumeWhenBack(syncRuntime);
     const serverUrl = settings.get("sync.serverUrl");
     void syncRuntime.restore(serverUrl || null).then(() => {
       void queryClient.invalidateQueries({ queryKey: qk.sync.root });
     });
     return () => {
       stop();
+      stopResuming();
       syncRuntime.stop();
     };
   }, [queryClient]);

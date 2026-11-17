@@ -35,6 +35,7 @@ import { openLocalDb } from "../data/database.ts";
 import { runOnce } from "../data/run-once.ts";
 import { keys } from "../data/keys.ts";
 import { restoreTheme } from "../data/appearance.ts";
+import { resumeWhenActive } from "../data/resume.ts";
 import { createSync, onboardedStore, serverUrlStore, themeStore } from "../data/sync.ts";
 
 // Before the first frame, so a picked theme never flashes the system's.
@@ -63,6 +64,8 @@ async function start(): Promise<AppData> {
   const db = await openLocalDb();
   const sync = createSync(db, () => void queryClient.invalidateQueries({ queryKey: keys.local }));
   void sync.restore(serverUrlStore.get());
+  // Back in front, the phone finds the server at once.
+  resumeWhenActive(sync);
   const automation = process.env.EXPO_PUBLIC_AUTOMATION_URL;
   if (automation) {
     // End to end checks only (`tools/e2e/mobile.ts`); no such address in a normal build.

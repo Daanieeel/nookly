@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiClient } from "./client.ts";
 import { NetworkError } from "../sync/client.ts";
 
@@ -29,5 +29,35 @@ describe("an unreachable server", () => {
       "cause",
       expect.any(TypeError),
     );
+  });
+});
+
+// A request whose connection died without a word (the laptop slept, the phone changed
+// network) never answers. Sync waits for each request before the next, so one that hangs
+// would hold every later sync back until the app restarts.
+describe("a request that never answers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is given up as unreachable after a while", async () => {
+    vi.useFakeTimers();
+    let aborted = false;
+    const api = new ApiClient({
+      baseUrl: "http://10.0.0.5:3000",
+      tokens: { load: async () => "token", save: async () => {} },
+      fetch: (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => {
+            aborted = true;
+            reject(new DOMException("The operation was aborted.", "AbortError"));
+          });
+        }),
+    });
+    const attempt = api.syncTransport().pull({ cursors: {} });
+    const settled = expect(attempt).rejects.toBeInstanceOf(NetworkError);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await settled;
+    expect(aborted).toBe(true);
   });
 });

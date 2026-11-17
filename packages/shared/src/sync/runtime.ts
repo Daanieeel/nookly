@@ -750,6 +750,16 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     return this.client?.syncNow() ?? Promise.resolve();
   }
 
+  /// The device is back: the app came to the front, the computer woke or the network
+  /// returned. Rows and pages sync at once and their live channels reopen, instead of
+  /// waiting out a retry drawn while the server was away. A sync that never got going
+  /// (signed in, but its start failed) starts now.
+  resume() {
+    if (this.client) this.client.resume();
+    else if (this.api && this.store.getState().user) void this.start().catch(() => {});
+    this.docs?.resume();
+  }
+
   notifyLocalChange() {
     this.client?.notifyLocalChange();
   }

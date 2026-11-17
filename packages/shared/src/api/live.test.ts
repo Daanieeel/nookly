@@ -37,10 +37,10 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function liveClient() {
+function liveClient(load: () => Promise<string | null> = async () => "token") {
   const api = new ApiClient({
     baseUrl: "http://nookly.test",
-    tokens: { load: async () => "token", save: async () => {} },
+    tokens: { load, save: async () => {} },
     webSocket: () => new FakeSocket(),
   });
   const handlers = { onOpen: vi.fn(), onChanges: vi.fn(), onClose: vi.fn() };
@@ -83,6 +83,41 @@ describe("the live channel", () => {
       await vi.advanceTimersByTimeAsync(5_000);
       socket.emit("message", JSON.stringify({ type: "pong" }));
     }
+    expect(socket.closed).toBe(false);
+    expect(handlers.onClose).not.toHaveBeenCalled();
+  });
+
+  // Coming back after the server was lost: whatever stops the channel from starting must
+  // say it ended, or the device never tries again and stays offline until it restarts.
+  it("says it ended when the session could not be read, so it is tried again", async () => {
+    // A phone's keychain can't be read while the phone is locked.
+    const { handlers } = liveClient(async () => {
+      throw new Error("keychain locked");
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(FakeSocket.all).toHaveLength(0);
+    expect(handlers.onClose).toHaveBeenCalledOnce();
+  });
+
+  it("gives up on a connection that never opens, so it is tried again soon", async () => {
+    // A network that changed can leave a connection attempt hanging for minutes.
+    const { handlers } = liveClient();
+    await vi.advanceTimersByTimeAsync(0);
+    const socket = FakeSocket.all[0];
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(socket.closed).toBe(true);
+    expect(handlers.onClose).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a connection that opens and is answered in time", async () => {
+    const { handlers } = liveClient();
+    await vi.advanceTimersByTimeAsync(0);
+    const socket = FakeSocket.all[0];
+    await vi.advanceTimersByTimeAsync(2_000);
+    socket.emit("open");
+    socket.emit("message", JSON.stringify({ type: "ready" }));
+    await vi.advanceTimersByTimeAsync(20_000);
+    socket.emit("message", JSON.stringify({ type: "pong" }));
     expect(socket.closed).toBe(false);
     expect(handlers.onClose).not.toHaveBeenCalled();
   });
