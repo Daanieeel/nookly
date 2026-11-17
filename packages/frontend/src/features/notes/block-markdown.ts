@@ -217,11 +217,25 @@ function encodeMath(latex: string, next: JSONNode | undefined): string {
   return readsBack || clean.endsWith("\\") ? `$${clean}$` : `$${clean}{}$`;
 }
 
-export function encodeInline(nodes: JSONNode[] = []): string {
+/// Reads a block whose text may span lines (a paragraph, heading or callout): each `\n`
+/// is a line break inside the block, the inverse of `encodeInline(nodes, { breaks: true })`.
+function decodeInlineLines(text: string): JSONNode[] {
+  return text
+    .split("\n")
+    .flatMap((line, i) => [...(i > 0 ? [{ type: "hardBreak" }] : []), ...decodeInline(line)]);
+}
+
+/// `breaks` writes a line break as `\n`. Blocks that keep one item per line (lists, tables,
+/// toggles) leave it off, so a break never splits an item in two.
+export function encodeInline(nodes: JSONNode[] = [], { breaks = false } = {}): string {
   const parts: string[] = [];
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
     if (!node) continue;
+    if (node.type === "hardBreak") {
+      if (breaks) parts.push("\n");
+      continue;
+    }
     if (textColorOf(node)) {
       let end = i;
       while (textColorOf(nodes[end + 1]) === textColorOf(node)) end++;
@@ -282,7 +296,7 @@ export function blockToNode(block: Block): JSONNode {
       return {
         type: "heading",
         attrs: { blockId, level, toggle: block.attrs.toggle ?? null },
-        content: nonEmpty(decodeInline(block.content)),
+        content: nonEmpty(decodeInlineLines(block.content)),
       };
     }
     case "equation":
@@ -344,7 +358,7 @@ export function blockToNode(block: Block): JSONNode {
       return {
         type: "callout",
         attrs: { blockId, variant: block.attrs.variant ?? "note" },
-        content: nonEmpty(decodeInline(block.content)),
+        content: nonEmpty(decodeInlineLines(block.content)),
       };
     case "checklist": {
       const lines = block.content.length > 0 ? block.content.split("\n") : ["[ ] "];
@@ -389,7 +403,7 @@ export function blockToNode(block: Block): JSONNode {
       return {
         type: "paragraph",
         attrs: { blockId },
-        content: nonEmpty(decodeInline(block.content)),
+        content: nonEmpty(decodeInlineLines(block.content)),
       };
   }
 }
@@ -492,7 +506,11 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
   if (!blockId) return null;
   switch (node.type) {
     case "paragraph":
-      return { blockId, blockType: "paragraph", content: encodeInline(node.content) };
+      return {
+        blockId,
+        blockType: "paragraph",
+        content: encodeInline(node.content, { breaks: true }),
+      };
     case "heading": {
       const level = asNumber(node.attrs?.level) ?? 1;
       // SAFETY: an unknown level misses the lookup and falls back to heading1.
@@ -501,7 +519,7 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
       return {
         blockId,
         blockType,
-        content: encodeInline(node.content),
+        content: encodeInline(node.content, { breaks: true }),
         // Toggle headings only; `""` keeps a plain heading plain.
         attrs: { toggle: asString(node.attrs?.toggle) ?? "" },
       };
@@ -572,7 +590,7 @@ export function nodeToBlockInput(node: JSONNode): BlockInput | null {
       return {
         blockId,
         blockType: "callout",
-        content: encodeInline(node.content),
+        content: encodeInline(node.content, { breaks: true }),
         attrs: { variant: asString(node.attrs?.variant) ?? "note" },
       };
     case "table": {

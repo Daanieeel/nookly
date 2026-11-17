@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 0.75.3 (2026-11-17)
+
+### Fixed
+
+- Fixed line breaks in callouts, paragraphs and headings disappearing after you leave a note and come back.
+
 ## 0.75.2 (2026-11-13)
 
 ### Fixed
