@@ -5,6 +5,7 @@ import { IconBrandGithub, IconStarFilled } from "@tabler/icons-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { dictionary } from "@/content";
 import type { Locale } from "@/lib/i18n";
+import { githubRepoSchema } from "@/lib/releases";
 import { GITHUB_REPO, GITHUB_URL } from "@/lib/site";
 
 const CACHE_KEY = "nookly.stars";
@@ -33,11 +34,13 @@ export function GithubStars({ locale, initial }: { locale: Locale; initial: numb
     const controller = new AbortController();
     fetch(`https://api.github.com/repos/${GITHUB_REPO}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((repo: { stargazers_count?: number } | null) => {
-        if (typeof repo?.stargazers_count !== "number") return;
-        setStars(repo.stargazers_count);
+      .then((body) => {
+        const repo = githubRepoSchema.safeParse(body);
+        if (!repo.success) return;
+        const count = repo.data.stargazers_count;
+        setStars(count);
         try {
-          sessionStorage.setItem(CACHE_KEY, String(repo.stargazers_count));
+          sessionStorage.setItem(CACHE_KEY, String(count));
         } catch {
           // Private windows may refuse storage; the count still shows.
         }

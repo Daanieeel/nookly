@@ -2,16 +2,38 @@
 /// `.github/workflows/status.yml`) and the status page reads. One bucket per UTC day and
 /// component, 90 days of them.
 
+import { z } from "zod";
+
 export const COMPONENTS = ["sync", "website", "downloads"] as const;
 export type ComponentId = (typeof COMPONENTS)[number];
 
-export type Day = { checks: number; down: number; slow: number; ms: number };
-export type LastCheck = { at: string; ok: boolean; ms: number; version?: string };
-export type ComponentHistory = { days: Record<string, Day>; last: LastCheck | null };
-export type StatusData = {
-  updatedAt: string | null;
-  components: Partial<Record<ComponentId, ComponentHistory>>;
-};
+const daySchema = z.object({
+  checks: z.number(),
+  down: z.number(),
+  slow: z.number(),
+  ms: z.number(),
+});
+const lastCheckSchema = z.object({
+  at: z.string(),
+  ok: z.boolean(),
+  ms: z.number(),
+  version: z.string().nullable(),
+});
+const historySchema = z.object({
+  days: z.record(z.string(), daySchema),
+  last: lastCheckSchema.nullable(),
+});
+
+/// The stored history, as the checker writes it and the page reads it.
+export const statusSchema = z.object({
+  updatedAt: z.string().nullable(),
+  components: z.partialRecord(z.enum(COMPONENTS), historySchema),
+});
+
+export type Day = z.infer<typeof daySchema>;
+export type LastCheck = z.infer<typeof lastCheckSchema>;
+export type ComponentHistory = z.infer<typeof historySchema>;
+export type StatusData = z.infer<typeof statusSchema>;
 export type CheckResult = { ok: boolean; ms: number; version?: string };
 export type State = "up" | "degraded" | "down" | "unknown";
 
@@ -62,7 +84,7 @@ export function recordCheck(
     at: now.toISOString(),
     ok: result.ok,
     ms: result.ms,
-    ...(result.version ? { version: result.version } : {}),
+    version: result.version ?? null,
   };
   return {
     updatedAt: now.toISOString(),
@@ -100,13 +122,4 @@ export function incidents(data: StatusData): Incident[] {
     }
   }
   return list.sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
-}
-
-export function isStatusData(value: unknown): value is StatusData {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "components" in value &&
-    typeof (value as { components: unknown }).components === "object"
-  );
 }

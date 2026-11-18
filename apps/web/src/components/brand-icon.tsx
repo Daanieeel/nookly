@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { IconBrandWindowsFilled } from "@tabler/icons-react";
 import { siApple, siAppstore, siDebian, siFedora, siLinux, siUbuntu } from "simple-icons";
 import { cn } from "@nookly/ui/lib/utils";
@@ -40,13 +39,12 @@ export function BrandIcon({
   const dark = mark.hex === "000000";
   return (
     <svg
-      role="img"
       aria-hidden
       viewBox="0 0 24 24"
       width={size}
       height={size}
       className={cn("shrink-0", (dark || !colored) && "fill-current", className)}
-      style={colored && !dark ? ({ fill: `#${mark.hex}` } as CSSProperties) : undefined}
+      style={colored && !dark ? { fill: `#${mark.hex}` } : undefined}
     >
       <path d={mark.path} />
     </svg>

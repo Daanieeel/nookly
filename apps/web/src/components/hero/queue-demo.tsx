@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  type CSSProperties,
-  type ReactNode,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   IconCalendarDue,
   IconCheck,
@@ -202,7 +195,7 @@ function QueueCard({ locale, index, frame }: { locale: Locale; index: number; fr
     <div
       ref={cardRef}
       className={cn(
-        "relative min-h-[248px] animate-[card-in_0.55s_cubic-bezier(0.16,1,0.3,1)_both] overflow-hidden rounded-xl border border-border bg-card p-5 text-left shadow-xl transition-[transform,opacity,background-color,border-color] duration-[650ms] ease-[cubic-bezier(0.4,0,0.2,1)] sm:p-6",
+        "relative min-h-[248px] animate-[card-in_0.55s_cubic-bezier(0.16,1,0.3,1)_both] overflow-hidden rounded-xl border border-border bg-card p-5 text-left shadow-xl transition-[transform,opacity,background-color,border-color] duration-650 ease-in-out sm:p-6",
         accepted &&
           "border-positive/40 bg-[color-mix(in_oklab,var(--accent-green)_9%,var(--card))]",
         leaving && "translate-x-[115%] rotate-[7deg] opacity-0",
@@ -236,13 +229,13 @@ function QueueCard({ locale, index, frame }: { locale: Locale; index: number; fr
         )}
       </div>
 
-      <h3 className="mt-4 font-display text-lg leading-snug font-semibold">{item.title}</h3>
+      <h3 className="mt-4 font-display text-lg/snug  font-semibold">{item.title}</h3>
 
       {working ? (
         <AgentSteps item={item} frame={frame} justNow={t.justNow} added={t.added} />
       ) : (
         <>
-          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+          <p className="mt-1.5 text-sm/relaxed  text-muted-foreground">{item.body}</p>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <SpaceChip name={item.chips[0] ?? ""} />
             <span className="inline-flex h-6 items-center gap-1.5 rounded-md border border-foreground/10 px-1.5 text-xs text-muted-foreground">
@@ -262,7 +255,7 @@ function QueueCard({ locale, index, frame }: { locale: Locale; index: number; fr
             >
               <IconCheck />
               {item.action}
-              <Kbd className="bg-positive/15 text-positive">A</Kbd>
+              <Kbd>A</Kbd>
             </span>
             <span className={ACTION}>
               {t.skip}
@@ -278,7 +271,7 @@ function QueueCard({ locale, index, frame }: { locale: Locale; index: number; fr
             >
               <IconSparkles />
               {t.agentButton}
-              <Kbd className="bg-primary/15 text-primary">H</Kbd>
+              <Kbd>H</Kbd>
             </span>
           </div>
         </>
@@ -313,7 +306,7 @@ function AgentSteps({
               "flex animate-[fade-up_0.4s_ease-out_both] items-center gap-2.5 text-sm",
               state === "waiting" ? "text-muted-foreground" : "text-foreground",
             )}
-            style={{ animationDelay: `${i * 90}ms` } as CSSProperties}
+            style={{ animationDelay: `${i * 90}ms` }}
           >
             {state === "done" ? (
               <IconCircleCheckFilled size={18} className="shrink-0 text-positive" />
@@ -350,11 +343,8 @@ function AgentSteps({
 /// A Space as the desktop's cards show it: its colour as a dot on a tinted chip.
 function SpaceChip({ name }: { name: string }) {
   return (
-    <span
-      className="flex h-6 items-center gap-1.5 rounded-md border border-(--space-color)/40 bg-(--space-color)/10 px-1.5 text-xs"
-      style={{ "--space-color": "#0070f3" } as CSSProperties}
-    >
-      <span className="size-2 rounded-full bg-(--space-color)" />
+    <span className="flex h-6 items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-1.5 text-xs">
+      <span className="size-2 rounded-full bg-primary" />
       {name}
     </span>
   );
@@ -368,7 +358,7 @@ function Cursor({ at, pressed }: { at: { x: number; y: number } | null; pressed:
       height="22"
       viewBox="0 0 24 24"
       className={cn(
-        "pointer-events-none absolute top-0 left-0 z-20 drop-shadow-md transition-[transform,opacity] duration-[900ms] ease-[cubic-bezier(0.65,0,0.35,1)]",
+        "pointer-events-none absolute top-0 left-0 z-20 drop-shadow-md transition-[transform,opacity] duration-900 ease-[cubic-bezier(0.65,0,0.35,1)]",
         at ? "opacity-100" : "opacity-0",
       )}
       style={{

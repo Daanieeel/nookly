@@ -52,9 +52,7 @@ function Heading({
         {title}
       </h2>
       {body && (
-        <p className="text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
-          {body}
-        </p>
+        <p className="text-base/relaxed  text-pretty text-muted-foreground sm:text-lg">{body}</p>
       )}
     </div>
   );
@@ -96,10 +94,10 @@ function FeatureCard({
           <Icon size={18} className="text-muted-foreground" />
         </span>
         <h3 className="mt-2 font-display text-xl font-semibold">{title}</h3>
-        <p className="max-w-md text-sm leading-relaxed text-muted-foreground">{body}</p>
+        <p className="max-w-md text-sm/relaxed  text-muted-foreground">{body}</p>
       </div>
       {/* The app screen rises out of the card's bottom edge and fades into it. */}
-      <div className="relative mt-auto px-6 sm:px-8 [mask-image:linear-gradient(to_bottom,black_70%,transparent)]">
+      <div className="relative mt-auto px-6 sm:px-8 mask-[linear-gradient(to_bottom,black_70%,transparent)]">
         <div className="translate-y-2 transition-transform duration-500 ease-out group-hover:translate-y-0">
           {children}
         </div>
@@ -151,7 +149,7 @@ export function Keyboard({ locale }: { locale: Locale }) {
         <div className="relative">
           <div
             aria-hidden
-            className="absolute -inset-8 rounded-[2rem] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--accent-blue)_16%,transparent),transparent)]"
+            className="absolute -inset-8 rounded-4xl bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--accent-blue)_16%,transparent),transparent)]"
           />
           <div className="relative">
             <PaletteMock locale={locale} />
@@ -172,7 +170,7 @@ export function Agents({ locale }: { locale: Locale }) {
           <Heading eyebrow={t.eyebrow} title={t.title} body={t.body} />
           <ul className="flex flex-col gap-3">
             {t.points.map((point) => (
-              <li key={point} className="flex gap-3 text-sm leading-relaxed">
+              <li key={point} className="flex gap-3 text-sm/relaxed ">
                 <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-positive/15 text-positive">
                   <IconCheck size={12} stroke={2.5} />
                 </span>
@@ -256,7 +254,7 @@ export function Faq({ locale }: { locale: Locale }) {
                   className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
                 />
               </summary>
-              <p className="pb-5 text-sm leading-relaxed text-muted-foreground">{item.a}</p>
+              <p className="pb-5 text-sm/relaxed  text-muted-foreground">{item.a}</p>
             </details>
           ))}
         </div>

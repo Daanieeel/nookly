@@ -13,8 +13,6 @@ describe("parseRelease", () => {
       tag_name: "v0.75.3",
       published_at: "2026-11-17T09:29:05Z",
       html_url: "https://github.com/x/releases/tag/v0.75.3",
-      draft: false,
-      prerelease: false,
       assets: [
         asset("latest.json"),
         asset("Nookly-0.75.3-1.x86_64.rpm"),
@@ -50,8 +48,6 @@ describe("parseRelease", () => {
       tag_name: "v1.0.0",
       published_at: null,
       html_url: "",
-      draft: false,
-      prerelease: false,
       assets: [asset("Nookly_1.0.0_aarch64.dmg")],
     });
     expect(release.downloads.map((d) => d.id)).toEqual(["mac-arm"]);

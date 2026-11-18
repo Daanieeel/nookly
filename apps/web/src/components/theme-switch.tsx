@@ -47,7 +47,7 @@ export function ThemeSwitch({ locale }: { locale: Locale }) {
         <TooltipContent>{t.label}</TooltipContent>
       </Tooltip>
       <PopoverContent align="end" sideOffset={6} className="w-40 p-1">
-        <div role="group" aria-label={t.label} className="flex flex-col">
+        <fieldset aria-label={t.label} className="flex flex-col">
           {OPTIONS.map(({ theme: option, icon: Icon }) => (
             <button
               key={option}
@@ -61,7 +61,7 @@ export function ThemeSwitch({ locale }: { locale: Locale }) {
               {option === theme && <IconCheck size={14} className="text-muted-foreground" />}
             </button>
           ))}
-        </div>
+        </fieldset>
       </PopoverContent>
     </Popover>
   );

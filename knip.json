@@ -22,6 +22,10 @@
     "apps/mobile": {
       "entry": ["src/app/**/*.tsx", "src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}"]
+    },
+    "apps/web": {
+      "entry": ["src/app/**/*.{ts,tsx}", "scripts/*.ts", "src/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}", "scripts/*.ts"]
     }
   }
 }

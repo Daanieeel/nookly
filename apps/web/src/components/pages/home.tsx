@@ -27,7 +27,8 @@ export async function HomePage({ locale }: { locale: Locale }) {
     description: dictionary(locale).meta.homeDescription,
     url: SITE_URL,
     downloadUrl: `${SITE_URL}/download`,
-    ...(release.version ? { softwareVersion: release.version } : {}),
+    // JSON.stringify leaves the version out when the build could not read it.
+    softwareVersion: release.version ?? undefined,
     license: "https://www.gnu.org/licenses/agpl-3.0.html",
     sameAs: GITHUB_URL,
     offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },

@@ -50,6 +50,8 @@ type UserAgentData = {
 /// Reads the hints from the browser. Never throws: a browser that hides them still gets
 /// an answer from its user agent string.
 export async function browserHints(): Promise<PlatformHints> {
+  // SAFETY: `userAgentData` is Chromium only and missing from the DOM types; every field
+  // is optional and checked before use.
   const nav = navigator as Navigator & { userAgentData?: UserAgentData };
   const data = nav.userAgentData;
   let architecture: string | undefined;

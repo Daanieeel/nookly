@@ -123,12 +123,10 @@ function Stones({
         <path
           d={d}
           className="animate-[stone-in_1.2s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none"
-          style={
-            {
-              fill: `color-mix(in oklab, var(--hearth-stone), #ff8a3d ${stone.warm}%)`,
-              animationDelay: `${delay + i * 60}ms`,
-            } as CSSProperties
-          }
+          style={{
+            fill: `color-mix(in oklab, var(--hearth-stone), #ff8a3d ${stone.warm}%)`,
+            animationDelay: `${delay + i * 60}ms`,
+          }}
         />
         <path d={d} fill={`url(#${sheen})`} />
       </g>
@@ -198,7 +196,7 @@ export function Hearth({ scene, className }: { scene: keyof typeof SCENES; class
           y={s.base - s.flame}
           width={(s.flame * FLAME_W) / FLAME_H}
           height={s.flame}
-          className="origin-bottom animate-[flame-flicker_3.4s_ease-in-out_infinite] [transform-box:fill-box] motion-reduce:animate-none"
+          className="origin-bottom animate-[flame-flicker_3.4s_ease-in-out_infinite] transform-fill motion-reduce:animate-none"
         />
         <g filter={`url(#${id("grain")})`}>
           {LOGS.map((log) => {
@@ -261,7 +259,8 @@ export function Hearth({ scene, className }: { scene: keyof typeof SCENES; class
           cy={ember.y + 120}
           r={ember.r}
           fill="#ffa24c"
-          className="animate-[ember-rise_var(--d)_ease-in-out_infinite] [transform-box:fill-box] motion-reduce:animate-none"
+          className="animate-[ember-rise_var(--d)_ease-in-out_infinite] transform-fill motion-reduce:animate-none"
+          // SAFETY: `--d` only ever receives the ember's duration in seconds.
           style={
             { "--d": `${ember.duration}s`, animationDelay: `${ember.delay}s` } as CSSProperties
           }

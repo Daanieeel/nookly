@@ -5,7 +5,7 @@ import type { Brand } from "./brand-icon";
 export const OS_ORDER: Os[] = ["macos", "windows", "linux"];
 
 /// The mark each installer is shown with: Debian's swirl for the .deb, Fedora's for the .rpm.
-export const BRAND_OF: Record<DownloadId, Brand> = {
+export const BRAND_OF = {
   "mac-arm": "apple",
   "mac-intel": "apple",
   "windows-exe": "windows",
@@ -13,4 +13,4 @@ export const BRAND_OF: Record<DownloadId, Brand> = {
   "linux-appimage": "linux",
   "linux-deb": "debian",
   "linux-rpm": "fedora",
-};
+} satisfies Record<DownloadId, Brand>;

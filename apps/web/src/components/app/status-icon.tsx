@@ -1,5 +1,3 @@
-import type { CSSProperties } from "react";
-
 /// The desktop's status glyphs (`TaskStatusIcon`), in the default statuses' colours:
 /// an empty ring for to do, a half filled ring while in progress, a check once done.
 const COLORS = { todo: "#64748b", in_progress: "#3b82f6", done: "#22c55e" } as const;
@@ -15,8 +13,8 @@ export function StatusIcon({ status, size = 14 }: { status: StatusKind; size?: n
       viewBox="0 0 14 14"
       fill="none"
       aria-hidden
-      className="shrink-0 text-(--status-color)"
-      style={{ "--status-color": COLORS[status] } as CSSProperties}
+      className="shrink-0"
+      style={{ color: COLORS[status] }}
     >
       {status === "done" ? (
         <>

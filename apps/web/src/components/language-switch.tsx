@@ -10,10 +10,10 @@ import { cn } from "@nookly/ui/lib/utils";
 import { type Locale, LOCALES, type Page, pathFor } from "@/lib/i18n";
 
 /// Each language with the flag the desktop's flag set draws for it: the US for English.
-const LANGUAGES: Record<Locale, { name: string; flag: string; label: string }> = {
+const LANGUAGES = {
   en: { name: "English", flag: "US", label: "Language" },
   de: { name: "Deutsch", flag: "DE", label: "Sprache" },
-};
+} satisfies Record<Locale, { name: string; flag: string; label: string }>;
 
 function FlagIcon({ code }: { code: string }) {
   return <Flag code={code} size="s" hasBorder={false} />;

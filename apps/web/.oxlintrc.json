@@ -9,5 +9,10 @@
     "better-tailwindcss": {
       "entryPoint": "apps/web/src/app/globals.css"
     }
+  },
+  "rules": {
+    "shadcn/no-arbitrary-values": "off",
+    "shadcn/no-raw-colors": "off",
+    "shadcn/no-inline-styles": "off"
   }
 }

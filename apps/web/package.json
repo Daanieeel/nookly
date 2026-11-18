@@ -18,7 +18,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-flagpack": "^2.0.6",
-    "simple-icons": "16.36.0"
+    "simple-icons": "16.36.0",
+    "zod": "^4"
   },
   "devDependencies": {
     "@nookly/config": "workspace:*",

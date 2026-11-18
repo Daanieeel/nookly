@@ -17,7 +17,10 @@ import { BRAND_OF, OS_ORDER } from "../download-meta";
 import { Recommended } from "../download/recommended";
 import { SiteShell } from "../site-shell";
 
-const SECTION_BRAND: Record<Os, Brand> = { macos: "apple", windows: "windows", linux: "linux" };
+const SECTION_BRAND = { macos: "apple", windows: "windows", linux: "linux" } satisfies Record<
+  Os,
+  Brand
+>;
 
 const CARD = "flex flex-col rounded-2xl border border-border bg-card";
 

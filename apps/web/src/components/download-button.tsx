@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { IconArrowRight, IconChevronDown, IconDownload } from "@tabler/icons-react";
 import { Button } from "@nookly/ui/components/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
+import { SplitButton } from "@nookly/ui/components/split-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { dictionary } from "@/content";
@@ -58,8 +59,8 @@ export function DownloadButton({
   const height = size === "lg" ? "h-10 text-sm" : "h-8 text-xs";
 
   return (
-    <div className={cn("inline-flex items-stretch", className)}>
-      <Button asChild className={cn(height, "rounded-r-none", size === "lg" ? "px-5" : "px-3")}>
+    <SplitButton className={className}>
+      <Button asChild className={cn(height, size === "lg" ? "px-5" : "px-3")}>
         <a href={href} {...(match ? { download: "" } : {})}>
           <IconDownload />
           {label}
@@ -69,14 +70,7 @@ export function DownloadButton({
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <Button
-                aria-label={t.more}
-                className={cn(
-                  height,
-                  "rounded-l-none border-l border-primary-foreground/25",
-                  size === "lg" ? "px-3" : "px-2",
-                )}
-              >
+              <Button aria-label={t.more} className={cn(height, size === "lg" ? "px-3" : "px-2")}>
                 <IconChevronDown className={cn("transition-transform", open && "rotate-180")} />
               </Button>
             </PopoverTrigger>
@@ -92,7 +86,7 @@ export function DownloadButton({
           />
         </PopoverContent>
       </Popover>
-    </div>
+    </SplitButton>
   );
 }
 

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { GITHUB_REPO, RELEASES_URL } from "./site";
 
 export type DownloadId =
@@ -41,21 +42,18 @@ const ASSETS: { id: DownloadId; os: Os; match: RegExp }[] = [
   { id: "linux-rpm", os: "linux", match: /\.x86_64\.rpm$/ },
 ];
 
-export const DOWNLOAD_IDS = ASSETS.map((a) => a.id);
+const githubReleaseSchema = z.object({
+  tag_name: z.string(),
+  published_at: z.string().nullable(),
+  html_url: z.string(),
+  assets: z.array(
+    z.object({ name: z.string(), size: z.number(), browser_download_url: z.string() }),
+  ),
+});
+type GithubRelease = z.infer<typeof githubReleaseSchema>;
 
-export function osOf(id: DownloadId): Os {
-  // SAFETY: every id comes from ASSETS.
-  return ASSETS.find((a) => a.id === id)!.os;
-}
-
-type GithubRelease = {
-  tag_name: string;
-  published_at: string | null;
-  html_url: string;
-  draft: boolean;
-  prerelease: boolean;
-  assets: { name: string; size: number; browser_download_url: string }[];
-};
+/// The part of GitHub's repository answer the star count needs.
+export const githubRepoSchema = z.object({ stargazers_count: z.number() });
 
 export function parseRelease(release: GithubRelease): Release {
   const asset = (name: string) => release.assets.find((a) => a.name === name);
@@ -88,7 +86,7 @@ export function parseRelease(release: GithubRelease): Release {
 }
 
 /// Every installer pointing at the releases page, for a build without network access.
-export const FALLBACK_RELEASE: Release = {
+const FALLBACK_RELEASE: Release = {
   version: null,
   publishedAt: null,
   url: `${RELEASES_URL}/latest`,
@@ -102,13 +100,14 @@ export const FALLBACK_RELEASE: Release = {
   checksums: null,
 };
 
-function githubHeaders(): HeadersInit {
-  const token = process.env.GITHUB_TOKEN;
-  return {
+function githubHeaders(): Headers {
+  const headers = new Headers({
     Accept: "application/vnd.github+json",
     "User-Agent": "nookly-website-build",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  });
+  const token = process.env.GITHUB_TOKEN;
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return headers;
 }
 
 let cached: Promise<Release> | null = null;
@@ -121,9 +120,9 @@ export function latestRelease(): Promise<Release> {
   })
     .then(async (response) => {
       if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
-      return parseRelease((await response.json()) as GithubRelease);
+      return parseRelease(githubReleaseSchema.parse(await response.json()));
     })
-    .catch((error: unknown) => {
+    .catch((error: Error) => {
       console.warn(`Latest release unavailable, linking the releases page: ${String(error)}`);
       return FALLBACK_RELEASE;
     });
@@ -137,8 +136,8 @@ export function starCount(): Promise<number | null> {
   stars ??= fetch(`https://api.github.com/repos/${GITHUB_REPO}`, { headers: githubHeaders() })
     .then(async (response) => {
       if (!response.ok) return null;
-      const repo = (await response.json()) as { stargazers_count?: number };
-      return repo.stargazers_count ?? null;
+      const repo = githubRepoSchema.safeParse(await response.json());
+      return repo.success ? repo.data.stargazers_count : null;
     })
     .catch(() => null);
   return stars;

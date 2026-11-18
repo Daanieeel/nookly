@@ -9,11 +9,11 @@ import { cn } from "@nookly/ui/lib/utils";
 import { samples } from "@/content/samples";
 import type { Locale } from "@/lib/i18n";
 
-const TONES: Record<string, string> = {
-  blue: "var(--accent-blue)",
-  green: "var(--accent-green)",
-  purple: "var(--accent-purple)",
-};
+const TONES = new Map([
+  ["blue", "var(--accent-blue)"],
+  ["green", "var(--accent-green)"],
+  ["purple", "var(--accent-purple)"],
+]);
 
 /// A week of sessions, the next exam's countdown with its flash cards, and the grade
 /// average, each the way its module shows it.
@@ -31,14 +31,15 @@ export function SemesterMock({ locale, className }: { locale: Locale; className?
           <div
             key={session.course}
             className="flex items-center gap-3 rounded-md border border-(--tone)/30 bg-(--tone)/8 px-3 py-2"
-            style={{ "--tone": TONES[session.tone] } as CSSProperties}
+            // SAFETY: `--tone` only ever receives one of the accent colour variables above.
+            style={{ "--tone": TONES.get(session.tone) } as CSSProperties}
           >
-            <span className="flex w-10 shrink-0 flex-col text-xs leading-tight">
+            <span className="flex w-10 shrink-0 flex-col text-xs/tight ">
               <span className="font-medium">{session.day}</span>
               <span className="text-muted-foreground tabular-nums">{session.time}</span>
             </span>
             <span className="h-7 w-0.5 rounded-full bg-(--tone)" />
-            <span className="flex min-w-0 flex-1 flex-col text-sm leading-tight">
+            <span className="flex min-w-0 flex-1 flex-col text-sm/tight ">
               <span className="truncate font-medium">{session.course}</span>
               <span className="truncate text-xs text-muted-foreground">
                 <IconChalkboard size={11} className="mr-1 inline" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayState, emptyStatus, incidents, recordCheck, uptime } from "./status";
+import { dayState, emptyStatus, incidents, recordCheck, statusSchema, uptime } from "./status";
 
 const at = (iso: string) => new Date(iso);
 
@@ -23,8 +23,20 @@ describe("recordCheck", () => {
       at: "2026-11-19T10:05:00.000Z",
       ok: false,
       ms: 5000,
+      version: null,
     });
     expect(data.updatedAt).toBe("2026-11-19T10:05:00.000Z");
+  });
+
+  it("reads a stored history and refuses anything else", () => {
+    const stored = recordCheck(
+      emptyStatus(),
+      "sync",
+      { ok: true, ms: 9 },
+      at("2026-11-19T00:00:00Z"),
+    );
+    expect(statusSchema.parse(JSON.parse(JSON.stringify(stored)))).toEqual(stored);
+    expect(statusSchema.safeParse({ components: "nope" }).success).toBe(false);
   });
 
   it("counts a slow answer as slow, not down, and averages only answers that came", () => {

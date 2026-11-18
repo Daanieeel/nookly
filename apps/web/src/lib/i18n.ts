@@ -8,7 +8,7 @@ export type Page = "home" | "download" | "status" | "imprint" | "privacy" | "ter
 
 /// English sits at the root, German under `/de`, each with the page names its readers
 /// expect (Impressum, Datenschutz).
-const PATHS: Record<Locale, Record<Page, string>> = {
+const PATHS = {
   en: {
     home: "/",
     download: "/download",
@@ -25,7 +25,7 @@ const PATHS: Record<Locale, Record<Page, string>> = {
     privacy: "/de/datenschutz",
     terms: "/de/agb",
   },
-};
+} satisfies Record<Locale, Record<Page, string>>;
 
 export function pathFor(locale: Locale, page: Page): string {
   return PATHS[locale][page];

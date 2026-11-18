@@ -27,7 +27,7 @@ export function DevicesMock({ locale, className }: { locale: Locale; className?:
         <span className="font-mono text-xs">{s.server}</span>
       </span>
       <div className="relative grid w-full grid-cols-3 gap-3">
-        <div className="absolute -top-5 right-[16.7%] left-[16.7%] h-5 rounded-t-lg border-x border-t border-dashed border-foreground/20" />
+        <div className="absolute -top-5 inset-x-[16.7%]  h-5 rounded-t-lg border-x border-t border-dashed border-foreground/20" />
         <div className="absolute -top-5 left-1/2 h-5 border-l border-dashed border-foreground/20" />
         {devices.map(({ name, icon: Icon, soon }) => (
           <div

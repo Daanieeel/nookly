@@ -61,7 +61,7 @@ export function Footer({ locale }: { locale: Locale }) {
       </div>
       <div
         aria-hidden
-        className="pointer-events-none mx-auto -mb-[0.22em] max-w-6xl px-4 text-center font-display text-[clamp(5rem,22vw,17rem)] leading-none font-semibold text-foreground/[0.045] select-none sm:px-6"
+        className="pointer-events-none mx-auto mb-[-0.22em] max-w-6xl px-4 text-center font-display text-[clamp(5rem,22vw,17rem)] leading-none font-semibold text-foreground/4.5 select-none sm:px-6"
       >
         Nookly
       </div>
