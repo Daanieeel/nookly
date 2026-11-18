@@ -4,7 +4,7 @@ import type { Locale } from "@/lib/i18n";
 /// sample values, and every page says so at the top. Replace the text here, not in the
 /// page components.
 
-export type LegalSection = { heading: string; body: string[] };
+type LegalSection = { heading: string; body: string[] };
 export type LegalDoc = { title: string; updated: string; sections: LegalSection[] };
 export type LegalPage = "imprint" | "privacy" | "terms";
 

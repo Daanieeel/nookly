@@ -77,7 +77,7 @@ export function DownloadButton({
           </TooltipTrigger>
           <TooltipContent>{t.more}</TooltipContent>
         </Tooltip>
-        <PopoverContent align="end" sideOffset={6} className="w-80 p-1.5">
+        <PopoverContent aria-label={t.more} align="end" sideOffset={6} className="w-80 p-1.5">
           <DownloadMenu
             locale={locale}
             release={release}

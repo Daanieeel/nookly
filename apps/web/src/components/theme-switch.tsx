@@ -46,7 +46,7 @@ export function ThemeSwitch({ locale }: { locale: Locale }) {
         </TooltipTrigger>
         <TooltipContent>{t.label}</TooltipContent>
       </Tooltip>
-      <PopoverContent align="end" sideOffset={6} className="w-40 p-1">
+      <PopoverContent aria-label={t.label} align="end" sideOffset={6} className="w-40 p-1">
         <fieldset aria-label={t.label} className="flex flex-col">
           {OPTIONS.map(({ theme: option, icon: Icon }) => (
             <button

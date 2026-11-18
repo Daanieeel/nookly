@@ -34,23 +34,23 @@ export const statusSchema = z.object({
 });
 
 export type Day = z.infer<typeof daySchema>;
-export type LastCheck = z.infer<typeof lastCheckSchema>;
+type LastCheck = z.infer<typeof lastCheckSchema>;
 export type ComponentHistory = z.infer<typeof historySchema>;
 export type StatusData = z.infer<typeof statusSchema>;
 export type CheckResult = { ok: boolean; ms: number; version?: string };
 export type State = "up" | "degraded" | "down" | "unknown";
 
-export const HISTORY_DAYS = 90;
+const HISTORY_DAYS = 90;
 /// A minute counts as five: the checker runs every five minutes.
-export const CHECK_MINUTES = 5;
+const CHECK_MINUTES = 5;
 /// An answer slower than this counts as degraded.
-export const SLOW_MS = 3000;
+const SLOW_MS = 3000;
 
 export function emptyStatus(): StatusData {
   return { updatedAt: null, components: {} };
 }
 
-export function dayKey(date: Date): string {
+function dayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 

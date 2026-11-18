@@ -16,7 +16,12 @@ const LANGUAGES = {
 } satisfies Record<Locale, { name: string; flag: string; label: string }>;
 
 function FlagIcon({ code }: { code: string }) {
-  return <Flag code={code} size="s" hasBorder={false} />;
+  // Decorative: the language's name always stands next to it.
+  return (
+    <span aria-hidden className="inline-flex">
+      <Flag code={code} size="s" hasBorder={false} />
+    </span>
+  );
 }
 
 /// The page in the other language, from a small menu with flags. Stays on the same page.
@@ -44,7 +49,7 @@ export function LanguageSwitch({ locale, page }: { locale: Locale; page: Page })
         </TooltipTrigger>
         <TooltipContent>{current.label}</TooltipContent>
       </Tooltip>
-      <PopoverContent align="end" sideOffset={6} className="w-44 p-1">
+      <PopoverContent aria-label={current.label} align="end" sideOffset={6} className="w-44 p-1">
         <nav aria-label={current.label} className="flex flex-col">
           {LOCALES.map((option) => {
             const language = LANGUAGES[option];
