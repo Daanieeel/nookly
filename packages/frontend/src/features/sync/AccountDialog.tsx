@@ -1,4 +1,10 @@
-import { ApiClient, emailSchema, signInSchema, usernameSchema } from "@nookly/shared/api";
+import {
+  ApiClient,
+  defaultServer,
+  emailSchema,
+  signInSchema,
+  usernameSchema,
+} from "@nookly/shared/api";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,8 +47,9 @@ import {
 import { type AccountMode, useAccountDialog } from "./account-dialog-store.ts";
 import { syncRuntime } from "./sync-instance.ts";
 
-/// The server a fresh install offers: the one `bun run stack` runs on this machine.
-export const DEFAULT_SERVER = "http://localhost:3000";
+/// The server a fresh install offers: Nookly's own in a release, this machine's
+/// (`bun run stack`) in development.
+export const DEFAULT_SERVER = defaultServer({ dev: import.meta.env.DEV });
 
 const errorText = (error: Error | null) => (error ? error.message : null);
 const serverSchema = z

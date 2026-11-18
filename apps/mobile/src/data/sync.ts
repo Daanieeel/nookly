@@ -1,4 +1,4 @@
-import { ApiClient, type TokenStore } from "@nookly/shared/api";
+import { ApiClient, type TokenStore, defaultServer } from "@nookly/shared/api";
 import { SHARED_SETTINGS } from "@nookly/shared/settings";
 import { backUpBeforeSync } from "./backup.ts";
 import type { PhoneDb } from "./database.ts";
@@ -48,11 +48,12 @@ export const onboardedStore = {
   set: (value: string) => Storage.setItemSync(ONBOARDED, value),
 };
 
-/// Where a phone looks for the server until it is told otherwise: the one
-/// `bun run stack` runs on this Mac, which the iOS simulator reaches as localhost.
+/// Where a phone looks for the server until it is told otherwise: Nookly's own in a release
+/// (EAS sets it as well, `eas.json`), in development the one `bun run stack` runs on this
+/// Mac, which the iOS simulator reaches as localhost.
 export const DEFAULT_SERVER =
   process.env.EXPO_PUBLIC_DEFAULT_SERVER ??
-  (Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://localhost:3000");
+  defaultServer({ dev: __DEV__, android: Platform.OS === "android" });
 
 export const serverUrlStore = {
   get: (): string | null => Storage.getItemSync(SERVER_URL),
