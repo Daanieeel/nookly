@@ -115,6 +115,13 @@ resource "scaleway_object_bucket" "files" {
   }
 }
 
+# The bucket was made by hand in the console, so the first apply adopts it instead of
+# failing on a name that is taken. Once in the state this does nothing.
+import {
+  to = scaleway_object_bucket.files
+  id = "${var.storage_region}/${var.storage_bucket}@${var.scaleway_project_id}"
+}
+
 # The server's own key: objects in this project only, no buckets, no other service.
 resource "scaleway_iam_application" "server" {
   name        = "${var.app_name}-server"

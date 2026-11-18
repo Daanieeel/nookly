@@ -8,7 +8,7 @@ The sync server (`apps/server`) on Heroku, its files on Scaleway Object Storage 
 | `heroku_addon.database`         | Heroku Postgres `essential-0`, Postgres 17, sets `DATABASE_URL`      |
 | `heroku_app_config_association` | server settings, generated `AUTH_SECRET`                             |
 | `heroku_formation.web`          | one `basic` dyno, once `deployed = true`                             |
-| `scaleway_object_bucket.files`  | `nookly-files` in `fr-par`, versioned                                |
+| `scaleway_object_bucket.files`  | `nookly-files` in `fr-par`, versioned, made by hand and adopted      |
 | `scaleway_iam_*.server`         | the server's own key: objects in the project, nothing else           |
 | `cloudflare_dns_record.*`       | `sync` CNAME to Heroku (not proxied), Resend's MX, SPF, DKIM, DMARC  |
 
