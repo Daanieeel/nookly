@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 import { useDateTimeSettings } from "#/lib/datetime.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
@@ -7,6 +7,10 @@ import { preferences } from "#/lib/preferences.ts";
 import { SETTING_IDS } from "#/lib/settings/registry.ts";
 import { settings } from "#/lib/settings/settings.ts";
 import { installTauriMock, uninstallTauriMock } from "./tauri.ts";
+
+// `findBy` and `waitFor` give up after a second; a shared CI runner, many times slower than a
+// laptop, needed longer for things that work (the sidebar's modules, the shortcuts pages).
+if (process.env.CI) configure({ asyncUtilTimeout: 5_000 });
 
 // jsdom lacks the layout and pointer APIs Radix calls; they do nothing here.
 class NoopResizeObserver {

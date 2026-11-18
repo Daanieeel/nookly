@@ -230,19 +230,22 @@ describe("swiping between Spaces", swipeTests, () => {
   });
 
   it("comes back to the same Space when the fingers were let go before halfway, and had stopped", async () => {
-    // The clock runs on, but can be set ahead, as when the fingers waited before moving again.
-    const realNow = performance.now.bind(performance);
+    // The clock only moves by hand, and both movements come without a wait between them:
+    // real time between them on a slow CI machine let the first go on its own, a flick.
+    const start = performance.now();
     let ahead = 0;
-    const now = vi.spyOn(performance, "now").mockImplementation(() => realNow() + ahead);
+    const now = vi.spyOn(performance, "now").mockImplementation(() => start + ahead);
     setup();
-    await swipe(50);
+    const target = await slot("Uni");
+    fireEvent.wheel(target, { deltaX: 50, deltaY: 0 });
     // Long after the drag, a last tiny movement: the list was not going anywhere any more.
     ahead = 500;
-    await swipe(1);
+    fireEvent.wheel(target, { deltaX: 1, deltaY: 0 });
+    // The slide back runs on the real clock, which its animation frames read.
+    now.mockRestore();
     await vi.waitFor(() => expect(pane("space-2")).toBeNull(), settled);
     expect(useNavStore.getState().activeSpaceId).toBeNull();
     expect(pane("space-1")?.style.transform).toBe("");
-    now.mockRestore();
   });
 
   it("registers the new Space the moment the fingers lift, not when the trackpad stops gliding", async () => {
