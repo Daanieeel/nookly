@@ -74,13 +74,13 @@ Roll out a website for Nookly on `nookly.work`, released and deployed automatica
 - [ ] Shared shell: nav (logo, links, GitHub stars, download split button, language switch), footer (legal links, status link).
 - [ ] Landing: hero (symmetry layout, Nookly app card rebuilt from primitives), features, Q&A, closing call to action.
 - [ ] Downloads page: sections with brand logos, file sizes, checksums link, iOS coming soon.
-- [ ] Status page: banner, components, 90 day bars, live check, last updated.
+- [x] Status page: banner, components, 90 day bars, live check, last updated.
 - [ ] Impressum, privacy policy, terms (English and German, sample values marked).
 - [ ] German versions of every page, `hreflang`, sitemap, robots, Open Graph images, favicons.
 
 ### Automation
 
-- [ ] Status checker workflow (every 5 minutes, `status-data` branch).
+- [x] Status checker workflow (every 5 minutes, `status-data` branch). Starts with the merge to `main` (schedules only run there).
 - [ ] Website workflow: build on pull requests; build and deploy to Cloudflare Pages on `main`, on a published release and daily.
 - [ ] Terraform: Pages project, domains, DNS; CORS on the server if needed.
 - [ ] Secrets and variables set (`CLOUDFLARE_ACCOUNT_ID`, token with Pages edit).
@@ -99,4 +99,4 @@ Roll out a website for Nookly on `nookly.work`, released and deployed automatica
 
 - 2026-11-18: brief written. Production is live: `sync.nookly.work` answers 1.0.0, backups daily 02:00 Berlin. #298 waiting on Windows CI.
 - 2026-11-19: #298 merged and applied. `apps/web` scaffolded (Next 16.4.5, static export, two root layouts for en/de). Nav with download split button, GitHub stars, language and theme popovers; footer; hero with the hearth and the queue demo, checked in Chrome light and dark. Lint/format/knip/jscpd wiring still to do.
-- 2026-11-19: flame swapped for the icon's artwork; downloads page as a bento grid; privacy band full width; status history logic and tests (`lib/status.ts`). Logs and hearth stones replace the pebbles. Next: lint wiring for apps/web, then the status checker.
+- 2026-11-19: flame swapped for the icon's artwork; downloads page as a bento grid; privacy band full width; status history logic and tests (`lib/status.ts`). Logs and hearth stones replace the pebbles. Lint, knip and jscpd cover `apps/web` (art direction rules off for the site, like mobile; new `SplitButton` primitive). Status checker script, workflow and page done; a failed browser ping falls back to the checker, never marks down. Next: legal pages, SEO, axe tests, website workflow, Terraform (Pages, CORS).

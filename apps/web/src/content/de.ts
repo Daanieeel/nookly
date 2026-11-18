@@ -282,6 +282,7 @@ export const de: Dictionary = {
     updatedEvery: "Alle 5 Minuten geprüft. Verlauf der letzten 90 Tage.",
     uptime: (percent) => `${percent} erreichbar`,
     ago90: "vor 90 Tagen",
+    ago30: "vor 30 Tagen",
     today: "Heute",
     noData: "Keine Daten",
     states: { up: "Läuft", degraded: "Eingeschränkt", down: "Ausgefallen", unknown: "Unbekannt" },

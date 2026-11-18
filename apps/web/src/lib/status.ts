@@ -24,6 +24,9 @@ const historySchema = z.object({
   last: lastCheckSchema.nullable(),
 });
 
+/// What the sync server's `/health` answers when it is well.
+export const healthSchema = z.object({ status: z.literal("ok"), version: z.string() });
+
 /// The stored history, as the checker writes it and the page reads it.
 export const statusSchema = z.object({
   updatedAt: z.string().nullable(),

@@ -292,6 +292,7 @@ export const en = {
     updatedEvery: "Checked every 5 minutes. History from the last 90 days.",
     uptime: (percent: string) => `${percent} uptime`,
     ago90: "90 days ago",
+    ago30: "30 days ago",
     today: "Today",
     noData: "No data",
     states: { up: "Operational", degraded: "Degraded", down: "Down", unknown: "Unknown" },
