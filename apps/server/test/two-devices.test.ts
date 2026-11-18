@@ -224,7 +224,10 @@ describe("two devices on one account", () => {
     edit(phone, "UPDATE entities SET title = 'Buy milk (phone)' WHERE id = 't1'");
     await Bun.sleep(150);
     edit(desktop, "UPDATE entities SET title = 'Buy milk (desktop)' WHERE id = 't1'");
-    await Bun.sleep(300);
+    // The desktop's edit is on the server before the phone is back, so the phone pulls it
+    // before sending its own and sees the clash itself. A fixed wait raced in CI: the phone
+    // sent first, only the server saw the clash, and offline the phone had none to decide.
+    await desktop.sync.settled();
     phone.network.plugIn();
     await until(
       () => phone.sync.store.getState().status.conflicts === 1,
@@ -264,7 +267,10 @@ describe("two devices on one account", () => {
     edit(phone, "UPDATE entities SET title = 'Buy milk (phone)' WHERE id = 't1'");
     await Bun.sleep(150);
     edit(desktop, "UPDATE entities SET title = 'Buy milk (desktop)' WHERE id = 't1'");
-    await Bun.sleep(300);
+    // The desktop's edit is on the server before the phone is back, so the phone pulls it
+    // before sending its own and sees the clash itself. A fixed wait raced in CI: the phone
+    // sent first, only the server saw the clash, and offline the phone had none to decide.
+    await desktop.sync.settled();
     phone.network.plugIn();
     // Both devices offer it before the phone goes offline: the phone learns of the clash
     // from its next pull, which can come after the desktop's (it raced, failing in CI).
