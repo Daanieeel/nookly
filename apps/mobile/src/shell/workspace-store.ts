@@ -1,5 +1,6 @@
 import { randomUUID } from "expo-crypto";
 import Storage from "expo-sqlite/kv-store";
+import { AppState } from "react-native";
 import { create } from "zustand";
 import type { GroupTarget } from "@nookly/frontend/lib/store/tab-groups";
 import {
@@ -33,6 +34,19 @@ interface WorkspaceStore {
   update(change: (ws: Workspace) => Workspace): void;
 }
 
+/// How long after a step the tabs are written down: after the tap that changed them, once
+/// for a run of steps.
+const SAVE_AFTER_MS = 400;
+let pending: ReturnType<typeof setTimeout> | null = null;
+
+/// Writes the tabs down now, if a step is waiting to be.
+export function saveWorkspaceNow() {
+  if (pending === null) return;
+  clearTimeout(pending);
+  pending = null;
+  Storage.setItemSync(KEY, JSON.stringify({ ...useWorkspace.getState().ws, zoomed: false }));
+}
+
 /// The tablet's tabs and groups, remembered between launches (a device preference, like the
 /// desktop's).
 export const useWorkspace = create<WorkspaceStore>((set, get) => ({
@@ -40,10 +54,15 @@ export const useWorkspace = create<WorkspaceStore>((set, get) => ({
   update: (change) => {
     const next = change(get().ws);
     if (next === get().ws) return;
-    Storage.setItemSync(KEY, JSON.stringify({ ...next, zoomed: false }));
     set({ ws: next });
+    pending ??= setTimeout(saveWorkspaceNow, SAVE_AFTER_MS);
   },
 }));
+
+// Leaving the app writes them at once: it may not come back to run the timer.
+AppState.addEventListener("change", (state) => {
+  if (state !== "active") saveWorkspaceNow();
+});
 
 const update = (change: (ws: Workspace) => Workspace) => useWorkspace.getState().update(change);
 

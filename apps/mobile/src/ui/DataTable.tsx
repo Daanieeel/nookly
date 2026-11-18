@@ -127,7 +127,10 @@ export function DataTable<T>({
             onSecondary={onLongPress ? () => onLongPress(row) : undefined}
             hoverClassName={on ? "" : "bg-accent/50"}
             style={{ minHeight: rowHeight }}
-            className={cn("flex-1 justify-center gap-0.5 px-3 py-1", !on && "active:bg-accent/50")}
+            className={cn(
+              "flex-1 justify-center gap-0.5 px-3 py-1",
+              on ? "active:bg-transparent" : "active:bg-accent/50",
+            )}
           >
             <View className="flex-row items-center gap-3">
               {inline.map((column) => (

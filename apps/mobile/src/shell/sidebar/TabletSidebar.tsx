@@ -14,7 +14,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react-native";
 import { type Href, useRouter } from "expo-router";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, memo, useEffect, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -107,7 +107,7 @@ function Row({
         className={cn(
           "min-w-0 flex-1 flex-row items-center gap-2.5 rounded-md",
           indent ? "pl-9" : "pl-2.5",
-          !active && "active:bg-sidebar-accent/60",
+          active ? "active:bg-transparent" : "active:bg-sidebar-accent/60",
         )}
       >
         <View style={{ width: 22, alignItems: "center" }} pointerEvents="none">
@@ -376,7 +376,7 @@ function SpacePager({
 /// The tablet's sidebar, the desktop's (D83): the mascot's card, the pages across every
 /// Space, one Space at a time with its modules, and at the bottom the Spaces and Trash
 /// (folding it away is the titlebar's, Settings the titlebar's gear). Not the phone's drawer stretched wide.
-export function TabletSidebar({
+export const TabletSidebar = memo(function TabletSidebar({
   onPicked,
   pinned,
   onPin,
@@ -558,4 +558,4 @@ export function TabletSidebar({
       </View>
     </View>
   );
-}
+});

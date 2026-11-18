@@ -60,7 +60,7 @@ function PaletteRow({
       style={{ minHeight: MIN_TOUCH }}
       className={cn(
         "flex-row items-center gap-3 rounded-md px-3",
-        selected ? "bg-accent" : "active:bg-accent/50",
+        selected ? "bg-accent active:bg-accent" : "active:bg-accent/50",
       )}
     >
       {icon}

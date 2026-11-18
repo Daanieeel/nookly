@@ -193,7 +193,7 @@ function SectionList({
           style={{ minHeight: MIN_TOUCH }}
           className={cn(
             "justify-center rounded-md px-3",
-            index === picked ? "bg-accent" : "active:bg-accent/50",
+            index === picked ? "bg-accent active:bg-accent" : "active:bg-accent/50",
           )}
         >
           <Text numberOfLines={2} className={index === picked ? "font-medium" : undefined}>

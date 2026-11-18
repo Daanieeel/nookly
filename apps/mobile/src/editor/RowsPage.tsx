@@ -32,9 +32,14 @@ export function RowsPage({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saving = useRef(Promise.resolve());
 
+  /// The page as opened, kept while a tablet's tab is out of sight: its effects stop and
+  /// start again, and opening it afresh from the rows would load the editor again, and
+  /// could read the rows before what was typed just before is written.
+  const kept = useRef<{ entityId: string; doc: Y.Doc } | null>(null);
+
   useEffect(() => {
     let live = true;
-    let opened: Y.Doc | null = null;
+    let opened: Y.Doc | null = kept.current?.entityId === entityId ? kept.current.doc : null;
     const save = () => {
       if (!opened) return;
       const target = opened;
@@ -48,13 +53,21 @@ export function RowsPage({
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(save, SAVE_DELAY_MS);
     };
-    void openRowsPage(db, entityId).then((page) => {
-      if (!live) return;
-      opened = page.doc;
-      snapshot.current = page.snapshot;
-      page.doc.on("update", onUpdate);
-      setDoc(page.doc);
-    });
+    if (opened) {
+      opened.on("update", onUpdate);
+    } else {
+      // After any save still on its way, so the rows read are the latest.
+      void saving.current
+        .then(() => openRowsPage(db, entityId))
+        .then((page) => {
+          if (!live) return;
+          opened = page.doc;
+          kept.current = { entityId, doc: page.doc };
+          snapshot.current = page.snapshot;
+          page.doc.on("update", onUpdate);
+          setDoc(page.doc);
+        });
+    }
     return () => {
       live = false;
       opened?.off("update", onUpdate);

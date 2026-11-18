@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -28,6 +28,13 @@ import { useShellActions } from "./actions.ts";
 import { matchPage, parseRouteParams, pathOf } from "./pages.tsx";
 import { type Workspace, activePath, focusedTab, visibleGroups } from "./workspace.ts";
 import { useWorkspace, workspace } from "./workspace-store.ts";
+
+/// What a page asks of the window to show an item beside it or in a new tab: the same
+/// object always, so its readers never render again for a step in the tabs.
+const SPLIT = {
+  show: (path: string) => workspace.open(path, "right"),
+  newTab: (path: string) => workspace.open(path, "newTab"),
+};
 
 /// The titlebar's height under the status bar.
 
@@ -97,6 +104,15 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
   useEffect(() => {
     if (windowClass !== "medium") setOverlay(false);
   }, [windowClass]);
+  // The same functions from render to render, so the sidebar stays as it is for a step in
+  // the tabs.
+  const unpin = useCallback(() => setPinned(false), [setPinned]);
+  const closeOverlay = useCallback(() => setOverlay(false), []);
+  const pinOverlay = useCallback(() => {
+    setPinned(true);
+    setCollapsed(false);
+    setOverlay(false);
+  }, [setPinned, setCollapsed]);
   const twoGroups = ws.layout.groups.length > 1;
   const focusedGroup = ws.layout.groups.find((g) => g.id === ws.layout.focusedGroupId);
   const showTabBar = !split && ((focusedGroup?.tabs.length ?? 0) > 1 || twoGroups);
@@ -104,12 +120,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
   const controls = useWindowControlsInset();
   return (
     <SidebarBesideProvider value={beside}>
-      <SplitProvider
-        value={{
-          show: (path) => workspace.open(path, "right"),
-          newTab: (path) => workspace.open(path, "newTab"),
-        }}
-      >
+      <SplitProvider value={SPLIT}>
         {/* Every touch is noted, so a menu or picker it opens floats there (D83, 2.3). */}
         <View className="flex-1" onTouchStart={noteTouch}>
           {/* The router's stack, behind the window: pages draw nothing in it on a tablet,
@@ -138,7 +149,7 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
                   <TabletSidebar
                     width={SIDEBAR_WIDTH}
                     pinned={canPin ? pinned : undefined}
-                    onPin={canPin ? () => setPinned(false) : undefined}
+                    onPin={canPin ? unpin : undefined}
                   />
                 </View>
               ) : null}
@@ -174,17 +185,9 @@ export function TabletShell({ stack }: { stack: ReactNode }) {
               >
                 <TabletSidebar
                   width={SIDEBAR_WIDTH}
-                  onPicked={() => setOverlay(false)}
+                  onPicked={closeOverlay}
                   pinned={canPin ? false : undefined}
-                  onPin={
-                    canPin
-                      ? () => {
-                          setPinned(true);
-                          setCollapsed(false);
-                          setOverlay(false);
-                        }
-                      : undefined
-                  }
+                  onPin={canPin ? pinOverlay : undefined}
                 />
               </SidebarOverlay>
             ) : null}

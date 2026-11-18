@@ -99,6 +99,9 @@ export function PageHost({ page, host }: { page: PageMatch; host: PageHostValue 
   const header = page.kind === "page" && !OWN_TITLES.has(page.pattern);
   const frame = useMemo(() => ({ title, header }), [title, header]);
   const { Component } = page;
+  // The page itself renders only for what it reads: a change of focus or of the tab shown
+  // reaches it through the contexts above, not by rendering it again from here.
+  const content = useMemo(() => <Component />, [Component]);
   // SAFETY: the page's navigation answers what screens ask of one (see above).
   const navigationValue = navigation as never;
   // SAFETY: the route carries a screen's key, name and params, all a page reads of it.
@@ -108,9 +111,7 @@ export function PageHost({ page, host }: { page: PageMatch; host: PageHostValue 
       <NavigationContext.Provider value={navigationValue}>
         <NavigationRouteContext.Provider value={routeValue}>
           <LocalRouteParamsContext.Provider value={params}>
-            <PageFrameProvider value={frame}>
-              <Component />
-            </PageFrameProvider>
+            <PageFrameProvider value={frame}>{content}</PageFrameProvider>
           </LocalRouteParamsContext.Provider>
         </NavigationRouteContext.Provider>
       </NavigationContext.Provider>

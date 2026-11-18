@@ -23,7 +23,7 @@ import MoodlePage from "../app/moodle/page/[cmid].tsx";
 /// it, 1.6), an item, or any other page.
 export type PageKind = "list" | "item" | "page";
 
-interface PageRoute {
+export interface PageRoute {
   /// The route's file, as `app/` names it (`entity/[id]`).
   pattern: string;
   Component: ComponentType;
@@ -33,8 +33,8 @@ interface PageRoute {
 /// Every route the tablet shows as a page in a tab, by the same route files the phone's
 /// stack shows. Create forms, pickers, the welcome, signing in, Settings, a Space's
 /// settings, Review Changes and a study session are not pages: they stay the router's,
-/// over the window.
-const ROUTES: PageRoute[] = [
+/// over the window. A test may add a page of its own.
+export const PAGE_ROUTES: PageRoute[] = [
   { pattern: "", Component: Dashboard, kind: "list" },
   { pattern: "calendar", Component: Calendar, kind: "page" },
   { pattern: "tasks", Component: Tasks, kind: "list" },
@@ -98,7 +98,7 @@ export function splitPath(path: string) {
 /// The page a path shows on a tablet, or null when it is not a page (a sheet, a modal).
 export function matchPage(path: string): PageMatch | null {
   const { segments, query } = splitPath(path);
-  for (const route of ROUTES) {
+  for (const route of PAGE_ROUTES) {
     const parts = route.pattern.split("/").filter(Boolean);
     if (parts.length !== segments.length) continue;
     const params = { ...query };

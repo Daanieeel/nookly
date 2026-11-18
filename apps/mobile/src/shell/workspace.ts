@@ -89,9 +89,17 @@ function withLayout(ws: Workspace, layout: TabLayout<Page>): Workspace {
   };
 }
 
+/// How many steps back a tab keeps, as the desktop's tabs.
+const MAX_HISTORY = 50;
+
 /// One step forward in a tab's history.
 function go(tab: PageTab, path: Page): PageTab {
-  return { ...tab, view: path, backStack: [...tab.backStack, tab.view], forwardStack: [] };
+  return {
+    ...tab,
+    view: path,
+    backStack: [...tab.backStack, tab.view].slice(-MAX_HISTORY),
+    forwardStack: [],
+  };
 }
 
 export function open(ws: Workspace, path: Page, where: Where, newId: () => string): Workspace {

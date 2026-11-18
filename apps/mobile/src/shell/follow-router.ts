@@ -88,6 +88,44 @@ export function resetRouterFollower() {
   memory.overWindow.current = false;
 }
 
+/// On a tablet each page the router is sent to stays on its stack as an empty screen (the
+/// shell draws the page). Past `STACK_LIMIT` screens the stack drops all but the last
+/// `STACK_KEEP`, so a long session does not draw and read an ever longer stack, and a page
+/// that goes back through the router still finds the one before.
+export const STACK_LIMIT = 12;
+const STACK_KEEP = 4;
+
+interface StackOwner {
+  getRootState(): NavigationState;
+  dispatch(action: { type: string; payload?: object; target?: string }): void;
+}
+
+/// A stack's state, all of it kept for the reset (its route names and the rest).
+const StackSchema = z.looseObject({
+  key: z.string(),
+  type: z.literal("stack"),
+  index: z.number(),
+  routes: z.array(z.looseObject({ key: z.string() })),
+});
+
+/// The stack the router's pages go on: the one under the root's first route.
+function pageStack(root: NavigationState) {
+  return StackSchema.safeParse(root.routes[0]?.state).data;
+}
+
+export function trimStack(container: StackOwner) {
+  const stack = pageStack(container.getRootState());
+  if (!stack || stack.routes.length <= STACK_LIMIT) return;
+  // Only with the page on top: something shown over the window stays as it is.
+  if (stack.index !== stack.routes.length - 1) return;
+  const routes = stack.routes.slice(-STACK_KEEP);
+  container.dispatch({
+    type: "RESET",
+    payload: { ...stack, routes, index: routes.length - 1 },
+    target: stack.key,
+  });
+}
+
 /// Follows the router on a tablet: a page it is sent to (a row's tap, a link, the
 /// sidebar's `router.push`) opens in the tablet's tabs instead of a stack. Create forms,
 /// pickers and other modals stay the router's and are left alone.
@@ -129,6 +167,7 @@ export function useFollowRouter(follower: RouterFollower) {
     if (before && wasOver) return;
     if (before) latest.current.returned(shown.path);
     else latest.current.opened(shown.path, page.kind);
+    trimStack(container);
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- the signature names the route
   }, [signature]);
 }

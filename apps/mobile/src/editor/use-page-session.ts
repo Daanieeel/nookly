@@ -1,7 +1,8 @@
 import type { PageSession } from "@nookly/shared/sync";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppData, useSyncState } from "../data/context.tsx";
 import { useEntity } from "../data/queries.ts";
+import { usePageHost } from "../shell/page-host.ts";
 
 /// A page made a moment ago may not have reached the server yet, which then refuses its
 /// document. While the phone is online, such a page asks again a few times before it
@@ -9,6 +10,11 @@ import { useEntity } from "../data/queries.ts";
 const FRESH_MS = 120_000;
 const RETRIES = 3;
 const RETRY_AFTER_MS = 3000;
+
+/// How long a page in a tablet's tab keeps its document after its tab went out of sight
+/// (React's `Activity` stops its effects): shown again meanwhile, it is there at once, with
+/// its editor as it was. A closed tab lets go of it then.
+const KEEP_MS = 5 * 60_000;
 
 export type PageSessionState =
   | { state: "rows" }
@@ -24,14 +30,54 @@ export function usePageSession(entityId: string): PageSessionState {
   const { data: entity } = useEntity(entityId);
   const created = entity ? Date.parse(entity.createdAt) : 0;
   const [state, setState] = useState<PageSessionState>({ state: "rows" });
+  const tab = usePageHost() !== null;
+  const held = useRef<{
+    entityId: string;
+    docs: NonNullable<ReturnType<typeof sync.pages>>;
+    session: PageSession;
+    timer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
   useEffect(() => {
     const docs = signedIn ? sync.pages() : null;
+    const kept = held.current;
+    if (kept && (kept.entityId !== entityId || kept.docs !== docs)) {
+      if (kept.timer) clearTimeout(kept.timer);
+      kept.docs.release(kept.entityId);
+      held.current = null;
+    }
     if (!docs) {
       setState({ state: "rows" });
       return;
     }
     let live = true;
     let opened = false;
+    const letGo = () => {
+      if (!opened) return;
+      const current = held.current;
+      if (!tab || !current) {
+        docs.release(entityId);
+        return;
+      }
+      current.timer = setTimeout(() => {
+        if (held.current !== current) return;
+        held.current = null;
+        docs.release(entityId);
+      }, KEEP_MS);
+    };
+    if (held.current) {
+      // Its tab is shown again: the document it kept.
+      const { session } = held.current;
+      if (held.current.timer) clearTimeout(held.current.timer);
+      held.current.timer = null;
+      opened = true;
+      setState((now) =>
+        now.state === "live" && now.session === session ? now : { state: "live", session },
+      );
+      return () => {
+        live = false;
+        letGo();
+      };
+    }
     setState({ state: "waiting" });
     const attempt = async (left: number) => {
       const session = await docs.open(entityId);
@@ -45,12 +91,13 @@ export function usePageSession(entityId: string): PageSessionState {
         return;
       }
       opened = session !== null;
+      if (session && tab) held.current = { entityId, docs, session, timer: null };
       setState(session ? { state: "live", session } : { state: "rows" });
     };
     void attempt(RETRIES);
     return () => {
       live = false;
-      if (opened) docs.release(entityId);
+      letGo();
     };
     // The page's age and the connection are read when the page opens, not followed.
     // eslint-disable-next-line react-hooks/exhaustive-deps

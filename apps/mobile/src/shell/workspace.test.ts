@@ -51,6 +51,16 @@ describe("the tablet's workspace", () => {
     expect(activePath(ws)).toBe("/pinned");
   });
 
+  // A tab's history grew with every step for as long as the app ran, and was saved whole
+  // on each one; the desktop keeps the last 50.
+  it("keeps the last 50 steps of a tab's history, as the desktop", () => {
+    let ws = start();
+    for (let i = 0; i < 60; i++) ws = open(ws, `/trash?step=${i}`, "here", ids);
+    const [tab] = focusedTabs(ws);
+    expect(tab.backStack).toHaveLength(50);
+    expect(tab.backStack.at(-1)).toBe("/trash?step=58");
+  });
+
   it("does not count the page shown again as a step", () => {
     const ws = open(start(), "/tasks", "here", ids);
     expect(open(ws, "/tasks", "here", ids)).toBe(ws);

@@ -114,6 +114,9 @@ export function PageDocEditor({
     setFound(parsed);
   }, []);
   const ready = useRef(false);
+  /// The document the loaded editor was given whole: it stays loaded while a tablet's tab is
+  /// out of sight, and does not say it is ready again when the tab shows.
+  const loadedWith = useRef<Y.Doc | null>(null);
   const user = useSyncState((s) => s.user);
   const [displayName] = useSetting("general.displayName");
   const [macroText] = useSetting("notes.latexMacros");
@@ -152,6 +155,8 @@ export function PageDocEditor({
     };
     doc.on("update", sendUpdate);
     awareness?.on("update", sendAwareness);
+    // Shown again with the editor still loaded: it gets what arrived meanwhile, then follows.
+    if (loadedWith.current === doc) void onReadyRef.current();
     return () => {
       doc.off("update", sendUpdate);
       awareness?.off("update", sendAwareness);
@@ -177,6 +182,7 @@ export function PageDocEditor({
   const onReady = useCallback(async () => {
     // The editor starts from the whole document, and from who else is here.
     handle.current?.applyUpdate(toBase64(Y.encodeStateAsUpdate(pageDoc)));
+    loadedWith.current = pageDoc;
     const awareness = pageAwareness;
     if (awareness) {
       handle.current?.applyAwareness(
@@ -185,6 +191,9 @@ export function PageDocEditor({
     }
     ready.current = true;
   }, [pageDoc, pageAwareness]);
+
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
 
   const onUpdate = useCallback(
     async (update: string) => {

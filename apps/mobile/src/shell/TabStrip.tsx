@@ -178,7 +178,7 @@ function TabLabel({
           className={cn(
             "h-9 max-w-56 flex-row items-center rounded-md",
             tab.pinned ? "px-1" : "pl-3",
-            active ? "bg-accent" : "active:bg-accent/50",
+            active ? "bg-accent active:bg-accent" : "active:bg-accent/50",
           )}
         >
           <PointerPressable

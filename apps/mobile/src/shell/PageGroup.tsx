@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { Activity, memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { View } from "react-native";
 import { cn } from "../ui/classes.ts";
 import {
@@ -23,9 +23,11 @@ import { workspace } from "./workspace-store.ts";
 /// was (scrolled, half typed): the ones shown most recently.
 const KEPT_TABS = 4;
 
-/// One tab's page. Hidden tabs stay drawn, out of sight. A swipe from its left edge goes
-/// back in the tab's history (1.10).
-function TabPage({
+/// One tab's page. Hidden tabs stay drawn, out of sight, as they were (scrolled, half typed),
+/// but paused: they neither render for a step in another tab nor read their data again
+/// until they show (React's `Activity`). A swipe from its left edge goes back in the tab's
+/// history (1.10).
+const TabPage = memo(function TabPage({
   tab,
   shown,
   groupId,
@@ -52,41 +54,43 @@ function TabPage({
     [tab.id, groupId, previous],
   );
   return (
-    <View className="flex-1" style={shown ? undefined : { display: "none" }}>
-      <EdgeBack
-        width={width}
-        canGoBack={previous !== undefined}
-        onBack={() => {
-          workspace.focus(groupId);
-          workspace.back();
-        }}
-        onEdge={onEdge}
-        behind={
-          before ? (
+    <Activity mode={shown ? "visible" : "hidden"}>
+      <View className="flex-1">
+        <EdgeBack
+          width={width}
+          canGoBack={previous !== undefined}
+          onBack={() => {
+            workspace.focus(groupId);
+            workspace.back();
+          }}
+          onEdge={onEdge}
+          behind={
+            before ? (
+              <PageHost
+                key={`${tab.backStack.length - 1} ${previous}`}
+                page={before}
+                host={beforeHost}
+              />
+            ) : null
+          }
+        >
+          {page ? (
             <PageHost
-              key={`${tab.backStack.length - 1} ${previous}`}
-              page={before}
-              host={beforeHost}
+              // A step to another page is a page of its own; Back shows the earlier one again.
+              key={`${tab.backStack.length} ${tab.view}`}
+              page={page}
+              host={host}
             />
-          ) : null
-        }
-      >
-        {page ? (
-          <PageHost
-            // A step to another page is a page of its own; Back shows the earlier one again.
-            key={`${tab.backStack.length} ${tab.view}`}
-            page={page}
-            host={host}
-          />
-        ) : (
-          <View className="flex-1 items-center justify-center">
-            <Text tone="muted">This page can't be shown in a tab.</Text>
-          </View>
-        )}
-      </EdgeBack>
-    </View>
+          ) : (
+            <View className="flex-1 items-center justify-center">
+              <Text tone="muted">This page can't be shown in a tab.</Text>
+            </View>
+          )}
+        </EdgeBack>
+      </View>
+    </Activity>
   );
-}
+});
 
 /// A group of the split view: its tabs (when both groups show, each has its own row), and
 /// its page on the desktop's card, with the details beside an item when the group keeps
@@ -112,6 +116,10 @@ export function PageGroupView({
   onEdge?: () => void;
 }) {
   const [inspectorCollapsed] = useInspectorCollapsed();
+  // The same function from render to render, so tabs kept out of sight stay as they are.
+  const edge = useRef(onEdge);
+  edge.current = onEdge;
+  const stableEdge = useCallback(() => edge.current?.(), []);
   const active = group.tabs.find((t) => t.id === group.activeTabId) ?? group.tabs[0];
   const recent = useRef<string[]>([]);
   recent.current = [active.id, ...recent.current.filter((id) => id !== active.id)]
@@ -159,7 +167,7 @@ export function PageGroupView({
                   groupId={group.id}
                   focused={focused}
                   width={width}
-                  onEdge={onEdge}
+                  onEdge={onEdge ? stableEdge : undefined}
                 />
               ))}
             </View>
