@@ -1,6 +1,6 @@
 # Infrastructure
 
-The sync server (`apps/server`) on Heroku, its files on Cloudflare R2 (EU), DNS on Cloudflare, account emails through Resend. Terraform here; the workflows in `.github/workflows/` run it. The diagram is in [`infra.drawio`](infra.drawio).
+The sync server (`apps/server`) on Heroku, its files on Scaleway Object Storage (Paris), DNS on Cloudflare, account emails through Resend. Terraform here; the workflows in `.github/workflows/` run it. The diagram is in [`infra.drawio`](infra.drawio).
 
 | Resource                        | What                                                                 |
 | ------------------------------- | -------------------------------------------------------------------- |
@@ -8,10 +8,11 @@ The sync server (`apps/server`) on Heroku, its files on Cloudflare R2 (EU), DNS 
 | `heroku_addon.database`         | Heroku Postgres `essential-0`, Postgres 17, sets `DATABASE_URL`      |
 | `heroku_app_config_association` | server settings, generated `AUTH_SECRET`                             |
 | `heroku_formation.web`          | one `basic` dyno, once `deployed = true`                             |
-| `cloudflare_r2_bucket.files`    | `nookly-files`, EU jurisdiction                                      |
+| `scaleway_object_bucket.files`  | `nookly-files` in `fr-par`, versioned                                |
+| `scaleway_iam_*.server`         | the server's own key: objects in the project, nothing else           |
 | `cloudflare_dns_record.*`       | `sync` CNAME to Heroku (not proxied), Resend's MX, SPF, DKIM, DMARC  |
 
-The app, the database and the bucket have `prevent_destroy`: Terraform refuses any plan that deletes them. About 12 USD a month: `basic` 7, `essential-0` 5; R2 within its free tier.
+The app, the database and the bucket have `prevent_destroy`: Terraform refuses any plan that deletes them. About 12 USD a month on Heroku: `basic` 7, `essential-0` 5. Scaleway about 0.015 EUR per GB a month.
 
 ## Releases
 
@@ -23,33 +24,33 @@ Each part has its own version and tag. Only the desktop makes GitHub Releases, s
 | `server-v1.2.3` | `apps/server/package.json` | `server.yml`: image to Heroku, waits for it on `/health` |
 | `mobile-v1.2.3` | `apps/mobile/app.json`     | `mobile.yml`: EAS production build, sent to TestFlight   |
 
-A merge to `main` that changes `infrastructure/` applies it (`infrastructure.yml`); a pull request shows the plan. Nothing reaches Heroku or Cloudflare until the repository variable `DEPLOY_ENABLED` is `true`; until then the workflows only check and build.
+A merge to `main` that changes `infrastructure/` applies it (`infrastructure.yml`); a pull request shows the plan. Nothing reaches Heroku, Cloudflare or Scaleway until the repository variable `DEPLOY_ENABLED` is `true`; until then the workflows only check and build.
 
 ## Secrets and variables (GitHub, repository settings)
 
-| Name                         | Kind     | What                                                                 |
-| ---------------------------- | -------- | -------------------------------------------------------------------- |
-| `HEROKU_API_KEY`             | secret   | `heroku authorizations:create -d "nookly ci"`                        |
-| `CLOUDFLARE_API_TOKEN`       | secret   | token with Zone DNS Edit (nookly.work) and Workers R2 Storage Edit   |
-| `TF_STATE_ACCESS_KEY_ID`     | secret   | R2 API token keys, Object Read and Write on `nookly-terraform-state` |
-| `TF_STATE_SECRET_ACCESS_KEY` | secret   |                                                                      |
-| `STORAGE_ACCESS_KEY_ID`      | secret   | R2 API token keys, Object Read and Write on `nookly-files`           |
-| `STORAGE_SECRET_ACCESS_KEY`  | secret   |                                                                      |
-| `RESEND_API_KEY`             | secret   | Resend, sending access                                               |
-| `EXPO_TOKEN`                 | secret   | expo.dev, Access tokens                                              |
-| `CLOUDFLARE_ACCOUNT_ID`      | variable | set                                                                  |
-| `CLOUDFLARE_ZONE_ID`         | variable | set                                                                  |
-| `TF_STATE_BUCKET`            | variable | `nookly-terraform-state` (made by hand, EU)                          |
-| `RESEND_DKIM`                | variable | the `resend._domainkey` value Resend shows for nookly.work           |
-| `DEPLOY_ENABLED`             | variable | `true` to let the workflows deploy                                   |
+| Name                       | Kind     | What                                                         |
+| -------------------------- | -------- | ------------------------------------------------------------ |
+| `HEROKU_API_KEY`           | secret   | `heroku authorizations:create -d "nookly ci"`                |
+| `CLOUDFLARE_API_TOKEN`     | secret   | token with Zone DNS Edit on nookly.work                      |
+| `SCW_ACCESS_KEY`           | secret   | key of a Scaleway IAM application for Terraform (below)      |
+| `SCW_SECRET_KEY`           | secret   |                                                              |
+| `RESEND_API_KEY`           | secret   | Resend, sending access                                       |
+| `EXPO_TOKEN`               | secret   | expo.dev, Access tokens                                      |
+| `CLOUDFLARE_ZONE_ID`       | variable | set                                                          |
+| `SCALEWAY_ORGANIZATION_ID` | variable | Scaleway console, Organization settings                      |
+| `SCALEWAY_PROJECT_ID`      | variable | the project holding the buckets                              |
+| `TF_STATE_BUCKET`          | variable | `nookly-terraform-state` (made by hand, versioned, `fr-par`) |
+| `RESEND_DKIM`              | variable | the `resend._domainkey` value Resend shows for nookly.work   |
+| `DEPLOY_ENABLED`           | variable | `true` to let the workflows deploy                           |
 
 ## First deploy
 
+1. Scaleway: in the project, make the bucket `nookly-terraform-state` in `fr-par` with versioning on. Make an IAM application `terraform` with `ObjectStorageFullAccess` on the project and `IAMManager` on the organization (it creates the server's key), and an API key for it into `SCW_ACCESS_KEY` and `SCW_SECRET_KEY`.
 1. Resend: add `nookly.work` in region `eu-west-1`, copy the DKIM value into `RESEND_DKIM`.
-2. Add the secrets above, set `DEPLOY_ENABLED` to `true`, run Infrastructure by hand (Actions, Run workflow) or merge to `main`. Then verify the domain in Resend.
-3. Tag the server: `git tag server-v1.0.0 && git push origin server-v1.0.0`.
-4. Set `deployed = true` in `production.tfvars` and merge: Terraform takes over the dyno's size.
-5. Schedule backups once: `heroku pg:backups:schedule DATABASE_URL --at "02:00 Europe/Berlin" -a nookly-sync`.
+1. Add the secrets above, set `DEPLOY_ENABLED` to `true`, run Infrastructure by hand (Actions, Run workflow) or merge to `main`. Then verify the domain in Resend.
+1. Tag the server: `git tag server-v1.0.0 && git push origin server-v1.0.0`.
+1. Set `deployed = true` in `production.tfvars` and merge: Terraform takes over the dyno's size.
+1. Schedule backups once: `heroku pg:backups:schedule DATABASE_URL --at "02:00 Europe/Berlin" -a nookly-sync`.
 
 The server runs its database migrations on start, so it stays at one dyno.
 

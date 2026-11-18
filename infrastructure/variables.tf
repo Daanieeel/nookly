@@ -59,32 +59,31 @@ variable "server_subdomain" {
   default     = "sync"
 }
 
-variable "cloudflare_account_id" {
-  description = "Cloudflare account that holds the zone and the R2 bucket."
+variable "cloudflare_zone_id" {
+  description = "Zone ID of zone_name on Cloudflare, which holds the DNS."
   type        = string
 }
 
-variable "cloudflare_zone_id" {
-  description = "Zone ID of zone_name on Cloudflare."
+variable "scaleway_organization_id" {
+  description = "Scaleway organization that owns the project."
   type        = string
+}
+
+variable "scaleway_project_id" {
+  description = "Scaleway project that holds the files bucket."
+  type        = string
+}
+
+variable "storage_region" {
+  description = "Scaleway region of the files bucket."
+  type        = string
+  default     = "fr-par"
 }
 
 variable "storage_bucket" {
-  description = "R2 bucket for file contents."
+  description = "Scaleway Object Storage bucket for file contents, unique across Scaleway."
   type        = string
   default     = "nookly-files"
-}
-
-variable "storage_access_key_id" {
-  description = "Access key of an R2 API token with Object Read and Write on storage_bucket."
-  type        = string
-  sensitive   = true
-}
-
-variable "storage_secret_access_key" {
-  description = "Secret key of that R2 API token."
-  type        = string
-  sensitive   = true
 }
 
 variable "resend_api_key" {

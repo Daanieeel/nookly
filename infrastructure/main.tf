@@ -1,11 +1,11 @@
 # The sync server (apps/server) on Heroku: one container app and its Postgres. File
-# contents in an R2 bucket and the DNS on Cloudflare; account emails through Resend.
+# contents in a Scaleway bucket, the DNS on Cloudflare, account emails through Resend.
 
 locals {
   server_host = "${var.server_subdomain}.${var.zone_name}"
   public_url  = "https://${local.server_host}"
-  # R2's S3 API for a bucket kept in the EU.
-  storage_endpoint = "https://${var.cloudflare_account_id}.eu.r2.cloudflarestorage.com"
+  # Scaleway Object Storage's S3 API in the bucket's region.
+  storage_endpoint = "https://s3.${var.storage_region}.scw.cloud"
 }
 
 # Server -----------------------------------------------------------------------------
@@ -69,16 +69,16 @@ resource "heroku_app_config_association" "server" {
     # Heroku Postgres only takes TLS; the server's Postgres client reads PGSSL.
     PGSSL               = "require"
     S3_ENDPOINT         = local.storage_endpoint
-    S3_REGION           = "auto"
-    S3_BUCKET           = cloudflare_r2_bucket.files.name
+    S3_REGION           = var.storage_region
+    S3_BUCKET           = scaleway_object_bucket.files.name
     S3_FORCE_PATH_STYLE = "true"
   }, var.extra_config_vars)
 
   sensitive_vars = merge({
     AUTH_SECRET          = random_password.auth_secret.result
     SMTP_URL             = "smtps://resend:${var.resend_api_key}@smtp.resend.com:465"
-    S3_ACCESS_KEY_ID     = var.storage_access_key_id
-    S3_SECRET_ACCESS_KEY = var.storage_secret_access_key
+    S3_ACCESS_KEY_ID     = scaleway_iam_api_key.server.access_key
+    S3_SECRET_ACCESS_KEY = scaleway_iam_api_key.server.secret_key
   }, var.extra_sensitive_config_vars)
 }
 
@@ -95,16 +95,51 @@ resource "heroku_formation" "web" {
 
 # Files ------------------------------------------------------------------------------
 
-# File contents by SHA-256, kept in the EU. R2 has no object versioning; contents are
-# never overwritten with something else (the key is the content's hash).
-resource "cloudflare_r2_bucket" "files" {
-  account_id   = var.cloudflare_account_id
-  name         = var.storage_bucket
-  jurisdiction = "eu"
+# File contents by SHA-256, in the EU. Versioned, as the server expects: an overwritten or
+# deleted object can be recovered. Deleting an account removes its versions too.
+resource "scaleway_object_bucket" "files" {
+  name = var.storage_bucket
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    id                                     = "abort-incomplete-uploads"
+    enabled                                = true
+    abort_incomplete_multipart_upload_days = 7
+  }
 
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# The server's own key: objects in this project only, no buckets, no other service.
+resource "scaleway_iam_application" "server" {
+  name        = "${var.app_name}-server"
+  description = "The sync server on Heroku, reading and writing file contents."
+}
+
+resource "scaleway_iam_policy" "server" {
+  name           = "${var.app_name}-server-files"
+  application_id = scaleway_iam_application.server.id
+
+  rule {
+    project_ids = [var.scaleway_project_id]
+    permission_set_names = [
+      "ObjectStorageBucketsRead",
+      "ObjectStorageObjectsRead",
+      "ObjectStorageObjectsWrite",
+      "ObjectStorageObjectsDelete",
+    ]
+  }
+}
+
+resource "scaleway_iam_api_key" "server" {
+  application_id     = scaleway_iam_application.server.id
+  default_project_id = var.scaleway_project_id
+  description        = "S3 keys of ${var.app_name}, set on the Heroku app."
 }
 
 # DNS --------------------------------------------------------------------------------

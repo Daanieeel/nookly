@@ -9,6 +9,6 @@ output "server_url" {
 }
 
 output "storage_endpoint" {
-  description = "R2's S3 API for the files bucket."
+  description = "Scaleway's S3 API for the files bucket."
   value       = local.storage_endpoint
 }
