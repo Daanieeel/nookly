@@ -243,6 +243,7 @@ export const de: Dictionary = {
     latest: (version, date) => `Version ${version}, erschienen am ${date}`,
     unknownVersion: "Die neueste Version",
     recommended: "Für dich empfohlen",
+    pick: "Wähle unten deinen Computer. Jeder Installer enthält dieselbe App, und sie hält sich selbst aktuell.",
     sections: {
       macos: "macOS",
       windows: "Windows",

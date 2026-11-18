@@ -75,6 +75,7 @@ function usePrefersReducedMotion() {
 /// a time, as getsymmetry.com does it. Everything is drawn with the app's own classes.
 export function QueueDemo({ locale }: { locale: Locale }) {
   const t = dictionary(locale).queue;
+  const controls = dictionary(locale).hero;
   const reduced = usePrefersReducedMotion();
   const [paused, setPaused] = useState(false);
   const [card, setCard] = useState(0);
@@ -136,8 +137,8 @@ export function QueueDemo({ locale }: { locale: Locale }) {
         <button
           type="button"
           onClick={() => setPaused((p) => !p)}
-          aria-label={paused ? t.play : t.pause}
-          title={paused ? t.play : t.pause}
+          aria-label={paused ? controls.play : controls.pause}
+          title={paused ? controls.play : controls.pause}
           className="flex h-7 items-center gap-2 rounded-full border border-border bg-card/80 px-2.5 text-muted-foreground shadow-xs backdrop-blur transition-colors hover:text-foreground"
         >
           {paused ? <IconPlayerPlayFilled size={12} /> : <IconPlayerPauseFilled size={12} />}

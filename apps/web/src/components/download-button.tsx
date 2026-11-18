@@ -9,20 +9,9 @@ import { cn } from "@nookly/ui/lib/utils";
 import { dictionary } from "@/content";
 import { type Locale, pathFor } from "@/lib/i18n";
 import { browserHints, type Detected, detectPlatform } from "@/lib/platform";
-import { type Download, type DownloadId, formatSize, type Os, type Release } from "@/lib/releases";
-import { BrandIcon, type Brand } from "./brand-icon";
-
-export const OS_ORDER: Os[] = ["macos", "windows", "linux"];
-
-export const BRAND_OF: Record<DownloadId, Brand> = {
-  "mac-arm": "apple",
-  "mac-intel": "apple",
-  "windows-exe": "windows",
-  "windows-msi": "windows",
-  "linux-appimage": "linux",
-  "linux-deb": "debian",
-  "linux-rpm": "fedora",
-};
+import { type Download, type DownloadId, formatSize, type Release } from "@/lib/releases";
+import { BrandIcon } from "./brand-icon";
+import { BRAND_OF, OS_ORDER } from "./download-meta";
 
 /// The visitor's platform, once the page runs in a browser. The static HTML shows the
 /// plain "Download Nookly" until then.

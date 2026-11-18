@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { DEFAULT_THEME, THEME_KEY } from "@/lib/theme";
 
 /// Sets the saved theme (light by default) before the first paint, so there is no flash,
@@ -18,6 +19,9 @@ const SCRIPT = `(() => {
 })();`;
 
 export function ThemeScript() {
-  // oxlint-disable-next-line react/no-danger -- a fixed string, no user input
-  return <script dangerouslySetInnerHTML={{ __html: SCRIPT }} />;
+  return (
+    <Script id="theme" strategy="beforeInteractive">
+      {SCRIPT}
+    </Script>
+  );
 }

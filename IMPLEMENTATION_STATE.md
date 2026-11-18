@@ -31,6 +31,11 @@ Roll out a website for Nookly on `nookly.work`, released and deployed automatica
 
 - **No copy of Symmetry's bar chart solids.** The backdrop is Nookly's own: a hearth, the app icon's flame (glassy overlapping tongues with light rims, tips curling outwards, embers drifting up) glowing behind the card, soft pebbles in the accent colours around its base (`components/hero/hearth.tsx`).
 - **Language switcher is a popover with flags** (the US flag for English, Germany for German), the desktop's `react-flagpack`; the two flag files live in `public/flags/s/`.
+- **The fire is the app icon's own artwork**: `public/hearth/flame.webp` is cut from `Nookly.icon/Assets` (flames over glow, edges smoothed at 2x). The user loves it; do not redraw it.
+- **No pebbles or cushions** beside the fire: they made no sense. Logs under the flame and hearth stones around it instead.
+- **Privacy ("Yours, for good.") is a full width dark band**, same height.
+- **Downloads page is a bento grid**, not a vertical list: title beside a dark recommended card, the three systems side by side, then phone, verify and updates. Fits one screen.
+- **Commit and push regularly.**
 - **Light by default**, with a theme popover at the top right: Light (default), Dark, System, the desktop's sun, moon and desktop icons. Stored in `localStorage` (`nookly.theme`), applied before first paint.
 
 ## Decisions (asked the user, 2026-11-18)
@@ -94,3 +99,4 @@ Roll out a website for Nookly on `nookly.work`, released and deployed automatica
 
 - 2026-11-18: brief written. Production is live: `sync.nookly.work` answers 1.0.0, backups daily 02:00 Berlin. #298 waiting on Windows CI.
 - 2026-11-19: #298 merged and applied. `apps/web` scaffolded (Next 16.4.5, static export, two root layouts for en/de). Nav with download split button, GitHub stars, language and theme popovers; footer; hero with the hearth and the queue demo, checked in Chrome light and dark. Lint/format/knip/jscpd wiring still to do.
+- 2026-11-19: flame swapped for the icon's artwork; downloads page as a bento grid; privacy band full width; status history logic and tests (`lib/status.ts`). Next: logs and stones instead of pebbles, then the status checker.

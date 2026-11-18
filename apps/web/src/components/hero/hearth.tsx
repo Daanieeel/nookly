@@ -1,11 +1,14 @@
 import type { CSSProperties } from "react";
 import { cn } from "@nookly/ui/lib/utils";
 
-/// A nook by the fire: the app icon's flame, a few glassy tongues overlapping, embers
-/// drifting up, and soft pebbles in Nookly's accent colours around its base. The backdrop
-/// of the hero and of the closing section.
+/// A nook by the fire: the app icon's own flame and glow (`public/hearth/flame.webp`, cut
+/// from the icon's layers), embers drifting up, and soft pebbles in Nookly's accent colours
+/// around its base. The backdrop of the hero and of the closing section.
 
-type Tongue = { cx: number; w: number; h: number; lean: number; layer: "back" | "mid" | "front" };
+/// The flame artwork's size in pixels; its bottom edge is the flat base of the fire.
+const FLAME_W = 558;
+const FLAME_H = 409;
+
 type Pebble = { x: number; y: number; w: number; h: number; tilt: number; tone: string };
 type Ember = { x: number; y: number; r: number; delay: number; duration: number };
 
@@ -14,7 +17,8 @@ type Scene = {
   height: number;
   base: number;
   glow: { cx: number; cy: number; r: number };
-  tongues: Tongue[];
+  /// How tall the flame stands on `base`, centred on `glow.cx`.
+  flame: number;
   pebbles: Pebble[];
   embers: Ember[];
 };
@@ -31,14 +35,7 @@ const HERO: Scene = {
   height: 640,
   base: 612,
   glow: { cx: 800, cy: 420, r: 560 },
-  tongues: [
-    { cx: 690, w: 230, h: 500, lean: -150, layer: "back" },
-    { cx: 915, w: 220, h: 480, lean: 150, layer: "back" },
-    { cx: 800, w: 300, h: 585, lean: 40, layer: "mid" },
-    { cx: 600, w: 190, h: 330, lean: -110, layer: "front" },
-    { cx: 1000, w: 185, h: 320, lean: 105, layer: "front" },
-    { cx: 805, w: 320, h: 400, lean: -60, layer: "front" },
-  ],
+  flame: 600,
   pebbles: [
     { x: -60, y: 520, w: 240, h: 150, tilt: 7, tone: GREEN },
     { x: 120, y: 450, w: 240, h: 230, tilt: -8, tone: BLUE },
@@ -68,14 +65,7 @@ const CLOSING: Scene = {
   height: 320,
   base: 304,
   glow: { cx: 800, cy: 260, r: 360 },
-  tongues: [
-    { cx: 745, w: 130, h: 230, lean: -80, layer: "back" },
-    { cx: 860, w: 125, h: 220, lean: 78, layer: "back" },
-    { cx: 800, w: 170, h: 300, lean: 22, layer: "mid" },
-    { cx: 690, w: 110, h: 160, lean: -60, layer: "front" },
-    { cx: 915, w: 105, h: 155, lean: 58, layer: "front" },
-    { cx: 808, w: 185, h: 195, lean: -30, layer: "front" },
-  ],
+  flame: 290,
   pebbles: [
     { x: 160, y: 230, w: 220, h: 160, tilt: -7, tone: GREEN },
     { x: 360, y: 200, w: 200, h: 190, tilt: 6, tone: BLUE },
@@ -95,33 +85,6 @@ const CLOSING: Scene = {
 };
 
 const SCENES = { hero: HERO, closing: CLOSING };
-
-/// One flame tongue as the icon draws them: a round base, sides that swell and then pull
-/// in, and a tip that curls off to the side by `lean`.
-function tonguePath({ cx, w, h, lean }: Tongue, base: number) {
-  const tx = cx + lean;
-  const ty = base - h;
-  const r = w / 2;
-  const side = Math.sign(lean) || 1;
-  // The outer edge leaves the tip sideways and swells; the inner edge comes up almost
-  // straight, which curls the tip like the icon's.
-  const outer = side > 0 ? 1 : -1;
-  return [
-    `M ${tx} ${ty}`,
-    `C ${tx + r * 0.55 * outer} ${ty + h * 0.16} ${cx + r * 1.22 * outer} ${base - h * 0.5} ${cx + r * outer} ${base - h * 0.2}`,
-    `C ${cx + r * 0.9 * outer} ${base - h * 0.03} ${cx + r * 0.45 * outer} ${base} ${cx} ${base}`,
-    `C ${cx - r * 0.45 * outer} ${base} ${cx - r * 0.9 * outer} ${base - h * 0.03} ${cx - r * outer} ${base - h * 0.2}`,
-    `C ${cx - r * 1.1 * outer} ${base - h * 0.46} ${tx - r * 0.2 * outer} ${ty + h * 0.42} ${tx} ${ty}`,
-    "Z",
-  ].join(" ");
-}
-
-const LAYER_FILL = { back: "flame-back", mid: "flame-mid", front: "flame-front" } as const;
-const FLICKER: Record<Tongue["layer"], string> = {
-  back: "animate-[flame-flicker_3.8s_ease-in-out_infinite]",
-  mid: "animate-[flame-flicker_3.1s_ease-in-out_infinite]",
-  front: "animate-[flame-flicker_2.6s_ease-in-out_infinite]",
-};
 
 export function Hearth({ scene, className }: { scene: keyof typeof SCENES; className?: string }) {
   const s = SCENES[scene];
@@ -144,23 +107,6 @@ export function Hearth({ scene, className }: { scene: keyof typeof SCENES; class
           />
           <stop offset="100%" stopColor="#ffb27a" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id={id(LAYER_FILL.back)} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffb889" />
-          <stop offset="100%" stopColor="#ff7a3a" />
-        </linearGradient>
-        <linearGradient id={id(LAYER_FILL.mid)} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffcfa6" />
-          <stop offset="70%" stopColor="#ff8f4f" />
-          <stop offset="100%" stopColor="#ff6a2b" />
-        </linearGradient>
-        <linearGradient id={id(LAYER_FILL.front)} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffe2c4" />
-          <stop offset="100%" stopColor="#ffab73" />
-        </linearGradient>
-        <radialGradient id={id("core")} cx="50%" cy="85%" r="55%">
-          <stop offset="0%" stopColor="#ff5a1f" stopOpacity="0.9" />
-          <stop offset="100%" stopColor="#ff5a1f" stopOpacity="0" />
-        </radialGradient>
         {/* A fine grain over the pebbles, like printed paper. */}
         <filter id={id("grain")} x="0" y="0" width="100%" height="100%">
           <feTurbulence
@@ -181,29 +127,13 @@ export function Hearth({ scene, className }: { scene: keyof typeof SCENES; class
       <circle cx={s.glow.cx} cy={s.glow.cy} r={s.glow.r} fill={`url(#${id("glow")})`} />
 
       <g className="animate-[hearth-in_1.6s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none">
-        {s.tongues.map((tongue, i) => (
-          <path
-            key={`${tongue.cx}-${tongue.h}`}
-            d={tonguePath(tongue, s.base)}
-            fill={`url(#${id(LAYER_FILL[tongue.layer])})`}
-            fillOpacity={tongue.layer === "front" ? 0.62 : tongue.layer === "mid" ? 0.85 : 0.9}
-            stroke="#fff3e6"
-            strokeOpacity={0.8}
-            strokeWidth={2}
-            className={cn(
-              "origin-bottom [transform-box:fill-box] motion-reduce:animate-none",
-              FLICKER[tongue.layer],
-            )}
-            style={{ animationDelay: `${i * -0.7}s` } as CSSProperties}
-          />
-        ))}
-        <ellipse
-          cx={s.glow.cx}
-          cy={s.base - (s.base - s.glow.cy) * 0.15}
-          rx={s.tongues[2]!.w * 0.75}
-          ry={s.tongues[2]!.h * 0.3}
-          fill={`url(#${id("core")})`}
-          style={{ mixBlendMode: "screen" }}
+        <image
+          href="/hearth/flame.webp"
+          x={s.glow.cx - (s.flame * FLAME_W) / FLAME_H / 2}
+          y={s.base - s.flame}
+          width={(s.flame * FLAME_W) / FLAME_H}
+          height={s.flame}
+          className="origin-bottom animate-[flame-flicker_3.4s_ease-in-out_infinite] [transform-box:fill-box] motion-reduce:animate-none"
         />
       </g>
 

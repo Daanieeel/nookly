@@ -203,12 +203,12 @@ const PRIVACY_ICONS = [IconWifiOff, IconEyeOff, IconFileExport, IconCode];
 export function Privacy({ locale }: { locale: Locale }) {
   const t = dictionary(locale).privacy;
   return (
-    <section className="bg-card px-4 py-10 sm:px-6">
-      <div className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-[#151210] px-6 py-16 text-white sm:px-12 sm:py-20">
-        <div
-          aria-hidden
-          className="absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(60%_80%_at_50%_100%,rgba(255,122,58,0.28),transparent)]"
-        />
+    <section className="relative overflow-hidden bg-[#151210] px-4 py-16 text-white sm:px-6 sm:py-20">
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(45%_80%_at_50%_100%,rgba(255,122,58,0.28),transparent)]"
+      />
+      <div className="relative mx-auto max-w-6xl">
         <div className="relative flex flex-col items-center text-center">
           <span className="flex size-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
             <IconLock size={22} className="text-[#ffb27a]" />

@@ -23,9 +23,9 @@ export async function Hero({ locale }: { locale: Locale }) {
           <DownloadButton locale={locale} release={release} />
         </div>
       </div>
-      <div className="relative mt-6">
+      <div className="relative mt-10">
         <Hearth scene="hero" className="h-[640px]" />
-        <div className="absolute inset-x-0 top-[230px] z-10 px-4">
+        <div className="absolute inset-x-0 top-[280px] z-10 px-4">
           <QueueDemo locale={locale} />
         </div>
       </div>

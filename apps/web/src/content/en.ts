@@ -253,6 +253,7 @@ export const en = {
     latest: (version: string, date: string) => `Version ${version}, released ${date}`,
     unknownVersion: "The latest version",
     recommended: "Recommended for you",
+    pick: "Pick your computer below. Every installer is the same app, and it keeps itself up to date.",
     sections: {
       macos: "macOS",
       windows: "Windows",
