@@ -9,4 +9,4 @@ storage_region   = "fr-par"
 storage_bucket   = "nookly-files"
 
 # After the first image is released (README.md):
-deployed = false
+deployed = true

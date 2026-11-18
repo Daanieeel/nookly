@@ -147,6 +147,13 @@ resource "scaleway_iam_api_key" "server" {
   application_id     = scaleway_iam_application.server.id
   default_project_id = var.scaleway_project_id
   description        = "S3 keys of ${var.app_name}, set on the Heroku app."
+
+  # Scaleway gives the key a one year expiry of its own. Without this every plan would
+  # replace the key and restart the server. Rotate it before it runs out (README.md).
+  lifecycle {
+    ignore_changes        = [expires_at]
+    create_before_destroy = true
+  }
 }
 
 # DNS --------------------------------------------------------------------------------

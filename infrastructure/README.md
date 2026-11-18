@@ -53,6 +53,8 @@ A merge to `main` that changes `infrastructure/` applies it (`infrastructure.yml
 
 The server runs its database migrations on start, so it stays at one dyno.
 
+The server's Scaleway key expires a year after it was made (first one: 2027-11-18). Before that, replace it locally (see below) with `terraform apply -var-file=production.tfvars -replace=scaleway_iam_api_key.server`: the new key goes onto the Heroku app and the server restarts.
+
 ## Locally
 
 ```sh
