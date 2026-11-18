@@ -7,7 +7,7 @@ const config: NextConfig = {
   output: "export",
   trailingSlash: false,
   images: { unoptimized: true },
-  transpilePackages: ["@nookly/ui"],
+  transpilePackages: ["@nookly/ui", "@nookly/frontend"],
   // `bun run typecheck` checks the types; TypeScript 7 has no API for Next to call.
   typescript: { ignoreBuildErrors: true },
   poweredByHeader: false,

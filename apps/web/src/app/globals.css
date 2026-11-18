@@ -3,6 +3,8 @@
 @import "@nookly/ui/styles.css";
 
 @source "../";
+/* The desktop's own component classes that the rebuilt app screens share. */
+@source "../../../../packages/frontend/src/classes.ts";
 
 @layer base {
   /* The app is one fixed window; a web page scrolls. */
