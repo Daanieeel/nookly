@@ -4,6 +4,7 @@ import { act, fireEvent, waitFor, within } from "expo-router/testing-library";
 import { State } from "react-native-gesture-handler";
 import { fireGestureHandler, getByGestureTestId } from "react-native-gesture-handler/jest-utils";
 import { renderScreens, testData } from "../test/render.tsx";
+import { setWindowOverride } from "../ui/window-override.ts";
 import { resetRouterFollower } from "./follow-router.ts";
 import { ratioAt } from "./SplitDivider.tsx";
 import { TabletShell, tabletScreen } from "./TabletShell.tsx";
@@ -67,9 +68,27 @@ describe("the tablet's window", () => {
       expect(groups()).toEqual([[`/module/${screen.space}/notes`], [`/entity/${screen.note}`]]),
     );
     expect(await screen.findByRole("tab", { name: "Meeting notes" })).toBeTruthy();
-    // Both groups show, each with its own tabs; the list keeps the focus.
+    // Both groups show, each with its own tabs; the item takes the focus (D96).
     expect(screen.getByLabelText("Page")).toBeTruthy();
     expect(screen.getByLabelText("Page, focused")).toBeTruthy();
+    const ws = useWorkspace.getState().ws;
+    expect(ws.layout.focusedGroupId).toBe(ws.layout.groups[1].id);
+  });
+
+  // An item opened beside a list stayed behind it when the window turned to portrait, where
+  // a medium window shows one group: now it is the one shown (D96).
+  it("keeps the item it opened beside in view when the window narrows to one group", async () => {
+    const screen = await setup(LANDSCAPE);
+    act(() => router.navigate(`/module/${screen.space}/notes`));
+    await waitFor(() => expect(groups()).toEqual([[`/module/${screen.space}/notes`]]));
+    act(() => router.push(`/entity/${screen.note}`));
+    await waitFor(() => expect(groups()).toHaveLength(2));
+    act(() => setWindowOverride({ width: 1032, height: 1376 }));
+    // The titlebar names the page in view: the note, not its list.
+    await waitFor(() =>
+      expect(within(screen.getByTestId("crumbs")).getByText("Meeting notes")).toBeTruthy(),
+    );
+    act(() => setWindowOverride(null));
   });
 
   it("opens an item in place where a list and an item do not fit side by side", async () => {

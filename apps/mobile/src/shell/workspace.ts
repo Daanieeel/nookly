@@ -130,15 +130,18 @@ export function open(ws: Workspace, path: Page, where: Where, newId: () => strin
         const layout = splitRightIn(ws.layout, tab.id, fresh);
         const right = groupOfTab(layout, fresh.id);
         if (!right) return ws;
+        // The item takes the focus (D96): it is what was just asked for.
         return {
-          ...withLayout(ws, { ...layout, focusedGroupId: group.id }),
+          ...withLayout(ws, { ...layout, focusedGroupId: right.id }),
           preview: { ...ws.preview, [right.id]: fresh.id },
         };
       }
       const previewId = ws.preview[other.id];
       const preview = other.tabs.find((t) => t.id === previewId);
       if (preview) {
-        if (preview.view === path && other.activeTabId === preview.id) return ws;
+        if (preview.view === path && other.activeTabId === preview.id) {
+          return withLayout(ws, { ...ws.layout, focusedGroupId: other.id });
+        }
         const replaced = updateTab(ws.layout, preview.id, (t) => ({
           ...t,
           view: path,
@@ -149,7 +152,7 @@ export function open(ws: Workspace, path: Page, where: Where, newId: () => strin
           groups: replaced.groups.map((g) =>
             g.id === other.id ? { ...g, activeTabId: preview.id } : g,
           ),
-          focusedGroupId: group.id,
+          focusedGroupId: other.id,
         });
       }
       const fresh = makePageTab(path, newId);
@@ -157,7 +160,7 @@ export function open(ws: Workspace, path: Page, where: Where, newId: () => strin
         g.id === other.id ? { ...g, tabs: [...g.tabs, fresh], activeTabId: fresh.id } : g,
       );
       return {
-        ...withLayout(ws, { groups, focusedGroupId: group.id }),
+        ...withLayout(ws, { groups, focusedGroupId: other.id }),
         preview: { ...ws.preview, [other.id]: fresh.id },
       };
     }

@@ -87,7 +87,7 @@ The iPad is the desktop made for touch (D83): the same sidebar, titlebar, tabs a
 | Medium   | 600 to 999 | Sidebar over the page, slid in from the titlebar or the left edge; pinned beside from 900 wide |
 | Expanded | 1000 up    | Sidebar beside the page, as on the desktop; two groups side by side                            |
 
-- **List and item:** an item picked from a list opens beside it in the right group as a preview tab while both keep 360 (D87), else in the list's place.
+- **List and item:** an item picked from a list opens beside it in the right group as a preview tab while both keep 360 (D87), and takes the focus (D96); else it opens in the list's place.
 - **Details:** beside an item while the page keeps 600, else over it, swiped in from the right edge.
 - **Back:** the titlebar's arrows, `Cmd+[`, or a swipe from the left edge of the page, which follows the finger.
 

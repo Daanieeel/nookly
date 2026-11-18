@@ -4,6 +4,7 @@ import {
   back,
   closeOtherTabs,
   closeTab,
+  focusGroup,
   forward,
   keepPreview,
   newWorkspace,
@@ -70,15 +71,15 @@ describe("the tablet's workspace", () => {
     let ws = open(start(), "/module/s/tasks", "here", ids);
     ws = open(ws, "/entity/a", "beside", ids);
     expect(ws.layout.groups).toHaveLength(2);
-    // The list keeps the focus, so the next pick goes beside it as well.
-    expect(activePath(ws)).toBe("/module/s/tasks");
-    const right = ws.layout.groups[1];
+    // The item takes the focus (D96); touching the list again focuses it for the next pick.
+    expect(activePath(ws)).toBe("/entity/a");
+    const [left, right] = ws.layout.groups;
     expect(right.tabs.map((t) => t.view)).toEqual(["/entity/a"]);
-    ws = open(ws, "/entity/b", "beside", ids);
+    ws = open(focusGroup(ws, left.id), "/entity/b", "beside", ids);
     expect(ws.layout.groups[1].tabs.map((t) => t.view)).toEqual(["/entity/b"]);
     // Once kept (edited or pinned), the next pick opens a tab of its own.
     ws = keepPreview(ws, ws.layout.groups[1].tabs[0].id);
-    ws = open(ws, "/entity/c", "beside", ids);
+    ws = open(focusGroup(ws, left.id), "/entity/c", "beside", ids);
     expect(ws.layout.groups[1].tabs.map((t) => t.view)).toEqual(["/entity/b", "/entity/c"]);
   });
 
@@ -121,8 +122,9 @@ describe("the tablet's workspace", () => {
     expect(visibleGroups(ws, 1100).map((g) => g.id)).toEqual([left.id, right.id]);
     // Each needs 360: a 13-inch iPad in portrait less the sidebar is 752, enough; a mini is not.
     expect(visibleGroups(ws, 752).map((g) => g.id)).toEqual([left.id, right.id]);
-    expect(visibleGroups(ws, 700).map((g) => g.id)).toEqual([left.id]);
-    expect(visibleGroups({ ...ws, zoomed: true }, 1100).map((g) => g.id)).toEqual([left.id]);
+    // The item opened beside has the focus, so it is the one left in view (D96).
+    expect(visibleGroups(ws, 700).map((g) => g.id)).toEqual([right.id]);
+    expect(visibleGroups({ ...ws, zoomed: true }, 1100).map((g) => g.id)).toEqual([right.id]);
   });
 
   it("reads what was saved, and starts afresh from anything else", () => {
