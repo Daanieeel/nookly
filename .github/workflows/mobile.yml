@@ -1,0 +1,59 @@
+name: Mobile
+
+# The iOS app on EAS: a `mobile-v*` tag builds the production profile and sends it to
+# TestFlight; a run by hand builds any profile. The tag names apps/mobile/app.json's
+# version. Mobile tags make no GitHub Release: the desktop's updater reads the latest one.
+
+on:
+  push:
+    tags: ["mobile-v*"]
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS build profile"
+        type: choice
+        options: [production, preview, development]
+        default: preview
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: EAS build (iOS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag matches the app's version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(jq -r .expo.version app.json)
+          if [ "${GITHUB_REF_NAME}" != "mobile-v${version}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match apps/mobile/app.json (${version})"
+            exit 1
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+        working-directory: .
+
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build on EAS
+        env:
+          PROFILE: ${{ inputs.profile || 'production' }}
+        run: |
+          submit=""
+          if [ "$PROFILE" = "production" ]; then submit="--auto-submit"; fi
+          eas build --platform ios --profile "$PROFILE" --non-interactive --no-wait $submit
