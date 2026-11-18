@@ -1,0 +1,67 @@
+name: Infrastructure
+
+# Terraform in infrastructure/: checked on every pull request that touches it, planned with
+# the production state once deploys are on, and applied on a merge to main. Nothing reaches
+# Heroku or Cloudflare until the repository variable DEPLOY_ENABLED is "true".
+
+on:
+  pull_request:
+    paths: ["infrastructure/**", ".github/workflows/infrastructure.yml"]
+  push:
+    branches: [main]
+    paths: ["infrastructure/**", ".github/workflows/infrastructure.yml"]
+  workflow_dispatch:
+
+# One run at a time against the state, and never cancelled halfway through an apply.
+concurrency:
+  group: infrastructure
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: infrastructure
+
+jobs:
+  check:
+    name: Terraform format and validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
+  deploy:
+    name: Terraform plan and apply
+    needs: check
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # The R2 bucket holding the state.
+      AWS_ACCESS_KEY_ID: ${{ secrets.TF_STATE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TF_STATE_SECRET_ACCESS_KEY }}
+      TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+      TF_VAR_resend_dkim: ${{ vars.RESEND_DKIM }}
+      TF_VAR_storage_access_key_id: ${{ secrets.STORAGE_ACCESS_KEY_ID }}
+      TF_VAR_storage_secret_access_key: ${{ secrets.STORAGE_SECRET_ACCESS_KEY }}
+      TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+      - name: Init with the production state
+        run: >
+          terraform init -input=false
+          -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          -backend-config='endpoints={s3="https://${{ vars.CLOUDFLARE_ACCOUNT_ID }}.eu.r2.cloudflarestorage.com"}'
+      - run: terraform plan -input=false -var-file=production.tfvars -out=production.plan
+      - name: Apply (main only)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: terraform apply -input=false production.plan

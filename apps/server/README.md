@@ -23,7 +23,11 @@ The server listens on `http://localhost:3000` (`PORT` in `.env`), prints emails 
 
 Environment variables, listed with their defaults in [`.env.example`](../../.env.example). Required: `DATABASE_URL` (built from the Postgres values when unset), `AUTH_SECRET` (32 characters or more). In production also set `PUBLIC_URL`, `MAILER=smtp` with `SMTP_URL`, `MAIL_FROM` and the `S3_*` values. OAuth providers turn on when their client id and secret are set.
 
-## Deploy (one VPS)
+## Deploy
+
+Production runs on Heroku, set up and released from `infrastructure/` and a `server-v*` tag (see its [README](../../infrastructure/README.md)).
+
+### On one VPS instead
 
 1. Point a domain's DNS at the server, open ports 80 and 443.
 2. Copy `.env.example` to `apps/server/.env`, set `DOMAIN`, `POSTGRES_PASSWORD`, `AUTH_SECRET`, the `S3_*` values and the SMTP settings.
