@@ -310,6 +310,11 @@ export const en = {
     dayTooltip: (date: string, percent: string) => `${date}: ${percent} up`,
     loadFailed: "The history could not be loaded right now. The live check still works.",
   },
+  notFound: {
+    title: "Nothing here",
+    body: "This page does not exist, or it moved somewhere else.",
+    home: "Back to the start",
+  },
   legal: {
     sample:
       "Sample text. This page holds placeholder details until the final version is ready. It is not legal advice.",

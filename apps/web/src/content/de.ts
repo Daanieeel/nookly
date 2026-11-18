@@ -301,6 +301,11 @@ export const de: Dictionary = {
     loadFailed:
       "Der Verlauf lässt sich gerade nicht laden. Die Live Prüfung funktioniert trotzdem.",
   },
+  notFound: {
+    title: "Hier ist nichts",
+    body: "Diese Seite gibt es nicht, oder sie ist umgezogen.",
+    home: "Zur Startseite",
+  },
   legal: {
     sample:
       "Beispieltext. Diese Seite enthält Platzhalter, bis die endgültige Fassung fertig ist. Sie ist keine Rechtsberatung.",

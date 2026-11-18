@@ -14,6 +14,8 @@ const config: NextConfig = {
   reactStrictMode: true,
   // The repo's own AGENTS.md is the only one; `next dev` would write another here.
   agentRules: false,
+  // Two root layouts (English and German) leave no single one for a 404 page.
+  experimental: { globalNotFound: true },
 };
 
 export default config;
