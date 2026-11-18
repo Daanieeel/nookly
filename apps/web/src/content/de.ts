@@ -12,6 +12,7 @@ export const de: Dictionary = {
     imprintTitle: "Impressum",
     privacyTitle: "Datenschutzerklärung",
     termsTitle: "Nutzungsbedingungen",
+    legalDescription: "Rechtliche Angaben zu Nookly: Impressum, Datenschutz und AGB.",
   },
   nav: {
     features: "Funktionen",

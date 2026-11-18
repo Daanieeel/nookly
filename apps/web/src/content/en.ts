@@ -12,6 +12,7 @@ export const en = {
     imprintTitle: "Imprint",
     privacyTitle: "Privacy policy",
     termsTitle: "Terms of service",
+    legalDescription: "Legal information about Nookly: imprint, privacy and terms.",
   },
   nav: {
     features: "Features",
