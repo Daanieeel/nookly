@@ -44,8 +44,13 @@ jobs:
             exit 1
           fi
 
+      # Heroku's registry takes one plain Docker manifest only: no image index, no provenance
+      # or SBOM attestations and no OCI media types, which the runner's Docker adds by default.
       - name: Build the image
-        run: docker build --platform linux/amd64 -f apps/server/Dockerfile -t "$IMAGE" .
+        run: >-
+          docker build --platform linux/amd64 --provenance=false --sbom=false
+          --output "type=image,name=${IMAGE},oci-mediatypes=false"
+          -f apps/server/Dockerfile .
 
       - name: Push and release on Heroku
         if: startsWith(github.ref, 'refs/tags/') && vars.DEPLOY_ENABLED == 'true'
@@ -54,7 +59,13 @@ jobs:
         run: |
           echo "$HEROKU_API_KEY" | docker login registry.heroku.com --username=_ --password-stdin
           docker push "$IMAGE"
-          image_id=$(docker inspect "$IMAGE" --format='{{.Id}}')
+          # Heroku releases by the image's config digest, read back from the registry.
+          manifest=$(docker buildx imagetools inspect "$IMAGE" --raw)
+          image_id=$(jq -r '.config.digest // empty' <<<"$manifest")
+          if [ -z "$image_id" ]; then
+            echo "The pushed image is not a single manifest: ${manifest}"
+            exit 1
+          fi
           curl --fail-with-body -sS -X PATCH "https://api.heroku.com/apps/${APP}/formation" \
             -H "Authorization: Bearer ${HEROKU_API_KEY}" \
             -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
