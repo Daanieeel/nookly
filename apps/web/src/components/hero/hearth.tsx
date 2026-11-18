@@ -2,14 +2,17 @@ import type { CSSProperties } from "react";
 import { cn } from "@nookly/ui/lib/utils";
 
 /// A nook by the fire: the app icon's own flame and glow (`public/hearth/flame.webp`, cut
-/// from the icon's layers), embers drifting up, and soft pebbles in Nookly's accent colours
-/// around its base. The backdrop of the hero and of the closing section.
+/// from the icon's layers) burning on two crossed logs, a ring of hearth stones around it
+/// and embers drifting up. The backdrop of the hero and of the closing section.
 
 /// The flame artwork's size in pixels; its bottom edge is the flat base of the fire.
 const FLAME_W = 558;
 const FLAME_H = 409;
 
-type Pebble = { x: number; y: number; w: number; h: number; tilt: number; tone: string };
+/// A hearth stone, placed from the middle of the fire's base in hero units (a 600 unit
+/// flame). `skew` moves its crown off centre so no two look alike; `warm` is how much
+/// firelight it catches, in percent.
+type Stone = { dx: number; dy: number; w: number; h: number; skew: number; warm: number };
 type Ember = { x: number; y: number; r: number; delay: number; duration: number };
 
 type Scene = {
@@ -17,18 +20,34 @@ type Scene = {
   height: number;
   base: number;
   glow: { cx: number; cy: number; r: number };
-  /// How tall the flame stands on `base`, centred on `glow.cx`.
+  /// How tall the flame stands on `base`, centred on `glow.cx`. Logs and stones scale
+  /// with it.
   flame: number;
-  pebbles: Pebble[];
   embers: Ember[];
 };
 
-const BLUE = "var(--accent-blue)";
-const GREEN = "var(--accent-green)";
-const YELLOW = "var(--accent-yellow)";
-const PURPLE = "var(--accent-purple)";
-const PINK = "var(--accent-pink)";
-const ORANGE = "var(--warning)";
+const BACK_STONES: Stone[] = [
+  { dx: -318, dy: -34, w: 104, h: 70, skew: -0.12, warm: 12 },
+  { dx: -222, dy: -28, w: 84, h: 58, skew: 0.1, warm: 22 },
+  { dx: 226, dy: -28, w: 86, h: 60, skew: -0.08, warm: 22 },
+  { dx: 322, dy: -34, w: 108, h: 72, skew: 0.14, warm: 12 },
+];
+
+const FRONT_STONES: Stone[] = [
+  { dx: -356, dy: 8, w: 126, h: 80, skew: 0.1, warm: 8 },
+  { dx: -246, dy: 20, w: 140, h: 86, skew: -0.14, warm: 18 },
+  { dx: -124, dy: 30, w: 150, h: 84, skew: 0.08, warm: 30 },
+  { dx: 2, dy: 36, w: 160, h: 82, skew: -0.04, warm: 36 },
+  { dx: 128, dy: 30, w: 148, h: 86, skew: 0.12, warm: 30 },
+  { dx: 250, dy: 20, w: 138, h: 82, skew: -0.1, warm: 18 },
+  { dx: 358, dy: 8, w: 128, h: 78, skew: 0.06, warm: 8 },
+];
+
+/// Two logs crossed under the flame, hiding its flat base.
+const LOGS = [
+  { tilt: -9, length: 540, thickness: 52 },
+  { tilt: 9, length: 540, thickness: 52 },
+];
 
 const HERO: Scene = {
   width: 1600,
@@ -36,18 +55,6 @@ const HERO: Scene = {
   base: 612,
   glow: { cx: 800, cy: 420, r: 560 },
   flame: 600,
-  pebbles: [
-    { x: -60, y: 520, w: 240, h: 150, tilt: 7, tone: GREEN },
-    { x: 120, y: 450, w: 240, h: 230, tilt: -8, tone: BLUE },
-    { x: 330, y: 530, w: 210, h: 140, tilt: 6, tone: ORANGE },
-    { x: 510, y: 575, w: 180, h: 100, tilt: -4, tone: GREEN },
-    { x: 665, y: 592, w: 160, h: 80, tilt: 3, tone: PURPLE },
-    { x: 805, y: 596, w: 165, h: 78, tilt: -2, tone: BLUE },
-    { x: 945, y: 578, w: 180, h: 96, tilt: 5, tone: PINK },
-    { x: 1100, y: 535, w: 210, h: 135, tilt: -6, tone: GREEN },
-    { x: 1270, y: 445, w: 230, h: 235, tilt: 9, tone: YELLOW },
-    { x: 1470, y: 515, w: 220, h: 160, tilt: -5, tone: BLUE },
-  ],
   embers: [
     { x: 740, y: 60, r: 4, delay: 0, duration: 7 },
     { x: 870, y: 20, r: 3, delay: 1.6, duration: 8 },
@@ -63,19 +70,9 @@ const HERO: Scene = {
 const CLOSING: Scene = {
   width: 1600,
   height: 320,
-  base: 304,
-  glow: { cx: 800, cy: 260, r: 360 },
-  flame: 290,
-  pebbles: [
-    { x: 160, y: 230, w: 220, h: 160, tilt: -7, tone: GREEN },
-    { x: 360, y: 200, w: 200, h: 190, tilt: 6, tone: BLUE },
-    { x: 545, y: 262, w: 160, h: 90, tilt: -3, tone: YELLOW },
-    { x: 690, y: 280, w: 140, h: 70, tilt: 3, tone: PURPLE },
-    { x: 815, y: 282, w: 140, h: 68, tilt: -2, tone: BLUE },
-    { x: 940, y: 262, w: 160, h: 92, tilt: 4, tone: PINK },
-    { x: 1080, y: 205, w: 200, h: 185, tilt: -6, tone: ORANGE },
-    { x: 1260, y: 240, w: 210, h: 150, tilt: 7, tone: GREEN },
-  ],
+  base: 290,
+  glow: { cx: 800, cy: 250, r: 360 },
+  flame: 270,
   embers: [
     { x: 760, y: 30, r: 3, delay: 0, duration: 6 },
     { x: 850, y: 10, r: 2.5, delay: 1.8, duration: 7 },
@@ -86,9 +83,64 @@ const CLOSING: Scene = {
 
 const SCENES = { hero: HERO, closing: CLOSING };
 
+/// A stone's outline around its own centre: a flat bottom, a crown pushed off centre.
+function stonePath({ w, h, skew }: Stone) {
+  const x = w / 2;
+  const y = h / 2;
+  const crown = skew * w;
+  return [
+    `M ${-x} ${y * 0.3}`,
+    `C ${-x} ${-y * 0.55} ${crown - x * 0.55} ${-y} ${crown} ${-y}`,
+    `C ${crown + x * 0.6} ${-y} ${x} ${-y * 0.45} ${x} ${y * 0.25}`,
+    `C ${x} ${y * 0.85} ${x * 0.55} ${y} 0 ${y}`,
+    `C ${-x * 0.6} ${y} ${-x} ${y * 0.85} ${-x} ${y * 0.3}`,
+    "Z",
+  ].join(" ");
+}
+
+function Stones({
+  stones,
+  cx,
+  base,
+  k,
+  sheen,
+  delay,
+}: {
+  stones: Stone[];
+  cx: number;
+  base: number;
+  k: number;
+  sheen: string;
+  delay: number;
+}) {
+  return stones.map((stone, i) => {
+    const d = stonePath(stone);
+    return (
+      <g
+        key={`${stone.dx}-${stone.dy}`}
+        transform={`translate(${cx + stone.dx * k} ${base + stone.dy * k}) scale(${k})`}
+      >
+        <path
+          d={d}
+          className="animate-[stone-in_1.2s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none"
+          style={
+            {
+              fill: `color-mix(in oklab, var(--hearth-stone), #ff8a3d ${stone.warm}%)`,
+              animationDelay: `${delay + i * 60}ms`,
+            } as CSSProperties
+          }
+        />
+        <path d={d} fill={`url(#${sheen})`} />
+      </g>
+    );
+  });
+}
+
 export function Hearth({ scene, className }: { scene: keyof typeof SCENES; className?: string }) {
   const s = SCENES[scene];
   const id = (name: string) => `${scene}-${name}`;
+  const cx = s.glow.cx;
+  const k = s.flame / HERO.flame;
   return (
     <svg
       aria-hidden
@@ -107,7 +159,16 @@ export function Hearth({ scene, className }: { scene: keyof typeof SCENES; class
           />
           <stop offset="100%" stopColor="#ffb27a" stopOpacity="0" />
         </radialGradient>
-        {/* A fine grain over the pebbles, like printed paper. */}
+        <linearGradient id={id("bark")} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#b07a52" />
+          <stop offset="100%" stopColor="#6b4128" />
+        </linearGradient>
+        {/* Light from above, and from the fire, on every stone. */}
+        <linearGradient id={id("sheen")} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fff6ec" stopOpacity="0.45" />
+          <stop offset="55%" stopColor="#fff6ec" stopOpacity="0" />
+        </linearGradient>
+        {/* A fine grain over the stones and logs, like printed paper. */}
         <filter id={id("grain")} x="0" y="0" width="100%" height="100%">
           <feTurbulence
             type="fractalNoise"
@@ -126,15 +187,71 @@ export function Hearth({ scene, className }: { scene: keyof typeof SCENES; class
 
       <circle cx={s.glow.cx} cy={s.glow.cy} r={s.glow.r} fill={`url(#${id("glow")})`} />
 
+      <g filter={`url(#${id("grain")})`}>
+        <Stones stones={BACK_STONES} cx={cx} base={s.base} k={k} sheen={id("sheen")} delay={150} />
+      </g>
+
       <g className="animate-[hearth-in_1.6s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none">
         <image
           href="/hearth/flame.webp"
-          x={s.glow.cx - (s.flame * FLAME_W) / FLAME_H / 2}
+          x={cx - (s.flame * FLAME_W) / FLAME_H / 2}
           y={s.base - s.flame}
           width={(s.flame * FLAME_W) / FLAME_H}
           height={s.flame}
           className="origin-bottom animate-[flame-flicker_3.4s_ease-in-out_infinite] [transform-box:fill-box] motion-reduce:animate-none"
         />
+        <g filter={`url(#${id("grain")})`}>
+          {LOGS.map((log) => {
+            const end = log.length / 2 - log.thickness * 0.34;
+            return (
+              <g
+                key={log.tilt}
+                transform={`translate(${cx} ${s.base - 14 * k}) scale(${k}) rotate(${log.tilt})`}
+              >
+                <rect
+                  x={-log.length / 2}
+                  y={-log.thickness / 2}
+                  width={log.length}
+                  height={log.thickness}
+                  rx={log.thickness / 2}
+                  fill={`url(#${id("bark")})`}
+                  stroke="#ffe9d2"
+                  strokeOpacity={0.45}
+                  strokeWidth={2}
+                />
+                <path
+                  d={`M ${-end + 30} -8 H ${end - 90} M ${-end + 80} 9 H ${end - 30}`}
+                  stroke="#4a2a17"
+                  strokeOpacity={0.35}
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                />
+                {[-end, end].map((x) => (
+                  <g key={x}>
+                    <ellipse
+                      cx={x}
+                      cy={0}
+                      rx={log.thickness * 0.3}
+                      ry={log.thickness * 0.44}
+                      fill="#e9bf91"
+                      stroke="#b98057"
+                      strokeWidth={2}
+                    />
+                    <ellipse
+                      cx={x}
+                      cy={0}
+                      rx={log.thickness * 0.14}
+                      ry={log.thickness * 0.22}
+                      fill="none"
+                      stroke="#b98057"
+                      strokeWidth={1.5}
+                    />
+                  </g>
+                ))}
+              </g>
+            );
+          })}
+        </g>
       </g>
 
       {s.embers.map((ember) => (
@@ -152,24 +269,7 @@ export function Hearth({ scene, className }: { scene: keyof typeof SCENES; class
       ))}
 
       <g filter={`url(#${id("grain")})`}>
-        {s.pebbles.map((p, i) => (
-          <rect
-            key={`${p.x}-${p.y}`}
-            x={p.x}
-            y={p.y}
-            width={p.w}
-            height={p.h + 120}
-            rx={Math.min(p.w, p.h) * 0.48}
-            transform={`rotate(${p.tilt} ${p.x + p.w / 2} ${p.y + p.h / 2})`}
-            className="animate-[pebble-in_1.2s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none"
-            style={
-              {
-                fill: `color-mix(in oklab, ${p.tone} var(--pebble-mix), var(--card))`,
-                animationDelay: `${150 + i * 60}ms`,
-              } as CSSProperties
-            }
-          />
-        ))}
+        <Stones stones={FRONT_STONES} cx={cx} base={s.base} k={k} sheen={id("sheen")} delay={400} />
       </g>
     </svg>
   );

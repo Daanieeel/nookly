@@ -59,11 +59,11 @@
 /* The hearth behind the hero (`hearth.tsx`). */
 :root {
   --hearth-glow: 0.32;
-  --pebble-mix: 40%;
+  --hearth-stone: #cbbfb2;
 }
 .dark {
   --hearth-glow: 0.5;
-  --pebble-mix: 34%;
+  --hearth-stone: #3f3530;
 }
 
 @keyframes flame-flicker {
@@ -104,7 +104,7 @@
   }
 }
 
-@keyframes pebble-in {
+@keyframes stone-in {
   from {
     opacity: 0;
     transform: translateY(60px);

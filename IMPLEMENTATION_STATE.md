@@ -99,4 +99,4 @@ Roll out a website for Nookly on `nookly.work`, released and deployed automatica
 
 - 2026-11-18: brief written. Production is live: `sync.nookly.work` answers 1.0.0, backups daily 02:00 Berlin. #298 waiting on Windows CI.
 - 2026-11-19: #298 merged and applied. `apps/web` scaffolded (Next 16.4.5, static export, two root layouts for en/de). Nav with download split button, GitHub stars, language and theme popovers; footer; hero with the hearth and the queue demo, checked in Chrome light and dark. Lint/format/knip/jscpd wiring still to do.
-- 2026-11-19: flame swapped for the icon's artwork; downloads page as a bento grid; privacy band full width; status history logic and tests (`lib/status.ts`). Next: logs and stones instead of pebbles, then the status checker.
+- 2026-11-19: flame swapped for the icon's artwork; downloads page as a bento grid; privacy band full width; status history logic and tests (`lib/status.ts`). Logs and hearth stones replace the pebbles. Next: lint wiring for apps/web, then the status checker.
