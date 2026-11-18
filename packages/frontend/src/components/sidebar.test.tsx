@@ -206,6 +206,20 @@ describe("swiping between Spaces", swipeTests, () => {
     expect(shift("space-1")).toBe(-180);
   });
 
+  // A flick is let go by a timer once the wheel goes quiet. On a busy machine (CI) that
+  // timer ran late, past the moments the flick's speed is read from, so it slid back.
+  it("goes on after a flick even when the timer that lets it go runs late", async () => {
+    const start = performance.now();
+    let ahead = 0;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => start + ahead);
+    setup();
+    fireEvent.wheel(await slot("Uni"), { deltaX: 100, deltaY: 0 });
+    // The timer is due 80ms on; the clock reads 150 when it runs.
+    ahead = 150;
+    await vi.waitFor(() => expect(useNavStore.getState().activeSpaceId).toBe("space-2"), settled);
+    now.mockRestore();
+  });
+
   it("goes on to the next Space after a swipe, which can be any Space of the stored order", async () => {
     setup();
     await swipe(100);
