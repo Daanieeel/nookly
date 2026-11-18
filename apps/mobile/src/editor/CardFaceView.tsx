@@ -5,7 +5,6 @@ import { Image, Pressable, View } from "react-native";
 import { useFile } from "../data/queries.ts";
 import { pathOf } from "../screens/file-kinds.ts";
 import { ImageLightbox } from "../ui/ImageLightbox.tsx";
-import { useIsTablet } from "../ui/pane.tsx";
 import { Text } from "../ui/Text.tsx";
 import { faceDoc } from "./card-face.ts";
 import { PageDocEditor } from "./LivePage.tsx";
@@ -66,7 +65,6 @@ export function CardFaceView({
   heading?: boolean;
   muted?: boolean;
 }) {
-  const tablet = useIsTablet();
   const blocks = faceBlocks(card, side);
   const text = side === "front" ? card.front : card.back;
   if (wordsOnly(blocks)) {
@@ -81,13 +79,14 @@ export function CardFaceView({
     );
   }
   const runs = faceRuns(blocks);
-  if (tablet && runs.some((r) => r.kind === "picture")) {
+  // Pictures are drawn on phone and tablet alike, as on the desktop (D98).
+  if (runs.some((r) => r.kind === "picture")) {
     return <PicturesFace card={card} side={side} runs={runs} />;
   }
   return <BlocksFace card={card} side={side} blocks={blocks} />;
 }
 
-/// A picture on a tablet's card face, drawn from its File on this device; a tap opens it
+/// A picture on a card face, drawn from its File on this device; a tap opens it
 /// as large as the window allows (10.4). One not here yet says so.
 function FacePicture({ fileId, name }: { fileId: string; name: string }) {
   const { data: file } = useFile(fileId);
@@ -121,7 +120,7 @@ function FacePicture({ fileId, name }: { fileId: string; name: string }) {
   );
 }
 
-/// A face with pictures on a tablet: its writing in the editor, read only, and each picture
+/// A face with pictures: its writing in the editor, read only, and each picture
 /// drawn where it was written, to open larger.
 function PicturesFace({
   card,

@@ -56,13 +56,14 @@ describe("pictures on a card face", () => {
     expect(screen.getByRole("button", { name: "Close Picture" })).toBeTruthy();
   });
 
-  it("leaves the phone's face as it was", async () => {
+  // The phone showed a labelled card for the picture; it draws it too now (D98).
+  it("draws it on a phone too, opening it large on a tap", async () => {
     const { data, card } = await setup();
     const screen = await renderScreens(
       { index: () => <CardFaceView card={card} side="front" /> },
       data,
     );
-    await screen.findByTestId("card-face-blocks");
-    expect(screen.queryByRole("imagebutton", { name: "cell.png" })).toBeNull();
+    await fireEvent.press(await screen.findByRole("imagebutton", { name: "cell.png" }));
+    expect(await screen.findByTestId("image-lightbox")).toBeTruthy();
   });
 });
