@@ -407,6 +407,9 @@ describe("a page open on two devices", () => {
     addNote(desktop, "p1", ["Pack the tent"]);
     desktop.sync.notifyLocalChange();
     await soon(() => title(phone, "p1") === "Trip", "the note on the phone");
+    // The phone can see the note before the desktop has heard back that the server took it,
+    // and a page the server has not confirmed does not open live.
+    await desktop.sync.settled();
     const onDesktop = await openPage(desktop, "p1");
     const first = await openPage(phone, "p1");
     typeInto(first, 0, "A ");
