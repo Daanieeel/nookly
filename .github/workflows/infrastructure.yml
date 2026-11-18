@@ -52,7 +52,6 @@ jobs:
       TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
       TF_VAR_scaleway_organization_id: ${{ vars.SCALEWAY_ORGANIZATION_ID }}
       TF_VAR_scaleway_project_id: ${{ vars.SCALEWAY_PROJECT_ID }}
-      TF_VAR_resend_dkim: ${{ vars.RESEND_DKIM }}
       TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}
     steps:
       - uses: actions/checkout@v7

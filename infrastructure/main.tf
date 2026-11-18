@@ -161,31 +161,8 @@ resource "cloudflare_dns_record" "server" {
   ttl     = 1
 }
 
-# Resend's records for sending as the domain: bounces and SPF on `send`, and the DKIM key.
-resource "cloudflare_dns_record" "resend_mx" {
-  zone_id  = var.cloudflare_zone_id
-  name     = "send.${var.zone_name}"
-  type     = "MX"
-  content  = "feedback-smtp.${var.resend_region}.amazonses.com"
-  priority = 10
-  ttl      = 1
-}
-
-resource "cloudflare_dns_record" "resend_spf" {
-  zone_id = var.cloudflare_zone_id
-  name    = "send.${var.zone_name}"
-  type    = "TXT"
-  content = "\"v=spf1 include:amazonses.com ~all\""
-  ttl     = 1
-}
-
-resource "cloudflare_dns_record" "resend_dkim" {
-  zone_id = var.cloudflare_zone_id
-  name    = "resend._domainkey.${var.zone_name}"
-  type    = "TXT"
-  content = "\"${var.resend_dkim}\""
-  ttl     = 1
-}
+# Resend's own records (`send` CNAME, DKIM key) are set by Resend's Cloudflare connect,
+# outside Terraform.
 
 # Reports only for now; tighten to quarantine once mail is seen to pass.
 resource "cloudflare_dns_record" "dmarc" {

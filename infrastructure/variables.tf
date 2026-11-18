@@ -92,17 +92,6 @@ variable "resend_api_key" {
   sensitive   = true
 }
 
-variable "resend_region" {
-  description = "Region the domain was added in on Resend; it names the bounce mail server."
-  type        = string
-  default     = "eu-west-1"
-}
-
-variable "resend_dkim" {
-  description = "The DKIM record's value Resend shows for the domain (resend._domainkey)."
-  type        = string
-}
-
 variable "extra_config_vars" {
   description = "Further server settings from .env.example (CORS_ORIGINS, LOG_LEVEL, SESSION_TTL_DAYS ...)."
   type        = map(string)
