@@ -543,3 +543,23 @@ With a hardware keyboard, Settings changes a tablet's shortcuts as the desktop's
 ## D95. Touch on a tablet: pinch, edges and the Pencil
 
 A tablet's calendar hours zoom with a pinch (32 to 128 points an hour), kept while the app runs; the phone keeps its fixed scale. Each edge gesture starts before a row's swipe, only in its own direction, and none takes a vertical drag. Nothing turns Scribble off; the one pan that lies over fields (the details pane's drag) lets a Pencil stroke through to it.
+
+## D96. An item opened beside a list takes the focus
+
+An item opened beside a list (1.6, D87) becomes the focused group. When the window turns or narrows to room for one group, the item stays in view and the list is a tap back, as the item is what the person just asked for.
+
+## D97. Page export and import formats come after the tablet rework
+
+A page's Export (PDF, Word, OpenDocument, Markdown), Share Page as Markdown and the Import formats are rendered by the desktop's Rust core, which the phone app lacks. Bringing them to phone and tablet is a feature of its own, after this rework: Markdown first, in shared code, then the other formats. Until then phone and tablet offer no entry that cannot run.
+
+## D98. The phone draws pictures on card faces too
+
+A card face with a picture shows it on the phone as on the tablet and the desktop, scaled to the card, instead of a labelled card.
+
+## D99. No block handles on touch
+
+The editor's block handles stay a pointer feature. Touch keeps the editor as it is; handles for a trackpad would need a native drag session from the web view and wait until someone asks.
+
+## D100. Native pointer interactions on a tablet
+
+With a trackpad or mouse, round buttons lift under the pointer (iPadOS's own hover effect) and the split divider shows a resize pointer, so the pointer behaves as in iPadOS's own apps.

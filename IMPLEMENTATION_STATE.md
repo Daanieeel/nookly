@@ -280,6 +280,13 @@ All: a medium dialog over the page that opened them (2.4), the desktop's fields 
 - [ ] 12.5 CI on this branch's open PR green at the end. Never merge it.
 - [x] 12.6 Final report below.
 
+### 13. Follow ups (2026-11-18)
+
+- [ ] 13.1 **Performance on a tablet.** From the user on a real iPad: the app pauses often on tapping anything. Measure on the device first (Hermes profiler, React's profiler, dropped JS frames on a tap), find what holds the JS thread (whole shell renders, store subscriptions, database work on a tap, popovers mounting), fix it, measure again. Before and after numbers in the progress log.
+- [ ] 13.2 **An item opened beside a list takes the focus** (D96): when a turn leaves room for one group, the item shows, the list a tap back.
+- [ ] 13.3 **Pictures on a card face on the phone too** (D98), as the tablet draws them.
+- [ ] 13.4 **Pointer interactions** (D100): the pointer's lift on round buttons and the resize pointer on the split divider.
+
 ## Routes
 
 Every route and where this plan covers it (tick nothing here; it is the checklist for 12.1).
@@ -322,7 +329,7 @@ Menus and dialogs that are not routes and where they land: the sidebar's + (1.2)
 
 ## Needs the user
 
-- 12.1: on a real iPad in landscape, open Settings, Space Settings and a create form: the shot tool draws them unscaled there. In a medium window an item opened beside a list in landscape is behind the list after turning to portrait (only the focused group shows, the desktop's narrow rule): say if the item should take the focus when opened beside.
+- 12.1: on a real iPad in landscape, open Settings, Space Settings and a create form: the shot tool draws them unscaled there.
 
 - 12.2: turn a real iPad with the keyboard up in a note, a drag held and a study session open.
 
@@ -332,12 +339,9 @@ Menus and dialogs that are not routes and where they land: the sidebar's + (1.2)
 
 - 10.4: pinch the calendar's hours on a real iPad (the simulator here cannot pinch headless), and check the right edge's details swipe against iPadOS's own edge gestures in a resizable window.
 
-- A page's Export (PDF, Word, OpenDocument, Markdown), Share Page as Markdown and Import formats: the desktop renders them in its Rust core, which the phone app does not have. Porting that rendering is a feature of its own for phone and tablet; decide whether it belongs in this rework (6.1).
-
-- After milestone 1 and 2 (shell and presentations): look at the screenshots in the progress log, and give feedback on the feel on a real iPad, above all on list beside item (1.6) and the sidebar over the page in portrait. Work goes on meanwhile.
-- Pictures on a card face are drawn on a tablet only (10.4); the phone still shows a labelled card. Say if the phone should draw them too.
-- On a real iPad: dragging a tab along the strip and onto the right edge, and files from the Files app onto a Space's Files page (10.3); whether the editor's block handles are wanted on a tablet, which needs a native drag session from the web view.
-- On a real iPad with a Magic Keyboard or a trackpad: hover, secondary click (10.2), the menu bar, shortcuts, Return and the arrow keys in a popover's list while its search field has the keyboard (10.1), the pointer's lift on round buttons and a resize pointer on the split divider (native pointer interactions, not built).
+- On a real iPad: dragging a tab along the strip and onto the right edge, and files from the Files app onto a Space's Files page (10.3).
+- On a real iPad with a Magic Keyboard or a trackpad: hover, secondary click (10.2), the menu bar, shortcuts, Return and the arrow keys in a popover's list while its search field has the keyboard (10.1).
+- Decided on 2026-11-18 (the user handed these over): an item opened beside takes the focus (D96), page export and import formats are a feature of their own after this rework (D97), the phone draws pictures on card faces (D98), no block handles on touch (D99), pointer interactions are built (D100), and list beside item and the sidebar over the page in portrait stay as built (D87).
 - On a real iPad with Stage Manager or iPadOS 26 windows: resizing across the window classes, the window controls (0.4).
 - The desktop page cut off on the right is fixed (2026-11-17, the squircle on clipping cards). The phone's real device checks from earlier rounds are listed in git history (04256a44, "Needs the user").
 
