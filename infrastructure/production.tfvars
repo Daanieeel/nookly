@@ -10,3 +10,9 @@ storage_bucket   = "nookly-files"
 
 # After the first image is released (README.md):
 deployed = true
+
+# The desktop app's origins (the server's default) plus the website, whose status page
+# asks /health from the browser.
+extra_config_vars = {
+  CORS_ORIGINS = "tauri://localhost,http://tauri.localhost,http://localhost:1420,https://nookly.work,https://www.nookly.work"
+}

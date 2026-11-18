@@ -31,12 +31,13 @@ A merge to `main` that changes `infrastructure/` applies it (`infrastructure.yml
 | Name                       | Kind     | What                                                         |
 | -------------------------- | -------- | ------------------------------------------------------------ |
 | `HEROKU_API_KEY`           | secret   | `heroku authorizations:create -d "nookly ci"`                |
-| `CLOUDFLARE_API_TOKEN`     | secret   | token with Zone DNS Edit on nookly.work                      |
+| `CLOUDFLARE_API_TOKEN`     | secret   | Zone DNS Edit on nookly.work, Account Cloudflare Pages Edit  |
 | `SCW_ACCESS_KEY`           | secret   | key of a Scaleway IAM application for Terraform (below)      |
 | `SCW_SECRET_KEY`           | secret   |                                                              |
 | `RESEND_API_KEY`           | secret   | Resend, sending access                                       |
 | `EXPO_TOKEN`               | secret   | expo.dev, Access tokens                                      |
 | `CLOUDFLARE_ZONE_ID`       | variable | set                                                          |
+| `CLOUDFLARE_ACCOUNT_ID`    | variable | Cloudflare dashboard, the account's overview, right column   |
 | `SCALEWAY_ORGANIZATION_ID` | variable | Scaleway console, Organization settings                      |
 | `SCALEWAY_PROJECT_ID`      | variable | the project holding the buckets                              |
 | `TF_STATE_BUCKET`          | variable | `nookly-terraform-state` (made by hand, versioned, `fr-par`) |
