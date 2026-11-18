@@ -20,6 +20,19 @@ public class NooklyWindowModule: Module {
       Events("onSecondaryClick")
     }
 
+    /// Whether this build has `NooklyPointerStyleView`: an older one has not.
+    Function("hasPointerStyle") { () -> Bool in true }
+
+    View(NooklyPointerStyleView.self) {
+      Name("NooklyPointerStyleView")
+      Prop("effect") { (view: NooklyPointerStyleView, effect: String) in
+        view.effect = effect
+      }
+      Prop("cornerRadius") { (view: NooklyPointerStyleView, radius: Double) in
+        view.cornerRadius = CGFloat(radius)
+      }
+    }
+
     View(NooklyFileDropView.self) {
       Name("NooklyFileDropView")
       Events("onFilesDropped", "onDropActive")

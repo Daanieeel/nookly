@@ -2,12 +2,14 @@ import { buttonVariants } from "@nookly/ui/classes";
 import { IconAlertTriangle, IconCheck } from "@tabler/icons-react-native";
 import type { VariantProps } from "class-variance-authority";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, type PressableProps, View } from "react-native";
+import { ActivityIndicator, type PressableProps, StyleSheet, View } from "react-native";
+import { PointerStyle } from "../../modules/nookly-window/src/PointerStyle.tsx";
 import { Label } from "./kit/Label.tsx";
 import { useScheme } from "./kit/scheme.ts";
 import { CORNER, RADIUS, SPACE, TINT, TINT_FILL, semanticHex, withAlpha } from "./tokens.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
 import { AnimatedPressable, usePressScale } from "./press.ts";
+import { useIsTablet } from "./pane.tsx";
 import { haptic } from "./haptics.ts";
 
 export type ButtonStatus = "idle" | "pending" | "success" | "error";
@@ -208,6 +210,8 @@ export function IconButton({
 }) {
   const press = usePressScale();
   const fill = useLook("secondary").fill;
+  const tablet = useIsTablet();
+  const round = variant === "secondary" ? CONTROL_SIZE[size] / 2 : RADIUS.control;
   return (
     <AnimatedPressable
       accessibilityRole="button"
@@ -231,7 +235,11 @@ export function IconButton({
         press.style,
       ]}
     >
+      {/* A tablet's pointer lifts or lights up the button, as iPadOS's own (D100). */}
+      {tablet ? <PointerStyle effect="button" cornerRadius={round} style={FILL} /> : null}
       <View pointerEvents="none">{icon}</View>
     </AnimatedPressable>
   );
 }
+
+const FILL = StyleSheet.absoluteFill;

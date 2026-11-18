@@ -1,4 +1,5 @@
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { PointerStyle } from "../../modules/nookly-window/src/PointerStyle.tsx";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { SPLIT_MIN_GROUP } from "../ui/pane.tsx";
@@ -67,6 +68,8 @@ export function SplitDivider({ left, area }: { left: number; area: number }) {
           alignItems: "center",
         }}
       >
+        {/* A trackpad's pointer shows arrows to either side over it (D100). */}
+        <PointerStyle effect="resize" style={StyleSheet.absoluteFill} />
         <Animated.View style={guide} className="h-full w-0.5 bg-primary" />
       </View>
     </GestureDetector>

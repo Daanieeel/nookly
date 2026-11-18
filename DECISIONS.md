@@ -562,4 +562,4 @@ The editor's block handles stay a pointer feature. Touch keeps the editor as it 
 
 ## D100. Native pointer interactions on a tablet
 
-With a trackpad or mouse, round buttons lift under the pointer (iPadOS's own hover effect) and the split divider shows a resize pointer, so the pointer behaves as in iPadOS's own apps.
+With a trackpad or mouse, round buttons take iPadOS's own effect under the pointer (a lift or a highlight, by the button's size) and the split divider turns the pointer into a bar with arrows to either side, so the pointer behaves as in iPadOS's own apps. An older build without the native view keeps the plain pointer.
