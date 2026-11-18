@@ -3,6 +3,7 @@ import { z } from "zod";
 import { FieldError } from "#/components/action-feedback.tsx";
 import { FieldLabel } from "@nookly/ui/components/field-label";
 import { cn } from "@nookly/ui/lib/utils";
+import { FIELD_HINT_CLASSES, FORM_FIELD_CLASSES, REQUIRED_MARK_CLASSES } from "#/classes.ts";
 
 const errorSchema = z.union([
   z.string(),
@@ -69,7 +70,7 @@ export function FormField({
     <div
       data-invalid={error ? "true" : undefined}
       className={cn(
-        "group/field flex min-w-0 flex-col gap-1",
+        FORM_FIELD_CLASSES,
         "data-[invalid=true]:[&_input]:border-destructive data-[invalid=true]:**:[[role=combobox]]:border-destructive data-[invalid=true]:**:data-field-control:border-destructive",
         className,
       )}
@@ -78,7 +79,7 @@ export function FormField({
         {label}
         {required && (
           <>
-            <span aria-hidden className="-mx-0.5 text-destructive">
+            <span aria-hidden className={REQUIRED_MARK_CLASSES}>
               *
             </span>
             <span className="sr-only">(required)</span>
@@ -89,7 +90,7 @@ export function FormField({
       {error ? (
         <FieldError message={error} />
       ) : (
-        hint && <p className="text-xs text-muted-foreground">{hint}</p>
+        hint && <p className={FIELD_HINT_CLASSES}>{hint}</p>
       )}
     </div>
   );

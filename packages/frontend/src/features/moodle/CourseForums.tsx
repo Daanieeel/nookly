@@ -10,7 +10,7 @@ import { useCourseName } from "./CoursePage.tsx";
 import { moodleDate } from "./moodle-format.ts";
 import { SAMPLE_DISCUSSIONS, SAMPLE_FORUMS, SAMPLE_POSTS } from "./moodle-samples.ts";
 import { hasMoodleText } from "./moodle-html.ts";
-import { coursePath, discussionPath, forumPath, moodleWebUrl } from "./moodle-path.ts";
+import { coursePath, discussionPath, forumPath, moodleWebUrl } from "@nookly/shared/moodle/path";
 import {
   useMoodleCourse,
   useMoodleDiscussions,
@@ -260,7 +260,7 @@ function Avatar({ name }: { name: string }) {
     <span
       aria-hidden="true"
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+        "flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold",
         AVATAR_TONES[sum % AVATAR_TONES.length],
       )}
     >

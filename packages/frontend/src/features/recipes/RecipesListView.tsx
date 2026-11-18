@@ -1,6 +1,6 @@
 import { CreateNameDialog } from "#/features/CreateNameDialog.tsx";
 import { qk } from "#/lib/query-keys.ts";
-import { IconClock, IconPlus, IconToolsKitchen2 } from "@tabler/icons-react";
+import { IconClock, IconPlus, IconTag, IconToolsKitchen2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useState } from "react";
@@ -16,7 +16,19 @@ import { createRecipe, listRecipes } from "#/lib/api/recipes.ts";
 import type { Recipe } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
-import { RECIPE_KIND_LABELS } from "./recipe-kind.ts";
+import {
+  RECIPE_KINDS,
+  RECIPE_KIND_LABELS,
+  RECIPE_TIME_BUCKETS,
+  recipeTime,
+} from "./recipe-kind.ts";
+import {
+  type ActiveFilter,
+  type FilterField,
+  FilterMenu,
+  applyFilters,
+} from "#/components/filter-menu.tsx";
+import { ENTITY_FILTER_FIELDS, entityFilterValue } from "#/features/tasks/shared-view-defs.tsx";
 import { RecipeTagChip } from "./recipe-tags.tsx";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
@@ -33,6 +45,42 @@ export function RecipesListView({ spaceId }: { spaceId: string }) {
     queryKey: qk.recipes.bySpace(spaceId),
     queryFn: () => listRecipes(spaceId),
   });
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const usedTags = [
+    ...new Map(recipes.flatMap((r) => r.tags.map((t) => [t.id, t] as const))).values(),
+  ].sort((a, b) => a.position - b.position);
+  const filterFields: FilterField[] = [
+    {
+      id: "kind",
+      label: "Kind",
+      icon: IconToolsKitchen2,
+      options: RECIPE_KINDS.map((k) => ({ value: k, label: RECIPE_KIND_LABELS[k] })),
+    },
+    {
+      id: "tags",
+      label: "Tags",
+      icon: IconTag,
+      options: usedTags.map((t) => ({ value: t.id, label: t.name })),
+    },
+    {
+      id: "time",
+      label: "Time",
+      icon: IconClock,
+      options: RECIPE_TIME_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+    },
+    ...ENTITY_FILTER_FIELDS,
+  ];
+  const shown = applyFilters(
+    recipes,
+    filters,
+    (recipe, fieldId) =>
+      entityFilterValue(recipe.entity, fieldId) ??
+      (fieldId === "kind"
+        ? recipe.kind
+        : fieldId === "tags"
+          ? recipe.tags.map((t) => t.id)
+          : recipeTime(recipe.totalDurationMinutes)),
+  );
 
   return (
     <div
@@ -45,9 +93,14 @@ export function RecipesListView({ spaceId }: { spaceId: string }) {
     >
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="text-lg font-semibold">Recipes</h1>
-        <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-          <IconPlus size={14} /> New recipe
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {recipes.length > 0 && (
+            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+          )}
+          <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+            <IconPlus size={14} /> New recipe
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-3">
@@ -58,8 +111,15 @@ export function RecipesListView({ spaceId }: { spaceId: string }) {
               <RecipePlaceholderCard key={i} titleWidth={width} />
             ))}
           </>
+        ) : shown.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center gap-2 py-16 text-center">
+            <p className="text-sm text-muted-foreground">No recipes match these filters.</p>
+            <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
+              Clear filters
+            </Button>
+          </div>
         ) : (
-          recipes.map((recipe) => (
+          shown.map((recipe) => (
             <RecipeCard
               key={recipe.entity.id}
               recipe={recipe}
@@ -93,7 +153,7 @@ function RecipeCard({ recipe, onOpen }: { recipe: Recipe; onOpen: () => void }) 
           <EntityKey entityKey={entity.key} className="ml-auto" />
         </span>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="rounded-full border border-border bg-muted px-2 py-0.5 capitalize">
+          <span className="rounded-md border border-border bg-muted px-2 py-0.5 capitalize">
             {RECIPE_KIND_LABELS[recipe.kind]}
           </span>
           {duration != null && (
@@ -146,11 +206,11 @@ function RecipePlaceholderCard({ titleWidth }: { titleWidth: string }) {
       <GalleryCardImageBanner />
       <GalleryCardBody>
         <div className="flex items-center gap-2">
-          <div className="size-4 shrink-0 rounded-full bg-muted-foreground/30" />
+          <div className="size-4 shrink-0 rounded-sm bg-muted-foreground/30" />
           <div className={`h-3.5 ${titleWidth} rounded bg-muted-foreground/30`} />
         </div>
         <div className="flex items-center gap-2">
-          <div className="h-4 w-16 rounded-full bg-muted-foreground/20" />
+          <div className="h-4 w-16 rounded-sm bg-muted-foreground/20" />
           <div className="h-3 w-10 rounded bg-muted-foreground/20" />
         </div>
       </GalleryCardBody>

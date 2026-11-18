@@ -18,7 +18,7 @@ import { CourseContents } from "./CourseContents.tsx";
 import { CourseForums } from "./CourseForums.tsx";
 import { CourseGrades } from "./CourseGrades.tsx";
 import { MoodleFrame, useMoodleNavigate } from "./MoodleFrame.tsx";
-import { COURSE_TABS, type CourseTab, coursePath, moodleWebUrl } from "./moodle-path.ts";
+import { COURSE_TABS, type CourseTab, coursePath, moodleWebUrl } from "@nookly/shared/moodle/path";
 import { useMoodleCourse } from "./moodle-queries.ts";
 
 const TABS = {

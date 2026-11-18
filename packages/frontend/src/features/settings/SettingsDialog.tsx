@@ -211,6 +211,15 @@ export function SettingsDialog() {
   const searching = query.trim() !== "";
   const results = searchSettings(query, useSearchableRows());
 
+  // Opened on a page (Account, from the sync status): that page, once.
+  const requestedPage = useNavStore((s) => s.settingsPage);
+  useEffect(() => {
+    if (!open || !requestedPage) return;
+    const target = PAGE_ORDER.find((id) => id === requestedPage);
+    if (target) setPage(target);
+    useNavStore.getState().clearSettingsPage();
+  }, [open, requestedPage]);
+
   // Closed from anywhere (another overlay opening, Cmd+,), it reopens with a clean search.
   useEffect(() => {
     if (!open) {

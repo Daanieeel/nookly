@@ -12,6 +12,7 @@ import type {
   Task,
   TaskStatus,
 } from "#/lib/api/types.ts";
+import type { SavedView, ViewModule } from "#/lib/api/views.ts";
 
 /// Builders for the backend's records, each a valid default with `patch` on top.
 
@@ -72,6 +73,14 @@ export function makeLabel(patch: Partial<Label> = {}): Label {
     usageCount: 0,
     ...patch,
   };
+}
+
+export function makeView(
+  entity: Partial<Entity> = {},
+  module: ViewModule = "tasks",
+  config = "{}",
+): SavedView {
+  return { entity: makeEntity({ type: "view", ...entity }), module, config, position: 0 };
 }
 
 /// The default Tasks statuses, in order.
@@ -152,6 +161,7 @@ export function makeFile(
     availability: null,
     origin: null,
     needsReindex: false,
+    blob: null,
     labelIds: [],
     indexedContent: null,
     ...patch,

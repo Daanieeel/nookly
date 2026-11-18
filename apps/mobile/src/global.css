@@ -1,0 +1,46 @@
+/* The phone's styles are the desktop's: Tailwind 4, the desktop's tokens
+   (`@nookly/ui/theme.css`), and the classes of its primitives and components
+   (`@nookly/ui/classes`, `@nookly/frontend/classes`). */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "nativewind/theme";
+@import "@nookly/ui/theme.css";
+
+/* The tokens' dark values follow the system setting here (the desktop uses a class). */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+@source "./";
+@source "../../../packages/ui/src/classes.ts";
+@source "../../../packages/ui/src/components/button.tsx";
+@source "../../../packages/ui/src/components/badge.tsx";
+@source "../../../packages/frontend/src/classes.ts";
+
+/* Rounded things take iOS's continuous curve (a squircle), as `CORNER` gives styled ones (D67). */
+.rounded,
+.rounded-sm,
+.rounded-md,
+.rounded-lg,
+.rounded-xl,
+.rounded-2xl {
+  corner-shape: squircle;
+}
+
+/* Inter as the phone loads it: one family per weight, so a weight class picks its face. */
+.font-sans {
+  font-family: Inter_400Regular;
+}
+.font-medium {
+  font-family: Inter_500Medium;
+}
+.font-semibold,
+.font-bold {
+  font-family: Inter_600SemiBold;
+}
+.font-heading {
+  font-family: InterTight_600SemiBold;
+}
+/* Code and line numbers: the system's monospaced face on iOS. */
+.font-mono {
+  font-family: Menlo;
+}

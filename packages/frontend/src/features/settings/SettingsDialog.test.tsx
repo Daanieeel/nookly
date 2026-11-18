@@ -58,6 +58,7 @@ describe("the settings dialog", () => {
       "Appearance",
       "Editor",
       "Calendar",
+      "Account",
       "Backup",
       "Connections",
       "Shortcuts",
@@ -65,7 +66,7 @@ describe("the settings dialog", () => {
       "Agent",
     ]);
     expect(names(groups[0])).toEqual(["Editor", "Calendar"]);
-    expect(names(groups[1])).toEqual(["Backup", "Connections"]);
+    expect(names(groups[1])).toEqual(["Account", "Backup", "Connections"]);
     expect(names(groups[2])).toEqual(["Shortcuts", "LaTeX macros", "Agent"]);
     // No page nests under another one, so there is nothing to collapse.
     expect(nav.querySelector("[data-nested]")).toBeNull();
@@ -134,7 +135,15 @@ describe("the settings dialog", () => {
     await screen.findByRole("dialog");
     const found = new Set<string>();
     // Every page of the navigation, shortcuts shown whole under All.
-    const pages = ["General", "Appearance", "Editor", "Calendar", "Backup", "Connections"];
+    const pages = [
+      "General",
+      "Appearance",
+      "Editor",
+      "Calendar",
+      "Account",
+      "Backup",
+      "Connections",
+    ];
     for (const label of [...pages, "Shortcuts", "LaTeX macros", "Agent", "About"]) {
       await user.click(screen.getByRole("button", { name: label }));
       for (const row of document.querySelectorAll("[data-setting-id]")) {
@@ -155,8 +164,8 @@ describe("the settings dialog", () => {
     expect(rowFor("general.timezone")).toBeNull();
     expect(screen.getByRole("heading", { level: 2, name: "Search results" })).toBeInTheDocument();
     expect(screen.getByLabelText("2 matches")).toBeInTheDocument();
-    // The other eight of the ten pages.
-    expect(screen.getAllByLabelText("0 matches")).toHaveLength(9);
+    // The other ten of the eleven pages.
+    expect(screen.getAllByLabelText("0 matches")).toHaveLength(10);
   });
 
   it("finds a setting by a synonym, its id and a typo", async () => {

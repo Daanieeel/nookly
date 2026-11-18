@@ -860,6 +860,707 @@ fn all() -> Vec<M<'static>> {
         JOIN entities e ON e.id = f.entity_id
         WHERE f.local_path IS NULL AND (f.source_path IS NOT NULL OR f.url IS NOT NULL);
         ",
+    ), M::up(
+        "
+        -- Migrations 51 to 53 are the connected platform's (accounts and sync). They were
+        -- 42 to 44 on its development branch before the released 42 to 50 above existed, so
+        -- they are written to run on a development database that already has them
+        -- (`IF NOT EXISTS`; `db::premerge` moves such a database back to 41 first).
+        -- Sync (opt in). Nothing here changes existing data, and the triggers do
+        -- nothing until sync is turned on (a `sync_meta` row with key 'enabled').
+        --
+        -- sync_meta: the device id, the hybrid clock, cursors and the enabled flag.
+        CREATE TABLE IF NOT EXISTS sync_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        -- sync_dirty: rows changed since they were last synced. `pk` is the row's
+        -- key, a JSON array for a key of several columns. `version` goes up on
+        -- every change, `changed_at` is when, in milliseconds since 1970, but never
+        -- before `clock_floor`, the newest clock seen from another device: an edit
+        -- made after seeing someone else's always counts as the later one.
+        CREATE TABLE IF NOT EXISTS sync_dirty (
+            tbl TEXT NOT NULL,
+            pk TEXT NOT NULL,
+            version INTEGER NOT NULL DEFAULT 1,
+            changed_at INTEGER NOT NULL,
+            PRIMARY KEY (tbl, pk)
+        );
+        -- sync_rows: each synced row as the server last had it, with a clock per
+        -- field, which is what a local change is told apart from.
+        CREATE TABLE IF NOT EXISTS sync_rows (
+            tbl TEXT NOT NULL,
+            pk TEXT NOT NULL,
+            dataset TEXT NOT NULL,
+            scope TEXT,
+            fields TEXT NOT NULL,
+            clocks TEXT NOT NULL,
+            deleted_clock TEXT,
+            PRIMARY KEY (tbl, pk)
+        );
+        -- sync_conflicts: every edit that lost to a newer one, kept so it can be
+        -- brought back. Nothing is ever silently dropped.
+        CREATE TABLE IF NOT EXISTS sync_conflicts (
+            id TEXT PRIMARY KEY,
+            tbl TEXT NOT NULL,
+            pk TEXT NOT NULL,
+            field TEXT,
+            losing_value TEXT,
+            losing_clock TEXT,
+            winning_clock TEXT,
+            created_at TEXT NOT NULL,
+            resolved_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_sync_conflicts_open ON sync_conflicts(resolved_at, created_at);
+
+        -- Two devices can each give a new entity the same key (TSK-14) while
+        -- offline. Keys stay unique by the sync repairing the later one, so the
+        -- index itself has to accept the brief duplicate.
+        DROP INDEX IF EXISTS idx_entities_key;
+        CREATE INDEX IF NOT EXISTS idx_entities_key ON entities(key_prefix, key_number);
+
+        CREATE TRIGGER IF NOT EXISTS sync_spaces_insert AFTER INSERT ON spaces
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('spaces', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_spaces_update AFTER UPDATE ON spaces
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('spaces', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'spaces', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_spaces_delete AFTER DELETE ON spaces
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('spaces', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_entities_insert AFTER INSERT ON entities
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entities', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_entities_update AFTER UPDATE ON entities
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entities', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'entities', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_entities_delete AFTER DELETE ON entities
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entities', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_relationships_insert AFTER INSERT ON relationships
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('relationships', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_relationships_update AFTER UPDATE ON relationships
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('relationships', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'relationships', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_relationships_delete AFTER DELETE ON relationships
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('relationships', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_labels_insert AFTER INSERT ON labels
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('labels', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_labels_update AFTER UPDATE ON labels
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('labels', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'labels', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_labels_delete AFTER DELETE ON labels
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('labels', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_entity_labels_insert AFTER INSERT ON entity_labels
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_labels', json_array(NEW.entity_id, NEW.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_entity_labels_update AFTER UPDATE ON entity_labels
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_labels', json_array(NEW.entity_id, NEW.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'entity_labels', json_array(OLD.entity_id, OLD.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE json_array(OLD.entity_id, OLD.label_id) IS NOT json_array(NEW.entity_id, NEW.label_id)
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_entity_labels_delete AFTER DELETE ON entity_labels
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_labels', json_array(OLD.entity_id, OLD.label_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_task_statuses_insert AFTER INSERT ON task_statuses
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('task_statuses', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_task_statuses_update AFTER UPDATE ON task_statuses
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('task_statuses', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'task_statuses', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_task_statuses_delete AFTER DELETE ON task_statuses
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('task_statuses', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_tasks_insert AFTER INSERT ON tasks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('tasks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_tasks_update AFTER UPDATE ON tasks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('tasks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'tasks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_tasks_delete AFTER DELETE ON tasks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('tasks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_blocks_insert AFTER INSERT ON blocks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('blocks', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_blocks_update AFTER UPDATE ON blocks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('blocks', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'blocks', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_blocks_delete AFTER DELETE ON blocks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('blocks', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_courses_insert AFTER INSERT ON courses
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('courses', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_courses_update AFTER UPDATE ON courses
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('courses', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'courses', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_courses_delete AFTER DELETE ON courses
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('courses', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_semesters_insert AFTER INSERT ON semesters
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('semesters', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_semesters_update AFTER UPDATE ON semesters
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('semesters', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'semesters', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_semesters_delete AFTER DELETE ON semesters
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('semesters', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_session_templates_insert AFTER INSERT ON session_templates
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('session_templates', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_session_templates_update AFTER UPDATE ON session_templates
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('session_templates', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'session_templates', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_session_templates_delete AFTER DELETE ON session_templates
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('session_templates', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_sessions_insert AFTER INSERT ON sessions
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('sessions', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_sessions_update AFTER UPDATE ON sessions
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('sessions', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'sessions', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_sessions_delete AFTER DELETE ON sessions
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('sessions', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_exams_insert AFTER INSERT ON exams
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('exams', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_exams_update AFTER UPDATE ON exams
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('exams', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'exams', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_exams_delete AFTER DELETE ON exams
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('exams', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_index_card_decks_insert AFTER INSERT ON index_card_decks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_decks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_index_card_decks_update AFTER UPDATE ON index_card_decks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_decks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'index_card_decks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_index_card_decks_delete AFTER DELETE ON index_card_decks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_decks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_index_cards_insert AFTER INSERT ON index_cards
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_cards', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_index_cards_update AFTER UPDATE ON index_cards
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_cards', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'index_cards', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_index_cards_delete AFTER DELETE ON index_cards
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_cards', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_study_blocks_insert AFTER INSERT ON study_blocks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('study_blocks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_study_blocks_update AFTER UPDATE ON study_blocks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('study_blocks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'study_blocks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_study_blocks_delete AFTER DELETE ON study_blocks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('study_blocks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_assignments_insert AFTER INSERT ON assignments
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('assignments', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_assignments_update AFTER UPDATE ON assignments
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('assignments', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'assignments', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_assignments_delete AFTER DELETE ON assignments
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('assignments', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_files_insert AFTER INSERT ON files
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('files', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_files_update AFTER UPDATE ON files
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('files', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'files', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_files_delete AFTER DELETE ON files
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('files', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_bookmarks_insert AFTER INSERT ON bookmarks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('bookmarks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_bookmarks_update AFTER UPDATE ON bookmarks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('bookmarks', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'bookmarks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_bookmarks_delete AFTER DELETE ON bookmarks
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('bookmarks', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_space_modules_insert AFTER INSERT ON space_modules
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('space_modules', json_array(NEW.space_id, NEW.module_key), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_space_modules_update AFTER UPDATE ON space_modules
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('space_modules', json_array(NEW.space_id, NEW.module_key), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'space_modules', json_array(OLD.space_id, OLD.module_key), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE json_array(OLD.space_id, OLD.module_key) IS NOT json_array(NEW.space_id, NEW.module_key)
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_space_modules_delete AFTER DELETE ON space_modules
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('space_modules', json_array(OLD.space_id, OLD.module_key), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_index_card_reviews_insert AFTER INSERT ON index_card_reviews
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_reviews', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_index_card_reviews_update AFTER UPDATE ON index_card_reviews
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_reviews', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'index_card_reviews', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_index_card_reviews_delete AFTER DELETE ON index_card_reviews
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('index_card_reviews', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_calendar_entry_templates_insert AFTER INSERT ON calendar_entry_templates
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entry_templates', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_calendar_entry_templates_update AFTER UPDATE ON calendar_entry_templates
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entry_templates', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'calendar_entry_templates', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_calendar_entry_templates_delete AFTER DELETE ON calendar_entry_templates
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entry_templates', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_calendar_entries_insert AFTER INSERT ON calendar_entries
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entries', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_calendar_entries_update AFTER UPDATE ON calendar_entries
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entries', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'calendar_entries', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_calendar_entries_delete AFTER DELETE ON calendar_entries
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('calendar_entries', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipes_insert AFTER INSERT ON recipes
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipes', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipes_update AFTER UPDATE ON recipes
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipes', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'recipes', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipes_delete AFTER DELETE ON recipes
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipes', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_ingredients_insert AFTER INSERT ON recipe_ingredients
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_ingredients', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_ingredients_update AFTER UPDATE ON recipe_ingredients
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_ingredients', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'recipe_ingredients', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_ingredients_delete AFTER DELETE ON recipe_ingredients
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_ingredients', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_steps_insert AFTER INSERT ON recipe_steps
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_steps', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_steps_update AFTER UPDATE ON recipe_steps
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_steps', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'recipe_steps', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_steps_delete AFTER DELETE ON recipe_steps
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_steps', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_tags_insert AFTER INSERT ON recipe_tags
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tags', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_tags_update AFTER UPDATE ON recipe_tags
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tags', NEW.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'recipe_tags', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.id IS NOT NEW.id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_tags_delete AFTER DELETE ON recipe_tags
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tags', OLD.id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_tag_links_insert AFTER INSERT ON recipe_tag_links
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tag_links', json_array(NEW.recipe_entity_id, NEW.tag_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_tag_links_update AFTER UPDATE ON recipe_tag_links
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tag_links', json_array(NEW.recipe_entity_id, NEW.tag_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'recipe_tag_links', json_array(OLD.recipe_entity_id, OLD.tag_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE json_array(OLD.recipe_entity_id, OLD.tag_id) IS NOT json_array(NEW.recipe_entity_id, NEW.tag_id)
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_recipe_tag_links_delete AFTER DELETE ON recipe_tag_links
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('recipe_tag_links', json_array(OLD.recipe_entity_id, OLD.tag_id), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_views_insert AFTER INSERT ON views
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('views', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_views_update AFTER UPDATE ON views
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('views', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'views', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_views_delete AFTER DELETE ON views
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('views', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_series_slots_insert AFTER INSERT ON series_slots
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('series_slots', json_array(NEW.template_id, NEW.slot_date), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_series_slots_update AFTER UPDATE ON series_slots
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('series_slots', json_array(NEW.template_id, NEW.slot_date), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'series_slots', json_array(OLD.template_id, OLD.slot_date), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE json_array(OLD.template_id, OLD.slot_date) IS NOT json_array(NEW.template_id, NEW.slot_date)
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_series_slots_delete AFTER DELETE ON series_slots
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('series_slots', json_array(OLD.template_id, OLD.slot_date), MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_note_settings_insert AFTER INSERT ON note_settings
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('note_settings', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_note_settings_update AFTER UPDATE ON note_settings
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('note_settings', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'note_settings', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_note_settings_delete AFTER DELETE ON note_settings
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('note_settings', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+
+        ",
+    ), M::up(
+        "
+        -- Files in the account (connected platform). Nothing existing changes.
+        --
+        -- A stored file's contents in the account's storage, by SHA-256: set once
+        -- they are uploaded, and back to NULL when this device replaces the file, so
+        -- the new contents go up. The local paths stay each device's own.
+        ALTER TABLE files ADD COLUMN blob TEXT;
+        ALTER TABLE recipes ADD COLUMN banner_blob TEXT;
+        ALTER TABLE bookmarks ADD COLUMN screenshot_blob TEXT;
+        -- Which local file this device holds for a row, and its hash. Only a file
+        -- this device changed is ever uploaded over the account's copy.
+        CREATE TABLE IF NOT EXISTS blob_files (
+            tbl TEXT NOT NULL,
+            pk TEXT NOT NULL,
+            path TEXT NOT NULL,
+            sha256 TEXT NOT NULL,
+            PRIMARY KEY (tbl, pk)
+        );
+        -- Settings that follow the person to every device (display name, formats,
+        -- calendar and editor settings), as JSON. Only ones changed from their
+        -- default are here; the rest stay per device in settings.json.
+        CREATE TABLE IF NOT EXISTS account_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TRIGGER IF NOT EXISTS sync_account_settings_insert AFTER INSERT ON account_settings
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('account_settings', NEW.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_account_settings_update AFTER UPDATE ON account_settings
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('account_settings', NEW.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'account_settings', OLD.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.key IS NOT NEW.key
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_account_settings_delete AFTER DELETE ON account_settings
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('account_settings', OLD.key, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+
+        ",
+    ), M::up(
+        "
+        -- This device's copy of the page documents it edited while signed in (Yjs
+        -- state as base64), so a page opens and edits offline. `pending` is set while
+        -- it holds edits the server hasn't confirmed. Never synced as rows; the
+        -- block rows stay the stored form of every page.
+        CREATE TABLE IF NOT EXISTS page_docs (
+            entity_id TEXT PRIMARY KEY,
+            state TEXT NOT NULL,
+            pending INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
+        );
+        ",
+    ), M::up(
+        "
+        -- References (migration 50) sync like the Files they belong to: who they point at
+        -- and the last known title. When this device last reached them stays its own
+        -- (`local_columns` in `sync::registry`), and so does every path in
+        -- `reference_device_paths`. Nothing existing changes.
+        CREATE TRIGGER IF NOT EXISTS sync_entity_references_insert AFTER INSERT ON entity_references
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_references', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_entity_references_update AFTER UPDATE ON entity_references
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_references', NEW.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+            INSERT INTO sync_dirty (tbl, pk, changed_at)
+                SELECT 'entity_references', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)) WHERE OLD.entity_id IS NOT NEW.entity_id
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        CREATE TRIGGER IF NOT EXISTS sync_entity_references_delete AFTER DELETE ON entity_references
+        WHEN EXISTS (SELECT 1 FROM sync_meta WHERE key = 'enabled') BEGIN
+            INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES ('entity_references', OLD.entity_id, MAX(CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER), COALESCE((SELECT CAST(value AS INTEGER) FROM sync_meta WHERE key = 'clock_floor'), 0)))
+                ON CONFLICT (tbl, pk) DO UPDATE SET version = version + 1, changed_at = excluded.changed_at;
+        END;
+        ",
     )]
 }
 
@@ -1855,6 +2556,10 @@ mod history {
         0x9e34fce273f8823e,
         0xaed3619d950f3a70,
         0x3ffa45a8e96d52a1,
+        0xae81f8df4832685a,
+        0xb889b8634c983ff3,
+        0xe6a185c1d012efec,
+        0x52798df1c43203ad,
     ];
 
     fn fingerprint(m: &super::M) -> u64 {

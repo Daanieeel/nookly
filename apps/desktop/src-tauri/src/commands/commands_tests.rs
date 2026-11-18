@@ -209,6 +209,9 @@ ipc_commands![
     bookmarks::update_bookmark_url,
     bookmarks::set_bookmark_preferred_image,
     cli_install::cli_install_status,
+    sync::sync_query,
+    sync::sync_batch,
+    sync::sync_reindex,
     external_calendars::external_calendar_status,
     external_calendars::cancel_google_calendar_connect,
     external_calendars::connect_icloud_calendar,
@@ -238,6 +241,24 @@ ipc_commands![
 /// covering the part that can run without the real runtime, a network, an
 /// install or the OS keychain.
 const NOT_INVOKED: &[(&str, &str)] = &[
+    // The OS keychain, which tests never touch.
+    (
+        "sync_refresh_token",
+        "sync_refresh_token_has_its_own_keychain_entry",
+    ),
+    (
+        "sync_set_refresh_token",
+        "sync_refresh_token_has_its_own_keychain_entry",
+    ),
+    // Network, or an `AppHandle` for the data folder: the part each one delegates to.
+    ("blob_hash", "blob_commands_underlying_calls"),
+    ("blob_upload", "blob_commands_underlying_calls"),
+    ("blob_download", "blob_commands_underlying_calls"),
+    ("create_pre_sync_backup", "pre_sync_backup_underlying_calls"),
+    (
+        "store_dir",
+        "store_dir_keeps_debug_builds_in_their_own_folder",
+    ),
     // `AppHandle` (Wry) parameter: the database part each one delegates to.
     ("import_file", "files_import_underlying_db_call"),
     (
@@ -4248,6 +4269,57 @@ fn backup_create_and_restore_underlying_calls() {
 }
 
 #[test]
+fn blob_commands_underlying_calls() {
+    // The blob commands hash a file and move it to and from the server; the server
+    // part needs a network, so this covers hashing and the refusal of anything that
+    // isn't a hash before a request is made.
+    use crate::commands::blobs;
+    let h = Harness::new();
+    let path = h.dir.path().join("lecture.txt");
+    std::fs::write(&path, b"lecture one").unwrap();
+    let hash = blobs::hash_file(&path).unwrap().unwrap();
+    assert_eq!(hash.size, 11);
+    assert_eq!(hash.sha256.len(), 64);
+    assert!(blobs::hash_file(&h.dir.path().join("missing"))
+        .unwrap()
+        .is_none());
+    assert!(blobs::upload_file("http://127.0.0.1:1", "not-a-hash", &path, "text/plain").is_err());
+    let into = h.dir.path().join("downloads");
+    assert!(blobs::download_to("http://127.0.0.1:1", "not-a-hash", &into, "a.txt").is_err());
+    assert!(std::fs::read_dir(&into).map_or(true, |mut d| d.next().is_none()));
+}
+
+#[test]
+fn pre_sync_backup_underlying_calls() {
+    // `create_pre_sync_backup` takes an `AppHandle` for the data folder; this is the
+    // call it makes: a checked backup in `pre-sync-backups`, never in the way of the
+    // data itself.
+    let h = Harness::new();
+    let space = h.space("Before the first sync");
+    h.note(&space, "keep me");
+    let data_dir = h.dir.path().join("data");
+    std::fs::create_dir_all(&data_dir).unwrap();
+    let dest = data_dir.join(crate::backup::PRE_SYNC_DIR);
+    let snapshot = h.db(|c| crate::backup::snapshot(c).unwrap());
+    let info = crate::backup::create_backup(snapshot, &data_dir, &dest, 3).unwrap();
+    assert!(std::path::Path::new(&info.path).starts_with(&dest));
+    assert_eq!(crate::backup::list_backups(&dest).unwrap().len(), 1);
+}
+
+#[test]
+fn store_dir_keeps_debug_builds_in_their_own_folder() {
+    // `store_dir` takes an `AppHandle`; it resolves the folder like this. A debug build
+    // never uses the installed app's folder.
+    let platform = std::path::PathBuf::from("/platform/app-data");
+    let resolved = db::resolve_app_data_dir(platform.clone());
+    if cfg!(debug_assertions) {
+        assert_ne!(resolved, platform);
+    } else {
+        assert_eq!(resolved, platform);
+    }
+}
+
+#[test]
 fn agent_files_underlying_calls() {
     // The agent file commands take an `AppHandle` for the app data folder; these are
     // the calls they make, against a temp folder. `reveal_agent_dir` only opens it.
@@ -4470,6 +4542,61 @@ fn portable_export_to_an_unwritable_path_is_an_io_error() {
         "Io",
     );
     assert!(!out.exists());
+}
+
+// -------------------------------------------------------------------- sync
+
+#[test]
+fn sync_query_and_batch_run_the_engines_sql() {
+    let h = Harness::new();
+    let done = h.ok(
+        "sync_batch",
+        json!({ "statements": [
+            { "sql": "INSERT INTO sync_meta (key, value) VALUES (?1, ?2)", "params": ["enabled", "1"] },
+            { "sql": "SELECT value FROM sync_meta WHERE key = 'enabled'", "params": [], "expect": "1" },
+        ] }),
+    );
+    assert_eq!(done, json!({ "outcome": "done" }));
+    let stale = h.ok(
+        "sync_batch",
+        json!({ "statements": [
+            { "sql": "DELETE FROM sync_meta", "params": [] },
+            { "sql": "SELECT (SELECT version FROM sync_dirty WHERE tbl = 'x')", "params": [], "expect": 3 },
+        ] }),
+    );
+    assert_eq!(stale, json!({ "outcome": "stale", "index": 1 }));
+    let rows = h.ok(
+        "sync_query",
+        json!({ "sql": "SELECT key, value FROM sync_meta", "params": [] }),
+    );
+    assert_eq!(rows, json!([{ "key": "enabled", "value": "1" }]));
+}
+
+#[test]
+fn sync_reindex_makes_arrived_pages_searchable() {
+    let h = Harness::new();
+    let space = h.space("Work");
+    let note = h.note(&space, "Arrived");
+    h.db(|c| {
+        c.execute(
+            "INSERT INTO blocks (id, entity_id, position, block_type, content, created_at, updated_at)
+             VALUES ('b1', ?1, 0, 'paragraph', 'synced zebra text', 'now', 'now')",
+            [&note],
+        )
+        .unwrap();
+    });
+    h.ok("sync_reindex", json!({ "entityIds": [note, "missing"] }));
+    let hits = h.db(|c| db::search::search(c, "zebra", None).unwrap());
+    assert!(hits.iter().any(|hit| hit.entity_id == note), "{hits:?}");
+}
+
+#[test]
+fn sync_refresh_token_has_its_own_keychain_entry() {
+    assert_ne!(
+        crate::sync::secrets::SERVICE,
+        "nookly-external-calendars",
+        "a sync sign out must never remove calendar credentials"
+    );
 }
 
 #[test]

@@ -179,6 +179,53 @@ describe("settings", () => {
     expect(result.current[0]).toBe("light");
   });
 
+  // `nookly cli settings` writes `settings.json` while the app runs. The app kept its own
+  // copy and saved it over the file at its next change, so the CLI's change was undone and
+  // the app never showed it.
+  describe("a change made outside the app", () => {
+    it("is picked up", async () => {
+      const { settings: file } = fakeFiles({});
+      const { settings, initSettings, refreshSettings, subscribeSetting } = await launch();
+      await initSettings();
+      const seen: unknown[] = [];
+      subscribeSetting("appearance.theme", (v) => seen.push(v));
+      file.disk = { "appearance.theme": "dark", "calendar.weekStart": "monday" };
+      await refreshSettings();
+      expect(settings.get("appearance.theme")).toBe("dark");
+      expect(settings.get("calendar.weekStart")).toBe("monday");
+      expect(seen).toEqual(["dark"]);
+      file.disk = {};
+      await refreshSettings();
+      expect(settings.get("appearance.theme")).toBe("system");
+    });
+
+    it("is never saved over by the app's own next change", async () => {
+      const { settings: file } = fakeFiles({ settings: { "backup.auto": true } });
+      const { settings, initSettings } = await launch();
+      await initSettings();
+      file.disk = { ...file.disk, "notes.vimMode": true };
+      settings.set("calendar.sessionLengthMinutes", 45);
+      await vi.waitFor(() =>
+        expect(file.disk).toEqual({
+          "backup.auto": true,
+          "notes.vimMode": true,
+          "calendar.sessionLengthMinutes": 45,
+        }),
+      );
+      expect(settings.get("notes.vimMode")).toBe(true);
+    });
+
+    it("never drops a change the app is still saving", async () => {
+      const { settings: file } = fakeFiles({});
+      const { settings, initSettings, refreshSettings } = await launch();
+      await initSettings();
+      settings.set("general.effortScale", "fibonacci");
+      await refreshSettings();
+      expect(settings.get("general.effortScale")).toBe("fibonacci");
+      expect(file.disk).toEqual({ "general.effortScale": "fibonacci" });
+    });
+  });
+
   describe("shortcut overrides", () => {
     it("keeps an explicit null, unassigned, apart from a missing value, the default", async () => {
       const { settings: file } = fakeFiles({ settings: { "shortcuts.search": null } });
@@ -209,7 +256,7 @@ describe("settings", () => {
       await vi.waitFor(() =>
         expect(file.memory).toEqual({ "shortcuts.search": null, "shortcuts.quickJot": "Mod+U" }),
       );
-      expect(order.filter((o) => o !== "save")).toEqual([
+      expect(order.filter((o) => o !== "save" && o !== "reload")).toEqual([
         "set:shortcuts.search",
         "set:shortcuts.quickJot",
         "delete:shortcuts.commands",

@@ -345,7 +345,9 @@ export const NO_EFFORT = "none";
 export function filterValues(task: Task, fieldId: string): string[] {
   if (fieldId === "status") return [task.statusId];
   if (fieldId === "space") return [task.entity.spaceId];
-  if (fieldId === "labels") return task.labelIds;
+  // "label" is what the phone wrote in a View before it used this name.
+  if (fieldId === "labels" || fieldId === "label") return task.labelIds;
+  if (fieldId === "pinned") return [task.entity.pinned ? "pinned" : "unpinned"];
   if (fieldId === "due") return [dueBucket(task.dueDate, new Date(), task.completedAt != null)];
   if (fieldId === "start") return [dayBucket(task.startDate)];
   if (fieldId === "created") return [ageBucket(task.entity.createdAt)];

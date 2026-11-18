@@ -1,6 +1,7 @@
 import { type Store, load } from "@tauri-apps/plugin-store";
 import { z } from "zod";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
+import { storePath } from "#/lib/store-path.ts";
 import { logger } from "#/lib/log.ts";
 
 /// Device preferences (theme, sidebar state, sort orders...), persisted with the
@@ -9,38 +10,17 @@ import { logger } from "#/lib/log.ts";
 /// memory at once and reach disk shortly after. Keys are in `STORAGE_KEYS`.
 
 const FILE = "preferences.json";
-const DEV_FILE = "preferences.dev.json";
-/// What belongs to one running instance, not to the device: the open tabs and the split. A
-/// dev build starts without the installed app's.
-const INSTANCE_KEYS: string[] = [STORAGE_KEYS.tabs, STORAGE_KEYS.splitRatio];
-
+/// A debug build keeps this file in its own data folder (`storePath`), never next to the
+/// installed app's, so a development build on a fixture never touches the real ones.
 let store: Store | null = null;
 const cache = new Map<string, string>();
-
-/// A dev build (`tauri dev`) shares the app data folder with the installed app, and each of
-/// them writes its whole copy of a store file. Sharing `preferences.json` would let the one
-/// overwrite the other's tabs, so a dev build keeps its own file. Vitest runs in mode `test`.
-function isDevBuild(): boolean {
-  return import.meta.env.MODE === "development";
-}
 
 /// Loads every saved preference. Must finish before anything reads one; when
 /// the store can't load, every read falls back to its default.
 export async function initPreferences(): Promise<void> {
   try {
-    if (isDevBuild()) {
-      store = await load(DEV_FILE, { defaults: {}, autoSave: 100 });
-      const own = await store.entries<string>();
-      for (const [key, value] of own) cache.set(key, value);
-      if (own.length === 0) {
-        await copyInstalledPreferences(store).catch((error) =>
-          logger.error("preferences", "Couldn't copy the installed app's preferences", error),
-        );
-      }
-    } else {
-      store = await load(FILE, { defaults: {}, autoSave: 100 });
-      for (const [key, value] of await store.entries<string>()) cache.set(key, value);
-    }
+    store = await load(await storePath(FILE), { defaults: {}, autoSave: 100 });
+    for (const [key, value] of await store.entries<string>()) cache.set(key, value);
   } catch (error) {
     logger.error("preferences", "Couldn't load preferences", error);
     return;
@@ -48,18 +28,6 @@ export async function initPreferences(): Promise<void> {
   backfillFileViewerTheme();
   backfillEvaluatedStatus();
   backfillTimestampFilters();
-}
-
-/// The first time a dev build runs, it starts from the installed app's preferences, minus
-/// the tabs and split that belong to the other instance. The installed app's file is only
-/// read, never written.
-async function copyInstalledPreferences(own: Store) {
-  const installed = await load(FILE, { defaults: {}, autoSave: false });
-  for (const [key, value] of await installed.entries<string>()) {
-    if (INSTANCE_KEYS.includes(key)) continue;
-    cache.set(key, value);
-    await own.set(key, value);
-  }
 }
 
 /// One time backfill: a saved "light" file viewer theme becomes the defaults.

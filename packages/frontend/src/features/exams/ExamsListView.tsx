@@ -1,8 +1,10 @@
 import { PageHeader, PageHeaderActions, PageHeaderTitle } from "#/components/page-header.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import {
+  IconCalendarEvent,
   IconCalendarStats,
   IconCheck,
+  IconCircleDot,
   IconMapPin,
   IconPlus,
   IconSchool,
@@ -28,6 +30,9 @@ import {
   FilterMenu,
   applyFilters,
 } from "#/components/filter-menu.tsx";
+import { ENTITY_FILTER_FIELDS, entityFilterValue } from "#/features/tasks/shared-view-defs.tsx";
+import { EXAM_STATUSES, EXAM_WHEN_BUCKETS, examStatusKind, examWhen } from "./exam-model.ts";
+import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import { DateInput } from "#/components/date-input.tsx";
@@ -107,11 +112,38 @@ export function ExamsListView({
         icon: IconSchool,
         options: courses.map((c) => ({ value: c.id, label: displayTitle(c) })),
       },
+      {
+        id: "when",
+        label: "Date",
+        icon: IconCalendarEvent,
+        options: EXAM_WHEN_BUCKETS.map((b) => ({ value: b.id, label: b.label })),
+      },
+      {
+        id: "status",
+        label: "Status",
+        icon: IconCircleDot,
+        options: EXAM_STATUSES.map((s) => ({
+          value: s.id,
+          label: s.name,
+          icon: <TaskStatusIcon status={s} kind={examStatusKind(s.id)} />,
+        })),
+      },
+      ...ENTITY_FILTER_FIELDS,
     ],
     [courses],
   );
 
-  const visible = applyFilters(exams, filters, (exam) => courseOf.get(exam.entity.id)?.id ?? "");
+  const visible = applyFilters(
+    exams,
+    filters,
+    (exam, fieldId) =>
+      entityFilterValue(exam.entity, fieldId) ??
+      (fieldId === "when"
+        ? examWhen(exam.examDate)
+        : fieldId === "status"
+          ? exam.status
+          : (courseOf.get(exam.entity.id)?.id ?? "")),
+  );
   const open = (exam: Exam) => openEntity(exam.entity.id, spaceId);
 
   return (

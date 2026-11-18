@@ -1,0 +1,177 @@
+import { IconSelector } from "@tabler/icons-react-native";
+import { Children, cloneElement, isValidElement, type ReactNode, type RefObject } from "react";
+import { Pressable, View } from "react-native";
+import { Glyph } from "./kit/Glyph.tsx";
+import { Label } from "./kit/Label.tsx";
+import { useScheme, useSemantic, useSemanticPair } from "./kit/scheme.ts";
+import { CORNER, RADIUS, SPACE, TINT } from "./tokens.ts";
+import { usePropertyLook } from "./parts.tsx";
+import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
+import { useScale } from "./scale.ts";
+
+/// An item's properties as rows, like the desktop's details: each row a name and its value,
+/// hairlines between them, flat on the page. A row that can change opens its picker.
+export function PropertyList({ children }: { children: ReactNode }) {
+  const rows = Children.toArray(children);
+  const separator = useSemantic("separator");
+  if (usePropertyLook() === "chip") {
+    return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: SPACE.sm }}>{rows}</View>;
+  }
+  return (
+    <View>
+      {rows.map((row, index) => (
+        <View
+          // The rows are fixed in number and order.
+          // oxlint-disable-next-line react/no-array-index-key
+          key={index}
+        >
+          {/* The hairline starts under the text, past the icon; the row itself does not move. */}
+          {index > 0 ? (
+            <View style={{ height: 0.5, backgroundColor: separator, marginLeft: 36 }} />
+          ) : null}
+          {row}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/// A property at a glance: as tall as the desktop's property value (`h-7`) plus a little,
+/// its hit area grown to a finger's.
+const CHIP_HEIGHT = CONTROL_SIZE.chip;
+
+/// A row's icon at a chip's size, the desktop's 16 points beside text.
+function chipIcon(icon: ReactNode): ReactNode {
+  return isValidElement<{ size?: number }>(icon) ? cloneElement(icon, { size: 16 }) : icon;
+}
+
+/// The icon in the value's warning colour, so both read as one (a passed due date).
+function tinted(icon: ReactNode, tint: string | undefined): ReactNode {
+  return tint && isValidElement<{ color?: string }>(icon)
+    ? cloneElement(icon, { color: tint })
+    : icon;
+}
+
+/// One property: an icon, its name, its value on the right. With `onPress` it opens its
+/// picker (a sheet).
+export function Property({
+  icon,
+  label,
+  value,
+  chipText,
+  valueIcon,
+  empty = false,
+  valueTone,
+  disabled = false,
+  onPress,
+  ref,
+}: {
+  /// What a compact menu opened from it sits beside.
+  ref?: RefObject<View | null>;
+  icon?: ReactNode;
+  label: string;
+  value: string;
+  /// What the chip shows instead of `value`, which screen readers still hear.
+  chipText?: string;
+  /// Shown beside the value (a status's mark).
+  valueIcon?: ReactNode;
+  /// Nothing is set: a chip says the property's name, faded, rather than "None".
+  empty?: boolean;
+  /// The value in a colour that warns (a due date that has passed).
+  valueTone?: "destructive";
+  disabled?: boolean;
+  onPress?: () => void;
+}) {
+  const scheme = useScheme();
+  const fill = useSemantic("fill");
+  const pressedFill = useSemantic("pressed");
+  const muted = useSemanticPair("tertiaryLabel");
+  const interactive = Boolean(onPress) && !disabled;
+  const { row } = useScale();
+  const tint = valueTone === "destructive" ? TINT.red[scheme] : undefined;
+  if (usePropertyLook() === "chip") {
+    return (
+      <Pressable
+        ref={ref}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, ${value}`}
+        accessibilityState={{ disabled: !interactive }}
+        disabled={!interactive}
+        onPress={onPress}
+        unstable_pressDelay={0}
+        hitSlop={touchSlop(CHIP_HEIGHT, MIN_TOUCH)}
+        style={({ pressed }) => [
+          CORNER,
+          {
+            height: CHIP_HEIGHT,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: SPACE.xs + 2,
+            paddingHorizontal: SPACE.md,
+            borderRadius: RADIUS.badge,
+            backgroundColor: pressed ? pressedFill : fill,
+          },
+        ]}
+      >
+        {valueIcon ?? tinted(chipIcon(icon), tint)}
+        <Label
+          type="subheadline"
+          weight="500"
+          color={empty ? "secondaryLabel" : "label"}
+          tint={empty ? undefined : tint}
+          numberOfLines={1}
+        >
+          {empty ? label : (chipText ?? value)}
+        </Label>
+      </Pressable>
+    );
+  }
+  return (
+    <Pressable
+      ref={ref}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}, ${value}`}
+      accessibilityState={{ disabled: !interactive }}
+      disabled={!interactive}
+      onPress={onPress}
+      unstable_pressDelay={0}
+      style={({ pressed }) => ({
+        minHeight: row,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACE.md,
+        paddingHorizontal: SPACE.xs,
+        borderRadius: RADIUS.control,
+        backgroundColor: pressed && interactive ? pressedFill : undefined,
+      })}
+    >
+      {tinted(icon, tint)}
+      {/* The name keeps its width; a long value is the one cut short. */}
+      <Label type="callout" weight="500" style={{ flexShrink: 0 }} numberOfLines={1}>
+        {label}
+      </Label>
+      <View
+        style={{
+          flex: 1,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: SPACE.md,
+        }}
+      >
+        {valueIcon}
+        <Label
+          type="callout"
+          weight="500"
+          color="secondaryLabel"
+          tint={tint}
+          numberOfLines={1}
+          style={{ flexShrink: 1 }}
+        >
+          {value}
+        </Label>
+      </View>
+      {interactive ? <Glyph icon={IconSelector} size={13} color={muted.hex} /> : null}
+    </Pressable>
+  );
+}

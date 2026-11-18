@@ -382,6 +382,123 @@ Up to two tab groups sit side by side. The nav store keeps the focused group's t
 
 ---
 
+### Sync: local first, opt in, row records with per field clocks
+
+Each device's SQLite stays the source of truth; the app keeps working fully offline and with no account, and the server is never required. While sync is on, triggers mark changed rows, and every synced row becomes a record with a hybrid logical clock per field and a delete clock (see [sync protocol](development/sync-protocol.md)). Merges are last writer wins per field, as a CRDT, so devices converge in any order; losing concurrent edits go to a conflicts log on both ends.
+
+**Why:** rows already carry stable ids, and a per row record maps to every table without per module code. Triggers catch every write, including the CLI's. Field level clocks keep unrelated edits apart (a title on one device, a due date on another).
+
+**Rejected:** syncing whole entities as documents (every module would need its own serializer), operation logs replayed in order (needs a total order the offline devices don't have), and CRDT text for page bodies (a big dependency for a personal tool; blocks are already rows, which gives block level merges for free).
+
+---
+
+### Sync: one engine in TypeScript for every device
+
+The engine (collect, merge, apply) and the client (push, pull, live updates, backoff) live in `packages/shared` and run unchanged in the desktop's frontend, the mobile app and the tests. The desktop gives it a small SQL command (`sync_query`, `sync_batch`, one transaction with guards) and rebuilds its search index after remote changes.
+
+**Why:** the same code on every device can't disagree about merges, and every behavior is tested once against real SQLite.
+
+**Rejected:** a Rust engine for the desktop and a TypeScript one for mobile (two implementations of the subtlest code to keep identical), and syncing in Rust only (the phone can't run it).
+
+---
+
+### Sync: the desktop schema is the shared schema
+
+A Rust snapshot test writes the synced tables (with their SQL, columns, keys, scope and merge mode), sync's own tables and triggers, seed rows, and the registered entity and relationship types to `packages/shared/src/generated/desktop-schema.json`. The server validates against it, the mobile app builds its database from it. A test fails when a new table is neither synced nor excluded.
+
+**Why:** a new entity, field or table reaches every client by registration on the desktop, with nothing written by hand twice.
+
+---
+
+### Sync: entity keys may collide briefly
+
+Migration 42 makes `idx_entities_key` non unique. Two devices can give new entities the same key offline; after applying, the one created later moves to the next free number, which syncs like any edit.
+
+**Why:** a key is assigned offline and must stay readable (`TSK-14`); refusing the second row would stop sync.
+
+**Rejected:** keys handed out by the server (breaks offline creation), and keys with a device suffix (changes every key users already know).
+
+---
+
+### Files sync as metadata only
+
+A File's row syncs (title, name, URL), its local path and the file itself do not. Later, file content goes to S3 like storage: the server hands out presigned upload and download URLs per file, stored by content hash so a file uploaded twice is stored once, and a device downloads a file when it is opened.
+
+**Why:** attachments are large and binary; the MVP keeps sync small and safe first.
+
+---
+
+### The sync server: Bun, Elysia, Postgres, one process
+
+The server is optional (see [server](development/server.md)). Drizzle with postgres.js for typed queries and SQL migrations, jose for access tokens, argon2id through Bun. Rate limits and the live socket registry live in memory.
+
+**Why:** one process on one VPS is the deployment the project targets; in memory state keeps it simple, and Postgres row locks give per account ordering without a queue.
+
+**Rejected:** a hosted backend (the server must be self hostable), Redis for rate limits and fan out (one more service for a single machine; LISTEN/NOTIFY can replace the in memory hub if it ever runs as several processes), and syncing through a file service (no live updates, no sharing).
+
+---
+
+### Sharing hands out one page, conservatively
+
+A recipient gets the shared page, its blocks and its settings only, inside a Space of their own named after the owner. Relationships, labels, other entities and the owner's Space never leave the owner. Viewers can't write; editors may change the title, icon and blocks, never move or trash the page. Sharing needs a confirmed email, and an invite link only works for the address it was sent to.
+
+**Why:** a recipient must never get anything that wasn't explicitly shared, and the owner's Space wall stays where it is.
+
+**Rejected:** giving recipients the owner's Space (leaks its name and invites edits to it), and sharing related items along (one share would quietly reach further than the owner meant). Sharing a whole Space is designed but not built (see [server](development/server.md)).
+
+---
+
+### Deleting an account removes its server data for real
+
+Soft delete is the rule for entities on devices. Account deletion is different: it removes every server row of the account (sessions, records, conflicts, shares both ways). The devices keep their own data.
+
+**Why:** people expect "delete my account" to delete it, and a server should not keep data its owner asked it to drop.
+
+---
+
+### The mobile app shares logic, data and tokens with the desktop, not components
+
+`apps/mobile` is Expo with Expo Router, on `expo-sqlite` with the desktop's exported schema (`ensureSchema` creates it and adds what a newer desktop schema has, never removing a row). Its reads and writes come from `packages/shared/src/data`, which does what the desktop's Rust functions do (key numbers, Space modules, Trash with Sub-tasks, task completion and repeats), and sync is the same `SyncRuntime` and engine the desktop runs. Colors, radius and type sizes came from `packages/shared/src/tokens.ts` at first; the phone now uses the desktop's stylesheet itself (see below). Same libraries as the desktop: TanStack Query, TanStack Form with Zod, Zustand, Tabler icons.
+
+**Why:** a phone can't run the Rust core or the web components, but everything that decides what a row looks like, how it syncs and how it looks on screen can be one implementation.
+
+**Rejected:** NativeWind (it needs Tailwind 3 while the desktop uses Tailwind 4, and two Tailwinds in one workspace collide), React Native Reanimated (only the swipe rows animated; Gesture Handler's Animated version does it without another native module), a web view of the desktop UI (not a native app), and a second sync implementation for mobile.
+
+**Also:** React is pinned to 19.2.3 for the whole workspace (root `overrides`), because React Native requires the exact React its renderer was built with and the workspace hoists one copy.
+
+---
+
+### What the phone does in the first version
+
+Shell: Dashboard (today, due, pinned), Calendar (two weeks, every Space), Tasks (every Space, by status), Spaces with their modules, Search with Recents, Trash, Settings for sync. Full list, detail, create, edit, Trash and restore for Tasks, Notes and Jots (text blocks), Calendar entries and Bookmarks. Every other module lists its entities and opens them with title, Pin and Trash. Sessions show on the Calendar and are changed on the desktop, since a series and its overrides need the desktop's rules.
+
+**Why:** the modules people reach for on a phone first, done properly, before breadth.
+
+---
+
+### The phone's sidebar, and study on the phone
+
+The tab bar gives way to a sidebar like the desktop's and Claude's app: Search, Dashboard, Calendar, Tasks, Pinned, each Space with its modules, Recents, Trash and Settings. It slides the page aside (`drawerType: "slide"`) and opens with the menu button or a swipe to the right anywhere; a row with its own swipe actions keeps its swipe. It runs on `expo-router/drawer`, which needs Reanimated, so Reanimated comes back for it.
+
+Courses, Exams, Assignments and Decks are edited on the phone with their own fields, and decks are studied there. FSRS is ported to TypeScript (`packages/shared/src/data/fsrs.ts`) from `rs-fsrs` 1.2.1 at the desktop's defaults, and a Rust test writes reviews the desktop scheduled to `generated/fsrs-fixtures.json`, which the TypeScript replays, so a card comes back on the same day whichever device studied it. Days and times are picked with the system's picker (`@react-native-community/datetimepicker`). Accent colors and the exam and assignment statuses live in `@nookly/shared/colors` for both apps.
+
+**Why:** one navigation model across desktop and phone, and a review on the phone must schedule exactly like one on the desktop.
+
+---
+
+### The phone styles with the desktop's classes (NativeWind)
+
+Supersedes the earlier rejection of NativeWind. NativeWind 5 runs on Tailwind 4, like the desktop, so the phone now styles with the desktop's classes instead of its own style objects. It is a release candidate (`nativewind@5.0.0-rc.0`, `react-native-css@3.1.0-rc.0`, pinned exactly), and `lightningcss` is pinned to 1.30.1, the version its compiler reads.
+
+- **Tokens:** `packages/ui/src/theme.css` is the one place colors and radii are written. The desktop's `styles.css` and the phone's `global.css` both import it. Dark values sit under `@variant dark`, which the desktop defines as its `.dark` class and the phone as the system setting. Radii are written out (`8px`, not `calc(var(--radius) - 2px)`), since the phone's style engine can't do `calc()` with a variable. No generated files, no copies.
+- **Primitives:** `@nookly/ui/classes` is where the primitives' classes are written (`buttonVariants`, `badgeVariants`, the sidebar's and the rest as constants). The primitives import them, and so does the phone. `packages/frontend/src/test/ui-classes.test.tsx` checks every primitive renders them.
+- **Components:** `@nookly/frontend/classes` holds the classes of the desktop's own components (`FormField`, `FieldError`, settings headings, list rows, the color swatch, the segmented role toggle), and those components use the constants themselves.
+- **On the phone:** `apps/mobile/src/ui` rebuilds the primitives with those classes. Text classes move onto the `Text` inside a box (React Native doesn't inherit them), `data-[state]:` classes resolve from the component's own state, and `flex` gets `flex-row` where the desktop means a row. Inter loads per weight, so `font-medium` and the like pick the face. Inputs are `h-10` for touch. Icons, the system pickers and the navigation bars read the same variables at run time (`useUnstableNativeVariable`), so there is no copy of the colors in TypeScript.
+
+**Why:** one set of classes for both apps, so the phone looks like the desktop and keeps doing so.
+
+---
+
 ### Filter chips join with AND, or with OR between neighbours
 
 A filter chip carries an optional `join` (`"and"` or `"or"`) saying how it connects to the chip before it. Chips linked by `or` form a group, and an item must pass every group and one chip of each: `A, B or C, D` reads `A and (B or C) and D`. One `matchesFilters` in `filter-menu.tsx` evaluates every list, so a page uses it instead of `every`. No `join` means `and`, so saved Views and remembered filters from before need no migration.

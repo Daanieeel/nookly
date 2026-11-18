@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { type Store, load } from "@tauri-apps/plugin-store";
 import { create } from "zustand";
 import { preferences } from "#/lib/preferences.ts";
+import { storePath } from "#/lib/store-path.ts";
 import {
   SETTING_IDS,
   type SettingId,
@@ -40,9 +41,77 @@ function withValue<I extends SettingId>(id: I, value: SettingValue<I>) {
   useSettingsStore.setState((s) => ({ values: { ...s.values, [id]: value } }));
 }
 
-function persist(write: (store: Store) => Promise<void>) {
-  if (!store) return;
-  write(store).catch((error) => logger.error("settings", "Couldn't save settings", error));
+/// Reads and writes of the file, one at a time in the order asked, so a read never lands
+/// between a change and its save.
+let queue: Promise<void> = Promise.resolve();
+
+function enqueue(step: () => Promise<void>): Promise<void> {
+  queue = queue.then(step, step);
+  return queue;
+}
+
+/// Takes what the file holds now into memory, for every setting but `keep` (the ones this
+/// app is about to write). `nookly cli settings` and a hand edit change the file while the
+/// app runs; the plugin's own copy is read again first, so a save never puts back what the
+/// file had before.
+async function mergeFromDisk(target: Store, keep: ReadonlySet<string> = new Set()) {
+  await target.reload({ ignoreDefaults: true });
+  const entries = new Map(await target.entries<SettingJson>());
+  const current = useSettingsStore.getState().values;
+  const next: Values = {};
+  for (const id of SETTING_IDS) {
+    if (keep.has(id)) {
+      if (Object.hasOwn(current, id)) Object.assign(next, { [id]: current[id] });
+    } else if (entries.has(id)) {
+      // SAFETY: `parse` of an id returns that id's value type; the loop only widens it.
+      Object.assign(next, { [id]: definitionOf(id).parse(entries.get(id) ?? null) });
+    }
+  }
+  if (JSON.stringify(next) !== JSON.stringify(current)) useSettingsStore.setState({ values: next });
+}
+
+/// Writes `keys` through `write`, after taking in any change made outside the app.
+function persist(keys: string[], write: (store: Store) => Promise<void>) {
+  const target = store;
+  if (!target) return;
+  void enqueue(async () => {
+    try {
+      await mergeFromDisk(target, new Set(keys)).catch((error) =>
+        logger.error("settings", "Couldn't read settings again", error),
+      );
+      await write(target);
+      await target.save();
+    } catch (error) {
+      logger.error("settings", "Couldn't save settings", error);
+    }
+  });
+}
+
+/// Takes in a change made to `settings.json` outside the app (`nookly cli settings`, a hand
+/// edit). Runs after any save still on its way.
+export function refreshSettings(): Promise<void> {
+  const target = store;
+  if (!target) return Promise.resolve();
+  return enqueue(() =>
+    mergeFromDisk(target).catch((error) =>
+      logger.error("settings", "Couldn't read settings again", error),
+    ),
+  );
+}
+
+/// How often the app looks for a change made outside it while it runs.
+const REFRESH_MS = 2000;
+
+/// Keeps the app in step with `settings.json`: every few seconds and whenever the window
+/// comes back. Returns the stop.
+export function watchSettingsFile(): () => void {
+  const refresh = () => void refreshSettings();
+  const timer = setInterval(refresh, REFRESH_MS);
+  window.addEventListener("focus", refresh);
+  return () => {
+    clearInterval(timer);
+    window.removeEventListener("focus", refresh);
+  };
 }
 
 /// One change in `settings.apply`: a new value, or back to the default. The value is
@@ -58,7 +127,7 @@ export const settings = {
     // SAFETY: `parse` of this id returns this id's value type.
     const parsed = definitionOf(id).parse(value) as SettingValue<I>;
     withValue(id, parsed);
-    persist((s) => s.set(id, parsed));
+    persist([id], (s) => s.set(id, parsed));
   },
   /// Several changes as one update: memory changes together, and the file is written in
   /// the order given, stopping at the first failure so a later change never lands
@@ -77,12 +146,15 @@ export const settings = {
       }
       return { values };
     });
-    persist(async (s) => {
-      for (const change of parsed) {
-        if ("reset" in change) await s.delete(change.id);
-        else await s.set(change.id, change.value);
-      }
-    });
+    persist(
+      parsed.map((change) => change.id),
+      async (s) => {
+        for (const change of parsed) {
+          if ("reset" in change) await s.delete(change.id);
+          else await s.set(change.id, change.value);
+        }
+      },
+    );
   },
   /// Back to the default, removed from the file.
   reset(id: SettingId) {
@@ -91,7 +163,7 @@ export const settings = {
       delete values[id];
       return { values };
     });
-    persist((s) => s.delete(id).then(() => undefined));
+    persist([id], (s) => s.delete(id).then(() => undefined));
   },
 };
 
@@ -133,7 +205,9 @@ export async function initSettings(): Promise<void> {
   let loaded: Store;
   let entries: [string, SettingJson][];
   try {
-    loaded = await load(FILE, { defaults: {}, autoSave: 100 });
+    // Saved by hand right after each change, never later on a timer: a later save could put
+    // back what the file held before a change made outside the app.
+    loaded = await load(await storePath(FILE), { defaults: {}, autoSave: false });
     entries = await loaded.entries<SettingJson>();
   } catch (error) {
     logger.error("settings", "Couldn't load settings", error);

@@ -1,0 +1,310 @@
+import { openRow } from "../test/sheet.ts";
+import {
+  createLabel,
+  createPage,
+  createSpace,
+  createSubtask,
+  createTask,
+  getEntity,
+  getTask,
+  listLabels,
+  listSpaces,
+  listSubtasks,
+  spaceModules,
+  trashEntity,
+} from "@nookly/shared/data";
+import { router } from "expo-router";
+import { act, fireEvent, waitFor } from "expo-router/testing-library";
+import { Text } from "react-native";
+import { renderScreens, testData } from "../test/render.tsx";
+import { EntityScreen } from "./EntityScreen.tsx";
+import { IconPickerScreen } from "./IconPicker.tsx";
+import { MovePicker } from "./EntityPickers.tsx";
+import { SpaceSettingsScreen } from "./SpaceSettings.tsx";
+import { MODULE_LABELS, type ModuleKey } from "@nookly/shared/modules";
+import { TrashScreen } from "./TrashScreen.tsx";
+
+/// A home screen to come back to, with the screen under test pushed on top of it.
+async function openOver(
+  routes: Record<string, () => React.JSX.Element>,
+  data: ReturnType<typeof testData>,
+  url: string,
+) {
+  const screen = await renderScreens({ index: () => <Text>Home</Text>, ...routes }, data);
+  await act(() => router.push(url));
+  return screen;
+}
+
+/// Answers the confirmation sheet titled `title` with its button `action`.
+async function answer(
+  screen: Awaited<ReturnType<typeof renderScreens>>,
+  title: string,
+  action: string,
+) {
+  expect(await screen.findByText(title)).toBeTruthy();
+  // The sheet's button comes after the page's own, which may read the same.
+  await fireEvent.press(screen.getAllByRole("button", { name: action }).at(-1)!);
+}
+
+describe("a task's effort and sub-tasks", () => {
+  it("takes an estimate, and shows it as the scale says", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const task = await createTask(data.db, space, "Write report");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={task} /> },
+      data,
+      `/entity/${task}`,
+    );
+    await openRow(screen, "Effort");
+    await fireEvent.press(await screen.findByRole("radio", { name: "M" }));
+    await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBe(3));
+    // The row shows the estimate once the page has it.
+    await fireEvent.press((await screen.findAllByRole("button", { name: "Effort, M" }))[0]);
+    // As on the desktop, the estimate is taken off with Remove effort under the sizes.
+    await fireEvent.press(await screen.findByRole("radio", { name: "Remove effort" }));
+    await waitFor(async () => expect((await getTask(data.db, task))?.effort).toBeNull());
+  });
+
+  it("adds a sub-task and shows how far along they are", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const task = await createTask(data.db, space, "Parent");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={task} /> },
+      data,
+      `/entity/${task}`,
+    );
+    await fireEvent.changeText(await screen.findByLabelText("New sub-task"), "First step");
+    await fireEvent.press(screen.getByRole("button", { name: "Add Sub-task" }));
+    await waitFor(async () =>
+      expect((await listSubtasks(data.db, task)).map((t) => t.entity.title)).toEqual([
+        "First step",
+      ]),
+    );
+    expect(await screen.findByText("First step", { exact: false })).toBeTruthy();
+    expect(await screen.findByText("0% done")).toBeTruthy();
+  });
+});
+
+describe("Space settings", () => {
+  // Every label used to draw all the colours under it; now a tap opens one label's sheet.
+  it("edits a label in its own sheet", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const label = await createLabel(data.db, space, "Urgent");
+    const screen = await openOver(
+      { "space-settings": () => <SpaceSettingsScreen spaceId={space} /> },
+      data,
+      "/space-settings",
+    );
+    expect(await screen.findByRole("button", { name: "Urgent" })).toBeTruthy();
+    expect(screen.queryByLabelText("Color of Urgent")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Urgent" }));
+    const name = await screen.findByLabelText("Name of Urgent");
+    await fireEvent.changeText(name, "Soon");
+    await fireEvent(name, "endEditing");
+    await waitFor(async () =>
+      expect((await listLabels(data.db, space)).map((l) => l.name)).toEqual(["Soon"]),
+    );
+    expect(screen.getByLabelText("Color of Urgent")).toBeTruthy();
+    expect(label).toBeTruthy();
+  });
+
+  it("renames, removes a module with a choice, adds one back, and deletes only after asking", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    await createTask(data.db, space, "Task");
+    await createPage(data.db, space, "note", "Note");
+    const screen = await openOver(
+      { "space-settings": () => <SpaceSettingsScreen spaceId={space} /> },
+      data,
+      "/space-settings",
+    );
+    const name = await screen.findByLabelText("Name");
+    await fireEvent.changeText(name, "Office");
+    await fireEvent(name, "endEditing");
+    await waitFor(async () => expect((await listSpaces(data.db))[0].name).toBe("Office"));
+    await fireEvent.press(screen.getByRole("button", { name: "Remove Tasks" }));
+    await answer(screen, "Remove Tasks?", "Hide");
+    await waitFor(async () => expect(await spaceModules(data.db, space)).toEqual(["notes"]));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Remove Tasks" })).toBeNull());
+    // A sheet of only the modules the Space does not have yet.
+    await fireEvent.press(await screen.findByRole("button", { name: "Add Module" }));
+    expect(await screen.findByRole("radio", { name: /^Tasks/ })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /^Notes/ })).toBeNull();
+    await fireEvent.press(screen.getByRole("radio", { name: /^Tasks/ }));
+    await waitFor(async () => expect(await spaceModules(data.db, space)).toContain("tasks"));
+    // As on the desktop: what goes, how much, and the Space's name typed before it can go.
+    await fireEvent.press(screen.getByRole("button", { name: "Delete Space" }));
+    expect(await screen.findByText('Delete "Office"?')).toBeTruthy();
+    expect(
+      screen.getByText(
+        "This permanently deletes the Space and everything in it, across all its modules. This cannot be undone; nothing goes to Trash.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("2 Items")).toBeTruthy();
+    const sure = () => screen.getAllByRole("button", { name: "Delete Space" }).at(-1)!;
+    expect(sure().props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.changeText(screen.getByLabelText("Type Office to confirm"), "office ");
+    expect(sure().props.accessibilityState).toMatchObject({ disabled: false });
+    expect((await listSpaces(data.db)).length).toBe(1);
+    await fireEvent.press(sure());
+    await waitFor(async () => expect(await listSpaces(data.db)).toEqual([]));
+    // Three sheets come up and go down on the way.
+  }, 15_000);
+
+  it("orders its modules by dragging, and has no Position: Spaces move in the sidebar", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    await createTask(data.db, space, "Task");
+    await createPage(data.db, space, "note", "Note");
+    const screen = await openOver(
+      { "space-settings": () => <SpaceSettingsScreen spaceId={space} /> },
+      data,
+      "/space-settings",
+    );
+    const before = await spaceModules(data.db, space);
+    // SAFETY: a new Space starts with the default modules, each a known module key.
+    const firstKey = before[0] as ModuleKey;
+    const first = await screen.findByLabelText(`${MODULE_LABELS[firstKey]}, drag to reorder`);
+    await fireEvent(first, "accessibilityAction", { nativeEvent: { actionName: "moveDown" } });
+    await waitFor(async () =>
+      expect(await spaceModules(data.db, space)).toEqual([before[1], before[0]]),
+    );
+    expect(screen.queryByText("Position")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Move Space Up" })).toBeNull();
+  });
+});
+
+describe("a Space's icon", () => {
+  it("is picked from Nookly's icons right in its settings", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const screen = await openOver(
+      { "space-settings": () => <SpaceSettingsScreen spaceId={space} /> },
+      data,
+      "/space-settings",
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Rocket" }));
+    await waitFor(async () => expect((await listSpaces(data.db))[0].icon).toBe("icon:Rocket"));
+  });
+
+  it("is an emoji from a sheet of emoji alone, opened by Choose Emoji", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const screen = await openOver(
+      {
+        "space-settings": () => <SpaceSettingsScreen spaceId={space} />,
+        "pick/icon": () => <IconPickerScreen />,
+      },
+      data,
+      "/space-settings",
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Choose Emoji" }));
+    expect(await screen.findByLabelText("Search emoji")).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "Icons" })).toBeNull();
+    await fireEvent.press((await screen.findAllByRole("button", { name: "grinning face" }))[0]);
+    await waitFor(async () => expect((await listSpaces(data.db))[0].icon).toBe("😀"));
+  });
+});
+
+describe("the icon picker", () => {
+  async function pickerFor(data: ReturnType<typeof testData>, page: string) {
+    return openOver(
+      { "pick/icon": () => <IconPickerScreen /> },
+      data,
+      `/pick/icon?kind=entity&id=${page}`,
+    );
+  }
+
+  it("gives an item a library icon", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const page = await createPage(data.db, space, "note", "Note");
+    const screen = await pickerFor(data, page);
+    await fireEvent.press(await screen.findByRole("button", { name: "Star" }));
+    await waitFor(async () => expect((await getEntity(data.db, page))?.icon).toBe("icon:Star"));
+  });
+
+  it("tints it when a color is chosen first", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const page = await createPage(data.db, space, "note", "Note");
+    const screen = await pickerFor(data, page);
+    const tints = await screen.findAllByRole("radio", { name: /^Tint #/ });
+    await fireEvent.press(tints[0]);
+    await fireEvent.press(screen.getByRole("button", { name: "Heart" }));
+    await waitFor(async () =>
+      expect((await getEntity(data.db, page))?.icon).toMatch(/^icon:Heart#[0-9a-f]{6}$/i),
+    );
+  });
+
+  it("finds a library icon by its name", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const page = await createPage(data.db, space, "note", "Note");
+    const screen = await pickerFor(data, page);
+    await fireEvent.changeText(await screen.findByLabelText("Search icons"), "hea");
+    expect(screen.getByRole("button", { name: "Heart" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Star" })).toBeNull();
+  });
+
+  it("gives an item an emoji found by name", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const page = await createPage(data.db, space, "note", "Note");
+    const screen = await pickerFor(data, page);
+    await fireEvent.press(await screen.findByRole("radio", { name: "Emoji" }));
+    await fireEvent.changeText(screen.getByLabelText("Search emoji"), "rocket");
+    await fireEvent.press(await screen.findByRole("button", { name: "rocket" }));
+    await waitFor(async () => expect((await getEntity(data.db, page))?.icon).toBe("🚀"));
+  });
+
+  // The emoji were one long scroll, cut off after a few hundred. As on the desktop, a row of
+  // the emoji groups sits at the top: a tap shows that group, all of it.
+  it("jumps to an emoji group from the row at the top", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const page = await createPage(data.db, space, "note", "Note");
+    const screen = await pickerFor(data, page);
+    await fireEvent.press(await screen.findByRole("radio", { name: "Emoji" }));
+    const smileys = screen.getByRole("tab", { name: "Smileys & Emotion" });
+    expect(smileys.props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.queryByRole("button", { name: "flag Germany" })).toBeNull();
+    await fireEvent.press(screen.getByRole("tab", { name: "Flags" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "flag Germany" }));
+    await waitFor(async () => expect((await getEntity(data.db, page))?.icon).toBe("🇩🇪"));
+  });
+});
+
+describe("moving an item", () => {
+  it("lists the other Spaces and moves the item with its sub-tasks", async () => {
+    const data = testData();
+    const from = await createSpace(data.db, "From", "#3b82f6");
+    const to = await createSpace(data.db, "To", "#22c55e");
+    const task = await createTask(data.db, from, "Task");
+    const sub = await createSubtask(data.db, task, "Sub");
+    const entity = await getEntity(data.db, task);
+    if (!entity) throw new Error("no task");
+    const screen = await renderScreens({ index: () => <MovePicker entity={entity} /> }, data);
+    expect(await screen.findByRole("radio", { name: "To" })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "From" })).toBeNull();
+    await fireEvent.press(screen.getByRole("radio", { name: "To" }));
+    await waitFor(async () => expect((await getEntity(data.db, sub))?.spaceId).toBe(to));
+  });
+});
+
+describe("Trash", () => {
+  it("empties only after asking", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const task = await createTask(data.db, space, "Old");
+    await trashEntity(data.db, task);
+    const screen = await renderScreens({ index: () => <TrashScreen /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Empty Trash" }));
+    expect(await getEntity(data.db, task)).not.toBeNull();
+    await answer(screen, "Empty Trash?", "Empty Trash");
+    await waitFor(async () => expect(await getEntity(data.db, task)).toBeNull());
+  });
+});

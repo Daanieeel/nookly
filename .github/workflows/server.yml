@@ -1,0 +1,76 @@
+name: Server
+
+# The sync server's image: built on every pull request that touches what goes into it, and
+# on a `server-v*` tag also pushed to Heroku's registry and released, once the repository
+# variable DEPLOY_ENABLED is "true". The tag names apps/server/package.json's version.
+# Server tags make no GitHub Release: the desktop's updater reads the latest release.
+
+on:
+  pull_request:
+    paths:
+      - "apps/server/**"
+      - "packages/shared/**"
+      - "bun.lock"
+      - ".dockerignore"
+      - ".github/workflows/server.yml"
+  push:
+    tags: ["server-v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: server-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  APP: ${{ vars.HEROKU_APP || 'nookly-sync' }}
+  IMAGE: registry.heroku.com/${{ vars.HEROKU_APP || 'nookly-sync' }}/web
+
+jobs:
+  image:
+    name: Build${{ startsWith(github.ref, 'refs/tags/') && ' and release' || '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag matches the server's version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(jq -r .version apps/server/package.json)
+          if [ "${GITHUB_REF_NAME}" != "server-v${version}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match apps/server/package.json (${version})"
+            exit 1
+          fi
+
+      - name: Build the image
+        run: docker build --platform linux/amd64 -f apps/server/Dockerfile -t "$IMAGE" .
+
+      - name: Push and release on Heroku
+        if: startsWith(github.ref, 'refs/tags/') && vars.DEPLOY_ENABLED == 'true'
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          echo "$HEROKU_API_KEY" | docker login registry.heroku.com --username=_ --password-stdin
+          docker push "$IMAGE"
+          image_id=$(docker inspect "$IMAGE" --format='{{.Id}}')
+          curl --fail-with-body -sS -X PATCH "https://api.heroku.com/apps/${APP}/formation" \
+            -H "Authorization: Bearer ${HEROKU_API_KEY}" \
+            -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
+            -H "Content-Type: application/json" \
+            -d "{\"updates\":[{\"type\":\"web\",\"docker_image\":\"${image_id}\"}]}"
+
+      - name: The new version answers on /health
+        if: startsWith(github.ref, 'refs/tags/') && vars.DEPLOY_ENABLED == 'true'
+        env:
+          URL: ${{ vars.SERVER_URL || 'https://sync.nookly.work' }}
+        run: |
+          version=$(jq -r .version apps/server/package.json)
+          for attempt in $(seq 1 30); do
+            running=$(curl -fsS "${URL}/health" | jq -r .version || true)
+            if [ "$running" = "$version" ]; then echo "Running ${version}"; exit 0; fi
+            sleep 10
+          done
+          echo "The server did not answer with ${version} on /health within five minutes"
+          exit 1

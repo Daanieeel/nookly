@@ -1,0 +1,492 @@
+import { TYPE } from "../ui/tokens.ts";
+import type { AgendaItem } from "@nookly/shared/data";
+import { allDayChipLook, blockLook, withAlpha } from "@nookly/shared/calendar-style";
+import {
+  DAY_MINUTES,
+  type Segment,
+  blockGeometry,
+  layoutLanes,
+  segmentsForDay,
+} from "@nookly/shared/time-grid";
+import { useRouter } from "expo-router";
+import { isFeedItem } from "../moodle/calendar.ts";
+import { itemHref } from "./ExternalEventScreen.tsx";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { type AnimatedStyle } from "react-native-reanimated";
+import type { StyleProp, ViewStyle } from "react-native";
+import { useSetting } from "../data/settings.ts";
+import { cn } from "../ui/classes.ts";
+import { haptic } from "../ui/haptics.ts";
+import { LIFT_DELAY } from "../ui/motion.ts";
+import { useIsTablet } from "../ui/pane.tsx";
+import { Text } from "../ui/Text.tsx";
+import { useCalendarColors } from "./calendar-colors.ts";
+import { localDay } from "./dates.ts";
+
+/// Pixels per hour, and the least a block is drawn tall (a short item stays tappable).
+export const HOUR_PX = 52;
+/// How far a tablet's pinch zooms the hours: about the whole day on screen, and a quarter
+/// hour as tall as a finger.
+export const MIN_HOUR_PX = 32;
+export const MAX_HOUR_PX = 128;
+
+/// The scale a tablet's pinch left the hours at, kept while the app runs, as iOS's Calendar
+/// keeps its zoom between days and views.
+let zoomedHourPx = HOUR_PX;
+
+/// How strongly a faded item still shows (the desktop's cutout dims the rest of the week).
+const FADED = 0.4;
+const MIN_BLOCK_PX = 22;
+const ALL_DAY_ROW_PX = 20;
+/// All day rows shown under the day names before the rest fold into "+ n".
+const MAX_ALL_DAY = 2;
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+const DAY_NARROW = ["S", "M", "T", "W", "T", "F", "S"];
+
+function dayParts(day: string) {
+  const [y, m, d] = day.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return { date, weekday: date.getDay(), number: d };
+}
+
+/// Minutes since midnight now, moving on every minute, for the line that marks the time.
+function useNowMinutes(): number {
+  const read = () => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  };
+  const [minutes, setMinutes] = useState(read);
+  useEffect(() => {
+    const timer = setInterval(() => setMinutes(read()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  return minutes;
+}
+
+/// "9 AM" or "09:00", as the person's time format asks.
+function hourLabel(hour: number, twelve: boolean): string {
+  if (!twelve) return `${String(hour).padStart(2, "0")}:00`;
+  if (hour === 0) return "12 AM";
+  if (hour === 12) return "12 PM";
+  return hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
+}
+
+/// The quarter hour at `y` points down a day's hours, as `HH:mm`.
+export function quarterAt(y: number, hourPx = HOUR_PX): string {
+  const minutes = Math.max(0, Math.min(DAY_MINUTES - 15, Math.floor((y / hourPx) * 4) * 15));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+}
+
+/// The width of the column of hour labels for a grid this wide.
+export const gutterFor = (width: number) => (width >= 600 ? 52 : 40);
+
+/// The pages either side of the one shown, drawn already so a swipe carries them in, and
+/// the style that slides all three together.
+export interface Neighbours {
+  before: string[];
+  after: string[];
+  slide: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+}
+
+/// A calendar's hours with each day as a column, as on the desktop: the day names and the
+/// all day items on top, the hours below, every item a block where it belongs. Blocks keep
+/// to their column: a title that does not fit is cut, and room numbers and the like appear
+/// only when the block is wide and tall enough to hold them.
+/// An event from Moodle's calendar: dashed and faint beside the solid blocks, so it never
+/// reads as one of Nookly's own, as the desktop draws its overlay.
+const externalLook = (color: string) => ({
+  backgroundColor: withAlpha(color, 0.08),
+  borderWidth: 1,
+  borderLeftWidth: 1,
+  borderStyle: "dashed" as const,
+  borderColor: withAlpha(color, 0.7),
+  borderLeftColor: withAlpha(color, 0.7),
+  opacity: 0.85,
+});
+
+export function TimeGrid({
+  days,
+  neighbours,
+  items,
+  width,
+  colorOf,
+  onCreateAt,
+  faded,
+  scrollTo,
+}: {
+  /// A finger resting on a day's hours: a new entry on that day, at that quarter hour.
+  onCreateAt?: (day: string, time: string) => void;
+  days: string[];
+  neighbours?: Neighbours;
+  items: AgendaItem[];
+  /// The grid's own width, gutter included.
+  width: number;
+  colorOf: (spaceId: string) => string | undefined;
+  /// What is drawn faded behind the rest (a course's week: everything not the course's).
+  faded?: (item: AgendaItem) => boolean;
+  /// The minute of the day the hours open scrolled to, instead of the day's start.
+  scrollTo?: number;
+}) {
+  const router = useRouter();
+  const fade = (item: AgendaItem) => (faded?.(item) ? FADED : 1);
+  const colors = useCalendarColors();
+  const [startHour] = useSetting("calendar.dayStartHour");
+  const [timeFormat] = useSetting("general.timeFormat");
+  const now = useNowMinutes();
+  const today = localDay();
+  const scroll = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
+  const tablet = useIsTablet();
+  const [hourPx, setHourPx] = useState(tablet ? zoomedHourPx : HOUR_PX);
+  const hourRef = useRef(hourPx);
+  const pinchFrom = useRef(hourPx);
+  const offset = useRef(0);
+  /// Zooms to `next` pixels an hour, keeping the time under the fingers (`focalY`, down the
+  /// day's hours) where it is on screen.
+  const zoomTo = (next: number, focalY: number) => {
+    const clamped = Math.round(Math.min(MAX_HOUR_PX, Math.max(MIN_HOUR_PX, next)));
+    const previous = hourRef.current;
+    if (clamped === previous) return;
+    hourRef.current = clamped;
+    zoomedHourPx = clamped;
+    setHourPx(clamped);
+    const onScreen = focalY - offset.current;
+    const y = Math.max(0, focalY * (clamped / previous) - onScreen);
+    offset.current = y;
+    scroll.current?.scrollTo({ y, animated: false });
+  };
+  const pinch = Gesture.Pinch()
+    .withTestId("hours-pinch")
+    .runOnJS(true)
+    .onStart(() => {
+      pinchFrom.current = hourRef.current;
+    })
+    .onUpdate((event) => zoomTo(pinchFrom.current * event.scale, event.focalY));
+  const gutter = gutterFor(width);
+  const area = width - gutter;
+  const column = area / days.length;
+  const narrow = column < 60;
+  // "timezone" leaves it to the phone's own clock.
+  const twelve =
+    timeFormat === "american" ||
+    (timeFormat === "timezone" && /AM|PM/i.test(new Date(2026, 0, 1, 15).toLocaleTimeString()));
+  const pages = neighbours ? [neighbours.before, days, neighbours.after] : [days];
+  const strip = [
+    {
+      flexDirection: "row" as const,
+      width: area * pages.length,
+      left: neighbours ? -area : 0,
+    },
+    neighbours?.slide,
+  ];
+  // The hours open at the hour the day starts: set as the starting offset, and again
+  // when the setting or the number of days changes (the content is laid out by then).
+  const startAt = (px: number) =>
+    scrollTo === undefined ? Math.max(0, startHour * px - 4) : Math.round((scrollTo / 60) * px);
+  const startY = startAt(hourPx);
+  // Not on a zoom: a pinch keeps the time under the fingers instead.
+  useEffect(() => {
+    const y = startAt(hourRef.current);
+    offset.current = y;
+    scroll.current?.scrollTo({ y, animated: false });
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `startAt` reads only these
+  }, [startHour, scrollTo, days.length]);
+
+  // SAFETY: `itemHref` gives an entity's page or the calendar event sheet, both routes.
+  const open = (id: string) => router.push(itemHref(id) as never);
+
+  /// Whether any page drawn (this one or one beside it) has all day items, so has the bar.
+  const anyAllDay = pages.some((pageDays) =>
+    pageDays.some((day) => segmentsForDay(items, day).allDay.length > 0),
+  );
+
+  /// The day names of a page, and its all day items under them.
+  const renderHeader = (pageDays: string[]) => {
+    const content = pageDays.map((day) => ({ day, ...segmentsForDay(items, day) }));
+    const rows = Math.min(MAX_ALL_DAY, Math.max(...content.map((c) => c.allDay.length), 0));
+    return (
+      <View key={pageDays[0]} style={{ width: area }}>
+        <View className="flex-row">
+          {pageDays.map((day, index) => {
+            const { weekday, number, date } = dayParts(day);
+            const isToday = day === today;
+            return (
+              <View
+                key={day}
+                className={cn(
+                  "items-center gap-0.5 border-l py-1.5",
+                  index === pageDays.length - 1 && "border-r",
+                )}
+                style={{ width: column, borderColor: colors.gridline }}
+                accessibilityLabel={date.toLocaleDateString(undefined, {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                })}
+              >
+                <Text
+                  variant="small"
+                  tone="muted"
+                  numberOfLines={1}
+                  className={isToday ? "font-medium" : undefined}
+                  style={isToday ? { color: colors.today.label } : undefined}
+                >
+                  {narrow
+                    ? DAY_NARROW[weekday]
+                    : date.toLocaleDateString(undefined, { weekday: "short" })}
+                </Text>
+                <View
+                  className="h-8 min-w-8 items-center justify-center rounded-full px-1"
+                  style={isToday ? { backgroundColor: colors.today.pill } : undefined}
+                >
+                  <Text
+                    testID="day-number"
+                    className="font-medium"
+                    style={[
+                      { fontSize: TYPE.title3.fontSize, lineHeight: TYPE.title3.lineHeight },
+                      isToday ? { color: colors.today.pillText } : null,
+                    ]}
+                  >
+                    {number}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+        {/* Drawn on every page, empty or not: a page beside this one with all day items
+            makes the bar tall here too, and the day borders carry on through it. */}
+        {anyAllDay ? (
+          <View className="flex-row flex-1">
+            {content.map(({ day, allDay }, index) => (
+              <View
+                key={day}
+                testID="all-day-day"
+                style={{ width: column, borderColor: colors.gridline }}
+                className={cn(
+                  "gap-0.5 border-l px-px",
+                  rows > 0 && "pb-1",
+                  index === content.length - 1 && "border-r",
+                )}
+              >
+                {allDay.slice(0, MAX_ALL_DAY).map((item) => {
+                  const look = allDayChipLook(item.kind);
+                  const color = colors.accent(item.kind, colorOf(item.spaceId));
+                  return (
+                    <Pressable
+                      key={item.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.title || "Untitled"}, all day`}
+                      onPress={() => open(item.id)}
+                      className="justify-center overflow-hidden rounded px-1 active:opacity-70"
+                      style={{
+                        height: ALL_DAY_ROW_PX,
+                        opacity: fade(item),
+                        backgroundColor: withAlpha(color, look.fillAlpha),
+                        borderWidth: look.borderWidth,
+                        borderColor: withAlpha(color, look.borderAlpha),
+                        borderLeftWidth: look.leftBar || look.borderWidth,
+                        borderLeftColor: color,
+                        ...(isFeedItem(item) ? externalLook(color) : null),
+                      }}
+                    >
+                      <Text numberOfLines={1} style={{ fontSize: narrow ? 9 : 11, lineHeight: 14 }}>
+                        {item.title || "Untitled"}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                {allDay.length > MAX_ALL_DAY ? (
+                  <Text variant="small" tone="muted" style={{ fontSize: 10 }}>
+                    + {allDay.length - MAX_ALL_DAY}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
+  /// The hours of a page: a line for each, a column for each day with its blocks.
+  const renderColumns = (pageDays: string[]) => {
+    const content = pageDays.map((day) => ({ day, ...segmentsForDay(items, day) }));
+    return (
+      <View key={pageDays[0]} style={{ width: area, height: 24 * hourPx }}>
+        {HOURS.map((hour) => (
+          <View
+            key={hour}
+            testID="gridline"
+            className="absolute inset-x-0 border-t"
+            style={{ top: hour * hourPx, borderColor: colors.gridline }}
+          />
+        ))}
+        {content.map(({ day, timed }, index) => {
+          const lanes = layoutLanes(timed, (MIN_BLOCK_PX / hourPx) * 60);
+          return (
+            <Pressable
+              key={day}
+              testID="gridline"
+              accessibilityLabel={onCreateAt ? `Hours of ${day}, hold to add an entry` : undefined}
+              disabled={!onCreateAt}
+              delayLongPress={LIFT_DELAY}
+              onLongPress={(event) => {
+                haptic("select");
+                onCreateAt?.(day, quarterAt(event.nativeEvent.locationY, hourPx));
+              }}
+              className={cn(
+                "absolute inset-y-0 border-l",
+                index === pageDays.length - 1 && "border-r",
+              )}
+              style={{
+                borderColor: colors.gridline,
+                left: index * column,
+                width: column,
+                backgroundColor:
+                  day === today
+                    ? withAlpha(colors.today.column.base, colors.today.column.alpha)
+                    : undefined,
+              }}
+            >
+              {timed.map((segment: Segment<AgendaItem>) => {
+                const { item } = segment;
+                const lane = lanes.get(segment);
+                if (!lane) return null;
+                const g = blockGeometry(segment, lane, hourPx, MIN_BLOCK_PX);
+                const w = g.width * column - 2;
+                const look = blockLook(item.kind);
+                const color = colors.accent(item.kind, colorOf(item.spaceId));
+                const lines = Math.max(1, Math.floor((g.height - 6) / 13));
+                const roomy = w >= 90 && g.height >= 44;
+                const time = [item.startTime, item.endTime].filter(Boolean).join(" to ");
+                return (
+                  <Pressable
+                    key={`${item.id}-${day}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.title || "Untitled"}, ${time}`}
+                    onPress={() => open(item.id)}
+                    className="absolute overflow-hidden rounded-md active:opacity-70"
+                    style={{
+                      left: g.left * column + 1,
+                      top: g.top + 1,
+                      width: w,
+                      height: g.height - 2,
+                      opacity: fade(item),
+                      backgroundColor: withAlpha(color, look.fillAlpha),
+                      borderWidth: look.borderWidth,
+                      borderColor: withAlpha(color, look.borderAlpha),
+                      borderLeftWidth: look.leftBar || look.borderWidth,
+                      borderLeftColor: color,
+                      paddingHorizontal: narrow ? 2 : 5,
+                      paddingVertical: 2,
+                      ...(isFeedItem(item) ? externalLook(color) : null),
+                    }}
+                  >
+                    <Text
+                      // A sliver of a lane keeps to one line; wrapping it would break words apart.
+                      numberOfLines={w < 44 ? 1 : roomy ? Math.min(lines, 2) : lines}
+                      style={{ fontSize: narrow ? 9 : 11, lineHeight: narrow ? 11 : 13 }}
+                      className="font-medium"
+                    >
+                      {item.title || "Untitled"}
+                    </Text>
+                    {roomy ? (
+                      <Text numberOfLines={1} tone="muted" style={{ fontSize: 10, lineHeight: 12 }}>
+                        {[time, item.location].filter(Boolean).join(" · ")}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+              {day === today ? (
+                <View
+                  pointerEvents="none"
+                  className="absolute inset-x-0 h-0.5 bg-destructive"
+                  style={{ top: (now / DAY_MINUTES) * 24 * hourPx - 1 }}
+                />
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  };
+
+  return (
+    <View className="flex-1" style={{ width }}>
+      <View
+        testID="gridline"
+        className="border-b"
+        style={{ paddingLeft: gutter, borderColor: colors.gridline }}
+      >
+        <View style={{ width: area, overflow: "hidden" }}>
+          <Animated.View testID="page-strip" style={strip}>
+            {pages.map(renderHeader)}
+          </Animated.View>
+        </View>
+      </View>
+      <ScrollView
+        ref={scroll}
+        testID="hours"
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentOffset={{ x: 0, y: startY }}
+        // The last hour clears the home bar instead of sitting under it.
+        contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+        directionalLockEnabled
+        onScroll={(event) => {
+          offset.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+      >
+        <Zoomable gesture={tablet ? pinch : null}>
+          <View testID="hours-content" style={{ height: 24 * hourPx }} className="flex-row">
+            <View style={{ width: gutter }}>
+              {HOURS.map((hour) => (
+                <Text
+                  key={hour}
+                  variant="small"
+                  tone="muted"
+                  numberOfLines={1}
+                  className="absolute right-1 text-right"
+                  style={{ top: hour * hourPx - 7, fontSize: 10, opacity: hour === 0 ? 0 : 1 }}
+                >
+                  {hourLabel(hour, twelve)}
+                </Text>
+              ))}
+            </View>
+            <View style={{ width: area, overflow: "hidden" }}>
+              <Animated.View testID="page-strip" style={strip}>
+                {pages.map(renderColumns)}
+              </Animated.View>
+            </View>
+          </View>
+        </Zoomable>
+      </ScrollView>
+    </View>
+  );
+}
+
+/// The day's hours under a tablet's pinch; a phone's as they are.
+function Zoomable({
+  gesture,
+  children,
+}: {
+  gesture: ReturnType<typeof Gesture.Pinch> | null;
+  children: React.ReactNode;
+}) {
+  if (!gesture) return children;
+  return (
+    <GestureDetector gesture={gesture}>
+      <View testID="hours-pinch-area" collapsable={false}>
+        {children}
+      </View>
+    </GestureDetector>
+  );
+}

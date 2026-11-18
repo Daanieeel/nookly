@@ -67,6 +67,8 @@ export interface EditorExtensionOptions {
   hasPages?: (entity: Entity) => boolean;
   /// Read live: the occurrence behind a session, so the "@" menu finds it by its day and time.
   sessionOf?: (entity: Entity) => SessionOccurrence | undefined;
+  /// Bound to a live document (`BlockEditor` with a live session), whose own history undoes.
+  collaborative?: boolean;
   /// The spell checker the editor underlines with; the app's shared one by default.
   spellSource?: SpellSource;
   /// The hint on an empty line.
@@ -81,11 +83,13 @@ export function editorExtensions({
   getNewCodeLanguage = () => null,
   hasPages = () => false,
   sessionOf = () => undefined,
+  collaborative = false,
   spellSource = spellController(),
   placeholder = "Type “/” for commands, or just start writing…",
 }: EditorExtensionOptions): Extensions {
   return [
     StarterKit.configure({
+      ...(collaborative && { undoRedo: false }),
       heading: { levels: [1, 2, 3, 4, 5, 6] },
       // The line shown where a drop lands; the class colors it (see `styles.css`).
       dropcursor: { color: false, width: 2, class: "nookly-drop-cursor" },

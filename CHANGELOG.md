@@ -2,6 +2,38 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.0.0 (2026-11-10)
+
+### Added
+
+- Nookly is now on your iPhone and iPad. Sign in with the same account and your Spaces, tasks, pages, study, files and settings are there, with sheets, haptics and gestures that feel at home on iOS.
+- Changes you make on one device show up on your others as you make them, and everything keeps working offline and catches up within seconds once the server can be reached again.
+- If you change the same thing on two devices, every device offers both versions side by side, and you keep one, both or a mix. Nothing is lost.
+- When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it, makes a backup first, and shows how far it got on a page of its own until everything is in. Signing out removes the account's data from that device and keeps it in the account.
+- Settings, Account lists every signed in device, and you can sign one out from another.
+- On your phone, scan paper documents straight into a Space's files, then name, label and link them while they upload.
+- Moodle works on your phone just like on your computer: sign in with your saved passwords, read your courses, pages, assignments, grades and forums, open files and import them into a Space, read what you opened before while offline, and see Moodle's deadlines on your calendar.
+- In Files, New View makes a View from a name and the labels you search for and tick, with your filters and display, and it shows up on your other devices. A View shows only its own labels at the top, and you can find the files that still have no label.
+- Your coding agent can now read and change Nookly's settings, make backups, check how syncing is going and see your connected calendars through the command line, and the open app shows a changed setting within a few seconds.
+
+### Changed
+
+- Dark mode now sits on a deep charcoal instead of pure black.
+- Corners are a little rounder and softer across the app.
+- The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.
+- New pages open at once.
+- Every list can be filtered by more of what its items have: pinned, created and updated everywhere, and its own details, like a recipe's kind and time, an exam's date and status, or when something went to Trash.
+- Typing an item's short code like TSK in search first shows what contains it, then lists every item with that code, newest first.
+
+### Fixed
+
+- **The hidden sidebar is readable when it slides in.** Resting the pointer on the left edge shows it on a solid background with a clear shadow, no longer see through over the page.
+- **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on.
+- **Your cursor stays in its word** while someone on another device types earlier in the same line.
+- **Names next to other people's cursors stay visible** in the first line of a page.
+- **An empty Notes or Jots page has room around it** instead of touching the edges.
+- **A quick swipe between Spaces goes through** even while Nookly is busy, instead of sliding back.
+
 ## 0.75.3 (2026-11-17)
 
 ### Fixed

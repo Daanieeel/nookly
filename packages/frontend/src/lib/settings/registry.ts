@@ -1,7 +1,7 @@
+import { SHARED_SETTINGS, type SettingCategory, type SettingJson } from "@nookly/shared/settings";
 import { z } from "zod";
 import { BACKUP_KEEP } from "#/lib/api/backup.ts";
 import { HOTKEYS } from "#/lib/hotkeys.ts";
-import { DEFAULT_LATEX_MACROS, serializeLatexMacros } from "#/lib/latex-macros.ts";
 import { SPELL_LANGUAGE_CODES, isSpellLanguage } from "#/lib/spell-languages.ts";
 import {
   SHORTCUT_META,
@@ -15,14 +15,7 @@ import {
 /// (`category.name`), is stored under that id in `settings.json`, and says how
 /// to validate whatever was read from disk. See docs/development/settings.md.
 
-export type SettingCategory =
-  | "general"
-  | "appearance"
-  | "calendar"
-  | "notes"
-  | "backup"
-  | "agent"
-  | "shortcuts";
+export type { SettingCategory, SettingJson };
 
 export const SETTING_CATEGORIES: SettingCategory[] = [
   "general",
@@ -31,17 +24,9 @@ export const SETTING_CATEGORIES: SettingCategory[] = [
   "notes",
   "backup",
   "agent",
+  "sync",
   "shortcuts",
 ];
-
-/// Any value `settings.json` can hold.
-export type SettingJson =
-  | string
-  | number
-  | boolean
-  | null
-  | SettingJson[]
-  | { [key: string]: SettingJson };
 
 export interface SettingDef<T extends SettingJson> {
   /// Unique, `<category>.<name>`, never renamed once released.
@@ -54,6 +39,8 @@ export interface SettingDef<T extends SettingJson> {
   default: T;
   /// Turns anything read from disk into a valid value, falling back to the default.
   parse: (raw: SettingJson) => T;
+  /// What a valid value looks like, for the settings catalog the CLI checks values against.
+  schema: z.ZodType<T>;
   /// The `preferences.json` key this setting used to live under. Its value is
   /// copied over once, then the old key is deleted.
   legacyKey?: string;
@@ -66,22 +53,15 @@ export interface SettingDef<T extends SettingJson> {
   fromLegacy?: (raw: string) => SettingJson;
 }
 
-type SettingInput<T extends SettingJson> = Omit<SettingDef<T>, "parse"> & {
-  /// What a valid value looks like. Anything else becomes `default`.
-  schema: z.ZodType<T>;
-};
+type SettingInput<T extends SettingJson> = Omit<SettingDef<T>, "parse">;
 
-function define<T extends SettingJson>({ schema, ...def }: SettingInput<T>): SettingDef<T> {
-  const lenient = schema.catch(def.default);
+function define<T extends SettingJson>(def: SettingInput<T>): SettingDef<T> {
+  const lenient = def.schema.catch(def.default);
   return { ...def, parse: (raw) => lenient.parse(raw) };
 }
 
-const FORMAT_MODES = z.enum(["american", "european", "timezone"]);
-const THEMES = z.enum(["light", "dark", "system"]);
 const FILE_VIEWER_THEMES = z.enum(["light", "dark", "defaults"]);
 const text = z.string().min(1);
-/// A length in whole steps of five minutes, from 5 minutes to 12 hours.
-const minutes = z.number().int().min(5).max(720).multipleOf(5);
 
 /// The file viewer's theme choice, with the defaults when there is none. "system",
 /// the old "follow the app theme" choice, became the defaults.
@@ -126,100 +106,38 @@ const SHORTCUT_SETTINGS = Object.fromEntries(
 export const SETTINGS = {
   ...SHORTCUT_SETTINGS,
   "appearance.theme": define({
-    id: "appearance.theme",
-    category: "appearance",
-    title: "Theme",
-    description: "Light, dark, or follow the system.",
-    synonyms: [
-      "dark mode",
-      "light mode",
-      "night mode",
-      "colors",
-      "color scheme",
-      "appearance",
-      "system",
-    ],
-    default: "system",
-    schema: THEMES,
+    ...SHARED_SETTINGS["appearance.theme"],
     legacyKey: "nookly:theme",
   }),
   "appearance.fileViewerTheme": define({
-    id: "appearance.fileViewerTheme",
-    category: "appearance",
-    title: "File viewer theme",
-    description:
-      "How files are drawn in the viewer. Defaults draws code, text and markdown dark and documents light.",
-    synonyms: [
-      "file preview",
-      "code theme",
-      "dark mode",
-      "light mode",
-      "colors",
-      "viewer",
-      "document",
-      "appearance",
-    ],
-    default: "defaults",
-    schema: FILE_VIEWER_THEMES,
+    ...SHARED_SETTINGS["appearance.fileViewerTheme"],
     legacyKey: "nookly:file-viewer-theme",
   }),
-  "general.displayName": define({
-    id: "general.displayName",
-    category: "general",
-    title: "Your name",
+  "general.displayName": define(SHARED_SETTINGS["general.displayName"]),
+  "sync.serverUrl": define({
+    id: "sync.serverUrl",
+    category: "sync",
+    title: "Server",
     description:
-      "What the Dashboard greeting calls you. Leave it empty to be greeted without a name.",
-    synonyms: ["name", "nickname", "greeting", "profile", "username", "call me", "first name"],
+      "The sync server this device signs in to, like https://sync.example.com. Sync is optional; without it everything stays on this device.",
+    synonyms: ["sync", "server", "url", "address", "cloud", "backend", "self hosted"],
     default: "",
-    schema: z.string().max(40),
+    schema: z.union([z.literal(""), z.url().max(300)]),
   }),
   "general.timezone": define({
-    id: "general.timezone",
-    category: "general",
-    title: "Time zone",
-    description: "The zone times are shown in. System follows your computer.",
-    synonyms: ["time zone", "tz", "clock", "region", "utc", "gmt", "country", "local time"],
-    default: "system",
-    schema: text,
+    ...SHARED_SETTINGS["general.timezone"],
     legacyKey: "nookly:timezone",
   }),
   "general.dateFormat": define({
-    id: "general.dateFormat",
-    category: "general",
-    title: "Date format",
-    description: "American (month first), European (day first), or the time zone's own.",
-    synonyms: [
-      "date style",
-      "locale",
-      "region",
-      "day month year",
-      "mdy",
-      "dmy",
-      "american",
-      "european",
-    ],
-    default: "timezone",
-    schema: FORMAT_MODES,
+    ...SHARED_SETTINGS["general.dateFormat"],
     legacyKey: "nookly:date-format",
   }),
   "general.timeFormat": define({
-    id: "general.timeFormat",
-    category: "general",
-    title: "Time format",
-    description: "American (12 hour), European (24 hour), or the time zone's own.",
-    synonyms: ["clock", "12 hour", "24 hour", "am pm", "military time", "american", "european"],
-    default: "timezone",
-    schema: FORMAT_MODES,
+    ...SHARED_SETTINGS["general.timeFormat"],
     legacyKey: "nookly:time-format",
   }),
   "general.effortScale": define({
-    id: "general.effortScale",
-    category: "general",
-    title: "Effort scale",
-    description: "Show task effort as T-shirt sizes or points. Stored estimates never change.",
-    synonyms: ["estimate", "t-shirt", "story points", "points", "fibonacci", "size", "tasks"],
-    default: "tshirt",
-    schema: z.enum(["tshirt", "fibonacci"]),
+    ...SHARED_SETTINGS["general.effortScale"],
     legacyKey: "nookly:effort-scale",
   }),
   "backup.folder": define<string | null>({
@@ -264,191 +182,21 @@ export const SETTINGS = {
     fromLegacy: (raw) => raw === "1",
   }),
   "notes.defaultCodeLanguage": define({
-    id: "notes.defaultCodeLanguage",
-    category: "notes",
-    title: "Default code language",
-    description:
-      "The language a new code block starts with, used for syntax highlighting. A note can pick its own.",
-    synonyms: [
-      "programming language",
-      "syntax",
-      "syntax highlighting",
-      "highlight",
-      "code block",
-      "snippet",
-      "programming",
-      "plain text",
-      "notes",
-    ],
-    default: "plaintext",
-    schema: text,
+    ...SHARED_SETTINGS["notes.defaultCodeLanguage"],
     legacyKey: "nookly:code-language",
   }),
-  "calendar.sessionLengthMinutes": define({
-    id: "calendar.sessionLengthMinutes",
-    category: "calendar",
-    title: "Session length",
-    description:
-      "How long a new session is when you click an empty slot or press New. Dragging on the calendar still sets its own length. In minutes, 5 to 720.",
-    synonyms: ["duration", "lesson length", "minutes", "time", "default length", "calendar"],
-    default: 90,
-    schema: minutes,
-  }),
-  "calendar.calendarEntryLengthMinutes": define({
-    id: "calendar.calendarEntryLengthMinutes",
-    category: "calendar",
-    title: "Calendar entry length",
-    description:
-      "How long a new calendar entry is when you click an empty slot or press New. Dragging on the calendar still sets its own length. In minutes, 5 to 720.",
-    synonyms: [
-      "duration",
-      "event length",
-      "appointment",
-      "meeting",
-      "minutes",
-      "time",
-      "default length",
-      "calendar",
-    ],
-    default: 60,
-    schema: minutes,
-  }),
-  "calendar.weekStart": define({
-    id: "calendar.weekStart",
-    category: "calendar",
-    title: "First day of the week",
-    description:
-      "Where weeks begin in calendars, date pickers and week groupings. Automatic follows the date format: American starts on Sunday, the rest on Monday.",
-    synonyms: [
-      "week start",
-      "monday",
-      "sunday",
-      "saturday",
-      "weekday",
-      "start of week",
-      "weeks begin",
-      "calendar",
-    ],
-    default: "auto",
-    schema: z.enum(["auto", "monday", "sunday", "saturday"]),
-  }),
-  "calendar.dayStartHour": define({
-    id: "calendar.dayStartHour",
-    category: "calendar",
-    title: "Day starts at",
-    description:
-      "The hour the day and week views scroll to when they open. The whole day stays available. 0 to 23.",
-    synonyms: [
-      "scroll",
-      "first hour",
-      "morning",
-      "working hours",
-      "start of day",
-      "hour",
-      "time grid",
-      "calendar",
-    ],
-    default: 7,
-    schema: z.number().int().min(0).max(23),
-  }),
-  "calendar.todayColor": define({
-    id: "calendar.todayColor",
-    category: "calendar",
-    title: "Current day colour",
-    description:
-      "The colour that marks today in the week, day and month views. Primary is the app's blue, Neutral a quiet grey.",
-    synonyms: ["today", "current day", "highlight", "colour", "color", "grey", "gray", "calendar"],
-    default: "primary",
-    schema: z.enum(["primary", "neutral"]),
-  }),
-  "calendar.todayIntensity": define({
-    id: "calendar.todayIntensity",
-    category: "calendar",
-    title: "Current day intensity",
-    description: "How strongly today's column is tinted in the week and day views.",
-    synonyms: [
-      "today",
-      "current day",
-      "contrast",
-      "highlight",
-      "strength",
-      "brightness",
-      "calendar",
-    ],
-    default: "default",
-    schema: z.enum(["low", "default", "high"]),
-  }),
-  "calendar.snapMinutes": define({
-    id: "calendar.snapMinutes",
-    category: "calendar",
-    title: "Snap to",
-    description:
-      "How finely dragging snaps on the calendar when you create, move or resize something.",
-    synonyms: [
-      "grid",
-      "drag",
-      "precision",
-      "round",
-      "increment",
-      "interval",
-      "minutes",
-      "resize",
-      "calendar",
-    ],
-    default: 15,
-    schema: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30)]),
-  }),
-  "notes.formatCodeOnPaste": define({
-    id: "notes.formatCodeOnPaste",
-    category: "notes",
-    title: "Format code when pasted",
-    description:
-      "Tidies the code in a code block right after you paste into it, for the languages that have a formatter. Undo reverts it.",
-    synonyms: ["format", "prettier", "indent", "tidy", "paste", "code block", "beautify", "notes"],
-    default: false,
-    schema: z.boolean(),
-  }),
-  "notes.latexMacros": define({
-    id: "notes.latexMacros",
-    category: "notes",
-    title: "LaTeX macros",
-    description:
-      "Your own LaTeX commands, for every math block and inline formula in every Space. It starts with a few common ones, like \\abs and \\norm.",
-    synonyms: [
-      "latex",
-      "katex",
-      "math",
-      "newcommand",
-      "macro",
-      "command",
-      "notation",
-      "formula",
-      "equation",
-      "custom",
-      "notes",
-    ],
-    default: serializeLatexMacros(DEFAULT_LATEX_MACROS),
-    schema: z.string().max(20_000),
-  }),
-  "notes.vimMode": define({
-    id: "notes.vimMode",
-    category: "notes",
-    title: "Vim keys in pages",
-    description:
-      "Edit pages with Vim's modes and keys: normal, insert and visual mode, motions like w and $, operators like d, c and y with text objects, counts, u to undo. Press ? in normal mode for the list. Off, the editor behaves as usual.",
-    synonyms: [
-      "vim",
-      "neovim",
-      "modal",
-      "keybindings",
-      "normal mode",
-      "insert mode",
-      "hjkl",
-      "notes",
-    ],
-    default: false,
-    schema: z.boolean(),
-  }),
+  "calendar.sessionLengthMinutes": define(SHARED_SETTINGS["calendar.sessionLengthMinutes"]),
+  "calendar.calendarEntryLengthMinutes": define(
+    SHARED_SETTINGS["calendar.calendarEntryLengthMinutes"],
+  ),
+  "calendar.weekStart": define(SHARED_SETTINGS["calendar.weekStart"]),
+  "calendar.dayStartHour": define(SHARED_SETTINGS["calendar.dayStartHour"]),
+  "calendar.todayColor": define(SHARED_SETTINGS["calendar.todayColor"]),
+  "calendar.todayIntensity": define(SHARED_SETTINGS["calendar.todayIntensity"]),
+  "calendar.snapMinutes": define(SHARED_SETTINGS["calendar.snapMinutes"]),
+  "notes.formatCodeOnPaste": define(SHARED_SETTINGS["notes.formatCodeOnPaste"]),
+  "notes.latexMacros": define(SHARED_SETTINGS["notes.latexMacros"]),
+  "notes.vimMode": define(SHARED_SETTINGS["notes.vimMode"]),
   "notes.spellcheck": define({
     id: "notes.spellcheck",
     category: "notes",
@@ -489,45 +237,9 @@ export const SETTINGS = {
     default: ["en"],
     schema: z.array(z.string().refine(isSpellLanguage)).max(SPELL_LANGUAGE_CODES.length),
   }),
-  "notes.arrowLigatures": define({
-    id: "notes.arrowLigatures",
-    category: "notes",
-    title: "Turn arrows into symbols",
-    description:
-      "Typing -> gives →, <= gives ≤, != gives ≠ and so on, outside code. Turn off to keep exactly what you type.",
-    synonyms: [
-      "arrows",
-      "ligatures",
-      "autocorrect",
-      "symbols",
-      "replace",
-      "typography",
-      "comparison",
-      "notes",
-    ],
-    default: true,
-    schema: z.boolean(),
-  }),
-  "notes.editorFont": define({
-    id: "notes.editorFont",
-    category: "notes",
-    title: "Page font",
-    description:
-      "The typeface pages are written in. Default is the app's own, Serif is easier on long reading, Mono suits notes full of code.",
-    synonyms: ["typeface", "font family", "serif", "monospace", "text", "writing", "notes"],
-    default: "default",
-    schema: z.enum(["default", "serif", "mono"]),
-  }),
-  "notes.editorFontSize": define({
-    id: "notes.editorFontSize",
-    category: "notes",
-    title: "Page text size",
-    description:
-      "How large the text of a page is, in pixels. Headings grow and shrink with it. The default is 14.",
-    synonyms: ["font size", "bigger text", "smaller text", "zoom", "text size", "writing", "notes"],
-    default: 14,
-    schema: z.number().int().min(12).max(24),
-  }),
+  "notes.arrowLigatures": define(SHARED_SETTINGS["notes.arrowLigatures"]),
+  "notes.editorFont": define(SHARED_SETTINGS["notes.editorFont"]),
+  "notes.editorFontSize": define(SHARED_SETTINGS["notes.editorFontSize"]),
 };
 
 export type SettingId = keyof typeof SETTINGS;

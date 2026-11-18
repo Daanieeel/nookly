@@ -24,16 +24,34 @@ pub fn ensure_settings_file(dir: &Path) -> AppResult<PathBuf> {
     Ok(path)
 }
 
-/// Opens `settings.json` in the default app. Not `db::resolve_app_data_dir`: the store
-/// plugin resolves its files against the platform app data folder in every build, so a
-/// debug build reads the same file as the installed app.
+/// Where the frontend keeps `settings.json` and `preferences.json` (the store plugin):
+/// `None` for the platform app data folder, which the store plugin resolves on its own.
+/// A debug build keeps its own copies next to its database (`db::resolve_app_data_dir`),
+/// so it never reads or changes the installed app's settings.
+#[tauri::command]
+pub fn store_dir(app: AppHandle) -> AppResult<Option<String>> {
+    if !cfg!(debug_assertions) {
+        return Ok(None);
+    }
+    let dir = crate::db::resolve_app_data_dir(
+        app.path()
+            .app_data_dir()
+            .map_err(|e| AppError::Io(e.to_string()))?,
+    );
+    std::fs::create_dir_all(&dir).map_err(|e| AppError::Io(e.to_string()))?;
+    Ok(Some(dir.to_string_lossy().into_owned()))
+}
+
+/// Opens `settings.json` in the default app: the file the store plugin reads and
+/// writes (see `store_dir`).
 #[tauri::command]
 pub fn open_settings_file(app: AppHandle) -> AppResult<()> {
     use tauri_plugin_opener::OpenerExt;
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| AppError::Io(e.to_string()))?;
+    let dir = crate::db::resolve_app_data_dir(
+        app.path()
+            .app_data_dir()
+            .map_err(|e| AppError::Io(e.to_string()))?,
+    );
     let path = ensure_settings_file(&dir)?;
     app.opener()
         .open_path(path.to_string_lossy().to_string(), None::<&str>)

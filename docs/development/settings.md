@@ -2,11 +2,11 @@
 
 Hard settings live in `settings.json` in the app data folder, a flat JSON object keyed by setting id. Code reads and writes them through [`packages/frontend/src/lib/settings/settings.ts`](../../packages/frontend/src/lib/settings/settings.ts); the list is [`registry.ts`](../../packages/frontend/src/lib/settings/registry.ts). View state (sorts, tabs, filters, display options, dismissed cards) stays in `preferences.json`, see [`preference-keys.md`](preference-keys.md).
 
-Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `general`, `appearance`, `calendar`, `notes`, `backup`, `agent`, `shortcuts`. An id is never renamed once released.
+Ids are `<category>.<name>`, like `appearance.theme`. The category is one of `general`, `appearance`, `calendar`, `notes`, `backup`, `agent`, `sync`, `shortcuts`. An id is never renamed once released.
 
 ## Settings file
 
-"Show Settings File" in the commands palette and the button under the Settings categories open `settings.json` in the default editor, creating it as `{}` when missing and never replacing an existing one. The path is the platform app data folder in every build (the store plugin ignores `.dev-data`), so a debug build edits the installed app's settings. Edit with the app closed: it saves its own copy over the file.
+"Show Settings File" in the commands palette and the button under the Settings categories open `settings.json` in the default editor, creating it as `{}` when missing and never replacing an existing one. The path is the platform app data folder in a release build; a debug build keeps its own `settings.json` and `preferences.json` in its data folder (`.dev-data` or `NOOKLY_DATA_DIR`, `commands::settings_file::store_dir`), so development never touches the installed app's settings. The app reads the file again before every save and every few seconds (`refreshSettings`, `watchSettingsFile`), so a hand edit or `nookly cli settings` shows up while it runs and is never saved over. Saves happen right after each change, not on a timer.
 
 ## Add a setting
 
@@ -27,6 +27,16 @@ The Calendar page is `CalendarPage.tsx`, like Shortcuts a page of its own: a wee
 The Editor page's Text section sets the font (`notes.editorFont`) and size (`notes.editorFontSize`) of pages. [`page-typography.ts`](../../packages/frontend/src/features/notes/page-typography.ts) puts them in CSS variables on the document, `.page-editor` in `styles.css` reads them, and the sample under the size row reads the same settings.
 
 The Backup tab holds everything about backups inline: a status card (last backup, size, folder, Back up now, a failed backup shown as an alert), the folder, the daily switch and Restore (the controls live in [`features/backup`](../../packages/frontend/src/features/backup)). A restore still ends in `ConfirmPermanentDialog` with a typed phrase.
+
+## CLI
+
+`nookly cli settings <list|get|set|reset>` (`apps/desktop/src-tauri/src/cli/settings.rs`) reads and writes `settings.json` in the same data folder. It knows each setting from `cli/settings-catalog.json`, generated from the registry by [`catalog.ts`](../../packages/frontend/src/lib/settings/catalog.ts): id, title, description, default, whether it syncs, and its schema as JSON Schema. A new or changed setting fails `catalog.test.ts` until the catalog is regenerated with `NOOKLY_UPDATE_SNAPSHOTS=1`. A write keeps every other key, goes through a temporary file and a rename, and never touches a file that can't be read. Checks a JSON Schema can't express (a shortcut clashing with another) are left to the app's `parse`.
+
+## Sync
+
+`sync.serverUrl` is the server this device signs in to; empty means sync is off. The Account tab (category id `sync`) opens the sign in dialog, shows the status, the first sync, files, the devices and what is shared with you (`features/sync`). The session token lives in the OS keychain (a separate entry for debug builds), never in a file. Signing out keeps every row and forgets only what the device knew of the server. See [the sync protocol](sync-protocol.md).
+
+Settings that describe the person follow the account (`SYNCED_SETTINGS` in `packages/shared/src/sync/settings.ts`): they are mirrored into the synced `account_settings` table. Theme, backups, the server, Vim keys and shortcuts stay per device.
 
 ## Agent files
 

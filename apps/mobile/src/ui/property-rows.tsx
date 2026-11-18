@@ -1,0 +1,408 @@
+import { IconX } from "@tabler/icons-react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, TextInput, type TextInputProps, View } from "react-native";
+import { z } from "zod";
+import { Button } from "./Button.tsx";
+import { shownValue } from "./DateField.tsx";
+import { usePropertyLook } from "./parts.tsx";
+import { Property } from "./Property.tsx";
+import { DayPicker } from "./sheet/DayPicker.tsx";
+import { type Option, OptionList } from "./sheet/OptionList.tsx";
+import { YearInput } from "./YearInput.tsx";
+import { DialogActions, Sheet, type SheetSize, useSheet } from "./sheet/Sheet.tsx";
+import { useAnchor } from "./sheet/anchor.ts";
+import { TimeInput, useTwelveHour } from "./TimeInput.tsx";
+import { LIST_ROW } from "./touch.ts";
+import { Label } from "./kit/Label.tsx";
+import { useSemanticPair } from "./kit/scheme.ts";
+import { FACE, SPACE, TYPE } from "./tokens.ts";
+import { Text } from "./Text.tsx";
+import { useTheme } from "./theme.ts";
+
+/// The rows of a `PropertyList`, by what they hold: a choice among a few, a day or a time, a
+/// line of text, a number, or anything else (`SheetProperty` with its own picker).
+
+/// A property row that opens its picker in the app's sheet, titled with its name.
+export function SheetProperty({
+  icon,
+  label,
+  value,
+  valueIcon,
+  empty,
+  valueTone,
+  readOnly = false,
+  size,
+  children,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  valueIcon?: React.ReactNode;
+  empty?: boolean;
+  valueTone?: "destructive";
+  readOnly?: boolean;
+  size?: SheetSize;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  // A tablet's picker hangs from the row (3.5).
+  const anchor = useAnchor();
+  return (
+    <>
+      <Property
+        ref={anchor.ref}
+        icon={icon}
+        label={label}
+        value={value}
+        valueIcon={valueIcon}
+        empty={empty}
+        valueTone={valueTone}
+        disabled={readOnly}
+        onPress={() => setOpen(true)}
+      />
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title={label}
+        size={size}
+        presentation="card"
+        kind="picker"
+        anchor={anchor}
+      >
+        {children}
+      </Sheet>
+    </>
+  );
+}
+
+/// One of a few choices: the row says the one picked; tapped, the choices in a sheet, as
+/// the desktop's property popover lists them.
+export function ChoiceProperty<Id extends string>({
+  icon,
+  label,
+  value,
+  options,
+  onChange,
+  readOnly = false,
+  emptyId,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: Id;
+  options: Option<Id>[];
+  onChange: (id: Id) => void;
+  readOnly?: boolean;
+  /// The desktop popover's search field: "Change status…". Every choice can be searched.
+  /// The choice that means nothing is set (None, Never).
+  emptyId?: Id;
+}) {
+  const current = options.find((option) => option.id === value);
+  const shown = {
+    icon,
+    label,
+    value: current?.label ?? "None",
+    valueIcon: current?.icon,
+    empty: !current || current.id === emptyId,
+  };
+  const list = (
+    <OptionList label={label} options={options} value={value} onChange={onChange} search />
+  );
+  // Every select opens the sheet, however few its choices (D50).
+  return (
+    <SheetProperty {...shown} readOnly={readOnly}>
+      {list}
+    </SheetProperty>
+  );
+}
+
+/// A time of day typed in a sheet, as the desktop's time field, with Clear and Done.
+export function TimePicker({
+  label,
+  value,
+  onChange,
+  clearable = true,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (value: string | null) => void;
+  clearable?: boolean;
+}) {
+  return (
+    <View className="gap-6 pt-2">
+      <TimeInput label={label} value={value} onChange={onChange} autoFocus large />
+      <PickerActions
+        label={label}
+        onClear={clearable && value ? () => onChange(null) : undefined}
+      />
+    </View>
+  );
+}
+
+/// A year in a sheet of its own, typed as a time is: the large digits, and Done.
+export function YearPicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (year: number) => void;
+}) {
+  return (
+    <View className="gap-6 pt-2">
+      <YearInput label={label} value={value} onChange={onChange} autoFocus />
+      <PickerActions label={label} />
+    </View>
+  );
+}
+
+/// What a typed picker ends with: Done, and Clear beside it when there is something to clear.
+function PickerActions({ label, onClear }: { label: string; onClear?: () => void }) {
+  const sheet = useSheet();
+  return (
+    <DialogActions>
+      {onClear ? (
+        <View className="flex-1">
+          <Button
+            variant="destructive"
+            size="lg"
+            label={`Clear ${label}`}
+            onPress={() => {
+              onClear();
+              sheet?.close();
+            }}
+          />
+        </View>
+      ) : null}
+      <View className="flex-1">
+        <Button size="lg" label="Done" onPress={() => sheet?.close()} />
+      </View>
+    </DialogActions>
+  );
+}
+
+/// A day or a time of day: the row says it; tapped, the desktop's calendar (or time field)
+/// in a sheet, with the quick picks and Clear.
+export function DayProperty({
+  icon,
+  label,
+  mode = "date",
+  value,
+  placeholder,
+  onChange,
+  readOnly = false,
+  quick,
+  clearable = true,
+  valueTone,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  mode?: "date" | "time";
+  value: string | null;
+  placeholder?: string;
+  onChange: (value: string | null) => void;
+  readOnly?: boolean;
+  /// Buttons beside Clear: `Today`, `Tomorrow`.
+  quick?: { label: string; value: string }[];
+  /// Whether the value can be taken away (a session always has a day).
+  clearable?: boolean;
+  valueTone?: "destructive";
+}) {
+  const twelve = useTwelveHour();
+  return (
+    <SheetProperty
+      icon={icon}
+      label={label}
+      value={value ? shownValue(mode, value, twelve) : (placeholder ?? "None")}
+      empty={!value}
+      valueTone={valueTone}
+      readOnly={readOnly}
+    >
+      {mode === "date" ? (
+        <DayPicker
+          label={label}
+          value={value}
+          onChange={onChange}
+          quick={quick}
+          clearable={clearable}
+        />
+      ) : (
+        <TimePicker label={label} value={value} onChange={onChange} clearable={clearable} />
+      )}
+    </SheetProperty>
+  );
+}
+
+/// A property typed in place: its icon, then its name small above the value, which saves when
+/// typing ends (blank clears it). A tap anywhere on the row puts the cursor in it.
+function InputRow({
+  icon,
+  label,
+  value,
+  readOnly,
+  placeholder,
+  keyboardType,
+  onChangeText,
+  onEndEditing,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  readOnly: boolean;
+  placeholder?: string;
+  keyboardType?: TextInputProps["keyboardType"];
+  onChangeText: (text: string) => void;
+  onEndEditing: () => void;
+}) {
+  // Solid greys: a text field draws a colour's transparency twice, which reads fainter
+  // than the values beside it.
+  const valueColor = useSemanticPair("secondaryLabelSolid").color;
+  const placeholderColor = useSemanticPair("placeholder").color;
+  const { fontWeight, ...size } = TYPE.body;
+  const field = useRef<TextInput>(null);
+  return (
+    <Pressable
+      accessible={false}
+      onPress={() => field.current?.focus()}
+      style={[
+        LIST_ROW,
+        { flexDirection: "row", alignItems: "center", gap: SPACE.md, paddingHorizontal: SPACE.xs },
+      ]}
+    >
+      {icon}
+      <View style={{ flex: 1, flexDirection: "column", paddingVertical: SPACE.xs }}>
+        <Label type="footnote" color="secondaryLabel" numberOfLines={1}>
+          {label}
+        </Label>
+        <TextInput
+          ref={field}
+          accessibilityLabel={label}
+          value={value}
+          editable={!readOnly}
+          placeholder={placeholder ?? "None"}
+          placeholderTextColor={placeholderColor}
+          keyboardType={keyboardType}
+          onChangeText={onChangeText}
+          onEndEditing={onEndEditing}
+          returnKeyType="done"
+          maxFontSizeMultiplier={2}
+          style={[
+            size,
+            { minHeight: 26, paddingVertical: 0, fontFamily: FACE[fontWeight], color: valueColor },
+          ]}
+        />
+      </View>
+    </Pressable>
+  );
+}
+
+export function TextRow({
+  icon,
+  label,
+  value,
+  placeholder,
+  onSave,
+  readOnly = false,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string | null;
+  placeholder?: string;
+  onSave: (value: string | null) => void;
+  readOnly?: boolean;
+}) {
+  const look = usePropertyLook();
+  const [text, setText] = useState(value ?? "");
+  useEffect(() => setText(value ?? ""), [value]);
+  // Typed in place in the details; at a glance it shows what it holds, read only.
+  if (look === "chip") return value ? <Property icon={icon} label={label} value={value} /> : null;
+  return (
+    <InputRow
+      icon={icon}
+      label={label}
+      value={text}
+      readOnly={readOnly}
+      placeholder={placeholder}
+      onChangeText={setText}
+      onEndEditing={() => {
+        const next = text.trim() || null;
+        if (next !== value) onSave(next);
+      }}
+    />
+  );
+}
+
+/// "", or a number written with a dot or a comma.
+const numberText = z.union([
+  z.literal("").transform(() => null),
+  z
+    .string()
+    .transform((t) => Number(t.replace(",", ".")))
+    .pipe(z.number().finite().min(0)),
+]);
+
+/// A number edited in place, like `TextRow`. Blank clears it; what is not a number says so.
+export function NumberRow({
+  icon,
+  label,
+  value,
+  placeholder,
+  onSave,
+  readOnly = false,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: number | null;
+  placeholder?: string;
+  onSave: (value: number | null) => void;
+  readOnly?: boolean;
+}) {
+  const theme = useTheme();
+  const look = usePropertyLook();
+  const [text, setText] = useState(value === null ? "" : String(value));
+  useEffect(() => setText(value === null ? "" : String(value)), [value]);
+  const parsed = numberText.safeParse(text.trim());
+  if (look === "chip") {
+    return value === null ? null : <Property icon={icon} label={label} value={String(value)} />;
+  }
+  return (
+    <View>
+      <InputRow
+        icon={icon}
+        label={label}
+        value={text}
+        readOnly={readOnly}
+        placeholder={placeholder}
+        keyboardType="decimal-pad"
+        onChangeText={setText}
+        onEndEditing={() => parsed.success && parsed.data !== value && onSave(parsed.data)}
+      />
+      {parsed.success ? null : (
+        <View className="flex-row items-center gap-1 px-1 pb-2">
+          <IconX size={12} color={theme.colors.destructive} />
+          <Text variant="small" tone="destructive">
+            Enter a number, like 1.7
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+/// A property that is only read: a kind, a date added, a path.
+export function InfoRow({
+  icon,
+  label,
+  value,
+  glance,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  /// What the chip at a glance says instead of the bare value, when the value alone does not
+  /// say what it is ("3 cards" for a count of 3).
+  glance?: string;
+}) {
+  // Nothing to change: at a glance it is a quiet chip that says what it holds.
+  return <Property icon={icon} label={label} value={value} chipText={glance} />;
+}

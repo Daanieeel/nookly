@@ -106,3 +106,13 @@ describe("quick filters on the Notes page", () => {
     expect(screen.queryByRole("group", { name: "Quick filters" })).toBeNull();
   });
 });
+
+describe("an empty Notes page", () => {
+  // It sat flush against the page's edges, without the list's own padding.
+  it("keeps the same padding as the list", async () => {
+    mockCommand("list_note_summaries", []);
+    renderWithProviders(<NotesListView spaceId="space-1" />);
+    const heading = await screen.findByRole("heading", { name: "Notes" });
+    expect(heading.parentElement?.className).toMatch(/\bp-6\b/);
+  });
+});

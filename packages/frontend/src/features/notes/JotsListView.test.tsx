@@ -53,3 +53,13 @@ describe("quick filters on the Jots page", () => {
     expect(screen.getByText("Recent idea")).toBeInTheDocument();
   });
 });
+
+describe("an empty Jots page", () => {
+  // It sat flush against the page's edges, without the list's own padding.
+  it("keeps the same padding as the list", async () => {
+    mockCommand("list_jot_summaries", []);
+    renderWithProviders(<JotsListView spaceId="space-1" />);
+    const heading = await screen.findByRole("heading", { name: "Jots" });
+    expect(heading.parentElement?.className).toMatch(/\bp-6\b/);
+  });
+});

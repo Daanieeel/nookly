@@ -1,0 +1,989 @@
+import { z } from "zod";
+import type { SqlValue } from "../schema.ts";
+import type { SqlStatement } from "../sync/sql.ts";
+import { type LocalDb, first, iso, num, optStr, rows, str, write } from "./db.ts";
+import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } from "./entities.ts";
+import {
+  type CardState,
+  type NextDue,
+  type Rating,
+  type Schedule,
+  preview,
+  review,
+} from "./fsrs.ts";
+
+/// Courses, Exams, Assignments and Decks with their Index Cards, written as the
+/// desktop's `db::courses`, `db::exams`, `db::assignments` and `db::decks` write them.
+
+type Row = Record<string, SqlValue>;
+const optNum = (value: SqlValue | undefined) =>
+  value === null || value === undefined ? null : Number(value);
+/// Trims, and stores blank as unset, like the desktop's `clean_text`.
+const clean = (value: string | null) => value?.trim() || null;
+
+/// Replaces the one link of `type` from `fromId` (exam to course, deck to exam, ...).
+function relink(db: LocalDb, fromId: string, type: string, toId: string | null): SqlStatement[] {
+  const statements: SqlStatement[] = [
+    {
+      sql: "DELETE FROM relationships WHERE from_entity_id = ? AND relationship_type = ?",
+      params: [fromId, type],
+    },
+  ];
+  if (toId) {
+    statements.push({
+      sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, ?, ?)",
+      params: [db.newId(), fromId, toId, type, iso(db)],
+    });
+  }
+  return statements;
+}
+
+/// The other end of an entity's one link of `type`, as a column of a query.
+const linkedTo = (type: string) =>
+  `(SELECT r.to_entity_id FROM relationships r WHERE r.from_entity_id = e.id AND r.relationship_type = '${type}' LIMIT 1)`;
+
+const live = "e.deleted_at IS NULL AND e.hidden_at IS NULL";
+
+function spaceFilter(spaceId?: string): { where: string; params: SqlValue[] } {
+  return spaceId ? { where: " AND e.space_id = ?", params: [spaceId] } : { where: "", params: [] };
+}
+
+async function update(
+  db: LocalDb,
+  table: string,
+  id: string,
+  patch: Record<string, SqlValue | undefined>,
+): Promise<void> {
+  const fields = Object.entries(patch).filter(([, value]) => value !== undefined);
+  if (fields.length === 0) return;
+  await write(db, [
+    {
+      sql: `UPDATE ${table} SET ${fields.map(([name]) => `${name} = ?`).join(", ")} WHERE entity_id = ?`,
+      params: [...fields.map(([, value]) => value ?? null), id],
+    },
+    { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
+  ]);
+}
+
+/// A weight as a whole percentage. Weight is stored as a fraction (`0.2`); older whole
+/// numbers are percentages.
+export function weightPercent(weight: number | null): number | null {
+  if (weight === null) return null;
+  return Math.round(weight <= 1 ? weight * 100 : weight);
+}
+
+// --- Courses ---------------------------------------------------------------
+
+export interface CourseRecord {
+  entity: EntityRecord;
+  professor: string | null;
+  room: string | null;
+}
+
+export async function listCourses(db: LocalDb, spaceId?: string): Promise<CourseRecord[]> {
+  const filter = spaceFilter(spaceId);
+  return (
+    await rows(
+      db,
+      `SELECT ${ENTITY_COLUMNS}, c.professor, c.room FROM entities e JOIN courses c ON c.entity_id = e.id
+       WHERE ${live}${filter.where} ORDER BY e.created_at`,
+      ...filter.params,
+    )
+  ).map((r) => ({ entity: toEntity(r), professor: optStr(r.professor), room: optStr(r.room) }));
+}
+
+export async function getCourse(db: LocalDb, id: string): Promise<CourseRecord | null> {
+  const row = await first(
+    db,
+    `SELECT ${ENTITY_COLUMNS}, c.professor, c.room FROM entities e JOIN courses c ON c.entity_id = e.id WHERE e.id = ?`,
+    id,
+  );
+  return row
+    ? { entity: toEntity(row), professor: optStr(row.professor), room: optStr(row.room) }
+    : null;
+}
+
+export async function createCourse(db: LocalDb, spaceId: string, title: string): Promise<string> {
+  const { id, statements } = createEntityStatements(db, spaceId, "course", title);
+  await write(db, [
+    ...statements,
+    { sql: "INSERT INTO courses (entity_id) VALUES (?)", params: [id] },
+  ]);
+  return id;
+}
+
+export async function setCourseProfessor(
+  db: LocalDb,
+  id: string,
+  professor: string | null,
+): Promise<void> {
+  await update(db, "courses", id, { professor: clean(professor) });
+}
+
+export async function setCourseRoom(db: LocalDb, id: string, room: string | null): Promise<void> {
+  await update(db, "courses", id, { room: clean(room) });
+}
+
+// --- Exams -----------------------------------------------------------------
+
+export interface ExamRecord {
+  entity: EntityRecord;
+  courseId: string | null;
+  examDate: string | null;
+  examTime: string | null;
+  room: string | null;
+  weight: number | null;
+  grade: number | null;
+  status: string;
+}
+
+const EXAM_SELECT = `SELECT ${ENTITY_COLUMNS}, x.exam_date, x.exam_time, x.room, x.weight, x.grade, x.status,
+  ${linkedTo("exam-course")} AS course_id FROM entities e JOIN exams x ON x.entity_id = e.id`;
+
+function toExam(r: Row): ExamRecord {
+  return {
+    entity: toEntity(r),
+    courseId: optStr(r.course_id),
+    examDate: optStr(r.exam_date),
+    examTime: optStr(r.exam_time),
+    room: optStr(r.room),
+    weight: optNum(r.weight),
+    grade: optNum(r.grade),
+    status: str(r.status),
+  };
+}
+
+/// Exams of a Space, or of every Space, soonest first and undated last.
+export async function listExams(
+  db: LocalDb,
+  query: { spaceId?: string; courseId?: string } = {},
+): Promise<ExamRecord[]> {
+  const filter = spaceFilter(query.spaceId);
+  const byCourse = query.courseId ? ` AND ${linkedTo("exam-course")} = ?` : "";
+  return (
+    await rows(
+      db,
+      `${EXAM_SELECT} WHERE ${live}${filter.where}${byCourse} ORDER BY x.exam_date IS NULL, x.exam_date, x.exam_time`,
+      ...filter.params,
+      ...(query.courseId ? [query.courseId] : []),
+    )
+  ).map(toExam);
+}
+
+export async function getExam(db: LocalDb, id: string): Promise<ExamRecord | null> {
+  const row = await first(db, `${EXAM_SELECT} WHERE e.id = ?`, id);
+  return row ? toExam(row) : null;
+}
+
+/// `create_exam`: upcoming, in its Course.
+export async function createExam(
+  db: LocalDb,
+  spaceId: string,
+  title: string,
+  courseId: string,
+  examDate: string | null = null,
+): Promise<string> {
+  const { id, statements } = createEntityStatements(db, spaceId, "exam", title);
+  await write(db, [
+    ...statements,
+    {
+      sql: "INSERT INTO exams (entity_id, exam_date, weight, grade, status) VALUES (?, ?, NULL, NULL, 'upcoming')",
+      params: [id, examDate],
+    },
+    ...relink(db, id, "exam-course", courseId),
+  ]);
+  return id;
+}
+
+export interface ExamPatch {
+  examDate?: string | null;
+  examTime?: string | null;
+  room?: string | null;
+  weight?: number | null;
+  grade?: number | null;
+  status?: string;
+}
+
+export async function updateExam(db: LocalDb, id: string, patch: ExamPatch): Promise<void> {
+  await update(db, "exams", id, {
+    exam_date: patch.examDate,
+    exam_time: patch.examTime,
+    room: patch.room === undefined ? undefined : clean(patch.room),
+    weight: patch.weight,
+    grade: patch.grade,
+    status: patch.status,
+  });
+}
+
+/// `set_exam_course`: the exam moves to another Course.
+export async function setExamCourse(db: LocalDb, id: string, courseId: string): Promise<void> {
+  await write(db, relink(db, id, "exam-course", courseId));
+}
+
+// --- Assignments -----------------------------------------------------------
+
+export interface AssignmentRecord {
+  entity: EntityRecord;
+  courseId: string | null;
+  dueDate: string | null;
+  /// Due this many days before a session of its Course, set on the desktop.
+  dueSessionOffsetDays: number | null;
+  weight: number | null;
+  grade: number | null;
+  status: string;
+  /// While it follows the next session: the local moment (`YYYY-MM-DD HH:MM`) that was set,
+  /// so it keeps the session next then once that one starts; null otherwise.
+  dueSessionAfter: string | null;
+  /// Not graded at all, like homework: no grade, and no share of the course's grade.
+  ungraded: boolean;
+  /// When the status last changed to evaluated; null while it is not.
+  evaluatedAt: string | null;
+}
+
+const ASSIGNMENT_SELECT = `SELECT ${ENTITY_COLUMNS}, a.due_date, a.due_session_offset_days, a.due_session_after, a.weight, a.grade, a.status, a.ungraded, a.evaluated_at,
+  ${linkedTo("assignment-course")} AS course_id FROM entities e JOIN assignments a ON a.entity_id = e.id`;
+
+function toAssignment(r: Row): AssignmentRecord {
+  return {
+    entity: toEntity(r),
+    courseId: optStr(r.course_id),
+    dueDate: optStr(r.due_date),
+    dueSessionOffsetDays: optNum(r.due_session_offset_days),
+    weight: optNum(r.weight),
+    grade: optNum(r.grade),
+    status: str(r.status),
+    dueSessionAfter: optStr(r.due_session_after),
+    ungraded: Number(r.ungraded) === 1,
+    evaluatedAt: optStr(r.evaluated_at),
+  };
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/// A session's course.
+const SESSION_FROM_COURSE = `FROM sessions s
+  JOIN entities e ON e.id = s.entity_id
+  JOIN relationships r ON r.from_entity_id = s.entity_id
+    AND r.relationship_type = 'session-course' AND r.to_entity_id = ?
+  WHERE e.deleted_at IS NULL`;
+
+/// The day an assignment due `offset` days before its course's next session is due: that
+/// session is the first one, not cancelled or trashed, that has not started yet. With none
+/// left, the course's last session that still exists, so cancelling the only one does not
+/// wipe the day (`assignments.rs`, `next_session_due`).
+async function nextSessionDue(
+  db: LocalDb,
+  courseId: string,
+  offset: number,
+  today: string,
+  now: string,
+): Promise<string | null> {
+  const shift = `-${offset} days`;
+  const upcoming = await first(
+    db,
+    `SELECT date(s.date, ?) AS day ${SESSION_FROM_COURSE} AND s.cancelled = 0
+       AND (s.date > ? OR (s.date = ? AND s.start_time > ?))
+       ORDER BY s.date ASC, s.start_time ASC LIMIT 1`,
+    shift,
+    courseId,
+    today,
+    today,
+    now,
+  );
+  if (upcoming) return optStr(upcoming.day);
+  const last = await first(
+    db,
+    `SELECT date(s.date, ?) AS day ${SESSION_FROM_COURSE} ORDER BY s.date DESC LIMIT 1`,
+    shift,
+    courseId,
+  );
+  return last ? optStr(last.day) : null;
+}
+
+/// The day of an assignment due before sessions, worked out when read so it follows sessions
+/// that move, get cancelled or trashed. A picked session wins over the next one; cancelled or
+/// trashed, the day moves on to the first live session after it, and with none stays on the
+/// pick's own day (`assignments.rs`, `resolve_due_date`).
+async function resolveDue(db: LocalDb, record: AssignmentRecord): Promise<AssignmentRecord> {
+  const offset = record.dueSessionOffsetDays;
+  if (offset === null) return record;
+  const clock = db.now();
+  const today = `${clock.getFullYear()}-${pad(clock.getMonth() + 1)}-${pad(clock.getDate())}`;
+  const now = `${pad(clock.getHours())}:${pad(clock.getMinutes())}`;
+  const shift = `-${offset} days`;
+  const picked = await first(
+    db,
+    `SELECT r.to_entity_id AS session FROM relationships r
+       WHERE r.from_entity_id = ? AND r.relationship_type = 'assignment-due-session'`,
+    record.entity.id,
+  );
+  const sessionId = picked ? str(picked.session) : null;
+  if (sessionId) {
+    const own = await first(
+      db,
+      `SELECT s.date, s.start_time, (s.cancelled = 0 AND e.deleted_at IS NULL) AS live
+         FROM sessions s JOIN entities e ON e.id = s.entity_id WHERE s.entity_id = ?`,
+      sessionId,
+    );
+    if (own) {
+      const date = str(own.date);
+      let day: string | null;
+      if (Number(own.live) === 1) {
+        day = optStr((await first(db, "SELECT date(?, ?) AS day", date, shift))?.day);
+      } else {
+        const after = await first(
+          db,
+          `SELECT date(s.date, ?) AS day FROM sessions s
+             JOIN entities e ON e.id = s.entity_id
+             JOIN relationships r ON r.from_entity_id = s.entity_id
+               AND r.relationship_type = 'session-course'
+               AND r.to_entity_id = (SELECT to_entity_id FROM relationships
+                 WHERE from_entity_id = ? AND relationship_type = 'session-course')
+             WHERE e.deleted_at IS NULL AND s.cancelled = 0
+               AND (s.date > ? OR (s.date = ? AND s.start_time > ?))
+             ORDER BY s.date ASC, s.start_time ASC LIMIT 1`,
+          shift,
+          sessionId,
+          date,
+          date,
+          str(own.start_time),
+        );
+        day = after
+          ? optStr(after.day)
+          : optStr((await first(db, "SELECT date(?, ?) AS day", date, shift))?.day);
+      }
+      return { ...record, dueDate: day };
+    }
+  }
+  // The session that was next when it was set, not the one next now.
+  const [afterDay, afterTime] = record.dueSessionAfter?.split(" ") ?? [];
+  const dueDate = record.courseId
+    ? await nextSessionDue(db, record.courseId, offset, afterDay ?? today, afterTime ?? now)
+    : null;
+  return { ...record, dueDate };
+}
+
+export async function listAssignments(
+  db: LocalDb,
+  query: { spaceId?: string; courseId?: string } = {},
+): Promise<AssignmentRecord[]> {
+  const filter = spaceFilter(query.spaceId);
+  const byCourse = query.courseId ? ` AND ${linkedTo("assignment-course")} = ?` : "";
+  const found = (
+    await rows(
+      db,
+      `${ASSIGNMENT_SELECT} WHERE ${live}${filter.where}${byCourse} ORDER BY a.due_date IS NULL, a.due_date`,
+      ...filter.params,
+      ...(query.courseId ? [query.courseId] : []),
+    )
+  ).map(toAssignment);
+  const resolved = await Promise.all(found.map((record) => resolveDue(db, record)));
+  // In due order, undated last, once the days that follow sessions are worked out.
+  return resolved.sort((a, b) =>
+    a.dueDate === b.dueDate
+      ? 0
+      : a.dueDate === null
+        ? 1
+        : b.dueDate === null
+          ? -1
+          : a.dueDate < b.dueDate
+            ? -1
+            : 1,
+  );
+}
+
+export async function getAssignment(db: LocalDb, id: string): Promise<AssignmentRecord | null> {
+  const row = await first(db, `${ASSIGNMENT_SELECT} WHERE e.id = ?`, id);
+  return row ? resolveDue(db, toAssignment(row)) : null;
+}
+
+/// The session an assignment is due before, when one is picked (else the next one counts).
+export async function assignmentDueSession(db: LocalDb, id: string): Promise<string | null> {
+  const row = await first(
+    db,
+    "SELECT to_entity_id AS session FROM relationships WHERE from_entity_id = ? AND relationship_type = 'assignment-due-session'",
+    id,
+  );
+  return row ? str(row.session) : null;
+}
+
+/// `update_assignment_due_before_session`: due this many days before the course's next
+/// session, or, with `sessionId`, before that one session of its course; with no offset, back
+/// to the fixed day it has. The day itself is worked out when read.
+export async function setAssignmentDueBeforeSession(
+  db: LocalDb,
+  id: string,
+  offsetDays: number | null,
+  sessionId: string | null,
+): Promise<void> {
+  if (
+    offsetDays !== null &&
+    !(Number.isInteger(offsetDays) && offsetDays >= 0 && offsetDays <= 365)
+  ) {
+    throw new Error("The days must be between 0 and 365.");
+  }
+  if (offsetDays === null && sessionId !== null) {
+    throw new Error("A session needs the days before it.");
+  }
+  if (sessionId !== null) {
+    const course = await first(
+      db,
+      "SELECT to_entity_id AS course FROM relationships WHERE from_entity_id = ? AND relationship_type = 'assignment-course'",
+      id,
+    );
+    const sessionCourse = await first(
+      db,
+      "SELECT to_entity_id AS course FROM relationships WHERE from_entity_id = ? AND relationship_type = 'session-course'",
+      sessionId,
+    );
+    if (!course || !sessionCourse || str(course.course) !== str(sessionCourse.course)) {
+      throw new Error("The session must be one of the assignment's course.");
+    }
+  }
+  // Following the next session means the one next now, so it stays put once that session
+  // starts. Changing only the days keeps the moment it already has.
+  let after: string | null = null;
+  if (offsetDays !== null && sessionId === null) {
+    const kept = await first(
+      db,
+      `SELECT a.due_session_after AS after FROM assignments a
+         WHERE a.entity_id = ? AND a.due_session_offset_days IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM relationships r
+                           WHERE r.from_entity_id = a.entity_id
+                             AND r.relationship_type = 'assignment-due-session')`,
+      id,
+    );
+    const clock = db.now();
+    after =
+      (kept ? optStr(kept.after) : null) ??
+      `${clock.getFullYear()}-${pad(clock.getMonth() + 1)}-${pad(clock.getDate())} ${pad(clock.getHours())}:${pad(clock.getMinutes())}`;
+  }
+  await write(db, [
+    {
+      sql: "UPDATE assignments SET due_session_offset_days = ?, due_session_after = ? WHERE entity_id = ?",
+      params: [offsetDays, after, id],
+    },
+    ...relink(db, id, "assignment-due-session", sessionId),
+    { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
+  ]);
+}
+
+/// `create_assignment`: not started, in its Course.
+export async function createAssignment(
+  db: LocalDb,
+  spaceId: string,
+  title: string,
+  courseId: string,
+  dueDate: string | null = null,
+): Promise<string> {
+  const { id, statements } = createEntityStatements(db, spaceId, "assignment", title);
+  await write(db, [
+    ...statements,
+    {
+      sql: "INSERT INTO assignments (entity_id, due_date, status, grade) VALUES (?, ?, 'not_started', NULL)",
+      params: [id, dueDate],
+    },
+    ...relink(db, id, "assignment-course", courseId),
+  ]);
+  return id;
+}
+
+export interface AssignmentPatch {
+  weight?: number | null;
+  grade?: number | null;
+  status?: string;
+  ungraded?: boolean;
+}
+
+export async function updateAssignment(
+  db: LocalDb,
+  id: string,
+  patch: AssignmentPatch,
+): Promise<void> {
+  await update(db, "assignments", id, {
+    weight: patch.weight,
+    grade: patch.grade,
+    ungraded: patch.ungraded === undefined ? undefined : patch.ungraded ? 1 : 0,
+  });
+  if (patch.status === undefined) return;
+  // `update_assignment_status`: the stamp is kept while it stays evaluated and cleared
+  // when it is reopened.
+  await write(db, [
+    {
+      sql: `UPDATE assignments SET
+              evaluated_at = CASE
+                WHEN ? <> 'evaluated' THEN NULL
+                WHEN status = 'evaluated' AND evaluated_at IS NOT NULL THEN evaluated_at
+                ELSE ? END,
+              status = ?
+            WHERE entity_id = ?`,
+      params: [patch.status, iso(db), patch.status, id],
+    },
+    { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
+  ]);
+}
+
+/// `update_assignment_due_date`: a fixed day, which stops following a session.
+export async function setAssignmentDueDate(
+  db: LocalDb,
+  id: string,
+  dueDate: string | null,
+): Promise<void> {
+  await write(db, [
+    {
+      sql: "UPDATE assignments SET due_date = ?, due_session_offset_days = NULL, due_session_after = NULL WHERE entity_id = ?",
+      params: [dueDate, id],
+    },
+    ...relink(db, id, "assignment-due-session", null),
+    { sql: "UPDATE entities SET updated_at = ? WHERE id = ?", params: [iso(db), id] },
+  ]);
+}
+
+export async function setAssignmentCourse(
+  db: LocalDb,
+  id: string,
+  courseId: string,
+): Promise<void> {
+  await write(db, relink(db, id, "assignment-course", courseId));
+}
+
+// --- Decks and Index Cards -------------------------------------------------
+
+/// Learning cards due this soon still show when nothing else is due (the desktop's
+/// `LEARN_AHEAD_MINUTES`).
+const LEARN_AHEAD_MS = 20 * 60_000;
+
+export interface IndexCard extends Schedule {
+  id: string;
+  deckId: string;
+  /// Each face as text: what it was written as, or its blocks' markdown.
+  front: string;
+  back: string;
+  /// Each face's blocks when it was written with blocks (the desktop's card writer, the
+  /// phone's), else null and the text is all there is.
+  frontBlocks: CardBlock[] | null;
+  backBlocks: CardBlock[] | null;
+}
+
+/// One block of a card's face, as the desktop stores it (`page_json::BlockJson`).
+export interface CardBlock {
+  type: string;
+  content: string;
+  language: string | null;
+  filename: string | null;
+  attrs: Record<string, string>;
+}
+
+const cardBlockSchema = z.object({
+  type: z.string(),
+  content: z.string().default(""),
+  language: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
+  filename: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
+  attrs: z
+    .record(z.string(), z.unknown())
+    .default({})
+    .transform((attrs) =>
+      Object.fromEntries(Object.entries(attrs).map(([k, v]) => [k, String(v)])),
+    ),
+});
+
+/// A face's blocks column read back; anything unreadable counts as no blocks, so the text
+/// still shows.
+function faceBlocks(raw: SqlValue | undefined): CardBlock[] | null {
+  const stored = z.string().min(1).safeParse(raw);
+  if (!stored.success) return null;
+  try {
+    const parsed = z.array(cardBlockSchema).safeParse(JSON.parse(stored.data));
+    return parsed.success && parsed.data.length > 0 ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/// A face's blocks as the text the desktop keeps beside them (`block_to_markdown`), close
+/// enough for search, a list of cards and a device that reads only text.
+export function cardFaceText(blocks: Pick<CardBlock, "type" | "content" | "language">[]): string {
+  const one = (block: (typeof blocks)[number]) => {
+    const heading = /^heading([1-6])$/.exec(block.type);
+    if (heading) return `${"#".repeat(Number(heading[1]))} ${block.content}`;
+    if (block.type === "equation" || block.type === "math") return `$$\n${block.content}\n$$`;
+    if (block.type === "quote")
+      return block.content
+        .split("\n")
+        .map((l) => `> ${l}`)
+        .join("\n");
+    if (block.type === "code") return `\`\`\`${block.language ?? ""}\n${block.content}\n\`\`\``;
+    return block.content;
+  };
+  return blocks.map(one).join("\n\n");
+}
+
+type TextFaceBlock = Pick<CardBlock, "type" | "content"> & { attrs?: CardBlock["attrs"] };
+
+/// `$$…$$` over any number of lines, or its LaTeX spellings `\[…\]`, as old cards wrote
+/// display math in their text.
+const DISPLAY_MATH = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]/g;
+
+/// The blocks an old card's text becomes when it is edited: a paragraph per line, display
+/// math as an equation block, `\(…\)` as the `$…$` the editor reads.
+export function textFaceBlocks(text: string): TextFaceBlock[] {
+  const blocks: TextFaceBlock[] = [];
+  const addLines = (chunk: string) => {
+    for (const line of chunk.split("\n")) {
+      blocks.push({
+        type: "paragraph",
+        content: line.replace(/\\\((.+?)\\\)/g, "$$$1$$"),
+      });
+    }
+  };
+  let last = 0;
+  for (const match of text.matchAll(DISPLAY_MATH)) {
+    // The line break that sets a formula apart is not an empty line of its own.
+    const before = text.slice(last, match.index).replace(/\n$/, "");
+    if (before || (last === 0 && match.index > 0)) addLines(before);
+    blocks.push({
+      type: "equation",
+      content: (match[1] ?? match[2] ?? "").trim(),
+      attrs: { view: "rendered" },
+    });
+    last = match.index + match[0].length;
+    if (text[last] === "\n") last += 1;
+  }
+  if (last < text.length || blocks.length === 0) addLines(text.slice(last));
+  return blocks;
+}
+
+/// A face given to write: text (drops its blocks, as the desktop does) or blocks.
+export type CardFace = { text: string } | { blocks: Partial<CardBlock>[] };
+
+function storedFace(face: CardFace): [text: string, blocks: string | null] {
+  if ("text" in face) return [face.text, null];
+  const blocks = face.blocks.map((b) => cardBlockSchema.parse(b));
+  return [cardFaceText(blocks), JSON.stringify(blocks)];
+}
+
+export interface DeckStats {
+  total: number;
+  new: number;
+  learning: number;
+  /// Review cards due now.
+  due: number;
+}
+
+export interface DeckRecord {
+  entity: EntityRecord;
+  examId: string | null;
+  stats: DeckStats;
+}
+
+const CARD_STATES: CardState[] = ["new", "learning", "review", "relearning"];
+const cardState = (value: SqlValue | undefined): CardState =>
+  CARD_STATES.find((s) => s === value) ?? "new";
+
+function toCard(r: Row): IndexCard {
+  return {
+    id: str(r.id),
+    deckId: str(r.deck_entity_id),
+    front: str(r.front),
+    back: str(r.back),
+    frontBlocks: faceBlocks(r.front_blocks),
+    backBlocks: faceBlocks(r.back_blocks),
+    state: cardState(r.state),
+    dueAt: str(r.due_at),
+    stability: num(r.stability),
+    difficulty: num(r.difficulty),
+    elapsedDays: num(r.elapsed_days),
+    scheduledDays: num(r.scheduled_days),
+    reps: num(r.reps),
+    lapses: num(r.lapses),
+    lastReviewAt: optStr(r.last_review_at),
+  };
+}
+
+export async function listCards(db: LocalDb, deckId: string): Promise<IndexCard[]> {
+  return (
+    await rows(
+      db,
+      "SELECT * FROM index_cards WHERE deck_entity_id = ? AND deleted_at IS NULL ORDER BY created_at",
+      deckId,
+    )
+  ).map(toCard);
+}
+
+const isDue = (card: IndexCard, now: number) => Date.parse(card.dueAt) <= now;
+const learning = (card: IndexCard) => card.state === "learning" || card.state === "relearning";
+
+export function deckStats(cards: IndexCard[], now = Date.now()): DeckStats {
+  return {
+    total: cards.length,
+    new: cards.filter((c) => c.state === "new").length,
+    learning: cards.filter((c) => learning(c) && isDue(c, now)).length,
+    due: cards.filter((c) => c.state === "review" && isDue(c, now)).length,
+  };
+}
+
+/// What to study now, like the desktop's `study_queue`: cards in (re)learning, reviews,
+/// then new cards, each by due time. With nothing due, learning cards coming back soon.
+export function studyQueue(cards: IndexCard[], now = Date.now()): IndexCard[] {
+  const rank = (c: IndexCard) => (learning(c) ? 0 : c.state === "review" ? 1 : 2);
+  const sorted = [...cards].sort(
+    (a, b) => rank(a) - rank(b) || Date.parse(a.dueAt) - Date.parse(b.dueAt),
+  );
+  const due = sorted.filter((c) => isDue(c, now));
+  if (due.length > 0) return due;
+  return sorted.filter((c) => learning(c) && Date.parse(c.dueAt) <= now + LEARN_AHEAD_MS);
+}
+
+export async function listDecks(db: LocalDb, spaceId?: string): Promise<DeckRecord[]> {
+  const filter = spaceFilter(spaceId);
+  const decks = await rows(
+    db,
+    `SELECT ${ENTITY_COLUMNS}, ${linkedTo("deck-exam")} AS exam_id FROM entities e
+     JOIN index_card_decks d ON d.entity_id = e.id WHERE ${live}${filter.where} ORDER BY e.created_at`,
+    ...filter.params,
+  );
+  return Promise.all(
+    decks.map(async (r) => ({
+      entity: toEntity(r),
+      examId: optStr(r.exam_id),
+      stats: deckStats(await listCards(db, str(r.id))),
+    })),
+  );
+}
+
+export async function getDeck(db: LocalDb, id: string): Promise<DeckRecord | null> {
+  const row = await first(
+    db,
+    `SELECT ${ENTITY_COLUMNS}, ${linkedTo("deck-exam")} AS exam_id FROM entities e
+     JOIN index_card_decks d ON d.entity_id = e.id WHERE e.id = ?`,
+    id,
+  );
+  if (!row) return null;
+  return {
+    entity: toEntity(row),
+    examId: optStr(row.exam_id),
+    stats: deckStats(await listCards(db, id)),
+  };
+}
+
+/// How many of a deck's cards were rated since `since` (the start of today, in the device's
+/// time zone), as the desktop's deck shows under "Rated today".
+export async function reviewedToday(db: LocalDb, deckId: string, since: Date): Promise<number> {
+  const row = await first(
+    db,
+    `SELECT COUNT(*) AS n FROM index_card_reviews r JOIN index_cards c ON c.id = r.card_id
+     WHERE c.deck_entity_id = ? AND r.reviewed_at >= ?`,
+    deckId,
+    since.toISOString(),
+  );
+  return Number(row?.n ?? 0);
+}
+
+/// `create_deck`, filed under an Exam or none.
+export async function createDeck(
+  db: LocalDb,
+  spaceId: string,
+  title: string,
+  examId: string | null = null,
+): Promise<string> {
+  const { id, statements } = createEntityStatements(db, spaceId, "index_card_deck", title);
+  await write(db, [
+    ...statements,
+    { sql: "INSERT INTO index_card_decks (entity_id) VALUES (?)", params: [id] },
+    ...(examId ? relink(db, id, "deck-exam", examId) : []),
+  ]);
+  return id;
+}
+
+export async function setDeckExam(db: LocalDb, id: string, examId: string | null): Promise<void> {
+  await write(db, relink(db, id, "deck-exam", examId));
+}
+
+/// A face given as plain text, or as text or blocks.
+function faceOf(face: string | CardFace): CardFace {
+  const text = z.string().safeParse(face);
+  // SAFETY: `face` is a string or a `CardFace`, and it is not a string.
+  return text.success ? { text: text.data } : (face as CardFace);
+}
+
+/// `create_card`: each face as text or as blocks.
+export async function createCard(
+  db: LocalDb,
+  deckId: string,
+  front: string | CardFace,
+  back: string | CardFace,
+): Promise<string> {
+  const id = db.newId();
+  const now = iso(db);
+  const [frontText, frontBlocks] = storedFace(faceOf(front));
+  const [backText, backBlocks] = storedFace(faceOf(back));
+  await write(db, [
+    {
+      sql: "INSERT INTO index_cards (id, deck_entity_id, front, back, front_blocks, back_blocks, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      params: [id, deckId, frontText, backText, frontBlocks, backBlocks, now, now, now],
+    },
+  ]);
+  return id;
+}
+
+export async function updateCard(
+  db: LocalDb,
+  id: string,
+  front: string,
+  back: string,
+): Promise<void> {
+  await write(db, [
+    {
+      sql: "UPDATE index_cards SET front = ?, back = ?, front_blocks = NULL, back_blocks = NULL, updated_at = ? WHERE id = ?",
+      params: [front, back, iso(db), id],
+    },
+  ]);
+}
+
+/// `update_card`: rewrites the faces given and leaves the other as it is, so a face written
+/// with blocks keeps them.
+export async function updateCardFaces(
+  db: LocalDb,
+  id: string,
+  faces: { front?: CardFace; back?: CardFace },
+): Promise<void> {
+  const sets: string[] = [];
+  const params: SqlValue[] = [];
+  for (const side of ["front", "back"] as const) {
+    const face = faces[side];
+    if (!face) continue;
+    const [text, blocks] = storedFace(face);
+    sets.push(`${side} = ?`, `${side}_blocks = ?`);
+    params.push(text, blocks);
+  }
+  if (sets.length === 0) return;
+  await write(db, [
+    {
+      sql: `UPDATE index_cards SET ${sets.join(", ")}, updated_at = ? WHERE id = ?`,
+      params: [...params, iso(db), id],
+    },
+  ]);
+}
+
+/// `delete_card`: marked deleted, never removed.
+export async function deleteCard(db: LocalDb, id: string): Promise<void> {
+  await write(db, [
+    { sql: "UPDATE index_cards SET deleted_at = ? WHERE id = ?", params: [iso(db), id] },
+  ]);
+}
+
+/// The card's schedule as the desktop stores it with a review, so undo works there.
+function snapshot(card: Schedule): string {
+  return JSON.stringify({
+    state: card.state,
+    due_at: card.dueAt,
+    stability: card.stability,
+    difficulty: card.difficulty,
+    elapsed_days: card.elapsedDays,
+    scheduled_days: card.scheduledDays,
+    reps: card.reps,
+    lapses: card.lapses,
+    last_review_at: card.lastReviewAt,
+  });
+}
+
+/// `review_card`: schedules the card with FSRS for `rating` and logs the review.
+export async function reviewCard(db: LocalDb, id: string, rating: Rating): Promise<void> {
+  const row = await first(db, "SELECT * FROM index_cards WHERE id = ?", id);
+  if (!row) throw new Error("This card is gone.");
+  const previous = toCard(row);
+  const now = db.now();
+  const { card: next, log } = review(previous, rating, now);
+  await write(db, [
+    {
+      sql: `UPDATE index_cards SET state = ?, due_at = ?, stability = ?, difficulty = ?, elapsed_days = ?,
+            scheduled_days = ?, reps = ?, lapses = ?, last_review_at = ?, updated_at = ? WHERE id = ?`,
+      params: [
+        next.state,
+        next.dueAt,
+        next.stability,
+        next.difficulty,
+        next.elapsedDays,
+        next.scheduledDays,
+        next.reps,
+        next.lapses,
+        next.lastReviewAt,
+        iso(db),
+        id,
+      ],
+    },
+    {
+      sql: "INSERT INTO index_card_reviews (id, card_id, rating, state, elapsed_days, scheduled_days, previous, reviewed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      params: [
+        db.newId(),
+        id,
+        rating,
+        log.state,
+        log.elapsedDays,
+        log.scheduledDays,
+        snapshot(previous),
+        now.toISOString(),
+      ],
+    },
+  ]);
+}
+
+const snapshotSchema = z.object({
+  state: z.string(),
+  due_at: z.string(),
+  stability: z.number(),
+  difficulty: z.number(),
+  elapsed_days: z.number(),
+  scheduled_days: z.number(),
+  reps: z.number(),
+  lapses: z.number(),
+  last_review_at: z.string().nullable(),
+});
+
+/// `undo_review`: the card back the way it was before its latest review, and that review
+/// dropped from the log.
+export async function undoReview(db: LocalDb, id: string): Promise<void> {
+  const latest = await first(
+    db,
+    "SELECT id, previous FROM index_card_reviews WHERE card_id = ? ORDER BY reviewed_at DESC LIMIT 1",
+    id,
+  );
+  if (!latest) throw new Error("This card has no review to undo.");
+  let previous: z.infer<typeof snapshotSchema>;
+  try {
+    previous = snapshotSchema.parse(JSON.parse(str(latest.previous)));
+  } catch {
+    throw new Error("This review can't be undone: its saved state is unreadable.");
+  }
+  await write(db, [
+    {
+      sql: `UPDATE index_cards SET state = ?, due_at = ?, stability = ?, difficulty = ?, elapsed_days = ?,
+            scheduled_days = ?, reps = ?, lapses = ?, last_review_at = ?, updated_at = ? WHERE id = ?`,
+      params: [
+        previous.state,
+        previous.due_at,
+        previous.stability,
+        previous.difficulty,
+        previous.elapsed_days,
+        previous.scheduled_days,
+        previous.reps,
+        previous.lapses,
+        previous.last_review_at,
+        iso(db),
+        id,
+      ],
+    },
+    { sql: "DELETE FROM index_card_reviews WHERE id = ?", params: [str(latest.id)] },
+  ]);
+}
+
+/// When the card comes back for each rating.
+export function nextDue(card: IndexCard, now = new Date()): NextDue {
+  return preview(card, now);
+}

@@ -1,6 +1,66 @@
 {
   "versions": [
     {
+      "version": "1.0.0",
+      "date": "2026-11-10",
+      "title": "Nookly on your phone, synced everywhere",
+      "summary": "An iPhone and iPad app, one account for all your devices, live sync and a calm way to settle clashes.",
+      "highlights": [
+        {
+          "title": "Nookly for iPhone and iPad",
+          "description": "Your Spaces, tasks, pages, study and files on your phone, with sheets, haptics and gestures that feel at home on iOS.",
+          "icon": "device-mobile",
+          "tag": "New"
+        },
+        {
+          "title": "One account, every device",
+          "description": "Sign in on your computer, phone and tablet, and choose whether what is already on a device joins your account.",
+          "icon": "user-circle",
+          "tag": "New"
+        },
+        {
+          "title": "Live across devices",
+          "description": "Edits show up on your other devices as you make them, and changes made offline catch up within seconds once you are back.",
+          "icon": "cloud",
+          "tag": "New"
+        },
+        {
+          "title": "You decide on clashes",
+          "description": "When two devices changed the same thing, every device offers both versions side by side, and you keep one, both or a mix.",
+          "icon": "layout-columns",
+          "tag": "New"
+        },
+        {
+          "title": "Views of your files by label",
+          "description": "Make a View in Files from a name and the labels you search and tick, and it keeps your filters and display too.",
+          "icon": "filter",
+          "tag": "New"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Settings, Account shows each signed in device, and you can sign one out from another.",
+          "The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.",
+          "Corners are a little rounder and softer across the app.",
+          "New pages open at once.",
+          "Every list can be filtered by more of what its items have, like a recipe's time or an exam's date.",
+          "Typing an item's short code like TSK in search lists every item with that code, after what contains it.",
+          "A backup is made before a device first sends its things to your account.",
+          "On your phone, scan paper documents straight into a Space's files and name, label and link them while they upload.",
+          "Moodle works on your phone just like on your computer: read your courses, pages, assignments, grades and forums, open and import files, read them offline, and see Moodle's deadlines on your calendar.",
+          "Your coding agent can read and change Nookly's settings, make backups, check how syncing is going and see your connected calendars through the command line, and the open app shows a changed setting within a few seconds."
+        ],
+        "Fixed": [
+          "The hidden sidebar slides in on a solid background with a clear shadow when you rest the pointer on the left edge.",
+          "In Vim's normal and visual mode the cursor is a block over the character it is on again.",
+          "Your cursor stays in its word while someone on another device types earlier in the same line.",
+          "Names next to other people's cursors stay visible in the first line of a page.",
+          "An empty Notes or Jots page has room around it instead of touching the edges.",
+          "A quick swipe between Spaces goes through even while Nookly is busy, instead of sliding back."
+        ]
+      }
+    },
+    {
       "version": "0.75.3",
       "date": "2026-11-17",
       "highlights": [],

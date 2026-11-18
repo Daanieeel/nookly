@@ -8,7 +8,11 @@ import {
 import type { FilterField } from "#/components/filter-menu.tsx";
 import type { TaskStatus } from "#/lib/api/types.ts";
 import { EFFORT_STEPS, effortLabel } from "#/lib/effort.ts";
-import { CREATED_FILTER_FIELD, UPDATED_FILTER_FIELD } from "./shared-view-defs";
+import {
+  CREATED_FILTER_FIELD,
+  PINNED_FILTER_FIELD,
+  UPDATED_FILTER_FIELD,
+} from "./shared-view-defs";
 import {
   COMPLETED_BUCKETS,
   DUE_BUCKETS,
@@ -67,5 +71,6 @@ export function taskFilterFields(
         { value: NO_EFFORT, label: "No estimate" },
       ],
     },
+    PINNED_FILTER_FIELD,
   ];
 }

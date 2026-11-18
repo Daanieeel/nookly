@@ -1,0 +1,13 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["jest"]
+  },
+  "include": ["src", "*.ts", "nativewind-env.d.ts"],
+  "exclude": ["styles.test.ts", "code-highlight.test.ts"]
+}

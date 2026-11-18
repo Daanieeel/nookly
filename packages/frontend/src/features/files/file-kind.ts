@@ -15,6 +15,7 @@ import {
   IconPresentation,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
+import { FILE_EXTENSIONS, TEXT_EXTENSIONS } from "@nookly/shared/data";
 import type { FileEntity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
 
@@ -45,57 +46,19 @@ const KINDS = {
 
 type KindId = keyof typeof KINDS;
 
-const EXTENSIONS: [KindId, string[]][] = [
-  ["image", ["png", "jpg", "jpeg", "gif", "webp", "heic", "svg", "bmp", "avif"]],
-  ["pdf", ["pdf"]],
-  ["document", ["doc", "docx", "docm", "dotx", "pages", "rtf", "odt", "txt", "md"]],
-  ["sheet", ["xls", "xlsx", "xlsm", "numbers", "csv", "ods"]],
-  ["slides", ["ppt", "pptx", "key", "odp"]],
-  ["archive", ["zip", "rar", "7z", "tar", "gz"]],
-  ["audio", ["mp3", "wav", "m4a", "flac", "aac", "ogg"]],
-  ["video", ["mp4", "mov", "mkv", "webm", "avi"]],
-  [
-    "code",
-    [
-      "js",
-      "mjs",
-      "cjs",
-      "jsx",
-      "ts",
-      "tsx",
-      "py",
-      "rs",
-      "go",
-      "java",
-      "c",
-      "h",
-      "cpp",
-      "hpp",
-      "cs",
-      "php",
-      "rb",
-      "json",
-      "html",
-      "htm",
-      "css",
-      "sql",
-      "toml",
-      "yaml",
-      "yml",
-      "ini",
-      "sh",
-      "bash",
-      "zsh",
-    ],
-  ],
-];
+const EXTENSIONS = FILE_EXTENSIONS;
 
 /// Every kind a filter can offer, in a stable order.
 export const FILE_KINDS: FileKind[] = Object.entries(KINDS).map(([id, kind]) => ({ id, ...kind }));
 
 /// Only a link, no stored copy: Files from before links were downloaded.
 export function isLinkOnly(file: FileEntity): boolean {
-  return !file.localPath && !file.sourcePath && Boolean(file.url);
+  return !file.localPath && !file.sourcePath && !file.blob && Boolean(file.url);
+}
+
+/// In the account, not on this device yet: its contents are downloading.
+export function isDownloading(file: FileEntity): boolean {
+  return !file.localPath && !file.sourcePath && Boolean(file.blob);
 }
 
 /// Added by path and left where it is on disk, not copied into storage.
@@ -142,14 +105,7 @@ export function fileKindOfName(fileName: string): FileKind {
 /// The kind of a link to a page.
 export const LINK_KIND: FileKind = { id: "link", ...KINDS.link };
 
-/// Plain text formats the viewer shows as text.
-export const TEXT_EXTENSIONS = new Set([
-  "txt",
-  "md",
-  "csv",
-  "log",
-  ...(EXTENSIONS.find(([kind]) => kind === "code")?.[1] ?? []),
-]);
+export { TEXT_EXTENSIONS };
 
 /// How the viewer shows an office file: rendered in the app (Word, Excel), or
 /// converted to PDF through LibreOffice when it's installed.

@@ -176,6 +176,20 @@ export const qk = {
     tags: ["recipe-tags"] as const,
   },
 
+  sync: {
+    root: ["sync"] as const,
+    account: ["sync", "account"] as const,
+    sessions: ["sync", "sessions"] as const,
+    sharesWithMe: ["sync", "shares", "incoming"] as const,
+    sharesByMe: ["sync", "shares", "outgoing"] as const,
+    conflicts: ["sync", "conflicts"] as const,
+    conflictViews: ["sync", "conflict-views"] as const,
+    entityConflicts: (entityId: string, total: number) =>
+      ["sync", "conflict-views", entityId, total] as const,
+    role: (entityId: string) => ["sync", "role", entityId] as const,
+    localData: () => ["sync", "local-data"] as const,
+    unsent: () => ["sync", "unsent"] as const,
+  },
   backups: {
     root: ["backups"] as const,
     inFolder: (folder: string | null) => ["backups", folder] as const,

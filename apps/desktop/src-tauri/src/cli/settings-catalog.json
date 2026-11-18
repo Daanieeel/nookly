@@ -1,0 +1,834 @@
+[
+  {
+    "id": "shortcuts.search",
+    "category": "shortcuts",
+    "title": "Search",
+    "description": "Open search across everything in Nookly.",
+    "default": "Mod+K",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.quickSwitcher",
+    "category": "shortcuts",
+    "title": "Quick open",
+    "description": "Jump to a recent or pinned item by name.",
+    "default": "Mod+P",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.commands",
+    "category": "shortcuts",
+    "title": "Commands",
+    "description": "Open the list of commands you can run.",
+    "default": "Mod+Shift+P",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.settings",
+    "category": "shortcuts",
+    "title": "Settings",
+    "description": "Open or close this dialog.",
+    "default": "Mod+,",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.quickJot",
+    "category": "shortcuts",
+    "title": "Quick jot",
+    "description": "Jot a thought down from anywhere. Refine it into a note later.",
+    "default": "Mod+J",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.quickJotSession",
+    "category": "shortcuts",
+    "title": "Jot for the current session",
+    "description": "Open the jot of the session happening now, creating it first. Shows an error when no session is running.",
+    "default": "Mod+Shift+J",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.newTask",
+    "category": "shortcuts",
+    "title": "New task",
+    "description": "Open the New task dialog from anywhere, in the Space you are working in.",
+    "default": "Mod+Shift+T",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.quickAssignment",
+    "category": "shortcuts",
+    "title": "Quick assignment",
+    "description": "Open the New assignment dialog from anywhere. During a session it starts in that session's course and links the assignment to the session.",
+    "default": "Mod+Shift+A",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.import",
+    "category": "shortcuts",
+    "title": "Import",
+    "description": "Open the import dialog. Inside a text field it stays with the editor, where it makes text italic.",
+    "default": "Mod+I",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.filter",
+    "category": "shortcuts",
+    "title": "Filter",
+    "description": "Open the filter menu on a list.",
+    "default": "Mod+Shift+F",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.findInPage",
+    "category": "shortcuts",
+    "title": "Find in page",
+    "description": "Search the page you are writing in, with replace.",
+    "default": "Mod+F",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.toggleSidebar",
+    "category": "shortcuts",
+    "title": "Collapse or expand the sidebar",
+    "description": "Hide or show the sidebar on the left.",
+    "default": "Mod+S",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.toggleDetailSidebar",
+    "category": "shortcuts",
+    "title": "Collapse or expand the details sidebar",
+    "description": "Hide or show the sidebar with properties and relationships on the right.",
+    "default": "Mod+Shift+S",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.back",
+    "category": "shortcuts",
+    "title": "Go back",
+    "description": "Return to the previous view.",
+    "default": "Mod+[",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.forward",
+    "category": "shortcuts",
+    "title": "Go forward",
+    "description": "Move on to the next view in your history.",
+    "default": "Mod+]",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.backArrow",
+    "category": "shortcuts",
+    "title": "Go back (arrow)",
+    "description": "A second way to go back. Does nothing while you type in a field.",
+    "default": "Mod+ArrowLeft",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.forwardArrow",
+    "category": "shortcuts",
+    "title": "Go forward (arrow)",
+    "description": "A second way to go forward. Does nothing while you type in a field.",
+    "default": "Mod+ArrowRight",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.newTab",
+    "category": "shortcuts",
+    "title": "New tab",
+    "description": "Open a new tab.",
+    "default": "Mod+T",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.closeTab",
+    "category": "shortcuts",
+    "title": "Close tab",
+    "description": "Close the current tab.",
+    "default": "Mod+W",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.closeOtherTabs",
+    "category": "shortcuts",
+    "title": "Close other tabs",
+    "description": "Close every tab except the current one. Pinned tabs stay.",
+    "default": "Mod+Shift+W",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.nextTab",
+    "category": "shortcuts",
+    "title": "Next tab",
+    "description": "Switch to the tab on the right.",
+    "default": "Control+Tab",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.previousTab",
+    "category": "shortcuts",
+    "title": "Previous tab",
+    "description": "Switch to the tab on the left.",
+    "default": "Control+Shift+Tab",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.nextTabAlt",
+    "category": "shortcuts",
+    "title": "Next tab (alternative)",
+    "description": "A second way to switch to the tab on the right.",
+    "default": "Mod+Alt+ArrowRight",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.previousTabAlt",
+    "category": "shortcuts",
+    "title": "Previous tab (alternative)",
+    "description": "A second way to switch to the tab on the left.",
+    "default": "Mod+Alt+ArrowLeft",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.previousSpace",
+    "category": "shortcuts",
+    "title": "Previous Space",
+    "description": "Switch the sidebar to the Space before this one.",
+    "default": "Mod+Alt+ArrowUp",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.nextSpace",
+    "category": "shortcuts",
+    "title": "Next Space",
+    "description": "Switch the sidebar to the Space after this one.",
+    "default": "Mod+Alt+ArrowDown",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.splitRight",
+    "category": "shortcuts",
+    "title": "Split right",
+    "description": "Open the current tab again in a group on the right, side by side.",
+    "default": "Mod+Alt+Shift+ArrowRight",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.splitLeft",
+    "category": "shortcuts",
+    "title": "Split left",
+    "description": "Open the current tab again in a group on the left, side by side.",
+    "default": "Mod+Alt+Shift+ArrowLeft",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.focusLeftGroup",
+    "category": "shortcuts",
+    "title": "Focus the left group",
+    "description": "Move to the tabs on the left while the view is split.",
+    "default": "Mod+1",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.focusRightGroup",
+    "category": "shortcuts",
+    "title": "Focus the right group",
+    "description": "Move to the tabs on the right while the view is split.",
+    "default": "Mod+2",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.toggleGroupZoom",
+    "category": "shortcuts",
+    "title": "Zoom the focused group",
+    "description": "Hide the other group so this one fills the page, or show both again.",
+    "default": "Mod+Shift+Enter",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.create",
+    "category": "shortcuts",
+    "title": "Create",
+    "description": "Create a new item in the list or calendar you are on.",
+    "default": "C",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.newItem",
+    "category": "shortcuts",
+    "title": "Create (alternative)",
+    "description": "A second way to create a new item in the list or calendar you are on.",
+    "default": "Mod+N",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.nextTask",
+    "category": "shortcuts",
+    "title": "Next task",
+    "description": "Open the task below the current one in the list.",
+    "default": "J",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.previousTask",
+    "category": "shortcuts",
+    "title": "Previous task",
+    "description": "Open the task above the current one in the list.",
+    "default": "K",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.today",
+    "category": "shortcuts",
+    "title": "Go to today",
+    "description": "Jump the calendar to today.",
+    "default": "T",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.previousPeriod",
+    "category": "shortcuts",
+    "title": "Previous period",
+    "description": "Move the calendar back by a day, week or month, depending on the view.",
+    "default": "ArrowLeft",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.nextPeriod",
+    "category": "shortcuts",
+    "title": "Next period",
+    "description": "Move the calendar forward by a day, week or month, depending on the view.",
+    "default": "ArrowRight",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.newCard",
+    "category": "shortcuts",
+    "title": "Write cards",
+    "description": "Start writing new cards in the deck you have open.",
+    "default": "N",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.study",
+    "category": "shortcuts",
+    "title": "Study the deck",
+    "description": "Start a study session for the deck you have open.",
+    "default": "S",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.viewDay",
+    "category": "shortcuts",
+    "title": "Day view",
+    "description": "Show the calendar as a single day.",
+    "default": "1",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.viewWorkWeek",
+    "category": "shortcuts",
+    "title": "Work week view",
+    "description": "Show the calendar as a work week, Monday to Friday.",
+    "default": "2",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.viewWeek",
+    "category": "shortcuts",
+    "title": "Week view",
+    "description": "Show the calendar as a full week.",
+    "default": "3",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "shortcuts.viewMonth",
+    "category": "shortcuts",
+    "title": "Month view",
+    "description": "Show the calendar as a month.",
+    "default": "4",
+    "synced": false,
+    "schema": {
+      "type": ["string", "null"]
+    }
+  },
+  {
+    "id": "appearance.theme",
+    "category": "appearance",
+    "title": "Theme",
+    "description": "Light, dark, or follow the system.",
+    "default": "system",
+    "synced": false,
+    "schema": {
+      "type": "string",
+      "enum": ["light", "dark", "system"]
+    }
+  },
+  {
+    "id": "appearance.fileViewerTheme",
+    "category": "appearance",
+    "title": "File viewer theme",
+    "description": "How files are drawn in the viewer. Defaults draws code, text and markdown dark and documents light.",
+    "default": "defaults",
+    "synced": false,
+    "schema": {
+      "type": "string",
+      "enum": ["light", "dark", "defaults"]
+    }
+  },
+  {
+    "id": "general.displayName",
+    "category": "general",
+    "title": "Your name",
+    "description": "What the Dashboard greeting calls you. Leave it empty to be greeted without a name.",
+    "default": "",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "maxLength": 40
+    }
+  },
+  {
+    "id": "sync.serverUrl",
+    "category": "sync",
+    "title": "Server",
+    "description": "The sync server this device signs in to, like https://sync.example.com. Sync is optional; without it everything stays on this device.",
+    "default": "",
+    "synced": false,
+    "schema": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": ""
+        },
+        {
+          "type": "string",
+          "maxLength": 300,
+          "format": "uri"
+        }
+      ]
+    }
+  },
+  {
+    "id": "general.timezone",
+    "category": "general",
+    "title": "Time zone",
+    "description": "The zone times are shown in. System follows your computer.",
+    "default": "system",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  {
+    "id": "general.dateFormat",
+    "category": "general",
+    "title": "Date format",
+    "description": "American (month first), European (day first), or the time zone's own.",
+    "default": "timezone",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "enum": ["american", "european", "timezone"]
+    }
+  },
+  {
+    "id": "general.timeFormat",
+    "category": "general",
+    "title": "Time format",
+    "description": "American (12 hour), European (24 hour), or the time zone's own.",
+    "default": "timezone",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "enum": ["american", "european", "timezone"]
+    }
+  },
+  {
+    "id": "general.effortScale",
+    "category": "general",
+    "title": "Effort scale",
+    "description": "Show task effort as T-shirt sizes or points. Stored estimates never change.",
+    "default": "tshirt",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "enum": ["tshirt", "fibonacci"]
+    }
+  },
+  {
+    "id": "backup.folder",
+    "category": "backup",
+    "title": "Backup folder",
+    "description": "The folder backups are written to.",
+    "default": null,
+    "synced": false,
+    "schema": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  {
+    "id": "backup.auto",
+    "category": "backup",
+    "title": "Back up every day",
+    "description": "Back up automatically once a day while Nookly is open. Keeps the newest 10 backups.",
+    "default": false,
+    "synced": false,
+    "schema": {
+      "type": "boolean"
+    }
+  },
+  {
+    "id": "notes.defaultCodeLanguage",
+    "category": "notes",
+    "title": "Default code language",
+    "description": "The language a new code block starts with, used for syntax highlighting. A note can pick its own.",
+    "default": "plaintext",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  {
+    "id": "calendar.sessionLengthMinutes",
+    "category": "calendar",
+    "title": "Session length",
+    "description": "How long a new session is when you click an empty slot or press New. Dragging on the calendar still sets its own length. In minutes, 5 to 720.",
+    "default": 90,
+    "synced": true,
+    "schema": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 720,
+      "multipleOf": 5
+    }
+  },
+  {
+    "id": "calendar.calendarEntryLengthMinutes",
+    "category": "calendar",
+    "title": "Calendar entry length",
+    "description": "How long a new calendar entry is when you click an empty slot or press New. Dragging on the calendar still sets its own length. In minutes, 5 to 720.",
+    "default": 60,
+    "synced": true,
+    "schema": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 720,
+      "multipleOf": 5
+    }
+  },
+  {
+    "id": "calendar.weekStart",
+    "category": "calendar",
+    "title": "First day of the week",
+    "description": "Where weeks begin in calendars, date pickers and week groupings. Automatic follows the date format: American starts on Sunday, the rest on Monday.",
+    "default": "auto",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "enum": ["auto", "monday", "sunday", "saturday"]
+    }
+  },
+  {
+    "id": "calendar.dayStartHour",
+    "category": "calendar",
+    "title": "Day starts at",
+    "description": "The hour the day and week views scroll to when they open. The whole day stays available. 0 to 23.",
+    "default": 7,
+    "synced": true,
+    "schema": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 23
+    }
+  },
+  {
+    "id": "calendar.todayColor",
+    "category": "calendar",
+    "title": "Current day colour",
+    "description": "The colour that marks today in the week, day and month views. Primary is the app's blue, Neutral a quiet grey.",
+    "default": "primary",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "enum": ["primary", "neutral"]
+    }
+  },
+  {
+    "id": "calendar.todayIntensity",
+    "category": "calendar",
+    "title": "Current day intensity",
+    "description": "How strongly today's column is tinted in the week and day views.",
+    "default": "default",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "enum": ["low", "default", "high"]
+    }
+  },
+  {
+    "id": "calendar.snapMinutes",
+    "category": "calendar",
+    "title": "Snap to",
+    "description": "How finely dragging snaps on the calendar when you create, move or resize something.",
+    "default": 15,
+    "synced": true,
+    "schema": {
+      "anyOf": [
+        {
+          "type": "number",
+          "const": 5
+        },
+        {
+          "type": "number",
+          "const": 10
+        },
+        {
+          "type": "number",
+          "const": 15
+        },
+        {
+          "type": "number",
+          "const": 30
+        }
+      ]
+    }
+  },
+  {
+    "id": "notes.formatCodeOnPaste",
+    "category": "notes",
+    "title": "Format code when pasted",
+    "description": "Tidies the code in a code block right after you paste into it, for the languages that have a formatter. Undo reverts it.",
+    "default": false,
+    "synced": true,
+    "schema": {
+      "type": "boolean"
+    }
+  },
+  {
+    "id": "notes.latexMacros",
+    "category": "notes",
+    "title": "LaTeX macros",
+    "description": "Your own LaTeX commands, for every math block and inline formula in every Space. It starts with a few common ones, like \\abs and \\norm.",
+    "default": "\\newcommand{\\abs}[1]{\\left|#1\\right|}\n\\newcommand{\\norm}[1]{\\left\\lVert #1 \\right\\rVert}\n\\newcommand{\\floor}[1]{\\left\\lfloor #1 \\right\\rfloor}\n\\newcommand{\\ceil}[1]{\\left\\lceil #1 \\right\\rceil}\n\\newcommand{\\inner}[2]{\\left\\langle #1, #2 \\right\\rangle}\n\\newcommand{\\vect}[1]{\\mathbf{#1}}\n\\newcommand{\\dd}{\\mathrm{d}}\n\\newcommand{\\E}{\\mathbb{E}}\n\\newcommand{\\Prob}{\\mathbb{P}}\n\\newcommand{\\eps}{\\varepsilon}",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "maxLength": 20000
+    }
+  },
+  {
+    "id": "notes.vimMode",
+    "category": "notes",
+    "title": "Vim keys in pages",
+    "description": "Edit pages with Vim's modes and keys: normal, insert and visual mode, motions like w and $, operators like d, c and y with text objects, counts, u to undo. Press ? in normal mode for the list. Off, the editor behaves as usual.",
+    "default": false,
+    "synced": false,
+    "schema": {
+      "type": "boolean"
+    }
+  },
+  {
+    "id": "notes.spellcheck",
+    "category": "notes",
+    "title": "Check spelling",
+    "description": "Underline misspelled words while you write in pages, and offer corrections on a right click. Nothing is checked while this is off. Code, links and mentions are never checked.",
+    "default": false,
+    "synced": false,
+    "schema": {
+      "type": "boolean"
+    }
+  },
+  {
+    "id": "notes.spellcheckLanguages",
+    "category": "notes",
+    "title": "Spelling languages",
+    "description": "The languages words are checked in. A word is right when it is right in any of them, so a page that mixes languages is checked as it is, without switching anything.",
+    "default": ["en"],
+    "synced": false,
+    "schema": {
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  {
+    "id": "notes.arrowLigatures",
+    "category": "notes",
+    "title": "Turn arrows into symbols",
+    "description": "Typing -> gives →, <= gives ≤, != gives ≠ and so on, outside code. Turn off to keep exactly what you type.",
+    "default": true,
+    "synced": true,
+    "schema": {
+      "type": "boolean"
+    }
+  },
+  {
+    "id": "notes.editorFont",
+    "category": "notes",
+    "title": "Page font",
+    "description": "The typeface pages are written in. Default is the app's own, Serif is easier on long reading, Mono suits notes full of code.",
+    "default": "default",
+    "synced": true,
+    "schema": {
+      "type": "string",
+      "enum": ["default", "serif", "mono"]
+    }
+  },
+  {
+    "id": "notes.editorFontSize",
+    "category": "notes",
+    "title": "Page text size",
+    "description": "How large the text of a page is, in pixels. Headings grow and shrink with it. The default is 14.",
+    "default": 14,
+    "synced": true,
+    "schema": {
+      "type": "integer",
+      "minimum": 12,
+      "maximum": 24
+    }
+  }
+]

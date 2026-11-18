@@ -45,7 +45,12 @@ pub mod page_json;
 #[cfg(test)]
 mod perf_baseline;
 pub mod portable;
+#[cfg(test)]
+mod portable_desktop_samples_tests;
 pub mod portable_files;
+#[cfg(test)]
+mod portable_phone_tests;
+mod premerge;
 pub mod recipes;
 #[cfg(test)]
 mod recipes_tests;
@@ -325,6 +330,9 @@ pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std
     let db_path = app_data_dir.join("nookly.db");
     let mut conn = Connection::open(&db_path)?;
     backup_before_migration(&conn, &db_path)?;
+    // A development database from the connected platform branch before `main` was
+    // merged numbers its sync migrations differently (see `premerge`).
+    premerge::rewind(&conn)?;
     let current: usize = migrations::MIGRATIONS.current_version(&conn)?.into();
     let latest = *migrations::MIGRATION_COUNT;
     if current > latest {
@@ -356,6 +364,7 @@ pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std
         tracing::error!(error = %e, "could not bring the database to the latest version");
         return Err(e.into());
     }
+    premerge::restore(&conn)?;
     // References that came from an upgrade were all typed on this one device.
     let device = device::id_in(app_data_dir);
     device::set_current(&device);

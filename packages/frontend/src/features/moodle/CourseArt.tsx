@@ -40,9 +40,9 @@ export function CourseArt({
       )}
     >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-16 -right-10 size-56 rounded-full border border-foreground/10" />
-        <div className="absolute -top-28 -right-24 size-80 rounded-full border border-foreground/10" />
-        <div className="absolute -bottom-20 -left-12 size-48 rounded-full bg-foreground/5" />
+        <div className="absolute -top-16 -right-10 size-56 rounded-4xl border border-foreground/10" />
+        <div className="absolute -top-28 -right-24 size-80 rounded-4xl border border-foreground/10" />
+        <div className="absolute -bottom-20 -left-12 size-48 rounded-4xl bg-foreground/5" />
       </div>
       {banner.data && (
         <img

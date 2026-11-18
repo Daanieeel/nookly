@@ -641,9 +641,9 @@ function JoinToggle({
           }`}
           onClick={onToggle}
           className={cn(
-            "flex h-5 cursor-pointer items-center rounded-full px-1.5 text-xs leading-none font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "flex h-5 cursor-pointer items-center rounded-sm px-1.5 text-xs leading-none font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
             either
-              ? badgeVariants({ variant: "neutral", size: "md", className: "rounded-full" })
+              ? badgeVariants({ variant: "neutral", size: "md", className: "rounded-sm" })
               : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground",
           )}
         >

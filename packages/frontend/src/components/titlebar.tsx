@@ -23,6 +23,7 @@ import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { SplitButton } from "#/components/split-button.tsx";
 import { ImportButton } from "#/features/notes/ImportDialog.tsx";
+import { SyncStatusButton } from "#/features/sync/SyncStatusButton.tsx";
 import { useTaskParent } from "#/features/tasks/task-parent.ts";
 import { getEntity } from "#/lib/api/entities.ts";
 import { getView } from "#/lib/api/views.ts";
@@ -385,6 +386,7 @@ export function Titlebar() {
           Search
           <ShortcutKbd name="search" />
         </Button>
+        <SyncStatusButton />
         <SplitButton />
         <ImportButton />
         <SettingsButton />

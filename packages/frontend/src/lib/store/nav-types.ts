@@ -1,26 +1,9 @@
 import type { ViewModule } from "#/lib/api/views.ts";
+import type { ModuleKey } from "@nookly/shared/modules";
 import type { Tab } from "./tab-model.ts";
 import type { GroupTarget, TabGroup } from "./tab-groups.ts";
 
-export const MODULE_KEYS = [
-  "tasks",
-  "notes",
-  "jots",
-  "courses",
-  "semesters",
-  "sessions",
-  "calendar",
-  "exams",
-  "decks",
-  "assignments",
-  "files",
-  "bookmarks",
-  "recipes",
-  "grades",
-  "moodle",
-] as const;
-
-export type ModuleKey = (typeof MODULE_KEYS)[number];
+export { MODULE_KEYS, type ModuleKey } from "@nookly/shared/modules";
 
 export type View =
   | { kind: "dashboard" }
@@ -124,6 +107,8 @@ export interface NavState {
   switcherOpen: boolean;
   commandsOpen: boolean;
   settingsOpen: boolean;
+  /// The Settings page to show when Settings opens next (a category id), once.
+  settingsPage: string | null;
   importOpen: boolean;
   whatsNewOpen: boolean;
   /// The open What's new dialog lists every version, not just what changed since the last one seen.
@@ -172,6 +157,9 @@ export interface NavState {
   setSwitcherOpen: (open: boolean) => void;
   setCommandsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  /// Opens Settings on one page, like Account from the sync status.
+  openSettingsAt: (page: string) => void;
+  clearSettingsPage: () => void;
   setImportOpen: (open: boolean) => void;
   setWhatsNewOpen: (open: boolean, history?: boolean) => void;
   setQuickJotOpen: (open: boolean) => void;

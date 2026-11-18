@@ -2,6 +2,7 @@ pub mod agent_files;
 pub mod ai_apps;
 pub mod assignments;
 pub mod backup;
+pub mod blobs;
 pub mod bookmark_screenshot;
 pub mod bookmarks;
 pub mod calendar;
@@ -30,6 +31,7 @@ pub mod sessions;
 pub mod settings_file;
 pub mod spaces;
 pub mod spell;
+pub mod sync;
 pub mod tasks;
 pub mod views;
 

@@ -1,0 +1,671 @@
+import { createHash } from "node:crypto";
+import type { DeviceInfo, SignUp, User } from "../api/index.ts";
+import type { ConflictReport, ServerConflict } from "./protocol.ts";
+import type { BlobPlatform } from "./blobs.ts";
+import { NetworkError, type SyncTransport } from "./client.ts";
+import { MemoryServer } from "./testing/memory-server.ts";
+import { NodeSqliteDriver } from "./testing/node-driver.ts";
+import { describe, expect, it, vi } from "vitest";
+import { type AccountApi, SyncRuntime } from "./runtime.ts";
+
+const ADA: User = {
+  id: "00000000-0000-4000-8000-000000000001",
+  username: "ada",
+  email: "ada@example.com",
+  emailVerified: true,
+  createdAt: "2026-10-14T00:00:00Z",
+};
+
+/// The account API against an in-memory server: what the runtime calls, nothing more.
+class FakeAccount implements AccountApi {
+  signedIn = false;
+  readonly server: MemoryServer;
+  readonly calls: string[] = [];
+
+  constructor(server: MemoryServer) {
+    this.server = server;
+  }
+
+  async signUp(input: SignUp, device: DeviceInfo) {
+    this.calls.push(`signUp ${input.username} ${device.platform}`);
+    this.signedIn = true;
+    return ADA;
+  }
+  async signIn(identifier: string) {
+    this.calls.push(`signIn ${identifier}`);
+    if (identifier !== ADA.username) throw new Error("The username or the password is wrong.");
+    this.signedIn = true;
+    return ADA;
+  }
+  async signOut() {
+    this.calls.push("signOut");
+    this.signedIn = false;
+  }
+  async me() {
+    return ADA;
+  }
+  async isSignedIn() {
+    return this.signedIn;
+  }
+  /// What the server's conflict log holds for the account.
+  serverConflicts: ServerConflict[] = [];
+  async conflicts() {
+    return this.serverConflicts;
+  }
+  /// Like the server: a reported clash joins the log until someone decides on it.
+  async reportConflict(report: ConflictReport) {
+    const id = crypto.randomUUID();
+    this.serverConflicts.push({ ...report, id, createdAt: new Date().toISOString() });
+    return { id, resolved: false };
+  }
+  async resolveConflict(id: string) {
+    this.serverConflicts = this.serverConflicts.filter((c) => c.id !== id);
+  }
+  async devices() {
+    return [];
+  }
+  async sessionToken() {
+    return this.signedIn ? "token" : null;
+  }
+  /// Every request fails, like a server that is down.
+  offline = false;
+  /// Pushes fail from this many on, like a connection that drops mid sync.
+  failPushesAfter = Number.POSITIVE_INFINITY;
+  pushes = 0;
+  pulls = 0;
+  syncTransport(): SyncTransport {
+    return {
+      push: async (r) => {
+        this.pushes += 1;
+        if (this.pushes > this.failPushesAfter) throw new NetworkError("connection lost");
+        this.calls.push("push");
+        return this.server.push(r);
+      },
+      pull: async (r) => {
+        this.pulls += 1;
+        if (this.offline) throw new NetworkError("Can't reach the server.");
+        return this.server.pull(r);
+      },
+    };
+  }
+  async missing(table: string, pks: string[]) {
+    return pks.filter((pk) => !this.server.records.has(`${table}\u0000${pk}`));
+  }
+}
+
+function runtime(
+  server = new MemoryServer(),
+  driver = new NodeSqliteDriver(),
+  backup?: () => Promise<{ path: string }>,
+  blobs?: BlobPlatform,
+) {
+  const account = new FakeAccount(server);
+  const reindex = vi.fn(async (_ids: string[]) => {});
+  const onApplied = vi.fn();
+  const sync = new SyncRuntime({
+    driver,
+    connect: () => account,
+    device: { name: "Nookly on macOS", platform: "macos" },
+    reindex,
+    onApplied,
+    backup,
+    blobs: blobs && (() => blobs),
+  });
+  return { sync, account, driver, server, reindex, onApplied };
+}
+
+const now = () => new Date().toISOString();
+
+function addSpace(driver: NodeSqliteDriver, id = "s1", name = "Personal") {
+  driver.exec(
+    "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES (?, ?, 'blue', ?, ?)",
+    id,
+    name,
+    now(),
+    now(),
+  );
+}
+
+describe("the desktop's sync", () => {
+  it("is off until someone signs in", async () => {
+    const { sync, driver } = runtime();
+    await sync.restore("https://sync.example.com");
+    expect(sync.store.getState().user).toBeNull();
+    expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).toEqual([]);
+  });
+
+  it("signs up, turns sync on and sends what is already here", async () => {
+    const { sync, account, driver, server } = runtime();
+    driver.exec(
+      "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
+      now(),
+      now(),
+    );
+    await sync.signUp("https://sync.example.com/", {
+      username: "ada",
+      password: "a long password",
+    });
+    expect(account.calls[0]).toBe("signUp ada macos");
+    expect(sync.store.getState()).toMatchObject({
+      user: ADA,
+      serverUrl: "https://sync.example.com",
+    });
+    await sync.syncNow();
+    expect(server.records.has("spaces\u0000s1")).toBe(true);
+    expect(sync.store.getState().status.state).toBe("idle");
+    sync.stop();
+  });
+
+  it("brings in changes from elsewhere, refreshes the views and the search index", async () => {
+    const server = new MemoryServer();
+    const other = runtime(server);
+    other.driver.exec(
+      "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
+      now(),
+      now(),
+    );
+    other.driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at) VALUES ('n1', 's1', 'note', 'From the phone', ?, ?)",
+      now(),
+      now(),
+    );
+    await other.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await other.sync.syncNow();
+    other.sync.stop();
+
+    const here = runtime(server);
+    await here.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await here.sync.syncNow();
+    expect(here.driver.rows("SELECT title FROM entities")).toEqual([{ title: "From the phone" }]);
+    expect(here.reindex).toHaveBeenCalledWith(expect.arrayContaining(["n1"]));
+    expect(here.onApplied).toHaveBeenCalled();
+    here.sync.stop();
+  });
+
+  it("keeps a failed sign in visible and sync off", async () => {
+    const { sync } = runtime();
+    await expect(sync.signIn("https://sync.example.com", "nobody", "x")).rejects.toThrow("wrong");
+    expect(sync.store.getState().user).toBeNull();
+  });
+
+  it("signs out and leaves the device as new: its data is in the account, not here", async () => {
+    const { sync, account, driver, server, onApplied } = runtime();
+    addSpace(driver);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.syncNow();
+    onApplied.mockClear();
+    await sync.signOut();
+    expect(account.calls.at(-1)).toBe("signOut");
+    expect(sync.store.getState()).toMatchObject({ user: null, status: { state: "off" } });
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([]);
+    expect(server.records.has("spaces\u0000s1")).toBe(true);
+    // What every new device starts with is back.
+    expect(driver.rows("SELECT COUNT(*) AS n FROM task_statuses")[0].n).toBe(5);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM sync_rows")[0].n).toBe(0);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM sync_dirty")[0].n).toBe(0);
+    expect(onApplied).toHaveBeenCalled();
+    expect(await sync.localDataCount()).toBe(0);
+  });
+
+  it("clears nothing when asked to sign out while nobody is signed in", async () => {
+    const { sync, driver } = runtime();
+    addSpace(driver);
+    await sync.signOut();
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
+  });
+
+  it("backs the device up before signing out when something never reached the account", async () => {
+    const backup = vi.fn(async () => ({ path: "/backups/before-sign-out" }));
+    const { sync, account, driver } = runtime(undefined, undefined, backup);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    backup.mockClear();
+    account.failPushesAfter = account.pushes;
+    addSpace(driver);
+    expect(await sync.unsentCount()).toBe(1);
+    const result = await sync.signOut();
+    expect(backup).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ unsent: 1, backupPath: "/backups/before-sign-out" });
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([]);
+  });
+
+  it("stays signed in with everything in place when that backup fails", async () => {
+    let fail = false;
+    const backup = vi.fn(async () => {
+      if (fail) throw new Error("The disk is full.");
+      return { path: "/backups/first" };
+    });
+    const { sync, account, driver } = runtime(undefined, undefined, backup);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    account.failPushesAfter = account.pushes;
+    addSpace(driver);
+    fail = true;
+    await expect(sync.signOut()).rejects.toThrow("The disk is full.");
+    expect(sync.store.getState().user).toEqual(ADA);
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
+    expect(await sync.unsentCount()).toBe(1);
+    sync.stop();
+  });
+
+  it("keeps every row when the account itself was deleted", async () => {
+    const { sync, driver } = runtime();
+    addSpace(driver);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    await sync.detach();
+    expect(sync.store.getState()).toMatchObject({ user: null, status: { state: "off" } });
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM sync_rows")[0].n).toBe(0);
+  });
+
+  it("says how much is on a device before anyone signs in, and nothing once it syncs", async () => {
+    const { sync, driver } = runtime();
+    expect(await sync.localDataCount()).toBe(0);
+    addSpace(driver);
+    driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at) VALUES ('n1', 's1', 'note', 'Mine', ?, ?)",
+      now(),
+      now(),
+    );
+    expect(await sync.localDataCount()).toBe(1);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    expect(await sync.localDataCount()).toBe(0);
+    sync.stop();
+  });
+
+  it("keeps a device's own data out of the account when asked: backed up, then cleared", async () => {
+    const server = new MemoryServer();
+    const other = runtime(server);
+    addSpace(other.driver, "s9", "From the account");
+    await other.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await other.sync.settled();
+    other.sync.stop();
+
+    const backup = vi.fn(async () => ({ path: "/backups/set-aside" }));
+    const here = runtime(server, undefined, backup);
+    addSpace(here.driver);
+    await here.sync.signIn("https://sync.example.com", "ada", "a long password", {
+      localData: "setAside",
+    });
+    await here.sync.settled();
+    expect(backup).toHaveBeenCalled();
+    expect(here.driver.rows("SELECT name FROM spaces")).toEqual([{ name: "From the account" }]);
+    expect(server.records.has("spaces\u0000s1")).toBe(false);
+    here.sync.stop();
+  });
+
+  it("signs in to nothing and clears nothing when the data can't be backed up first", async () => {
+    const backup = vi.fn(async (): Promise<{ path: string }> => {
+      throw new Error("The disk is full.");
+    });
+    const { sync, account, driver } = runtime(undefined, undefined, backup);
+    addSpace(driver);
+    await expect(
+      sync.signIn("https://sync.example.com", "ada", "a long password", { localData: "setAside" }),
+    ).rejects.toThrow("The disk is full.");
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
+    expect(sync.store.getState().user).toBeNull();
+    expect(account.signedIn).toBe(false);
+  });
+
+  it("stays signed in when it starts while the server can not be reached", async () => {
+    // Bug: the account was only read from the server, so a desktop started offline said
+    // "Sign in to sync" although it was signed in and kept syncing once back online.
+    const server = new MemoryServer();
+    const driver = new NodeSqliteDriver();
+    const first = runtime(server, driver);
+    await first.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await first.sync.settled();
+    first.sync.stop();
+    const second = runtime(server, driver);
+    second.account.signedIn = true;
+    second.account.me = async () => {
+      throw new NetworkError("Can't reach the server.");
+    };
+    await second.sync.restore("https://sync.example.com");
+    expect(second.sync.store.getState().user).toEqual(ADA);
+    second.sync.stop();
+  });
+
+  it("is back to full sync as soon as it is told the server can be reached again", async () => {
+    // Launched while the server was down, then the server came back: the device must not
+    // stay offline until its next retry or the next launch.
+    const server = new MemoryServer();
+    const driver = new NodeSqliteDriver();
+    const first = runtime(server, driver);
+    await first.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await first.sync.settled();
+    first.sync.stop();
+    const second = runtime(server, driver);
+    second.account.signedIn = true;
+    second.account.offline = true;
+    second.account.me = async () => {
+      throw new NetworkError("Can't reach the server.");
+    };
+    await second.sync.restore("https://sync.example.com");
+    expect(second.sync.store.getState().status.state).toBe("offline");
+    second.account.offline = false;
+    second.sync.resume();
+    await vi.waitFor(() => expect(second.sync.store.getState().status.state).toBe("idle"));
+    second.sync.stop();
+  });
+
+  it("picks up again after a restart with the saved sign in", async () => {
+    const server = new MemoryServer();
+    const driver = new NodeSqliteDriver();
+    const first = runtime(server, driver);
+    await first.sync.signIn("https://sync.example.com", "ada", "a long password");
+    first.sync.stop();
+    const second = runtime(server, driver);
+    second.account.signedIn = true;
+    await second.sync.restore("https://sync.example.com");
+    expect(second.sync.store.getState().user).toEqual(ADA);
+    second.sync.stop();
+  });
+});
+
+function addNotes(driver: NodeSqliteDriver, count: number) {
+  driver.exec(
+    "INSERT OR IGNORE INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
+    now(),
+    now(),
+  );
+  for (let i = 0; i < count; i++) {
+    driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES (?, 's1', 'note', ?, ?, ?, 'NOT', ?)",
+      `n${i}`,
+      `Note ${i}`,
+      now(),
+      now(),
+      i + 1,
+    );
+  }
+}
+
+const serverCount = (server: MemoryServer, table: string) =>
+  [...server.records.values()].filter((r) => r.table === table).length;
+
+describe("a first sync of a device with data", () => {
+  it("backs up before anything is sent, then sends everything and checks it", async () => {
+    const order: string[] = [];
+    const { sync, account, driver, server } = runtime(undefined, undefined, async () => {
+      order.push(`backup with ${account.calls.filter((c) => c === "push").length} pushes`);
+      return { path: "/backups/before-sync.zip" };
+    });
+    addNotes(driver, 30);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    expect(order).toEqual(["backup with 0 pushes"]);
+    expect(serverCount(server, "entities")).toBe(30);
+    const migration = sync.store.getState().migration;
+    expect(migration).toMatchObject({
+      phase: "done",
+      backupPath: "/backups/before-sync.zip",
+      error: null,
+    });
+    expect(migration?.items).toBeGreaterThanOrEqual(31);
+    expect(migration?.itemsSent).toBe(migration?.items);
+    // Local data stays.
+    expect(driver.rows("SELECT COUNT(*) AS n FROM entities")[0].n).toBe(30);
+    sync.stop();
+  });
+
+  it("sends nothing when the backup fails, and tries again on request", async () => {
+    let fail = true;
+    const { sync, account, driver, server } = runtime(undefined, undefined, async () => {
+      if (fail) throw new Error("The disk is full.");
+      return { path: "/backups/b.zip" };
+    });
+    addNotes(driver, 3);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    expect(sync.store.getState().migration).toMatchObject({ phase: "failed" });
+    expect(sync.store.getState().migration?.error).toContain("The disk is full.");
+    expect(account.calls).not.toContain("push");
+    expect(server.records.size).toBe(0);
+    expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).toEqual([]);
+    fail = false;
+    await sync.retryFirstSync();
+    await sync.settled();
+    expect(serverCount(server, "entities")).toBe(3);
+    expect(sync.store.getState().migration?.phase).toBe("done");
+    sync.stop();
+  });
+
+  it("carries on after the app dies halfway, without losing or doubling anything", async () => {
+    const server = new MemoryServer();
+    const driver = new NodeSqliteDriver();
+    addNotes(driver, 1200);
+    const first = runtime(server, driver, async () => ({ path: "/b.zip" }));
+    // The first batch of 500 arrives, then the connection (and the app) dies.
+    first.account.failPushesAfter = 1;
+    await first.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await first.sync.settled().catch(() => {});
+    first.sync.stop();
+    const sentBefore = serverCount(server, "entities");
+    expect(sentBefore).toBeGreaterThan(0);
+    expect(sentBefore).toBeLessThan(1200);
+    expect(first.sync.store.getState().migration?.phase).toBe("sending");
+
+    // Restart on the same database.
+    const second = runtime(server, driver, async () => {
+      throw new Error("a second backup is never made");
+    });
+    second.account.signedIn = true;
+    await second.sync.restore("https://sync.example.com");
+    await second.sync.settled();
+    expect(serverCount(server, "entities")).toBe(1200);
+    expect(new Set([...server.records.keys()]).size).toBe(server.records.size);
+    expect(second.sync.store.getState().migration).toMatchObject({ phase: "done" });
+    expect(driver.rows("SELECT COUNT(*) AS n FROM entities")[0].n).toBe(1200);
+    second.sync.stop();
+  });
+
+  it("sends again a row the server turns out not to have", async () => {
+    const { sync, driver, server } = runtime(undefined, undefined, async () => ({ path: "/b" }));
+    addNotes(driver, 5);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    server.records.delete("entities\u0000n3");
+    expect(await sync.verify()).toBe(1);
+    await sync.syncNow();
+    expect(server.records.has("entities\u0000n3")).toBe(true);
+    expect(await sync.verify()).toBe(0);
+    sync.stop();
+  });
+
+  it("merges into an account that already has data from another device", async () => {
+    const server = new MemoryServer();
+    const phone = runtime(server);
+    phone.driver.exec(
+      "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('sp', 'Phone', 'red', ?, ?)",
+      now(),
+      now(),
+    );
+    await phone.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await phone.sync.settled();
+    phone.sync.stop();
+
+    const desktop = runtime(server, undefined, async () => ({ path: "/b" }));
+    addNotes(desktop.driver, 4);
+    await desktop.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await desktop.sync.settled();
+    expect(desktop.driver.rows("SELECT id FROM spaces ORDER BY id")).toEqual([
+      { id: "s1" },
+      { id: "sp" },
+    ]);
+    expect(serverCount(server, "spaces")).toBe(2);
+    expect(serverCount(server, "entities")).toBe(4);
+    desktop.sync.stop();
+  });
+});
+
+describe("conflicts the person decides on", () => {
+  async function disagree() {
+    const server = new MemoryServer();
+    const mac = runtime(server);
+    const phone = runtime(server);
+    mac.driver.exec(
+      "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'P', 'blue', ?, ?)",
+      now(),
+      now(),
+    );
+    mac.driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES ('t1', 's1', 'task', 'Buy milk', ?, ?, 'TSK', 1)",
+      now(),
+      now(),
+    );
+    mac.driver.exec("INSERT INTO tasks (entity_id, status_id) VALUES ('t1', 'todo')");
+    for (const side of [mac, phone]) {
+      await side.sync.signIn("https://sync.example.com", "ada", "a long password");
+      await side.sync.settled();
+    }
+    mac.driver.exec("UPDATE entities SET title = 'Buy oat milk' WHERE id = 't1'");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    phone.driver.exec("UPDATE entities SET title = 'Buy milk and eggs' WHERE id = 't1'");
+    await mac.sync.syncNow();
+    await phone.sync.syncNow();
+    return { mac, phone };
+  }
+
+  it("lists a conflict with both versions and which one shows now", async () => {
+    const { phone, mac } = await disagree();
+    const [view, ...rest] = await phone.sync.conflictViews();
+    expect(rest).toEqual([]);
+    expect(view).toMatchObject({
+      kind: "field",
+      itemTitle: "Buy milk and eggs",
+      fieldLabel: "Title",
+      current: "Buy milk and eggs",
+      other: "Buy oat milk",
+    });
+    expect(view.currentSide.isThisDevice).toBe(true);
+    expect(await mac.sync.conflictViews()).toEqual([]);
+    mac.sync.stop();
+    phone.sync.stop();
+  });
+
+  it("keeps the other version when asked, and every device follows", async () => {
+    const { phone, mac } = await disagree();
+    const [view] = await phone.sync.conflictViews();
+    await phone.sync.resolveConflict(view, "other");
+    await phone.sync.syncNow();
+    await mac.sync.syncNow();
+    expect(mac.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "Buy oat milk" },
+    ]);
+    expect(await phone.sync.conflictViews()).toEqual([]);
+    mac.sync.stop();
+    phone.sync.stop();
+  });
+
+  it("settles on a combined text the person wrote", async () => {
+    const { phone, mac } = await disagree();
+    const [view] = await phone.sync.conflictViews();
+    await phone.sync.resolveConflict(view, { value: "Buy oat milk and eggs" });
+    await phone.sync.syncNow();
+    await mac.sync.syncNow();
+    expect(mac.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "Buy oat milk and eggs" },
+    ]);
+    mac.sync.stop();
+    phone.sync.stop();
+  });
+
+  it("counts a conflict only the server logged, so every device offers the merge editor", async () => {
+    // Two devices online changed the same field at the same moment: the server kept the
+    // other version in its log, and no device recorded one of its own. The status said
+    // there was nothing to look at, so the merge editor was never offered.
+    const { sync: mac, account } = runtime();
+    await mac.signIn("https://sync.example.com", "ada", "a long password");
+    await mac.settled();
+    account.serverConflicts = [
+      {
+        id: "00000000-0000-4000-8000-0000000000c1",
+        table: "entities",
+        pk: "t1",
+        field: "title",
+        losingValue: "Buy oat milk",
+        losingClock: "1794422839220-000001-aaaa",
+        winningClock: "1794422839220-000001-bbbb",
+        createdAt: now(),
+      },
+    ];
+    await mac.syncNow();
+    expect(mac.store.getState().status.conflicts).toBe(1);
+    mac.stop();
+  });
+
+  it("counts a conflict both the device and the server logged once", async () => {
+    const { phone, mac } = await disagree();
+    const [own] = phone.driver.rows(
+      "SELECT losing_clock, winning_clock, created_at FROM sync_conflicts",
+    );
+    phone.account.serverConflicts = [
+      {
+        id: "00000000-0000-4000-8000-0000000000c2",
+        table: "entities",
+        pk: "t1",
+        field: "title",
+        losingValue: "Buy oat milk",
+        losingClock: String(own.losing_clock),
+        winningClock: String(own.winning_clock),
+        createdAt: String(own.created_at),
+      },
+    ];
+    await phone.sync.syncNow();
+    expect(phone.sync.store.getState().status.conflicts).toBe(1);
+    mac.sync.stop();
+    phone.sync.stop();
+  });
+
+  it("keeps what shows now, and the other version stays in the log", async () => {
+    const { phone, mac } = await disagree();
+    const [view] = await phone.sync.conflictViews();
+    await phone.sync.resolveConflict(view, "current");
+    expect(await phone.sync.conflictViews()).toEqual([]);
+    expect(
+      phone.driver.rows("SELECT losing_value FROM sync_conflicts WHERE resolved_at IS NOT NULL"),
+    ).toEqual([{ losing_value: '"Buy oat milk"' }]);
+    mac.sync.stop();
+    phone.sync.stop();
+  });
+});
+
+/// A disk and storage that always work, for the one file this test sends.
+class QuietFiles implements BlobPlatform {
+  async hash(_path: string) {
+    return { sha256: createHash("sha256").update("lecture").digest("hex"), size: 7 };
+  }
+  async upload() {}
+  async download(): Promise<string> {
+    throw new Error("nothing to download");
+  }
+}
+
+describe("syncing files", () => {
+  it("goes quiet once the files are sent instead of syncing again and again", async () => {
+    const { sync, account, driver } = runtime(undefined, undefined, undefined, new QuietFiles());
+    driver.exec(
+      "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
+      now(),
+      now(),
+    );
+    driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES ('f1', 's1', 'file', 'Lecture', ?, ?, 'FIL', 1)",
+      now(),
+      now(),
+    );
+    driver.exec(
+      "INSERT INTO files (entity_id, local_path, original_filename) VALUES ('f1', '/files/a.pdf', 'a.pdf')",
+    );
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.syncNow();
+    // The file goes out and its hash is one more change to send; let that settle.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const settled = account.pulls;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(account.pulls).toBe(settled);
+    sync.stop();
+  });
+});

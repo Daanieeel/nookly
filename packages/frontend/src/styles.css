@@ -25,6 +25,33 @@
    place those get real rules. `code:not(pre code)` in the @nookly/ui base layer covers inline
    code; `pre`/`pre code` here only reset the block form. */
 @layer components {
+  /* Other people's carets and names in a live page (`CollaborativeEditor.tsx`). The
+     extension sets each person's color on the element itself. */
+  .tiptap-content .collaboration-carets__caret {
+    position: relative;
+    margin-inline: -1px;
+    border-inline: 1px solid;
+    pointer-events: none;
+    word-break: normal;
+  }
+  .tiptap-content .collaboration-carets__label {
+    position: absolute;
+    top: -1.4em;
+    left: -1px;
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.25rem 0.25rem 0.25rem 0;
+    color: white;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: normal;
+    white-space: nowrap;
+    user-select: none;
+  }
+  /* In the page's first block there is no room above the caret, so the name goes under it. */
+  .tiptap-content > :first-child .collaboration-carets__label {
+    top: 100%;
+    border-radius: 0 0.25rem 0.25rem 0.25rem;
+  }
   /* Where a dropped file or block lands in the editor, in the same color as the line shown
      while dragging blocks (`DropIndicator`). */
   .nookly-drop-cursor {
@@ -845,6 +872,23 @@
       opacity: 0;
     }
   }
+  /* Vim mode (`vim-extension.ts`): in normal and visual mode the caret is a block over the
+     character it is on, so the editor's own caret is hidden. */
+  .tiptap-content.vim-normal,
+  .tiptap-content.vim-visual,
+  .tiptap-content.vim-visual-line {
+    caret-color: transparent;
+  }
+  .tiptap-content .vim-cursor {
+    background: color-mix(in oklab, var(--foreground) 55%, transparent);
+    color: var(--background);
+  }
+  .tiptap-content .vim-cursor-empty::before {
+    content: "\200b";
+    display: inline-block;
+    width: 0.6em;
+    background: color-mix(in oklab, var(--foreground) 55%, transparent);
+  }
   .tiptap-content p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     float: left;
@@ -1092,6 +1136,18 @@
   }
 }
 
+/* Slid over the page from the left edge, the hidden sidebar is a panel of its own: in place the
+   window's colour shows through it, over the page the page's text would. */
+[data-slot="sidebar-container"][data-peek] > [data-slot="sidebar-inner"] {
+  background-color: var(--popover);
+  border: 1px solid var(--border);
+  /* A wide soft shadow lifts it off the page, a tight one marks its edge; strong enough to
+     read on a dark page too. */
+  box-shadow:
+    0 24px 64px -12px rgb(0 0 0 / 0.45),
+    0 6px 16px -4px rgb(0 0 0 / 0.25);
+}
+
 /* Thin steps of backdrop blur, finer toward the top. Several stacked, each shorter than the one
    before, blur more the closer to the bottom they reach, which tapers the blur off without a mask:
    a mask on a backdrop blur is not applied by every engine, and a blur that ignores it ends in a
@@ -1125,4 +1181,14 @@
   min-height: 4.5rem;
   padding: 0;
   font-size: 0.875rem;
+}
+
+/* Rounded corners as gentle squircles where the web view draws them; plain rounding elsewhere
+   (D67). A pill or a circle stays round, and so does whatever clips its content: WebKit keeps
+   such an element's squircle clip at its first size, so a page card that grew after it was
+   drawn cut its page off partway across the window. */
+@supports (corner-shape: superellipse(1.6)) {
+  [class*="rounded"]:not([class*="rounded-full"], [class*="overflow-"]) {
+    corner-shape: superellipse(1.6);
+  }
 }

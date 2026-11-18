@@ -145,6 +145,7 @@ export const initialNavState: NavData = {
   switcherOpen: false,
   commandsOpen: false,
   settingsOpen: false,
+  settingsPage: null,
   importOpen: false,
   whatsNewOpen: false,
   whatsNewHistory: false,

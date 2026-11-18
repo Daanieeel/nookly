@@ -41,7 +41,12 @@ import { qk } from "#/lib/query-keys.ts";
 import { armNewTabIntent, useNavStore } from "#/lib/store/nav.ts";
 import { fileFacts } from "./moodle-format.ts";
 import { fileLook } from "./moodle-icons.tsx";
-import { matchCourse, originOf, suggestLabelNames, suggestTitles } from "./moodle-import.ts";
+import {
+  matchCourse,
+  originOf,
+  suggestLabelNames,
+  suggestTitles,
+} from "@nookly/shared/moodle/import";
 import { messageOf } from "./moodle-login.ts";
 import { useMoodleCourse } from "./moodle-queries.ts";
 

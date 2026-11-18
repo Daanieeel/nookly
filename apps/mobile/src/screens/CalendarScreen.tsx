@@ -1,0 +1,493 @@
+import { useMenu } from "../ui/menu.tsx";
+import {
+  addDaysTo,
+  addMonthsTo,
+  automaticWeekStart,
+  monthGrid,
+  resolveWeekStart,
+  sameMonth,
+} from "@nookly/shared/calendar-grid";
+import type { AgendaItem } from "@nookly/shared/data";
+import { type GridView, daysOfView } from "@nookly/shared/time-grid";
+import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react-native";
+import { Stack, useRouter } from "expo-router";
+import { useState } from "react";
+import { z } from "zod";
+import { Pressable, View } from "react-native";
+import { GestureDetector } from "react-native-gesture-handler";
+import { useSetting } from "../data/settings.ts";
+import { usePreference } from "../data/preferences.ts";
+import { useAgenda, useSpaces } from "../data/queries.ts";
+import { SpaceDot } from "../ui/Badge.tsx";
+import { Button, IconButton } from "../ui/Button.tsx";
+import { Segmented } from "../ui/Segmented.tsx";
+import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
+import { Empty, Row, Section } from "../ui/Row.tsx";
+import { Screen } from "../ui/Screen.tsx";
+import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
+import { Text } from "../ui/Text.tsx";
+import { useIsTablet, usePageWidth, useWindowClass, useWindowSize } from "../ui/pane.tsx";
+import { useSidebarEdgeOnly } from "../shell/panes.tsx";
+import { useTheme } from "../ui/theme.ts";
+import { addDays, dayLabel, localDay, periodHeader, periodParts } from "./dates.ts";
+import { Label } from "../ui/kit/Label.tsx";
+import { useCalendarColors } from "./calendar-colors.ts";
+import { TimeGrid, gutterFor } from "./TimeGrid.tsx";
+import { usePeriodSwipe } from "./period-swipe.ts";
+import { useSyncRefresh } from "./useSyncRefresh.ts";
+import { BAR_BUTTON } from "../ui/bar.ts";
+import { isFeedItem, toAgendaItems } from "../moodle/calendar.ts";
+import { useMoodleCalendar } from "../moodle/queries.ts";
+import { itemHref } from "./ExternalEventScreen.tsx";
+
+const AGENDA_DAYS = 14;
+/// From this pane width the calendar is the desktop's: day, work week, week and month.
+const WIDE = 700;
+
+type CalendarView = "agenda" | GridView | "month";
+
+/// A phone: an agenda, and the hours of a day, three days or a week. An iPad, the desktop's:
+/// the hours of a day, a work week and a week, and a month.
+const PHONE_VIEWS: { id: CalendarView; label: string }[] = [
+  { id: "agenda", label: "Agenda" },
+  { id: "day", label: "Day" },
+  { id: "threeDay", label: "3 Days" },
+  { id: "week", label: "Week" },
+];
+const WIDE_VIEWS: { id: CalendarView; label: string }[] = [
+  { id: "agenda", label: "Agenda" },
+  { id: "day", label: "Day" },
+  { id: "threeDay", label: "3 Days" },
+  { id: "workWeek", label: "Work Week" },
+  { id: "week", label: "Week" },
+  { id: "month", label: "Month" },
+];
+const viewSchema = z.enum(["agenda", "day", "threeDay", "workWeek", "week", "month"]);
+
+const KIND_LABELS = {
+  session: "Session",
+  calendar_entry: null,
+  exam: "Exam",
+} as const;
+
+export function AgendaRow({ item, color }: { item: AgendaItem; color?: string }) {
+  const router = useRouter();
+  const colors = useCalendarColors();
+  const external = isFeedItem(item);
+  const accent = colors.accent(item.kind, color);
+  const time = item.allDay
+    ? "All day"
+    : [item.startTime, item.endTime].filter(Boolean).join(" to ");
+  const kind = external ? "From Moodle" : KIND_LABELS[item.kind];
+  return (
+    <Row
+      title={item.title || (item.kind === "session" ? "Session" : "Untitled")}
+      subtitle={[kind, time, item.location].filter(Boolean).join(", ")}
+      icon={
+        <View
+          className="w-1 self-stretch rounded-full"
+          style={
+            external
+              ? { borderWidth: 1, borderStyle: "dashed", borderColor: accent }
+              : { backgroundColor: accent }
+          }
+        />
+      }
+      trailing={color ? <SpaceDot color={color} /> : null}
+      // SAFETY: `itemHref` gives an entity's page or the calendar event sheet, both routes.
+      onPress={() => router.push(itemHref(item.id) as never)}
+    />
+  );
+}
+
+/// Nookly's own items with Moodle's deadlines among them, by day and time.
+function withDeadlines(items: AgendaItem[], deadlines: AgendaItem[]): AgendaItem[] {
+  if (deadlines.length === 0) return items;
+  const key = (i: AgendaItem) => `${i.date} ${i.allDay ? "" : (i.startTime ?? "")}`;
+  return [...items, ...deadlines].sort((a, b) => key(a).localeCompare(key(b)));
+}
+
+const onDay = (items: AgendaItem[], day: string) =>
+  items.filter((i) => i.date <= day && (i.endDate ?? i.date) >= day);
+
+const NO_DAYS: string[] = [];
+
+/// The days a view shows and the label it carries.
+function useRange(view: CalendarView, anchor: string) {
+  const [setting] = useSetting("calendar.weekStart");
+  const [dateFormat] = useSetting("general.dateFormat");
+  const weekStart = resolveWeekStart(setting, automaticWeekStart(dateFormat));
+  if (view === "agenda") {
+    const today = localDay();
+    return {
+      weekStart,
+      days: NO_DAYS,
+      from: today,
+      to: addDays(today, AGENDA_DAYS - 1),
+      title: "Next two weeks",
+    };
+  }
+  if (view === "month") {
+    const grid = monthGrid(anchor, weekStart);
+    const title = new Date(`${anchor}T00:00:00`).toLocaleDateString(undefined, {
+      month: "long",
+      year: "numeric",
+    });
+    return { weekStart, days: NO_DAYS, from: grid[0][0], to: grid.at(-1)?.[6] ?? anchor, title };
+  }
+  const days = daysOfView(view, anchor, weekStart);
+  const short = (day: string) =>
+    new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const title =
+    days.length === 1 ? dayLabel(anchor) : `${short(days[0])} to ${short(days[days.length - 1])}`;
+  return { weekStart, days, from: days[0], to: days[days.length - 1], title };
+}
+
+/// How far Previous and Next move a view.
+const STEP_DAYS = { day: 1, threeDay: 3, workWeek: 7, week: 7 } satisfies Record<GridView, number>;
+
+/// What a day holds: its items in their Space's color.
+function DayList({
+  items,
+  day,
+  colorOf,
+  title,
+}: {
+  items: AgendaItem[];
+  day: string;
+  colorOf: (spaceId: string) => string | undefined;
+  title?: string;
+}) {
+  const today = localDay();
+  const here = onDay(items, day);
+  return (
+    <Section title={title ?? dayLabel(day, today)}>
+      {here.length === 0 ? (
+        <Empty text="Nothing planned." />
+      ) : (
+        here.map((item) => (
+          <View key={`${item.id}-${day}`}>
+            <AgendaRow item={item} color={colorOf(item.spaceId)} />
+          </View>
+        ))
+      )}
+    </Section>
+  );
+}
+
+/// The month as a grid with a mark for each thing on a day; the day picked lists below.
+function MonthView({
+  anchor,
+  weekStart,
+  items,
+  picked,
+  onPick,
+  colorOf,
+}: {
+  anchor: string;
+  weekStart: 0 | 1 | 6;
+  items: AgendaItem[];
+  picked: string;
+  onPick: (day: string) => void;
+  colorOf: (spaceId: string) => string | undefined;
+}) {
+  const today = localDay();
+  const colors = useCalendarColors();
+  const grid = monthGrid(anchor, weekStart);
+  return (
+    <>
+      <View className="gap-1" accessibilityLabel="Month">
+        <View className="flex-row">
+          {grid[0].map((day) => (
+            <Text key={day} variant="small" tone="muted" className="flex-1 text-center">
+              {new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { weekday: "narrow" })}
+            </Text>
+          ))}
+        </View>
+        {grid.map((week) => (
+          <View key={week[0]} className="flex-row gap-1">
+            {week.map((day) => {
+              const here = onDay(items, day);
+              return (
+                <Pressable
+                  key={day}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${dayLabel(day, today)}, ${here.length} ${here.length === 1 ? "item" : "items"}`}
+                  accessibilityState={{ selected: day === picked }}
+                  onPress={() => onPick(day)}
+                  className={cn(
+                    "h-14 flex-1 items-center gap-1 rounded-md pt-1 active:bg-accent",
+                    day === picked && "bg-accent",
+                    day === today && "border border-primary",
+                  )}
+                >
+                  <Text
+                    variant="small"
+                    tone={sameMonth(day, anchor) ? "default" : "muted"}
+                    className={cn(day === today && "font-semibold text-primary")}
+                  >
+                    {Number(day.slice(8))}
+                  </Text>
+                  <View className="flex-row gap-0.5">
+                    {here.slice(0, 3).map((item) => (
+                      <View
+                        key={item.id}
+                        className="size-1.5 rounded-full"
+                        style={{ backgroundColor: colors.accent(item.kind, colorOf(item.spaceId)) }}
+                      />
+                    ))}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+      <DayList items={items} day={picked} colorOf={colorOf} />
+    </>
+  );
+}
+
+/// Every Space's Sessions, Calendar entries and Exams in their Space's
+/// color: an agenda, or the hours of a day, three days, a week; on an iPad the desktop's
+/// day, work week, week and month.
+///
+/// With `spaceId` it is one Space's own page (its Sessions or its Calendar module): the same
+/// grids with only that Space's items, and "+" makes a `create` there.
+export function CalendarScreen({
+  spaceId,
+  create = "entry",
+}: {
+  spaceId?: string;
+  create?: "entry" | "session";
+} = {}) {
+  const theme = useTheme();
+  const router = useRouter();
+  const menu = useMenu();
+  const today = localDay();
+  const width = usePageWidth();
+  const wide = width >= WIDE;
+  const available = wide ? WIDE_VIEWS : PHONE_VIEWS;
+  // A tablet keeps a view per orientation: Week in landscape and in a 13-inch portrait,
+  // 3 Days in a narrower portrait window (4.2).
+  const tablet = useIsTablet();
+  const windowClass = useWindowClass();
+  const windowSize = useWindowSize();
+  const portrait = tablet && windowSize.height > windowSize.width;
+  const opening: CalendarView = !wide
+    ? "agenda"
+    : portrait && windowClass === "medium"
+      ? "threeDay"
+      : "week";
+  const [stored, setStored] = usePreference(
+    portrait ? "calendar.view.portrait" : "calendar.view",
+    viewSchema,
+    opening,
+  );
+  // A view the screen does not have at this width (a month on a phone) falls back.
+  const view: CalendarView = available.some((v) => v.id === stored) ? stored : opening;
+  const [anchor, setAnchor] = useState(today);
+  const range = useRange(view, anchor);
+  // On a phone there is no bar of arrows: a swipe over the hours moves on, with the pages
+  // either side already drawn, and the page's bar says which dates and which week.
+  const grid = view === "agenda" || view === "month" ? null : view;
+  const phoneHours = !wide && grid !== null;
+  const around = (direction: 1 | -1) =>
+    grid && phoneHours
+      ? daysOfView(grid, addDays(anchor, direction * STEP_DAYS[grid]), range.weekStart)
+      : NO_DAYS;
+  const before = around(-1);
+  const after = around(1);
+  const { data: everything = [] } = useAgenda(
+    phoneHours ? before[0] : range.from,
+    phoneHours ? after[after.length - 1] : range.to,
+  );
+  const { data: feed } = useMoodleCalendar();
+  const from = phoneHours ? before[0] : range.from;
+  const to = phoneHours ? after[after.length - 1] : range.to;
+  // Moodle's deadlines are on the whole calendar, not a Space's own page.
+  const items = spaceId
+    ? everything.filter((i) => i.spaceId === spaceId)
+    : withDeadlines(everything, feed && from && to ? toAgendaItems(feed.events, from, to) : []);
+  const { data: spaces = [] } = useSpaces();
+  const { refreshing, onRefresh } = useSyncRefresh();
+  const colorOf = (spaceId: string) => spaces.find((s) => s.id === spaceId)?.color;
+  const step = (direction: 1 | -1) =>
+    setAnchor((day) =>
+      view === "month"
+        ? addMonthsTo(day, direction)
+        : view === "agenda"
+          ? day
+          : addDaysTo(day, direction * STEP_DAYS[view]),
+    );
+  useSidebarEdgeOnly(phoneHours);
+  const swipe = usePeriodSwipe(step, range.from, width - gutterFor(width));
+  const agendaDays = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(today, i));
+  const pickView = (next: CalendarView) => {
+    setStored(next);
+    if (next === "agenda") setAnchor(today);
+  };
+  // On a phone the views are one button in the bar, which lists them; an iPad keeps the
+  // desktop's tabs.
+  const createLabel = create === "session" ? "New Session" : "New Calendar Entry";
+  const createNew = () => router.push(`/new/${create}${spaceId ? `?spaceId=${spaceId}` : ""}`);
+  const controls = (
+    <>
+      {wide ? (
+        // The desktop's row: the views, then the page's main action.
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1">
+            <Segmented
+              label="View"
+              value={view}
+              options={available.map((v) => ({ value: v.id, label: v.label }))}
+              onChange={pickView}
+            />
+          </View>
+          <Button
+            label={createLabel}
+            size="sm"
+            icon={<IconPlus size={16} color={theme.colors.primaryForeground} />}
+            onPress={createNew}
+          />
+        </View>
+      ) : null}
+      {wide && view !== "agenda" ? (
+        <View className="flex-row items-center gap-1">
+          <IconButton
+            label="Previous"
+            icon={<IconChevronLeft size={20} color={theme.colors.foreground} />}
+            onPress={() => step(-1)}
+          />
+          <Text className="flex-1 text-center font-medium" accessibilityRole="header">
+            {range.title}
+          </Text>
+          <IconButton
+            label="Next"
+            icon={<IconChevronRight size={20} color={theme.colors.foreground} />}
+            onPress={() => step(1)}
+          />
+          <Button label="Today" variant="secondary" size="sm" onPress={() => setAnchor(today)} />
+        </View>
+      ) : null}
+    </>
+  );
+  const shownDays = view === "agenda" ? [today] : range.days;
+  const header = (
+    <>
+      {wide ? null : (
+        <Stack.Screen
+          options={
+            // The hours say only the week; the dates are on the days themselves.
+            view === "agenda"
+              ? {
+                  title: periodHeader(shownDays),
+                  headerTitle: () => <PeriodTitle days={shownDays} />,
+                }
+              : {
+                  title: periodParts(shownDays).week,
+                  headerTitle: () => (
+                    <Label type="headline" weight="600">
+                      {periodParts(shownDays).week}
+                    </Label>
+                  ),
+                }
+          }
+        />
+      )}
+      {wide ? null : (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            icon={TOOLBAR_ICONS.calendarView}
+            {...BAR_BUTTON}
+            accessibilityLabel="Calendar View"
+            onPress={() =>
+              menu.show(
+                "View",
+                available.map((v) => ({
+                  label: v.label,
+                  checked: v.id === view,
+                  onPress: () => pickView(v.id),
+                })),
+              )
+            }
+          />
+          <Stack.Toolbar.Button
+            icon={TOOLBAR_ICONS.plus}
+            {...BAR_BUTTON}
+            accessibilityLabel={createLabel}
+            onPress={createNew}
+          />
+        </Stack.Toolbar>
+      )}
+    </>
+  );
+  if (view !== "agenda" && view !== "month") {
+    // The hours fill the screen and scroll on their own; only the controls sit above them.
+    const page = (
+      <View className={cn("flex-1 gap-2 pt-3", PAGE_BACKGROUND)}>
+        <View className="gap-2 px-3">{controls}</View>
+        <TimeGrid
+          days={range.days}
+          neighbours={phoneHours ? { before, after, slide: swipe.style } : undefined}
+          items={items}
+          width={width}
+          colorOf={colorOf}
+          onCreateAt={(day, time) =>
+            router.push(
+              `/new/${create}?date=${day}&start=${time}${spaceId ? `&spaceId=${spaceId}` : ""}`,
+            )
+          }
+        />
+      </View>
+    );
+    return (
+      <>
+        {header}
+        {phoneHours ? <GestureDetector gesture={swipe.gesture}>{page}</GestureDetector> : page}
+      </>
+    );
+  }
+  return (
+    <>
+      {header}
+      <Screen onRefresh={onRefresh} refreshing={refreshing} wide>
+        {controls}
+        {view === "agenda" ? (
+          <>
+            {items.length === 0 ? <Text tone="muted">Nothing in the next two weeks.</Text> : null}
+            {agendaDays
+              .filter((day) => onDay(items, day).length > 0 || day === today)
+              .map((day) => (
+                <DayList key={day} items={items} day={day} colorOf={colorOf} />
+              ))}
+          </>
+        ) : (
+          <MonthView
+            anchor={anchor}
+            weekStart={range.weekStart}
+            items={items}
+            picked={anchor}
+            onPick={setAnchor}
+            colorOf={colorOf}
+          />
+        )}
+      </Screen>
+    </>
+  );
+}
+
+/// The bar's title: the dates, then the week quieter, as the desktop's header reads.
+function PeriodTitle({ days }: { days: string[] }) {
+  const { dates, week } = periodParts(days);
+  return (
+    <View className="flex-row items-baseline gap-1.5">
+      <Label type="headline" weight="600">
+        {dates}
+      </Label>
+      <Label type="headline" weight="500" color="tertiaryLabel">
+        {week}
+      </Label>
+    </View>
+  );
+}

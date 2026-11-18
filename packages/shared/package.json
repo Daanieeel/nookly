@@ -1,0 +1,51 @@
+{
+  "name": "@nookly/shared",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    "./schema": "./src/schema.ts",
+    "./moodle/*": "./src/moodle/*.ts",
+    "./sync": "./src/sync/index.ts",
+    "./api": "./src/api/index.ts",
+    "./testing": "./src/sync/testing/index.ts",
+    "./data": "./src/data/index.ts",
+    "./modules": "./src/modules.ts",
+    "./colors": "./src/colors.ts",
+    "./settings": "./src/settings.ts",
+    "./latex": "./src/latex.ts",
+    "./whats-new": "./src/whats-new.ts",
+    "./calendar-grid": "./src/calendar-grid.ts",
+    "./time-grid": "./src/time-grid.ts",
+    "./calendar-style": "./src/calendar-style.ts",
+    "./highlight": "./src/blocks/highlight-colors.ts",
+    "./academic": "./src/academic.ts",
+    "./effort": "./src/effort.ts",
+    "./label-shelf": "./src/label-shelf.ts",
+    "./icons": "./src/icons.ts",
+    "./page-typography": "./src/page-typography.ts",
+    "./editor-schema": "./src/editor-schema.ts",
+    "./blocks": "./src/blocks/index.ts",
+    "./blocks/*": "./src/blocks/*.ts",
+    "./vim": "./src/editor/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hocuspocus/provider": "4.7.1",
+    "prosemirror-model": "1.25.12",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-view": "1.42.6",
+    "yjs": "13.6.33",
+    "zod": "^4",
+    "zustand": "^5"
+  },
+  "devDependencies": {
+    "@nookly/config": "workspace:*",
+    "@types/node": "^22",
+    "vitest": "^5.1.0"
+  }
+}

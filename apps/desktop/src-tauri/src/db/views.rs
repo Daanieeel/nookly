@@ -11,6 +11,7 @@ pub const VIEW_MODULES: &[&str] = &[
     "assignments",
     "tasks-overview",
     "assignments-overview",
+    "files",
 ];
 
 /// `tasks-overview` and `assignments-overview` are the cross-Space pages. Their Views still live in one Space,
@@ -183,6 +184,8 @@ pub fn reorder_views(
 
 const AGE_VALUES: &[&str] = &["today", "week", "last", "earlier"];
 const DATE_VALUES: &[&str] = &["overdue", "today", "week", "later", "none"];
+const PINNED_VALUES: &[&str] = &["pinned", "unpinned"];
+const COMPLETED_VALUES: &[&str] = &["today", "week", "last", "earlier", "none"];
 const LAYOUTS: &[&str] = &["list", "board"];
 
 /// What one module's View config may contain. Mirrors the filter fields and display
@@ -195,9 +198,27 @@ struct ConfigSpec {
     orderings: &'static [&'static str],
     /// Card and row properties a display can show. Empty when the module has none.
     properties: &'static [&'static str],
+    layouts: &'static [&'static str],
+    /// Whether `display.shelf` holds the labels picked on the Files shelf (D74).
+    shelf: bool,
 }
 
 const CONFIG_SPECS: &[ConfigSpec] = &[
+    ConfigSpec {
+        module: "files",
+        filters: &[
+            ("kind", None),
+            ("labels", None),
+            ("pinned", Some(PINNED_VALUES)),
+            ("created", Some(AGE_VALUES)),
+            ("updated", Some(AGE_VALUES)),
+        ],
+        groupings: &["none", "kind", "added", "label"],
+        orderings: &["newest", "oldest", "name"],
+        properties: &[],
+        layouts: &["grid", "list"],
+        shelf: true,
+    },
     ConfigSpec {
         module: "tasks",
         filters: &[
@@ -207,12 +228,17 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ("start", Some(DATE_VALUES)),
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
+            ("completedAt", Some(COMPLETED_VALUES)),
+            ("effort", None),
+            ("pinned", Some(PINNED_VALUES)),
         ],
         groupings: &[
             "status", "label", "start", "due", "created", "updated", "none",
         ],
         orderings: &["due", "start", "created", "updated", "title", "status"],
         properties: &["key", "status", "labels", "due", "created"],
+        layouts: LAYOUTS,
+        shelf: false,
     },
     ConfigSpec {
         module: "tasks-overview",
@@ -223,17 +249,17 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             ("start", Some(DATE_VALUES)),
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
-            (
-                "completedAt",
-                Some(&["today", "week", "last", "earlier", "none"]),
-            ),
+            ("completedAt", Some(COMPLETED_VALUES)),
             ("effort", None),
+            ("pinned", Some(PINNED_VALUES)),
         ],
         groupings: &[
             "status", "space", "start", "due", "created", "updated", "none",
         ],
         orderings: &["due", "start", "created", "updated", "title", "status"],
         properties: &["key", "status", "due", "effort", "created"],
+        layouts: LAYOUTS,
+        shelf: false,
     },
     ConfigSpec {
         module: "assignments-overview",
@@ -249,12 +275,10 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
                 Some(&["overdue", "today", "week", "next", "later", "none", "done"]),
             ),
             ("grade", Some(&["graded", "none", "ungraded"])),
-            (
-                "evaluatedAt",
-                Some(&["today", "week", "last", "earlier", "none"]),
-            ),
+            ("evaluatedAt", Some(COMPLETED_VALUES)),
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
+            ("pinned", Some(PINNED_VALUES)),
         ],
         groupings: &[
             "deadline", "created", "updated", "status", "grade", "course", "space", "none",
@@ -263,6 +287,8 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             "auto", "due", "created", "updated", "title", "status", "grade",
         ],
         properties: &[],
+        layouts: LAYOUTS,
+        shelf: false,
     },
     ConfigSpec {
         module: "assignments",
@@ -277,12 +303,10 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
                 Some(&["overdue", "today", "week", "next", "later", "none", "done"]),
             ),
             ("grade", Some(&["graded", "none", "ungraded"])),
-            (
-                "evaluatedAt",
-                Some(&["today", "week", "last", "earlier", "none"]),
-            ),
+            ("evaluatedAt", Some(COMPLETED_VALUES)),
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
+            ("pinned", Some(PINNED_VALUES)),
         ],
         groupings: &[
             "deadline", "created", "updated", "status", "grade", "course", "none",
@@ -291,6 +315,8 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
             "auto", "due", "created", "updated", "title", "status", "grade",
         ],
         properties: &[],
+        layouts: LAYOUTS,
+        shelf: false,
     },
 ];
 
@@ -384,13 +410,16 @@ fn validate_config(module: &str, config: &str) -> AppResult<()> {
             .ok_or_else(|| bad("display must be an object".into()))?;
         for (key, v) in display {
             match key.as_str() {
-                "layout" => one_of("display.layout", v, LAYOUTS)?,
+                "layout" => one_of("display.layout", v, spec.layouts)?,
+                "shelf" if spec.shelf => {
+                    string_list("display.shelf", v)?;
+                }
                 "grouping" | "subGrouping" => one_of(&format!("display.{key}"), v, spec.groupings)?,
                 "ordering" => one_of("display.ordering", v, spec.orderings)?,
                 "showEmpty" => {
                     let ok = v.as_object().is_some_and(|o| {
                         o.iter()
-                            .all(|(k, b)| LAYOUTS.contains(&k.as_str()) && b.is_boolean())
+                            .all(|(k, b)| spec.layouts.contains(&k.as_str()) && b.is_boolean())
                     });
                     if !ok {
                         return Err(bad(
@@ -433,7 +462,7 @@ const VIEW_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C); both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space.",
+        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C); both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier), completedAt (today|week|last|earlier|none), effort (effort steps or none), pinned (pinned|unpinned); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier), pinned (pinned|unpinned); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space. files: filter fields kind (file kinds), labels (label ids), pinned (pinned|unpinned), created and updated (today|week|last|earlier); layout grid|list; grouping none|kind|added|label; ordering newest|oldest|name; display.shelf the label ids picked on the shelf, every one on a file, or none for files without a label.",
     },
     FieldDef {
         name: "position",
@@ -489,7 +518,7 @@ inventory::submit! {
     EntitySchemaDef {
         entity_type: "view",
         supports_blocks: false,
-        description: "A saved View of a module page (Tasks or Assignments): a name plus the filters and display options to reopen it with.",
+        description: "A saved View of a module page (Tasks, Assignments or Files): a name plus the filters and display options to reopen it with. A Files View of some labels keeps their ids in display.shelf.",
         fields: VIEW_FIELDS,
         relationship_types: &["relates-to"],
         create: cli_create_view,
@@ -647,6 +676,49 @@ mod tests {
             )
             .unwrap();
         assert_eq!(entities, 0);
+    }
+
+    /// The Files page is saved as a View too (D74): its labels picked on the shelf, its
+    /// filters, and a grid or a list.
+    #[test]
+    fn files_views_keep_the_shelf_and_a_grid() {
+        let good = r#"{"filters":[{"fieldId":"kind","operator":"is","values":["pdf"]},{"fieldId":"pinned","operator":"is","values":["pinned"]}],"display":{"layout":"grid","grouping":"label","ordering":"name","shelf":["label-1","none"]}}"#;
+        assert!(validate_config("files", good).is_ok());
+        assert!(validate_config("files", r#"{"display":{"layout":"board"}}"#).is_err());
+        assert!(validate_config("files", r#"{"display":{"shelf":"x"}}"#).is_err());
+        // The shelf belongs to Files only.
+        assert!(validate_config("tasks", r#"{"display":{"shelf":[]}}"#).is_err());
+        let conn = setup();
+        let space = create_space(&conn, "Uni".into(), None, "#000".into()).unwrap();
+        let view = create_view(
+            &conn,
+            space.id.clone(),
+            "Exams".into(),
+            "files".into(),
+            good.into(),
+            None,
+        )
+        .unwrap();
+        assert_eq!(view.module, "files");
+    }
+
+    /// Every filter the apps offer on a list (D73) can be written through the CLI too.
+    #[test]
+    fn every_list_filter_the_apps_save_is_a_cli_filter() {
+        let pinned = r#"{"filters":[{"fieldId":"pinned","operator":"is","values":["pinned"]}]}"#;
+        for module in [
+            "tasks",
+            "tasks-overview",
+            "assignments",
+            "assignments-overview",
+            "files",
+        ] {
+            assert!(validate_config(module, pinned).is_ok(), "{module}");
+        }
+        let done = r#"{"filters":[{"fieldId":"completedAt","operator":"is","values":["today"]},{"fieldId":"effort","operator":"is","values":["3"]}]}"#;
+        assert!(validate_config("tasks", done).is_ok());
+        let wrong = r#"{"filters":[{"fieldId":"pinned","operator":"is","values":["yes"]}]}"#;
+        assert!(validate_config("tasks", wrong).is_err());
     }
 
     #[test]

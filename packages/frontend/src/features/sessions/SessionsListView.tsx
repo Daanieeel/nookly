@@ -115,7 +115,7 @@ export function SessionsListView({
                 type="button"
                 aria-label="Clear filter"
                 onClick={() => setNavView({ kind: "module", spaceId, module: "sessions" })}
-                className="rounded-full p-0.5 hover:bg-accent-foreground/10"
+                className="rounded-sm p-0.5 hover:bg-accent-foreground/10"
               >
                 <IconX size={11} />
               </button>

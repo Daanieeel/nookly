@@ -488,7 +488,9 @@ fn add_pointer_files(conn: &Connection) -> Vec<(String, Option<String>, Option<S
 
 #[test]
 fn pointer_files_become_references_from_every_version_and_nothing_else_changes() {
-    for version in OLDEST_RELEASED_VERSION..latest() {
+    // Every version before the migration that adds references (the 50th) runs it.
+    const REFERENCES_VERSION: usize = 50;
+    for version in OLDEST_RELEASED_VERSION..REFERENCES_VERSION {
         let dir = scratch();
         let path = dir.join("nookly.db");
         let (pointers, before) = {

@@ -46,7 +46,7 @@ describe("the Backup tab in Settings", () => {
       within(group)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Backup", "Connections"]);
+    ).toEqual(["Account", "Backup", "Connections"]);
     expect(screen.getByRole("heading", { level: 2, name: "Backup" })).toBeInTheDocument();
     await user.click(within(nav).getByRole("button", { name: "General" }));
     expect(screen.queryByText("Back up and restore")).toBeNull();

@@ -10,6 +10,18 @@
       "project": ["src/**/*.{ts,tsx}"]
     },
     "packages/ui": {},
-    "packages/config": {}
+    "packages/config": {},
+    "packages/shared": {
+      "entry": ["src/**/*.test.ts", "src/*/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/server": {
+      "entry": ["test/**/*.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"]
+    },
+    "apps/mobile": {
+      "entry": ["src/app/**/*.tsx", "src/**/*.test.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}"]
+    }
   }
 }

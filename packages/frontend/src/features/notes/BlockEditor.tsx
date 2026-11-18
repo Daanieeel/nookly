@@ -50,6 +50,16 @@ import { TableColumnHandles } from "./TableColumnHandles";
 import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
 import { usePageEditLock } from "./page-edit-lock.ts";
+import { type PageSession, caretColor, presenceName } from "@nookly/shared/sync";
+import { PAGE_FRAGMENT } from "@nookly/shared/blocks";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCaret from "@tiptap/extension-collaboration-caret";
+import { useViewOnly } from "#/features/sync/view-only.ts";
+import { syncRuntime, useSyncState } from "#/features/sync/sync-instance.ts";
+import { useSetting } from "#/lib/settings/settings.ts";
+import { PresenceBar } from "./page-presence.tsx";
+import { usePresence } from "#/lib/presence.ts";
+import { usePageSession } from "./use-page-session.ts";
 import { type PageSection, pageSections } from "./heading-anchors";
 
 const DEBOUNCE_MS = 600;
@@ -120,6 +130,48 @@ export function BlockEditor({
   /// elsewhere the content below the editor would sit a screen away.
   scrollPastEnd?: boolean;
 }) {
+  // Signed in, a page edits its live document (DECISIONS.md D6); otherwise its rows.
+  const page = usePageSession(entityId);
+  if (page.state === "waiting") return <div className={cn(!compact && "min-h-40")} />;
+  if (page.state === "live") {
+    return (
+      <HydratedBlockEditor
+        key={entityId}
+        entityId={entityId}
+        spaceId={spaceId}
+        compact={compact}
+        scrollPastEnd={scrollPastEnd}
+        initialBlocks={[]}
+        session={page.session}
+        onSectionsChange={onSectionsChange}
+      />
+    );
+  }
+  return (
+    <RowsBlockEditor
+      entityId={entityId}
+      spaceId={spaceId}
+      compact={compact}
+      scrollPastEnd={scrollPastEnd}
+      onSectionsChange={onSectionsChange}
+    />
+  );
+}
+
+/// The page on its rows: created once the blocks are in, saved block by block.
+function RowsBlockEditor({
+  entityId,
+  spaceId,
+  compact,
+  scrollPastEnd,
+  onSectionsChange,
+}: {
+  entityId: string;
+  spaceId: string;
+  compact: boolean;
+  scrollPastEnd: boolean;
+  onSectionsChange?: (sections: PageSection[]) => void;
+}) {
   const { data: blocks } = useQuery(blocksQueryOptions(entityId));
   // A save still landing from the last time this page was open (flushed on
   // unmount) means the cached blocks are about to be replaced; hydrating now
@@ -148,12 +200,14 @@ export function BlockEditor({
   );
 }
 
-function HydratedBlockEditor({
+/// Exported for the live page tests, which hand it a document of their own.
+export function HydratedBlockEditor({
   entityId,
   spaceId,
   compact,
   scrollPastEnd,
   initialBlocks,
+  session,
   onSectionsChange,
 }: {
   entityId: string;
@@ -161,8 +215,19 @@ function HydratedBlockEditor({
   compact: boolean;
   scrollPastEnd: boolean;
   initialBlocks: Block[];
+  /// The page's live document: typing merges with every other device as it happens, so
+  /// nothing is saved as rows here and other people's carets show.
+  session?: PageSession;
   onSectionsChange?: (sections: PageSection[]) => void;
 }) {
+  const user = useSyncState((s) => s.user);
+  const [displayName] = useSetting("general.displayName");
+  // The device too, so two devices of one person tell apart: "Ada on Mac".
+  const person = presenceName(
+    displayName.trim() || user?.username || "Someone",
+    syncRuntime.device.name,
+  );
+  const caret = caretColor(user?.id ?? person);
   const queryClient = useQueryClient();
   const { data: serverBlocks } = useQuery(blocksQueryOptions(entityId));
   const { data: entities = [] } = useQuery({
@@ -325,33 +390,61 @@ function HydratedBlockEditor({
   // Settings load before the first page opens, so this sets the variables once for the session.
   useEffect(applyPageTypography, []);
 
-  const editor = useEditor({
-    content: {
-      type: "doc",
-      content: initialBlocks.length > 0 ? initialBlocks.map(blockToNode) : [{ type: "paragraph" }],
-    },
-    extensions: editorExtensions({
-      spaceId,
-      pageId: entityId,
-      getEntities: () => entitiesRef.current,
-      hasPages: (entity) => pagedFileIds.current.has(entity.id),
-      sessionOf: (entity) => sessionsById.current.get(entity.id),
-      getNewCodeLanguage: () => newCodeBlockLanguage(noteCodeLanguageRef.current),
-    }),
-    editorProps: {
-      attributes: {
-        class: cn("tiptap-content page-editor", !compact && "min-h-40"),
-        ...(scrollPastEnd && { style: "padding-bottom: 100vh" }),
+  const editor = useEditor(
+    {
+      // A live page takes its content from its document.
+      ...(!session && {
+        content: {
+          type: "doc",
+          content:
+            initialBlocks.length > 0 ? initialBlocks.map(blockToNode) : [{ type: "paragraph" }],
+        },
+      }),
+      extensions: [
+        ...editorExtensions({
+          spaceId,
+          pageId: entityId,
+          getEntities: () => entitiesRef.current,
+          hasPages: (entity) => pagedFileIds.current.has(entity.id),
+          sessionOf: (entity) => sessionsById.current.get(entity.id),
+          getNewCodeLanguage: () => newCodeBlockLanguage(noteCodeLanguageRef.current),
+          collaborative: Boolean(session),
+        }),
+        // The document keeps its own history; the editor's undo follows it.
+        ...(session
+          ? [
+              Collaboration.configure({ document: session.doc, field: PAGE_FRAGMENT }),
+              CollaborationCaret.configure({
+                provider: session.provider,
+                user: { name: person, color: caret },
+              }),
+            ]
+          : []),
+      ],
+      editorProps: {
+        attributes: {
+          class: cn("tiptap-content page-editor", !compact && "min-h-40"),
+          ...(scrollPastEnd && { style: "padding-bottom: 100vh" }),
+        },
+        handlePaste: (view, event) => pasteFiles.handlePaste(view, event),
+        handleDrop: (view, event) => pasteFiles.handleDrop(view, event),
+        handleClickOn: (_view, _pos, _node, _nodePos, event) => openLink(event, spaceId),
       },
-      handlePaste: (view, event) => pasteFiles.handlePaste(view, event),
-      handleDrop: (view, event) => pasteFiles.handleDrop(view, event),
-      handleClickOn: (_view, _pos, _node, _nodePos, event) => openLink(event, spaceId),
+      onUpdate: () => {
+        // A live page saves through its document, never as rows.
+        if (session) return;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS);
+      },
     },
-    onUpdate: () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => flushRef.current(), DEBOUNCE_MS);
-    },
-  });
+    [session],
+  );
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && session) {
+      editor.commands.updateUser({ name: person, color: caret });
+    }
+  }, [editor, session, person, caret]);
+  const present = usePresence(session ?? null);
 
   // Find in page, for a page of its own: not an editor embedded in another page.
   const [findOpen, setFindOpen] = useState(false);
@@ -515,7 +608,7 @@ function HydratedBlockEditor({
   /// undo step, and puts the cursor back at the same offset in the same block.
   const syncFromServerRef = useRef(() => {});
   syncFromServerRef.current = () => {
-    if (!editor || editor.isDestroyed) return;
+    if (!editor || editor.isDestroyed || session) return;
     if (debounceRef.current || pendingNodesRef.current || reconcile.isPending) return;
     const blocks = queryClient.getQueryData(blocksQueryOptions(entityId).queryKey);
     if (!blocks || matchesPersisted(blocks)) return;
@@ -570,10 +663,13 @@ function HydratedBlockEditor({
   // Split view: the same page open in the other, focused group writes; this copy stays
   // read only and follows along. It also waits for a save the other copy still has in
   // flight, so it never starts typing over an older document.
-  const locked = usePageEditLock(entityId);
+  // A live page needs neither: every open copy edits the same document. A page shared to
+  // view only, or one changed by a newer Nookly, stays read only either way.
+  const locked = usePageEditLock(entityId, spaceId);
+  const viewOnly = useViewOnly(entityId, spaceId);
   const savesInFlight = useIsMutating({ mutationKey: saveBlocksKey(entityId) });
   const othersSaving = savesInFlight > (reconcile.isPending ? 1 : 0);
-  const readOnly = locked || othersSaving;
+  const readOnly = session ? viewOnly || session.readOnly : locked || othersSaving;
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     if (readOnly && debounceRef.current) flushRef.current();
@@ -595,6 +691,8 @@ function HydratedBlockEditor({
   /// Saves anything still pending, then maps a block's client id to its stored
   /// id, which is what a link to the block has to point at.
   const resolveStoredId = async (blockId: string): Promise<string | null> => {
+    // Block ids in a live document are the stored ids.
+    if (session) return blockId;
     if (debounceRef.current) flushRef.current();
     const saveKey = { mutationKey: saveBlocksKey(entityId) };
     for (let tries = 0; tries < 100 && queryClient.isMutating(saveKey) > 0; tries++) {
@@ -636,6 +734,12 @@ function HydratedBlockEditor({
       onDragOver={() => setSlot(dropSlotOf(rootRef.current))}
       {...blockContextTarget}
     >
+      {session?.readOnly && (
+        <p className="mb-2 text-xs text-caution">
+          This page was changed by a newer Nookly. Update to edit it here.
+        </p>
+      )}
+      <PresenceBar present={present} />
       <TableControls editor={editor} />
       <TableRowHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />
       <TableColumnHandles editor={editor} entityId={entityId} resolveStoredId={resolveStoredId} />

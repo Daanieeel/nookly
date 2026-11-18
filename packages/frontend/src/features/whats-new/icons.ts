@@ -2,6 +2,9 @@ import {
   IconBell,
   IconCards,
   IconChartLine,
+  IconCloud,
+  IconCloudUp,
+  IconDeviceMobile,
   IconFileExport,
   IconFileImport,
   IconFileText,
@@ -19,6 +22,7 @@ import {
   IconSparkles,
   IconTerminal2,
   IconTable,
+  IconUserCircle,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 
@@ -28,6 +32,9 @@ const ICONS = new Map<string, TablerIcon>([
   ["bell", IconBell],
   ["cards", IconCards],
   ["chart-line", IconChartLine],
+  ["cloud", IconCloud],
+  ["cloud-up", IconCloudUp],
+  ["device-mobile", IconDeviceMobile],
   ["file-export", IconFileExport],
   ["file-import", IconFileImport],
   ["file-text", IconFileText],
@@ -45,6 +52,7 @@ const ICONS = new Map<string, TablerIcon>([
   ["sparkles", IconSparkles],
   ["table", IconTable],
   ["terminal", IconTerminal2],
+  ["user-circle", IconUserCircle],
 ]);
 
 export const ICON_NAMES = [...ICONS.keys()];

@@ -26,6 +26,7 @@ import { cn } from "@nookly/ui/lib/utils";
 import type { SpaceDialog } from "./space-dialogs";
 import { SpaceIcon } from "./space-icon";
 import { useSpaceModules } from "./use-space-modules";
+import { SpaceName } from "#/components/sidebar/space-name.tsx";
 
 /// Spaces reorder across the row and the overflow as one list, and nothing shifts live
 /// while dragging: the drop target is highlighted and the order changes on release.
@@ -227,7 +228,7 @@ function OverflowRow({ space, onActivate, onOpenDialog }: { space: Space } & Slo
         {...slotContext(space, onOpenDialog)}
       >
         <SpaceIcon space={space} />
-        <span className="truncate">{space.name}</span>
+        <SpaceName space={space} />
       </button>
     </li>
   );

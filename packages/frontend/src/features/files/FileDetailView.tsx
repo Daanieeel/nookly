@@ -6,6 +6,7 @@ import {
   IconDots,
   IconCopy,
   IconDownload,
+  IconLoader2,
   IconExternalLink,
   IconFileUpload,
   IconFolderOpen,
@@ -19,6 +20,7 @@ import { type ReactNode, createContext, useContext, useState } from "react";
 import {
   type ActionStatus,
   StatusButtonContent,
+  statusOf,
   useActionStatus,
 } from "#/components/action-feedback.tsx";
 import { Calendar } from "#/components/date-input.tsx";
@@ -54,6 +56,7 @@ import { formatDate } from "#/lib/datetime.ts";
 import { focusBlockIn, useNavStore } from "#/lib/store/nav.ts";
 import { useTabGroupScope } from "#/components/tab-group-scope.ts";
 import { MarkdownViewer } from "./MarkdownViewer.tsx";
+import { syncRuntime, useSyncState } from "#/features/sync/sync-instance.ts";
 import { saveFileCopy } from "./share-file.ts";
 import { fileViewerThemeClass, useFileViewerIsDark } from "#/lib/file-viewer-theme.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -66,6 +69,7 @@ import {
   fileExtension,
   fileKind,
   filePath,
+  isDownloading,
   isLinkOnly,
   isReference,
   officeFormat,
@@ -144,6 +148,7 @@ export function FileViewer({
   const src = path ? convertFileSrc(path) : null;
   const name = file.originalFilename ?? displayTitle(file.entity);
 
+  if (!src && isDownloading(file)) return <Downloading />;
   const status = file.reference?.status;
   if (pointsAtFile(file) && status && status.state !== "available") {
     return <FileUnreachable file={file} status={status} />;
@@ -353,6 +358,30 @@ function useDownloadLocalCopy(file: FileEntity) {
         queryClient.invalidateQueries({ queryKey: qk.files.bySpace(file.entity.spaceId) }),
       ]),
   });
+}
+
+/// A File from another device whose contents are coming down from the account.
+/// Sync downloads them in the background; the view updates when they land.
+function Downloading() {
+  const files = useSyncState((state) => state.files);
+  const retry = useMutation({ mutationFn: () => syncRuntime.syncNow() });
+  return (
+    <div className="flex size-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border p-6 text-center">
+      <IconLoader2 size={24} className="animate-spin text-muted-foreground" />
+      <p className="text-sm font-medium">Downloading from your account</p>
+      {files?.lastError && (
+        <p className="max-w-sm text-xs text-caution">Trying again: {files.lastError}</p>
+      )}
+      <Button variant="secondary" size="sm" onClick={() => retry.mutate()}>
+        <StatusButtonContent
+          status={statusOf(retry)}
+          icon={<IconDownload />}
+          label="Try Now"
+          errorLabel="Couldn't reach the server"
+        />
+      </Button>
+    </div>
+  );
 }
 
 /// A File from before links were downloaded: fetch the file behind it, or, when

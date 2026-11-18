@@ -149,24 +149,39 @@ describe("the spell checker in the editor", () => {
     expect(misspelledWordAt(view.state, 1)).toBeNull();
   });
 
-  it("stays quick on a long page: typing asks about the new word only", async () => {
-    const fake = fakeSource(["wrng"]);
-    const paragraphs = Array.from({ length: 2000 }, (_, i) =>
-      paragraph(text(`line ${i} has some ordinary words in it`)),
-    );
-    const view = open(paragraphs, fake.source);
-    await vi.waitFor(() => expect(fake.asked.length).toBeGreaterThan(0));
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    fake.asked.length = 0;
-    const started = performance.now();
-    for (let i = 0; i < 20; i++) view.commands.insertContentAt(2, "x");
-    const took = performance.now() - started;
-    expect(took).toBeLessThan(1500);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    // Only words of the paragraph that was typed in were asked about.
-    expect(fake.asked.flat().every((word) => word.endsWith("ine") || word.startsWith("x"))).toBe(
-      true,
-    );
-    expect(fake.asked.flat().length).toBeLessThan(80);
-  });
+  // Measured against the same page with the checker off on the same machine, so a slow or
+  // busy CI runner slows both: a fixed budget of 1500ms failed there on a loaded runner
+  // while the checker added nothing. Rescanning the page on each key would cost many times
+  // the editor's own work.
+  it(
+    "stays quick on a long page: typing asks about the new word only",
+    { timeout: 30_000 },
+    async () => {
+      const paragraphs = Array.from({ length: 2000 }, (_, i) =>
+        paragraph(text(`line ${i} has some ordinary words in it`)),
+      );
+      const typeTwenty = (view: Editor) => {
+        const started = performance.now();
+        for (let i = 0; i < 20; i++) view.commands.insertContentAt(2, "x");
+        return performance.now() - started;
+      };
+      const plain = open(paragraphs, fakeSource([], false).source);
+      // The first keys on a new editor cost the most, with or without the checker.
+      const baseline = typeTwenty(plain);
+      plain.destroy();
+      const fake = fakeSource(["wrng"]);
+      const view = open(paragraphs, fake.source);
+      await vi.waitFor(() => expect(fake.asked.length).toBeGreaterThan(0));
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      fake.asked.length = 0;
+      const took = typeTwenty(view);
+      expect(took).toBeLessThan(baseline * 3 + 100);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Only words of the paragraph that was typed in were asked about.
+      expect(fake.asked.flat().every((word) => word.endsWith("ine") || word.startsWith("x"))).toBe(
+        true,
+      );
+      expect(fake.asked.flat().length).toBeLessThan(80);
+    },
+  );
 });

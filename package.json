@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "bun run --cwd apps/desktop tauri dev",
+    "dev": "bun tools/dev.ts all",
     "build": "turbo run build",
     "tauri": "bun run --cwd apps/desktop tauri",
     "build:side-by-side": "bun run --cwd apps/desktop tauri build --bundles app --config src-tauri/tauri.side-by-side.conf.json",
@@ -48,19 +48,33 @@
     "seed:reset": "bash scripts/seed/reset.sh",
     "seed:mia": "bash scripts/seed/reset.sh mia",
     "seed:luca": "bash scripts/seed/reset.sh luca",
-    "seed:sara": "bash scripts/seed/reset.sh sara"
+    "seed:sara": "bash scripts/seed/reset.sh sara",
+    "dev:desktop": "bun tools/dev.ts desktop",
+    "dev:mobile": "bun tools/dev.ts mobile",
+    "dev:server": "bun tools/dev.ts server",
+    "stack": "bun tools/dev.ts server",
+    "dev:expo": "bun run --cwd apps/mobile dev"
   },
   "devDependencies": {
     "@nookly/config": "workspace:*",
-    "jscpd": "^5.4.2",
-    "knip": "^6.44.1",
-    "oxfmt": "0.75.0",
-    "oxlint": "1.90.0",
+    "jscpd": "^5.4.3",
+    "knip": "^6.44.2",
+    "oxfmt": "0.77.0",
+    "oxlint": "1.92.0",
     "turbo": "^2.11.10",
     "typescript": "^7.0.2"
   },
   "overrides": {
-    "@xmldom/xmldom": "0.9.12"
+    "@xmldom/xmldom": "0.9.12",
+    "lightningcss": "1.30.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   },
-  "packageManager": "bun@1.4.0"
+  "packageManager": "bun@1.4.0",
+  "patchedDependencies": {
+    "react-native-css@3.1.0-rc.0": "patches/react-native-css@3.1.0-rc.0.patch",
+    "@blobatar/react-native@2.7.0": "patches/@blobatar%2Freact-native@2.7.0.patch",
+    "@expo/plist@0.8.2": "patches/@expo%2Fplist@0.8.2.patch",
+    "@tiptap/y-tiptap@3.0.10": "patches/@tiptap%2Fy-tiptap@3.0.10.patch"
+  }
 }

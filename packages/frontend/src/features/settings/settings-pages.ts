@@ -9,6 +9,7 @@ import {
   IconPlugConnected,
   IconRobot,
   IconSettings,
+  IconUserCircle,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import type { SettingCategory } from "#/lib/settings/registry.ts";
@@ -25,6 +26,7 @@ export type PageId =
   | "calendar"
   | "backup"
   | "connections"
+  | "account"
   | "shortcuts"
   | "latex"
   | "agent"
@@ -43,6 +45,7 @@ export const PAGES = {
   calendar: { id: "calendar", label: "Calendar", icon: IconCalendar },
   backup: { id: "backup", label: "Backup", icon: IconArchive },
   connections: { id: "connections", label: "Connections", icon: IconPlugConnected },
+  account: { id: "account", label: "Account", icon: IconUserCircle },
   shortcuts: { id: "shortcuts", label: "Shortcuts", icon: IconKeyboard },
   latex: { id: "latex", label: "LaTeX macros", icon: IconMathFunction },
   agent: { id: "agent", label: "Agent", icon: IconRobot },
@@ -59,7 +62,7 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   { label: null, pages: ["general", "appearance"] },
   { label: "Writing and study", pages: ["editor", "calendar"] },
-  { label: "Data and accounts", pages: ["backup", "connections"] },
+  { label: "Data and accounts", pages: ["account", "backup", "connections"] },
   { label: "Power tools", pages: ["shortcuts", "latex", "agent"] },
 ];
 
@@ -73,6 +76,7 @@ const PAGE_OF_CATEGORY = {
   backup: "backup",
   agent: "agent",
   shortcuts: "shortcuts",
+  sync: "account",
 } satisfies Record<SettingCategory, PageId>;
 
 /// Sections that sit on another page than their category's.

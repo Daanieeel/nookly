@@ -1,0 +1,168 @@
+import { StyleSheet } from "react-native";
+import {
+  createAssignment,
+  createDeck,
+  setCourseProfessor,
+  createCourse,
+  createExam,
+  createSemester,
+  createSpace,
+  createTask,
+  getEntity,
+  type EntityRecord,
+} from "@nookly/shared/data";
+import { fireEvent } from "expo-router/testing-library";
+import { useEffect, useState } from "react";
+import { renderScreens, testData } from "../test/render.tsx";
+import { GlanceProvider, type Part, PartProvider } from "../ui/parts.tsx";
+import { useDb } from "../data/context.tsx";
+import { ItemParts } from "./ItemParts.tsx";
+
+function Item({ id, part, glance = false }: { id: string; part: Part; glance?: boolean }) {
+  const db = useDb();
+  const [entity, setEntity] = useState<EntityRecord | null>(null);
+  useEffect(() => void getEntity(db, id).then(setEntity), [db, id]);
+  return entity ? (
+    <GlanceProvider value={glance}>
+      <PartProvider value={part}>
+        <ItemParts entity={entity} readOnly={false} />
+      </PartProvider>
+    </GlanceProvider>
+  ) : null;
+}
+
+async function show(id: string, part: Part, data: ReturnType<typeof testData>) {
+  return renderScreens({ index: () => <Item id={id} part={part} /> }, data);
+}
+
+describe("an item's page and its details", () => {
+  it("keeps a task's description and sub-tasks in the page and its properties in the details", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const id = await createTask(data.db, space, "Report");
+    const page = await show(id, "main", data);
+    expect(await page.findByLabelText("Sub-tasks")).toBeTruthy();
+    expect(page.queryByRole("button", { name: /^Status/ })).toBeNull();
+    expect(page.queryByRole("button", { name: /^Due date/ })).toBeNull();
+    page.unmount();
+    const details = await show(id, "details", data);
+    expect(await details.findByRole("button", { name: /^Status/ })).toBeTruthy();
+    expect(details.getByRole("button", { name: /^Due date/ })).toBeTruthy();
+    expect(details.queryByText("Sub-tasks")).toBeNull();
+  });
+
+  it("shows a task's properties at a glance under its title when its details wait behind the page", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const id = await createTask(data.db, space, "Report");
+    const screen = await renderScreens({ index: () => <Item id={id} part="main" glance /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: /^Status, / }));
+    expect(await screen.findByRole("radio", { name: /Done/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Due date, / })).toBeTruthy();
+    expect(screen.getByLabelText("Sub-tasks")).toBeTruthy();
+  });
+
+  it("shows an assignment's and an exam's properties at a glance, not the fields typed in place", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    const sheet = await createAssignment(data.db, space, "Sheet 1", course);
+    const exam = await createExam(data.db, space, "Midterm", course);
+    const page = await renderScreens({ index: () => <Item id={sheet} part="main" glance /> }, data);
+    expect(await page.findByRole("button", { name: /^Status, / })).toBeTruthy();
+    expect(page.queryByLabelText("Grade")).toBeNull();
+    page.unmount();
+    const other = await renderScreens({ index: () => <Item id={exam} part="main" glance /> }, data);
+    expect(await other.findByRole("button", { name: /^Status, / })).toBeTruthy();
+  });
+
+  // A course, a deck, a bookmark and a file looked empty on the phone: all they are sat in
+  // the details. Their properties show at a glance too, the read only ones as quiet chips.
+  it("shows a course's and a deck's properties at a glance", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    await setCourseProfessor(data.db, course, "Prof. Knuth");
+    const deck = await createDeck(data.db, space, "Graph terms");
+    const page = await renderScreens(
+      { index: () => <Item id={course} part="main" glance /> },
+      data,
+    );
+    expect(await page.findByRole("button", { name: "Professor, Prof. Knuth" })).toBeTruthy();
+    page.unmount();
+    const other = await renderScreens({ index: () => <Item id={deck} part="main" glance /> }, data);
+    expect(await other.findByRole("button", { name: "Cards, 0" })).toBeTruthy();
+  });
+
+  // The desktop's details list properties flat, with hairlines; the phone had them in a box.
+  it("lists properties in the details flat, without a card around them", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Work", "#3b82f6");
+    const id = await createTask(data.db, space, "Report");
+    const details = await show(id, "details", data);
+    type Node = { parent: Node | null; props: { className?: unknown } };
+    let at: Node | null = await details.findByRole("button", { name: /^Status/ });
+    const classes: string[] = [];
+    for (; at; at = at.parent) classes.push(String(at.props.className ?? ""));
+    expect(classes.some((c) => c.includes("rounded-xl"))).toBe(false);
+  });
+
+  it("keeps a course's exams and assignments in the page and its professor in the details", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    await createExam(data.db, space, "Midterm", course);
+    await createAssignment(data.db, space, "Sheet 1", course);
+    const page = await show(course, "main", data);
+    expect(await page.findByLabelText("Exams")).toBeTruthy();
+    expect(page.getByLabelText("Assignments")).toBeTruthy();
+    expect(page.queryByLabelText("Professor")).toBeNull();
+    page.unmount();
+    const details = await show(course, "details", data);
+    expect(await details.findByLabelText("Professor")).toBeTruthy();
+    expect(details.queryByText("Exams")).toBeNull();
+  });
+
+  it("gives a course its bento tiles and an exam its decks, with a line to add one", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const course = await createCourse(data.db, space, "Algorithms");
+    const exam = await createExam(data.db, space, "Midterm", course, "2099-01-10");
+    await createAssignment(data.db, space, "Sheet 1", course, "2099-01-05");
+    const courseScreen = await show(course, "main", data);
+    expect(await courseScreen.findByText("Next Session")).toBeTruthy();
+    expect(courseScreen.getByText("Next Exam")).toBeTruthy();
+    expect(courseScreen.getByText("1 open / 1 total")).toBeTruthy();
+    expect(courseScreen.getByText("Course Grade")).toBeTruthy();
+    expect(courseScreen.getAllByRole("button", { name: "View all" }).length).toBe(3);
+    courseScreen.unmount();
+    const examScreen = await show(exam, "main", data);
+    const field = await examScreen.findByLabelText("New deck");
+    await fireEvent.changeText(field, "Midterm cards");
+    await fireEvent(field, "submitEditing");
+    expect(
+      await examScreen.findByRole("button", { name: /^Midterm cards, 0 to study of 0/ }),
+    ).toBeTruthy();
+  });
+
+  it("gives a semester its stats and a way to create a course in it", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    const semester = await createSemester(data.db, space, { title: "WS 26/27" });
+    const screen = await show(semester, "main", data);
+    expect(await screen.findByText("sessions this week")).toBeTruthy();
+    expect(screen.getByText("upcoming exams")).toBeTruthy();
+    expect(screen.getByText("open assignments")).toBeTruthy();
+    // Full width, as the page's main action (the user's notes).
+    expect(StyleSheet.flatten(screen.getByTestId("add-course").props.style)?.alignItems).toBe(
+      "stretch",
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Add Course" }));
+    await fireEvent.changeText(
+      await screen.findByLabelText("Search Courses without a semester"),
+      "Logic",
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Create Logic" }));
+    expect(await screen.findByRole("button", { name: /^Logic, CRS-/ })).toBeTruthy();
+  });
+});

@@ -12,7 +12,7 @@
   },
   "overrides": [
     {
-      "files": ["src/components/**"],
+      "files": ["src/components/**", "src/classes.ts"],
       "rules": {
         "shadcn/no-restyle": "off",
         "shadcn/no-arbitrary-values": "off",

@@ -36,3 +36,5 @@ export const RECIPE_KIND_ICONS = {
   dessert: IconCake,
   other: IconDots,
 } satisfies Record<RecipeKind, TablerIcon>;
+
+export { RECIPE_TIME_BUCKETS, recipeTime } from "@nookly/shared/data";

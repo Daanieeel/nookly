@@ -25,6 +25,7 @@ import {
   FilterMenu,
   matchesFilters,
 } from "#/components/filter-menu.tsx";
+import { ENTITY_FILTER_FIELDS, entityFilterValue } from "#/features/tasks/shared-view-defs.tsx";
 import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -66,10 +67,13 @@ function looksLikeUrl(text: string): boolean {
 /// carrying none of them.
 function passesFilters(bookmark: Bookmark, filters: ActiveFilter[]): boolean {
   return matchesFilters(filters, (f) => {
+    const own = entityFilterValue(bookmark.entity, f.fieldId);
     const hit =
-      f.fieldId === "labels"
-        ? bookmark.labelIds.some((id) => f.values.includes(id))
-        : f.values.includes(hostOf(bookmark.url));
+      own !== undefined
+        ? f.values.includes(own)
+        : f.fieldId === "labels"
+          ? bookmark.labelIds.some((id) => f.values.includes(id))
+          : f.values.includes(hostOf(bookmark.url));
     return f.operator === "is" ? hit : !hit;
   });
 }
@@ -193,6 +197,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
         icon: IconWorld,
         options: hosts.map((host) => ({ value: host, label: host })),
       },
+      ...ENTITY_FILTER_FIELDS,
     ];
   }, [labels, bookmarks]);
 
@@ -368,7 +373,7 @@ function LabelChips({ labels }: { labels: Label[] }) {
   return (
     <span className="flex min-w-0 items-center gap-1">
       {shown.map((label) => (
-        <LabelChip key={label.id} label={label} className="rounded-full border-foreground/10" />
+        <LabelChip key={label.id} label={label} className="rounded-md border-foreground/10" />
       ))}
       {extra > 0 && <span className="text-xs text-muted-foreground">+{extra}</span>}
     </span>

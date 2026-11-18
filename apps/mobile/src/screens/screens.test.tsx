@@ -1,0 +1,270 @@
+import { StyleSheet } from "react-native";
+import {
+  attachLabel,
+  createLabel,
+  createPage,
+  createSpace,
+  createTask,
+  getTask,
+  listTasks,
+  markOpened,
+  setTaskStatus,
+} from "@nookly/shared/data";
+import { fireEvent, waitFor } from "expo-router/testing-library";
+import { ApiClient } from "@nookly/shared/api";
+import { RecordingMenu } from "../test/menu.ts";
+import { openRow } from "../test/sheet.ts";
+import { pressBarButton, renderScreens, testData } from "../test/render.tsx";
+import { ShareScreen } from "./ShareScreen.tsx";
+import { DashboardScreen } from "./DashboardScreen.tsx";
+import { EntityScreen } from "./EntityScreen.tsx";
+import { NewTaskScreen } from "./NewScreens.tsx";
+import { SearchScreen } from "./SearchScreen.tsx";
+import { SHARED_SETTINGS } from "@nookly/shared/settings";
+import { phoneSettings } from "../data/settings.ts";
+import { SettingsCategoryScreen, SettingsScreen } from "./SettingsScreen.tsx";
+import { SETTING_IDS } from "./settings/spec.ts";
+import { TasksScreen } from "./TasksScreen.tsx";
+import { localDay } from "./dates.ts";
+
+async function seeded() {
+  const data = testData();
+  const space = await createSpace(data.db, "Work", "#0070f3");
+  return { data, space };
+}
+
+describe("the Tasks tab", () => {
+  it("groups every Space's tasks by due date and brings one to today from the row", async () => {
+    const { data, space } = await seeded();
+    const id = await createTask(data.db, space, "Write report");
+    const done = await createTask(data.db, space, "Old one");
+    await setTaskStatus(data.db, done, "done");
+    const screen = await renderScreens({ index: () => <TasksScreen /> }, data);
+    expect((await screen.findAllByRole("button", { name: "No due date" })).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByRole("button", { name: "Done" }).length).toBeGreaterThan(0);
+    // The swipe action, as a screen reader offers it.
+    // The row's swipe actions sit on the element that answers accessibility actions.
+    let row = screen.getByLabelText("Write report, TSK-1").parent;
+    while (row && !row.props.onAccessibilityAction) row = row.parent;
+    if (!row) throw new Error("no swipe actions");
+    // A swipe brings it to today; the circle finishes it (D76).
+    await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "Today" } });
+    await waitFor(async () => expect((await getTask(data.db, id))?.dueDate).toBe(localDay()));
+  });
+});
+
+describe("making a task", () => {
+  // D65: Linear's send button lights up once there is a title, and sending closes it.
+  it("can be sent once it has a title", async () => {
+    const { data } = await seeded();
+    const screen = await renderScreens({ index: () => <NewTaskScreen /> }, data);
+    const send = await screen.findByRole("button", { name: "Create Task" });
+    expect(send.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.changeText(screen.getByLabelText("Task title"), "Call the dentist");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Create Task" }).props.accessibilityState,
+      ).toMatchObject({ disabled: false }),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Create Task" }));
+    await waitFor(async () =>
+      expect((await listTasks(data.db)).map((t) => t.entity.title)).toEqual(["Call the dentist"]),
+    );
+  });
+});
+
+describe("a page", () => {
+  it("is written on directly, with no Add Block button, and goes to the Trash", async () => {
+    const { data, space } = await seeded();
+    const page = await createPage(data.db, space, "note", "Physics");
+    const menu = new RecordingMenu();
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={page} /> },
+      data,
+      `/entity/${page}`,
+      { menu },
+    );
+    // The page editor itself (a web view) is checked in the simulator; what it writes back
+    // is tested in `@nookly/shared/data` (`page-rows.test.ts`).
+    expect(await screen.findByLabelText("Page editor")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add Block" })).toBeNull();
+    await pressBarButton(screen, "More");
+    menu.choose("Move to Trash");
+    expect(await screen.findByText("In Trash")).toBeTruthy();
+    await pressBarButton(screen, "More");
+    expect(menu.labels()).toEqual(["Restore"]);
+  });
+});
+
+describe("search", () => {
+  it("shows Recents first, then what matches", async () => {
+    const { data, space } = await seeded();
+    const id = await createTask(data.db, space, "Renew passport");
+    await createTask(data.db, space, "Buy milk");
+    await markOpened(data.db, id);
+    const screen = await renderScreens({ index: () => <SearchScreen /> }, data);
+    expect(await screen.findByRole("header", { name: "Recents" })).toBeTruthy();
+    expect(await screen.findByText("Renew passport")).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Search"), "milk");
+    expect(await screen.findByText("Buy milk")).toBeTruthy();
+    expect(screen.queryByText("Renew passport")).toBeNull();
+  });
+
+  // The desktop's Cmd+K narrows by type with its tabs, to a Space with in: and by label with #.
+  // Each opens a sheet and searches a seeded database: under 2s alone, past Jest's 5s on a busy
+  // machine running every suite at once.
+  jest.setTimeout(15_000);
+  async function planSearch() {
+    const { data, space } = await seeded();
+    const home = await createSpace(data.db, "Home", "#00873d");
+    const task = await createTask(data.db, space, "Plan the trip");
+    await createPage(data.db, space, "note", "Plan for the garden");
+    await createTask(data.db, home, "Plan dinner");
+    await attachLabel(data.db, task, await createLabel(data.db, space, "Urgent"));
+    const screen = await renderScreens({ index: () => <SearchScreen /> }, data);
+    await fireEvent.changeText(screen.getByLabelText("Search"), "plan");
+    expect(await screen.findByText("Plan for the garden")).toBeTruthy();
+    return screen;
+  }
+
+  it("narrows results by type, as the desktop's tabs", async () => {
+    const screen = await planSearch();
+    await fireEvent.press(screen.getByRole("radio", { name: "Tasks" }));
+    await waitFor(() => expect(screen.queryByText("Plan for the garden")).toBeNull());
+    expect(screen.getByText("Plan dinner")).toBeTruthy();
+  });
+
+  it("narrows results to a Space, as the desktop's in:", async () => {
+    const screen = await planSearch();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Space");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Work" }));
+    await waitFor(() => expect(screen.queryByText("Plan dinner")).toBeNull());
+    expect(screen.getByText("Plan the trip")).toBeTruthy();
+  });
+
+  it("narrows results by label, as the desktop's #", async () => {
+    const screen = await planSearch();
+    await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+    await openRow(screen, "Labels");
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Urgent" }));
+    await waitFor(() => expect(screen.queryByText("Plan for the garden")).toBeNull());
+    expect(screen.getByText("Plan the trip")).toBeTruthy();
+  });
+
+  it("lists a key prefix's items after what contains it", async () => {
+    const { data, space } = await seeded();
+    await createTask(data.db, space, "Pay rent");
+    await createTask(data.db, space, "Water");
+    const screen = await renderScreens({ index: () => <SearchScreen /> }, data);
+    await fireEvent.changeText(screen.getByLabelText("Search"), "TSK-");
+    expect(await screen.findByText("Water")).toBeTruthy();
+    expect(screen.getByText("Pay rent")).toBeTruthy();
+  });
+});
+
+describe("the Dashboard", () => {
+  it("lists what is due today and before", async () => {
+    const { data, space } = await seeded();
+    await createTask(data.db, space, "Water plants", localDay());
+    await createTask(data.db, space, "Some day");
+    const screen = await renderScreens({ index: () => <DashboardScreen /> }, data);
+    expect(await screen.findByRole("button", { name: "Water plants" })).toBeTruthy();
+    expect(screen.queryByText("Some day")).toBeNull();
+    expect(screen.getByText("Nothing on the calendar today.")).toBeTruthy();
+  });
+});
+
+describe("Settings", () => {
+  it("opens with the account on top, then every category", async () => {
+    const { data } = await seeded();
+    const screen = await renderScreens({ index: () => <SettingsScreen /> }, data);
+    expect(await screen.findByText("Sign in to sync")).toBeTruthy();
+    for (const title of ["General", "Appearance", "Calendar", "Editor"]) {
+      expect(screen.getByText(title)).toBeTruthy();
+    }
+  });
+
+  it("changes a setting, offers its default back, and takes it", async () => {
+    const { data } = await seeded();
+    const screen = await renderScreens(
+      { index: () => <SettingsCategoryScreen page="calendar" /> },
+      data,
+    );
+    expect(await screen.findByText("Session length")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Reset to Default" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Increase Session length" }));
+    expect(screen.getByLabelText("Session length").props.value).toBe("100");
+    await fireEvent.press(await screen.findByRole("button", { name: "Reset to Default" }));
+    expect(screen.getByLabelText("Session length").props.value).toBe("90");
+    expect(phoneSettings.isDefault("calendar.sessionLengthMinutes")).toBe(true);
+  });
+
+  it("gives every shared setting exactly one control on exactly one page", () => {
+    expect(SETTING_IDS.sort()).toEqual(Object.keys(SHARED_SETTINGS).sort());
+  });
+
+  it("keeps a value the setting refuses out", () => {
+    expect(phoneSettings.setJson("calendar.dayStartHour", 99)).toBe(false);
+    expect(phoneSettings.get("calendar.dayStartHour")).toBe(7);
+  });
+});
+
+describe("sharing from the phone", () => {
+  it("invites someone to a page", async () => {
+    const { data, space } = await seeded();
+    const page = await createPage(data.db, space, "note", "Trip");
+    const api = new ApiClient({
+      baseUrl: "https://sync.example.com",
+      tokens: { load: async () => null, save: async () => {} },
+    });
+    jest.spyOn(api, "sharesByMe").mockResolvedValue([]);
+    const share = jest.spyOn(api, "share").mockResolvedValue({
+      share: {
+        id: "00000000-0000-4000-8000-0000000000aa",
+        entityId: page,
+        entityType: "note",
+        title: "Trip",
+        role: "editor",
+        status: "pending",
+        owner: "ada",
+        recipient: "ben@example.com",
+        createdAt: "",
+      },
+      inviteUrl: "https://sync.example.com/invite?token=x",
+    });
+    jest.spyOn(data.sync, "account").mockReturnValue(api);
+    jest.spyOn(data.sync, "syncNow").mockResolvedValue();
+    data.sync.store.setState({
+      user: {
+        id: "00000000-0000-4000-8000-0000000000bb",
+        username: "ada",
+        email: "a@b.co",
+        emailVerified: true,
+        createdAt: "",
+      },
+    });
+    const screen = await renderScreens({ index: () => <ShareScreen entityId={page} /> }, data);
+    await fireEvent.changeText(screen.getByLabelText("Email"), "Ben@Example.com");
+    await fireEvent.press(screen.getByRole("radio", { name: "Can edit" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Invite" }));
+    await waitFor(() => expect(share).toHaveBeenCalledWith(page, "ben@example.com", "editor"));
+  });
+});
+
+// TaskRow read its edges above its own swipe row, so it reached out twice and its text
+// sat past the screen's left edge.
+describe("a task row's edges", () => {
+  it("reaches the edges once, through its swipe row", async () => {
+    const { data, space } = await seeded();
+    await createTask(data.db, space, "Write report");
+    const screen = await renderScreens({ index: () => <TasksScreen /> }, data);
+    const row = await screen.findByLabelText("Write report, TSK-1");
+    expect(StyleSheet.flatten(row.props.style)).toMatchObject({
+      marginHorizontal: 0,
+      paddingHorizontal: 20,
+    });
+  });
+});

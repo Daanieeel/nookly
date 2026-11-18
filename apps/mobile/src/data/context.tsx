@@ -1,0 +1,74 @@
+import type { LocalDb } from "@nookly/shared/data";
+import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
+import { type ReactNode, createContext, useContext } from "react";
+import { useStore } from "zustand";
+import type { SyncAccountState } from "@nookly/shared/sync";
+import { keys } from "./keys.ts";
+import type { MobileSync } from "./sync.ts";
+
+/// A small device preference.
+export interface Preference {
+  get(): string | null;
+  set(value: string): void;
+}
+
+export interface AppData {
+  db: LocalDb;
+  sync: MobileSync;
+  /// The sync server's address.
+  serverUrl: Preference;
+  /// The theme picked in Settings.
+  theme: Preference;
+  /// Set once the welcome screen was answered (an account, or none), so it shows once.
+  onboarded: Preference;
+  /// A full copy of the phone's data, checked after it is written. The phone has it;
+  /// a test has none.
+  backup?: () => Promise<{ path: string }>;
+}
+
+const AppDataContext = createContext<AppData | null>(null);
+
+export function AppDataProvider({ value, children }: { value: AppData; children: ReactNode }) {
+  return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
+}
+
+export function useAppData(): AppData {
+  const value = useContext(AppDataContext);
+  if (!value) throw new Error("useAppData outside AppDataProvider");
+  return value;
+}
+
+export function useDb(): LocalDb {
+  return useAppData().db;
+}
+
+export function useSyncState<T>(selector: (state: SyncAccountState) => T): T {
+  return useStore(useAppData().sync.store, selector);
+}
+
+/// After a local write: every view refreshes, and sync sends it shortly.
+export function afterLocalWrite(queryClient: QueryClient, sync: MobileSync) {
+  void queryClient.invalidateQueries({ queryKey: keys.local });
+  sync.notifyLocalChange();
+}
+
+/// Runs a write to the phone's data from an action (a menu item): views refresh and sync
+/// is told, as with `useLocalWrite`.
+export function useWrite() {
+  const { db, sync } = useAppData();
+  const queryClient = useQueryClient();
+  return <T,>(write: (db: LocalDb) => Promise<T>) =>
+    void write(db).then(() => afterLocalWrite(queryClient, sync));
+}
+
+/// A write to the phone's data, as a mutation: views refresh and sync is told.
+export function useLocalWrite<TInput, TResult>(
+  write: (db: LocalDb, input: TInput) => Promise<TResult>,
+) {
+  const { db, sync } = useAppData();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TInput) => write(db, input),
+    onSuccess: () => afterLocalWrite(queryClient, sync),
+  });
+}

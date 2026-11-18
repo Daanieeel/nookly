@@ -37,6 +37,7 @@ import {
 import type { Entity, RepeatRule, Task } from "#/lib/api/types.ts";
 import { effortLabel, useEffortSettings } from "#/lib/effort.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
+import { useViewOnly } from "#/features/sync/view-only.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { useRightSidebarCollapsed } from "#/components/tab-group-scope.ts";
 import { cn } from "@nookly/ui/lib/utils";
@@ -66,6 +67,7 @@ import { qk } from "#/lib/query-keys.ts";
 import { useScreenHotkey } from "#/hooks/use-app-hotkey.ts";
 import { useShortcutMap } from "#/hooks/use-shortcut.ts";
 import { displayText } from "#/lib/shortcuts.ts";
+import { LIST_ROW_CLASSES } from "#/classes.ts";
 
 /// A Task's page: the same header and description editor as a Note, plus a
 /// previous and next stepper, the sub-tasks, and a properties panel at the top of
@@ -95,6 +97,8 @@ function TaskPage({ entity }: { entity: Entity }) {
   });
   const parent = useTaskParent(entity);
   const neighbours = useTaskNeighbours(entity, parent);
+  // Shared to view only: every control shows its value but can't change it.
+  const viewOnly = useViewOnly(entity.id, entity.spaceId);
 
   return (
     <EntityDetailLayout
@@ -110,26 +114,33 @@ function TaskPage({ entity }: { entity: Entity }) {
           />
         )
       }
-      sidebar={task && <PropertiesPanel task={task} progress={progress ?? null} />}
+      sidebar={
+        task && (
+          <fieldset disabled={viewOnly} className="contents">
+            <PropertiesPanel task={task} progress={progress ?? null} />
+          </fieldset>
+        )
+      }
     >
       <div className="flex w-full flex-col pb-24">
         {/* Properties live in the sidebar; without it they sit above the description.
             Indented by the editor's handle gutter (`.tiptap-content`) to line up with
             its text. */}
         {task && (
-          <div
+          <fieldset
+            disabled={viewOnly}
             className={cn(
-              "mb-2 flex flex-wrap items-center gap-1.5 pl-13",
+              "mb-2 flex min-w-0 flex-wrap items-center gap-1.5 pl-13",
               !sidebarCollapsed && "@3xl:hidden",
             )}
           >
             <TaskStatusControl task={task} />
             <TaskLabelsControl task={task} />
             <TaskDueControl task={task} />
-          </div>
+          </fieldset>
         )}
         <BlockEditor entityId={entity.id} spaceId={entity.spaceId} />
-        {!isSubtask && <SubtaskSection parent={entity} progress={progress ?? null} />}
+        {!isSubtask && !viewOnly && <SubtaskSection parent={entity} progress={progress ?? null} />}
       </div>
     </EntityDetailLayout>
   );
@@ -347,7 +358,7 @@ function SubtaskSection({ parent, progress }: { parent: Entity; progress: number
             return (
               <div
                 key={subtask.entity.id}
-                className="relative flex h-10 items-center gap-2 border-b border-border/60 px-1 hover:bg-accent/40"
+                className={LIST_ROW_CLASSES}
                 {...entityTarget(subtask.entity)}
               >
                 <button
@@ -586,7 +597,7 @@ function PropertiesPanel({ task, progress }: { task: Task; progress: number | nu
           >
             {attached.length > 0 ? (
               attached.map((l) => (
-                <LabelChip key={l.id} label={l} className="rounded-full border-foreground/10" />
+                <LabelChip key={l.id} label={l} className="rounded-md border-foreground/10" />
               ))
             ) : (
               <span className="text-muted-foreground">Add label</span>

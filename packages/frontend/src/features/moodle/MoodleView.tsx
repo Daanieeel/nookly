@@ -5,7 +5,7 @@ import { CoursesPage } from "./CoursesPage.tsx";
 import { FilePage } from "./FilePage.tsx";
 import { DiscussionPage, ForumPage } from "./CourseForums.tsx";
 import { SectionPage } from "./SectionPage.tsx";
-import { parseMoodlePath } from "./moodle-path.ts";
+import { parseMoodlePath } from "@nookly/shared/moodle/path";
 import { useMoodleStatus } from "./moodle-queries.ts";
 
 /// The Moodle module: a read only view of the user's Moodle site. Courses, their files,

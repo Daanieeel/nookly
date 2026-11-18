@@ -74,6 +74,15 @@ pub(crate) const DECLARED: &[(usize, &[(&str, &str)])] = &[
     // Two new tables, and a reference for each File that only points elsewhere. No
     // existing column changes: `files` and `entities` stay exactly as they were.
     (50, &[]),
+    // Sync tables and triggers (the connected platform); nothing existing changes. The
+    // key index loses its uniqueness, which no existing row depends on.
+    (51, &[]),
+    // New columns and tables for files and settings in the account.
+    (52, &[]),
+    // A new table for page documents; nothing existing changes.
+    (53, &[]),
+    // Sync triggers for references; nothing existing changes.
+    (54, &[]),
 ];
 
 /// Tables a migration renamed, old name first.

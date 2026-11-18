@@ -166,9 +166,29 @@ const shift = (id: string) => {
   return match ? Number(match[1]) : 0;
 };
 const swipe = async (deltaX: number) => fireEvent.wheel(await slot("Uni"), { deltaX, deltaY: 0 });
-const settled = { timeout: 3000 };
+/// How long a swipe may take to settle: its slide runs on real timers and frames, which a
+/// loaded CI machine stretched past 3 seconds. A swipe that works settles far sooner.
+const settled = { timeout: 10_000 };
 
-describe("swiping between Spaces", () => {
+/// A swipe test waits up to `settled` twice, longer than a test's default 5 seconds: the
+/// test gave up first on a loaded CI machine, before its own wait ran out.
+const swipeTests = { timeout: 25_000 };
+
+/// Fires a trackpad glide on a clock that only moves by hand, 8ms an event: real time passing
+/// between events (a slow machine in CI) made a glide look like two swipes. The slide after it
+/// runs on the real clock again, which its animation frames read.
+function glide(target: Element, sizes: number[]) {
+  const start = performance.now();
+  let ahead = 0;
+  const now = vi.spyOn(performance, "now").mockImplementation(() => start + ahead);
+  for (const dx of sizes) {
+    ahead += 8;
+    fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
+  }
+  now.mockRestore();
+}
+
+describe("swiping between Spaces", swipeTests, () => {
   it("moves the list with the fingers, the next Space coming in beside it", async () => {
     setup();
     await swipe(60);
@@ -186,6 +206,20 @@ describe("swiping between Spaces", () => {
     expect(shift("space-1")).toBe(-180);
   });
 
+  // A flick is let go by a timer once the wheel goes quiet. On a busy machine (CI) that
+  // timer ran late, past the moments the flick's speed is read from, so it slid back.
+  it("goes on after a flick even when the timer that lets it go runs late", async () => {
+    const start = performance.now();
+    let ahead = 0;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => start + ahead);
+    setup();
+    fireEvent.wheel(await slot("Uni"), { deltaX: 100, deltaY: 0 });
+    // The timer is due 80ms on; the clock reads 150 when it runs.
+    ahead = 150;
+    await vi.waitFor(() => expect(useNavStore.getState().activeSpaceId).toBe("space-2"), settled);
+    now.mockRestore();
+  });
+
   it("goes on to the next Space after a swipe, which can be any Space of the stored order", async () => {
     setup();
     await swipe(100);
@@ -196,26 +230,29 @@ describe("swiping between Spaces", () => {
   });
 
   it("comes back to the same Space when the fingers were let go before halfway, and had stopped", async () => {
-    // The clock runs on, but can be set ahead, as when the fingers waited before moving again.
-    const realNow = performance.now.bind(performance);
+    // The clock only moves by hand, and both movements come without a wait between them:
+    // real time between them on a slow CI machine let the first go on its own, a flick.
+    const start = performance.now();
     let ahead = 0;
-    const now = vi.spyOn(performance, "now").mockImplementation(() => realNow() + ahead);
+    const now = vi.spyOn(performance, "now").mockImplementation(() => start + ahead);
     setup();
-    await swipe(50);
+    const target = await slot("Uni");
+    fireEvent.wheel(target, { deltaX: 50, deltaY: 0 });
     // Long after the drag, a last tiny movement: the list was not going anywhere any more.
     ahead = 500;
-    await swipe(1);
+    fireEvent.wheel(target, { deltaX: 1, deltaY: 0 });
+    // The slide back runs on the real clock, which its animation frames read.
+    now.mockRestore();
     await vi.waitFor(() => expect(pane("space-2")).toBeNull(), settled);
     expect(useNavStore.getState().activeSpaceId).toBeNull();
     expect(pane("space-1")?.style.transform).toBe("");
-    now.mockRestore();
   });
 
   it("registers the new Space the moment the fingers lift, not when the trackpad stops gliding", async () => {
     setup();
     const target = await slot("Uni");
     // Fingers still moving, then lifting: the wheel goes on with a fading glide.
-    for (const dx of [40, 40, 30, 22, 16, 11]) fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
+    glide(target, [40, 40, 30, 22, 16, 11]);
     // The bottom row already shows it, without waiting for the glide to end or the list to arrive.
     expect(useNavStore.getState().activeSpaceId).toBe("space-2");
     expect(await slot("Work")).toHaveAttribute("aria-pressed", "true");
@@ -224,9 +261,7 @@ describe("swiping between Spaces", () => {
   it("does not take the rest of the glide for a new swipe", async () => {
     setup();
     const target = await slot("Uni");
-    for (const dx of [40, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2]) {
-      fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
-    }
+    glide(target, [40, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2]);
     await vi.waitFor(() => expect(pane("space-1")).toBeNull(), settled);
     // It stopped on Work, and was not carried on to Home by what was left of the glide.
     expect(useNavStore.getState().activeSpaceId).toBe("space-2");
@@ -237,9 +272,7 @@ describe("swiping between Spaces", () => {
     setup();
     const target = await slot("Uni");
     // Far more than a pane's width, a glide that fades, with no pause in between.
-    for (const dx of [60, 60, 60, 60, 60, 60, 50, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2, 2, 1]) {
-      fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
-    }
+    glide(target, [60, 60, 60, 60, 60, 60, 50, 40, 30, 22, 16, 11, 8, 6, 4, 3, 2, 2, 1]);
     expect(useNavStore.getState().activeSpaceId).toBe("space-2");
     await vi.waitFor(
       () => expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1),
@@ -252,9 +285,7 @@ describe("swiping between Spaces", () => {
     setup();
     const target = await slot("Uni");
     // The glide after the flick wobbles, growing for a moment, but never stops for a pause.
-    for (const dx of [60, 60, 50, 44, 38, 32, 28, 30, 33, 36, 40, 34, 30, 26, 22, 18, 14]) {
-      fireEvent.wheel(target, { deltaX: dx, deltaY: 0 });
-    }
+    glide(target, [60, 60, 50, 44, 38, 32, 28, 30, 33, 36, 40, 34, 30, 26, 22, 18, 14]);
     await vi.waitFor(
       () => expect(document.querySelectorAll("[data-space-pane]")).toHaveLength(1),
       settled,
@@ -305,10 +336,9 @@ describe("swiping between Spaces", () => {
 
   it("a swipe that goes back puts the bottom row back too", async () => {
     setup();
-    // Lets go past halfway, so the bottom row switches at once.
-    for (const dx of [40, 40, 30, 22, 16, 11]) {
-      fireEvent.wheel(await slot("Uni"), { deltaX: dx, deltaY: 0 });
-    }
+    // Lets go past halfway, so the bottom row switches at once. One glide on the test's own
+    // clock: real time between its events on a slow CI machine made it two short swipes.
+    glide(await slot("Uni"), [40, 40, 30, 22, 16, 11]);
     expect(useNavStore.getState().activeSpaceId).toBe("space-2");
     // Then takes hold of the list and drags it back to where it was, slowly, and lets go.
     const realNow = performance.now.bind(performance);
@@ -380,7 +410,7 @@ describe("swiping between Spaces", () => {
   });
 });
 
-describe("the swipe hint", () => {
+describe("the swipe hint", swipeTests, () => {
   const hint = () => screen.queryByText(/Swipe to switch Spaces/);
 
   it("teases the swipe at the bottom while there is more than one Space", async () => {
@@ -542,5 +572,35 @@ describe("showing a hidden sidebar from the edge", () => {
     expect(container()).toHaveClass("left-0!");
     fireEvent.mouseLeave(container());
     expect(container()).not.toHaveClass("left-0!");
+  });
+  // Shown in place, the sidebar lets the window's black show through; slid over the page
+  // it needs its own surface, or the page's text shows through it.
+  it("gives the sidebar a surface of its own while it is over the page", () => {
+    setupHidden();
+    expect(container()).not.toHaveAttribute("data-peek");
+    fireEvent.mouseEnter(document.querySelector("[aria-hidden=true].fixed")!);
+    expect(container()).toHaveAttribute("data-peek");
+    const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
+    expect(css).toMatch(
+      /\[data-slot="sidebar-container"\]\[data-peek\] > \[data-slot="sidebar-inner"\] \{[^}]*background-color: var\(--popover\)/,
+    );
+  });
+
+  // A faint shadow (30px at 35%) barely parted the panel from the page, least of all in dark
+  // mode: it floats over the page with a clear, wide shadow.
+  it("lifts the sidebar off the page with a clear shadow", () => {
+    const css = readFileSync(join(process.cwd(), "src/styles.css"), "utf8");
+    const rule =
+      /\[data-slot="sidebar-container"\]\[data-peek\] > \[data-slot="sidebar-inner"\] \{([^}]*)\}/.exec(
+        css,
+      )?.[1] ?? "";
+    const shadow = /box-shadow:([^;]*);/.exec(rule)?.[1] ?? "";
+    const blurs = [...shadow.matchAll(/-?\d+(?:px)? -?\d+(?:px)? (\d+)px/g)].map((m) =>
+      Number(m[1]),
+    );
+    const alphas = [...shadow.matchAll(/\/ (0?\.\d+)\)/g)].map((m) => Number(m[1]));
+    expect(Math.max(0, ...blurs)).toBeGreaterThanOrEqual(48);
+    expect(Math.max(0, ...alphas)).toBeGreaterThanOrEqual(0.4);
+    expect(blurs.length).toBeGreaterThanOrEqual(2);
   });
 });

@@ -34,13 +34,14 @@ const BLURS = [
 ];
 
 /// A blur that tapers off upward, for the edge where a list scrolls under something. Fills its
-/// positioned parent and reaches `-top-10` above it, so the fade is longer than the parent without
-/// the parent needing room for it. Sits behind the parent's content and lets every click through.
+/// positioned parent and reaches `-top-3` (12px) above it: a little longer than the parent, but
+/// short enough never to cover the list's last row, which stops right above the parent. Sits
+/// behind the parent's content and lets every click through.
 export function ProgressiveBlur() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 -top-10 bottom-0 -z-10 overflow-hidden rounded-b-lg"
+      className="pointer-events-none absolute inset-x-0 -top-3 bottom-0 -z-10 overflow-hidden rounded-b-lg"
     >
       {STEP_HEIGHTS.map((height, i) => {
         const group = Math.min(Math.floor(i / 4), BLURS.length - 1);

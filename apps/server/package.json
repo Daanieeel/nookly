@@ -1,0 +1,37 @@
+{
+  "name": "@nookly/server",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test --timeout 30000",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1151.0",
+    "@elysiajs/cors": "1.4.2",
+    "@elysiajs/openapi": "1.4.16",
+    "@hocuspocus/server": "4.7.1",
+    "@nookly/shared": "workspace:*",
+    "better-auth": "1.7.7",
+    "drizzle-orm": "0.45.4",
+    "elysia": "1.4.30",
+    "nodemailer": "^10.1.0",
+    "postgres": "3.4.9",
+    "yjs": "13.6.33",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@hocuspocus/provider": "4.7.1",
+    "@nookly/config": "workspace:*",
+    "@testcontainers/postgresql": "12.2.1",
+    "@types/bun": "^1.4.3",
+    "@types/nodemailer": "^8.0.2",
+    "drizzle-kit": "0.31.11",
+    "testcontainers": "12.2.1"
+  }
+}

@@ -1,0 +1,195 @@
+/// The phone's motion, in one place: iOS's own feel. Springs, never fixed timelines, for
+/// anything a finger can touch while it moves, so a touch stops it where it is and a
+/// release carries on with the finger's speed. Under Reduce Motion, short fades instead.
+
+/// Springs by what moves, as Reanimated's `withSpring` takes them (`duration` is the
+/// perceived time to settle, `dampingRatio` 1 means no overshoot).
+export const SPRING = {
+  /// A sheet or drawer settling: iOS's sheet, no overshoot.
+  sheet: { duration: 420, dampingRatio: 1 },
+  /// A menu or popover growing out of its trigger: quick, a touch of bounce.
+  menu: { duration: 300, dampingRatio: 0.82 },
+  /// A press giving way and coming back, a selection indicator sliding.
+  press: { duration: 260, dampingRatio: 0.7 },
+  /// A row lifted to be dragged, the rows making room for it, and its drop into place.
+  lift: { duration: 320, dampingRatio: 0.86 },
+  /// Something folding back into what it grew out of (the search field's X): quick, no
+  /// overshoot past nothing.
+  collapse: { duration: 260, dampingRatio: 1 },
+  /// A swiped row settling on its button, back closed, or out of the way as it acts.
+  swipe: { duration: 360, dampingRatio: 0.92 },
+} as const;
+
+/// How long a finger rests on a row before it lifts to be dragged, as iOS's lists.
+export const LIFT_DELAY = 280;
+/// How much a lifted row grows, as it comes up off the list.
+export const LIFT_SCALE = 1.03;
+
+/// Cards waiting to be moved shake gently, as icons do on the iOS Home Screen: each tilts
+/// this far either way (degrees), a half swing taking `half` ms, each card starting at its
+/// own point in the swing so they never move as one.
+export const WOBBLE = { angle: 1.6, half: 120 } as const;
+
+/// Where in the swing a card starts: spread out by its place, the same each time.
+export function wobbleDelay(index: number): number {
+  return ((index * 53) % 7) * (WOBBLE.half / 7) * 2;
+}
+
+/// Fades under Reduce Motion, and for things that only appear (a menu going away).
+export const FADE = { in: 160, out: 120 } as const;
+
+/// How much a pressed control shrinks.
+export const PRESS_SCALE = 0.97;
+/// How much a checkbox shrinks: small things give way more, as Reminders' circle does.
+export const CHECK_PRESS_SCALE = 0.85;
+
+/// How far a swipe down must carry a sheet, or how fast, before it goes away.
+export const DISMISS_DISTANCE = 120;
+export const DISMISS_VELOCITY = 900;
+
+/// iOS's rubber band: past a limit, a drag moves less the further it goes. `overshoot` is
+/// how far past the limit the finger is (signed), `size` the dimension that resists.
+export function rubberBand(overshoot: number, size: number): number {
+  "worklet";
+  if (overshoot === 0) return 0;
+  const distance = Math.abs(overshoot);
+  const resisted = (1 - 1 / ((distance * 0.55) / size + 1)) * size;
+  return Math.sign(overshoot) * resisted;
+}
+
+/// A drag that starts on a sheet at `offset` (0 open, larger is further down, wherever a
+/// running animation had it): where the sheet goes for a finger moved by `translation`.
+/// Down follows the finger; up past the open position resists.
+export function dragFrom(offset: number, size = 600) {
+  "worklet";
+  return (translation: number) => {
+    "worklet";
+    const next = offset + translation;
+    return next >= 0 ? next : rubberBand(next, size);
+  };
+}
+
+/// Where a released sheet goes: away when flung down or pulled far enough, unless the
+/// finger was heading back up; otherwise back open. The finger's speed carries on.
+export interface Settled {
+  to: "open" | "closed";
+  velocity: number;
+}
+
+export function settleSheet({ offset, velocity }: { offset: number; velocity: number }): Settled {
+  "worklet";
+  const flung = velocity > DISMISS_VELOCITY;
+  const far = offset > DISMISS_DISTANCE && velocity >= 0;
+  return { to: flung || far ? "closed" : "open", velocity };
+}
+
+/// Where a tall sheet comes to rest: fully up (`large`), at its `medium` stop (that far
+/// down), or away. The stop nearest the release wins, unless the finger flicked towards
+/// the next one; from the medium stop, a pull far enough or a fling down sends it away.
+export interface DetentSettled {
+  to: "large" | "medium" | "closed";
+  velocity: number;
+}
+
+export function settleDetent({
+  offset,
+  velocity,
+  medium,
+}: {
+  offset: number;
+  velocity: number;
+  medium: number;
+}): DetentSettled {
+  "worklet";
+  const flick = Math.abs(velocity) > DISMISS_VELOCITY / 2;
+  if (offset > medium) {
+    const far = offset - medium > DISMISS_DISTANCE && velocity >= 0;
+    if (far || velocity > DISMISS_VELOCITY) return { to: "closed", velocity };
+    if (velocity < -DISMISS_VELOCITY / 2) return { to: "large", velocity };
+    return { to: "medium", velocity };
+  }
+  if (flick) return { to: velocity > 0 ? "medium" : "large", velocity };
+  return { to: offset > medium / 2 ? "medium" : "large", velocity };
+}
+
+/// A row's swipe actions, as iOS Mail's: how wide an action's button rests (points), the
+/// share of the row past which letting go acts at once, and how fast a flick must be to
+/// open the button from a short pull.
+export const SWIPE = { button: 84, full: 0.55, flick: 900 } as const;
+
+/// Where a swiped row goes for a finger moved by `translation` from where it rested
+/// (`start`): towards a side with an action it follows the finger; towards one without, it
+/// resists as a rubber band.
+export function swipeDrag({
+  start,
+  left,
+  right,
+  width,
+}: {
+  start: number;
+  /// Whether there is an action revealed by a swipe to the right (on the left edge).
+  left: boolean;
+  right: boolean;
+  width: number;
+}) {
+  "worklet";
+  return (translation: number) => {
+    "worklet";
+    const next = start + translation;
+    if (next > 0 && !left) return rubberBand(next, width);
+    if (next < 0 && !right) return rubberBand(next, width);
+    return next;
+  };
+}
+
+export interface SwipeSettled {
+  to: "closed" | "open" | "full";
+  velocity: number;
+}
+
+/// Where a swiped row comes to rest when let go: `full` acts at once (pulled past most of
+/// the row, not heading back), `open` rests on the button (a pull past half of it, or a
+/// flick towards it), otherwise `closed`.
+export function settleSwipe({
+  offset,
+  velocity,
+  width,
+  rest = SWIPE.button,
+}: {
+  offset: number;
+  velocity: number;
+  width: number;
+  /// How wide the side's buttons rest open: one button's width for each action.
+  rest?: number;
+}): SwipeSettled {
+  "worklet";
+  const side = Math.sign(offset);
+  const distance = Math.abs(offset);
+  const towards = velocity * side;
+  if (distance >= width * SWIPE.full && towards > -SWIPE.flick) return { to: "full", velocity };
+  if (towards < -SWIPE.flick) return { to: "closed", velocity };
+  if (distance > rest / 2 || (distance > 8 && towards > SWIPE.flick)) {
+    return { to: "open", velocity };
+  }
+  return { to: "closed", velocity };
+}
+
+/// A swipe from a tablet page's left edge back to the page before, as iOS's: how wide the
+/// edge is that starts it (points), the share of the page past which letting go goes back,
+/// and how fast a flick to the right goes back from a short pull.
+export const EDGE_BACK = { edge: 24, past: 1 / 3, flick: 600 } as const;
+
+/// Whether a page swiped `offset` from its place goes back when let go.
+export function settleEdgeBack({
+  offset,
+  velocity,
+  width,
+}: {
+  offset: number;
+  velocity: number;
+  width: number;
+}): boolean {
+  "worklet";
+  if (velocity < -EDGE_BACK.flick) return false;
+  return offset > width * EDGE_BACK.past || velocity > EDGE_BACK.flick;
+}

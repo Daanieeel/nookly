@@ -22,23 +22,7 @@ import { type ModuleKey, MODULE_KEYS, type View } from "#/lib/store/nav.ts";
 export { MODULE_KEYS };
 export type { ModuleKey };
 
-export const MODULE_LABELS = {
-  tasks: "Tasks",
-  notes: "Notes",
-  jots: "Jots",
-  courses: "Courses",
-  semesters: "Semesters",
-  sessions: "Sessions",
-  calendar: "Calendar",
-  exams: "Exams",
-  decks: "Decks",
-  assignments: "Assignments",
-  files: "Files",
-  bookmarks: "Bookmarks",
-  recipes: "Recipes",
-  grades: "Grades",
-  moodle: "Moodle",
-} satisfies Record<ModuleKey, string>;
+export { MODULE_LABELS } from "@nookly/shared/modules";
 
 export const MODULE_DESCRIPTIONS = {
   tasks: "Track to-dos on a board or list, grouped by status.",
@@ -76,28 +60,9 @@ export const MODULE_ICONS = {
   moodle: IconSchool,
 } satisfies Record<ModuleKey, TablerIcon>;
 
-/// Which underlying entity `type`s belong to each module. Mirrors
-/// `module_keys_for_entity_type` in `src-tauri/src/db/space_modules.rs` — keep
-/// the two in sync.
-export const MODULE_ENTITY_TYPES = {
-  tasks: ["task", "sub_task"],
-  notes: ["note"],
-  jots: ["jot"],
-  courses: ["course", "course_notes"],
-  semesters: ["semester"],
-  sessions: ["session", "session_template"],
-  calendar: ["calendar_entry", "calendar_entry_template"],
-  exams: ["exam"],
-  decks: ["index_card_deck"],
-  assignments: ["assignment"],
-  files: ["file"],
-  bookmarks: ["bookmark"],
-  recipes: ["recipe"],
-  // A report on Exams and Assignments, with no entities of its own.
-  grades: [],
-  // A read only view of the user's Moodle site, with no entities of its own.
-  moodle: [],
-} satisfies Record<ModuleKey, string[]>;
+import { MODULE_ENTITY_TYPES } from "@nookly/shared/modules";
+
+export { MODULE_ENTITY_TYPES };
 
 /// Modules that ride along with another module rather than being offered on
 /// their own in the sidebar's "+" picker — e.g. Semesters only exists to
@@ -105,14 +70,9 @@ export const MODULE_ENTITY_TYPES = {
 /// creating a first course/semester) and never shown as a separate choice.
 export const MODULE_PASSENGERS = new Map<ModuleKey, ModuleKey[]>([["courses", ["semesters"]]]);
 
-export function moduleForEntityType(type: string): ModuleKey | undefined {
-  return MODULE_KEYS.find((key) =>
-    // SAFETY: widening to `string[]` only relaxes `.includes`'s parameter type —
-    // `type` is an arbitrary runtime string here (an entity's `type` column),
-    // and a non-match just falls through to `false` like any other string.
-    (MODULE_ENTITY_TYPES[key] as string[]).includes(type),
-  );
-}
+import { moduleForEntityType } from "@nookly/shared/modules";
+
+export { moduleForEntityType };
 
 /// Where to land after trashing the entity being viewed: its module's list, e.g.
 /// the Tasks board for a Task, or the Dashboard when it has no module.

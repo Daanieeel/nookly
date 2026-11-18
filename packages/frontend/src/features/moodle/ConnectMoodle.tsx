@@ -157,8 +157,8 @@ function ModuleChips() {
 function Backdrop() {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-      <div className="absolute top-1/2 left-1/2 size-160 -translate-1/2 rounded-full border border-border/60" />
-      <div className="absolute top-1/2 left-1/2 size-240 -translate-1/2 rounded-full border border-border/40" />
+      <div className="absolute top-1/2 left-1/2 size-160 -translate-1/2 rounded-4xl border border-border/60" />
+      <div className="absolute top-1/2 left-1/2 size-240 -translate-1/2 rounded-4xl border border-border/40" />
       <div className="absolute top-0 left-1/2 h-64 w-xl max-w-full -translate-x-1/2 -translate-y-1/3 rounded-full bg-brand-moodle/20 blur-3xl" />
     </div>
   );

@@ -238,7 +238,7 @@ export function TaskLabelsControl({
         className="relative flex min-w-0 shrink cursor-pointer items-center gap-1 rounded-md"
       >
         {shown.map((label) => (
-          <LabelChip key={label.id} label={label} className="rounded-full border-foreground/10" />
+          <LabelChip key={label.id} label={label} className="rounded-md border-foreground/10" />
         ))}
         {extra > 0 && (
           <Tooltip>

@@ -1,0 +1,565 @@
+# Decisions: connected platform
+
+Each decision: what, the alternatives, why. ⚑ marks the ones worth a second look. The long lived record stays `docs/06-decisions-log.md`; the entries that change how Nookly works are copied there too.
+
+## D1. Build on the existing sync stack instead of starting over
+
+- **Decision:** keep the sync engine in `packages/shared/src/sync` (per field records with hybrid logical clocks, server side merge, WebSocket notices, conflicts kept), the Elysia server and the Expo app. Add what the brief asks for on top: better-auth, S3 files, Yjs for page text, the merge editor, settings sync, migration UX.
+- **Alternatives:** a new sync stack (ElectricSQL, PowerSync, Replicache, a hand made op log).
+- **Why:** the existing engine already does exactly what the brief asks for structured fields: two devices changing different fields merge silently, only the same field changed concurrently counts as a conflict, and the losing value is never dropped. It has convergence tests against real Postgres. Replacing it would risk data and buy nothing.
+
+## D2. The server is the authority; the desktop still works without an account ⚑
+
+- **Decision:** once signed in, the server's merged record is the truth every device converges to; each device's SQLite is a cache plus an outbox (`sync_dirty`), never the authority over another device. Without an account the desktop keeps working exactly as before, local only.
+- **Alternatives:** require an account on the desktop.
+- **Why:** Nookly is released and people use it offline without accounts. Forcing sign in on update would lock them out of their own data. The brief's "local cache, never the authority" holds for every signed in device.
+
+## D3. better-auth with username and password, email optional ⚑
+
+- **Decision:** better-auth on the server with the `username` and `bearer` plugins. Sign up takes a username and a password; email is optional and only used for password reset and share invites. Clients store the session token in the OS keychain (desktop) or SecureStore (phone) and send it as a bearer token. Sessions last 60 days and renew on use, so people stay signed in. OAuth (Google, Apple, GitHub) becomes a `socialProviders` entry: the `account` table and the client's sign in screen already have a slot for providers.
+- **Alternatives:** keep the custom JWT auth; cookie sessions.
+- **Why:** the brief asks for better-auth. Bearer tokens work the same from a Tauri webview, React Native and the CLI; cookies don't cross those cleanly. An account needs an email column in better-auth, so an account without an email gets an internal placeholder (`<id>@users.nookly.invalid`, never shown, never mailed).
+
+## D4. Existing server accounts move into better-auth without losing anything
+
+- **Decision:** a Drizzle migration copies `users` into better-auth's `user` and `account` tables with the same ids, and better-auth checks passwords with the existing argon2id hashes (Bun's `Bun.password`), so nobody has to reset a password. Records, conflicts and shares keep their owner ids. The old tables stay in place, unused.
+- **Alternatives:** drop the old tables (the server was never deployed).
+- **Why:** development databases exist, and "never lose data" costs one migration here.
+
+## D5. Devices have names, and every clock names its device
+
+- **Decision:** a `devices` table on the server maps each sync device id (the last part of every clock) to a name and platform, registered with every session. Conflicts carry the device id of each side, so the merge editor says "This device (MacBook)" and "Other device (iPhone), 14:02", never "ours" and "theirs".
+- **Why:** the brief's merge editor needs device names and times; clocks already carry both.
+
+## D6. Page text merges with Yjs; block rows stay as the materialized form ⚑
+
+- **Decision:** each page body is a Yjs document (`page:<entityId>`), edited through TipTap's Collaboration extension and synced through Hocuspocus over WebSockets, persisted in Postgres (`documents`). Concurrent edits, online or offline, merge in the CRDT and never show a conflict. Presence and carets come from Yjs awareness.
+  - The `blocks` rows remain the stored form everything else reads (search, CLI, export, previews, offline-only users). The server writes them from the document after each change (it is the authority), and each device also writes them locally from its own copy without marking them as edits, so search works offline.
+  - A document is created only by the server, from the page's block rows the first time a signed in device opens the page. Devices never seed one on their own, so two devices can't each turn the same page into a document and duplicate it.
+  - A page a device has not yet opened online keeps the old path (blocks sync per block, conflicts kept) until it is opened online once.
+  - Edits from outside the editor (CLI, agents, import) still write block rows; the server applies them to the document as a replacement of that block.
+  - Every client builds its editor from the same schema (`packages/frontend/src/features/notes/editor-schema.ts`), tested to be identical on desktop and mobile, because y-prosemirror drops nodes a schema doesn't know. A document records the schema version it was written with, and a client with an older schema opens it read only instead of editing it.
+- **Alternatives:** y-websocket (no auth hooks, no persistence hooks); Automerge (no TipTap binding); per block last writer wins (conflicts on concurrent text edits, which the brief rules out); making Yjs the only stored form (breaks CLI, search and offline-only users).
+- **Why:** Yjs plus TipTap is the established pairing, Hocuspocus gives authentication, persistence and multiplexing over one socket.
+
+## D7. Same field, both sides: newest wins for now, the other is kept and a badge asks ⚑
+
+- **Decision:** a real conflict (the same field changed on two devices without either seeing the other) never blocks anything. The item shows the newer value right away, the other value is stored in full, and a badge on the item and in the sidebar's sync status invites a decision. The merge editor shows both versions side by side (stacked on phones) with differences highlighted, and offers Keep this one, Keep the other, Keep both and Edit combined.
+  - Keep both: for text it joins both versions in the combined editor. Single values (a date, a status) have no Keep both: the desktop does not offer it either, so Keep this one, Keep the other or Edit combined decide them. (An earlier version of this text promised a copy of the item; that was never built.)
+  - A conflict stays until someone decides. Dismissing is the same as Keep this one, and nothing is deleted: the decision is recorded and the other value stays in the conflict log.
+- **Alternatives:** freeze the item until resolved; always ask before applying.
+- **Why:** the brief says conflicts never block and both versions are kept until resolved.
+
+## D8. Files go to S3 by content hash, through the server
+
+- **Decision:** file contents (Files, recipe banners, bookmark snapshots) are uploaded through the server (`PUT /v1/blobs/:sha256`), which hashes the body as it streams and refuses a mismatch, then stores it with S3's own SHA-256 checksum under `blobs/<owner>/<sha256>`. The AWS SDK v3 is the only S3 client; endpoint, bucket, region and keys come from env, so MinIO and real S3 are one setting apart. A synced column (`blob`) on each table holds the hash; the device local path stays local. Each device keeps an upload queue (`blob_uploads`) that retries with backoff and survives restarts; a file is downloaded on demand and checked against its hash before it is used.
+- **Alternatives:** presigned URLs straight to S3 (the brief asks for "via the backend", and checksums are simpler to enforce on the server); syncing file bytes as records.
+- **Why:** content addressing makes every upload idempotent and every retry safe, and duplicates cost nothing.
+
+## D9. Settings that describe the person sync; settings that describe the device don't
+
+- **Decision:** a new synced table `account_settings (key, value)`. Display name, time zone, date and time formats, effort scale, every Calendar setting and the editor settings except Vim keys sync. Theme, file viewer theme, backups, server address, Vim keys and shortcuts stay per device.
+- **Alternatives:** sync `settings.json` whole; sync nothing.
+- **Why:** a theme or a backup folder is about the machine. Per field merge works for settings too: two devices changing different settings merge silently.
+
+## D10. The first sign in on a desktop with data migrates it, carefully
+
+- **Decision:** before anything is sent: a full backup with the existing backup code (`<data>/backups/before-sync-<time>.nookly-backup`), checked by reading it back. Then every row is marked as a change (sync's existing `enable`), pushed in batches of 500 that the server applies idempotently; a mark is cleared only when the server confirms its row, so a crash resumes where it stopped and never duplicates. Files go into the upload queue. A progress dialog shows rows and files sent; the summary at the end ("1,204 items and 37 files are in your account") is kept in `sync_meta` and stays in Settings, Account. Local data is never deleted.
+- **Account already has data:** rows from different devices have different ids, so they simply add up; rows that exist on both (the default statuses) merge per field by their real edit times, and any value that loses is kept as a conflict.
+
+## D11. Two sockets: records and documents
+
+- **Decision:** the existing sync socket (`/v1/sync/ws`) keeps announcing record changes; Hocuspocus runs on `/v1/collab` for documents. Both authenticate with the same bearer token.
+- **Alternatives:** carry Yjs messages on the record socket.
+- **Why:** Hocuspocus's protocol, multiplexing and auth hooks come for free on its own socket.
+
+## D12. The phone gets the real editor through an Expo DOM component
+
+- **Decision:** the page editor on mobile is the desktop's TipTap editor (same schema, same block extensions) running in an Expo DOM component (`"use dom"`), with the Yjs document living on the native side and its updates passed across. Everything else on mobile is native React Native.
+- **Alternatives:** a native rich text editor (none supports this schema or Yjs); plain text boxes per block (today's version, which can't show half the block types).
+- **Why:** one editor means one schema, which is what keeps y-prosemirror from dropping content (D6).
+
+## D13. Mobile components follow react-native-reusables, styled with the desktop's classes
+
+- **Decision:** rebuild the phone's primitives the way react-native-reusables does (`@rn-primitives/*` underneath, copied into `apps/mobile/src/ui`), on the class lists the desktop's primitives already use (`@nookly/ui/classes`). Navigation follows the Claude app: a sidebar behind the page, sheets for creating and editing, generous spacing. On an iPad wider than 768 points the sidebar stays open beside the page, closer to the desktop.
+- **Why:** the brief points at reusables, and the shared class lists keep the look the desktop's.
+
+## D14. External calendars stay a desktop overlay
+
+- **Decision:** Google and iCloud calendar connections are not synced and not on mobile.
+- **Why:** they are read only overlays with per device OAuth clients and keychain credentials (docs/03-modules/sessions-timetable.md). Syncing third party credentials through our server is a security decision the user should make, not this branch.
+
+## D15. Desktop only features stay desktop only
+
+- **Decision:** CLI, agent files, tabs and split view, keyboard shortcuts, folder backups, Office conversion and OCR are not built on mobile. GAP_ANALYSIS.md lists why for each.
+
+## D16. One dev stack command
+
+- **Decision:** `docker-compose.yml` at the root runs Postgres, MinIO (with its bucket made by a one shot `mc` container) and, under the `server` profile, the server. `bun run stack` starts the containers, applies migrations and runs the server on the host with watch mode; `bun run dev` keeps starting everything (server, desktop, mobile).
+
+## D17. The phone's editor is ProseMirror on the desktop's exported schema (refines D12) ⚑
+
+- **Decision:** the DOM component runs ProseMirror and y-tiptap directly, on a schema built from `packages/shared/src/generated/editor-schema.json`. A desktop test writes that file from the real TipTap extensions and fails when it drifts, so the two cannot disagree silently. The phone's own Yjs document (offline copy, socket, `PageDocs`) stays in React Native; the web view has a second document and the two swap updates as base64 over the bridge (Yjs makes repeats and order harmless). Awareness (carets and names) crosses the same way. The toolbar is native, above the keyboard. Blocks the phone has no editor for (timelines, images, files, embeds, linked items) show as labelled cards and keep their attributes untouched.
+- **Alternatives:** bundle the desktop's TipTap extensions (they import the desktop's `#/` modules, React node views and settings, which the DOM bundle cannot resolve); a native editor with no schema guarantee.
+- **Why:** the schema is what matters for y-prosemirror (D6), and a generated file with a drift test gives that without dragging the desktop's UI code into a web view. Check: edits made in the web view reach the phone's rows and the server, and an edit from another client shows in the phone's editor within a second (verified in the simulator).
+- **To double check:** the phone cannot edit table cells' column widths, inline math, or the atom blocks' rows; they round trip but are not editable there.
+
+## D18. Permanent deletes on the phone confirm with an alert, and Space deletion lists what goes ⚑ (superseded by D35)
+
+- **Decision:** emptying Trash, deleting one item forever and deleting a Space ask first with the system alert (the phone's counterpart to `ConfirmPermanentDialog`); a Space's alert says how many items go with it. Everything else (trash, move, hide a module) is undoable and does not ask.
+- **Alternatives:** a custom sheet like the desktop's dialog; no confirmation.
+- **Why:** a system alert is what a phone person expects for a destructive choice, and the rule that a permanent action always asks holds. A custom sheet would add code for the same result.
+
+## D19. Series, assignment due sessions and a few overview screens stay on the desktop ⚑
+
+- **Decision:** the phone shows and moves single sessions, calendar entries and study blocks, and edits one occurrence of a series (an override), but a series itself is created and changed on the computer. The Dashboard briefing and semester setup are simpler than the desktop's. GAP_ANALYSIS.md marks each as partial with the reason.
+- **Alternatives:** port the series editor and the briefing text in full.
+- **Why:** both are dense forms that would need a design of their own on a phone; what the phone cannot edit it still shows correctly and never overwrites.
+
+## D20. The phone shares the desktop's data rules by running the same code ⚑
+
+- **Decision:** the rules that used to live only in the desktop's Rust (update, reorder, delete, modules, duplicate, labels, tasks, files, recipes, sessions, calendar overrides, semesters and grades, views, relationships, jots, review undo, bookmark metadata, portable files) are ported to TypeScript in `packages/shared/src/data`, with tests against the real schema. Where an output is a file other devices read (Nookly page, task, deck, assignment files), samples written by the TypeScript are imported by a Rust test (`db/portable_phone_tests.rs`) so the two cannot drift.
+- **Alternatives:** call the desktop's Rust through a server; write different rules for the phone.
+- **Why:** the phone works offline on its own database, so the rules have to run there. Two copies of a rule is the risk, and the cross check is the guard.
+- **To double check:** anything that changes in `db/*.rs` needs the same change in `packages/shared/src/data`.
+
+## D21. A bookmark's note is never overwritten by a fetch
+
+- **Decision:** fetching a bookmark's page details fills title, description and icon only where they are empty; what the person wrote stays.
+- **Why:** data a person typed outranks data a website claims.
+
+## D22. A tablet shows the sidebar beside the page from 768 points
+
+- **Decision:** the root layout puts the sidebar next to the screen stack on a wide window (the drawer is switched off then); pages keep a reading width and the week calendar and merge editor use the pane's own width. The test device name for scripts is `tablet` (`EXPO_PUBLIC_AUTOMATION_DEVICE`).
+- **Alternatives:** a different navigator for tablets.
+- **Why:** one set of screens, with only the shell changing, keeps the two from drifting.
+
+## D23. The sidebar's colours are set from the theme where a class is not enough
+
+- **Decision:** the sidebar's headings and the lit row take their colour from the theme object on the phone, because the shared class list resolved to near black on black in dark mode there. `packages/ui` is untouched.
+- **Why:** the primitives are off limits; a colour from the theme is the smallest local fix.
+
+## D24. Auth requests carry no cookie, a silent socket is dropped, and a stopped sync writes nothing ⚑
+
+- **Decision:** a phone's networking layer attaches the cookie of an earlier sign in and sends no Origin, which better-auth refuses ("Missing or null Origin"); the client sends `credentials: "omit"` and the server removes cookies from auth requests except for provider sign in. A live socket pings every 15 s and is reopened after 40 s of silence, and reconnects wait at most 10 s. A sync that is stopped (sign out) drops what it received instead of writing it; sign out waits for the one in flight; turning sync on starts from the beginning of the new server (never from a cursor the last account left).
+- **Why:** each was a real failure found by running two accounts on an iPad and a desktop: sign up refused, a second account never seeing its own data, and changes arriving a minute late.
+- **To double check:** the cookie removal list in `apps/server/src/auth/cookies.ts` once OAuth providers are enabled.
+
+## D25. Local changes go out after 400 ms
+
+- **Decision:** the debounce before a local change is sent is 400 ms (it was 1.5 s), so an edit shows on another device in about a second.
+- **Why:** the brief asks for about a second; a batch every 400 ms during continuous edits is cheap.
+
+## D26. The calendar is hour grids, and its colours come from one shared file
+
+- **Decision:** the phone shows Day, 3 Days and Week as hour grids plus an Agenda; an iPad shows the desktop's Day, Work Week, Week and Month. `packages/shared/src/calendar-style.ts` and `blocks/highlight-colors.ts` hold the colours of items and highlights; `desktop-drift.test.ts` checks the desktop's Tailwind classes against them.
+- **Why:** the user asked that colours are always the same on every client, shared in one place.
+
+## D27. The iPad window is the desktop's: titlebar, palette, shortcuts, tabs, split view
+
+- **Decision:** from 768 points the shell has a titlebar strip, a tab strip, the details pane beside an open item (from 900 points of page width) and a split view; the command palette is an in window overlay.
+- **Alternatives:** a `Modal` for the palette. It crashed the app when it closed while the page behind changed (`RCTViewComponentView unmountChildComponentView`).
+- **To double check:** the Swift key commands (`modules/nookly-keys`) were never exercised on a hardware keyboard.
+
+## D28. An item's page has a page and details, and its own top bar
+
+- **Decision:** every item type marks what belongs in the middle (`MainPart`: title, the description, its own lists) and what is a property or setting (`DetailsPart`); the same screen renders twice, in the page and in the details (`ItemParts.tsx`, `ui/parts.tsx`). On a phone the details are a drawer on the right (`shell/DetailsDrawer.tsx`), on a wide iPad the inspector beside the page. Item pages keep the system's own bar: its back button is native, and details and more are native bar buttons (`Stack.Toolbar`); the key, stepper and conflict badge sit in the page's first row. (First built as a bar drawn inside the page so it slid with the details; replaced 2026-10-21 so back and the bar buttons are the system's.) Header `+` buttons are native the same way. The sidebar and the details never swipe into each other: from either, a swipe goes back to the page first (`shell/panes.tsx`).
+- **Why:** the user's feedback (2026-10-20): black showed above the rounded corners, and properties crowded the main page.
+
+## D29. The sidebar is one drawer around the whole app
+
+- **Decision:** on a phone `shell/SidebarDrawer.tsx` (`react-native-drawer-layout`) wraps the whole stack, so a swipe to the right opens the sidebar from any page. It claims only drags to the right, and leaves the left 24 points to the system's back swipe on a page that can go back; the details drawer claims drags to the left. A touch may drift 16 points sideways before it stops being a tap.
+- **To double check:** swiping was never verified with a finger or a simulator (my tooling cannot swipe).
+
+## D30. Assignment due days are resolved at read time, as on the desktop
+
+- **Decision:** an assignment that follows a session shows the day of that session minus its days before, computed when it is read (`resolveDue`); the stored day is not trusted. This fixed a real bug on the phone.
+
+## D31. Nookly file import: unknown blocks become paragraphs; samples are checked both ways
+
+- **Decision:** a block type the phone cannot edit becomes a paragraph on import; the desktop writes its samples, the phone reads them (`db/portable_desktop_samples_tests.rs`, `portable-import.test.ts`).
+
+## D32. Sync rounds only when something is pending; test seams instead of module mocks
+
+- **Decision:** a local change with nothing to send starts no sync round (`notifyLocalChange` checks `pendingCount`). Lint forbids module mocking, so a test supplies window width, the menu, the clipboard, the file picker and the key system through providers (`renderScreens(..., options)`).
+
+## D33. `PAGES.md` is the source of truth for what a mobile page shows
+
+- **Decision:** pages follow `PAGES.md` (written from desktop 0.38.3). New pure helpers keep the rules testable: `dashboard-model.ts`, `briefing-runs.ts` (the desktop's sentence), `assignment-view.ts`, `course-stats.ts`, `pinned-groups.ts`. Shared data got `listPageSummaries`, `courseSemesters`, `addFileLink`, `createSessionPage`.
+- **Decided on the way:** a Space's Tasks open as a board on an iPad and a list by status on a phone, the overview as a list by due date; Assignments group by deadline with a round checkbox; the Dashboard's "Show N more" expands in place (no filtered overview to jump to); a link pasted in Files is kept only if it is a Drive, Dropbox or iCloud link or a direct file link, a web page is refused (as on the desktop); a bookmark's page is read after it is saved; a jot's "Refine into New Note" is on its details.
+- **Also built:** the five step semester setup (`SetupSemestersScreen.tsx`, `semester-setup.ts`) and the line of semester averages on Grades.
+- **Not built, on purpose:** restoring a backup on the phone (it would replace the open database; signing in on a new phone brings everything back and never replaces what is there), external calendars, Office conversion and OCR, the PDF paged viewer, series (D19).
+
+## D34. A page made on the phone asks for its document again a few times
+
+- **Decision:** a page made less than two minutes ago, while the phone is online, asks the server for its document up to three more times, three seconds apart, before it settles for the rows editor. The server refuses a page it has not received yet ("No such page"); the first sync round delivers it.
+- **Why:** pages made on the phone opened in the rows editor instead of the live one.
+
+## D35. One bottom sheet for every desktop input on the phone, and touch sized controls
+
+- **Decision:** every popover, select, date and time picker, color or icon picker, context menu, overflow menu and confirmation the desktop has opens on the phone in one in app bottom sheet (`apps/mobile/src/ui/sheet/`, Reanimated and Gesture Handler), never a system alert, action sheet or picker, and never an accordion or an expanding panel. The create forms that were native `formSheet` routes are now routes drawn as the same sheet (`presentation: "transparentModal"`, `sheetRoute`). The sheet sizes to its content up to nearly the full screen, scrolls inside, has a handle, goes away with a swipe down, a tap on the page or the system's back, and lifts above the keyboard. A pick of one closes it, ticking several keeps it open, and a field inside a sheet (a form's Space, a due date's steps) pushes a step onto the same sheet with a back button. Contents are shared: `OptionList`, `DayPicker` (the desktop's calendar), `TimePicker` (the desktop's typed time field), `MenuList`, `ConfirmContent`, and the Display and Filter parts. Confirmations are sheets too (the user's call), which replaces D18's system alert. Every item row has the desktop's right click menu on a long press, and the More menu holds the same items plus what only an open item has.
+- **Touch:** controls keep the desktop's look; `ui/touch.ts` grows each one to 44 points on iOS and 48 on Android, by its size where it can grow (fields, rows) and by its hit area where it can't (buttons, chips, swatches), with gaps that keep neighbouring hit areas apart.
+- **Alternatives:** keep the system's form sheet as the one sheet and drive pickers through a route (callbacks through a store, no content sizing, a different look on Android); a sheet library such as `@gorhom/bottom-sheet` (another dependency for what Reanimated already does).
+- **Kept as they are, on purpose:** segmented controls and tabs (layout, calendar view, presets, settings with two or three values, Can view or Can edit), which the desktop also shows in place; the editor's slash and @ menus, which follow the cursor while typing (now with rows a finger tall); the system `Switch`; the block menu of the old rows editor (`PageEditor.tsx`), left out by the user. The native bar buttons now draw Tabler icons from `assets/toolbar/`.
+- **Not verified by touch:** the swipe down to dismiss and the keyboard lift were checked in code and tests, not with a finger (the simulator tooling cannot swipe or type on the soft keyboard).
+
+## D36. Vim keys on the phone: one plugin for both editors
+
+- **Decision:** the desktop's Vim keys moved out of its TipTap extension into a plain ProseMirror plugin in `packages/shared/src/editor/vim.ts` (`vimPlugin({ enabled, undo, redo })`, with `vim-core.ts` and the key list in `vim-keys.ts`). The desktop's `VimMode` extension wraps it; the phone's editor runs it first among its plugins. The setting `notes.vimMode` moved to the shared settings, stays per device (not synced, D9) and is under Settings, Editor, Editing on both. On the phone the mode shows in the editor's corner as on the desktop, and `?` opens the key list in the app's sheet. It needs a hardware keyboard (iPad keyboards, a Bluetooth keyboard); the soft keyboard sends no usable key events.
+- **Alternatives:** a second Vim implementation for the phone (two copies to keep in step); leaving Vim keys desktop only (an iPad with a keyboard is a real writing setup).
+- **Found on the way:** the desktop's Vim cursor styles were lost in an earlier change, so normal mode had no visible block cursor; restored with a test (desktop 0.38.5).
+- **Not verified with a real keyboard:** checked with key events dispatched in the iPad simulator's editor and with tests.
+
+## D37. A conflict only the server logged counts like any other
+
+- **Decision:** the sync status's conflict count is the merge editor's list: this device's log plus the server's, without repeats (`SyncRuntime.openConflicts`, passed to `SyncClient` as `countConflicts`). Settings reads the same count. One extra request per sync round, and rounds only run when something changed (D32).
+- **Why:** two devices online that change the same field at the same moment each push before seeing the other; the server keeps the losing value in its log, and no device records one. Nothing was lost, but nothing offered it either.
+- **Alternatives:** the server pushing the conflict to both devices' logs (a protocol change for the same result).
+
+## D38. The merge editor draws differences as a code review tool does
+
+- **Decision:** `diffLines` (shared) pairs the lines of both versions: lines both share stay plain, lines that differ are paired with the most alike line across from them (shared words and punctuation, in order), and words are marked only inside a pair that partly matches, never indentation. The desktop and a wide iPad show it split: the other version left in red with a minus, the one showing now right in green with a plus, line numbers in gutters, a shaded cell where a side has no line, both sides in one grid so wrapped lines stay level. A phone shows the same rows stacked, with both line numbers, red above green. Code is in a monospaced face (Menlo on the phone).
+- **Why:** the user found the old view (two cards with yellow word marks) flat; asked for the look of a git client. The words stay plain ("Showing now", device names), no version control vocabulary.
+- **Alternatives:** character level marks (noisier for prose); a diff library (the existing word diff extended in a few lines).
+
+## D39. Merging main (0.75.0) into the connected platform ⚑
+
+- **Migrations:** main's released 42 to 50 stay untouched. This branch's sync migrations, numbered 42 to 44 before, are now 51 to 53 (rerunnable: `IF NOT EXISTS`), and 54 adds sync triggers for main's `entity_references`. A development database of this branch from before the merge claims 44 without main's 42 to 44: `db::premerge` recognises it (sync tables, no `assignments.ungraded`), renames the three blob columns aside, steps back to 41, and copies them back after migrating. No released database is touched by it. ⚑ Check: an old development database opens with everything (fixture tested in `premerge.rs`).
+- **What syncs of main's new data:** `entity_references` syncs, except `last_seen_at` and `last_result` (each device finds those out itself); `reference_device_paths` never syncs (a path means something on one computer only). New columns (`ungraded`, `evaluated_at`, `due_session_after`, `origin`, card `front_blocks` and `back_blocks`) sync with their rows. `study_blocks` keeps syncing its rows although main removed the feature, so no old row is dropped.
+- **One page editor:** main's `BlockEditor` (find bar, spelling, drop targets, table handles, page font) is the only editor. On a live page it adds Yjs collaboration and carets and skips its own row loading and saving; this branch's separate `CollaborativeEditor` and `editor-hooks.tsx` are gone, presence moved to `page-presence.tsx`. Alternative: keep two editors (signed in pages would lose every main feature).
+- **Debug builds keep their own settings:** main lets a dev build share `settings.json` and keeps a separate `preferences.dev.json`; this branch keeps both files in the debug build's own data folder (`storePath`, `store_dir`), because with settings sync a fixture account would otherwise write into the installed app's settings.
+- **Shared code wins the location, main wins the content:** where this branch had moved code to `packages/shared` for the phone (modules, settings, whats-new, block markdown and custom rows, text colors, tokens in `theme.css`, badge classes) and main changed the frontend copy, main's changes were ported into the shared file. Settings: page font and size are shared and synced; spelling stays desktop only. Settings got an Account page in main's new navigation (the full rework is section 3).
+- **The phone follows main's data rules (D20):** `graded` is `evaluated` (with `evaluated_at` stamped), ungraded assignments stay out of grades, "due before the next session" follows the session that was next when it was set, editing a card's text drops its blocks, and the phone reads Nookly files of version 2 (Files inside are stored as Files when the caller gives `storeFile`, else their blocks become paragraphs; cards written as blocks arrive as their text). The phone still writes version 1. The phone's import screen passes `storeFile` (`storeBase64`), so pictures arrive as Files.
+- **Versions:** 1.0.0 stays (main is 0.75.0). Main's changelog history is kept whole; this branch's own 0.34 to 0.38 numbers collided with main's and are folded into 1.0.0.
+
+## D40. Sync is held to a headless test of two app runtimes; where a clash shows ⚑
+
+- **Test:** `apps/server/test/two-devices.test.ts` runs two `SyncRuntime`s (what the apps run) against the real server over HTTP and WebSocket, with a network the test can unplug: an edit shows on the other device within 1.5 seconds both ways, edits of different fields merge, the same field changed at the same moment keeps the losing version and offers it, an offline device's edits arrive on reconnect, and ending a session signs that device out at once without touching its data.
+- **Found by it, fixed:** a push that lost on every field (the other device's newer edit already stored) was skipped by the server before it looked for losses, answered as taken, and the device dropped its edit: lost without a trace (about 1 in 7 runs). The server now logs it. Ending a session from another device now tells that device's live socket, so it signs out at once.
+- **Found in the real apps, fixed:** after signing out and into another account on the phone, a late request of the old session came back 401, and the old client wiped the device's one token store (the new account's token) and reported a sign out. Sync turned off; after the next launch the phone was signed out, so its edits were never even recorded for sending: "edits on the phone never reach the desktop". A client now only clears the store and reports a sign out while the store holds its own token, and the runtime only listens to its current client (`stale-session.test.ts`).
+- **Phone build:** the merge's lockfile gave Expo `lightningcss` 1.33, which `react-native-css` can not drive (the bundle failed). Pinned to 1.30.1 workspace wide (root `overrides`); the desktop's Vite build is fine with it.
+- **Where a clash shows:** when the server sees both edits, every device offers the clash. When a device pulls the other edit before sending its own, the clash is first kept on that device only. Decided 2026-11-13: that device hands it to the server (`POST /v1/conflicts`, deduplicated by the losing edit's clock, `reported:<id>` in `sync_meta` remembers the server's entry, so no migration), so every device offers it. Deciding on any device settles it everywhere: a device settles its own copy when the server's is decided, and settles the server's when it decided offline, once back. Both versions stay in both logs. A row removed on one device and edited on the other stays on the device that holds the row's copy, since only it can put the row back. Tested in `two-devices.test.ts`.
+- **Not covered by the test:** the platforms' own wiring (the desktop's Tauri SQL bridge, the phone's SQLite driver and its app lifecycle), which the real two device check covers.
+
+## D41. The titlebar's sync icon turns green after a sync that moved something
+
+- **Decision:** the sync icon sits left of Import, a ghost button as before. It turns green for two seconds when a round sent changes from this device or brought changes from another (`SyncStatus.lastChangedAt`), never for a round that only checked (the minute timer, a reconnect that found nothing), and not for what was already synced when the window opened. Only a colour change, no movement, so it needs nothing different for reduced motion. The tooltip stays.
+- **Alternatives:** after every round (the minute timer would make it blink for nothing); a toast (too loud).
+
+## D42. One page editor on the phone, live or not
+
+- **Decision:** a page without a live document (an item's description, a page made here that the server has not seen, a page offline that was never opened) is edited in the same ProseMirror editor as a live page, with its `/` menu and toolbar, on a document kept only on the phone (`RowsPage`). The old list of text fields with its "Add Block" button and its native action sheet is gone. What changes is written back as block rows half a second after typing stops, and only what was edited, field by field (`@nookly/shared/data` `page-rows`): a block another device changed meanwhile keeps that change, and blocks changed elsewhere come into the open editor when this one did not touch them.
+- **Alternatives:** keep the text fields without the button (still not the desktop's editor, and a native action sheet against the rules); a server document for every item (descriptions are rows by design, D6).
+
+## D43. Signing out clears the device; signing in asks about what is on it ⚑
+
+- **Decision (sign out):** a sign out the person asks for leaves the device as a new one: every synced row goes (`SyncEngine.wipe`), the rows a new database starts with come back, and the data stays in the account and on the other devices. Before that the device tries once more to send what waits; if something is still unsent (row changes, typing in pages, files) the whole device is backed up first, and when that backup fails nothing happens and the device stays signed in. Both apps say so in a confirmation before it happens.
+- **Decision (sign in):** a device that holds items and is not syncing is asked what should happen to them, and the form can't be sent without an answer: "Add to the account" (the first sync as before, after a backup) or "Keep out of the account" (a backup is made, then the device is cleared, so only the account's data shows). Nothing joins an account silently. A device with nothing on it is not asked.
+- **A sign out the server did keeps the data ⚑:** a session ended from another device, a password reset, a deleted account or a server that lost its database all look the same to a device. Clearing on that signal could remove the last copy of someone's data, so the device keeps everything and the next sign in asks the question above. Deleting the account from a device also keeps that device's data (`SyncRuntime.detach`).
+- **Backups that hold the only copy are never cleaned up:** the backup of data kept out of an account, and the one made before a sign out with unsent changes, go to `kept-backups` (desktop data folder, phone documents), where nothing is pruned. The first sync's own backups stay in `pre-sync-backups` (newest three).
+- **Not done, worth a second look ⚑:** data kept out of an account does not come back by itself on sign out; it is restored from its backup (desktop: Settings, Backup; the phone has no restore yet, see the feature gaps). File contents on disk are not deleted by the clearing, only their rows, so nothing unsent can be lost with them; a later pass can remove contents the account is known to hold.
+- **Alternatives:** keep the old behaviour (rows stay after sign out, the next account silently takes them: the mixing the user reported); clear on every sign out including the server's (a lost server would empty every device).
+
+## D44. A device's page copies belong to one account
+
+- **Decision:** the copies of page documents a device keeps (`page_docs`) are tied to the account and server they came from (`sync_meta` key `pages_account`). Copies from another one are dropped before any page opens; text in them that never reached a server goes as row edits. Nothing about a page is written after sync stops, and opening a page is shared, so two opens side by side use one document.
+- **Why:** two documents of the same page (one from an earlier sign in) merge into a page with its body twice, and two documents opened side by side closed each other, which showed as "nothing is live".
+- **No repair** for documents doubled before this: sync never shipped, only dev data was affected.
+
+## D45. Corner buttons keep the system's round background
+
+- **Context:** bar buttons hid iOS 26's glass background to look like the desktop's ghost icon buttons, so they looked unlike the back button beside them.
+- **Decision (user):** every top corner button is the system's own bar button with its round background, like the back button. `bar.test.ts` forbids `hidesSharedBackground: true`. The Dashboard has no + (it only ever made a task).
+
+## D46. A few choices open as a compact menu (superseded by D50)
+
+- **Context:** every select opened a bottom sheet, which the user found too much for picking one of a few.
+- **Decision:** a select or choice property with at most `COMPACT_CHOICES` (8) options opens `Popover`, a small menu at its trigger like the desktop dropdown (under it, above when there is no room, closed by a pick or a tap beside it). Longer lists, date, icon and colour pickers, forms, item menus and confirmations stay in the sheet. `OptionList` serves both through `SheetCloser`.
+- **Decision (user):** a compact menu is the desktop popover in full: its search field with the desktop's placeholder ("Change status…", "Set effort…"), every icon, the right hand details (`Option.detail`) and the same extra rows ("Remove effort" under a separator). Only keyboard number shortcuts are left out, as a tap can't use them. It moves clear of the keyboard while its search is typed in.
+
+## D47. Phone motion: iOS springs from one token file
+
+- **Decision:** `apps/mobile/src/ui/motion.ts` holds the springs (`SPRING.sheet` 420 ms no overshoot, `menu` 300 ms light bounce, `press` 260 ms), the fades for Reduce Motion and the pure helpers (`rubberBand`, `dragFrom`, `settleSheet`), which are unit tested. The sheet springs with the release velocity, stops under a touch and resists past its top; the compact menu grows out of its trigger. Rule in `AGENTS.md`.
+
+## D48. Same named Spaces from two devices stay two Spaces
+
+- **Context:** the dev account showed Study three times and Personal twice. Cause: the scratch fixture was added to the same account several times, each copy with fresh ids. No device makes Spaces on its own, so a real person only gets two Spaces of one name when two devices each hold their own data and "Add to the account" is chosen on the second.
+- **Decision:** keep both; nothing merges by name. A silent merge would mix two sets of items, labels, statuses and key counters (two `TSK-1`), which could not be undone cleanly. Alternative for later: a "Merge into…" action on a Space that moves its items with the existing move logic.
+- **Flag:** the user should double check that keeping both is wanted.
+
+## D49. Phone haptics: Core Haptics patterns behind one named API
+
+- **Decision:** a local Expo module `apps/mobile/modules/nookly-haptics` plays beats on `CHHapticEngine` and falls back to the system feedback generators when the engine cannot start. The patterns live in JavaScript (`apps/mobile/src/ui/haptics.ts`) as one set: `tap`, `select`, `toggle`, `open`, `detent`, `edge`, `complete`, `success`, `warning`, `error`, each at most a quarter second. Screens call `haptic(name)` and never touch the engine.
+- **Rate limit:** within 80 ms of a pattern only a stronger one plays (a weaker one folds into it), and each pattern has its own least gap, so scrolling a picker never buzzes. Unit tested.
+- **Where:** a pick in a list or menu, a segment or tab change (select), switches (toggle), the sidebar and details drawers opening (open), a sheet falling back onto its stop (detent), a swipe row revealing its actions (edge), a task done by swipe (complete), a button's result (success, error).
+- **Off:** iPads and the simulator have no Taptic Engine, so nothing plays. Android plays nothing for now (the brief allows short vibrations at most; none is better than a buzz that does not match). A switch under Settings, Appearance, This phone turns haptics off on this phone; the system's own System Haptics switch also silences the fallback presets.
+- **Build note:** `@expo/plist` 0.8 calls the XML parser without a mime type, which the pinned `@xmldom/xmldom` 0.9 rejects, so `expo prebuild` failed. A one line patch (`patches/@expo%2Fplist@0.8.2.patch`) passes `text/xml`.
+
+## D50. The phone feels native to iOS; selects are sheets with a pinned search
+
+- **Context:** the user saw the searchable selects and found them ugly, and asked for components that feel native to iOS rather than flat desktop widgets (the full brief is in `IMPLEMENTATION_STATE.md`, section 4).
+- **Decision (user):** semantic adaptive colours, icons in tinted rounded square badges (SF Symbols at first, replaced by the desktop's icons in D57), continuous corners, blur for sheets and bars, subtle depth. Selects and pickers open the bottom sheet with a pinned search, sticky section headers, icon, title and subtitle rows and a checkmark. Design tokens and a small set of base components come first and are reused everywhere. This replaces the compact menus of D46 and the rule to copy the desktop styling exactly; the desktop stays the reference for content, metadata, hierarchy and copy, and Nookly's accent and status colours stay.
+- **Kept:** D47 motion, D49 haptics (Core Haptics covers the brief's expo-haptics), the user's rule that pickers keep every icon and detail the desktop shows. A Space's own chosen icon stays the Tabler icon the user picked.
+
+## D51. Modules get a tinted badge on the phone (icons superseded by D57)
+
+- **Context:** D50 asks for SF Symbols in tinted badges; the desktop draws each module with a muted Tabler icon.
+- **Decision:** `ui/kit/symbols.ts` maps every module to an SF Symbol close to its desktop icon, keeps that Tabler icon as the fallback, and gives each a tint (tasks and assignments blue, notes and jots yellow, courses and semesters purple, calendar and exams red, decks pink, sessions, recipes and grades green, files and Moodle gray). Item pickers (links, a new task's link, courses, exams) show the module's badge with the item's key or the course's professor under the title. Items with their own icon keep it. Statuses, labels and Spaces tint their badge with their own colour.
+- **Why:** mixed lists read at a glance, like iOS Settings. **Flag:** the tint per module is a judgement call; the desktop has none.
+
+## D52. Form fields are iOS form rows
+
+- **Context:** D50. The phone's fields were the desktop's (label above an outlined box).
+- **Decision:** `Field`, `SelectField`, `MultiSelectField`, `DateField` and `SheetTrigger` draw as rows of an iOS grouped form: the name at the start, the value at the end in secondary text with the up and down chevrons of a pop up button (or a clear button), several lines with the name small above. `FormSection` (`ui/kit/Form.tsx`) groups consecutive fields on one surface with hairlines; a field outside one brings its own rounded surface. Errors show under the row in red. Empty values read "None", as iOS does.
+- **Why:** the user's brief; the desktop's labels and required marks stay.
+
+## D53. Buttons are iOS capsules
+
+- **Context:** D50. Buttons were the desktop's `buttonVariants`, small rectangles.
+- **Decision:** `Button` keeps its variants and sizes but draws them as iOS's button styles in capsules: `default` filled with the accent (prominent), `secondary` on the gray fill, `destructive`, `positive`, `warning` tinted, `ghost` and `link` only words, semibold on filled ones. Heights stay `CONTROL_SIZE`.
+- **Why:** capsules match iOS 26 and the round bar buttons (D45).
+
+## D54. Moodle stays on the desktop
+
+- **Context:** main added Moodle import (signing in to a Moodle site, pulling courses, files and assignments).
+- **Decision:** the phone does not connect to Moodle. What the desktop imports syncs to the phone like any other item; files from Moodle open there as files.
+- **Why:** the import runs long, downloads many files and keeps a Moodle token; the desktop is where the user sets a semester up. **Flag:** revisit if users ask to import from the phone.
+
+## D55. A card's faces are written as blocks on the phone
+
+- **Context:** the desktop stores a card's faces as blocks (`front_blocks`, `back_blocks`) with the markdown text beside them. The phone wrote plain text and cleared the blocks, so an edit on the phone lost the desktop's formatting on both faces.
+- **Decision:** the phone writes cards with the page editor (`CardFaceEditor`), stores blocks and the text made from them, and saves only the face that changed (`updateCardFaces`). The draft of a new card is kept as blocks; an old text draft is carried over.
+- **Why:** data safety; one editor everywhere.
+
+## D56. Which desktop features the phone has in 1.0.0
+
+- **On the phone:** restoring is signing in (the account brings everything back and replaces nothing), and Settings, Backup writes a checked backup file to share; PDFs and other files open in the system's viewer through the share sheet; tables and every other block the desktop writes show and edit in the phone's page editor (same schema); the semester setup is there (New, Semester setup, `SetupSemestersScreen`); saved views on Tasks.
+- **Desktop only for now ⚑:** external calendar subscriptions (they are not part of sync); editing a whole series (the phone changes one session or entry, and says so); saved views on Assignments; Moodle (D54).
+- **Why:** each of these needs either data that does not sync yet or a flow that is long on a phone. Nothing is lost: what the desktop makes syncs and shows on the phone.
+
+## D57. The phone draws exactly the desktop's icons
+
+- **Context:** the user asked to "make absolutely sure we only use the same icons as in the desktop app on mobile". The phone drew SF Symbols for its interface icons (D50, D51) and picked some icons of its own (a gauge for effort, a door for a room, a floppy disk for backup, Tabler circles for statuses, a hamburger menu).
+- **Decision (user):** no SF Symbols; `expo-symbols` is gone. Every icon is a Tabler icon the desktop uses, and for each thing the icon the desktop gives that thing: its property, filter and sort icons (due date `IconCalendarEvent`, effort `IconBolt`, grade and evaluation `IconStar`/`IconStarOff`, created `IconClockPlus`, updated `IconClockEdit`, kind `IconCategory`, room `IconMapPin`), its settings pages, sidebar rows, sync states and status marks (drawn as the desktop's own SVG). The bar buttons' images are rendered from Tabler too (the sidebar opens with `IconLayoutSidebarLeftExpand`, as on the desktop). `ui/kit/desktop-icons.test.ts` fails on any icon the desktop does not import, on any bar button image that is not one, and on any use of `expo-symbols`.
+- **Judgement calls:** where the desktop shows a property with no icon, the phone uses the desktop's icon for the nearest thing: Professor `IconUserCircle` (the desktop's person), Weight `IconReportAnalytics` (the grades it weighs into), Indent and Outdent `IconArrowBarToRight`/`IconArrowBarToLeft`, Hide Keyboard `IconKeyboard`, no results `IconSearch`. The toolbar's Underline button is gone because the desktop has no underline button or icon; ⌘U still underlines with a keyboard.
+
+## D58. Where the phone's kit ends and the desktop's classes stay
+
+- **Context:** section 4 asks for one token module and base components used everywhere, "no screen styles its own rows". About 500 NativeWind classes remain, mostly layout (flex, gap, padding) and the desktop's own colour tokens through the classes shared with the desktop (`packages/ui/src/classes.ts`).
+- **Decision:** `ui/tokens.ts` is the one source for iOS surfaces, labels, separators, fills, tints, spacing, radius, type and depth; `touch.ts`, `motion.ts` and `theme.ts` stay beside it as the touch, motion and desktop colour tokens. Settings, pickers, forms and the account pages are built from the kit (`ListRow`, `GroupedSection`, `FormSection`, `IconBadge`, the states); plain item lists use `Row` and `Section`, which are on the tokens. Rows that copy a desktop row on purpose (a task row, the Dashboard panels, the grade table, galleries and cards) keep their own layout, because their content and hierarchy are the desktop's; they take the shared pressed feedback, list motion and icons. NativeWind stays for layout.
+- **Why:** rewriting every layout class buys nothing a person sees, and the desktop likeness of those rows is what the user asked to keep.
+
+## D59. The phone app uses the scene lifecycle
+
+iOS 27 stops at launch any app that has not adopted the scene lifecycle, and the phone app did exactly that on a real iPhone. Expo 57 ships the scene delegate (`EXExpoAppSceneDelegate`) but its project template still creates the window in the app delegate. A local config plugin, `apps/mobile/plugins/scene-lifecycle.js`, moves the window to Expo's scene delegate and declares one window scene in Info.plist each time the native project is generated. It throws when the generated AppDelegate changes shape, so a newer template is noticed instead of silently left unadopted. Drop the plugin once Expo's template does this itself.
+
+## D60. Dark mode sits on a deep charcoal
+
+The user asked for the backmost background to be a deep charcoal instead of black on both apps. The desktop's `--background` (dark) in `packages/ui/src/theme.css` and the file viewer's mirror of it become `#111111`, the calendar's weekend shade moves from `#121212` to `#161616` so it still reads against it, and cards stay at `#1a1a1a` above it. This edits existing tokens, which `AGENTS.md` normally forbids; the user's explicit request is the exception. The phone's page and grouped page backgrounds use the same value on iOS too (a dynamic colour, the system's own in light mode), checked by `ui/tokens.test.ts`.
+
+## D61. Flags on the phone are the system's
+
+The desktop draws the flags of the date and time formats and of each time zone from `react-flagpack` images, a 3.6 MB web only set the phone cannot load without an SVG file loader. The phone shows the same flags as the system's emoji flags (US, EU, and each zone's country from the desktop's own zone table), which iOS draws natively. Hermes also lacks `Intl.supportedValuesOf` and `Intl.DisplayNames`: the zone list falls back to the desktop's table, and a minimal `Intl.DisplayNames` in `polyfills.ts` names nothing, so a zone shows no country name on the phone. The code language marks come from the desktop's components, written out as SVG text (`packages/frontend/src/lib/code-language-marks.ts`, checked by a desktop test).
+
+## D62. Sign in with other accounts shows before it works
+
+The sign in and sign up screens on both apps show Google, Apple, GitHub and Notion under "or sign in using", disabled, with "coming soon" (a tooltip on the desktop, a line under them on the phone). The marks are Tabler's brand icons, so the phone keeps to the desktop's icons. Nothing is wired to a provider yet: the buttons do nothing until the server supports it. Both screens say the account is part of the free closed beta.
+
+## D63. A scan is one PDF, kept before it is named
+
+The Files page's Scan button (the desktop's camera icon, as Tabler has no scan icon the desktop uses) opens the system's document camera through `expo-document-scanner`. iOS hands back one picture per page, so the phone joins them into one PDF with PDFKit (`pagesToPdf` in `modules/nookly-file-viewer`); Android's ML Kit makes the PDF itself. The File is added to the Space at once, named "Scan" and the day, so sync uploads it while the person fills the sheet; the sheet's name, labels and link are applied on Save, and closing it keeps the defaults. A new name keeps the File's extension (`renameFile`). The button shows only in a build that has the scanner.
+
+## D64. A cursor stays in its word while others type
+
+`@tiptap/y-tiptap` 3.0.10 (and 3.3.0) restores the local cursor from its Yjs relative position after a remote change, then second guesses it: when the text of the cursor's line changed, it treats that as a structural change and, for blocks that carry ids (ours do), puts the cursor back at its old offset. Someone typing earlier in your line moved your cursor through the word. A patch (`patches/@tiptap%2Fy-tiptap@3.0.10.patch`, both apps share the install) keeps the resolved position whenever the item it is anchored on still exists, and leaves the fallback for anchors that were deleted. `apps/mobile/src/editor/cursor-follow.test.ts` pins it. Other people's cursor names go under the caret in a page's first block, where there is no room above.
+
+## D65. The phone's sheets and pickers copy Linear
+
+The user asked for Linear's sheets and pickers, exactly, and allowed changing the phone's own components for it. It is still the one sheet (`ui/sheet/Sheet.tsx`), with a second way to show:
+
+- **Pickers are floating cards** (`presentation="card"`): a rounded card in the middle of the screen over the page dimmed, the title top left, a round close button top right, an optional pill search, and big plain rows (the option's icon or colour dot, the title, a check on the right for the chosen one), no tinted badges. A card opened from inside a sheet (a create form's labels) floats over it instead of being pushed as a step. This replaces the iOS grouped picker rows of D50 for pickers.
+- **Display and filter options** sit in grouped rounded cards (`DisplayGroup`). A choice there (Grouping, Ordering) is Linear's inline menu (`InlineSelect`): the value with up and down chevrons, and a blurred menu growing out of it with a check before the chosen one.
+- **Create forms** use the compose layout (`ui/sheet/Compose.tsx`): round close top left, the Space as a pill in the middle, a round send button top right lit once there is a title, a big title, the body, and the properties as pills riding on the keyboard. Content fills the sheet's header and footer through `SheetHeader` and `SheetFooter`.
+- **Search fields** are pills, and **segmented tabs** are Linear's pills: a quiet track, the chosen one raised with a hairline edge.
+
+## D66. Every description is a live document
+
+Only notes, jots and course notes had a live document on the server, so the description of a task, an assignment or an exam was saved as rows: it reached other devices late and showed nobody's cursor. The server now keeps a live document for `task`, `sub_task`, `assignment` and `exam` too (`apps/server/src/collab/service.ts`), and both apps open it (the desktop's `BlockEditor` already asked for one; the phone's `PageEditor` now always does). The phone's course and semester pages edited the course's or semester's own blocks while the desktop edits their notes page (`course_notes`, the semester's note); the phone now shows that notes page, made on first view as the desktop does. The phone app is not released yet, so no one has text in the old place.
+
+## D67. Rounder corners, as gentle squircles
+
+The user asked for a little more corner radius on both apps and for squircles instead of plain rounding, kept subtle ("not too strong or overwhelming"). That request overrides the rule never to change the tokens in `packages/ui`, for this change only.
+
+- **Radii:** the shared tokens (`packages/ui/src/theme.css`) go up a step: `sm` 7, `md` 10, `lg` 12, `xl` 16, the inset 6. The phone's own (`ui/tokens.ts` `RADIUS`): badge 8, control 12, section 14, sheet 20. Pills and circles stay as they are.
+- **Phone:** every rounded surface takes iOS's continuous curve. Styled ones through `CORNER`, class ones through `corner-shape: squircle` on the `rounded` classes in `global.css`, which NativeWind turns into `borderCurve: "continuous"`.
+- **Desktop:** `corner-shape: superellipse(1.6)` on rounded elements, a gentle squircle between round (1) and the full squircle (2), only where the web view supports it. WebKit on macOS does not yet, so the Mac app draws plain rounding with the larger radii until it does.
+
+## D68. What sits on a sheet is lighter than the sheet
+
+A sheet is iOS's thick material, a light charcoal over the dark page. Its option cards used the grouped surface (`#1c1c1e`), darker than the sheet, so they looked sunk in. Anything on a sheet is lighter than the sheet, as depth reads on iOS: every grouped section, field row and option card on a sheet takes `sheetCard` (white in light mode, `#38383a` in dark), a token of the phone's own (`ui/tokens.ts`), through `useSurface()`; on a page they keep `surface`. The chosen layout tile is raised on that card, the others a quieter fill.
+
+## D69. A text field is a raised box
+
+The user found the phone's text field flat: an iOS form row, its name above the text on a plain fill. A field on its own is now a box like the desktop's input: the surface one step up (lighter than a sheet, D68), a hairline edge, a little depth, the name small above it. Focused, the edge and the name take the accent with a soft glow (the desktop's focus ring); an error turns the edge red with the message under it. A `FormSection` holding one field leaves the surface to it, since most forms have one field in a section; sections of several rows (a sign in form, settings) stay iOS grouped rows, whose name takes the accent while focused.
+
+## D70. Nine tenths of the screen open the sidebar
+
+A swipe to the right opens the sidebar from anywhere except the leftmost tenth of a page you can go back from, which stays with iOS's own back swipe (its native edge recognizer, left as it is: iOS 26's full screen back would fight the sidebar for every swipe). A page that swipes sideways itself (the calendar's days) opens the sidebar from that same tenth. A row with its own swipe (a task: Done to the right) keeps the swipe that starts on it, as in Mail; the sidebar opens from anywhere else, and from the header button.
+
+## D71. The sidebar's menus are dialogs; Spaces move in by dragging across a line
+
+The + at the bottom of the sidebar, the dots on the Space shown and the dots for the Spaces that do not fit open as dialogs in the middle of the screen (the floating card of D65, through `menu.show(..., { presentation: "card" })`), not sheets from the bottom. The Spaces dialog has a search and lists every Space in its order: the first three are the ones the sidebar shows, a line stays put under them, and dragging a Space across the line (its grip, or a screen reader's Move Up) moves it into the sidebar or out. It reorders the same stored order the switcher's icons do, so it syncs and the desktop's switcher follows.
+
+## D72. A stored file's place is read from this app's own folder
+
+The phone stores where a file is as a full `file://` address, which holds iOS's name for the app's folder (`.../Containers/Data/Application/<ID>/Documents/`). iOS gives that folder a new name when the app is restored onto another phone and after some reinstalls, and every file then looked missing (found while adding thumbnails: a PDF showed no picture and would not open). Reading now moves any address inside an app's Documents folder into this app's own (`data/reroot.ts`): the Files list, a file's page and viewer, recipe banners, and the file sync's hashing and uploads. What is stored is left exactly as it was, so nothing needs a migration and nothing is rewritten.
+
+## D73. Every list filters on what its items have
+
+Pinned, Created and Updated are on every item, so every list offers them (`ENTITY_FILTER_FIELDS` on the desktop). Each list then adds its own: Bookmarks their labels and site, Files kind and labels, Exams course, date (next 7 days, later, past, none) and status, Courses semester, Decks the exam they prepare for and whether cards wait, Recipes kind, tags and time, Trash type, Space and when it was deleted. Tasks, Assignments, Notes and Jots already had theirs. Tasks gain Pinned on both apps. The phone offers the same fields in its Filter sheet (Notes keep Last edited in place of Updated, as on the desktop), and a Tasks View keeps all of them on both apps. Sessions and the calendar are a calendar, not a list, and keep their own controls; Semesters are a few kept in the order you drag them, so they have none.
+
+## D74. Files are browsed by their labels, kept as Views
+
+Labels replace folders on purpose, but a flat list only helps someone who already knows a file's name or labels. So the Files page opens with a label shelf on both apps: every label the Space's files carry, with how many files each holds, most used first. Picking a label narrows to its files, and the shelf then shows only the labels those files also carry, with their counts inside the pick, so a person drills in step by step (all picked labels must be on a file) without remembering exact names. Display also groups by Label (a file shows under each of its labels, those with none last).
+
+What someone browses to lasts and syncs as a View, the same synced View entity Tasks and Assignments save (module `files`): it keeps the picked labels, the filters and the display, shows under Files in the desktop's sidebar and as a preset above the phone's Files page. Without a View open, the shelf's pick is kept with the page's own display, like its filters.
+
+The nudge is quiet: while some files have no label, the shelf ends with a muted "Unlabelled" chip with their count. Picking it lists them with one line saying labels make them easy to find, and the desktop offers an "Unlabelled" View preset to keep that list one click away. Nothing pops up and nothing blocks.
+
+## D75. The phone's active filters are the desktop's chips
+
+Many filters on the phone used to show one chip per value, which crowded the page. They are now one chip per field, as on the desktop: the field's icon and name, how it matches, what it matches, and a way to take it off. Each spans the page, one under the other. A tap on what it matches opens its choices.
+
+The phone keeps only the values that match. "is not" and "is none of" are that set read the other way round: when a filter matches most of a field's options, the chip names the few it leaves out. A tap on how it matches swaps the set for its complement, so "is" and "is not" flip without a second kind of filter. Options added later fall outside a flipped filter, as they do when the phone opens a desktop View with "is not".
+
+## D76. Every list row swipes, the same way
+
+Only tasks and the Trash could be swiped. Now every list of items can: notes, jots, bookmarks in the list layout, files in the list layout, assignments, courses, exams, decks, sessions, a module's plain list, Pinned and the search results. Cards and galleries (bookmark cards, recipes, file tiles, semesters, the board) keep the long press only, since a card is not a row.
+
+One rule for every type. Right to left shows More (the item's menu) and Trash; Trash is always the rightmost and a long drag runs it. Left to right shows the type's own action first, then Pin; a long drag runs the first. A type's own action: a task is brought to Today, or moved to Tomorrow once it is due today or overdue (a finished task offers Reopen); a jot is refined into a note; a bookmark's address is copied. Types without one start with Pin.
+
+Tasks lost "Done" as a swipe on purpose: the circle on the row already finishes a task with one tap, so the swipe is spent on scheduling, which had no quick way.
+
+The look is Mail's: full height buttons side by side, each with its icon and name, sharing what the row uncovers; past most of the row the outermost button grows over the others. No package was added: the existing row already followed the finger with the phone's own springs and haptics (`ui/motion.ts`), and the libraries looked at (the gesture handler's swipeable) have no long drag action.
+
+## D77. The phone's Dashboard is a Home of shortcuts
+
+The desktop's Dashboard (panels with tabs for assignments, tasks, decks and jots) read as a long page of small lists on a phone. A phone gets a Home instead, the page people open to get somewhere fast; an iPad, wide enough for the desktop's layout, keeps the panels with today's hours beside them.
+
+From the top: the date and the mascot over the sentence about the day (its counts and names still open what they speak of), then an Up next card with what is on the calendar now or next today and how long until it or how much is left. Then Create, four tiles for what people make on the go (a task, a quick jot, a calendar entry, a bookmark). Then At a glance, two tiles to a row counting what waits, each opening its list: tasks due today or overdue, assignments due in the next two weeks, cards to learn, jots to refine; Assignments and Cards only once there are any, and the Calendar's tile fills an odd one out. Then today's tasks (the same rows as the Tasks page, so they tick off and swipe there), today's calendar, the deadlines coming up, and a row of every Space.
+
+The page sits on the grouped background with its tiles and lists on raised cards, as iOS's Health and Fitness summaries do, so the tiles read as widgets in light mode too.
+
+## D78. A change to a page's filters or display waits in a save bar
+
+The phone kept every change to a list's filters and display at once, and Save View sat at the bottom of the Display sheet. Now it works as the desktop's save bar: a change shows at once but stays a change until saved. A pill floats at the bottom of the screen (the paste bars' shape, above them on Bookmarks and Files) with Discard, Save as View and Save. Save keeps the change as what the page opens with; on an open View it saves into the View, and Save as View is left out there, as on the desktop. Only pages the phone can open Views for (Tasks, Files) offer Save as View; the rest (Assignments, Notes, Jots, Bookmarks, Courses, Exams, Decks, Recipes, Trash) show Discard and Save. Assignments has Views on the desktop, which the phone does not read yet.
+
+An unsaved change lives in memory: it outlives leaving the page, not quitting the app. Pages whose filters were never kept before (Courses, Exams, Decks, Recipes, Trash) now keep them on Save, under new keys of their own; nothing stored before changes meaning.
+
+## D79. A list page's top stays put
+
+On every list page (Tasks, Assignments, Notes, Jots, Files, Bookmarks, Courses, Exams, Decks, Recipes, Search, Trash) the title with its count and Filter and Display, the tabs (Jots' presets, Views) and the filters that are on stay at the top while only the list scrolls, as the desktop's header does. A hairline parts them once the list scrolls under. The search field and anything else of the page scroll with the list. Pages declare their top where they are (`FixedTop`); the page's `Screen` draws it above its scrolling content. In a sheet nothing scrolls apart, so it stays in place.
+
+## D80. The phone's calendar switches views from its bar
+
+On a phone the four views (Agenda, Day, 3 Days, Week) are one button in the bar, left of the +, which lists them in a sheet with a check on the one shown; the row of tabs above the hours is gone, so the hours start right under the bar. Over the hours the bar names only the week ("Week 46"), at full strength, since the days carry their own dates, now in larger numbers. The agenda keeps its dates. An iPad keeps the desktop's tabs and arrows.
+
+## D81. A Files View of some labels is built in a dialog
+
+The label shelf of D74 listed every label the Space's files carry above the files. With dozens of labels it filled the top of the page before a single file. It is gone. A View of some labels is now made in a dialog instead: New View on the Files page (a button beside the presets on the desktop, a + beside the View tabs on the phone) asks for a name and the labels, ticked in a searchable list that shows how many files carry each, most used first, with "Files without a label" at the end. The View keeps the page's filters and display around those labels, as Save as View does. Picking a label still leaves the files without one, and the other way round.
+
+Above the files, only the labels picked show, as chips to take off one by one, with Change labels to tick others in the same list. A change waits in the save bar like any other. Nothing shows while none is picked. The config is unchanged (`display.shelf`), so Views saved before open as they did, and the CLI builds the same View with `view create --module files --config`.
+
+## D82. A tablet has no phone bar; a page's actions sit in its own header row
+
+The tablet is the desktop made for touch, not a bigger phone. Its titlebar already goes back and forward and its tabs name the page, so the system's bar over each page only repeated them with a back arrow, a centred title and round buttons. On a tablet the top level pages and an item's page have no bar. A page's actions (New Task, Add Files, Scan Document, New Assignment, Space Settings) are labelled buttons at the end of its header row after Filter and Display, the main one filled, as the desktop's "New task" and "Choose files". A page without a list header shows them at its top right, and the Calendar puts its New button beside its views. One component (`PageActions`) declares them for both: on a phone they stay round buttons in the bar.
+
+Beside the page, the sidebar also drops its "Nookly" title and its Search button (the titlebar has Search) and starts with the mascot's card, as the desktop's does. A module's New button names what it makes (New Note, New Semester), as the desktop's does, on the phone too.
+
+Settings on a tablet is the desktop's: its categories listed on the left, the one picked shown beside them. Pages of their own (the account, Sidebar, Keyboard Shortcuts, What's New) still open as a page.
+
+## D83. The tablet is its own shell in the same app
+
+The first tablet pass (D82) kept the phone's screens and checked the width inside them, so the iPad read as a big phone: a phone drawer pinned open, bottom sheets the width of the screen, pushed pages. The tablet now gets its own shell in the same Expo app (one bundle, one App Store listing, the same routes, data and sync), split from the phone at three seams instead of inside every screen:
+
+1. **The shell.** The root layout picks the phone shell or the tablet shell by window width (600pt and up is a tablet window; below it, in Slide Over or a narrow window, the phone layout takes over). The tablet shell is the desktop's frame: the desktop's sidebar, titlebar, tab strip, split view and details pane, sized for touch.
+2. **Presentation.** The one sheet implementation gains two presentations for a tablet window: a popover anchored to what opened it (pickers, selects, menus, context menus, display and filter options), and a centred dialog (create forms, confirmations, big flows such as Settings, the semester setup and Review Changes). The content stays the sheet's (pinned search, icon rows with subtitles, a checkmark), and pickers opened from a field in a dialog float over it, as the desktop's popovers do over its dialogs. A tablet window shows no bottom sheet.
+3. **Screens.** A screen is split into its content, shared by both shells, and its chrome, which each shell owns. Width checks inside screens go away as each screen moves.
+
+Every page is laid out for portrait and landscape and for any window size iPadOS allows; rotating keeps what is open (tabs, scroll, drafts, an open popover or dialog). The plan is in `IMPLEMENTATION_STATE.md`.
+
+## D84. Checking a tablet window without turning the simulator
+
+The simulators on the build machine run apps as iPadOS windows that only the device's turn changes, and there is no Simulator window to turn them; the system ignores an app's own request to rotate (`requestGeometryUpdate`) while it supports multitasking. So the checks lay the app out at the size of the window wanted instead: a development only hook (`hooks.window(width, height)`, `ui/window-override.ts`) makes the app read that size and draws it scaled into the top left of the screen. `tools/e2e/tablet-shots.ts` shoots a page that way at every window the plan names (13-inch and 11-inch in both orientations, the mini in portrait, Slide Over). It is not set in any build a person uses. What it cannot show (the real safe areas of a turned iPad, the system's own animation of a turn) is checked on a real iPad by the user.
+
+The window controls of an iPadOS 26 window are read natively (`modules/nookly-window`, the margins layout region with corner adaptation, less the plain margins) and are zero while the app fills the screen, as on the simulators here; their room in the titlebar is checked on a real iPad.
+
+## D85. A pointer on an iPad: hover, secondary click and the pointer's lift
+
+A trackpad or mouse on an iPad gets the desktop's pointer habits where React Native and the system allow, and never anything only a pointer can reach:
+
+- **Hover** comes from React Native Gesture Handler's hover gesture (`Gesture.Hover()`), which iOS drives from the pointer; rows, tabs and buttons show the desktop's hover highlight from it. Its `effect(HoverEffect.LIFT)` gives a round button the system's pointer lift, and `HIGHLIGHT` a row the system's highlight.
+- **Secondary click** (a right click, or a two finger click on the trackpad) is a native view, `SecondaryClick` in `modules/nookly-window`: a tap recogniser that only a secondary button starts, reporting where it was. It opens the same context menu a long press opens, as a popover at the pointer. React Native has no secondary click of its own on iOS.
+- Long press stays the way to every context menu, so nothing needs a pointer.
+
+## D86. Dragging on an iPad
+
+Inside the app, drags are React Native Gesture Handler gestures: a long press that lifts what is held (`LIFT_DELAY`, `LIFT_SCALE`, `SPRING.lift` in `ui/motion.ts`) and a pan that carries it, as the phone already reorders rows. Tabs, Space icons in the sidebar's bottom row, sidebar rows and task cards across board columns use it, and a tab or row dropped on the right edge of the page splits.
+
+Files dragged in from another app (Files, Mail, Safari) land through a native drop view, `FileDrop` in `modules/nookly-window` (`UIDropInteraction`): each file is copied into the app's temporary folder and handed to the page under it, the Files page taking them as an import. Dragging something out of Nookly into another app (a file, an item's link) needs a native drag source for each kind of item and is deferred.
+
+## D87. A list and its item side by side on a tablet
+
+On a tablet, an item picked from a list opens in the right group as a preview tab while the window has room for both groups (each keeping 360), so the list stays on the left and the item shows beside it: the iPad's list and detail, built from the desktop's split view rather than a separate layout. The next item picked the same way replaces the preview, as an editor group's preview tab in VS Code, until the item is edited or its tab pinned. Where both do not fit, the item opens in the list's place. "Open Items Beside the List" in the titlebar's split menu turns it off (a device preference, on by default). A long press on any item also offers Open in New Tab and Open on the Right first, the desktop's Command click and split. Flagged for the user's feedback after trying it on an iPad.
+
+## D88. Settings on a tablet is the desktop's Settings dialog
+
+This replaces D82's last paragraph. On a tablet every settings route opens one extra large dialog (960) over the window, the categories on the left under the desktop's groups, the one picked beside them, `Cmd+,` to open it. The account, Backup, Connections, Sidebar, Keyboard Shortcuts and What's New are categories in it, not pages of their own. A phone keeps its pages.
+
+## D89. A calmer Settings and Home on the phone
+
+The phone's Settings top page was a column of boxed rows, each with its own colour. Its categories are now tiles in one quiet style under plain headings, the account a card of its own with a dot for how syncing goes, and What's New with the version in a quiet line at the end. Home uses one grey tint for its badges, the page's own background, no Create row, and the desktop's tabbed panels after Coming Up. Surfaces on a plain page take a card's tone (`OnPage`) so they show in light mode. Requested by the user on 2026-11-17.
+
+## D90. Clipping cards keep plain rounded corners on the desktop
+
+WebKit keeps the clip of an element with `corner-shape` and an `overflow` clip at the size it first had. The page card of Tasks, Calendar and Assignments clipped there, so the page was painted only partway across a wider window. The squircle (D67) now leaves any element with an `overflow-` class; those keep plain rounding.
+
+## D91. Finding the server again within seconds
+
+A device that loses the server comes back on its own, with full sync: a request gives up after 45 seconds, the live channel after 10 without opening, and every failure reports its end so the retry runs. Beyond the backoff, sync resumes at once when the device is back online, comes to the front, or wakes (the desktop notices a clock jump), retrying from the start with the live channel and page sessions reopened.
+
+## D92. The copy names the device in hand
+
+Text that names the device says "iPhone" or "iPad" on iOS and "phone" or "tablet" on Android (`useDeviceWord`). The window decides, so a tablet window says tablet, but an iPad stays an iPad in a narrow window. Lists of every kind of device ("your phone, tablet and computer") stay as they are.
+
+## D93. No haptics setting on an iPad
+
+iPads have no Taptic Engine, so Appearance shows the Haptics switch on a phone only. Nothing relies on a haptic alone: each sits beside something seen.
+
+## D94. Keyboard shortcuts change on the device they are used on
+
+With a hardware keyboard, Settings changes a tablet's shortcuts as the desktop's: press a row, press the new keys. The desktop's rules apply: Command, Control or Option must be held, keys with a fixed meaning (the system's editing keys, Escape, Command Return) are refused, and keys another shortcut holds are moved only after asking, leaving that one without keys. The changes stay on the device, as the desktop's stay on the computer; the defaults remain the desktop's keys (10.1). Without a keyboard the list is read only.
+
+## D95. Touch on a tablet: pinch, edges and the Pencil
+
+A tablet's calendar hours zoom with a pinch (32 to 128 points an hour), kept while the app runs; the phone keeps its fixed scale. Each edge gesture starts before a row's swipe, only in its own direction, and none takes a vertical drag. Nothing turns Scribble off; the one pan that lies over fields (the details pane's drag) lets a Pencil stroke through to it.
+
+## D96. An item opened beside a list takes the focus
+
+An item opened beside a list (1.6, D87) becomes the focused group. When the window turns or narrows to room for one group, the item stays in view and the list is a tap back, as the item is what the person just asked for.
+
+## D97. Page export and import formats come after the tablet rework
+
+A page's Export (PDF, Word, OpenDocument, Markdown), Share Page as Markdown and the Import formats are rendered by the desktop's Rust core, which the phone app lacks. Bringing them to phone and tablet is a feature of its own, after this rework: Markdown first, in shared code, then the other formats. Until then phone and tablet offer no entry that cannot run.
+
+## D98. The phone draws pictures on card faces too
+
+A card face with a picture shows it on the phone as on the tablet and the desktop, scaled to the card, instead of a labelled card.
+
+## D99. No block handles on touch
+
+The editor's block handles stay a pointer feature. Touch keeps the editor as it is; handles for a trackpad would need a native drag session from the web view and wait until someone asks.
+
+## D100. Native pointer interactions on a tablet
+
+With a trackpad or mouse, round buttons take iPadOS's own effect under the pointer (a lift or a highlight, by the button's size) and the split divider turns the pointer into a bar with arrows to either side, so the pointer behaves as in iPadOS's own apps. An older build without the native view keeps the plain pointer.

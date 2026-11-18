@@ -18,14 +18,28 @@
 //!   `nookly cli describe <entity-type>` dumps just one.
 
 mod args;
+mod backup;
+#[cfg(test)]
+mod backup_tests;
+mod calendars;
+#[cfg(test)]
+mod calendars_tests;
 #[cfg(test)]
 mod generic_tests;
 mod help;
 #[cfg(test)]
 mod property_tests;
 mod remote;
+mod settings;
+#[cfg(test)]
+mod settings_tests;
 #[cfg(test)]
 mod snapshot_tests;
+#[cfg(test)]
+mod space_modules_tests;
+mod sync;
+#[cfg(test)]
+mod sync_tests;
 mod view;
 mod warnings;
 
@@ -212,8 +226,17 @@ fn dispatch_command_raw(conn: &Connection, argv: Vec<String>) -> AppResult<Value
         "unrelate" => run_command(&argv[1..], |args| unrelate(conn, args)),
         "space" => space_command(conn, &argv[1..]),
         "label" => label_command(conn, &argv[1..]),
+        "settings" => settings::command(&data_folder()?, &argv[1..]),
+        "backup" => backup::command(conn, &data_folder()?, &argv[1..]),
+        "sync" => sync::command(conn, &data_folder()?, &argv[1..]),
+        "calendars" => calendars::command(&data_folder()?, &argv[1..]),
         entity_type => entity_command(conn, entity_type, &argv[1..]),
     }
+}
+
+/// The folder the app keeps its data and `settings.json` in.
+fn data_folder() -> AppResult<std::path::PathBuf> {
+    crate::db::standalone_app_data_dir().map_err(|e| AppError::Io(format!("data folder: {e}")))
 }
 
 fn schema_all() -> Value {
@@ -1386,6 +1409,10 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             "update": "nookly cli space update <id> [--name <n>] [--icon <i>] [--color <hex>]",
             "delete": "nookly cli space delete <id> --yes  (PERMANENT, Spaces have no Trash; deletes every entity inside)",
             "reorder": "nookly cli space reorder <id> <id> ...  (every Space id, in its new sidebar order)",
+            "modules": "nookly cli space modules <id>  (the modules the Space shows in the sidebar, in order)",
+            "add-module": "nookly cli space add-module <id> <module>  (tasks, notes, jots, courses, semesters, sessions, calendar, exams, decks, assignments, files, bookmarks, recipes, grades, moodle; a module taken away before comes back with its items)",
+            "remove-module": "nookly cli space remove-module <id> <module> --yes [--trash-content]  (its items wait hidden until the module is added again, or go to Trash with --trash-content; never deleted forever)",
+            "reorder-modules": "nookly cli space reorder-modules <id> <module> <module> ...  (the Space's modules in their new sidebar order)",
         }));
     };
     run_command(&argv[1..], |args| {
@@ -1427,8 +1454,49 @@ fn space_command(conn: &Connection, argv: &[String]) -> AppResult<Value> {
             let spaces = crate::db::spaces::list_spaces(conn)?;
             Ok(json!({ "count": spaces.len(), "items": spaces }))
         }
+        "modules" => {
+            let id = args.require_positional(0, "id")?;
+            crate::db::spaces::get_space(conn, &id)?;
+            let modules = crate::db::space_modules::list_space_modules(conn, &id)?;
+            Ok(json!({ "count": modules.len(), "items": modules }))
+        }
+        "add-module" => {
+            let id = args.require_positional(0, "id")?;
+            let module = args.require_positional(1, "module")?;
+            crate::db::spaces::get_space(conn, &id)?;
+            crate::db::space_modules::add_space_module(conn, &id, &module)?;
+            let modules = crate::db::space_modules::list_space_modules(conn, &id)?;
+            Ok(json!({ "count": modules.len(), "items": modules }))
+        }
+        "remove-module" => {
+            let id = args.require_positional(0, "id")?;
+            let module = args.require_positional(1, "module")?;
+            let trash = args.has_bool("trash-content");
+            args.require_yes()?;
+            crate::db::spaces::get_space(conn, &id)?;
+            crate::db::space_modules::remove_space_module(conn, &id, &module, trash)?;
+            let modules = crate::db::space_modules::list_space_modules(conn, &id)?;
+            Ok(json!({
+                "removed": module,
+                "items": modules,
+                "note": if trash { "its items are in Trash" } else { "its items come back when the module is added again" },
+            }))
+        }
+        "reorder-modules" => {
+            let id = args.require_positional(0, "id")?;
+            let keys: Vec<String> = args.positional.iter().skip(1).cloned().collect();
+            if keys.is_empty() {
+                return Err(AppError::InvalidInput(
+                    "reorder-modules takes the Space id and its modules in their new order".into(),
+                ));
+            }
+            crate::db::spaces::get_space(conn, &id)?;
+            crate::db::space_modules::reorder_space_modules(conn, &id, keys)?;
+            let modules = crate::db::space_modules::list_space_modules(conn, &id)?;
+            Ok(json!({ "count": modules.len(), "items": modules }))
+        }
         other => Err(AppError::InvalidInput(format!(
-            "unknown space command '{other}'. Expected one of: list, create, update, delete, reorder"
+            "unknown space command '{other}'. Expected one of: list, create, update, delete, reorder, modules, add-module, remove-module, reorder-modules"
         ))),
     }
     })

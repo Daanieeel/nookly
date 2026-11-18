@@ -16,6 +16,8 @@ pub(super) fn top_level_help() -> Value {
             "ids": "Every entity <id> argument (get, update, delete, restore, blocks, relate, label attach, \
                     entity_ref --field values) also accepts the entity's `key`, e.g. TSK-14.",
             "entityTypes": entity_types,
+            "backup": "nookly cli backup <now|list> [--folder <path>]  (into the backup folder from Settings unless --folder is given; restoring stays in the app)",
+            "calendars": "nookly cli calendars <list|events> ...  (the outside calendars connected in the app and their cached events, read only; connecting and syncing stay in the app)",
             "describe": "nookly cli describe <entity-type>  (or `nookly cli <entity-type>` with no verb): \
                          that type's fields, block commands and relationship types",
             "list": "nookly cli <entity-type> list [--space <id>] [--include-deleted] [--since <30m|24h|7d|date|timestamp>] \
@@ -75,10 +77,12 @@ pub(super) fn top_level_help() -> Value {
             "describe": "nookly cli describe <entity-type>  (one entity type: fields, block commands, relationship types)",
             "relate": "nookly cli relate <from-id> <relationship-type> <to-id> [<to-id> ...] --yes  (several targets \
                        are created all or nothing)",
+            "sync": "nookly cli sync status  (whether sync is on, its server, changes waiting, open clashes; signing in stays in the app and the session is never shown)",
             "unrelate": "nookly cli unrelate <relationship-id> --yes",
             "search": "nookly cli search <query> [--space <id>] [--type <entity-type>[,<entity-type>...]] \
                        [--in title|content] [--limit <n>]  (title covers titles and keys, content covers block text)",
-            "space": "nookly cli space <list|create|update|delete|reorder> ...",
+            "settings": "nookly cli settings <list|get|set|reset> ...  (the app's settings: theme, date and time format, calendar lengths, editor, backups, shortcuts. `list` shows each one's value, default and the values it takes; the running app picks a change up within a few seconds)",
+            "space": "nookly cli space <list|create|update|delete|reorder|modules|add-module|remove-module|reorder-modules> ...",
             "label": "nookly cli label <list|get|create|update|delete|attach|detach> ...  (attach/detach take several \
                       label ids; get <id> is the reverse lookup, every entity carrying that label)",
             "remote": "nookly cli <moodle_course|moodle_section|moodle_file|moodle_assignment|moodle_grade|moodle_forum|moodle_discussion|moodle_post> \
@@ -495,11 +499,49 @@ freeform tags, siloed per Space (the same label name in two Spaces is two separa
 
 ```
 nookly cli space <list|create|update|delete|reorder> ...   # space delete is PERMANENT, no Trash
+nookly cli space <modules|add-module|remove-module|reorder-modules> ...  # the Space's sidebar modules
 nookly cli label <list|get|create|update|delete|attach|detach> ...
 ```
 
 Run `nookly cli space` or `nookly cli label` with no further arguments for the exact flags
 each verb takes.
+
+## Settings
+
+The app's settings, the same ones its Settings window shows (theme, date and time format,
+calendar lengths, the editor, backups, keyboard shortcuts):
+
+```
+nookly cli settings list [--category calendar]     # each: value, default, isDefault, schema
+nookly cli settings get calendar.weekStart
+nookly cli settings set calendar.weekStart monday  # checked against the setting's schema
+nookly cli settings reset calendar.weekStart
+```
+
+A value is read as JSON when it is JSON (`true`, `45`, `null`, `["en","de"]`) and as text
+otherwise. The running app picks a change up within a few seconds. Signing in to sync
+happens in the app; its session stays in the keychain and is never shown here.
+
+## Backups
+
+```
+nookly cli backup now [--folder <path>]   # into `backup.folder` from settings unless --folder
+nookly cli backup list [--folder <path>]  # newest first, with size and what each holds
+```
+
+A folder keeps the newest 10, as the app does. Restoring replaces everything on the device,
+so it is only done in the app, behind its confirmation.
+
+## Outside calendars
+
+The Google, iCloud and Moodle calendars connected in the app, and the events it has cached
+from the ones that show. Read only: connecting, choosing calendars and syncing are done in
+the app, and the sign in never leaves the keychain.
+
+```
+nookly cli calendars list                                         # accounts, calendars, last sync
+nookly cli calendars events --from 2026-11-16 --to 2026-11-22 [--provider google]
+```
 
 ## A worked example, start to finish
 

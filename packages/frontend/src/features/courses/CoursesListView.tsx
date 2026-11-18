@@ -27,6 +27,13 @@ import {
 import { differenceInCalendarDays } from "date-fns";
 import { useState } from "react";
 import {
+  type ActiveFilter,
+  type FilterField,
+  FilterMenu,
+  applyFilters,
+} from "#/components/filter-menu.tsx";
+import { ENTITY_FILTER_FIELDS, entityFilterValue } from "#/features/tasks/shared-view-defs.tsx";
+import {
   StatusAnnouncer,
   StatusIcon,
   statusOf,
@@ -121,6 +128,9 @@ function dateLabel(date: string): string {
 /// all come from the generic relationship system (§5.4), not dedicated fields.
 /// Semesters themselves live on their own page (Semesters module) — this view
 /// only links a course to one via the "Link semester" picker below.
+/// The Semester filter's value for a course in none.
+const NO_SEMESTER = "none";
+
 export function CoursesListView({ spaceId }: { spaceId: string }) {
   const openEntity = useNavStore((s) => s.openEntity);
   const [createOpen, setCreateOpen] = useState(false);
@@ -145,12 +155,31 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
   const courseRelQueries = useCoursesRelationships(courses);
 
   const semesterIdByCourse = semesterIdsByCourse(courses, courseRelQueries);
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const filterFields: FilterField[] = [
+    {
+      id: "semester",
+      label: "Semester",
+      icon: IconCalendarStats,
+      options: [
+        ...semesters.map((s) => ({ value: s.entity.id, label: displayTitle(s.entity) })),
+        { value: NO_SEMESTER, label: "No semester" },
+      ],
+    },
+    ...ENTITY_FILTER_FIELDS,
+  ];
+  const shown = applyFilters(
+    courses,
+    filters,
+    (course, fieldId) =>
+      entityFilterValue(course, fieldId) ?? semesterIdByCourse.get(course.id) ?? NO_SEMESTER,
+  );
 
   const activeSemesterId = resolveActiveSemesterId(semesters);
   const activeSemester = semesters.find((s) => s.entity.id === activeSemesterId);
   const coursesFor = (semesterId: string | null) =>
     sortCourses(
-      courses.filter((c) => (semesterIdByCourse.get(c.id) ?? null) === semesterId),
+      shown.filter((c) => (semesterIdByCourse.get(c.id) ?? null) === semesterId),
       sort,
     );
   const otherSemesters = semesters
@@ -173,6 +202,9 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="text-lg font-semibold">Courses</h1>
         <div className="flex flex-wrap items-center gap-2">
+          {courses.length > 0 && (
+            <FilterMenu fields={filterFields} filters={filters} onFiltersChange={setFilters} />
+          )}
           {courses.length > 1 && (
             // SAFETY: the only items rendered below come from `COURSE_SORTS`, so the
             // picked value is always one of its `CourseSort` ids.
@@ -202,11 +234,18 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
             <CoursePlaceholderCard key={i} {...p} />
           ))}
         </div>
+      ) : shown.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <p className="text-sm text-muted-foreground">No courses match these filters.</p>
+          <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
+            Clear filters
+          </Button>
+        </div>
       ) : semesters.length === 0 ? (
         // No Semester exists yet — grouping (and an "Active" section with
         // nothing to contrast against) wouldn't mean anything, so stay flat.
         <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
-          {sortCourses(courses, sort).map((course) => (
+          {sortCourses(shown, sort).map((course) => (
             <CourseCard
               key={course.id}
               course={course}
@@ -605,7 +644,7 @@ function CoursePlaceholderCard({
       <GalleryCardBanner color="var(--muted-foreground)" />
       <GalleryCardBody>
         <div className="flex items-center gap-2">
-          <div className="size-4 shrink-0 rounded-full bg-muted-foreground/30" />
+          <div className="size-4 shrink-0 rounded-sm bg-muted-foreground/30" />
           <div className={`h-3.5 ${titleWidth} rounded bg-muted-foreground/30`} />
         </div>
         {stats > 0 && (
@@ -621,7 +660,7 @@ function CoursePlaceholderCard({
         {chips > 0 && (
           <div className="flex gap-1">
             {Array.from({ length: chips }).map((_, i) => (
-              <div key={i} className="h-4 w-14 rounded-full bg-muted-foreground/20" />
+              <div key={i} className="h-4 w-14 rounded-sm bg-muted-foreground/20" />
             ))}
           </div>
         )}
@@ -645,7 +684,7 @@ function RelatedChip({
   });
   if (!entity) return null;
   return (
-    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
       {icon}
       <span className="truncate">
         {prefix ? `${prefix} ` : ""}

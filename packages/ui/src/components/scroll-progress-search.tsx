@@ -344,7 +344,7 @@ const ScrollProgressSearch = ({
                         setCursor(0);
                       }}
                       onKeyDown={onSearchKeyDown}
-                      className="h-8 w-full rounded-[14px] border border-input bg-accent/60 pr-3 pl-8 text-sm leading-none outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      className="h-8 w-full rounded-xl border border-input bg-accent/60 pr-3 pl-8 text-sm leading-none outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
                 )}
@@ -374,7 +374,7 @@ const ScrollProgressSearch = ({
                           tabIndex={searchable ? -1 : 0}
                           onClick={() => selectSection(s.id)}
                           className={cn(
-                            "relative flex w-full items-center gap-3 rounded-[14px] py-2 pr-3 text-left text-sm font-medium leading-none transition-colors",
+                            "relative flex w-full items-center gap-3 rounded-xl py-2 pr-3 text-left text-sm font-medium leading-none transition-colors",
                             squircle,
                             isCursor && query && "bg-accent/40",
                             isActive
@@ -388,10 +388,7 @@ const ScrollProgressSearch = ({
                           {isActive && (
                             <motion.span
                               layoutId={`${layoutId}-active`}
-                              className={cn(
-                                "absolute inset-0 rounded-[14px] bg-accent/70",
-                                squircle,
-                              )}
+                              className={cn("absolute inset-0 rounded-xl bg-accent/70", squircle)}
                               transition={reduceMotion ? { duration: 0 } : SIZE_SPRING}
                             />
                           )}

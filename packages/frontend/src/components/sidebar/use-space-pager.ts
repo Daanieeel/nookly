@@ -211,7 +211,9 @@ export function useSpacePager({
   }
 
   /// The fingers are off: settles on the Space the list is closest to, going on or coming back.
-  function release(glideFollows: boolean) {
+  /// `at` is when they lifted: the idle timer can run late on a busy machine, and reading the
+  /// speed then left a flick's events out of it, so the flick slid back.
+  function release(glideFollows: boolean, at = performance.now()) {
     const state = live.current;
     clearTimeout(state.idle);
     state.idle = undefined;
@@ -219,7 +221,7 @@ export function useSpacePager({
     state.gliding = glideFollows;
     state.fading = 0;
     state.peak = 0;
-    const velocity = velocityOf(state.samples, performance.now());
+    const velocity = velocityOf(state.samples, at);
     state.samples = [];
     state.velocity = velocity;
     const target = settleTarget({
@@ -290,7 +292,7 @@ export function useSpacePager({
       return;
     }
     clearTimeout(state.idle);
-    state.idle = setTimeout(() => release(false), IDLE_MS);
+    state.idle = setTimeout(() => release(false, now + IDLE_MS), IDLE_MS);
     // `dragTo` and `release` only read refs and state setters, which never change.
     // oxlint-disable-next-line react/exhaustive-deps
   }, []);

@@ -5,6 +5,7 @@
 
 use tauri::Manager;
 
+mod automation;
 mod backup;
 mod cli;
 mod commands;
@@ -14,11 +15,13 @@ mod db;
 mod dictionary_file;
 mod error;
 mod external_calendars;
+mod keychain;
 mod keychain_tidy;
 mod logging;
 mod moodle;
 mod spelling;
 mod store_guard;
+mod sync;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// The default menu minus "Close Window": its Cmd+W would close the whole app, and
@@ -342,6 +345,17 @@ fn command_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send +
         commands::crash_report::dismiss_crash_report,
         commands::logging::log_frontend,
         commands::logging::open_logs_folder,
+        commands::settings_file::store_dir,
+        commands::sync::sync_query,
+        commands::sync::sync_batch,
+        commands::sync::sync_reindex,
+        commands::sync::sync_refresh_token,
+        commands::sync::sync_set_refresh_token,
+        commands::blobs::blob_hash,
+        commands::blobs::blob_upload,
+        commands::blobs::blob_download,
+        commands::blobs::create_pre_sync_backup,
+        automation::automation_result,
     ]
 }
 
@@ -478,6 +492,7 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     ));
     #[cfg(target_os = "macos")]
     disable_trackpad_magnification(app);
+    automation::start(app.handle());
     Ok(())
 }
 

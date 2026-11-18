@@ -1,0 +1,90 @@
+import ExpoModulesCore
+import PDFKit
+import QuickLookThumbnailing
+import UIKit
+
+/// Shows a stored file inside the app: a PDF in PDFKit (pages, search, zoom), anything else
+/// in Quick Look. Reads the file only; it never writes to or moves the original.
+public class NooklyFileViewerModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("NooklyFileViewer")
+
+    /// A picture of the file's first page or frame, written to the caches folder. Nil when the
+    /// system has no thumbnail for it.
+    AsyncFunction("thumbnail") { (uri: String, name: String, size: Double, promise: Promise) in
+      guard let url = NooklyFileView.viewableURL(uri: uri, name: name) else {
+        promise.resolve(nil)
+        return
+      }
+      let request = QLThumbnailGenerator.Request(
+        fileAt: url,
+        size: CGSize(width: size, height: size),
+        scale: UIScreen.main.scale,
+        representationTypes: .thumbnail
+      )
+      QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { thumbnail, _ in
+        guard let data = thumbnail?.uiImage.pngData() else {
+          promise.resolve(nil)
+          return
+        }
+        let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+          .appendingPathComponent("file-thumbnails", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let key = "\(url.path.hashValue)-\(Int(size))-\(Int(UIScreen.main.scale)).png"
+        let out = folder.appendingPathComponent(key)
+        do {
+          try data.write(to: out, options: .atomic)
+          promise.resolve(out.absoluteString)
+        } catch {
+          promise.resolve(nil)
+        }
+      }
+    }
+
+    /// Scanned pages (pictures) as one PDF in the caches folder, one page each, in order.
+    /// Reads the pictures only. Rejects when a picture cannot be read.
+    AsyncFunction("pagesToPdf") { (uris: [String]) throws -> String in
+      let document = PDFDocument()
+      for (index, uri) in uris.enumerated() {
+        guard let url = URL(string: uri), let image = UIImage(contentsOfFile: url.path),
+          let page = PDFPage(image: image)
+        else {
+          throw Exception(name: "ScanPage", description: "Page \(index + 1) of the scan could not be read.")
+        }
+        document.insert(page, at: document.pageCount)
+      }
+      let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("scans", isDirectory: true)
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      let out = folder.appendingPathComponent("\(UUID().uuidString).pdf")
+      guard document.write(to: out) else {
+        throw Exception(name: "ScanWrite", description: "The scan could not be saved.")
+      }
+      return out.absoluteString
+    }
+
+    View(NooklyFileView.self) {
+      Events("onPageChange", "onSearchResult")
+
+      Prop("source") { (view: NooklyFileView, source: [String: String]) in
+        view.load(uri: source["uri"] ?? "", name: source["name"] ?? "")
+      }
+
+      Prop("query") { (view: NooklyFileView, query: String?) in
+        view.search(query ?? "")
+      }
+
+      Prop("thumbnails") { (view: NooklyFileView, on: Bool?) in
+        view.setThumbnails(on ?? false)
+      }
+
+      AsyncFunction("findNext") { (view: NooklyFileView, backwards: Bool) in
+        view.findNext(backwards: backwards)
+      }.runOnQueue(.main)
+
+      AsyncFunction("goToPage") { (view: NooklyFileView, page: Int) in
+        view.goToPage(page)
+      }.runOnQueue(.main)
+    }
+  }
+}

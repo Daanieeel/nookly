@@ -1,0 +1,493 @@
+import {
+  addFile,
+  createRelationship,
+  createPage,
+  linkedItems,
+  listBlocks,
+  updateBlock,
+  createCard,
+  createCourse,
+  createDeck,
+  createExam,
+  createSpace,
+  createTask,
+  entityLabels,
+  getEntity,
+  getExam,
+  getTask,
+  listCards,
+  listExams,
+  relatedItems,
+  createOneOffSession,
+  createAssignment,
+  getAssignment,
+  updateExam,
+} from "@nookly/shared/data";
+import { phoneSettings } from "../data/settings.ts";
+import { router } from "expo-router";
+import { act, fireEvent, waitFor } from "expo-router/testing-library";
+import { StyleSheet, Text } from "react-native";
+import { TINT } from "../ui/tokens.ts";
+import { shownValue } from "../ui/DateField.tsx";
+import { renderScreens, testData } from "../test/render.tsx";
+import { choose, openRow, pickDay, pickDayInSheet, pickTime } from "../test/sheet.ts";
+import { ConflictBadge } from "./ConflictBadge.tsx";
+import { MergeEditor } from "./MergeEditor.tsx";
+import { EntityScreen } from "./EntityScreen.tsx";
+import { NewExamScreen } from "./NewScreens.tsx";
+import { LinkPicker } from "./RelatedSection.tsx";
+import { StudyScreen } from "./StudyScreen.tsx";
+
+async function seeded() {
+  const data = testData();
+  const space = await createSpace(data.db, "Uni", "#3b82f6");
+  const course = await createCourse(data.db, space, "Algorithms");
+  return { data, space, course };
+}
+
+describe("an exam", () => {
+  it("changes its status, day, time and grade", async () => {
+    const { data, space, course } = await seeded();
+    const exam = await createExam(data.db, space, "Final", course);
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={exam} /> },
+      data,
+      `/entity/${exam}`,
+    );
+    await choose(screen, "Status", "Studying");
+    await pickDay(screen, "Exam date", "2027-02-10");
+    await pickTime(screen, "Time", "09:30");
+    await fireEvent.changeText(screen.getByLabelText("Grade"), "1,7");
+    await fireEvent(screen.getByLabelText("Grade"), "endEditing");
+    await waitFor(async () =>
+      expect(await getExam(data.db, exam)).toMatchObject({
+        status: "studying",
+        examDate: "2027-02-10",
+        examTime: "09:30",
+        grade: 1.7,
+      }),
+    );
+  });
+
+  it("shows its time on the clock the time format asks for, AM and PM only on 12 hours", async () => {
+    const { data, space, course } = await seeded();
+    const exam = await createExam(data.db, space, "Final", course);
+    await updateExam(data.db, exam, { examTime: "15:05" });
+    phoneSettings.setJson("general.timeFormat", "european");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={exam} /> },
+      data,
+      `/entity/${exam}`,
+    );
+    expect((await screen.findAllByText("15:05")).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/3:05/)).toBeNull();
+    phoneSettings.setJson("general.timeFormat", "american");
+    expect((await screen.findAllByText("3:05 PM")).length).toBeGreaterThan(0);
+    phoneSettings.reset("general.timeFormat");
+  });
+
+  it("is made in a Course, which it asks for", async () => {
+    const { data, space, course } = await seeded();
+    const screen = await renderScreens(
+      {
+        index: () => <NewExamScreen spaceId={space} />,
+        "entity/[id]": () => null,
+      },
+      data,
+    );
+    await fireEvent.changeText(await screen.findByLabelText("Exam title"), "Midterm");
+    // Without its Course there is nothing to send.
+    expect(
+      screen.getByRole("button", { name: "Create Exam" }).props.accessibilityState,
+    ).toMatchObject({ disabled: true });
+    await choose(screen, "Course", "Algorithms");
+    await fireEvent.press(screen.getByRole("button", { name: "Create Exam" }));
+    await waitFor(async () =>
+      expect((await listExams(data.db, { courseId: course })).map((e) => e.entity.title)).toEqual([
+        "Midterm",
+      ]),
+    );
+  });
+});
+
+describe("studying a deck", () => {
+  it("shows the answer, takes a rating and ends when nothing is due", async () => {
+    const { data, space } = await seeded();
+    const deck = await createDeck(data.db, space, "Sorting");
+    const card = await createCard(data.db, deck, "Quicksort average?", "n log n");
+    const screen = await renderScreens({ index: () => <StudyScreen deckId={deck} /> }, data);
+    expect(await screen.findByText("Quicksort average?")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Show Answer" }));
+    expect(screen.getByText("n log n")).toBeTruthy();
+    // A new card rated Easy comes back in days, so the session ends.
+    await fireEvent.press(screen.getByRole("button", { name: "Easy" }));
+    expect(await screen.findByText("All caught up")).toBeTruthy();
+    const [studied] = await listCards(data.db, deck);
+    expect([studied.id, studied.state, studied.reps]).toEqual([card, "review", 1]);
+  });
+});
+
+describe("undoing an answer while studying", () => {
+  it("brings the card back as it was, with the answer to give again", async () => {
+    const { data, space } = await seeded();
+    const deck = await createDeck(data.db, space, "Sorting");
+    await createCard(data.db, deck, "Quicksort average?", "n log n");
+    const screen = await renderScreens({ index: () => <StudyScreen deckId={deck} /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Show Answer" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Easy" }));
+    expect(await screen.findByText("All caught up")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Undo Last Rating" }));
+    expect(await screen.findByText("Quicksort average?")).toBeTruthy();
+    const [card] = await listCards(data.db, deck);
+    expect([card.state, card.reps]).toEqual(["new", 0]);
+    expect(
+      screen.getByRole("button", { name: "Undo Last Rating" }).props.accessibilityState.disabled,
+    ).toBe(true);
+  });
+});
+
+// Studying had no way out but finishing the deck, and drew a card's pictures and formulas
+// as bare text. It is the desktop's session: Back to Deck at any time, how many are left
+// of each kind, how far along, and the faces as written.
+describe("a study session", () => {
+  it("can be left at any time, and says how many are left and how far along", async () => {
+    const { data, space } = await seeded();
+    const deck = await createDeck(data.db, space, "Sorting");
+    await createCard(data.db, deck, "Quicksort average?", "n log n");
+    await createCard(data.db, deck, "Mergesort worst?", "n log n");
+    const screen = await renderScreens(
+      {
+        index: () => <Text>Deck page</Text>,
+        "study/[deckId]": () => <StudyScreen deckId={deck} />,
+      },
+      data,
+    );
+    act(() => router.push(`/study/${deck}`));
+    expect(await screen.findByLabelText("2 new, 0 learning, 0 due")).toBeTruthy();
+    expect(screen.getByRole("progressbar")).toHaveProp("accessibilityValue", {
+      min: 0,
+      max: 2,
+      now: 0,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Back to Deck" }));
+    expect(await screen.findByText("Deck page")).toBeTruthy();
+  });
+
+  it("draws a face with more than words in the page editor, read only", async () => {
+    const { data, space } = await seeded();
+    const deck = await createDeck(data.db, space, "Sorting");
+    await createCard(
+      data.db,
+      deck,
+      {
+        blocks: [
+          { type: "paragraph", content: "Run time of", language: null, filename: null, attrs: {} },
+          { type: "math", content: "O(n^2)", language: null, filename: null, attrs: {} },
+        ],
+      },
+      "worst case",
+    );
+    const screen = await renderScreens({ index: () => <StudyScreen deckId={deck} /> }, data);
+    expect(await screen.findByTestId("card-face-blocks")).toBeTruthy();
+  });
+});
+
+describe("a task's due date, labels and links", () => {
+  it("picks the day from the calendar and adds a label", async () => {
+    const { data, space } = await seeded();
+    const task = await createTask(data.db, space, "Report");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={task} /> },
+      data,
+      `/entity/${task}`,
+    );
+    await screen.findByText("Status");
+    await pickDay(screen, "Due date", "2026-10-31");
+    await waitFor(async () => expect((await getTask(data.db, task))?.dueDate).toBe("2026-10-31"));
+    // At a glance under the title and in the details: either opens the labels.
+    const labels = await screen.findAllByRole("button", { name: "Labels, None" });
+    await fireEvent.press(labels[labels.length - 1]);
+    await fireEvent.changeText(await screen.findByLabelText("Search Labels"), "Urgent");
+    await fireEvent.press(screen.getByRole("button", { name: "Create Urgent" }));
+    await waitFor(async () =>
+      expect((await entityLabels(data.db, task)).map((l) => l.name)).toEqual(["Urgent"]),
+    );
+    expect(await screen.findByRole("checkbox", { name: "Urgent" })).toBeTruthy();
+  });
+
+  it("links an item found by search, then goes back", async () => {
+    const { data, space } = await seeded();
+    const task = await createTask(data.db, space, "Report");
+    const other = await createTask(data.db, space, "Slides");
+    const screen = await renderScreens(
+      { index: () => <Text>Report page</Text>, link: () => <LinkPicker entityId={task} /> },
+      data,
+    );
+    await act(() => router.push("/link"));
+    await fireEvent.changeText(await screen.findByLabelText("Search Items"), "Slides");
+    await fireEvent.press(await screen.findByRole("radio", { name: "Slides, TSK-2" }));
+    await waitFor(async () =>
+      expect((await relatedItems(data.db, task)).map((r) => r.entity.id)).toEqual([other]),
+    );
+    expect(await screen.findByText("Report page")).toBeTruthy();
+  });
+});
+
+describe("the merge editor", () => {
+  async function disagreement() {
+    const { data, space } = await seeded();
+    const task = await createTask(data.db, space, "New title");
+    data.driver.rows(
+      "INSERT INTO sync_conflicts (id, tbl, pk, field, losing_value, created_at) VALUES ('c1', 'entities', ?, 'title', ?, '2026-10-14T09:00:00Z')",
+      task,
+      JSON.stringify("Old title"),
+    );
+    return { data, task };
+  }
+
+  it("lists the change, shows both versions, and keeps the other one", async () => {
+    const { data, task } = await disagreement();
+    const screen = await renderScreens({ index: () => <MergeEditor /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "New title, Title" }));
+    expect(await screen.findByLabelText("Another device's version: Old title")).toBeTruthy();
+    expect(screen.getByText("Showing now")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Keep the Other" }));
+    await waitFor(async () => expect((await getEntity(data.db, task))?.title).toBe("Old title"));
+    expect(await screen.findByText("Nothing needs a look.")).toBeTruthy();
+  });
+
+  it("invites a look from the page the change belongs to, and nowhere else", async () => {
+    const { data, task } = await disagreement();
+    data.sync.store.setState((state) => ({ status: { ...state.status, conflicts: 1 } }));
+    const screen = await renderScreens({ index: () => <ConflictBadge entityId={task} /> }, data);
+    expect(
+      await screen.findByRole("button", { name: "1 change needs a look. Review" }),
+    ).toBeTruthy();
+    const other = await renderScreens({ index: () => <ConflictBadge entityId="other" /> }, data);
+    await waitFor(() => expect(other.queryByRole("button", { name: /needs a look/ })).toBeNull());
+  });
+
+  it("keeps both: combines them to edit, and saves what is written", async () => {
+    const { data, task } = await disagreement();
+    const screen = await renderScreens({ index: () => <MergeEditor /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "New title, Title" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Keep Both" }));
+    const box = screen.getByLabelText("Combined version");
+    expect(box.props.value).toBe("New title / Old title");
+    await fireEvent.changeText(box, "Old and new title");
+    await fireEvent.press(screen.getByRole("button", { name: "Save Combined" }));
+    await waitFor(async () =>
+      expect((await getEntity(data.db, task))?.title).toBe("Old and new title"),
+    );
+  });
+});
+
+describe("an item's links", () => {
+  it("shows each link as it reads from this item, and attachments and mentions apart", async () => {
+    const { data, space } = await seeded();
+    const task = await createTask(data.db, space, "Write");
+    const review = await createTask(data.db, space, "Review");
+    const file = await addFile(data.db, space, "spec.pdf", "file:///spec.pdf");
+    await createRelationship(data.db, task, review, "blocks");
+    await createRelationship(data.db, task, file, "attached-file");
+    const page = await createPage(data.db, space, "note", "Plan");
+    await updateBlock(
+      data.db,
+      (await listBlocks(data.db, page))[0].id,
+      `Do [Write](mention:${task}) first.`,
+    );
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={task} /> },
+      data,
+      `/entity/${task}`,
+    );
+    expect(await screen.findByRole("button", { name: /^Review, Blocks · / })).toBeTruthy();
+    expect(screen.getByLabelText("Attachments")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^spec.pdf, Attached file · / })).toBeTruthy();
+    expect(await screen.findByLabelText("Mentioned in")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Plan, / })).toBeTruthy();
+  });
+
+  it("links with the kind of link chosen", async () => {
+    const { data, space } = await seeded();
+    const task = await createTask(data.db, space, "Write");
+    const other = await createTask(data.db, space, "Review");
+    const screen = await renderScreens(
+      { index: () => <Text>Task page</Text>, link: () => <LinkPicker entityId={task} /> },
+      data,
+    );
+    await act(() => router.push("/link"));
+    await choose(screen, "Kind of link", "Blocks");
+    await fireEvent.changeText(screen.getByLabelText("Search Items"), "Review");
+    await fireEvent.press(await screen.findByRole("radio", { name: /^Review, / }));
+    await waitFor(async () =>
+      expect((await linkedItems(data.db, task)).map((l) => [l.type.name, l.entity.id])).toEqual([
+        ["blocks", other],
+      ]),
+    );
+  });
+});
+
+// The picker listed every item whatever the kind of link: a task offered "Sequel of" (which
+// links a course to a course) and "Attached file" listed tasks, and picking one failed.
+describe("the link picker", () => {
+  it("offers only the kinds of link an item can make, and the items each one fits", async () => {
+    const { data, space } = await seeded();
+    const task = await createTask(data.db, space, "Thesis draft");
+    await createTask(data.db, space, "Thesis plan");
+    await addFile(data.db, space, "Thesis outline.pdf", "file:///outline.pdf");
+    const screen = await renderScreens(
+      { index: () => <Text>Task page</Text>, link: () => <LinkPicker entityId={task} /> },
+      data,
+    );
+    await act(() => router.push("/link"));
+    await openRow(screen, "Kind of link");
+    expect(screen.queryByRole("radio", { name: "Sequel of" })).toBeNull();
+    await fireEvent.press((await screen.findAllByRole("radio", { name: "Attached file" })).at(-1)!);
+    await fireEvent.changeText(screen.getByLabelText("Search Items"), "Thesis");
+    expect(await screen.findByRole("radio", { name: /^Thesis outline.pdf, / })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /^Thesis plan, / })).toBeNull();
+  });
+
+  it("links a course only to a course as its sequel", async () => {
+    const { data, space, course } = await seeded();
+    await createCourse(data.db, space, "Algorithms II");
+    await createTask(data.db, space, "Algorithms homework");
+    const screen = await renderScreens(
+      { index: () => <Text>Course page</Text>, link: () => <LinkPicker entityId={course} /> },
+      data,
+    );
+    await act(() => router.push("/link"));
+    await choose(screen, "Kind of link", "Sequel of");
+    await fireEvent.changeText(screen.getByLabelText("Search Items"), "Algorithms");
+    expect(await screen.findByRole("radio", { name: /^Algorithms II, / })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /^Algorithms homework, / })).toBeNull();
+  });
+});
+
+describe("an overdue assignment", () => {
+  it("shows its due date in red, as the desktop does, until it is handed in", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 1", course, "2020-01-06");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    const red = [TINT.red.light, TINT.red.dark];
+    const [day] = await screen.findAllByText(shownValue("date", "2020-01-06"), {
+      includeHiddenElements: true,
+    });
+    expect(red).toContain(StyleSheet.flatten(day.props.style).color);
+  });
+});
+
+describe("an assignment's evaluation", () => {
+  it("is graded or ungraded like the desktop's, and a grade shows only when graded", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 1", course, "2026-01-01");
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    await choose(screen, "Evaluation", "Graded");
+    await waitFor(async () =>
+      expect((await getAssignment(data.db, assignment))?.ungraded).toBe(false),
+    );
+    await fireEvent.changeText(await screen.findByLabelText("Grade"), "1,3");
+    await fireEvent(screen.getByLabelText("Grade"), "endEditing");
+    await waitFor(async () => expect((await getAssignment(data.db, assignment))?.grade).toBe(1.3));
+    await choose(screen, "Evaluation", "Ungraded");
+    await waitFor(() => expect(screen.queryByLabelText("Grade")).toBeNull());
+    // Going back to ungraded hides the grade but keeps it.
+    expect(await getAssignment(data.db, assignment)).toMatchObject({ ungraded: true, grade: 1.3 });
+    // Two sheets and a typed grade: slow when every suite runs at once.
+  }, 20_000);
+});
+
+describe("an assignment's due date", () => {
+  it("can be a number of days before a session, which then moves the day with it", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 1", course, "2026-01-01");
+    await createOneOffSession(data.db, space, {
+      title: "Lecture",
+      courseId: course,
+      date: "2999-03-10",
+      startTime: "10:00",
+      endTime: "11:30",
+    });
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    await openRow(screen, "Due date");
+    await fireEvent.press(await screen.findByRole("button", { name: "Before session" }));
+    // A step of the same sheet, with a way back.
+    expect(await screen.findByRole("button", { name: "Back" })).toBeTruthy();
+    await fireEvent.press(await screen.findByRole("radio", { name: "1 day" }));
+    await waitFor(async () =>
+      expect(await getAssignment(data.db, assignment)).toMatchObject({
+        dueSessionOffsetDays: 1,
+        dueDate: "2999-03-09",
+      }),
+    );
+    await openRow(screen, "Due date");
+    await fireEvent.press(await screen.findByRole("button", { name: "Before session" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: "1 week" }));
+    await waitFor(async () =>
+      expect((await getAssignment(data.db, assignment))?.dueDate).toBe("2999-03-03"),
+    );
+    await openRow(screen, "Due date");
+    await fireEvent.press(await screen.findByRole("button", { name: "Specific date" }));
+    const day = `${new Date().toISOString().slice(0, 7)}-15`;
+    await pickDayInSheet(screen, day);
+    await waitFor(async () =>
+      expect(await getAssignment(data.db, assignment)).toMatchObject({
+        dueSessionOffsetDays: null,
+        dueDate: day,
+      }),
+    );
+  });
+
+  it("can follow one session picked from the course's upcoming ones, so many days before", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 2", course, null);
+    await createOneOffSession(data.db, space, {
+      title: "Lecture",
+      courseId: course,
+      date: "2999-03-10",
+      startTime: "10:00",
+      endTime: "11:30",
+    });
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    await openRow(screen, "Due date");
+    await fireEvent.press(await screen.findByRole("button", { name: "Specific session" }));
+    await fireEvent.press(await screen.findByRole("radio", { name: /^Lecture/ }));
+    // Then how long before it, as on the desktop.
+    await fireEvent.press(await screen.findByRole("radio", { name: "2 days" }));
+    await waitFor(async () =>
+      expect((await getAssignment(data.db, assignment))?.dueDate).toBe("2999-03-08"),
+    );
+  });
+
+  it("offers a session even without one coming, and says why there is none", async () => {
+    const { data, space, course } = await seeded();
+    const assignment = await createAssignment(data.db, space, "Sheet 3", course, null);
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={assignment} /> },
+      data,
+      `/entity/${assignment}`,
+    );
+    await openRow(screen, "Due date");
+    const specific = await screen.findByRole("button", { name: "Specific session" });
+    expect(specific.props.accessibilityState?.disabled).toBeFalsy();
+    await fireEvent.press(specific);
+    expect(await screen.findByText("This course has no upcoming sessions.")).toBeTruthy();
+  });
+});

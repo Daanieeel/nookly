@@ -1,0 +1,299 @@
+/* oxlint-disable -- a development bridge that reaches into React internals to drive a simulator */
+/// Driving the app from scripts, for end to end checks (`tools/e2e/mobile.ts`).
+///
+/// Only when `EXPO_PUBLIC_AUTOMATION_URL` is set at bundle time (so a normal build
+/// has none of it): the app asks that address for scripts, runs each with a few
+/// helpers that find buttons, inputs and text in the React tree, and sends back what
+/// it returned. A person never sees any of this.
+import { noteTouch } from "../ui/sheet/touch-point.ts";
+
+type Fiber = {
+  child: Fiber | null;
+  sibling: Fiber | null;
+  memoizedProps: Record<string, unknown> | null;
+  type: unknown;
+  stateNode?: unknown;
+};
+
+interface DevtoolsHook {
+  getFiberRoots?: (renderer: number) => Set<{ current: Fiber }>;
+  renderers?: Map<number, unknown>;
+}
+
+function roots(): Fiber[] {
+  const hook = (globalThis as { __REACT_DEVTOOLS_GLOBAL_HOOK__?: DevtoolsHook })
+    .__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  const out: Fiber[] = [];
+  for (const id of hook?.renderers?.keys() ?? []) {
+    for (const root of hook?.getFiberRoots?.(id) ?? []) out.push(root.current);
+  }
+  return out;
+}
+
+function walk(fiber: Fiber | null, visit: (f: Fiber) => boolean | void) {
+  for (let f = fiber; f; f = f.sibling) {
+    if (visit(f) === false) return;
+    walk(f.child, visit);
+  }
+}
+
+/// All text under a fiber, in order.
+function textOf(fiber: Fiber): string {
+  const parts: string[] = [];
+  walk(fiber.child, (f) => {
+    const children = f.memoizedProps?.children;
+    if (typeof f.type === "string" && typeof children === "string") parts.push(children);
+    else if (typeof f.type === "string" && typeof children === "number")
+      parts.push(String(children));
+  });
+  return parts.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function find(match: (f: Fiber, props: Record<string, unknown>) => boolean): Fiber | null {
+  let found: Fiber | null = null;
+  for (const root of roots()) {
+    walk(root, (f) => {
+      const props = f.memoizedProps;
+      if (props && match(f, props)) {
+        found = f;
+        return false;
+      }
+    });
+    if (found) break;
+  }
+  return found;
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function waitFor<T>(check: () => T | null | undefined, ms = 10000): Promise<T> {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    const value = check();
+    if (value) return value;
+    await sleep(100);
+  }
+  throw new Error(`timed out waiting for ${check}`);
+}
+
+const isPressable = (props: Record<string, unknown>) => typeof props.onPress === "function";
+
+/// Presses the button or row whose label or text is `label`.
+const press = (label: string, nth = 0) => touch("onPress", label, nth);
+
+/// Holds a finger on the row whose label or text is `label` (its long press menu).
+const longPress = (label: string, nth = 0) => touch("onLongPress", label, nth);
+
+async function touch(handler: "onPress" | "onLongPress", label: string, nth: number) {
+  let seen = 0;
+  const target = await waitFor(() =>
+    find((f, props) => {
+      if (typeof props[handler] !== "function") return false;
+      const matches = props.accessibilityLabel === label || textOf(f) === label;
+      return matches && seen++ === nth;
+    }),
+  );
+  // As a finger would, so what it opens floats there on a tablet (D83, 2.3): a press on
+  // the view it landed on, a long press at the finger.
+  const at = await measure(label, nth);
+  if (at)
+    noteTouch({
+      nativeEvent: { pageX: at.x + at.width / 2, pageY: at.y + at.height / 2 },
+      target:
+        handler === "onPress"
+          ? {
+              measureInWindow: (done: (x: number, y: number, w: number, h: number) => void) =>
+                void measure(label, nth).then((r) => r && done(r.x, r.y, r.width, r.height)),
+            }
+          : undefined,
+    });
+  (target.memoizedProps?.[handler] as (event: object) => void)({ nativeEvent: {} });
+  await sleep(250);
+  return true;
+}
+
+/// Where the pressable labelled `label` is on screen, in points: what a finger can hit.
+function measure(
+  label: string,
+  nth = 0,
+): Promise<{ x: number; y: number; width: number; height: number } | null> {
+  let seen = 0;
+  const target = find(
+    (f, props) =>
+      isPressable(props) &&
+      (props.accessibilityLabel === label || textOf(f) === label) &&
+      seen++ === nth,
+  );
+  let host: Fiber | null = target;
+  while (host && typeof host.type !== "string") host = host.child;
+  const node = host?.stateNode as
+    | {
+        canonical?: { publicInstance?: unknown };
+        measureInWindow?: unknown;
+      }
+    | null
+    | undefined;
+  const view = (node?.canonical?.publicInstance ?? node) as {
+    measureInWindow?: (done: (x: number, y: number, w: number, h: number) => void) => void;
+  } | null;
+  if (!view?.measureInWindow) return Promise.resolve(null);
+  return new Promise((resolve) =>
+    view.measureInWindow?.((x, y, width, height) => resolve({ x, y, width, height })),
+  );
+}
+
+/// Types `value` into the input labelled or placeholdered `label`.
+async function type(label: string, value: string): Promise<boolean> {
+  const target = await waitFor(() =>
+    find(
+      (_f, props) =>
+        typeof props.onChangeText === "function" &&
+        (props.accessibilityLabel === label ||
+          props.placeholder === label ||
+          props.label === label),
+    ),
+  );
+  (target.memoizedProps?.onChangeText as (text: string) => void)(value);
+  await sleep(100);
+  return true;
+}
+
+/// Puts the caret in the input labelled or placeholdered `label`, raising the keyboard.
+async function focus(label: string): Promise<boolean> {
+  const target = await waitFor(() =>
+    find(
+      (_f, props) =>
+        typeof props.onChangeText === "function" &&
+        (props.accessibilityLabel === label || props.placeholder === label),
+    ),
+  );
+  let host: Fiber | null = target;
+  while (host && typeof host.type !== "string") host = host.child;
+  const node = host?.stateNode as { canonical?: { publicInstance?: unknown } } | null | undefined;
+  const input = (node?.canonical?.publicInstance ?? node) as { focus?: () => void } | null;
+  input?.focus?.();
+  await sleep(100);
+  return Boolean(input?.focus);
+}
+
+/// Leaves the field labelled `label` as a person does when done typing (its end editing,
+/// submit or blur handler), which is where most fields save.
+async function finish(label: string): Promise<boolean> {
+  const target = await waitFor(() =>
+    find(
+      (_f, props) =>
+        (typeof props.onEndEditing === "function" ||
+          typeof props.onSubmitEditing === "function" ||
+          typeof props.onBlur === "function") &&
+        (props.accessibilityLabel === label ||
+          props.placeholder === label ||
+          props.label === label),
+    ),
+  );
+  const props = target.memoizedProps ?? {};
+  for (const name of ["onEndEditing", "onSubmitEditing", "onBlur"]) {
+    const handler = props[name];
+    if (typeof handler === "function") {
+      (handler as (event: object) => void)({ nativeEvent: {} });
+      break;
+    }
+  }
+  await sleep(100);
+  return true;
+}
+
+/// Every piece of visible text, for reading the screen.
+function screenText(): string {
+  const parts: string[] = [];
+  for (const root of roots()) {
+    walk(root, (f) => {
+      const children = f.memoizedProps?.children;
+      if (
+        typeof f.type === "string" &&
+        (typeof children === "string" || typeof children === "number")
+      )
+        parts.push(String(children));
+    });
+  }
+  return parts.join("\n");
+}
+
+const labels = (): string[] => {
+  const out: string[] = [];
+  for (const root of roots()) {
+    walk(root, (f) => {
+      const props = f.memoizedProps;
+      if (props && isPressable(props)) out.push(String(props.accessibilityLabel ?? textOf(f)));
+    });
+  }
+  return out;
+};
+
+/// Scrolls a vertical scroll view to `y`: the `nth` of those mounted (by default the last
+/// found, the page in front). Returns how many there are.
+function scroll(y: number, nth?: number): number {
+  const views: { scrollTo: (to: { y: number; animated: boolean }) => void }[] = [];
+  for (const root of roots()) {
+    walk(root, (f) => {
+      const node = f.stateNode as { scrollTo?: unknown } | null | undefined;
+      if (node && typeof node.scrollTo === "function" && f.memoizedProps?.horizontal !== true)
+        views.push(node as (typeof views)[number]);
+    });
+  }
+  views[nth ?? views.length - 1]?.scrollTo({ y, animated: false });
+  return views.length;
+}
+
+export interface AutomationContext {
+  [name: string]: unknown;
+}
+
+/// Starts asking `url` for scripts. `context` is what scripts can reach by name
+/// (the router, the sync runtime, the database).
+export function startAutomation(url: string, device: string, context: AutomationContext) {
+  const helpers = {
+    press,
+    longPress,
+    type,
+    focus,
+    finish,
+    sleep,
+    waitFor,
+    screenText,
+    labels,
+    measure,
+    scroll,
+    ...context,
+  };
+  let stopped = false;
+  void (async () => {
+    while (!stopped) {
+      try {
+        const response = await fetch(`${url}/poll?d=${encodeURIComponent(device)}`);
+        if (response.status !== 200) continue;
+        const job = (await response.json()) as { id: number; script: string };
+        let body: { ok: boolean; value?: unknown; error?: string };
+        try {
+          const names = Object.keys(helpers);
+          // The script is the developer's own, from the machine running the app.
+          const run = new Function(...names, `return (async () => { ${job.script} })();`);
+          body = {
+            ok: true,
+            value: await run(...names.map((n) => helpers[n as keyof typeof helpers])),
+          };
+        } catch (error) {
+          body = { ok: false, error: error instanceof Error ? error.stack : String(error) };
+        }
+        await fetch(`${url}/result?id=${job.id}`, {
+          method: "POST",
+          body: JSON.stringify(body) ?? "null",
+        });
+      } catch {
+        await sleep(1000);
+      }
+    }
+  })();
+  return () => {
+    stopped = true;
+  };
+}

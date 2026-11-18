@@ -12,6 +12,9 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/test/setup.ts"],
     restoreMocks: true,
+    // A shared CI runner can be many times slower than a laptop: a test that works still ends
+    // as fast, but may take longer before it gives up there.
+    testTimeout: process.env.CI ? 20_000 : 5_000,
     // `bun run coverage:js`. A report to read, not a gate: no thresholds.
     coverage: {
       provider: "v8",

@@ -3,7 +3,7 @@ import { MoodleFrame } from "./MoodleFrame.tsx";
 import { MoodleData, MoodleEmpty } from "./MoodleStates.tsx";
 import { MoodleHtml } from "./MoodleHtml.tsx";
 import { useCourseName } from "./CoursePage.tsx";
-import { coursePath, moodleWebUrl } from "./moodle-path.ts";
+import { coursePath, moodleWebUrl } from "@nookly/shared/moodle/path";
 import { SAMPLE_SECTIONS } from "./moodle-samples.ts";
 import { useMoodleContents, useMoodleCourse, useMoodlePageText } from "./moodle-queries.ts";
 

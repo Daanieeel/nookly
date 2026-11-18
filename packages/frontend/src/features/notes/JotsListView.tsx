@@ -294,7 +294,7 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   if (!isPending && rows.length === 0) {
     return (
       <div
-        className="flex w-full flex-col gap-4"
+        className="flex w-full flex-col gap-4 p-6"
         {...contextTarget("module-view", {
           spaceId,
           createLabel: "New Jot",

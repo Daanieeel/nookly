@@ -180,7 +180,7 @@ export function NotesListView({
   if (!isPending && rows.length === 0) {
     return (
       <div
-        className="flex w-full flex-col gap-4"
+        className="flex w-full flex-col gap-4 p-6"
         {...contextTarget("module-view", { spaceId, createLabel: "New Note", create: startNote })}
       >
         <h1 className="text-lg font-semibold">Notes</h1>

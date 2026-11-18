@@ -19,6 +19,10 @@ import { ImportDialog } from "#/features/notes/ImportDialog.tsx";
 import { SpellcheckPrompt } from "#/features/spellcheck/SpellcheckPrompt.tsx";
 import { NewTaskDialog } from "#/features/tasks/NewTaskDialog.tsx";
 import { useAutoBackup } from "#/features/backup/backup-run.ts";
+import { useSyncBootstrap } from "#/features/sync/sync-instance.ts";
+import { AccountDialog } from "#/features/sync/AccountDialog.tsx";
+import { MergeEditor } from "#/features/sync/MergeEditor.tsx";
+import { FirstSyncDialog } from "#/features/sync/FirstSyncDialog.tsx";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { useExternalLinks } from "#/hooks/use-external-links.ts";
@@ -172,6 +176,7 @@ function Shell() {
   useExternalDbChanges();
   useExternalCalendarSync();
   useAutoBackup();
+  useSyncBootstrap();
   useScopedSelectAll();
   usePastePlainText();
   useExternalLinks();
@@ -222,6 +227,9 @@ function Shell() {
       <OnFirstOpen isOpen={(s) => s.settingsOpen}>
         <SettingsDialog />
       </OnFirstOpen>
+      <AccountDialog />
+      <FirstSyncDialog />
+      <MergeEditor />
       <ImportDialog />
       <NewTaskDialog />
       <OnFirstOpen isOpen={(s) => s.newAssignmentOpen}>

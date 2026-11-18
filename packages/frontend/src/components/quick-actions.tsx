@@ -11,6 +11,8 @@ import {
   IconLayoutSidebarRight,
   IconMoon,
   IconPin,
+  IconRefresh,
+  IconUserCircle,
   IconFileCode,
   IconFileImport,
   IconHighlight,
@@ -61,6 +63,8 @@ import { canSplitLeft, canSplitRight } from "#/lib/store/tab-groups.ts";
 import { type Theme, useThemeStore } from "#/lib/theme.ts";
 import { cn } from "@nookly/ui/lib/utils";
 import { qk } from "#/lib/query-keys.ts";
+import { useAccountDialog } from "#/features/sync/account-dialog-store.ts";
+import { syncRuntime, useSyncState } from "#/features/sync/sync-instance.ts";
 import { accentInsensitiveFilter } from "#/lib/command-filter.ts";
 import { startsWithWords } from "#/lib/text-search.ts";
 
@@ -269,6 +273,7 @@ export function QuickActions({
     focusedGroupId: nav.focusedGroupId,
   };
   const theme = useThemeStore((s) => s.theme);
+  const syncSignedIn = useSyncState((s) => s.user !== null);
   const applyTheme = useThemeStore((s) => s.setTheme);
   const queryClient = useQueryClient();
   const trimmed = query.trim();
@@ -634,6 +639,25 @@ export function QuickActions({
         onDone();
       }),
     },
+    syncSignedIn
+      ? {
+          id: "sync-now",
+          category: "settings",
+          words: "Sync Now refresh account cloud devices",
+          node: simpleItem("sync-now", IconRefresh, "Sync Now", () => {
+            void syncRuntime.syncNow();
+            onDone();
+          }),
+        }
+      : {
+          id: "sign-in",
+          category: "settings",
+          words: "Sign In to Sync account log in login create account sign up cloud devices phone",
+          node: simpleItem("sign-in", IconUserCircle, "Sign In to Sync", () => {
+            useAccountDialog.getState().show("signIn");
+            onDone();
+          }),
+        },
     {
       id: "open-settings-file",
       category: "settings",

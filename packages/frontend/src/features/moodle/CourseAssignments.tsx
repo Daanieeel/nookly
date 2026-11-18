@@ -8,16 +8,11 @@ import { MoodleData, MoodleEmpty } from "./MoodleStates.tsx";
 import { MoodleFiles } from "./MoodleFiles.tsx";
 import { MoodleHtml } from "./MoodleHtml.tsx";
 import { useCourseName } from "./CoursePage.tsx";
-import {
-  type DueTone,
-  dueTone,
-  gradingLabel,
-  moodleDate,
-  submissionLabel,
-} from "./moodle-format.ts";
+import { type DueTone, dueTone, gradingLabel, submissionLabel } from "@nookly/shared/moodle/format";
+import { moodleDate } from "./moodle-format.ts";
 import { SAMPLE_ASSIGNMENTS } from "./moodle-samples.ts";
 import { hasMoodleText } from "./moodle-html.ts";
-import { assignmentPath, coursePath, moodleWebUrl } from "./moodle-path.ts";
+import { assignmentPath, coursePath, moodleWebUrl } from "@nookly/shared/moodle/path";
 import {
   useMoodleAssignmentStatus,
   useMoodleAssignments,

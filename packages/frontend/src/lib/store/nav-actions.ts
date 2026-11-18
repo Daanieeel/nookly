@@ -330,6 +330,8 @@ export function createNavActions(
       set(commandsOpen ? { ...NO_OVERLAY, commandsOpen } : { commandsOpen }),
     setSettingsOpen: (settingsOpen) =>
       set(settingsOpen ? { ...NO_OVERLAY, settingsOpen } : { settingsOpen }),
+    openSettingsAt: (settingsPage) => set({ ...NO_OVERLAY, settingsOpen: true, settingsPage }),
+    clearSettingsPage: () => set({ settingsPage: null }),
     setImportOpen: (importOpen) => set(importOpen ? { ...NO_OVERLAY, importOpen } : { importOpen }),
     setWhatsNewOpen: (whatsNewOpen, whatsNewHistory = false) =>
       set(

@@ -52,7 +52,7 @@ export function ModuleView({
         <AssignmentsListView spaceId={spaceId} filterCourseId={filterCourseId} viewId={viewId} />
       );
     case "files":
-      return <FilesListView spaceId={spaceId} />;
+      return <FilesListView spaceId={spaceId} viewId={viewId} />;
     case "bookmarks":
       return <BookmarksListView spaceId={spaceId} />;
     case "recipes":

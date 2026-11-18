@@ -16,7 +16,7 @@ import { Skeleton } from "skullet/react";
 import { Button } from "@nookly/ui/components/button";
 import { cn } from "@nookly/ui/lib/utils";
 import type { Fetched } from "#/lib/api/moodle.ts";
-import { type ProblemKind, describeMoodleProblem } from "./moodle-errors.ts";
+import { type ProblemKind, describeMoodleProblem } from "@nookly/shared/moodle/errors";
 import { useMoodleWebUrl } from "./moodle-context.ts";
 
 /// A Moodle answer on its way. While it loads, a skeleton in the shape of `sample` (a stand in
@@ -118,7 +118,7 @@ export function MoodleError({
         <span
           aria-hidden="true"
           className={cn(
-            "absolute -right-2 -bottom-2 flex size-6 items-center justify-center rounded-full border-2 border-background",
+            "absolute -right-2 -bottom-2 flex size-6 items-center justify-center rounded-md border-2 border-background",
             look.caution ? "bg-caution text-background" : "bg-destructive text-background",
           )}
         >

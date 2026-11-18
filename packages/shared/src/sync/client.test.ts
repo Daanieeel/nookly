@@ -1,0 +1,320 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SyncClient, type LiveHandlers, type SyncStatus, type SyncTransport } from "./client.ts";
+import { SyncEngine } from "./engine.ts";
+import { MemoryServer } from "./testing/memory-server.ts";
+import { NodeSqliteDriver } from "./testing/node-driver.ts";
+
+/// The memory server behind a transport whose network can be cut, with a live
+/// channel that tells every connected client about each push.
+class FakeNetwork {
+  readonly server = new MemoryServer();
+  online = true;
+  private readonly listeners = new Set<LiveHandlers>();
+  pushes = 0;
+  pulls = 0;
+
+  transport(): SyncTransport {
+    return {
+      push: async (request) => {
+        this.check();
+        this.pushes++;
+        const response = this.server.push(request);
+        for (const l of this.listeners) l.onChanges();
+        return response;
+      },
+      pull: async (request) => {
+        this.check();
+        this.pulls++;
+        return this.server.pull(request);
+      },
+      live: (handlers) => {
+        if (!this.online) {
+          setTimeout(() => handlers.onClose(), 0);
+          return () => {};
+        }
+        this.listeners.add(handlers);
+        setTimeout(() => handlers.onOpen(), 0);
+        return () => this.listeners.delete(handlers);
+      },
+    };
+  }
+
+  private check() {
+    if (!this.online) throw new TypeError("Failed to fetch");
+  }
+
+  /// Devices holding a live channel right now.
+  live(): number {
+    return this.listeners.size;
+  }
+
+  cut() {
+    this.online = false;
+    for (const l of Array.from(this.listeners)) {
+      this.listeners.delete(l);
+      l.onClose();
+    }
+  }
+}
+
+function deviceOn(network: FakeNetwork) {
+  const driver = new NodeSqliteDriver();
+  const engine = new SyncEngine({ driver });
+  const statuses: SyncStatus[] = [];
+  const client = new SyncClient({
+    engine,
+    transport: network.transport(),
+    onStatus: (s) => statuses.push(s),
+  });
+  return { driver, engine, client, statuses };
+}
+
+const now = () => new Date().toISOString();
+
+function addTask(driver: NodeSqliteDriver, id: string, title: string) {
+  driver.exec(
+    "INSERT OR IGNORE INTO spaces (id, name, color, created_at, updated_at) VALUES ('s', 'Personal', 'blue', ?, ?)",
+    now(),
+    now(),
+  );
+  driver.exec(
+    "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES (?, 's', 'task', ?, ?, ?, 'TSK', 1)",
+    id,
+    title,
+    now(),
+    now(),
+  );
+  driver.exec("INSERT INTO tasks (entity_id, status_id) VALUES (?, 'todo')", id);
+}
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("the sync client", () => {
+  it("stays quiet when something changed here that has nothing to send", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    await vi.advanceTimersByTimeAsync(5_000);
+    const before = network.pulls;
+    // Text typed in a live page is saved as rows that are not edits to send: the
+    // changes come and go over the live channel, not by asking the server again.
+    for (let i = 0; i < 5; i++) {
+      a.client.notifyLocalChange();
+      await vi.advanceTimersByTimeAsync(1_000);
+    }
+    expect(network.pulls).toBe(before);
+    a.client.stop();
+  });
+
+  it("sends a local change and the other device gets it live", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    const b = deviceOn(network);
+    await a.client.start();
+    await b.client.start();
+    addTask(a.driver, "t1", "Buy milk");
+    a.client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(b.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "Buy milk" },
+    ]);
+    expect(a.statuses.at(-1)?.state).toBe("idle");
+    a.client.stop();
+    b.client.stop();
+  });
+
+  it("goes offline, keeps the changes and sends them once back", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    const b = deviceOn(network);
+    await a.client.start();
+    await b.client.start();
+    network.cut();
+    addTask(a.driver, "t1", "Offline task");
+    a.client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(a.statuses.at(-1)?.state).toBe("offline");
+    expect(a.statuses.at(-1)?.pending).toBeGreaterThan(0);
+    network.online = true;
+    // Reconnecting backs off, then resumes from where it was.
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(b.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "Offline task" },
+    ]);
+    expect(a.statuses.at(-1)?.state).toBe("idle");
+    a.client.stop();
+    b.client.stop();
+  });
+
+  it("marks the rounds that sent or brought changes, and only those", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    await vi.advanceTimersByTimeAsync(1_000);
+    // A round that only checks leaves the mark where the first one (the account's rows
+    // arriving) put it.
+    const first = a.client.current().lastChangedAt;
+    await vi.advanceTimersByTimeAsync(500);
+    await a.client.syncNow();
+    expect(a.client.current().lastChangedAt).toBe(first);
+    addTask(a.driver, "t1", "Sent");
+    a.client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(2_000);
+    const sent = a.client.current().lastChangedAt;
+    expect(sent).not.toBe(first);
+    await a.client.syncNow();
+    expect(a.client.current().lastChangedAt).toBe(sent);
+    a.client.stop();
+  });
+
+  it("says when the live channel is down even though requests still work", async () => {
+    // Bug: a round that went through set the status back to synced while the live channel
+    // stayed closed, so a device that heard nothing from the others still said "Synced".
+    const network = new FakeNetwork();
+    const blocked = network.transport();
+    const a = new SyncClient({
+      engine: new SyncEngine({ driver: new NodeSqliteDriver() }),
+      transport: {
+        ...blocked,
+        live: (handlers) => {
+          setTimeout(() => handlers.onClose(), 0);
+          return () => {};
+        },
+      },
+    });
+    await a.start();
+    await vi.advanceTimersByTimeAsync(1_000);
+    await a.syncNow();
+    expect(a.current()).toMatchObject({ state: "idle", live: false });
+    a.stop();
+    const b = deviceOn(network);
+    await b.client.start();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(b.client.current()).toMatchObject({ state: "idle", live: true });
+    b.client.stop();
+  });
+
+  it("is live again within seconds of the network coming back, even after a long outage", async () => {
+    // The longest wait the retries can draw.
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    const b = deviceOn(network);
+    await a.client.start();
+    await b.client.start();
+    network.cut();
+    // Long enough for the retries to have backed off as far as they go.
+    await vi.advanceTimersByTimeAsync(10 * 60_000 + 30_000);
+    network.online = true;
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(network.live()).toBe(2);
+    addTask(a.driver, "t1", "After the outage");
+    a.client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(b.driver.rows("SELECT title FROM entities WHERE id = 't1'")).toEqual([
+      { title: "After the outage" },
+    ]);
+    random.mockRestore();
+    a.client.stop();
+    b.client.stop();
+  });
+
+  it("is back at once when the device says it is back, without waiting out its retries", async () => {
+    // The app came to the front, the laptop woke or the network returned: there is no
+    // reason to sit out a retry drawn during the outage.
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    network.cut();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(a.client.current()).toMatchObject({ state: "offline", live: false });
+    network.online = true;
+    a.client.resume();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(network.live()).toBe(1);
+    expect(a.client.current()).toMatchObject({ state: "idle", live: true });
+    random.mockRestore();
+    a.client.stop();
+  });
+
+  it("opens only one live channel however often it is told it is back", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    await vi.advanceTimersByTimeAsync(100);
+    a.client.resume();
+    a.client.resume();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(network.live()).toBe(1);
+    network.cut();
+    network.online = true;
+    a.client.resume();
+    a.client.resume();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(network.live()).toBe(1);
+    a.client.stop();
+  });
+
+  it("leaves nothing behind when it is stopped in the middle of a sync", async () => {
+    // Signing out wipes what the device knew of the server; a pull still on its way
+    // must not write a cursor or rows afterwards, or the next account starts from
+    // the last account's place and never sees its own data.
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    addTask(a.driver, "t1", "Before");
+    a.client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(5_000);
+    const slow = network.server;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const device = deviceOn(network);
+    const transport = network.transport();
+    const held: SyncTransport = {
+      ...transport,
+      pull: async (request) => {
+        await gate;
+        return slow.pull(request);
+      },
+    };
+    const client = new SyncClient({ engine: device.engine, transport: held });
+    void client.start();
+    await vi.advanceTimersByTimeAsync(100);
+    client.stop();
+    release();
+    await client.finished();
+    expect(await device.engine.cursors()).toEqual({});
+    expect(device.driver.rows("SELECT id FROM entities")).toEqual([]);
+    a.client.stop();
+  });
+
+  it("runs one sync at a time and catches up on what came in during it", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    await a.client.start();
+    addTask(a.driver, "t1", "One");
+    const first = a.client.syncNow();
+    addTask(a.driver, "t2", "Two");
+    const second = a.client.syncNow();
+    await vi.advanceTimersByTimeAsync(1_000);
+    await Promise.all([first, second]);
+    expect(await a.engine.pendingCount()).toBe(0);
+    expect(network.server.records.has("entities\u0000t2")).toBe(true);
+    a.client.stop();
+  });
+
+  it("stays quiet until started", async () => {
+    const network = new FakeNetwork();
+    const a = deviceOn(network);
+    addTask(a.driver, "t1", "Before sync");
+    a.client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(network.pushes).toBe(0);
+  });
+});

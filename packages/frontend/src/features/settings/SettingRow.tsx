@@ -16,6 +16,7 @@ import { SETTINGS, type SettingId, definitionOf } from "#/lib/settings/registry.
 import { settings, useSetting } from "#/lib/settings/settings.ts";
 import { isShortcutName } from "#/lib/shortcuts.ts";
 import { requestShortcutChange } from "./shortcut-editing.ts";
+import { SETTING_DESCRIPTION_CLASSES, SETTING_TITLE_CLASSES } from "#/classes.ts";
 
 /// A row of the Settings dialog: title and description on the left, the control on
 /// the right. `settingId` rows also show their id and a reset button.
@@ -52,12 +53,12 @@ export function SettingRow({
         <div className="flex min-w-0 flex-col gap-0.5">
           {settingId && <CopyIdButton settingId={settingId} />}
           <div className="flex items-center gap-1.5">
-            <span id={labelId} className={cn("text-sm font-medium", hideTitle && "sr-only")}>
+            <span id={labelId} className={cn(SETTING_TITLE_CLASSES, hideTitle && "sr-only")}>
               {title}
             </span>
             {settingId && <ResetButton settingId={settingId} title={title} />}
           </div>
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className={SETTING_DESCRIPTION_CLASSES}>{description}</p>
         </div>
         {control != null && (
           <div className="flex w-72 shrink-0 items-center justify-end">{control}</div>
