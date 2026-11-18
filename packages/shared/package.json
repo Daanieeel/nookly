@@ -35,17 +35,17 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@hocuspocus/provider": "4.7.1",
-    "prosemirror-model": "1.25.12",
+    "@hocuspocus/provider": "4.8.0",
+    "prosemirror-model": "1.25.13",
     "prosemirror-state": "1.4.4",
-    "prosemirror-view": "1.42.6",
+    "prosemirror-view": "1.42.9",
     "yjs": "13.6.33",
     "zod": "^4",
     "zustand": "^5"
   },
   "devDependencies": {
     "@nookly/config": "workspace:*",
-    "@types/node": "^22",
+    "@types/node": "^26",
     "vitest": "^5.1.0"
   }
 }
