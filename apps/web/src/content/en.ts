@@ -21,7 +21,6 @@ export const en = {
     faq: "FAQ",
     github: "Nookly on GitHub",
     stars: (n: string) => `${n} stars on GitHub`,
-    language: "Deutsch",
     menu: "Menu",
     top: "Back to top",
   },

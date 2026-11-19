@@ -21,7 +21,6 @@ export const de: Dictionary = {
     faq: "Fragen",
     github: "Nookly auf GitHub",
     stars: (n) => `${n} Sterne auf GitHub`,
-    language: "English",
     menu: "Menü",
     top: "Nach oben",
   },

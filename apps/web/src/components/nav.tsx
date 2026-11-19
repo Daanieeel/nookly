@@ -4,7 +4,7 @@ import { type Locale, type Page, pathFor } from "@/lib/i18n";
 import { latestRelease, starCount } from "@/lib/releases";
 import { DownloadButton } from "./download-button";
 import { GithubStars } from "./github-stars";
-import { LanguageSwitch } from "./language-switch";
+import { LanguageLink, LanguageSwitch } from "./language-switch";
 import { ThemeSwitch } from "./theme-switch";
 import { Logo } from "./logo";
 import { NavShell, ScrolledOnly } from "./nav-shell";
@@ -13,7 +13,6 @@ import { NavShell, ScrolledOnly } from "./nav-shell";
 export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
   const t = dictionary(locale).nav;
   const [release, stars] = await Promise.all([latestRelease(), starCount()]);
-  const other: Locale = locale === "de" ? "en" : "de";
   const home = pathFor(locale, "home");
   const links = [
     { href: `${home === "/" ? "" : home}/#features`, label: t.features },
@@ -71,14 +70,7 @@ export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
                   {link.label}
                 </a>
               ))}
-              <a
-                href={pathFor(other, page)}
-                hrefLang={other}
-                lang={other}
-                className="rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent"
-              >
-                {t.language}
-              </a>
+              <LanguageLink locale={locale} page={page} />
             </div>
           </details>
         </div>
