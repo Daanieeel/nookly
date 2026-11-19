@@ -75,9 +75,12 @@ class FakeAccount implements AccountApi {
   failPushesAfter = Number.POSITIVE_INFINITY;
   pushes = 0;
   pulls = 0;
+  /// Pushes wait for this, like a slow connection.
+  gate: Promise<void> | null = null;
   syncTransport(): SyncTransport {
     return {
       push: async (r) => {
+        await this.gate;
         this.pushes += 1;
         if (this.pushes > this.failPushesAfter) throw new NetworkError("connection lost");
         this.calls.push("push");
@@ -367,6 +370,49 @@ describe("the desktop's sync", () => {
     expect(here.driver.rows("SELECT name FROM spaces")).toEqual([{ name: "From the account" }]);
     expect(server.records.has("spaces\u0000s1")).toBe(false);
     here.sync.stop();
+  });
+
+  it("shows no first sync page for data kept out of the account, only the rows a new device starts with", async () => {
+    // Bug: clearing the device put the default rows back, and the first sync counted them
+    // as the person's data: it showed "Bringing this device into your account" with 21 items.
+    const backup = vi.fn(async () => ({ path: "/backups/set-aside" }));
+    const { sync, driver } = runtime(undefined, undefined, backup);
+    addSpace(driver);
+    await sync.signIn("https://sync.example.com", "ada", "a long password", {
+      localData: "setAside",
+    });
+    await sync.settled();
+    expect(backup).toHaveBeenCalledTimes(1);
+    expect(sync.store.getState().migration).toBeNull();
+    sync.stop();
+  });
+
+  it("shows no first sync page for a device with nothing on it", async () => {
+    const backup = vi.fn(async () => ({ path: "/b.zip" }));
+    const { sync } = runtime(undefined, undefined, backup);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    expect(backup).not.toHaveBeenCalled();
+    expect(sync.store.getState().migration).toBeNull();
+    sync.stop();
+  });
+
+  it("is signed in without waiting for the first sync to send everything", async () => {
+    // Bug: the sign in dialog stayed up, spinning, until every item had been sent.
+    const { sync, account, driver } = runtime(undefined, undefined, async () => ({
+      path: "/b.zip",
+    }));
+    addSpace(driver);
+    let release = () => {};
+    account.gate = new Promise<void>((resolve) => (release = resolve));
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    expect(sync.store.getState().user).toEqual(ADA);
+    expect(sync.store.getState().migration).toMatchObject({ phase: "sending" });
+    expect(account.pushes).toBe(0);
+    release();
+    await sync.settled();
+    expect(sync.store.getState().migration).toMatchObject({ phase: "done" });
+    sync.stop();
   });
 
   it("signs in to nothing and clears nothing when the data can't be backed up first", async () => {
