@@ -1,5 +1,6 @@
 import { PRODUCTION_SERVER } from "@nookly/shared/api";
 import { fireEvent, waitFor } from "expo-router/testing-library";
+import { Keyboard } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
 import { SignInScreen, SignUpScreen, WelcomeScreen } from "./AccountScreens.tsx";
 
@@ -74,6 +75,19 @@ describe("signing in", () => {
       ),
     );
     await waitFor(() => expect(data.onboarded.get()).toBe("1"));
+  });
+
+  it("closes the keyboard once signed in, before the importing screen shows", async () => {
+    const data = testData();
+    jest.spyOn(data.sync, "signIn").mockResolvedValueOnce(ADA);
+    const dismiss = jest.spyOn(Keyboard, "dismiss");
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await fireEvent.changeText(await screen.findByLabelText("Username or email"), "ada");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    dismiss.mockClear();
+    await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
+    await waitFor(() => expect(data.onboarded.get()).toBe("1"));
+    expect(dismiss).toHaveBeenCalled();
   });
 
   it("asks what happens to what is on this phone, and signs in with the answer", async () => {
