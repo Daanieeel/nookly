@@ -23,6 +23,7 @@ export const en = {
     stars: (n: string) => `${n} stars on GitHub`,
     language: "Deutsch",
     menu: "Menu",
+    top: "Back to top",
   },
   theme: { label: "Theme", light: "Light", dark: "Dark", system: "System" },
   download: {

@@ -23,6 +23,7 @@ export const de: Dictionary = {
     stars: (n) => `${n} Sterne auf GitHub`,
     language: "English",
     menu: "Menü",
+    top: "Nach oben",
   },
   theme: { label: "Darstellung", light: "Hell", dark: "Dunkel", system: "System" },
   download: {

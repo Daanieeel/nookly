@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Locale, Page } from "@/lib/i18n";
 import { Footer } from "./footer";
 import { Nav } from "./nav";
+import { ScrollToTop } from "./scroll-to-top";
 
 export function SiteShell({
   locale,
@@ -17,6 +18,7 @@ export function SiteShell({
       <Nav locale={locale} page={page} />
       <main id="main">{children}</main>
       <Footer locale={locale} />
+      <ScrollToTop locale={locale} />
     </>
   );
 }
