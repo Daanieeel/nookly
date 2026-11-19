@@ -7,7 +7,7 @@ import { GithubStars } from "./github-stars";
 import { LanguageSwitch } from "./language-switch";
 import { ThemeSwitch } from "./theme-switch";
 import { Logo } from "./logo";
-import { NavShell } from "./nav-shell";
+import { NavShell, ScrolledOnly } from "./nav-shell";
 
 /// The bar at the top of every page. `page` keeps the language link on the same page.
 export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
@@ -51,12 +51,9 @@ export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
             <ThemeSwitch locale={locale} />
           </span>
           <GithubStars locale={locale} initial={stars} />
-          <DownloadButton
-            locale={locale}
-            release={release}
-            size="sm"
-            className="hidden sm:inline-flex"
-          />
+          <ScrolledOnly>
+            <DownloadButton locale={locale} release={release} size="sm" />
+          </ScrolledOnly>
           <details className="group relative md:hidden">
             <summary
               aria-label={t.menu}

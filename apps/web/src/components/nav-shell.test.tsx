@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { NavShell } from "./nav-shell";
+import { NavShell, ScrolledOnly } from "./nav-shell";
 
 function bar() {
   const { container } = render(
@@ -48,5 +48,35 @@ describe("NavShell", () => {
     scrollTo(500);
     expect(bar().className).toContain("bg-card/80");
     scrollTo(0);
+  });
+
+  it("tells its contents whether the page has scrolled", () => {
+    scrollTo(0);
+    const el = bar();
+    expect(el.getAttribute("data-scrolled")).toBe("false");
+    scrollTo(200);
+    expect(el.getAttribute("data-scrolled")).toBe("true");
+    scrollTo(0);
+  });
+});
+
+describe("ScrolledOnly", () => {
+  // The hero already has a download button, so the bar's waits until the hero is gone.
+  it("is hidden from sight and from the keyboard until the page scrolls", () => {
+    scrollTo(0);
+    const { getByText } = render(
+      <NavShell
+        logo={<a href="/">Nookly</a>}
+        links={<nav>Links</nav>}
+        actions={
+          <ScrolledOnly>
+            <button type="button">Download</button>
+          </ScrolledOnly>
+        }
+      />,
+    );
+    const wrapper = getByText("Download").parentElement!;
+    expect(wrapper.className).toContain("invisible");
+    expect(wrapper.className).toContain("group-data-[scrolled=true]/nav:visible");
   });
 });
