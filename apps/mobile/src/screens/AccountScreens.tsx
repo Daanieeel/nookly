@@ -13,7 +13,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 import { useAppData } from "../data/context.tsx";
@@ -269,6 +269,8 @@ function useAfterSignIn() {
   const queryClient = useQueryClient();
   const { onboarded } = useAppData();
   return () => {
+    // The importing screen comes next, and it has nothing to type into.
+    Keyboard.dismiss();
     onboarded.set("1");
     void queryClient.invalidateQueries({ queryKey: keys.local });
     // Back to the app itself, whatever sheets and screens signing in went through.
