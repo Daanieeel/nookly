@@ -4,8 +4,12 @@ import { blockToNode, type JSONNode, nodeToBlockInput } from "./block-markdown";
 import { editorExtensions } from "./editor-extensions";
 import { dropIndex, moveColumn } from "./table-column-move";
 
-let editor: Editor | null = null;
-afterEach(() => editor?.destroy());
+// Every editor a test opens, so none outlives it: a leftover one fires its observer after the
+// test environment is gone and fails the whole run with "document is not defined".
+const opened: Editor[] = [];
+afterEach(() => {
+  for (const editor of opened.splice(0)) editor.destroy();
+});
 
 const GRID = "Name\tAge\tCity\nAlice\t30\tOslo\nBob\t25\tRome";
 
@@ -22,10 +26,11 @@ function open(content = GRID) {
     createdAt: "",
     updatedAt: "",
   });
-  editor = new Editor({
+  const editor = new Editor({
     extensions: editorExtensions({ spaceId: "s", pageId: "p", getEntities: () => [] }),
     content: { type: "doc", content: [table] },
   });
+  opened.push(editor);
   return editor;
 }
 
