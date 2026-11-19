@@ -11,7 +11,7 @@ export async function Hero({ locale }: { locale: Locale }) {
   return (
     <section className="relative overflow-hidden bg-background">
       <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center px-4 pt-32 text-center sm:pt-40">
-        <Flame className="mb-8" />
+        <Flame className="mb-2" />
         <h1 className="animate-[fade-up_0.7s_ease-out_both] font-display text-[clamp(2.6rem,7vw,4.6rem)] leading-[1.02] font-semibold text-balance">
           {t.title1}
           <br />
