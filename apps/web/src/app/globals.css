@@ -17,7 +17,11 @@
     min-height: 100%;
     overflow: visible;
   }
+  /* Sideways overflow is clipped on the root too: iOS Safari sizes its zoom from the whole
+     page, not the body, so anything reaching past the edge would let a phone zoom out onto
+     an empty strip. */
   html {
+    overflow-x: clip;
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

@@ -145,7 +145,8 @@ export function Features({ locale }: { locale: Locale }) {
 export function Keyboard({ locale }: { locale: Locale }) {
   const t = dictionary(locale).keyboard;
   return (
-    <section className="bg-background py-24 sm:py-32">
+    // Clipped sideways: the glow behind the palette reaches past the page's edges on a phone.
+    <section className="overflow-x-clip bg-background py-24 sm:py-32">
       <div className={cn(SECTION, "grid items-center gap-12 md:grid-cols-[1fr_1.1fr]")}>
         <Heading title={t.title} body={t.body} />
         <div className="relative">
