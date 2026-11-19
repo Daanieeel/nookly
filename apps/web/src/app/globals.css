@@ -56,7 +56,7 @@
   }
 }
 
-/* The hearth behind the hero (`hearth.tsx`). */
+/* The hearth (`hearth.tsx`) and the hero's flame (`flame.tsx`). */
 :root {
   --hearth-glow: 0.32;
   --hearth-stone: #cbbfb2;

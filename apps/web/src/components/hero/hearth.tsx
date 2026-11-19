@@ -3,15 +3,18 @@ import { cn } from "@nookly/ui/lib/utils";
 
 /// A nook by the fire: the app icon's own flame and glow (`public/hearth/flame.webp`, cut
 /// from the icon's layers) burning on two crossed logs, a ring of hearth stones around it
-/// and embers drifting up. The backdrop of the hero and of the closing section.
+/// and embers drifting up. The backdrop of the closing section and the 404 page.
 
 /// The flame artwork's size in pixels; its bottom edge is the flat base of the fire.
 const FLAME_W = 558;
 const FLAME_H = 409;
 
-/// A hearth stone, placed from the middle of the fire's base in hero units (a 600 unit
-/// flame). `skew` moves its crown off centre so no two look alike; `warm` is how much
-/// firelight it catches, in percent.
+/// The flame height the stones and logs below are drawn for. Other scenes scale them.
+const REFERENCE_FLAME = 600;
+
+/// A hearth stone, placed from the middle of the fire's base in those units. `skew` moves
+/// its crown off centre so no two look alike; `warm` is how much firelight it catches, in
+/// percent.
 type Stone = { dx: number; dy: number; w: number; h: number; skew: number; warm: number };
 type Ember = { x: number; y: number; r: number; delay: number; duration: number };
 
@@ -49,24 +52,6 @@ const LOGS = [
   { tilt: 9, length: 540, thickness: 52 },
 ];
 
-const HERO: Scene = {
-  width: 1600,
-  height: 640,
-  base: 612,
-  glow: { cx: 800, cy: 420, r: 560 },
-  flame: 600,
-  embers: [
-    { x: 740, y: 60, r: 4, delay: 0, duration: 7 },
-    { x: 870, y: 20, r: 3, delay: 1.6, duration: 8 },
-    { x: 930, y: 100, r: 5, delay: 3.1, duration: 6.5 },
-    { x: 680, y: 130, r: 3, delay: 4.2, duration: 7.5 },
-    { x: 820, y: 110, r: 2.5, delay: 2.4, duration: 9 },
-    { x: 990, y: 50, r: 3.5, delay: 5.3, duration: 8.5 },
-    { x: 610, y: 80, r: 2.5, delay: 0.9, duration: 7.8 },
-    { x: 1050, y: 160, r: 3, delay: 3.8, duration: 6.8 },
-  ],
-};
-
 const CLOSING: Scene = {
   width: 1600,
   height: 320,
@@ -81,7 +66,7 @@ const CLOSING: Scene = {
   ],
 };
 
-const SCENES = { hero: HERO, closing: CLOSING };
+const SCENES = { closing: CLOSING };
 
 /// A stone's outline around its own centre: a flat bottom, a crown pushed off centre.
 function stonePath({ w, h, skew }: Stone) {
@@ -138,7 +123,7 @@ export function Hearth({ scene, className }: { scene: keyof typeof SCENES; class
   const s = SCENES[scene];
   const id = (name: string) => `${scene}-${name}`;
   const cx = s.glow.cx;
-  const k = s.flame / HERO.flame;
+  const k = s.flame / REFERENCE_FLAME;
   return (
     <svg
       aria-hidden
