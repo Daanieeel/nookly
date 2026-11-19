@@ -64,6 +64,17 @@ variable "cloudflare_zone_id" {
   type        = string
 }
 
+variable "cloudflare_account_id" {
+  description = "Cloudflare account that holds zone_name, for the website's Pages project."
+  type        = string
+}
+
+variable "website_project" {
+  description = "Cloudflare Pages project of the website; it answers at <name>.pages.dev too."
+  type        = string
+  default     = "nookly-website"
+}
+
 variable "scaleway_organization_id" {
   description = "Scaleway organization that owns the project."
   type        = string

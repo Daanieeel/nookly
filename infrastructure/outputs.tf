@@ -12,3 +12,8 @@ output "storage_endpoint" {
   description = "Scaleway's S3 API for the files bucket."
   value       = local.storage_endpoint
 }
+
+output "website_project" {
+  description = "Cloudflare Pages project the website workflow deploys to."
+  value       = cloudflare_pages_project.website.name
+}

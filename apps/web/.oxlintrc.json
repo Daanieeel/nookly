@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": ["../../packages/config/oxlint/base.json"],
+  "plugins": ["jsx-a11y", "react-perf"],
+  "settings": {
+    "shadcn": {
+      "ui": "@nookly/ui/components"
+    },
+    "better-tailwindcss": {
+      "entryPoint": "apps/web/src/app/globals.css"
+    }
+  },
+  "rules": {
+    "shadcn/no-arbitrary-values": "off",
+    "shadcn/no-raw-colors": "off",
+    "shadcn/no-inline-styles": "off"
+  }
+}

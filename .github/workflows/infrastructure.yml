@@ -50,6 +50,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
       TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+      TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       TF_VAR_scaleway_organization_id: ${{ vars.SCALEWAY_ORGANIZATION_ID }}
       TF_VAR_scaleway_project_id: ${{ vars.SCALEWAY_PROJECT_ID }}
       TF_VAR_resend_api_key: ${{ secrets.RESEND_API_KEY }}

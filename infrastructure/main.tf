@@ -179,3 +179,31 @@ resource "cloudflare_dns_record" "dmarc" {
   content = "\"v=DMARC1; p=none;\""
   ttl     = 1
 }
+
+# Website ------------------------------------------------------------------------------
+
+# nookly.work: the static site from apps/web, built and uploaded by the website workflow
+# (wrangler pages deploy). Terraform owns the project and its domains, not its deploys.
+resource "cloudflare_pages_project" "website" {
+  account_id        = var.cloudflare_account_id
+  name              = var.website_project
+  production_branch = "main"
+}
+
+resource "cloudflare_pages_domain" "website" {
+  for_each     = toset([var.zone_name, "www.${var.zone_name}"])
+  account_id   = var.cloudflare_account_id
+  project_name = cloudflare_pages_project.website.name
+  name         = each.key
+}
+
+# Proxied, so the apex can point at Pages (Cloudflare flattens the CNAME).
+resource "cloudflare_dns_record" "website" {
+  for_each = toset([var.zone_name, "www.${var.zone_name}"])
+  zone_id  = var.cloudflare_zone_id
+  name     = each.key
+  type     = "CNAME"
+  content  = cloudflare_pages_project.website.subdomain
+  proxied  = true
+  ttl      = 1
+}
