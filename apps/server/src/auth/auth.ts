@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, username } from "better-auth/plugins";
+import { timingSafeEqual } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { Config } from "../config.ts";
@@ -30,7 +31,14 @@ const signUpBody = z.looseObject({
   email: z.string().optional(),
   username: z.string().optional(),
   name: z.string().optional(),
+  betaKey: z.string().optional(),
 });
+
+/// Whether `given` is the beta key, without telling how much of it matched.
+export function isBetaKey(expected: string, given: string) {
+  const digest = (value: string) => new Bun.CryptoHasher("sha256").update(value).digest();
+  return timingSafeEqual(digest(expected), digest(given.trim()));
+}
 
 /// Headers a client names itself with when it signs in, for its session.
 export const DEVICE_NAME_HEADER = "x-nookly-device-name";
@@ -40,14 +48,24 @@ const PLATFORMS = new Set(["macos", "windows", "linux", "ios", "android", "web",
 /// Which OAuth providers are configured: each needs its id and secret. Adding one
 /// later is setting those two variables, nothing else.
 export function socialProviders(config: Config) {
-  const providers: Record<string, { clientId: string; clientSecret: string }> = {};
+  const providers: Record<
+    string,
+    { clientId: string; clientSecret: string; disableSignUp: boolean }
+  > = {};
   const pairs = [
     ["google", config.GOOGLE_CLIENT_ID, config.GOOGLE_CLIENT_SECRET],
     ["github", config.GITHUB_CLIENT_ID, config.GITHUB_CLIENT_SECRET],
     ["apple", config.APPLE_CLIENT_ID, config.APPLE_CLIENT_SECRET],
   ] as const;
   for (const [name, clientId, clientSecret] of pairs) {
-    if (clientId && clientSecret) providers[name] = { clientId, clientSecret };
+    // During the closed beta only a sign up with the key makes accounts, never a provider.
+    if (clientId && clientSecret) {
+      providers[name] = {
+        clientId,
+        clientSecret,
+        disableSignUp: Boolean(config.BETA_KEY),
+      };
+    }
   }
   return providers;
 }
@@ -143,14 +161,27 @@ export function createAuth(db: Database, config: Config, mailer: Mailer, log: Lo
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path !== "/sign-up/email") return;
         const parsed = signUpBody.safeParse(ctx.body ?? {});
+        // The closed beta: no key, no account. Checked before anything is made.
+        if (config.BETA_KEY) {
+          const given = parsed.success ? (parsed.data.betaKey ?? "") : "";
+          if (!given.trim()) {
+            throw new APIError("FORBIDDEN", {
+              message: "Enter the beta key to create an account.",
+            });
+          }
+          if (!isBetaKey(config.BETA_KEY, given)) {
+            throw new APIError("FORBIDDEN", { message: "That beta key isn't right." });
+          }
+        }
         // better-auth's own validation answers a body that isn't one.
         if (!parsed.success) return;
-        const body = parsed.data;
+        const { betaKey: _betaKey, ...body } = parsed.data;
         const email = body.email?.trim() ?? "";
         if (email.toLowerCase().endsWith(`@${PLACEHOLDER_EMAIL_DOMAIN}`)) {
           throw new APIError("BAD_REQUEST", { message: "Use your own email address." });
         }
-        if (email) return;
+        // The key goes no further than here.
+        if (email) return { context: { ...ctx, body } };
         return {
           context: {
             ...ctx,

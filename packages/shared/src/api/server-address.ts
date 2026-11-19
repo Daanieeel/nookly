@@ -8,3 +8,11 @@ export function defaultServer({ dev, android = false }: { dev: boolean; android?
   if (!dev) return PRODUCTION_SERVER;
   return android ? "http://10.0.2.2:3000" : "http://localhost:3000";
 }
+
+/// Nookly's own server is a closed beta: creating an account there needs the beta key. A
+/// server someone runs themselves decides for itself and answers when it wants a key.
+export function asksForBetaKey(serverUrl: string) {
+  return serverUrl.trim().replace(/\/+$/, "").toLowerCase() === PRODUCTION_SERVER;
+}
+
+export const BETA_KEY_MISSING = "Enter the beta key to create an account.";

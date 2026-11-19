@@ -1,6 +1,8 @@
 import {
   ApiClient,
+  BETA_KEY_MISSING,
   PRODUCTION_SERVER,
+  asksForBetaKey,
   emailSchema,
   signInSchema,
   usernameSchema,
@@ -52,6 +54,7 @@ const signUpForm = z.object({
   username: usernameSchema,
   email: z.union([emailSchema, z.literal("")]),
   password: z.string().min(10, "Use at least 10 characters").max(256),
+  betaKey: z.string().max(256),
 });
 const resetForm = z.object({ email: z.email("Enter the email address of your account") });
 
@@ -351,22 +354,27 @@ function SignUpForm() {
   const queryClient = useQueryClient();
   const server = useServer();
   const local = useLocalData();
-  const ids = { username: useId(), email: useId(), password: useId() };
+  const ids = { username: useId(), email: useId(), password: useId(), betaKey: useId() };
   const signUp = useMutation({
-    mutationFn: (value: z.infer<typeof signUpForm>) =>
-      syncRuntime.signUp(
-        server.commit(),
+    mutationFn: (value: z.infer<typeof signUpForm>) => {
+      const url = server.commit();
+      const betaKey = value.betaKey.trim() || undefined;
+      if (!betaKey && asksForBetaKey(url)) throw new Error(BETA_KEY_MISSING);
+      return syncRuntime.signUp(
+        url,
         {
           username: value.username.trim(),
           email: value.email.trim() || undefined,
           password: value.password,
+          betaKey,
         },
         local.options(),
-      ),
+      );
+    },
     onSuccess: () => afterSignIn(queryClient),
   });
   const form = useForm({
-    defaultValues: { username: "", email: "", password: "" },
+    defaultValues: { username: "", email: "", password: "", betaKey: "" },
     validators: { onChange: signUpForm, onSubmit: signUpForm },
     onSubmit: ({ value }) => signUp.mutate(value),
   });
@@ -429,6 +437,26 @@ function SignUpForm() {
               id={ids.password}
               type="password"
               autoComplete="new-password"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+            />
+          </FormField>
+        )}
+      </form.Field>
+      <form.Field name="betaKey">
+        {(field) => (
+          <FormField
+            label="Beta key"
+            htmlFor={ids.betaKey}
+            required={asksForBetaKey(server.server)}
+            hint="Needed while Nookly is in its closed beta."
+            error={fieldMessage(field)}
+          >
+            <Input
+              id={ids.betaKey}
+              type="password"
+              autoComplete="off"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}

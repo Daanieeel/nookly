@@ -103,6 +103,17 @@ variable "resend_api_key" {
   sensitive   = true
 }
 
+variable "beta_key" {
+  description = "The closed beta's key: sign up on the server needs it. No default, so a server is never left open by accident."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(trimspace(var.beta_key)) > 0
+    error_message = "The beta key must not be empty: an empty key leaves sign up open."
+  }
+}
+
 variable "extra_config_vars" {
   description = "Further server settings from .env.example (CORS_ORIGINS, LOG_LEVEL, SESSION_TTL_DAYS ...)."
   type        = map(string)

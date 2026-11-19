@@ -76,6 +76,7 @@ resource "heroku_app_config_association" "server" {
 
   sensitive_vars = merge({
     AUTH_SECRET          = random_password.auth_secret.result
+    BETA_KEY             = var.beta_key
     SMTP_URL             = "smtps://resend:${var.resend_api_key}@smtp.resend.com:465"
     S3_ACCESS_KEY_ID     = scaleway_iam_api_key.server.access_key
     S3_SECRET_ACCESS_KEY = scaleway_iam_api_key.server.secret_key

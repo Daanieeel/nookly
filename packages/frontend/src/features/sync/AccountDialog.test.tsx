@@ -89,12 +89,13 @@ describe("the account dialog", () => {
     expect(useAccountDialog.getState().open).toBe(true);
   });
 
-  it("creates an account with a username, the email being optional", async () => {
+  it("creates an account with a username and the beta key, the email being optional", async () => {
     const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
     const { user } = open("signUp");
     expect(screen.getByRole("dialog", { name: "Create your account" })).toBeInTheDocument();
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText(/^Beta key/), " the-key ");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(signUp).toHaveBeenCalledWith(
       "https://sync.nookly.work",
@@ -102,9 +103,55 @@ describe("the account dialog", () => {
         username: "ada",
         email: undefined,
         password: "a long password",
+        betaKey: "the-key",
       },
       {},
     );
+  });
+
+  it("keeps the beta key hidden while it is typed", () => {
+    open("signUp");
+    expect(screen.getByLabelText(/^Beta key/)).toHaveAttribute("type", "password");
+  });
+
+  it("asks for the beta key before creating an account on Nookly's server", async () => {
+    const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    await user.type(screen.getByLabelText(/^Username/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(await screen.findByText("Enter the beta key to create an account.")).toBeInTheDocument();
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("does not insist on a beta key on a server of your own", async () => {
+    const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    await user.click(screen.getByRole("button", { name: "Change Server" }));
+    const server = screen.getByLabelText(/^Server/);
+    await user.clear(server);
+    await user.type(server, "https://sync.example.com");
+    await user.type(screen.getByLabelText(/^Username/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(signUp).toHaveBeenCalledWith(
+      "https://sync.example.com",
+      { username: "ada", email: undefined, password: "a long password", betaKey: undefined },
+      {},
+    );
+  });
+
+  it("shows the server's answer to a wrong beta key", async () => {
+    vi.spyOn(syncRuntime, "signUp").mockRejectedValue(
+      new ApiRequestError(403, "FORBIDDEN", "That beta key isn't right."),
+    );
+    const { user } = open("signUp");
+    await user.type(screen.getByLabelText(/^Username/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText(/^Beta key/), "nope");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(await screen.findByText("That beta key isn't right.")).toBeInTheDocument();
+    expect(useAccountDialog.getState().open).toBe(true);
   });
 
   it("checks the username and the password length before creating anything", async () => {

@@ -35,6 +35,7 @@ A merge to `main` that changes `infrastructure/` applies it (`infrastructure.yml
 | `SCW_ACCESS_KEY`           | secret   | key of a Scaleway IAM application for Terraform (below)      |
 | `SCW_SECRET_KEY`           | secret   |                                                              |
 | `RESEND_API_KEY`           | secret   | Resend, sending access                                       |
+| `BETA_KEY`                 | secret   | the closed beta key; sign up needs it, never empty           |
 | `EXPO_TOKEN`               | secret   | expo.dev, Access tokens                                      |
 | `CLOUDFLARE_ZONE_ID`       | variable | set                                                          |
 | `CLOUDFLARE_ACCOUNT_ID`    | variable | Cloudflare dashboard, the account's overview, right column   |
