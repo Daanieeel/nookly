@@ -32,6 +32,7 @@ import {
 } from "@nookly/ui/components/alert-dialog";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
+import { Checkbox } from "@nookly/ui/components/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { useAccountDialog } from "./account-dialog-store.ts";
@@ -222,8 +223,8 @@ function FilesLine() {
   );
 }
 
-/// Signing out clears this device: said before it happens, with what has not reached the
-/// account yet, which is backed up first.
+/// Signing out clears this device unless a local copy is kept: said before it happens,
+/// with what has not reached the account yet, which is backed up first.
 function SignOutDialog({
   open,
   onOpenChange,
@@ -232,36 +233,64 @@ function SignOutDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const [keepLocalCopy, setKeepLocalCopy] = useState(false);
   const { data: unsent = 0 } = useQuery({
     queryKey: qk.sync.unsent(),
     queryFn: () => syncRuntime.unsentCount(),
     enabled: open,
     gcTime: 0,
   });
+  const { data: missingFiles = 0 } = useQuery({
+    queryKey: qk.sync.missingFiles(),
+    queryFn: () => syncRuntime.missingFilesCount(),
+    enabled: open && keepLocalCopy,
+    gcTime: 0,
+  });
+  const close = (next: boolean) => {
+    if (!next) setKeepLocalCopy(false);
+    onOpenChange(next);
+  };
   const signOut = useMutation({
-    mutationFn: () => syncRuntime.signOut(),
+    mutationFn: () => syncRuntime.signOut({ keepLocalCopy }),
     onSuccess: () => {
-      onOpenChange(false);
+      close(false);
       // Every view showed the account's data, which is no longer here.
       queryClient.removeQueries({ queryKey: qk.sync.root });
       void queryClient.invalidateQueries();
     },
   });
+  const changes = unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`;
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={close}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Sign out of this computer?</AlertDialogTitle>
           <AlertDialogDescription>
-            Everything stays in your account and on your other devices. It is removed from this
-            computer, and comes back when you sign in again.
+            {keepLocalCopy
+              ? "Everything stays in your account and on your other devices. A copy stays on this computer and keeps working on its own, but changes here no longer sync."
+              : "Everything stays in your account and on your other devices. It is removed from this computer, and comes back when you sign in again."}
             {unsent > 0 &&
-              ` ${unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`} not reached the account yet. Nookly tries once more and saves a backup of this computer first.`}
+              (keepLocalCopy
+                ? ` ${changes} not reached the account yet. They stay on this computer.`
+                : ` ${changes} not reached the account yet. Nookly tries once more and saves a backup of this computer first.`)}
+            {keepLocalCopy &&
+              missingFiles > 0 &&
+              ` ${missingFiles === 1 ? "1 file from your account is" : `${missingFiles.toLocaleString()} files from your account are`} not on this computer yet and will be missing from the copy.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="sign-out-keep-local-copy"
+            checked={keepLocalCopy}
+            onCheckedChange={(checked) => setKeepLocalCopy(checked === true)}
+          />
+          <label htmlFor="sign-out-keep-local-copy" className="text-sm">
+            Keep a local copy
+          </label>
+        </div>
         <FieldError message={errorText(signOut.error)} />
         <AlertDialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => close(false)}>
             Stay Signed In
           </Button>
           <Button onClick={() => signOut.mutate()} disabled={signOut.isPending}>

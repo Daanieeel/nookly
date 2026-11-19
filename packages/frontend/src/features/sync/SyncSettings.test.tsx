@@ -93,6 +93,38 @@ describe("the Sync settings", () => {
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 
+  it("signs out without a local copy unless asked, and removes the data from this computer", async () => {
+    signedIn();
+    vi.spyOn(syncRuntime, "unsentCount").mockResolvedValue(0);
+    const signOut = vi
+      .spyOn(syncRuntime, "signOut")
+      .mockResolvedValue({ unsent: 0, backupPath: null });
+    const { user } = await openSync();
+    await user.click(await screen.findByRole("button", { name: "Sign Out" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
+    const keep = within(dialog).getByRole("checkbox", { name: "Keep a local copy" });
+    expect(keep).not.toBeChecked();
+    await user.click(within(dialog).getByRole("button", { name: "Sign Out" }));
+    expect(signOut).toHaveBeenCalledWith({ keepLocalCopy: false });
+  });
+
+  it("keeps a local copy after signing out when asked to", async () => {
+    signedIn();
+    vi.spyOn(syncRuntime, "unsentCount").mockResolvedValue(0);
+    const signOut = vi
+      .spyOn(syncRuntime, "signOut")
+      .mockResolvedValue({ unsent: 0, backupPath: null });
+    const { user } = await openSync();
+    await user.click(await screen.findByRole("button", { name: "Sign Out" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
+    await user.click(within(dialog).getByRole("checkbox", { name: "Keep a local copy" }));
+    expect(dialog).toHaveTextContent("stays on this computer");
+    expect(dialog).not.toHaveTextContent("It is removed from this computer");
+    await expectNoA11yViolations();
+    await user.click(within(dialog).getByRole("button", { name: "Sign Out" }));
+    expect(signOut).toHaveBeenCalledWith({ keepLocalCopy: true });
+  });
+
   it("offers to sign in, and says sync is optional", async () => {
     mockCommand("sync_query", []);
     await openSync();
