@@ -1,8 +1,8 @@
 export type Theme = "light" | "dark" | "system";
 
 export const THEME_KEY = "nookly.theme";
-/// Light unless the visitor picks otherwise.
-export const DEFAULT_THEME: Theme = "light";
+/// The system's appearance unless the visitor picks otherwise.
+export const DEFAULT_THEME: Theme = "system";
 
 export function readTheme(): Theme {
   try {

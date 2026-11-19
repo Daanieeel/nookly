@@ -50,6 +50,7 @@ import { cn } from "@nookly/ui/lib/utils";
 import { dictionary } from "@/content";
 import type { Locale } from "@/lib/i18n";
 import { PaletteMock } from "../app/palette";
+import { ArrowCursor, HandCursor } from "./cursors/cursors";
 import { Mascot, PageView, type Stage, type View } from "./stage-views";
 
 type Icon = ComponentType<{ size?: number; className?: string }>;
@@ -924,13 +925,12 @@ function Phone(props: ShellProps) {
   );
 }
 
-/// The macOS cursors, from apple_cursor (GPL-3.0, `public/cursors`): drawn in a 256 unit
-/// box at the arrow's size on screen, each with its hotspot (the arrow's tip, the
-/// fingertip) in those units.
+/// The macOS cursors (`cursors/cursors.tsx`): drawn in a 256 unit box at the arrow's size
+/// on screen, each with its hotspot (the arrow's tip, the fingertip) in those units.
 const CURSOR_SIZE = 32;
 const CURSORS = {
-  arrow: { src: "/cursors/arrow.svg", hotspot: { x: 79, y: 36 } },
-  hand: { src: "/cursors/hand.svg", hotspot: { x: 92, y: 42 } },
+  arrow: { Glyph: ArrowCursor, hotspot: { x: 79, y: 36 } },
+  hand: { Glyph: HandCursor, hotspot: { x: 92, y: 42 } },
 };
 
 /// The macOS cursor on the desktop, a fingertip on the phone and the tablet. The cursor is
@@ -973,18 +973,13 @@ function Pointer({
   const shown = at && !moving ? "hand" : "arrow";
   return (
     <span data-cursor={shown} style={style} className={motion}>
-      {Object.entries(CURSORS).map(([name, cursor]) => (
-        // oxlint-disable-next-line nextjs/no-img-element -- a static export has no image server
-        <img
+      {Object.entries(CURSORS).map(([name, { Glyph, hotspot }]) => (
+        <Glyph
           key={name}
-          src={cursor.src}
-          alt=""
-          draggable={false}
-          width={CURSOR_SIZE}
-          height={CURSOR_SIZE}
+          size={CURSOR_SIZE}
           className={cn("absolute top-0 left-0 max-w-none", name !== shown && "opacity-0")}
           style={{
-            translate: `${(-cursor.hotspot.x * CURSOR_SIZE) / 256}px ${(-cursor.hotspot.y * CURSOR_SIZE) / 256}px`,
+            translate: `${(-hotspot.x * CURSOR_SIZE) / 256}px ${(-hotspot.y * CURSOR_SIZE) / 256}px`,
           }}
         />
       ))}

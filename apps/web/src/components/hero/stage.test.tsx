@@ -89,6 +89,13 @@ describe("HeroStage", () => {
     expect(cursor()).toBe("hand");
   });
 
+  it("draws the cursors in the page, so a click never shows a broken image while one loads", () => {
+    const { container } = show();
+    const cursor = container.querySelector('[data-variant="desktop"] [data-cursor]');
+    expect(cursor?.querySelector("img")).toBeNull();
+    expect(cursor?.querySelectorAll("svg")).toHaveLength(2);
+  });
+
   it("keeps the window the same height on every page", () => {
     const { container } = show();
     const height = () =>
