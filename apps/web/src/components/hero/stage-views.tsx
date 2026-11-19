@@ -27,10 +27,10 @@ export type View = "dashboard" | "tasks" | "note" | "courses" | "moodle";
 type Icon = ComponentType<{ size?: number; className?: string }>;
 
 /// Each Space's accent, as its chips and calendar items wear it.
-const SPACE_COLORS = { studies: "#3b82f6", work: "#06b6d4", personal: "#22c55e" };
+export const SPACE_COLORS = { studies: "#3b82f6", work: "#06b6d4", personal: "#22c55e" };
 type SpaceName = keyof typeof SPACE_COLORS;
 
-function spaceOf(space: string): SpaceName {
+export function spaceOf(space: string): SpaceName {
   return space === "personal" ? "personal" : space === "work" ? "work" : "studies";
 }
 
@@ -165,7 +165,7 @@ function Token({ children }: { children: ReactNode }) {
 
 /// A Dashboard panel (`TabbedPanel`): its title and tabs on one bar over a hairline, the
 /// first tab picked, then its rows.
-function Panel({
+export function Panel({
   icon: Icon,
   title,
   tabs,
@@ -194,7 +194,9 @@ function Panel({
             )}
           >
             {tab.label}
-            <span className="font-normal text-muted-foreground tabular-nums">{tab.count}</span>
+            <span data-tab-count className="font-normal text-muted-foreground tabular-nums">
+              {tab.count}
+            </span>
           </span>
         ))}
       </div>
@@ -204,7 +206,7 @@ function Panel({
 }
 
 /// A panel's row: the entity's key, its icon, its title, then its Space and due date.
-function EntityRow({
+export function EntityRow({
   entityKey,
   title,
   icon,

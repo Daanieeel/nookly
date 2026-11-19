@@ -306,6 +306,70 @@ export const de: Dictionary = {
     eyebrow: "Das ist Nookly",
     title: "Ein Zuhause für alles, was du sonst vergessen würdest.",
     body: "Das Leben kommt aus allen Richtungen: eine Frist in Moodle, eine Idee unter der Dusche, ein Formular für den Vermieter. Nookly gibt allem einen festen Platz, mit Seiten, die für genau das gemacht sind, was sie zeigen. So musst du nicht mehr überlegen, wo etwas hingehört, sondern kannst es einfach erledigen.",
+    sorting: {
+      notification: {
+        app: "Moodle",
+        time: "jetzt",
+        title: "Neue Abgabe",
+        body: "Analysis: Blatt 7 (Potenzreihen) ist am 30. November fällig.",
+      },
+      sticky: "Idee: Karteikarten für die Logikgatter?",
+      form: {
+        name: "Mieterformular.pdf",
+        title: "Angaben zum Mieter",
+        fields: ["Name", "Anschrift", "Einzug", "Unterschrift"],
+        note: "Bitte bis Freitag zurück",
+      },
+      window: "Dashboard",
+      places: [
+        {
+          panel: "Abgaben",
+          tab: "Nächste 7 Tage",
+          count: 4,
+          existing: {
+            key: "ASG-26",
+            title: "Analysis: Blatt 6 (Reihen)",
+            space: "studies",
+            due: "Mo",
+          },
+          added: {
+            key: "ASG-27",
+            title: "Analysis: Blatt 7 (Potenzreihen)",
+            space: "studies",
+            due: "30. Nov.",
+          },
+        },
+        {
+          panel: "Schnellnotizen",
+          tab: "Zum Ausarbeiten",
+          count: 4,
+          existing: {
+            key: "JOT-58",
+            title: "Süßkartoffel aus dem Ofen ausprobieren",
+            space: "personal",
+            due: "3T",
+          },
+          added: {
+            key: "JOT-59",
+            title: "Karteikarten für die Logikgatter",
+            space: "studies",
+            due: "jetzt",
+          },
+        },
+        {
+          panel: "Aufgaben",
+          tab: "Demnächst",
+          count: 9,
+          existing: {
+            key: "TSK-68",
+            title: "Neuen Stundenplan prüfen",
+            space: "studies",
+            due: "Mo",
+          },
+          added: { key: "TSK-73", title: "Mieterformular ausfüllen", space: "personal", due: "Fr" },
+        },
+      ],
+    },
   },
   features: {
     eyebrow: "Was drin ist",

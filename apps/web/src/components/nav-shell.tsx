@@ -28,7 +28,7 @@ export function NavShell({
       <div
         data-scrolled={scrolled}
         className={cn(
-          "group/nav flex w-full items-center gap-4 rounded-2xl border border-transparent py-2 pr-2 pl-4 transition-all duration-300 sm:gap-6 sm:pl-5",
+          "group/nav flex w-full items-center gap-4 rounded-2xl border border-transparent p-3 transition-all duration-300 sm:gap-6",
           scrolled
             ? "max-w-5xl border-border bg-card/80 shadow-sm backdrop-blur-md"
             : "max-w-[860px] bg-transparent",

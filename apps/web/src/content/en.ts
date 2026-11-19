@@ -301,6 +301,70 @@ export const en = {
     eyebrow: "Meet Nookly",
     title: "A home for everything you would otherwise forget.",
     body: "Life arrives from every direction: a deadline on Moodle, an idea in the shower, a form for the landlord. Nookly gives each of them a proper place, with pages made for what they are, so you stop deciding where things go and start getting them done.",
+    sorting: {
+      notification: {
+        app: "Moodle",
+        time: "now",
+        title: "New assignment",
+        body: "Calculus: Sheet 7 (Power series) is due on 30 November.",
+      },
+      sticky: "idea: flash cards for the logic gates?",
+      form: {
+        name: "Rental form.pdf",
+        title: "Tenant details",
+        fields: ["Name", "Address", "Moving in", "Signature"],
+        note: "Please return by Friday",
+      },
+      window: "Dashboard",
+      places: [
+        {
+          panel: "Assignments",
+          tab: "Next 7 days",
+          count: 4,
+          existing: {
+            key: "ASG-26",
+            title: "Calculus: Sheet 6 (Series)",
+            space: "studies",
+            due: "Mon",
+          },
+          added: {
+            key: "ASG-27",
+            title: "Calculus: Sheet 7 (Power series)",
+            space: "studies",
+            due: "Nov 30",
+          },
+        },
+        {
+          panel: "Jots",
+          tab: "To be refined",
+          count: 4,
+          existing: {
+            key: "JOT-58",
+            title: "Try a sweet potato bake",
+            space: "personal",
+            due: "3d",
+          },
+          added: {
+            key: "JOT-59",
+            title: "Flash cards for the logic gates",
+            space: "studies",
+            due: "now",
+          },
+        },
+        {
+          panel: "Tasks",
+          tab: "Upcoming",
+          count: 9,
+          existing: {
+            key: "TSK-68",
+            title: "Check the new timetable",
+            space: "studies",
+            due: "Mon",
+          },
+          added: { key: "TSK-73", title: "Fill in the rental form", space: "personal", due: "Fri" },
+        },
+      ],
+    },
   },
   features: {
     eyebrow: "What's inside",

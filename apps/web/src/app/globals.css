@@ -94,6 +94,18 @@
   }
 }
 
+/* A row that has just been filed into its place (`home/sorting.tsx`): a soft highlight
+   that lets go. The row fades in and out on its own transition. */
+@keyframes landed {
+  0%,
+  25% {
+    background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
 /* The hero's flame: the same flicker, but taller, swaying and never quite still. */
 @keyframes flame-dance {
   0%,

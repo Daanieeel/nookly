@@ -222,7 +222,7 @@ function useVariant(): Variant {
 /// Where `el` sits inside `root`, from layout offsets: the frame's lean, the device's
 /// scale and the page's scroll do not change it, so the pointer, drawn in the same
 /// space, lands on the same spot however it is seen.
-function offsetWithin(el: HTMLElement, root: HTMLElement) {
+export function offsetWithin(el: HTMLElement, root: HTMLElement) {
   let x = 0;
   let y = 0;
   let node: Element | null = el;
