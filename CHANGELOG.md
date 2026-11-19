@@ -18,6 +18,8 @@ All notable changes to Nookly are listed here.
 
 ### Changed
 
+- The server you sign in to now starts as Nookly's own and can be changed under Settings, General. Sign out first to switch to another server.
+- The sign in and create account windows are shorter and tidier, and scroll when your window is small instead of running off the screen.
 - Dark mode now sits on a deep charcoal instead of pure black.
 - Corners are a little rounder and softer across the app.
 - The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.

@@ -523,8 +523,8 @@
     "id": "sync.serverUrl",
     "category": "sync",
     "title": "Server",
-    "description": "The sync server this device signs in to, like https://sync.example.com. Sync is optional; without it everything stays on this device.",
-    "default": "",
+    "description": "The sync server this device signs in to. Nookly's own until you change it, or point it at one you host, like https://sync.example.com. Sync is optional; without an account everything stays on this device. Sign out to change it.",
+    "default": "https://sync.nookly.work",
     "synced": false,
     "schema": {
       "anyOf": [

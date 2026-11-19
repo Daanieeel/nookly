@@ -1,3 +1,4 @@
+import { PRODUCTION_SERVER } from "@nookly/shared/api";
 import { SHARED_SETTINGS, type SettingCategory, type SettingJson } from "@nookly/shared/settings";
 import { z } from "zod";
 import { BACKUP_KEEP } from "#/lib/api/backup.ts";
@@ -119,9 +120,18 @@ export const SETTINGS = {
     category: "sync",
     title: "Server",
     description:
-      "The sync server this device signs in to, like https://sync.example.com. Sync is optional; without it everything stays on this device.",
-    synonyms: ["sync", "server", "url", "address", "cloud", "backend", "self hosted"],
-    default: "",
+      "The sync server this device signs in to. Nookly's own until you change it, or point it at one you host, like https://sync.example.com. Sync is optional; without an account everything stays on this device. Sign out to change it.",
+    synonyms: [
+      "sync",
+      "server",
+      "url",
+      "address",
+      "cloud",
+      "backend",
+      "self hosted",
+      "nookly.work",
+    ],
+    default: PRODUCTION_SERVER,
     schema: z.union([z.literal(""), z.url().max(300)]),
   }),
   "general.timezone": define({

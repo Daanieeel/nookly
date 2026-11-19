@@ -83,6 +83,7 @@ const PAGE_OF_CATEGORY = {
 const PAGE_OF_SECTION = new Map<string, PageId>([
   ["calendar/Connections", "connections"],
   ["general/About", "about"],
+  ["sync/Server", "general"],
   ["notes/LaTeX", "latex"],
 ]);
 

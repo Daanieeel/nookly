@@ -12,7 +12,8 @@ fn says_sync_is_off_on_a_device_that_never_signed_in() {
     let data = std::env::temp_dir().join(format!("nookly-cli-sync-{}", crate::db::new_id()));
     let status = run(&conn, &data);
     assert_eq!(status["on"], false);
-    assert_eq!(status["serverUrl"], "");
+    // Nothing stored: the server is Nookly's own, the default of the setting.
+    assert_eq!(status["serverUrl"], "https://sync.nookly.work");
     assert_eq!(status["changesWaiting"], 0);
     assert_eq!(status["openClashes"], 0);
 }
