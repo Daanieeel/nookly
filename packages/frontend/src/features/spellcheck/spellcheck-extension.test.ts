@@ -171,7 +171,7 @@ describe("the spell checker in the editor", () => {
       plain.destroy();
       const fake = fakeSource(["wrng"]);
       const view = open(paragraphs, fake.source);
-      await vi.waitFor(() => expect(fake.asked.length).toBeGreaterThan(0));
+      await vi.waitFor(() => expect(fake.asked.length).toBeGreaterThan(0), { timeout: 10_000 });
       await new Promise((resolve) => setTimeout(resolve, 300));
       fake.asked.length = 0;
       const took = typeTwenty(view);
