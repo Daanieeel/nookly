@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.0.1 (2026-11-19)
+
+### Fixed
+
+- Signing in closes the window straight away instead of spinning until everything has been sent.
+- Keeping what is on a device out of your account no longer shows the page about bringing the device into your account, and a device with nothing on it skips that page too.
+
 ## 1.0.0 (2026-11-10)
 
 ### Added

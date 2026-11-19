@@ -9,8 +9,10 @@ describe("what's new", () => {
     expect(headings.length).toBeGreaterThan(1);
     // The newest release in `whats-new.json`, whatever it says.
     const [newest] = parseWhatsNew();
-    expect(screen.getByText(newest.title ?? newest.version)).toBeTruthy();
-    expect(screen.getByText(newest.highlights[0].title)).toBeTruthy();
+    expect(screen.getByText(newest.title ?? `Nookly ${newest.version}`)).toBeTruthy();
+    // A patch has no highlights, only lines under Improved or Fixed.
+    const first = newest.highlights[0]?.title ?? Object.values(newest.more).flat()[0];
+    expect(screen.getByText(plain(first))).toBeTruthy();
   });
 
   it("reads markdown as plain text", () => {

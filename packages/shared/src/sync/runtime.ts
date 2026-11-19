@@ -272,7 +272,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const user = await api.signUp(input, this.deps.device);
     if (options.localData === "setAside") await this.setLocalDataAside(api);
     this.store.setState({ user, signedOutReason: null });
-    await this.start().catch(() => {});
+    await this.start(false).catch(() => {});
     await this.rememberUser(user);
     return user;
   }
@@ -288,7 +288,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const user = await api.signIn(identifier, password, this.deps.device);
     if (options.localData === "setAside") await this.setLocalDataAside(api);
     this.store.setState({ user, signedOutReason: null });
-    await this.start().catch(() => {});
+    await this.start(false).catch(() => {});
     await this.rememberUser(user);
     return user;
   }
@@ -331,6 +331,13 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   /// Backs the device up, then turns sync on, which marks every row as a change.
   /// Nothing reaches the server before the backup is safe.
   private async prepareFirstSync(serverUrl: string) {
+    // A device with nothing on it has nothing to lose to a first sync, and nothing to show
+    // one for: the rows a new device starts with (like the task statuses) go up quietly.
+    const [own] = await this.deps.driver.query(
+      "SELECT (SELECT COUNT(*) FROM entities) + (SELECT COUNT(*) FROM spaces) AS n",
+      [],
+    );
+    const hasData = Number(own?.n ?? 0) > 0;
     const startedAt = new Date(this.now()).toISOString();
     const base: MigrationState = {
       phase: "backup",
@@ -343,14 +350,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       finishedAt: null,
       error: null,
     };
-    this.store.setState({ migration: base });
+    if (hasData) this.store.setState({ migration: base });
     let backupPath: string | null = null;
-    // A device with nothing on it has nothing to lose to a first sync.
-    const [own] = await this.deps.driver.query(
-      "SELECT (SELECT COUNT(*) FROM entities) + (SELECT COUNT(*) FROM spaces) AS n",
-      [],
-    );
-    if (this.deps.backup && Number(own?.n ?? 0) > 0) {
+    if (this.deps.backup && hasData) {
       try {
         backupPath = (await this.deps.backup()).path;
       } catch (error) {
@@ -367,6 +369,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     }
     await this.settings?.seed();
     await this.engine.enable();
+    if (!hasData) return;
     const blobs = this.blobsFor(serverUrl);
     const files = blobs ? (await blobs.plan()).uploads.length : 0;
     await this.saveMigration({
@@ -390,11 +393,14 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
 
   /// One start at a time: two that overlap (a launch that restores twice) would each make
   /// a sync, and only one of them could ever be stopped.
-  private start(): Promise<void> {
+  ///
+  /// `waitForSync` false returns once the sync is set up, not once its first round (which
+  /// sends everything a first sync has) is over: a sign in is done when it is signed in.
+  private start(waitForSync = true): Promise<void> {
     const before = this.starting;
     const next = (async () => {
       await before?.catch(() => {});
-      await this.startOnce();
+      await this.startOnce(waitForSync);
     })();
     this.starting = next;
     void next
@@ -405,7 +411,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     return next;
   }
 
-  private async startOnce() {
+  private async startOnce(waitForSync: boolean) {
     const serverUrl = this.store.getState().serverUrl;
     const api = this.api;
     if (!api || this.client || !serverUrl) return;
@@ -427,7 +433,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       afterCycle: (applied) => this.afterCycle(applied),
       countConflicts: () => this.openConflicts().then((all) => all.length),
     });
-    await this.client.start();
+    const started = this.client.start();
+    if (waitForSync) await started;
+    else void started.catch(() => {});
   }
 
   /// The device's copies of page documents belong to one account on one server. Copies left
