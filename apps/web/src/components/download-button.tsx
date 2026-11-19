@@ -56,11 +56,12 @@ export function DownloadButton({
       ? t.iosSoon
       : t.generic;
   const href = match?.url ?? downloadsPage;
-  const height = size === "lg" ? "h-10 text-sm" : "h-8 text-xs";
+  const large = size === "lg";
+  const height = large ? "h-12 text-base [&_svg]:size-5" : "h-8 text-xs";
 
   return (
     <SplitButton className={className}>
-      <Button asChild className={cn(height, size === "lg" ? "px-5" : "px-3")}>
+      <Button asChild className={cn(height, large ? "gap-3 px-8" : "px-3")}>
         <a href={href} {...(match ? { download: "" } : {})}>
           <IconDownload />
           {label}
@@ -70,7 +71,7 @@ export function DownloadButton({
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <Button aria-label={t.more} className={cn(height, size === "lg" ? "px-3" : "px-2")}>
+              <Button aria-label={t.more} className={cn(height, large ? "px-4" : "px-2")}>
                 <IconChevronDown className={cn("transition-transform", open && "rotate-180")} />
               </Button>
             </PopoverTrigger>
