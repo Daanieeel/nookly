@@ -16,7 +16,7 @@ public class NooklyWindowModule: Module {
     Name("NooklyWindow")
 
     View(NooklySecondaryClickView.self) {
-      Name("NooklySecondaryClickView")
+      ViewName("NooklySecondaryClickView")
       Events("onSecondaryClick")
     }
 
@@ -24,7 +24,7 @@ public class NooklyWindowModule: Module {
     Function("hasPointerStyle") { () -> Bool in true }
 
     View(NooklyPointerStyleView.self) {
-      Name("NooklyPointerStyleView")
+      ViewName("NooklyPointerStyleView")
       Prop("effect") { (view: NooklyPointerStyleView, effect: String) in
         view.effect = effect
       }
@@ -34,7 +34,7 @@ public class NooklyWindowModule: Module {
     }
 
     View(NooklyFileDropView.self) {
-      Name("NooklyFileDropView")
+      ViewName("NooklyFileDropView")
       Events("onFilesDropped", "onDropActive")
     }
 
