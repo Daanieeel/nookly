@@ -1,6 +1,9 @@
 /* The desktop app's design system as it is: tokens, theme, base layer, fonts. The site only
    adds what a scrolling web page needs on top. */
 @import "@nookly/ui/styles.css";
+/* The iPhone and iPad frames around the hero's demo (devices.css, MIT). Its reset only
+   reaches inside `.device`, and the app on the screen lies over the frame, not in it. */
+@import "devices.css/dist/devices.min.css" layer(devices);
 
 @source "../";
 /* The desktop's own component classes that the rebuilt app screens share. */
@@ -45,25 +48,12 @@
   }
 }
 
-@keyframes card-in {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.965);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 /* The hearth (`hearth.tsx`) and the hero's flame (`flame.tsx`). */
 :root {
   --hearth-glow: 0.32;
-  --hearth-stone: #cbbfb2;
 }
 .dark {
-  --hearth-glow: 0.5;
-  --hearth-stone: #3f3530;
+  --hearth-glow: 0.26;
 }
 
 @keyframes flame-flicker {
@@ -104,13 +94,22 @@
   }
 }
 
-@keyframes stone-in {
-  from {
-    opacity: 0;
-    transform: translateY(60px);
+/* The hero's flame: the same flicker, but taller, swaying and never quite still. */
+@keyframes flame-dance {
+  0%,
+  100% {
+    transform: scale(1, 1) skewX(0deg);
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  18% {
+    transform: scale(0.97, 1.08) skewX(-4deg);
+  }
+  40% {
+    transform: scale(1.03, 0.95) skewX(3deg);
+  }
+  62% {
+    transform: scale(0.98, 1.06) skewX(-2deg);
+  }
+  82% {
+    transform: scale(1.01, 0.98) skewX(3.5deg);
   }
 }

@@ -38,17 +38,17 @@ export function PaletteMock({ locale }: { locale: Locale }) {
             <CommandItem value={t.items.algorithms}>
               <IconBook2 />
               {t.items.algorithms}
-              <CommandShortcut className="font-mono">CRS-3</CommandShortcut>
+              <CommandShortcut className="font-mono">CRS-2</CommandShortcut>
             </CommandItem>
             <CommandItem value={t.items.problemSet}>
               <IconClipboardList />
               {t.items.problemSet}
-              <CommandShortcut className="font-mono">ASG-12</CommandShortcut>
+              <CommandShortcut className="font-mono">ASG-26</CommandShortcut>
             </CommandItem>
-            <CommandItem value={t.items.mensa}>
+            <CommandItem value={t.items.note}>
               <IconNotes />
-              {t.items.mensa}
-              <CommandShortcut className="font-mono">NTE-40</CommandShortcut>
+              {t.items.note}
+              <CommandShortcut className="font-mono">NOT-115</CommandShortcut>
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading={t.groups.create}>

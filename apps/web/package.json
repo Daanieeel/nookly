@@ -11,9 +11,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@blobatar/react": "2.7.0",
     "@nookly/frontend": "workspace:*",
     "@nookly/ui": "workspace:*",
     "@tabler/icons-react": "^3.52.0",
+    "blobatar": "2.7.0",
+    "devices.css": "0.2.0",
     "next": "16.4.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

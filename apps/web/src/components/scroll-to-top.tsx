@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/t
 import { cn } from "@nookly/ui/lib/utils";
 import { dictionary } from "@/content";
 import type { Locale } from "@/lib/i18n";
+import { scrollToTop } from "@/lib/scroll";
 
 /// How far down the page has to be before the button appears: past the first screen.
 const SHOW_AFTER = 600;
@@ -24,9 +25,7 @@ export function ScrollToTop({ locale }: { locale: Locale }) {
   }, []);
 
   function goToTop() {
-    // jsdom, which the tests run in, has no `matchMedia`.
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    scrollToTop();
     // The button hides on the way up, so keyboard focus would be lost with it.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   }

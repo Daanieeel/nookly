@@ -17,6 +17,11 @@ describe("Flame", () => {
     expect(container.querySelector("img")?.getAttribute("alt")).toBe("");
   });
 
+  it("dances more than the quiet flicker the other flames use", () => {
+    const { container } = render(<Flame />);
+    expect(container.querySelector("img")?.className).toContain("flame-dance");
+  });
+
   it("takes the size it is given", () => {
     const { container } = render(<Flame className="h-20" />);
     expect(container.firstElementChild?.className).toContain("h-20");

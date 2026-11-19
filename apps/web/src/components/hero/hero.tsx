@@ -2,7 +2,7 @@ import { dictionary } from "@/content";
 import type { Locale } from "@/lib/i18n";
 import { latestRelease } from "@/lib/releases";
 import { DownloadButton } from "../download-button";
-import { QueueDemo } from "./queue-demo";
+import { HeroStage } from "./stage";
 import { Flame } from "./flame";
 
 export async function Hero({ locale }: { locale: Locale }) {
@@ -24,8 +24,8 @@ export async function Hero({ locale }: { locale: Locale }) {
           <DownloadButton locale={locale} release={release} />
         </div>
       </div>
-      <div className="relative z-10 mt-20 px-4 pb-24 sm:pb-32">
-        <QueueDemo locale={locale} />
+      <div className="relative z-10 mt-16 px-6 pb-24 sm:px-12 sm:pb-32 lg:px-20 xl:px-28">
+        <HeroStage locale={locale} />
       </div>
     </section>
   );

@@ -4,6 +4,7 @@ import { type Locale, type Page, pathFor } from "@/lib/i18n";
 import { latestRelease, starCount } from "@/lib/releases";
 import { DownloadButton } from "./download-button";
 import { GithubStars } from "./github-stars";
+import { HomeLink } from "./home-link";
 import { LanguageLink, LanguageSwitch } from "./language-switch";
 import { ThemeSwitch } from "./theme-switch";
 import { Logo } from "./logo";
@@ -24,9 +25,9 @@ export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
   return (
     <NavShell
       logo={
-        <a href={home} aria-label="Nookly" className="shrink-0">
+        <HomeLink href={home} aria-label="Nookly" className="shrink-0">
           <Logo />
-        </a>
+        </HomeLink>
       }
       links={
         <nav aria-label={t.menu} className="hidden items-center gap-1 md:flex">
