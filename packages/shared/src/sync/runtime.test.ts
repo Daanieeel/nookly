@@ -229,6 +229,45 @@ describe("the desktop's sync", () => {
     expect(driver.rows("SELECT name FROM spaces")).toEqual([]);
   });
 
+  it("keeps every row on the device when signing out with a local copy", async () => {
+    const backup = vi.fn(async () => ({ path: "/backups/unused" }));
+    const { sync, account, driver } = runtime(undefined, undefined, backup);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    account.failPushesAfter = account.pushes;
+    addSpace(driver);
+    driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at) VALUES ('n1', 's1', 'note', 'Mine', ?, ?)",
+      now(),
+      now(),
+    );
+    expect(await sync.unsentCount()).toBe(2);
+    const result = await sync.signOut({ keepLocalCopy: true });
+    // Nothing is cleared, so nothing needs a backup.
+    expect(backup).not.toHaveBeenCalled();
+    expect(result).toEqual({ unsent: 2, backupPath: null });
+    expect(account.calls).toContain("signOut");
+    expect(sync.store.getState()).toMatchObject({ user: null, status: { state: "off" } });
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM sync_rows")[0].n).toBe(0);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM sync_dirty")[0].n).toBe(0);
+    // Local only now: the next sign in asks what to do with it.
+    expect(await sync.localDataCount()).toBe(1);
+  });
+
+  it("keeps the local copy even when the server can't be told about the sign out", async () => {
+    const { sync, account, driver } = runtime();
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    addSpace(driver);
+    account.signOut = async () => {
+      throw new NetworkError("Can't reach the server.");
+    };
+    await sync.signOut({ keepLocalCopy: true });
+    expect(sync.store.getState().user).toBeNull();
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
+  });
+
   it("stays signed in with everything in place when that backup fails", async () => {
     let fail = false;
     const backup = vi.fn(async () => {

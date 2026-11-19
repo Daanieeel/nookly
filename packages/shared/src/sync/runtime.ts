@@ -104,6 +104,11 @@ export interface SignInOptions {
   localData?: "add" | "setAside";
 }
 
+export interface SignOutOptions {
+  /// Leave the account's data on this device, which then works on its own without sync.
+  keepLocalCopy?: boolean;
+}
+
 export interface SignOutResult {
   /// Changes that had not reached the account when the device signed out.
   unsent: number;
@@ -777,13 +782,22 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     return rows + Number(pages?.n ?? 0) + files;
   }
 
-  /// Signs this device out and leaves it as a new one: its data stays in the account and
-  /// on the other devices, not here. What has not reached the account is tried once more;
-  /// if some still waits, the whole device is backed up first, and when that backup fails
-  /// nothing happens at all. Returns how much was unsent and where its backup is.
-  async signOut(): Promise<SignOutResult> {
+  /// Files of the account that are not on this device yet: a local copy would lack them.
+  async missingFilesCount(): Promise<number> {
+    if (!(await this.engine.isEnabled()) || !this.blobs) return 0;
+    return (await this.blobs.plan()).downloads.length;
+  }
+
+  /// Signs this device out. By default it is left as a new one: its data stays in the
+  /// account and on the other devices, not here. What has not reached the account is tried
+  /// once more; if some still waits, the whole device is backed up first, and when that
+  /// backup fails nothing happens at all. With `keepLocalCopy` every row stays here and the
+  /// device carries on on its own, so nothing is cleared and no backup is needed. Returns
+  /// how much was unsent and where its backup is.
+  async signOut(options: SignOutOptions = {}): Promise<SignOutResult> {
     // Not signed in: there is no account holding this data, so nothing may be cleared.
     if (!this.store.getState().user) return { unsent: 0, backupPath: null };
+    const keep = options.keepLocalCopy === true;
     if (this.client) {
       await Promise.race([
         this.client.syncNow().catch(() => {}),
@@ -793,7 +807,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     }
     const unsent = await this.unsentCount();
     let backupPath: string | null = null;
-    if (unsent > 0 && this.deps.backup) backupPath = (await this.deps.backup(true)).path;
+    if (!keep && unsent > 0 && this.deps.backup) backupPath = (await this.deps.backup(true)).path;
     const client = this.client;
     this.stop();
     // A sync still on its way must not write after the wipe below.
@@ -806,9 +820,14 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       // Offline: the server ends the session when it expires.
     }
     await this.engine.disable();
-    const gone = await this.engine.wipe();
-    this.store.setState({ user: null, status: OFF, migration: null, files: null });
-    await this.cleared(gone);
+    if (keep) {
+      await this.deps.driver.batch([run("DELETE FROM page_docs")]);
+      this.store.setState({ user: null, status: OFF, migration: null, files: null });
+    } else {
+      const gone = await this.engine.wipe();
+      this.store.setState({ user: null, status: OFF, migration: null, files: null });
+      await this.cleared(gone);
+    }
     return { unsent, backupPath };
   }
 

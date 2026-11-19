@@ -189,6 +189,7 @@ export const qk = {
     role: (entityId: string) => ["sync", "role", entityId] as const,
     localData: () => ["sync", "local-data"] as const,
     unsent: () => ["sync", "unsent"] as const,
+    missingFiles: () => ["sync", "missing-files"] as const,
   },
   backups: {
     root: ["backups"] as const,
