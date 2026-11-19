@@ -19,6 +19,8 @@ const ADA: User = {
 /// The account API against an in-memory server: what the runtime calls, nothing more.
 class FakeAccount implements AccountApi {
   signedIn = false;
+  /// What the real client calls when the server ends this device's session.
+  onSignedOut: () => void = () => {};
   readonly server: MemoryServer;
   readonly calls: string[] = [];
 
@@ -104,7 +106,10 @@ function runtime(
   const onApplied = vi.fn();
   const sync = new SyncRuntime({
     driver,
-    connect: () => account,
+    connect: (_url, onSignedOut) => {
+      account.onSignedOut = onSignedOut;
+      return account;
+    },
     device: { name: "Nookly on macOS", platform: "macos" },
     reindex,
     onApplied,
@@ -296,6 +301,36 @@ describe("the desktop's sync", () => {
     expect(sync.store.getState()).toMatchObject({ user: null, status: { state: "off" } });
     expect(driver.rows("SELECT name FROM spaces")).toEqual([{ name: "Personal" }]);
     expect(driver.rows("SELECT COUNT(*) AS n FROM sync_rows")[0].n).toBe(0);
+  });
+
+  it("removes everything from a device the server signed out, so a lost one holds nothing", async () => {
+    const backup = vi.fn(async () => ({ path: "/backups/unused" }));
+    const { sync, account, driver, reindex, onApplied } = runtime(undefined, undefined, backup);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    addSpace(driver);
+    driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at) VALUES ('n1', 's1', 'note', 'Mine', ?, ?)",
+      now(),
+      now(),
+    );
+    await sync.settled();
+    onApplied.mockClear();
+    // Signed out from another device: the session is gone, so this one can't sync any more.
+    account.signedIn = false;
+    account.onSignedOut();
+    await vi.waitFor(() => expect(onApplied).toHaveBeenCalled());
+    expect(sync.store.getState().user).toBeNull();
+    expect(driver.rows("SELECT name FROM spaces")).toEqual([]);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM sync_rows")[0].n).toBe(0);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM sync_dirty")[0].n).toBe(0);
+    expect(driver.rows("SELECT COUNT(*) AS n FROM task_statuses")[0].n).toBe(5);
+    expect(sync.store.getState()).toMatchObject({ status: { state: "off" } });
+    expect(sync.store.getState().signedOutReason).toContain("removed from this device");
+    // No backup either: that would be a copy left on the device.
+    expect(backup).not.toHaveBeenCalled();
+    expect(reindex).toHaveBeenCalledWith(["n1"]);
+    expect(await sync.localDataCount()).toBe(0);
   });
 
   it("says how much is on a device before anyone signs in, and nothing once it syncs", async () => {

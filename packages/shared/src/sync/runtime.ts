@@ -118,6 +118,10 @@ export interface SignOutResult {
 
 /// How long a sign out waits for the last changes to go out.
 const LAST_SYNC_MS = 10_000;
+const SIGNED_OUT_CLEARED =
+  "This device was signed out of your account, and your data was removed from this device. Sign in again to get it back.";
+const SIGNED_OUT_NOT_CLEARED =
+  "This device was signed out of your account, but its data could not be removed. Sign in again to keep syncing.";
 
 const MIGRATION_KEY = "migration";
 /// Which account's page documents the device's copies are (`claimPageCopies`).
@@ -845,22 +849,25 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   }
 
   /// The server ended this device's session (signed out from another device, a password
-  /// reset, an account or a server that is gone). The data stays here: the device can't
-  /// tell a wanted sign out from a server that lost everything, and must never be the
-  /// reason the last copy disappears. The next sign in asks what to do with it.
+  /// reset, an account that is gone). Nothing stays: whoever holds a device the account
+  /// lost access to, a lost or stolen one, must find none of its data on it, and not even
+  /// a backup. The data is in the account and on the other devices, so signing in again
+  /// brings it back. Edits that never reached the account are lost with it: the session
+  /// is gone, so they can't be sent any more.
   private async signedOutByServer() {
     const client = this.client;
     this.stop();
     await client?.finished();
     await this.closingDocs;
     await this.engine.disable();
-    await this.deps.driver.batch([run("DELETE FROM page_docs")]);
-    this.store.setState({
-      user: null,
-      status: OFF,
-      migration: null,
-      files: null,
-      signedOutReason: "This device was signed out of sync. Sign in again to keep syncing.",
-    });
+    let signedOutReason = SIGNED_OUT_CLEARED;
+    let gone: string[] = [];
+    try {
+      gone = await this.engine.wipe();
+    } catch {
+      signedOutReason = SIGNED_OUT_NOT_CLEARED;
+    }
+    this.store.setState({ user: null, status: OFF, migration: null, files: null, signedOutReason });
+    await this.cleared(gone);
   }
 }

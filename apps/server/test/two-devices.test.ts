@@ -308,9 +308,8 @@ describe("two devices on one account", () => {
     if (!phoneSession) throw new Error("no session for the phone");
     await api.revokeSession(phoneSession.id);
     await soon(() => phone.sync.store.getState().user === null, "the phone signed out");
-    // A sign out the server did never removes what is on the device: it could as well be
-    // a server that lost everything, and this the last copy.
-    expect(title(phone, "t1")).toBe("Buy milk");
+    // A device the account signed out holds none of its data: it may be a lost one.
+    expect(title(phone, "t1")).toBeNull();
   });
 });
 

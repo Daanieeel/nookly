@@ -10,7 +10,7 @@ All notable changes to Nookly are listed here.
 - Changes you make on one device show up on your others as you make them, and everything keeps working offline and catches up within seconds once the server can be reached again.
 - If you change the same thing on two devices, every device offers both versions side by side, and you keep one, both or a mix. Nothing is lost.
 - When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it, makes a backup first, and shows how far it got on a page of its own until everything is in. Signing out removes the account's data from that device and keeps it in the account, or you can tick Keep a local copy to carry on using it on that device without an account.
-- Settings, Account lists every signed in device, and you can sign one out from another.
+- Settings, Account lists every signed in device, and you can sign one out from another. A device signed out this way has everything removed from it, so a lost device holds none of your things.
 - On your phone, scan paper documents straight into a Space's files, then name, label and link them while they upload.
 - Moodle works on your phone just like on your computer: sign in with your saved passwords, read your courses, pages, assignments, grades and forums, open files and import them into a Space, read what you opened before while offline, and see Moodle's deadlines on your calendar.
 - In Files, New View makes a View from a name and the labels you search for and tick, with your filters and display, and it shows up on your other devices. A View shows only its own labels at the top, and you can find the files that still have no label.
