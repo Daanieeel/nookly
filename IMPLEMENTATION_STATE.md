@@ -75,7 +75,7 @@ Roll out a website for Nookly on `nookly.work`, released and deployed automatica
 - [x] Landing: hero (symmetry layout, Nookly app card rebuilt from primitives), features, Q&A, closing call to action.
 - [x] Downloads page: sections with brand logos, file sizes, checksums link, iOS coming soon.
 - [x] Status page: banner, components, 90 day bars, live check, last updated.
-- [ ] Impressum, privacy policy, terms (English and German, sample values marked).
+- [x] Impressum, privacy policy, terms (English and German, sample values marked).
 - [x] German versions of every page, `hreflang`, sitemap, robots, Open Graph images, favicons.
 
 ### Automation
@@ -83,18 +83,18 @@ Roll out a website for Nookly on `nookly.work`, released and deployed automatica
 - [x] Status checker workflow (every 5 minutes, `status-data` branch). Starts with the merge to `main` (schedules only run there).
 - [x] Website workflow: build on pull requests; build and deploy to Cloudflare Pages on `main`, on a published release and daily.
 - [x] Terraform: Pages project, domains, DNS; CORS on the server if needed.
-- [ ] Secrets and variables set (`CLOUDFLARE_ACCOUNT_ID`, token with Pages edit).
+- [x] Secrets and variables set (`CLOUDFLARE_ACCOUNT_ID`, token with Pages edit).
 
 ### Release
 
-- [ ] All checks green, PR merged, deploy ran, `https://nookly.work` live in both languages, status page shows data.
-- [ ] Branch cleaned up, worktree back on `origin/main`.
-- [ ] Final report to the user.
+- [x] All checks green, PR merged, deploy ran, `https://nookly.work` live in both languages, status page shows data.
+- [x] Branch cleaned up, worktree back on `origin/main`.
+- [x] Final report to the user.
 
 ## Needs the user
 
 - Real Impressum, privacy policy and terms (after the lawyer).
-- `CLOUDFLARE_ACCOUNT_ID` (repo variable) and Account > Cloudflare Pages > Edit on the token `nookly-terraform-dns`. Asked via request_secret on 2026-11-19, timed out; ask again. Without it the Terraform plan and the Pages upload cannot run.
+- Feedback on the live site.
 
 ## Progress log
 
@@ -102,3 +102,4 @@ Roll out a website for Nookly on `nookly.work`, released and deployed automatica
 - 2026-11-19: #298 merged and applied. `apps/web` scaffolded (Next 16.4.5, static export, two root layouts for en/de). Nav with download split button, GitHub stars, language and theme popovers; footer; hero with the hearth and the queue demo, checked in Chrome light and dark. Lint/format/knip/jscpd wiring still to do.
 - 2026-11-19: flame swapped for the icon's artwork; downloads page as a bento grid; privacy band full width; status history logic and tests (`lib/status.ts`). Logs and hearth stones replace the pebbles. Lint, knip and jscpd cover `apps/web` (art direction rules off for the site, like mobile; new `SplitButton` primitive). Status checker script, workflow and page done; a failed browser ping falls back to the checker, never marks down. Next: legal pages, SEO, axe tests, website workflow, Terraform (Pages, CORS).
 - 2026-11-19: legal pages, sitemap, robots, social images, 404, axe tests for the popovers, `website.yml`, Terraform for Pages and CORS. PR #299 open. Blocked on the Cloudflare account ID for the apply and deploy.
+- 2026-11-19: account ID set; the workflow line passing it to Terraform had not been committed (fixed). #299 merged; apply created the Pages project, both domains and DNS, CORS updated. First deploy raced the apply (project missing), rerun succeeded. `nookly.work`, `www`, `/de`, legal, status, sitemap and OG image answer; `status-data` seeded, all three components up. Token stays hand made (Terraform managing its own token needs API Tokens Edit, an account takeover risk, and puts the value in state).
