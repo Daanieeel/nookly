@@ -44,8 +44,11 @@ export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
       }
       actions={
         <div className="ml-auto flex items-center gap-2">
-          <span className="hidden sm:inline-flex">
-            <LanguageSwitch locale={locale} page={page} />
+          <span className="flex items-center">
+            <span className="hidden sm:inline-flex">
+              <LanguageSwitch locale={locale} page={page} />
+            </span>
+            <ThemeSwitch locale={locale} />
           </span>
           <GithubStars locale={locale} initial={stars} />
           <DownloadButton
@@ -54,7 +57,6 @@ export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
             size="sm"
             className="hidden sm:inline-flex"
           />
-          <ThemeSwitch locale={locale} />
           <details className="group relative md:hidden">
             <summary
               aria-label={t.menu}
