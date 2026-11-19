@@ -21,18 +21,20 @@ function scrollTo(y: number) {
 }
 
 describe("NavShell", () => {
-  it("is narrow and transparent at the top of the page", () => {
+  it("is full width and transparent at the top of the page", () => {
     scrollTo(0);
     const el = bar();
+    expect(el.className).toContain("max-w-full");
     expect(el.className).toContain("bg-transparent");
     expect(el.className).not.toContain("bg-card");
   });
 
-  it("widens into a frosted card once the page scrolls", () => {
+  it("narrows into a frosted card once the page scrolls", () => {
     scrollTo(0);
     const el = bar();
     scrollTo(200);
     expect(el.className).toContain("max-w-5xl");
+    expect(el.className).not.toContain("max-w-full");
     expect(el.className).toContain("bg-card/80");
   });
 
