@@ -2,15 +2,16 @@ import { dictionary } from "@/content";
 import type { Locale } from "@/lib/i18n";
 import { latestRelease } from "@/lib/releases";
 import { DownloadButton } from "../download-button";
-import { QueueDemo } from "./queue-demo";
-import { Hearth } from "./hearth";
+import { HeroStage } from "./stage";
+import { Flame } from "./flame";
 
 export async function Hero({ locale }: { locale: Locale }) {
   const t = dictionary(locale).hero;
   const release = await latestRelease();
   return (
     <section className="relative overflow-hidden bg-background">
-      <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center px-4 pt-20 text-center sm:pt-28">
+      <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center px-4 pt-32 text-center sm:pt-40">
+        <Flame className="mb-8" />
         <h1 className="animate-[fade-up_0.7s_ease-out_both] font-display text-[clamp(2.6rem,7vw,4.6rem)] leading-[1.02] font-semibold text-balance">
           {t.title1}
           <br />
@@ -23,11 +24,8 @@ export async function Hero({ locale }: { locale: Locale }) {
           <DownloadButton locale={locale} release={release} />
         </div>
       </div>
-      <div className="relative mt-10">
-        <Hearth scene="hero" className="h-[640px]" />
-        <div className="absolute inset-x-0 top-[280px] z-10 px-4">
-          <QueueDemo locale={locale} />
-        </div>
+      <div className="relative z-10 mt-16 px-6 pb-24 sm:px-12 sm:pb-32 lg:px-20 xl:px-28">
+        <HeroStage locale={locale} />
       </div>
     </section>
   );

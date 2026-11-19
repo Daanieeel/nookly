@@ -75,3 +75,21 @@ export function LanguageSwitch({ locale, page }: { locale: Locale; page: Page })
     </Popover>
   );
 }
+
+/// The other language as a plain link, with its flag: the phone menu's entry, where the
+/// popover has no room.
+export function LanguageLink({ locale, page }: { locale: Locale; page: Page }) {
+  const other: Locale = locale === "de" ? "en" : "de";
+  const language = LANGUAGES[other];
+  return (
+    <a
+      href={pathFor(other, page)}
+      hrefLang={other}
+      lang={other}
+      className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent"
+    >
+      <FlagIcon code={language.flag} />
+      {language.name}
+    </a>
+  );
+}

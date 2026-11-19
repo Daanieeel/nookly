@@ -22,7 +22,7 @@ export function DevicesMock({ locale, className }: { locale: Locale; className?:
   ];
   return (
     <div aria-hidden className={cn("flex flex-col items-center gap-5 select-none", className)}>
-      <span className="flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-sm shadow-md">
+      <span className="flex items-center gap-2 rounded-full border border-border bg-background px-3.5 py-2 text-sm shadow-md">
         <IconCloudCheck size={16} className="text-positive" />
         <span className="font-mono text-xs">{s.server}</span>
       </span>
@@ -33,7 +33,7 @@ export function DevicesMock({ locale, className }: { locale: Locale; className?:
           <div
             key={name}
             className={cn(
-              "flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-2 py-4 shadow-sm",
+              "flex flex-col items-center gap-2 rounded-xl border border-border bg-background px-2 py-4 shadow-sm",
               soon && "opacity-60",
             )}
           >

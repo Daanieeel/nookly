@@ -26,6 +26,7 @@ import { TaskListMock } from "../app/task-list";
 import { TerminalMock } from "../app/terminal";
 import { DownloadButton } from "../download-button";
 import { Hearth } from "../hero/hearth";
+import { Sorting } from "./sorting";
 
 const SECTION = "mx-auto w-full max-w-6xl px-4 sm:px-6";
 
@@ -64,6 +65,7 @@ export function Intro({ locale }: { locale: Locale }) {
     <section className="bg-card py-24 sm:py-32">
       <div className={SECTION}>
         <Heading eyebrow={t.eyebrow} title={t.title} body={t.body} />
+        <Sorting locale={locale} />
       </div>
     </section>
   );
@@ -187,7 +189,7 @@ export function Agents({ locale }: { locale: Locale }) {
 export function Sync({ locale }: { locale: Locale }) {
   const t = dictionary(locale).sync;
   return (
-    <section className="bg-background py-24 sm:py-32">
+    <section className="bg-card pb-24 sm:pb-32">
       <div className={cn(SECTION, "grid items-center gap-12 md:grid-cols-2")}>
         <Heading eyebrow={t.eyebrow} title={t.title} body={t.body} />
         <DevicesMock locale={locale} className="pt-2" />
