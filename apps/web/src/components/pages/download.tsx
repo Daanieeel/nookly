@@ -93,7 +93,7 @@ export async function DownloadPage({ locale }: { locale: Locale }) {
   return (
     <SiteShell locale={locale} page="download">
       <div className="bg-background">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-12 pb-20 sm:px-6 sm:pt-16">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pt-28 pb-20 sm:px-6 sm:pt-32">
           <div className="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
             <header className="flex flex-col justify-center gap-3 py-4 lg:pr-8">
               <h1 className="font-display text-[clamp(2.4rem,6vw,3.6rem)] leading-none font-semibold">

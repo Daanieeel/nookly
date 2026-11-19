@@ -8,7 +8,7 @@ export function StatusPage({ locale }: { locale: Locale }) {
   return (
     <SiteShell locale={locale} page="status">
       <div className="bg-background">
-        <div className="mx-auto flex max-w-3xl flex-col gap-8 px-4 pt-12 pb-20 sm:px-6 sm:pt-16">
+        <div className="mx-auto flex max-w-3xl flex-col gap-8 px-4 pt-28 pb-20 sm:px-6 sm:pt-32">
           <header className="flex flex-col gap-3">
             <h1 className="font-display text-[clamp(2.4rem,6vw,3.6rem)] leading-none font-semibold">
               {t.title}

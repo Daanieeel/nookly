@@ -7,6 +7,7 @@ import { GithubStars } from "./github-stars";
 import { LanguageSwitch } from "./language-switch";
 import { ThemeSwitch } from "./theme-switch";
 import { Logo } from "./logo";
+import { NavShell } from "./nav-shell";
 
 /// The bar at the top of every page. `page` keeps the language link on the same page.
 export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
@@ -22,11 +23,13 @@ export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
   ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+    <NavShell
+      logo={
         <a href={home} aria-label="Nookly" className="shrink-0">
           <Logo />
         </a>
+      }
+      links={
         <nav aria-label={t.menu} className="hidden items-center gap-1 md:flex">
           {links.map((link) => (
             <a
@@ -38,6 +41,8 @@ export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
             </a>
           ))}
         </nav>
+      }
+      actions={
         <div className="ml-auto flex items-center gap-2">
           <span className="hidden sm:inline-flex">
             <LanguageSwitch locale={locale} page={page} />
@@ -78,7 +83,7 @@ export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
             </div>
           </details>
         </div>
-      </div>
-    </header>
+      }
+    />
   );
 }

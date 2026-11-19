@@ -13,7 +13,7 @@ export function LegalPageView({ locale, page }: { locale: Locale; page: LegalPag
   return (
     <SiteShell locale={locale} page={page}>
       <div className="bg-background">
-        <article className="mx-auto flex max-w-2xl flex-col gap-8 px-4 pt-12 pb-20 sm:px-6 sm:pt-16">
+        <article className="mx-auto flex max-w-2xl flex-col gap-8 px-4 pt-28 pb-20 sm:px-6 sm:pt-32">
           <header className="flex flex-col gap-3">
             <h1 className="font-display text-[clamp(2.2rem,5vw,3rem)] leading-none font-semibold">
               {doc.title}
