@@ -187,7 +187,7 @@ export function Agents({ locale }: { locale: Locale }) {
 export function Sync({ locale }: { locale: Locale }) {
   const t = dictionary(locale).sync;
   return (
-    <section className="bg-background py-24 sm:py-32">
+    <section className="bg-card pb-24 sm:pb-32">
       <div className={cn(SECTION, "grid items-center gap-12 md:grid-cols-2")}>
         <Heading eyebrow={t.eyebrow} title={t.title} body={t.body} />
         <DevicesMock locale={locale} className="pt-2" />
