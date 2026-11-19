@@ -86,6 +86,7 @@
     },
     "plugins": [
       "./plugins/scene-lifecycle",
+      "./plugins/bundle-script-path",
       "expo-router",
       "expo-sqlite",
       "expo-secure-store",
