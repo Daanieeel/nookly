@@ -53,7 +53,8 @@
     "dev:mobile": "bun tools/dev.ts mobile",
     "dev:server": "bun tools/dev.ts server",
     "stack": "bun tools/dev.ts server",
-    "dev:expo": "bun run --cwd apps/mobile dev"
+    "dev:expo": "bun run --cwd apps/mobile dev",
+    "dev:web": "bun run --cwd apps/web dev"
   },
   "devDependencies": {
     "@nookly/config": "workspace:*",
