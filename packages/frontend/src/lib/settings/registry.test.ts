@@ -57,6 +57,8 @@ describe("settings registry", () => {
         if (id === "notes.latexMacros" && junk === "") continue;
         // No spelling language at all is a value of its own, not garbage.
         if (id === "notes.spellcheckLanguages" && Array.isArray(junk)) continue;
+        // No server at all is a value of its own (sync off), not garbage.
+        if (id === "sync.serverUrl" && junk === "") continue;
         // A shortcut's null means unassigned, which is a value of its own.
         if (id.startsWith("shortcuts.") && junk === null) continue;
         expect(def.parse(junk)).toEqual(def.default);

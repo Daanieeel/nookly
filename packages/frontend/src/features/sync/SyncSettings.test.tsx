@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { ApiClient, type Session } from "@nookly/shared/api";
+import { ApiClient, type Session, PRODUCTION_SERVER } from "@nookly/shared/api";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SettingsDialog } from "#/features/settings/SettingsDialog.tsx";
 import { settings } from "#/lib/settings/settings.ts";
@@ -22,6 +22,13 @@ async function openSync() {
   const rendered = renderWithProviders(<SettingsDialog />);
   act(() => useNavStore.getState().setSettingsOpen(true));
   await rendered.user.click(await screen.findByRole("button", { name: "Account" }));
+  return rendered;
+}
+
+async function openGeneral() {
+  const rendered = renderWithProviders(<SettingsDialog />);
+  act(() => useNavStore.getState().setSettingsOpen(true));
+  await rendered.user.click(await screen.findByRole("button", { name: "General" }));
   return rendered;
 }
 
@@ -142,12 +149,41 @@ describe("the Sync settings", () => {
     act(() => useAccountDialog.getState().close());
   });
 
+  it("keeps the server address in General, set to Nookly's own until changed", async () => {
+    mockCommand("sync_query", []);
+    const account = await openSync();
+    expect(screen.queryByRole("textbox", { name: "Server" })).not.toBeInTheDocument();
+    await account.user.click(screen.getByRole("button", { name: "General" }));
+    expect(screen.getByRole("textbox", { name: "Server" })).toHaveValue(PRODUCTION_SERVER);
+    expect(settings.get("sync.serverUrl")).toBe(PRODUCTION_SERVER);
+  });
+
+  it("changes the server address from General", async () => {
+    mockCommand("sync_query", []);
+    const { user } = await openGeneral();
+    const field = screen.getByRole("textbox", { name: "Server" });
+    await user.clear(field);
+    await user.type(field, "https://sync.example.com{Enter}");
+    expect(settings.get("sync.serverUrl")).toBe("https://sync.example.com");
+    act(() => settings.reset("sync.serverUrl"));
+  });
+
   it("refuses a server address that isn't one", async () => {
     mockCommand("sync_query", []);
-    const { user } = await openSync();
-    await user.type(screen.getByRole("textbox", { name: "Server" }), "not a url{Enter}");
+    const { user } = await openGeneral();
+    const field = screen.getByRole("textbox", { name: "Server" });
+    await user.clear(field);
+    await user.type(field, "not a url{Enter}");
     expect(screen.getByText("Enter an address like https://sync.example.com")).toBeInTheDocument();
-    expect(settings.get("sync.serverUrl")).toBe("");
+    expect(settings.get("sync.serverUrl")).toBe(PRODUCTION_SERVER);
+  });
+
+  it("locks the server address while signed in, until signing out", async () => {
+    signedIn();
+    await openGeneral();
+    const field = screen.getByRole("textbox", { name: "Server" });
+    expect(field).toBeDisabled();
+    expect(field).toHaveAttribute("title", "Sign out to change the server");
   });
 
   it("shows the account, its status and its devices once signed in", async () => {
@@ -175,7 +211,6 @@ describe("the Sync settings", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/Synced/);
     expect(await screen.findByText("iPhone")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign Out Device" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Server" })).toBeDisabled();
     await expectNoA11yViolations();
   });
 

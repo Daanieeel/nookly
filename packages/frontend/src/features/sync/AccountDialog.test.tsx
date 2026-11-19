@@ -47,12 +47,12 @@ describe("the account dialog", () => {
   it("signs in on the server it shows, then closes", async () => {
     const signIn = vi.spyOn(syncRuntime, "signIn").mockResolvedValue(ADA);
     const { user } = open();
-    expect(screen.getByText("http://localhost:3000")).toBeInTheDocument();
+    expect(screen.getByText("https://sync.nookly.work")).toBeInTheDocument();
     await user.type(screen.getByLabelText(/Username or email/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Sign In" }));
-    expect(signIn).toHaveBeenCalledWith("http://localhost:3000", "ada", "a long password", {});
-    expect(settings.get("sync.serverUrl")).toBe("http://localhost:3000");
+    expect(signIn).toHaveBeenCalledWith("https://sync.nookly.work", "ada", "a long password", {});
+    expect(settings.get("sync.serverUrl")).toBe("https://sync.nookly.work");
     expect(useAccountDialog.getState().open).toBe(false);
   });
 
@@ -68,7 +68,7 @@ describe("the account dialog", () => {
     await expectNoA11yViolations();
     await user.click(screen.getByRole("button", { name: "Keep out of the account" }));
     await user.click(screen.getByRole("button", { name: "Sign In" }));
-    expect(signIn).toHaveBeenCalledWith("http://localhost:3000", "ada", "a long password", {
+    expect(signIn).toHaveBeenCalledWith("https://sync.nookly.work", "ada", "a long password", {
       localData: "setAside",
     });
   });
@@ -97,7 +97,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(signUp).toHaveBeenCalledWith(
-      "http://localhost:3000",
+      "https://sync.nookly.work",
       {
         username: "ada",
         email: undefined,
@@ -154,6 +154,52 @@ describe("the account dialog", () => {
     await user.hover(screen.getByRole("button", { name: "Sign in with Google" }).parentElement!);
     expect(await screen.findAllByText("Signing in with Google is coming soon")).not.toHaveLength(0);
     await expectNoA11yViolations();
+  });
+
+  it("scrolls inside the window instead of running off it, in every mode", async () => {
+    const { user } = open();
+    const fits = () => screen.getByRole("dialog");
+    expect(fits()).toHaveClass("overflow-y-auto", "max-h-[calc(100dvh-2rem)]");
+    await user.click(screen.getByRole("radio", { name: "I'm new here" }));
+    expect(fits()).toHaveClass("overflow-y-auto", "max-h-[calc(100dvh-2rem)]");
+  });
+
+  it("shows the other accounts as logos on the usual secondary button, without names", () => {
+    open("signUp");
+    for (const provider of ["Google", "Apple", "GitHub", "Notion"]) {
+      const button = screen.getByRole("button", { name: `Sign up with ${provider}` });
+      expect(button).toHaveTextContent("");
+      expect(button.querySelector("svg")).not.toBeNull();
+      expect(button).toHaveClass("bg-accent", "border-input");
+      expect(button).not.toHaveAttribute("data-slot", "brand-button");
+    }
+    // Google's mark keeps its own colours; the others are single colour marks that follow the text.
+    const google = screen.getByRole("button", { name: "Sign up with Google" });
+    expect(google.querySelectorAll("path[fill^='#']")).toHaveLength(4);
+  });
+
+  it("draws GitHub as its round mark, in the text colour", () => {
+    open("signUp");
+    const mark = screen
+      .getByRole("button", { name: "Sign up with GitHub" })
+      .querySelector("svg[data-mark='github']");
+    expect(mark).not.toBeNull();
+    expect(mark).toHaveClass("fill-current");
+  });
+
+  it("draws Notion as a white page with black lines, on either theme", () => {
+    open("signUp");
+    const mark = screen
+      .getByRole("button", { name: "Sign up with Notion" })
+      .querySelector("svg[data-mark='notion']");
+    expect(mark?.querySelector("rect")).toHaveAttribute("fill", "#FFFFFF");
+    expect(mark?.querySelector("path")).toHaveAttribute("fill", "#000000");
+  });
+
+  it("offers the other accounts in one row", () => {
+    open("signUp");
+    const row = screen.getByRole("button", { name: "Sign up with Google" }).closest(".grid");
+    expect(row).toHaveClass("grid-cols-4");
   });
 
   it("invites someone new to create an account, free during the beta", async () => {
