@@ -4,10 +4,6 @@ import { useDeviceWord } from "../ui/device-word.ts";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import {
   type Icon,
-  IconBrandAppleFilled,
-  IconBrandGithubFilled,
-  IconBrandGoogleFilled,
-  IconBrandNotion,
   IconCloudOff,
   IconDevices,
   IconNotebook,
@@ -30,6 +26,7 @@ import { FormSection } from "../ui/kit/Form.tsx";
 import { useSemantic } from "../ui/kit/scheme.ts";
 import { RADIUS, SPACE } from "../ui/tokens.ts";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
+import { type Provider, ProviderMark } from "../ui/ProviderMark.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { RouteSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -325,12 +322,7 @@ function Page({
 }
 
 /// Other accounts to sign in with, shown before they work so people know they are coming.
-const PROVIDERS: { name: string; icon: Icon }[] = [
-  { name: "Google", icon: IconBrandGoogleFilled },
-  { name: "Apple", icon: IconBrandAppleFilled },
-  { name: "GitHub", icon: IconBrandGithubFilled },
-  { name: "Notion", icon: IconBrandNotion },
-];
+const PROVIDERS: Provider[] = ["Google", "Apple", "GitHub", "Notion"];
 
 /// Signing in with another account: there, but not working yet, and said so under them.
 function OtherAccounts({ verb }: { verb: "in" | "up" }) {
@@ -347,7 +339,7 @@ function OtherAccounts({ verb }: { verb: "in" | "up" }) {
         <View style={{ flex: 1, height: 1, backgroundColor: separator }} />
       </View>
       <View className="flex-row flex-wrap" style={{ gap: SPACE.sm }}>
-        {PROVIDERS.map(({ name, icon: ProviderIcon }) => (
+        {PROVIDERS.map((name) => (
           <View
             key={name}
             accessible
@@ -369,7 +361,7 @@ function OtherAccounts({ verb }: { verb: "in" | "up" }) {
               opacity: 0.55,
             }}
           >
-            <ProviderIcon size={20} color={theme.colors.foreground} />
+            <ProviderMark provider={name} color={theme.colors.foreground} />
             <Text className="font-medium">{name}</Text>
           </View>
         ))}
