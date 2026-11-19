@@ -278,8 +278,11 @@ export class ApiClient {
   async signUp(input: SignUp, device: DeviceInfo): Promise<User> {
     const username = input.username.trim();
     const email = input.email?.trim();
+    const betaKey = input.betaKey?.trim();
     const fields = { username, name: username, password: input.password, callbackURL: "/verified" };
-    const body = email ? { ...fields, email } : fields;
+    // Only what was given goes in the body.
+    const given = Object.entries({ email, betaKey }).filter(([, value]) => value);
+    const body = { ...fields, ...Object.fromEntries(given) };
     const result = await this.call("POST", "/v1/auth/sign-up/email", authResponseSchema, body, {
       authed: false,
       headers: deviceHeaders(device),

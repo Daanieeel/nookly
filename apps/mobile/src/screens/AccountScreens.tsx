@@ -1,4 +1,11 @@
-import { ApiClient, emailSchema, signInSchema, usernameSchema } from "@nookly/shared/api";
+import {
+  ApiClient,
+  BETA_KEY_MISSING,
+  asksForBetaKey,
+  emailSchema,
+  signInSchema,
+  usernameSchema,
+} from "@nookly/shared/api";
 import { useIsTablet } from "../ui/pane.tsx";
 import { useDeviceWord } from "../ui/device-word.ts";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
@@ -46,6 +53,7 @@ const signUpForm = z.object({
   username: usernameSchema,
   email: z.union([emailSchema, z.literal("")]),
   password: z.string().min(10, "Use at least 10 characters").max(256),
+  betaKey: z.string().max(256),
 });
 const resetForm = z.object({ email: z.email("Enter the email address of your account") });
 
@@ -508,20 +516,25 @@ export function SignUpScreen() {
   const local = useLocalData();
   const done = useAfterSignIn();
   const signUp = useMutation({
-    mutationFn: (value: z.infer<typeof signUpForm>) =>
-      sync.signUp(
-        server.commit(),
+    mutationFn: (value: z.infer<typeof signUpForm>) => {
+      const url = server.commit();
+      const betaKey = value.betaKey.trim() || undefined;
+      if (!betaKey && asksForBetaKey(url)) throw new Error(BETA_KEY_MISSING);
+      return sync.signUp(
+        url,
         {
           username: value.username.trim(),
           email: value.email.trim() || undefined,
           password: value.password,
+          betaKey,
         },
         local.options(),
-      ),
+      );
+    },
     onSuccess: done,
   });
   const form = useForm({
-    defaultValues: { username: "", email: "", password: "" },
+    defaultValues: { username: "", email: "", password: "", betaKey: "" },
     validators: { onChange: signUpForm, onSubmit: signUpForm },
     onSubmit: ({ value }) => {
       if (local.answered()) signUp.mutate(value);
@@ -576,6 +589,23 @@ export function SignUpScreen() {
               secureTextEntry
               textContentType="newPassword"
               autoComplete="password-new"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+        <form.Field name="betaKey">
+          {(field) => (
+            <Field
+              label="Beta key"
+              required={asksForBetaKey(server.server)}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="oneTimeCode"
+              placeholder="Needed while Nookly is in its closed beta"
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}

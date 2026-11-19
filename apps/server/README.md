@@ -21,7 +21,7 @@ The server listens on `http://localhost:3000` (`PORT` in `.env`), prints emails 
 
 ## Configure
 
-Environment variables, listed with their defaults in [`.env.example`](../../.env.example). Required: `DATABASE_URL` (built from the Postgres values when unset), `AUTH_SECRET` (32 characters or more). In production also set `PUBLIC_URL`, `MAILER=smtp` with `SMTP_URL`, `MAIL_FROM` and the `S3_*` values. OAuth providers turn on when their client id and secret are set.
+Environment variables, listed with their defaults in [`.env.example`](../../.env.example). Required: `DATABASE_URL` (built from the Postgres values when unset), `AUTH_SECRET` (32 characters or more). In production also set `PUBLIC_URL`, `MAILER=smtp` with `SMTP_URL`, `MAIL_FROM` and the `S3_*` values. OAuth providers turn on when their client id and secret are set. `BETA_KEY` closes sign up to those who give it; leave it empty to let anyone in (production sets it).
 
 ## Deploy
 

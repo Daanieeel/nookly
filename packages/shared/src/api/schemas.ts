@@ -34,6 +34,8 @@ export const signUpSchema = z.object({
     .optional()
     .transform((e) => (e ? e : undefined)),
   password: passwordSchema,
+  /// The closed beta's key, for servers that ask for one.
+  betaKey: z.string().max(256).optional(),
 });
 export type SignUp = z.input<typeof signUpSchema>;
 

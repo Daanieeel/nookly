@@ -9,6 +9,12 @@ const envSchema = z.object({
   /// Signs sessions (better-auth). At least 32 random bytes: `openssl rand -base64 48`.
   /// `JWT_SECRET`, its name before better-auth, still works.
   AUTH_SECRET: z.string().min(32),
+  /// The closed beta's key. When set, sign up needs it (`betaKey` in the body); when empty,
+  /// anyone may sign up. Compared in constant time and never logged or stored.
+  BETA_KEY: z
+    .string()
+    .optional()
+    .transform((key) => key?.trim() || undefined),
   /// Where people reach the server, for links in emails (verify, reset, invite).
   PUBLIC_URL: z.url().default("http://localhost:3000"),
   /// Origins allowed to call the API from a browser context; the desktop app's are the defaults.

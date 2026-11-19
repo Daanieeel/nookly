@@ -1,3 +1,4 @@
+import { PRODUCTION_SERVER } from "@nookly/shared/api";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
 import { SignInScreen, SignUpScreen, WelcomeScreen } from "./AccountScreens.tsx";
@@ -113,6 +114,7 @@ describe("creating an account", () => {
   it("needs a username and a long enough password, the email being optional", async () => {
     const data = testData();
     const signUp = jest.spyOn(data.sync, "signUp").mockResolvedValue(ADA);
+    data.serverUrl.set(PRODUCTION_SERVER);
     const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
     await fireEvent.changeText(await screen.findByLabelText("Username"), "ad a");
     await fireEvent.changeText(screen.getByLabelText("Password"), "short");
@@ -123,10 +125,15 @@ describe("creating an account", () => {
     await fireEvent.changeText(screen.getByLabelText("Username"), "ada");
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
+    // Nookly's server is a closed beta: no key, no account.
+    expect(await screen.findByText("Enter the beta key to create an account.")).toBeTruthy();
+    expect(signUp).not.toHaveBeenCalled();
+    await fireEvent.changeText(screen.getByLabelText("Beta key"), " the-key ");
+    await fireEvent.press(screen.getByRole("button", { name: "Couldn't create it" }));
     await waitFor(() =>
       expect(signUp).toHaveBeenCalledWith(
-        expect.stringMatching(/^http/),
-        { username: "ada", email: undefined, password: "a long password" },
+        PRODUCTION_SERVER,
+        { username: "ada", email: undefined, password: "a long password", betaKey: "the-key" },
         {},
       ),
     );

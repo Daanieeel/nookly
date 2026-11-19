@@ -18,6 +18,7 @@ All notable changes to Nookly are listed here.
 
 ### Changed
 
+- Creating an account on Nookly's server now asks for the beta key while Nookly is in its closed beta.
 - The server you sign in to now starts as Nookly's own and can be changed under Settings, General. Sign out first to switch to another server.
 - The sign in and create account windows are shorter and tidier, and scroll when your window is small instead of running off the screen.
 - Dark mode now sits on a deep charcoal instead of pure black.
