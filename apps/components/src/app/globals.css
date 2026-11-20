@@ -1,0 +1,20 @@
+/* The desktop app's design system as it is: tokens, theme, base layer, fonts. */
+@import "@nookly/ui/styles.css";
+
+@source "../";
+/* The desktop's own component classes that the gallery's app components share. */
+@source "../../../../packages/frontend/src";
+
+@layer base {
+  /* The app is one fixed window; the gallery is a scrolling page. */
+  html,
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

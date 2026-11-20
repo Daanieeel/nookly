@@ -12,7 +12,8 @@
     "./lib/*": "./src/lib/*.ts",
     "./styles": "./src/styles.ts",
     "./vite": "./vite.ts",
-    "./classes": "./src/classes.ts"
+    "./classes": "./src/classes.ts",
+    "./components/*": "./src/components/*.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",

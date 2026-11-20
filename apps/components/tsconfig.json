@@ -1,0 +1,19 @@
+{
+  "extends": "@nookly/config/typescript/react.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "jsx": "preserve",
+    "allowJs": false,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "src", "next.config.ts"],
+  "exclude": ["node_modules", ".next", "out"]
+}
