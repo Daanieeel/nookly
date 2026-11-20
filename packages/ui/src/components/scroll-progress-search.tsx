@@ -404,7 +404,7 @@ const ScrollProgressSearch = ({
                               run.match ? (
                                 <mark
                                   key={at}
-                                  className="rounded-[3px] bg-primary/25 text-popover-foreground"
+                                  className="rounded-xs bg-primary/25 text-popover-foreground"
                                 >
                                   {run.text}
                                 </mark>

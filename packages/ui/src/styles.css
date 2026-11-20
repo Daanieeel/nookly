@@ -54,6 +54,9 @@
     0 0 0 1px rgba(0, 60, 140, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
     inset 0 -1px 2px 0 rgba(0, 20, 80, 0.2), 0 1px 2px 0 rgba(0, 80, 200, 0.3),
     0 4px 10px -3px rgba(0, 80, 200, 0.35);
+  /* How much of its own colour a solid button's ring keeps (the rest is black): faint on a
+     light page, where a dark ring looks like an outline. */
+  --solid-edge: 90%;
   --scrim: rgba(10, 10, 10, 0.28);
 }
 
@@ -73,6 +76,7 @@
       0 0 0 1px rgba(0, 40, 110, 0.9), inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
       inset 0 -1px 2px 0 rgba(0, 20, 80, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.5),
       0 4px 12px -3px rgba(0, 112, 243, 0.45);
+    --solid-edge: 70%;
     --scrim: rgba(0, 0, 0, 0.6);
   }
 }
@@ -98,6 +102,10 @@
   --shadow-popover: var(--elev-popover);
   --shadow-dialog: var(--elev-dialog);
   --shadow-primary: var(--elev-primary);
+  /* A solid button: a ring of its own fill, darkened, over the control shadow. The variant
+     sets `--solid`, so this is written out here and resolved on the button itself. */
+  --shadow-solid:
+    0 0 0 1px color-mix(in oklab, var(--solid) var(--solid-edge), black), var(--elev-control);
   --color-scrim: var(--scrim);
 }
 

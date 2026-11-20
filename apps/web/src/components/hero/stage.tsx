@@ -740,7 +740,7 @@ function Drawer({
 
 function Battery() {
   return (
-    <span className="h-2.5 w-5 rounded-[3px] border border-foreground/60 p-px">
+    <span className="h-2.5 w-5 rounded-xs border border-foreground/60 p-px">
       <span className="block h-full w-3/4 rounded-[1px] bg-foreground" />
     </span>
   );

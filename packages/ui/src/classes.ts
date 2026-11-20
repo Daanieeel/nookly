@@ -75,14 +75,14 @@ export const buttonVariants = cva(
         default:
           "bg-primary bg-linear-to-b from-white/15 to-white/0 text-primary-foreground shadow-primary hover:from-white/25",
         destructive:
-          "bg-destructive/10 text-destructive border border-destructive/25 shadow-control hover:bg-destructive/20",
+          "[--solid:var(--color-solid-destructive)] text-white bg-(--solid) shadow-solid hover:brightness-95 dark:hover:brightness-110 [&_svg]:text-white [&_.text-caution]:text-white [&_.text-destructive]:text-white [&_.text-positive]:text-white",
         warning:
-          "bg-warning/10 text-warning border border-warning/25 shadow-control hover:bg-warning/20",
+          "[--solid:var(--color-solid-warning)] text-white bg-(--solid) shadow-solid hover:brightness-95 dark:hover:brightness-110 [&_svg]:text-white [&_.text-caution]:text-white [&_.text-destructive]:text-white [&_.text-positive]:text-white",
         caution:
-          "bg-caution/10 text-caution border border-caution/25 shadow-control hover:bg-caution/20",
+          "[--solid:var(--color-solid-caution)] text-white bg-(--solid) shadow-solid hover:brightness-95 dark:hover:brightness-110 [&_svg]:text-white [&_.text-caution]:text-white [&_.text-destructive]:text-white [&_.text-positive]:text-white",
         outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
         positive:
-          "bg-positive/10 border border-positive/25 text-positive shadow-control hover:bg-positive/20",
+          "[--solid:var(--color-solid-positive)] text-white bg-(--solid) shadow-solid hover:brightness-95 dark:hover:brightness-110 [&_svg]:text-white [&_.text-caution]:text-white [&_.text-destructive]:text-white [&_.text-positive]:text-white",
         neutral:
           "bg-muted-foreground/20 border border-muted-foreground text-white hover:bg-muted-foreground/40",
         secondary:

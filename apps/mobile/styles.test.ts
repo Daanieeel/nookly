@@ -51,7 +51,7 @@ describe("the phone's styles", () => {
     expect(rules("bg-primary")).toContain('"var","primary"');
     const dark = '[["=","prefers-color-scheme","dark"]]';
     expect(sheet).toContain(`["background",[["#0e0e0e",${dark}],["#fafafa"]]]`);
-    expect(sheet).toContain(`["destructive",[["#ff4d8d",${dark}],["#d6336c"]]]`);
+    expect(sheet).toContain(`["destructive",[["#ff4040",${dark}],["#dc2626"]]]`);
   });
 
   it("set Inter by weight", () => {

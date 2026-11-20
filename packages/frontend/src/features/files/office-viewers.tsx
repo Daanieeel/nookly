@@ -495,7 +495,6 @@ function InstallLibreOffice() {
           icon={icon}
           label={running === method ? progressLabel(progress) : label}
           errorLabel="Couldn't install, try again"
-          pendingClassName={variant === "caution" ? "text-caution" : undefined}
         />
       </Button>
     );

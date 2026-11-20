@@ -24,7 +24,7 @@
   /* Hover and selected rows, and the track things sit in. */
   --accent: #f1f1f1;
   --accent-foreground: #0a0a0a;
-  --destructive: #d6336c;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --warning: #c2410c;
   --warning-foreground: #ffffff;
@@ -37,6 +37,13 @@
   /* Saturday and Sunday on the Sessions calendar: a step off --card, readable in
      both themes (--muted equals --card in dark mode). */
   --weekend: #f6f6f6;
+
+  /* What the solid buttons (positive, caution, warning, destructive) are filled with: deeper
+     than the text colours of the same names, so a white label reads on them. */
+  --solid-positive: #00873d;
+  --solid-caution: #b87800;
+  --solid-warning: #c2410c;
+  --solid-destructive: #dc2626;
 
   --accent-blue: #0070f3;
   --accent-green: #00873d;
@@ -75,7 +82,7 @@
     --muted-foreground: #a0a0a0;
     --accent: #2c2c2c;
     --accent-foreground: #eeeeee;
-    --destructive: #ff4d8d;
+    --destructive: #ff4040;
     --destructive-foreground: #ffffff;
     --warning: #fb923c;
     --warning-foreground: #0a0a0a;
@@ -84,6 +91,11 @@
     --ring: #0070f3;
     --raised: #282828;
     --weekend: #141414;
+
+    --solid-positive: #0f9d4a;
+    --solid-caution: #c28500;
+    --solid-warning: #ea580c;
+    --solid-destructive: #dc2626;
 
     --accent-blue: #47a8ff;
     --accent-green: #00cb50;
@@ -125,6 +137,10 @@
   --color-ring: var(--ring);
   --color-raised: var(--raised);
   --color-weekend: var(--weekend);
+  --color-solid-positive: var(--solid-positive);
+  --color-solid-caution: var(--solid-caution);
+  --color-solid-warning: var(--solid-warning);
+  --color-solid-destructive: var(--solid-destructive);
   --color-accent-blue: var(--accent-blue);
   --color-accent-green: var(--accent-green);
   --color-accent-pink: var(--accent-pink);
