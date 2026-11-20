@@ -5,10 +5,10 @@ import { cva } from "class-variance-authority";
 /// through NativeWind. Changing one changes both, and counts as changing the primitive.
 
 export const INPUT_CLASSES =
-  "flex h-8 w-full min-w-0 rounded-md border border-input bg-accent px-3 py-1 text-sm shadow-xs transition-colors outline-none placeholder:text-muted-foreground hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
+  "flex h-8 w-full min-w-0 rounded-md border border-input bg-raised px-3 py-1 text-ui shadow-control transition-colors outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
 export const TEXTAREA_CLASSES =
-  "flex w-full min-w-0 resize-none rounded-md border border-input bg-accent px-3 py-2 text-sm shadow-xs transition-colors outline-none placeholder:text-muted-foreground hover:bg-input focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
+  "flex w-full min-w-0 resize-none rounded-md border border-input bg-raised px-3 py-2 text-ui shadow-control transition-colors outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
 export const LABEL_CLASSES =
   "flex items-center gap-2 text-sm font-medium leading-none select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50";
@@ -22,7 +22,12 @@ export const SEPARATOR_CLASSES =
 export const SKELETON_CLASSES = "animate-pulse rounded-md bg-foreground/10";
 
 export const CARD_CLASSES =
-  "flex flex-col gap-6 rounded-xl border border-input bg-accent text-accent-foreground";
+  "flex flex-col gap-6 rounded-xl border bg-card text-card-foreground shadow-card";
+
+/// A tray: a soft frame around one raised thing (a search field, a banner, a highlighted
+/// block), like a bezel. Its padding is 4px, so what sits inside takes a radius 4px smaller
+/// (`rounded-xl` inside, `rounded-2xl` here keeps the curves concentric).
+export const TRAY_CLASSES = "rounded-2xl border bg-muted p-1";
 
 export const CARD_TITLE_CLASSES = "text-lg leading-none font-semibold";
 
@@ -63,22 +68,27 @@ export const sidebarMenuButtonVariants = cva(
 );
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-ui font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default:
+          "bg-primary bg-linear-to-b from-white/15 to-white/0 text-primary-foreground shadow-primary hover:from-white/25",
         destructive:
-          "bg-destructive/10 text-destructive border border-destructive/50 hover:bg-destructive/30",
-        warning: "bg-warning/10 text-warning border border-warning/50 hover:bg-warning/30",
-        caution: "bg-caution/10 text-caution border border-caution/50 hover:bg-caution/30",
+          "bg-destructive/10 text-destructive border border-destructive/25 shadow-control hover:bg-destructive/20",
+        warning:
+          "bg-warning/10 text-warning border border-warning/25 shadow-control hover:bg-warning/20",
+        caution:
+          "bg-caution/10 text-caution border border-caution/25 shadow-control hover:bg-caution/20",
         outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
-        positive: "bg-positive/10 border border-positive text-positive hover:bg-positive/30",
+        positive:
+          "bg-positive/10 border border-positive/25 text-positive shadow-control hover:bg-positive/20",
         neutral:
           "bg-muted-foreground/20 border border-muted-foreground text-white hover:bg-muted-foreground/40",
-        secondary: "border border-input bg-accent hover:bg-accent/80 hover:text-accent-foreground",
-        ghost: "hover:bg-black/5 hover:text-accent-foreground",
-        muted: "text-muted-foreground/60 hover:bg-black/5 hover:text-muted-foreground",
+        secondary:
+          "border border-input bg-raised shadow-control hover:bg-accent hover:text-accent-foreground",
+        ghost: "hover:bg-foreground/6 hover:text-accent-foreground",
+        muted: "text-muted-foreground/60 hover:bg-foreground/6 hover:text-muted-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         linkMuted: "text-muted-foreground underline-offset-4 hover:text-foreground hover:underline",
       },
@@ -103,14 +113,14 @@ export const badgeVariants = cva(
     variants: {
       variant: {
         default: "border-transparent bg-primary text-primary-foreground",
-        primary: "bg-primary/10 border border-primary/50 text-primary",
+        primary: "bg-primary/10 border border-primary/25 text-primary",
         secondary: "border-transparent bg-accent text-accent-foreground",
-        outline: "border-foreground/50 text-foreground",
+        outline: "border-foreground/30 text-foreground",
         ghost: "border-transparent bg-transparent text-foreground",
         neutral: "border-foreground/15 bg-foreground/10 text-foreground",
-        positive: "bg-positive/10 border border-positive/50 text-positive",
-        warning: "bg-warning/10 border border-warning/50 text-warning",
-        destructive: "bg-destructive/10 border border-destructive/50 text-destructive",
+        positive: "bg-positive/10 border border-positive/25 text-positive",
+        warning: "bg-warning/10 border border-warning/25 text-warning",
+        destructive: "bg-destructive/10 border border-destructive/25 text-destructive",
       },
       size: {
         sm: "px-1 py-0.5 text-[11px]",

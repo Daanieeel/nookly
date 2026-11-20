@@ -652,8 +652,8 @@
     border-right: 4px solid color-mix(in oklab, var(--foreground) 32%, transparent);
   }
   .tiptap-content th {
-    /* `--muted` equals `--background` in light mode (both #f2f2f2) — the header row would be
-       invisible there. `--accent` reliably differs from `--background` in both themes (same
+    /* `--muted` is almost `--background` in light mode (#f4f4f4 on #fafafa), so the header row
+       would barely show there. `--accent` reliably differs from `--background` in both themes (same
        token the code block header uses for the same reason). */
     background: var(--accent);
     font-weight: 700;

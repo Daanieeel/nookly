@@ -14,11 +14,11 @@
    with the app's theme on purpose. Not the app theme itself: nothing outside
    the file viewer should ever toggle these. Values mirror `theme.css`. */
 .viewer-light {
-  --background: #f2f2f2;
+  --background: #fafafa;
   --foreground: #0a0a0a;
-  --muted: #f2f2f2;
+  --muted: #f4f4f4;
   --muted-foreground: #666666;
-  --border: #e2e2e2;
+  --border: rgba(0, 0, 0, 0.09);
   --accent-blue: #0070f3;
   --accent-green: #00873d;
   --accent-pink: #d6336c;
@@ -26,15 +26,72 @@
 }
 
 .viewer-dark {
-  --background: #111111;
+  --background: #0e0e0e;
   --foreground: #eeeeee;
-  --muted: #1a1a1a;
+  --muted: #161616;
   --muted-foreground: #a0a0a0;
-  --border: #2a2a2a;
+  --border: rgba(255, 255, 255, 0.09);
   --accent-blue: #47a8ff;
   --accent-green: #00cb50;
   --accent-pink: #ff4d8d;
   --accent-purple: #c473fc;
+}
+
+/* Elevation: one stack of shadows per layer, written once per theme. Light themes cast
+   soft shadows; dark ones can't, so they lean on a lit top edge (the inset highlight)
+   and a deeper drop shadow. Controls sit lowest, then cards, popovers and dialogs. */
+:root {
+  --elev-control: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --elev-card: 0 1px 2px 0 rgba(0, 0, 0, 0.04), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
+  --elev-popover:
+    0 0 0 1px var(--border), 0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 8px 20px -4px rgba(0, 0, 0, 0.12), 0 20px 40px -12px rgba(0, 0, 0, 0.1);
+  --elev-dialog:
+    0 0 0 1px var(--border), 0 4px 8px -2px rgba(0, 0, 0, 0.06),
+    0 16px 32px -8px rgba(0, 0, 0, 0.14), 0 40px 80px -20px rgba(0, 0, 0, 0.2);
+  /* The main button: a darker ring of its own blue, a lit top, a shaded base, and a blue glow. */
+  --elev-primary:
+    0 0 0 1px rgba(0, 60, 140, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 2px 0 rgba(0, 20, 80, 0.2), 0 1px 2px 0 rgba(0, 80, 200, 0.3),
+    0 4px 10px -3px rgba(0, 80, 200, 0.35);
+  --scrim: rgba(10, 10, 10, 0.28);
+}
+
+:root {
+  @variant dark {
+    --elev-control: inset 0 1px 0 0 rgba(255, 255, 255, 0.09), 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+    --elev-card:
+      0 0 0 1px rgba(255, 255, 255, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+      0 6px 14px -4px rgba(0, 0, 0, 0.6);
+    --elev-popover:
+      0 0 0 1px var(--border), inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+      0 8px 20px -4px rgba(0, 0, 0, 0.55), 0 20px 44px -12px rgba(0, 0, 0, 0.5);
+    --elev-dialog:
+      0 0 0 1px var(--border), inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+      0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 40px 90px -20px rgba(0, 0, 0, 0.6);
+    --elev-primary:
+      0 0 0 1px rgba(0, 40, 110, 0.9), inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+      inset 0 -1px 2px 0 rgba(0, 20, 80, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.5),
+      0 4px 12px -3px rgba(0, 112, 243, 0.45);
+    --scrim: rgba(0, 0, 0, 0.6);
+  }
+}
+
+@theme inline {
+  /* Tailwind's own scale follows the elevations too, so every `shadow-sm` or `shadow-lg`
+     already in the app is lit and layered the same way in both themes. */
+  --shadow-xs: var(--elev-control);
+  --shadow-sm: var(--elev-control);
+  --shadow-md: var(--elev-card);
+  --shadow-lg: var(--elev-popover);
+  --shadow-xl: var(--elev-dialog);
+  --shadow-2xl: var(--elev-dialog);
+  --shadow-control: var(--elev-control);
+  --shadow-card: var(--elev-card);
+  --shadow-popover: var(--elev-popover);
+  --shadow-dialog: var(--elev-dialog);
+  --shadow-primary: var(--elev-primary);
+  --color-scrim: var(--scrim);
 }
 
 @theme inline {

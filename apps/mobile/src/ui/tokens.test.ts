@@ -1,11 +1,21 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PlatformColor } from "react-native";
-import { CHARCOAL, SEMANTIC, TINT, TYPE, semantic, withAlpha } from "./tokens.ts";
+import { CHARCOAL, PRIMARY_GLOSS, SEMANTIC, TINT, TYPE, semantic, withAlpha } from "./tokens.ts";
 
 const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/;
 
 describe("design tokens", () => {
+  it("give the main button the desktop's depth: a ring, a lit top edge and a glow", () => {
+    const shadows = PRIMARY_GLOSS.boxShadow;
+    expect(shadows.some((s) => !s.inset && s.spreadDistance === 1 && s.blurRadius === 0)).toBe(
+      true,
+    );
+    expect(shadows.some((s) => s.inset)).toBe(true);
+    expect(shadows.some((s) => !s.inset && s.blurRadius > 0)).toBe(true);
+    expect(PRIMARY_GLOSS.experimental_backgroundImage).toContain("linear-gradient");
+  });
+
   it("define every semantic colour for light and dark", () => {
     for (const color of Object.values(SEMANTIC)) {
       expect(color.light).toMatch(HEX);

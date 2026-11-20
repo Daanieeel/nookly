@@ -6,7 +6,16 @@ import { ActivityIndicator, type PressableProps, StyleSheet, View } from "react-
 import { PointerStyle } from "../../modules/nookly-window/src/PointerStyle.tsx";
 import { Label } from "./kit/Label.tsx";
 import { useScheme } from "./kit/scheme.ts";
-import { CORNER, RADIUS, SPACE, TINT, TINT_FILL, semanticHex, withAlpha } from "./tokens.ts";
+import {
+  CORNER,
+  PRIMARY_GLOSS,
+  RADIUS,
+  SPACE,
+  TINT,
+  TINT_FILL,
+  semanticHex,
+  withAlpha,
+} from "./tokens.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
 import { AnimatedPressable, usePressScale } from "./press.ts";
 import { useIsTablet } from "./pane.tsx";
@@ -161,6 +170,7 @@ export function Button({
           borderColor: look.border,
           opacity: disabled ? 0.4 : 1,
         },
+        variant === "default" && PRIMARY_GLOSS,
         press.style,
       ]}
       className={className}

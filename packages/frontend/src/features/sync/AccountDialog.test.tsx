@@ -217,7 +217,7 @@ describe("the account dialog", () => {
       const button = screen.getByRole("button", { name: `Sign up with ${provider}` });
       expect(button).toHaveTextContent("");
       expect(button.querySelector("svg")).not.toBeNull();
-      expect(button).toHaveClass("bg-accent", "border-input");
+      expect(button).toHaveClass("bg-raised", "border-input");
       expect(button).not.toHaveAttribute("data-slot", "brand-button");
     }
     // Google's mark keeps its own colours; the others are single colour marks that follow the text.

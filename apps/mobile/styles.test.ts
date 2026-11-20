@@ -50,7 +50,7 @@ describe("the phone's styles", () => {
   it("take colors from the desktop's theme, dark by the system's setting", () => {
     expect(rules("bg-primary")).toContain('"var","primary"');
     const dark = '[["=","prefers-color-scheme","dark"]]';
-    expect(sheet).toContain(`["background",[["#111",${dark}],["#f2f2f2"]]]`);
+    expect(sheet).toContain(`["background",[["#0e0e0e",${dark}],["#fafafa"]]]`);
     expect(sheet).toContain(`["destructive",[["#ff4d8d",${dark}],["#d6336c"]]]`);
   });
 
@@ -69,7 +69,9 @@ describe("the phone's styles", () => {
       .split(" ")
       .filter(
         (c) =>
-          !/^(hover|focus-visible|\[|transition|outline|whitespace|inline-flex|disabled:pointer)/.test(
+          // The gloss and glow (gradient, layered shadow) are the desktop's; the phone's
+          // `Button` draws its own depth with `boxShadow`.
+          !/^(hover|focus-visible|\[|transition|outline|whitespace|inline-flex|disabled:pointer|bg-linear|from-|to-|shadow-primary)/.test(
             c,
           ),
       );
