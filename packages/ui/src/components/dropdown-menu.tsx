@@ -21,7 +21,7 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-32 max-w-(--radix-dropdown-menu-content-available-width) overflow-hidden rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-popover",
+          "z-50 min-w-32 max-w-(--radix-dropdown-menu-content-available-width) overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-popover",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className,
         )}
@@ -123,7 +123,7 @@ function DropdownMenuSeparator({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
   return (
     <DropdownMenuPrimitive.Separator
-      className={cn("-mx-1.5 my-1.5 h-px bg-border", className)}
+      className={cn("-mx-1 my-1 h-px bg-border", className)}
       {...props}
     />
   );
@@ -159,7 +159,7 @@ function DropdownMenuSubContent({
   return (
     <DropdownMenuPrimitive.SubContent
       className={cn(
-        "z-50 min-w-32 max-w-(--radix-dropdown-menu-content-available-width) overflow-hidden rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-popover",
+        "z-50 min-w-32 max-w-(--radix-dropdown-menu-content-available-width) overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-popover",
         className,
       )}
       {...props}

@@ -53,5 +53,11 @@ export const SEGMENT_IDLE_CLASSES = "text-muted-foreground hover:text-foreground
 
 /// The page beside the sidebar: a card on the window's background, the sidebar inset on
 /// that background (`SplitView`'s groups). The phone's pages take their background from it.
+/// It draws the card (squircle, border, shadow) and never clips: WebKit keeps a squircle clip
+/// at the element's first size, so `SplitView` clips the page in an inner layer with plain
+/// rounding instead (`PAGE_PANE_CLIP_CLASSES`).
+export const PAGE_PANE_CLIP_CLASSES =
+  "flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit]";
+
 export const PAGE_PANE_CLASSES =
-  "relative isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border bg-card shadow-md transition-colors data-focused-group:border-primary/35 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:border-0 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none";
+  "relative isolate flex min-h-0 flex-1 flex-col rounded-xl [corner-shape:superellipse(1.6)] border border-sidebar-border bg-card shadow-md transition-colors data-focused-group:border-primary/35 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:border-0 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none";

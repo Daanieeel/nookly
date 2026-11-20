@@ -16,7 +16,7 @@ function ContextMenuContent({
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Content
         className={cn(
-          "z-50 min-w-40 max-w-(--radix-context-menu-content-available-width) overflow-hidden rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-popover",
+          "z-50 min-w-40 max-w-(--radix-context-menu-content-available-width) overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-popover",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           className,
         )}
@@ -91,7 +91,7 @@ function ContextMenuSubContent({
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.SubContent
         className={cn(
-          "z-50 min-w-40 max-w-(--radix-context-menu-content-available-width) overflow-hidden rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-popover",
+          "z-50 min-w-40 max-w-(--radix-context-menu-content-available-width) overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-popover",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           className,
         )}

@@ -80,6 +80,13 @@
 @theme inline {
   /* Tailwind's own scale follows the elevations too, so every `shadow-sm` or `shadow-lg`
      already in the app is lit and layered the same way in both themes. */
+  /* Desktop only: a step rounder than the shared tokens, which the phone keeps. */
+  --radius-xs: 3px;
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
   --shadow-xs: var(--elev-control);
   --shadow-sm: var(--elev-control);
   --shadow-md: var(--elev-card);

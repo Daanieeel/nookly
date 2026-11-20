@@ -27,7 +27,7 @@ import { parseMoodlePath } from "@nookly/shared/moodle/path";
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
-import { PAGE_PANE_CLASSES } from "#/classes.ts";
+import { PAGE_PANE_CLASSES, PAGE_PANE_CLIP_CLASSES } from "#/classes.ts";
 
 /// The narrowest a group gets. Below twice this, the split collapses to the focused
 /// group instead of cramming both in.
@@ -231,21 +231,23 @@ function PaneBody({
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* `isolate` keeps the page's own z-indexes (a calendar's sticky header and now line) below the corner slot. */}
       <div data-focused-group={highlighted || undefined} className={PAGE_PANE_CLASSES}>
-        <div
-          ref={pageRef}
-          data-scroll-root=""
-          className={cn(
-            "@container min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
-            !isBleedView(view) && "p-6",
-          )}
-        >
-          <ErrorBoundary
-            // A view that crashes is dropped when the user navigates elsewhere.
-            resetKeys={[view]}
-            fallback={(reset) => <CrashFallback reset={reset} what="this view" />}
+        <div className={PAGE_PANE_CLIP_CLASSES}>
+          <div
+            ref={pageRef}
+            data-scroll-root=""
+            className={cn(
+              "@container min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
+              !isBleedView(view) && "p-6",
+            )}
           >
-            {renderGroup(scope)}
-          </ErrorBoundary>
+            <ErrorBoundary
+              // A view that crashes is dropped when the user navigates elsewhere.
+              resetKeys={[view]}
+              fallback={(reset) => <CrashFallback reset={reset} what="this view" />}
+            >
+              {renderGroup(scope)}
+            </ErrorBoundary>
+          </div>
         </div>
       </div>
       {/* The Dashboard draws its mascot cutout here, above the page's own border. */}
