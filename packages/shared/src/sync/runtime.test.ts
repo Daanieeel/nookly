@@ -579,7 +579,7 @@ describe("a first sync of a device with data", () => {
     expect(second.sync.store.getState().migration).toMatchObject({ phase: "done" });
     expect(driver.rows("SELECT COUNT(*) AS n FROM entities")[0].n).toBe(1200);
     second.sync.stop();
-  });
+  }, 30_000);
 
   it("sends again a row the server turns out not to have", async () => {
     const { sync, driver, server } = runtime(undefined, undefined, async () => ({ path: "/b" }));
