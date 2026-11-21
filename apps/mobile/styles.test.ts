@@ -71,7 +71,7 @@ describe("the phone's styles", () => {
         (c) =>
           // The gloss and glow (gradient, layered shadow) are the desktop's; the phone's
           // `Button` draws its own depth with `boxShadow`.
-          !/^(hover|focus-visible|\[|transition|outline|whitespace|inline-flex|disabled:pointer|bg-linear|from-|to-|shadow-primary)/.test(
+          !/^(hover|focus-visible|focus-ring|\[|transition|outline|whitespace|inline-flex|disabled:cursor|bg-linear|from-|to-|shadow-primary)/.test(
             c,
           ),
       );
