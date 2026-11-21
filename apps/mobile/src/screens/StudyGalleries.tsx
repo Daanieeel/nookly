@@ -1,4 +1,5 @@
 import { usePageFilters } from "../ui/page-filters.tsx";
+import { Card } from "../ui/kit/Card.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { EmptyState } from "../ui/kit/States.tsx";
@@ -15,7 +16,6 @@ import { Button, statusOf } from "../ui/Button.tsx";
 import { CORNER, RADIUS } from "../ui/tokens.ts";
 import { ListTitle } from "../ui/ListBar.tsx";
 import { useEntityMenu } from "./entity-actions.tsx";
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
   IconCalendarEvent,
   IconCalendarStats,
@@ -78,12 +78,12 @@ function CourseCard({ course }: { course: CourseRecord }) {
   const a = stats.assignments;
   const e = stats.exams;
   return (
-    <Pressable
+    <Card
       accessibilityRole="button"
       accessibilityLabel={name}
       onPress={() => router.push(`/entity/${course.entity.id}`)}
       onLongPress={() => entityMenu(course.entity)}
-      className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0 active:opacity-80")}
+      className="gap-0 overflow-hidden py-0 active:opacity-80"
     >
       <View
         className="h-14 items-end justify-end p-2"
@@ -120,7 +120,7 @@ function CourseCard({ course }: { course: CourseRecord }) {
           </Text>
         </View>
       </View>
-    </Pressable>
+    </Card>
   );
 }
 
@@ -323,15 +323,12 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
         const days = Math.max(0, daysBetween(today, e.examDate ?? today));
         return (
           <TimelineNode key={e.entity.id} day={e.examDate}>
-            <Pressable
+            <Card
               accessibilityRole="button"
               accessibilityLabel={e.entity.title || "Exam"}
               onPress={() => open(e)}
-              className={cn(
-                CARD_CLASSES,
-                "gap-2 p-3 active:opacity-80",
-                isNext && "border-primary bg-primary/5",
-              )}
+              accent={isNext}
+              className="gap-2 p-3"
             >
               {isNext ? (
                 <Text variant="small" className="font-semibold text-primary">
@@ -363,20 +360,20 @@ export function ExamTimeline({ spaceId }: { spaceId: string }) {
                   <Text tone="muted">{days === 1 ? "day to go" : "days to go"}</Text>
                 </View>
               ) : null}
-            </Pressable>
+            </Card>
           </TimelineNode>
         );
       })}
       {undated.map((e) => (
         <TimelineNode key={e.entity.id} day={null}>
-          <Pressable
+          <Card
             accessibilityRole="button"
             accessibilityLabel={e.entity.title || "Exam"}
             onPress={() => open(e)}
-            className={cn(CARD_CLASSES, "p-3 active:opacity-80")}
+            className="p-3 active:opacity-80"
           >
             <Text>{e.entity.title || "Exam"}</Text>
-          </Pressable>
+          </Card>
         </TimelineNode>
       ))}
       {filters.saveBar}
@@ -433,12 +430,12 @@ export function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: stri
   const theme = useTheme();
   const waiting = deck.stats.due + deck.stats.learning + deck.stats.new;
   return (
-    <Pressable
+    <Card
       accessibilityRole="button"
       accessibilityLabel={deck.entity.title || "Deck"}
       onPress={() => router.push(`/entity/${deck.entity.id}`)}
       onLongPress={() => entityMenu(deck.entity)}
-      className={cn(CARD_CLASSES, "gap-3 p-3 active:opacity-80")}
+      className="gap-3 p-3 active:opacity-80"
     >
       <View className="flex-row items-start gap-3">
         <View className="size-12 items-center justify-center rounded-md border border-border bg-muted">
@@ -481,7 +478,7 @@ export function DeckTile({ deck, examName }: { deck: DeckRecord; examName?: stri
           </Pressable>
         ) : null}
       </View>
-    </Pressable>
+    </Card>
   );
 }
 

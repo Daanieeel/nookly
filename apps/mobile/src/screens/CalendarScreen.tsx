@@ -19,6 +19,7 @@ import { useSetting } from "../data/settings.ts";
 import { usePreference } from "../data/preferences.ts";
 import { useAgenda, useSpaces } from "../data/queries.ts";
 import { SpaceDot } from "../ui/Badge.tsx";
+import { BackToTodayBar } from "../ui/BackToTodayBar.tsx";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { Segmented } from "../ui/Segmented.tsx";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
@@ -373,6 +374,18 @@ export function CalendarScreen({
     </>
   );
   const shownDays = view === "agenda" ? [today] : range.days;
+  // The agenda always starts today; the others can be moved away from it.
+  const first = view === "month" ? range.from : range.days[0];
+  const last = view === "month" ? range.to : range.days[range.days.length - 1];
+  const awayFromToday = view !== "agenda" && !!first && !!last && (today < first || today > last);
+  const backToToday = (
+    <BackToTodayBar
+      shown={awayFromToday}
+      today={first && today < first ? "before" : "after"}
+      onPress={() => setAnchor(today)}
+      floats={view !== "month"}
+    />
+  );
   const header = (
     <>
       {wide ? null : (
@@ -439,6 +452,7 @@ export function CalendarScreen({
             )
           }
         />
+        {backToToday}
       </View>
     );
     return (
@@ -472,6 +486,7 @@ export function CalendarScreen({
             colorOf={colorOf}
           />
         )}
+        {backToToday}
       </Screen>
     </>
   );

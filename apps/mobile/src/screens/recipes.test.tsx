@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import {
   createRecipe,
   createSpace,
@@ -97,7 +98,9 @@ describe("a recipe", () => {
     await setRecipeTags(data.db, recipe, [tag.id]);
     const screen = await renderScreens({ index: () => <RecipeRows spaceId={space} /> }, data);
     const chip = await screen.findByLabelText(`Tag ${tag.name}`);
-    expect(chip.props.style).toMatchObject({ backgroundColor: `${tag.color}24` });
+    expect(StyleSheet.flatten(chip.props.style)).toMatchObject({
+      backgroundColor: `${tag.color}24`,
+    });
   });
 
   it("changes its kind and its time", async () => {

@@ -30,6 +30,7 @@ import { EntityIcon } from "#/components/entity-icon.tsx";
 import { type ActiveFilter, type FilterField } from "#/components/filter-menu.tsx";
 import { ScrollingListPage } from "#/components/scrolling-list-page.tsx";
 import { useQuickFilters } from "#/lib/quick-filters.ts";
+import { NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -375,23 +376,17 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
         <PageSummaryTable table={table} spaceId={spaceId} scrollX={false} />
       ) : (
         !isPending && (
-          <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              {activePreset === "unrefined" && !needle
+          <NoMatchesNotice
+            text={
+              activePreset === "unrefined" && !needle
                 ? "Every Jot is refined into a Note. Nothing left to refine."
-                : "Nothing matches this filter."}
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setQuery("");
-                setFilters([]);
-              }}
-            >
-              Show everything
-            </Button>
-          </div>
+                : "Nothing matches this filter."
+            }
+            onClear={() => {
+              setQuery("");
+              setFilters([]);
+            }}
+          />
         )
       )}
     </ScrollingListPage>

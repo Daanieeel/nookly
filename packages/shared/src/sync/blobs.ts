@@ -110,6 +110,10 @@ export function backoffMs(failures: number): number {
   return Math.min(600_000, 5_000 * 2 ** Math.max(0, failures - 1));
 }
 
+/// How many files come down together: enough that a slow one does not hold up the rest, few
+/// enough that a phone hashing each as it lands does not run out of memory.
+export const DOWNLOADS_AT_ONCE = 5;
+
 export class BlobSync {
   private readonly driver: SqlDriver;
   private readonly platform: BlobPlatform;
@@ -124,7 +128,15 @@ export class BlobSync {
     lastError: null,
   };
 
-  constructor(options: { driver: SqlDriver; platform: BlobPlatform; now?: () => number }) {
+  private readonly downloadsAtOnce: number;
+
+  constructor(options: {
+    driver: SqlDriver;
+    platform: BlobPlatform;
+    now?: () => number;
+    downloadsAtOnce?: number;
+  }) {
+    this.downloadsAtOnce = Math.max(1, options.downloadsAtOnce ?? DOWNLOADS_AT_ONCE);
     this.driver = options.driver;
     this.platform = options.platform;
     this.now = options.now ?? Date.now;
@@ -245,35 +257,44 @@ export class BlobSync {
     return result.outcome === "done";
   }
 
-  /// One pass: every upload, then every download, one at a time. A file that fails
-  /// waits (`backoffMs`) and is tried again on a later pass.
+  /// One pass: every upload one at a time, then the downloads `downloadsAtOnce` at a time,
+  /// so one slow file does not hold up the rest. A file that fails waits (`backoffMs`) and is
+  /// tried again on a later pass.
   async runOnce(): Promise<BlobProgress> {
     const { uploads, downloads } = await this.plan();
     this.progress.toUpload = uploads.length;
     this.progress.toDownload = downloads.length;
     let waiting = 0;
-    for (const [list, work, counter] of [
-      [uploads, (i: Pending) => this.upload(i), "uploaded"],
-      [downloads, (i: Pending) => this.download(i), "downloaded"],
-    ] as const) {
-      for (const item of list) {
-        if (this.waiting(item)) {
-          waiting += 1;
-          continue;
-        }
-        try {
-          if (await work(item)) {
-            this.failures.delete(this.key(item));
-            this.progress[counter] += 1;
-            if (counter === "uploaded") this.progress.toUpload -= 1;
-            else this.progress.toDownload -= 1;
-          }
-        } catch (error) {
-          this.failed(item, error instanceof Error ? error : new Error(String(error)));
-          waiting += 1;
-        }
+    const handle = async (
+      item: Pending,
+      work: (i: Pending) => Promise<boolean>,
+      counter: "uploaded" | "downloaded",
+    ) => {
+      if (this.waiting(item)) {
+        waiting += 1;
+        return;
       }
-    }
+      try {
+        if (await work(item)) {
+          this.failures.delete(this.key(item));
+          this.progress[counter] += 1;
+          if (counter === "uploaded") this.progress.toUpload -= 1;
+          else this.progress.toDownload -= 1;
+        }
+      } catch (error) {
+        this.failed(item, error instanceof Error ? error : new Error(String(error)));
+        waiting += 1;
+      }
+    };
+    for (const item of uploads) await handle(item, (i) => this.upload(i), "uploaded");
+    // Each worker takes the next file as soon as it finishes one.
+    const queue = [...downloads];
+    const worker = async () => {
+      for (let item = queue.shift(); item; item = queue.shift()) {
+        await handle(item, (i) => this.download(i), "downloaded");
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(this.downloadsAtOnce, queue.length) }, worker));
     this.progress.waiting = waiting;
     if (waiting === 0) this.progress.lastError = null;
     return this.current();

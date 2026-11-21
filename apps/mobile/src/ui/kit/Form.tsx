@@ -1,22 +1,14 @@
-import { Children, createContext, type ReactNode, useContext } from "react";
+import { Children, type ReactNode } from "react";
 import { View } from "react-native";
 import { useSectionRadius } from "../sheet/in-sheet.ts";
-import { CORNER, GUTTER, SPACE, TINT } from "../tokens.ts";
-import { GroupedSection, SectionHeader } from "./GroupedSection.tsx";
+import { CORNER, SPACE, TINT, elevation } from "../tokens.ts";
+import { SectionHeader } from "./GroupedSection.tsx";
 import { Label } from "./Label.tsx";
-import { useScheme, useSurface } from "./scheme.ts";
+import { useRaised, useScheme, useSemantic } from "./scheme.ts";
 
-/// Whether a field sits in a `FormSection`, which draws the surface its rows share.
-const InForm = createContext(false);
-
-/// Whether the caller is a row of a `FormSection` rather than a field on its own.
-export function useInForm() {
-  return useContext(InForm);
-}
-
-/// Fields grouped as iOS groups a form's rows (D52): one raised surface, hairlines between
-/// them, a title above and a note below. A section of one field leaves the surface to the
-/// field (D69).
+/// A form's fields, each one its own raised box with a little room between them, as the
+/// desktop lays a form out: a title above and a note below. Nothing groups them on a shared
+/// surface, so a field is the same thing alone and with others.
 export function FormSection({
   title,
   footer,
@@ -26,67 +18,59 @@ export function FormSection({
   footer?: string;
   children: ReactNode;
 }) {
-  const rows = Children.toArray(children);
-  if (rows.length === 0) return null;
-  // One field on its own draws its own box (a text field's raised box, a select's row).
-  if (rows.length === 1) {
-    return (
-      <View>
-        {title ? <SectionHeader title={title} /> : null}
-        {children}
-        {footer ? (
-          <Label
-            type="footnote"
-            color="secondaryLabel"
-            style={{ paddingHorizontal: SPACE.lg, paddingTop: SPACE.sm }}
-          >
-            {footer}
-          </Label>
-        ) : null}
-      </View>
-    );
-  }
+  if (Children.count(children) === 0) return null;
   return (
-    <InForm.Provider value>
-      <GroupedSection title={title} footer={footer} margin={0}>
-        {children}
-      </GroupedSection>
-    </InForm.Provider>
+    <View>
+      {title ? <SectionHeader title={title} /> : null}
+      <View style={{ gap: SPACE.md }}>{children}</View>
+      {footer ? (
+        <Label
+          type="footnote"
+          color="secondaryLabel"
+          style={{ paddingHorizontal: SPACE.xs, paddingTop: SPACE.sm }}
+        >
+          {footer}
+        </Label>
+      ) : null}
+    </View>
   );
 }
 
-/// One field's row: on its own it brings a surface of its own; in a `FormSection` it is one
-/// of the section's rows. An error shows under it in red.
+/// A field's box: raised, with a hairline edge and the control's depth, as the desktop's
+/// input. An error shows under it in red.
 export function FormRow({ error, children }: { error?: string | null; children: ReactNode }) {
-  const inForm = useContext(InForm);
-  const surface = useSurface();
+  const raised = useRaised();
+  const edge = useSemantic("controlEdge");
   const scheme = useScheme();
   const radius = useSectionRadius();
-  const message = error ? (
-    <Label
-      type="footnote"
-      tint={TINT.red[scheme]}
-      accessibilityLiveRegion="polite"
-      style={{ paddingHorizontal: GUTTER, paddingBottom: SPACE.sm }}
-    >
-      {error}
-    </Label>
-  ) : null;
-  if (inForm) {
-    return (
-      <View>
-        {children}
-        {message}
-      </View>
-    );
-  }
   return (
-    <View
-      testID="form-row"
-      style={[CORNER, { backgroundColor: surface, borderRadius: radius, overflow: "hidden" }]}
-    >
-      {children}
-      {message}
+    <View>
+      <View
+        testID="form-row"
+        style={[
+          CORNER,
+          elevation("control", scheme),
+          {
+            backgroundColor: raised,
+            borderRadius: radius,
+            borderWidth: 1,
+            borderColor: error ? TINT.red[scheme] : edge,
+            overflow: "hidden",
+          },
+        ]}
+      >
+        {children}
+      </View>
+      {error ? (
+        <Label
+          type="footnote"
+          tint={TINT.red[scheme]}
+          accessibilityLiveRegion="polite"
+          style={{ paddingHorizontal: SPACE.xs, paddingTop: SPACE.xs + 2 }}
+        >
+          {error}
+        </Label>
+      ) : null}
     </View>
   );
 }

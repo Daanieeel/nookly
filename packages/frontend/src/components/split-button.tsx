@@ -40,8 +40,8 @@ export function SplitButton() {
       <PopoverContent align="end" aria-label="Split" className="w-56 p-1">
         <Button
           variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2"
+          size="row"
+          className="h-8 w-full justify-start gap-2"
           disabled={!canSplitLeft(layout, tabId)}
           onClick={() => split("left")}
         >
@@ -51,8 +51,8 @@ export function SplitButton() {
         </Button>
         <Button
           variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2"
+          size="row"
+          className="h-8 w-full justify-start gap-2"
           disabled={!canSplitRight(layout, tabId)}
           onClick={() => split("right")}
         >

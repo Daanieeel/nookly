@@ -2,7 +2,7 @@ import { IconX } from "@tabler/icons-react-native";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { Label } from "./kit/Label.tsx";
-import { useSemantic, useSemanticPair } from "./kit/scheme.ts";
+import { useControlStyle, useSemantic, useSemanticPair } from "./kit/scheme.ts";
 import type { ListFilter } from "./ListControls.tsx";
 import { FilterOptions } from "./sheet/DisplayParts.tsx";
 import { Sheet } from "./sheet/Sheet.tsx";
@@ -54,7 +54,7 @@ function FilterChip({ filter }: { filter: ListFilter }) {
   const anchor = useAnchor();
   // Which way the chip was last turned, for an even split that reads either way.
   const [turned, setTurned] = useState(false);
-  const fill = useSemantic("fill");
+  const control = useControlStyle();
   const separator = useSemantic("separator");
   const muted = useSemanticPair("secondaryLabelSolid");
   const pressed = useSemantic("pressed");
@@ -77,9 +77,9 @@ function FilterChip({ filter }: { filter: ListFilter }) {
           minHeight: MIN_TOUCH,
           flexDirection: "row",
           borderRadius: RADIUS.control,
-          backgroundColor: fill,
           overflow: "hidden",
         },
+        control,
       ]}
     >
       <View style={[segment, { flexDirection: "row", alignItems: "center", gap: SPACE.xs + 2 }]}>

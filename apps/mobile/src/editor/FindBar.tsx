@@ -2,12 +2,14 @@ import { IconChevronDown, IconChevronUp, IconX } from "@tabler/icons-react-nativ
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { create } from "zustand";
+import { Badge } from "../ui/Badge.tsx";
 import { IconButton } from "../ui/Button.tsx";
 import { FixedTop } from "../ui/fixed-top.tsx";
+import { Card } from "../ui/kit/Card.tsx";
 import { SearchField } from "../ui/kit/SearchField.tsx";
 import { pushLayer } from "../ui/sheet/layers.ts";
-import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { RADIUS, SPACE } from "../ui/tokens.ts";
 import type { FindResult } from "./find.ts";
 
 /// Whether the find bar is open over the page shown (`Cmd+F`, the desktop's find in page).
@@ -27,7 +29,7 @@ export function FindBar({
   onStep: (step: 1 | -1) => void;
 }) {
   const theme = useTheme();
-  const muted = theme.colors.mutedForeground;
+  const label = theme.colors.foreground;
   const [query, setQuery] = useState("");
   const find = useRef(onFind);
   find.current = onFind;
@@ -44,8 +46,12 @@ export function FindBar({
   }, []);
   return (
     <FixedTop>
-      <View testID="find-bar" className="flex-row items-center gap-1">
-        <View className="flex-1">
+      <Card
+        testID="find-bar"
+        radius={RADIUS.control + SPACE.sm}
+        style={{ flexDirection: "row", alignItems: "center", gap: SPACE.xs, padding: SPACE.sm }}
+      >
+        <View style={{ flex: 1 }}>
           <SearchField
             label="Find in Page"
             value={query}
@@ -58,22 +64,33 @@ export function FindBar({
           />
         </View>
         {query.trim() ? (
-          <Text variant="small" tone="muted" className="px-1">
-            {result.count === 0 ? "No matches" : `${result.index} of ${result.count}`}
-          </Text>
+          <Badge
+            label={result.count === 0 ? "No matches" : `${result.index} of ${result.count}`}
+            size="lg"
+          />
         ) : null}
         <IconButton
           label="Previous Match"
-          icon={<IconChevronUp size={20} color={muted} />}
+          variant="secondary"
+          size="iconSm"
+          icon={<IconChevronUp size={18} color={label} />}
           onPress={() => onStep(-1)}
         />
         <IconButton
           label="Next Match"
-          icon={<IconChevronDown size={20} color={muted} />}
+          variant="secondary"
+          size="iconSm"
+          icon={<IconChevronDown size={18} color={label} />}
           onPress={() => onStep(1)}
         />
-        <IconButton label="Close Find" icon={<IconX size={20} color={muted} />} onPress={close} />
-      </View>
+        <IconButton
+          label="Close Find"
+          variant="secondary"
+          size="iconSm"
+          icon={<IconX size={18} color={label} />}
+          onPress={close}
+        />
+      </Card>
     </FixedTop>
   );
 }

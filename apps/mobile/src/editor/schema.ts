@@ -139,7 +139,7 @@ function nodeSpec(name: string): NodeSpec {
     if (name === "toggle") return ["div", { class: "toggle" }, 0];
     if (name === "taskItem")
       return ["li", { class: "task", "data-checked": n.attrs.checked ? "true" : "false" }, 0];
-    if (["equation", "math", "diagram", "circuit"].includes(name))
+    if (["equation", "math", "diagram", "circuit", "plot", "mindmap"].includes(name))
       return ["pre", { class: "source", "data-node": name }, ["code", 0]];
     const tag = TAGS.get(name);
     if (!tag) return ["div", { "data-node": name }, 0];

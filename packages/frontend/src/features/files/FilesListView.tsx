@@ -90,7 +90,7 @@ import { ViewDialog } from "#/features/views/ViewDialog.tsx";
 import { serializeViewConfig } from "#/features/views/view-config.ts";
 import { viewTarget } from "#/features/views/view-target.ts";
 import { labelShelf } from "@nookly/shared/label-shelf";
-import { ModuleViewHeader } from "#/components/module-view-header.tsx";
+import { ModuleViewHeader, NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
 import { useViewPage } from "#/features/views/use-view-page.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
@@ -457,19 +457,13 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
           />
         </div>
       ) : visible.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No files match these filters.</p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setFilters([]);
-              setDisplay({ ...display, shelf: [] });
-            }}
-          >
-            Clear filters
-          </Button>
-        </div>
+        <NoMatchesNotice
+          text="No files match these filters."
+          onClear={() => {
+            setFilters([]);
+            setDisplay({ ...display, shelf: [] });
+          }}
+        />
       ) : (
         <GroupedList
           items={visible}

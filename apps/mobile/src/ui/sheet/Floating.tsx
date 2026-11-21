@@ -12,9 +12,9 @@ import { IconButton } from "../Button.tsx";
 import { GroupWidthProvider, useWindowSize } from "../pane.tsx";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
-import { CARD_INSET, CORNER, DEPTH, RADIUS, SPACE } from "../tokens.ts";
+import { CARD_INSET, CORNER, PRIMARY, PRIMARY_GLOSS, RADIUS, SPACE } from "../tokens.ts";
 import { MIN_TOUCH } from "../touch.ts";
-import { useSemantic } from "../kit/scheme.ts";
+import { useControlStyle, useElevation } from "../kit/scheme.ts";
 import { type Anchor, anchorRect } from "./anchor.ts";
 import { type PinStore, PinnedSlot } from "./pins.tsx";
 import { type Placement, type Rect, placePopover } from "./placement.ts";
@@ -141,8 +141,8 @@ export function RoundButton({
   tone?: "plain" | "primary";
   children: ReactNode;
 }) {
-  const fill = useSemantic("fill");
-  const theme = useTheme();
+  const control = useControlStyle();
+  const filled = tone === "primary" && !disabled;
   return (
     <Pressable
       accessibilityRole="button"
@@ -152,13 +152,14 @@ export function RoundButton({
       onPress={onPress}
       style={({ pressed }) => [
         CORNER,
+        control,
+        filled && { backgroundColor: PRIMARY, borderWidth: 0, ...PRIMARY_GLOSS },
         {
           width: MIN_TOUCH,
           height: MIN_TOUCH,
           borderRadius: RADIUS.control,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: tone === "primary" && !disabled ? theme.colors.primary : fill,
           opacity: disabled ? 0.45 : pressed ? 0.6 : 1,
         },
       ]}
@@ -248,6 +249,7 @@ export function DialogFrame({
   onRequestClose: () => void;
   children: ReactNode;
 }) {
+  const floating = useElevation("dialog");
   const window = useWindowSize();
   const keyboard = useAnimatedKeyboard();
   const room = useAnimatedStyle(() => ({
@@ -271,7 +273,7 @@ export function DialogFrame({
         style={[
           grow,
           CORNER,
-          DEPTH.floating,
+          floating,
           {
             width: Math.min(width, window.width - 2 * DIALOG_MARGIN),
             maxHeight: "100%",
@@ -327,6 +329,7 @@ export function PopoverFrame({
   onRequestClose: () => void;
   children: ReactNode;
 }) {
+  const floating = useElevation("popover");
   const window = useWindowSize();
   const { height: keyboard, settled } = useKeyboardTop();
   const [rect, setRect] = useState<Rect | null>("measure" in anchor ? null : anchor);
@@ -366,7 +369,7 @@ export function PopoverFrame({
         style={[
           grow,
           CORNER,
-          DEPTH.floating,
+          floating,
           {
             position: "absolute",
             left: placed?.left ?? 0,

@@ -42,6 +42,11 @@ export function IconBadge({
           backgroundColor: withAlpha(color, TINT_FILL[scheme]),
           alignItems: "center",
           justifyContent: "center",
+          // A faint ring of its own colour and a lit top edge, so it sits on the row, not in it.
+          boxShadow: [
+            { offsetX: 0, offsetY: 0, spreadDistance: 1, color: withAlpha(color, 0.28) },
+            { offsetX: 0, offsetY: 1, color: "rgba(255,255,255,0.22)", inset: true },
+          ],
         },
       ]}
     >

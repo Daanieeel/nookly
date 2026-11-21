@@ -6,6 +6,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { useState } from "react";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityKey } from "#/components/entity-key.tsx";
+import { NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {
   GalleryCard,
@@ -112,11 +113,11 @@ export function RecipesListView({ spaceId }: { spaceId: string }) {
             ))}
           </>
         ) : shown.length === 0 ? (
-          <div className="col-span-full flex flex-col items-center gap-2 py-16 text-center">
-            <p className="text-sm text-muted-foreground">No recipes match these filters.</p>
-            <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
-              Clear filters
-            </Button>
+          <div className="col-span-full">
+            <NoMatchesNotice
+              text="No recipes match these filters."
+              onClear={() => setFilters([])}
+            />
           </div>
         ) : (
           shown.map((recipe) => (

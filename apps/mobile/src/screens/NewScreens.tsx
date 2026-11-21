@@ -39,7 +39,7 @@ import { Sheet } from "../ui/sheet/Sheet.tsx";
 import { useCloseSheet } from "../ui/sheet/route.tsx";
 import { Text } from "../ui/Text.tsx";
 import { ExamPicker } from "./StudyPickers.tsx";
-import { hourAfter, localDay } from "./dates.ts";
+import { addDays, daysBetween, hourAfter, localDay } from "./dates.ts";
 import { fieldError } from "./forms.ts";
 import { SpacePicker } from "./SpacePicker.tsx";
 import { ColorChoices } from "../ui/kit/ColorChoices.tsx";
@@ -62,7 +62,7 @@ import {
   EntitySearch,
   LabelsPill,
   LinkPill,
-  TimePill,
+  WhenLines,
 } from "./ComposeForm.tsx";
 
 /// The Space to make something in: the one asked for, else the first.
@@ -301,7 +301,9 @@ export function NewEntryScreen({
   const [where, setWhere] = useState("");
   const [description, setDescription] = useState("");
   const [day, setDay] = useState(date ?? localDay());
-  const [lastDay, setLastDay] = useState<string | null>(null);
+  // The end day starts as the start day; one later makes a longer entry.
+  const [endDay, setEndDay] = useState(day);
+  const lastDay = endDay === day ? null : endDay;
   const [allDay, setAllDay] = useState(false);
   const [starts, setStarts] = useState<string | null>(start ?? "09:00");
   const [ends, setEnds] = useState<string | null>(hourAfter(start ?? "09:00"));
@@ -362,13 +364,27 @@ export function NewEntryScreen({
         onChangeText={setDescription}
         placeholder="Description…"
       />
+      <WhenLines
+        allDay={allDay}
+        startDay={day}
+        endDay={endDay}
+        starts={starts}
+        ends={ends}
+        // Moving the start moves the end with it, so the entry keeps its length.
+        onStartDay={(d) => {
+          setEndDay(addDays(endDay, daysBetween(day, d)));
+          setDay(d);
+        }}
+        onEndDay={setEndDay}
+        onStarts={setStarts}
+        onEnds={setEnds}
+      />
       {problem || create.error ? (
         <Text tone="destructive" variant="small">
           {problem ?? create.error?.message}
         </Text>
       ) : null}
       <ComposeFooter>
-        <DayPill label="Day" value={day} clearable={false} onChange={(d) => d && setDay(d)} />
         <Pill
           label="All day"
           value={null}
@@ -378,15 +394,8 @@ export function NewEntryScreen({
             setAllDay(!allDay);
           }}
         />
-        {allDay ? null : (
-          <>
-            <TimePill label="Starts" value={starts} onChange={setStarts} />
-            <TimePill label="Ends" value={ends} onChange={setEnds} />
-          </>
-        )}
         {/* An entry over several days never repeats, as on the desktop. */}
         {lastDay ? null : <RepeatPill value={repeat} onChange={setRepeat} />}
-        <DayPill label="Last day" value={lastDay} onChange={setLastDay} />
       </ComposeFooter>
     </View>
   );

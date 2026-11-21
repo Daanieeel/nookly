@@ -220,7 +220,7 @@ function OverflowRow({ space, onActivate, onOpenDialog }: { space: Space } & Slo
         type="button"
         onClick={() => onActivate(space)}
         className={cn(
-          "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-sm outline-hidden hover:bg-accent focus-ring",
+          "flex h-8 w-full cursor-pointer items-center gap-2 rounded-sm px-2 text-sm outline-hidden hover:bg-accent focus-ring",
           isDragging && "opacity-40",
           isOver && !isDragging && "ring-2",
         )}

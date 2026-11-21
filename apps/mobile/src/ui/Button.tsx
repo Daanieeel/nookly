@@ -1,20 +1,29 @@
 import { buttonVariants } from "@nookly/ui/classes";
 import { IconAlertTriangle, IconCheck } from "@tabler/icons-react-native";
 import type { VariantProps } from "class-variance-authority";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, type PressableProps, StyleSheet, View } from "react-native";
+import { cloneElement, isValidElement, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  type PressableProps,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from "react-native";
 import { PointerStyle } from "../../modules/nookly-window/src/PointerStyle.tsx";
 import { Label } from "./kit/Label.tsx";
 import { useScheme } from "./kit/scheme.ts";
 import {
   CORNER,
+  PRIMARY,
   PRIMARY_GLOSS,
   RADIUS,
+  SOLID,
+  type SolidName,
   SPACE,
   TINT,
-  TINT_FILL,
+  elevation,
   semanticHex,
-  withAlpha,
+  solidLook,
 } from "./tokens.ts";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
 import { AnimatedPressable, usePressScale } from "./press.ts";
@@ -56,42 +65,70 @@ interface Look {
   text: string;
   border?: string;
   weight: "500" | "600";
+  /// The depth the desktop's button of this variant has: a gloss, a ring and shadows.
+  depth?: ViewStyle;
+  /// Drawn on a filled colour, so its icons are the label's colour too.
+  filled?: boolean;
 }
 
 function useLook(variant: ButtonVariant): Look {
   const scheme = useScheme();
-  const fill = semanticHex("fill", scheme);
+  const raised = semanticHex("raised", scheme);
+  const edge = semanticHex("controlEdge", scheme);
   const label = semanticHex("label", scheme);
   const muted = semanticHex("secondaryLabel", scheme);
   const separator = semanticHex("separator", scheme);
-  const tinted = (name: "blue" | "red" | "green" | "yellow"): Look => ({
-    fill: withAlpha(TINT[name][scheme], TINT_FILL[scheme]),
-    text: TINT[name][scheme],
+  const solid = (name: SolidName): Look => ({
+    fill: SOLID[name][scheme],
+    text: "#ffffff",
     weight: "600",
+    depth: solidLook(SOLID[name][scheme], scheme),
+    filled: true,
   });
   switch (variant) {
     case "default":
-      return { fill: TINT.blue[scheme], text: "#ffffff", weight: "600" };
+      return {
+        fill: PRIMARY,
+        text: "#ffffff",
+        weight: "600",
+        depth: PRIMARY_GLOSS,
+        filled: true,
+      };
     case "destructive":
-      return tinted("red");
+      return solid("destructive");
     case "positive":
-      return tinted("green");
+      return solid("positive");
     case "warning":
+      return solid("warning");
     case "caution":
-      return tinted("yellow");
+      return solid("caution");
     case "secondary":
     case "neutral":
-      return { fill, text: label, weight: "600" };
+      return {
+        fill: raised,
+        text: label,
+        border: edge,
+        weight: "600",
+        depth: elevation("control", scheme),
+      };
     case "outline":
       return { border: separator, text: label, weight: "600" };
     case "link":
       return { text: TINT.blue[scheme], weight: "500" };
+    case "destructiveGhost":
+      return { text: TINT.red[scheme], weight: "500" };
     case "muted":
     case "linkMuted":
       return { text: muted, weight: "500" };
     default:
       return { text: label, weight: "500" };
   }
+}
+
+/// A button's icon is drawn in its label's colour, whatever colour the caller gave it: a
+/// trash icon in a red button is white, like the words beside it.
+function withLabelColor(icon: React.ReactNode, color: string): React.ReactNode {
+  return isValidElement<{ color?: string }>(icon) ? cloneElement(icon, { color }) : icon;
 }
 
 interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
@@ -170,7 +207,7 @@ export function Button({
           borderColor: look.border,
           opacity: disabled ? 0.4 : 1,
         },
-        variant === "default" && PRIMARY_GLOSS,
+        look.depth,
         press.style,
       ]}
       className={className}
@@ -178,18 +215,18 @@ export function Button({
       {status === "pending" ? (
         <ActivityIndicator size="small" color={look.text} />
       ) : status === "error" ? (
-        <IconAlertTriangle size={16} color={variant === "default" ? look.text : red} />
+        <IconAlertTriangle size={16} color={look.filled ? look.text : red} />
       ) : showSuccess ? (
-        <IconCheck size={16} color={variant === "default" ? look.text : green} />
+        <IconCheck size={16} color={look.filled ? look.text : green} />
       ) : (
-        icon
+        withLabelColor(icon, look.text)
       )}
       {/* The words never take the touch, so a press on them reaches the button. */}
       <View pointerEvents="none">
         <Label
           type={small ? "subheadline" : "body"}
           weight={look.weight}
-          tint={status === "error" && variant !== "default" ? red : look.text}
+          tint={status === "error" && !look.filled ? red : look.text}
           numberOfLines={1}
         >
           {shown}
@@ -214,12 +251,13 @@ export function IconButton({
   icon: React.ReactNode;
   onPress: () => void;
   size?: "icon" | "iconSm";
-  variant?: "ghost" | "secondary";
+  variant?: "ghost" | "secondary" | "default";
   /// Drawn faded and not pressable, for an action that would do nothing now.
   disabled?: boolean;
 }) {
   const press = usePressScale();
-  const fill = useLook("secondary").fill;
+  const secondary = useLook("secondary");
+  const main = useLook("default");
   const tablet = useIsTablet();
   const round = variant === "secondary" ? CONTROL_SIZE[size] / 2 : RADIUS.control;
   return (
@@ -238,9 +276,14 @@ export function IconButton({
         CORNER,
         { alignItems: "center", justifyContent: "center", borderRadius: RADIUS.control },
         variant === "secondary" && {
-          backgroundColor: fill,
+          backgroundColor: secondary.fill,
+          borderWidth: 1,
+          borderColor: secondary.border,
           borderRadius: CONTROL_SIZE[size] / 2,
+          ...secondary.depth,
         },
+        // The main action as a square: the accent, glossy, as a `default` button.
+        variant === "default" && { backgroundColor: main.fill, ...main.depth },
         disabled && { opacity: 0.35 },
         press.style,
       ]}

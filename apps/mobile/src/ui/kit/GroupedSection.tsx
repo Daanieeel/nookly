@@ -1,22 +1,19 @@
-import { Children, Fragment, type ReactNode } from "react";
-import { View, type ViewProps } from "react-native";
+import { Children, type ReactNode } from "react";
+import { StyleSheet, View, type ViewProps } from "react-native";
 import { useSectionRadius } from "../sheet/in-sheet.ts";
-import { BADGE, CORNER, GUTTER, SPACE } from "../tokens.ts";
+import { CORNER, GUTTER, SPACE, elevation } from "../tokens.ts";
 import { Label } from "./Label.tsx";
-import { useSemantic, useSurface } from "./scheme.ts";
+import { useScheme, useSemantic, useSurface } from "./scheme.ts";
 
-/// Where a row's hairline starts: under its text, past a badge when rows have one.
-export const INSET = { plain: GUTTER, badge: GUTTER + BADGE.size + SPACE.md } as const;
-
-/// A section's title above it, small and muted as iOS writes them.
+/// A section's title above it, small and muted.
 export function SectionHeader({ title, sticky = false }: { title: string; sticky?: boolean }) {
   const background = useSemantic(sticky ? "surface" : "groupedBackground");
   return (
     <View
       style={{
-        paddingHorizontal: GUTTER,
+        paddingHorizontal: SPACE.xs,
         paddingTop: SPACE.lg,
-        paddingBottom: SPACE.xs + 2,
+        paddingBottom: SPACE.sm,
         backgroundColor: sticky ? background : undefined,
       }}
     >
@@ -27,18 +24,18 @@ export function SectionHeader({ title, sticky = false }: { title: string; sticky
         accessibilityRole="header"
         accessibilityLabel={title}
       >
-        {title.toUpperCase()}
+        {title}
       </Label>
     </View>
   );
 }
 
-/// Rows grouped on a raised surface with rounded continuous corners and hairlines between
-/// them, inset under the text, as iOS's grouped lists; a title above and a note below.
+/// Rows as cards: each one on its own raised surface with rounded continuous corners and a
+/// little room between, under a title and above a note. Nothing joins the rows into one
+/// slab with hairlines, so a row is the same thing alone and in a list.
 export function GroupedSection({
   title,
   footer,
-  inset = INSET.plain,
   margin = GUTTER,
   onLayout,
   children,
@@ -48,39 +45,52 @@ export function GroupedSection({
   onLayout?: ViewProps["onLayout"];
   title?: string;
   footer?: string;
-  /// Where the hairlines start (`INSET.badge` when the rows have badges).
-  inset?: number;
   children: ReactNode;
 }) {
-  const surface = useSurface();
-  const radius = useSectionRadius();
-  const separator = useSemantic("separator");
   const rows = Children.toArray(children);
   return (
     <View style={{ marginHorizontal: margin }} onLayout={onLayout}>
       {title ? <SectionHeader title={title} /> : null}
-      <View
-        style={[CORNER, { backgroundColor: surface, borderRadius: radius, overflow: "hidden" }]}
-      >
+      <View style={{ gap: SPACE.sm }}>
         {rows.map((row, index) => (
           // oxlint-disable-next-line react/no-array-index-key -- rows are positional
-          <Fragment key={index}>
-            {index > 0 ? (
-              <View style={{ height: 0.5, marginLeft: inset, backgroundColor: separator }} />
-            ) : null}
-            {row}
-          </Fragment>
+          <RowCard key={index}>{row}</RowCard>
         ))}
       </View>
       {footer ? (
         <Label
           type="footnote"
           color="secondaryLabel"
-          style={{ paddingHorizontal: SPACE.lg, paddingTop: SPACE.sm }}
+          style={{ paddingHorizontal: SPACE.xs, paddingTop: SPACE.sm }}
         >
           {footer}
         </Label>
       ) : null}
+    </View>
+  );
+}
+
+/// One row on its own raised card.
+function RowCard({ children }: { children: ReactNode }) {
+  const surface = useSurface();
+  const radius = useSectionRadius();
+  const scheme = useScheme();
+  const edge = useSemantic("separator");
+  return (
+    <View
+      style={[
+        CORNER,
+        elevation("card", scheme),
+        {
+          backgroundColor: surface,
+          borderRadius: radius,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: edge,
+          overflow: "hidden",
+        },
+      ]}
+    >
+      {children}
     </View>
   );
 }

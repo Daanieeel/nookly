@@ -280,7 +280,13 @@ export function triggerAt(state: EditorState): Trigger | null {
 }
 
 /// The block menu's groups, in the desktop's order.
-export const SLASH_GROUPS = ["Text", "Lists"] as const;
+export const SLASH_GROUPS = [
+  "Text",
+  "Lists",
+  "Data",
+  "Math and diagrams",
+  "Links and media",
+] as const;
 
 export interface SlashItem {
   id: string;
@@ -292,123 +298,344 @@ export interface SlashItem {
   run: Command;
 }
 
-/// Empties a paragraph and puts a divider in its place, with a new paragraph after.
-const insertDivider: Command = (state, dispatch) => {
+/// Where a block that is not text goes: in place of the empty paragraph the command was typed
+/// in, else after the top level block that holds the cursor. A paragraph at the end of the page
+/// follows it, so the cursor has somewhere to go on.
+function insertBlock(make: () => Node): Command {
+  return (state, dispatch) => {
+    const { $from } = state.selection;
+    if ($from.depth < 1) return false;
+    const replace =
+      $from.depth === 1 && $from.parent.type === nodes.paragraph && $from.parent.content.size === 0;
+    const start = replace ? $from.before(1) : $from.after(1);
+    const end = replace ? $from.after(1) : start;
+    const block = make();
+    const last = end >= state.doc.content.size;
+    const content = last || replace ? [block, nodes.paragraph.create()] : [block];
+    if (!dispatch) return true;
+    const tr = state.tr.replaceWith(start, end, content);
+    // The cursor goes into a block that holds text, else on to the paragraph after it.
+    const inside = block.isTextblock ? start + 1 : start + block.nodeSize + 1;
+    dispatch(
+      tr
+        .setSelection(TextSelection.near(tr.doc.resolve(Math.min(inside, tr.doc.content.size))))
+        .scrollIntoView(),
+    );
+    return true;
+  };
+}
+
+/// A block of text that holds a source (an equation, a diagram): the empty paragraph turns
+/// into it, and a paragraph with words keeps them, the block following it.
+function sourceBlock(type: NodeType): Command {
+  return (state, dispatch) => {
+    const { $from } = state.selection;
+    if (
+      $from.depth === 1 &&
+      $from.parent.type === nodes.paragraph &&
+      $from.parent.content.size === 0
+    ) {
+      return setBlock(type, {})(state, dispatch);
+    }
+    return insertBlock(() => type.create())(state, dispatch);
+  };
+}
+
+/// A block whose rows are typed in its card (Steps, Tree, Image): empty to begin with.
+const rowBlock = (type: NodeType, rows = ""): Command => insertBlock(() => type.create({ rows }));
+
+/// A grid of three by three cells, its first row the header.
+function threeByThree(): Node {
+  const row = (cell: NodeType) =>
+    nodes.tableRow.create(
+      null,
+      [0, 1, 2].map(() => cell.create(null, nodes.paragraph.create())),
+    );
+  return nodes.table.create(null, [
+    row(nodes.tableHeader),
+    row(nodes.tableCell),
+    row(nodes.tableCell),
+  ]);
+}
+
+/// The paragraph the command was typed in becomes a toggle holding its text.
+const insertToggle: Command = (state, dispatch) => {
   const { $from } = state.selection;
-  if ($from.parent.type !== nodes.paragraph || $from.depth !== 1) return false;
+  if ($from.depth !== 1 || $from.parent.type !== nodes.paragraph) return false;
   const start = $from.before(1);
-  const end = $from.after(1);
-  dispatch?.(
-    state.tr
-      .replaceWith(start, end, [nodes.divider.create(), nodes.paragraph.create()])
+  const paragraph = nodes.paragraph.create(null, $from.parent.content);
+  const toggle = nodes.toggle.create({ toggle: "open" }, paragraph);
+  if (!dispatch) return true;
+  const tr = state.tr.replaceWith(start, $from.after(1), toggle);
+  dispatch(
+    tr
+      .setSelection(TextSelection.create(tr.doc, start + 2 + $from.parent.content.size))
       .scrollIntoView(),
   );
   return true;
 };
 
+/// What typed text after this will be: marked with the highlighter, as the desktop's item.
+const startHighlight: Command = (state, dispatch) => {
+  dispatch?.(state.tr.addStoredMark(marks.highlight.create()));
+  return true;
+};
+
+/// A formula inside the text, empty, to be filled in.
+const insertInlineMath: Command = (state, dispatch) => {
+  dispatch?.(state.tr.replaceSelectionWith(nodes.inlineMath.create({ latex: "" }), false));
+  return true;
+};
+
+/// Empties a paragraph and puts a divider in its place, with a new paragraph after.
+const insertDivider: Command = (state, dispatch) => {
+  const { $from } = state.selection;
+  if ($from.parent.type !== nodes.paragraph || $from.depth !== 1) return false;
+  return insertBlock(() => nodes.divider.create())(state, dispatch);
+};
+
+const item = (
+  id: string,
+  label: string,
+  description: string,
+  group: SlashItem["group"],
+  keywords: string[],
+  run: Command,
+): SlashItem => ({ id, label, description, group, keywords, run });
+
+const heading = (level: number, label: string, description: string, keywords: string[]) =>
+  item(`h${level}`, label, description, "Text", keywords, toggleHeadingOn(level));
+
+/// The desktop's block menu (`SLASH_ITEMS`): every block, in the same words and order.
 export const SLASH_ITEMS: SlashItem[] = [
-  {
-    id: "text",
-    label: "Text",
-    description: "Plain paragraph",
-    group: "Text",
-    keywords: ["paragraph", "plain"],
-    run: setBlock(nodes.paragraph, {}),
-  },
-  {
-    id: "h1",
-    label: "Heading 1",
-    description: "Big section heading",
-    group: "Text",
-    keywords: ["title", "h1", "large"],
-    run: toggleHeadingOn(1),
-  },
-  {
-    id: "h2",
-    label: "Heading 2",
-    description: "Medium section heading",
-    group: "Text",
-    keywords: ["h2", "medium"],
-    run: toggleHeadingOn(2),
-  },
-  {
-    id: "h3",
-    label: "Heading 3",
-    description: "Small section heading",
-    group: "Text",
-    keywords: ["h3", "small"],
-    run: toggleHeadingOn(3),
-  },
-  {
-    id: "quote",
-    label: "Quote",
-    description: "Capture a quote",
-    group: "Text",
-    keywords: ["blockquote"],
-    run: toggleQuote,
-  },
-  {
-    id: "callout",
-    label: "Callout",
-    description: "An aside that stands out",
-    group: "Text",
-    keywords: ["note", "info", "warning"],
-    run: setBlock(nodes.callout, {}),
-  },
-  {
-    id: "divider",
-    label: "Divider",
-    description: "A line between sections",
-    group: "Text",
-    keywords: ["line", "rule", "separator"],
-    run: insertDivider,
-  },
-  {
-    id: "code",
-    label: "Code block",
-    description: "A block of preformatted code",
-    group: "Text",
-    keywords: ["code", "snippet"],
-    run: setBlockType(nodes.codeBlock),
-  },
-  {
-    id: "bullets",
-    label: "Bulleted list",
-    description: "A simple bulleted list",
-    group: "Lists",
-    keywords: ["list", "ul", "bullet"],
-    run: toggleBullets,
-  },
-  {
-    id: "numbers",
-    label: "Numbered list",
-    description: "A list with numbering",
-    group: "Lists",
-    keywords: ["list", "ol", "number"],
-    run: toggleNumbers,
-  },
-  {
-    id: "tasks",
-    label: "Checklist",
-    description: "Items to tick off",
-    group: "Lists",
-    keywords: ["todo", "check", "checkbox", "task"],
-    run: toggleTasks,
-  },
+  item(
+    "text",
+    "Text",
+    "Plain paragraph",
+    "Text",
+    ["paragraph", "plain"],
+    setBlock(nodes.paragraph, {}),
+  ),
+  item(
+    "highlight",
+    "Highlight",
+    "Mark text with a highlighter, or type ==",
+    "Text",
+    ["mark", "marker", "highlighter", "==", "color", "colour"],
+    startHighlight,
+  ),
+  heading(1, "Heading 1", "Big section heading", ["h1", "title", "header"]),
+  heading(2, "Heading 2", "Medium section heading", ["h2", "subtitle", "header"]),
+  heading(3, "Heading 3", "Small section heading", ["h3", "subheading", "header"]),
+  heading(4, "Heading 4", "Minor section heading", ["h4", "header"]),
+  heading(5, "Heading 5", "Smaller section heading", ["h5", "header"]),
+  heading(6, "Heading 6", "Smallest section heading", ["h6", "header"]),
+  item(
+    "toggleHeading",
+    "Toggle heading",
+    "A heading that folds its section",
+    "Text",
+    [],
+    setBlock(nodes.heading, { level: 2, toggle: "open" }),
+  ),
+  item("toggle", "Toggle", "A line that folds text under it", "Text", [], insertToggle),
+  item("quote", "Quote", "Capture a quote", "Text", ["blockquote"], toggleQuote),
+  item(
+    "callout",
+    "Callout",
+    "An aside that stands out",
+    "Text",
+    ["note", "info", "warning"],
+    setBlock(nodes.callout, { variant: "note" }),
+  ),
+  item(
+    "divider",
+    "Divider",
+    "A line between sections",
+    "Text",
+    ["line", "rule", "separator"],
+    insertDivider,
+  ),
+  item(
+    "code",
+    "Code block",
+    "A block of preformatted code",
+    "Text",
+    ["code", "snippet"],
+    setBlockType(nodes.codeBlock),
+  ),
+  item(
+    "bullets",
+    "Bulleted list",
+    "A simple bulleted list",
+    "Lists",
+    ["list", "ul", "bullet"],
+    toggleBullets,
+  ),
+  item(
+    "numbers",
+    "Numbered list",
+    "A list with numbering",
+    "Lists",
+    ["list", "ol", "number"],
+    toggleNumbers,
+  ),
+  item(
+    "tasks",
+    "Checklist",
+    "Items to tick off",
+    "Lists",
+    ["todo", "task", "checkbox"],
+    toggleTasks,
+  ),
+  item("steps", "Steps", "A procedure, one step at a time", "Lists", [], rowBlock(nodes.steps)),
+  item("tree", "Tree", "A nested outline with branches", "Lists", [], rowBlock(nodes.tree)),
+  item("table", "Table", "A 3x3 grid of cells", "Data", [], insertBlock(threeByThree)),
+  item("details", "Details", "Labels and values at a glance", "Data", [], rowBlock(nodes.details)),
+  item("stats", "Stats", "Headline numbers side by side", "Data", [], rowBlock(nodes.stats)),
+  item(
+    "progress",
+    "Progress",
+    "Goals tracked against a target",
+    "Data",
+    [],
+    rowBlock(nodes.progress, "\t0\t10"),
+  ),
+  item(
+    "timeline",
+    "Timeline",
+    "Dated events on a rail",
+    "Data",
+    [],
+    rowBlock(nodes.timeline, "\t"),
+  ),
+  item(
+    "equation",
+    "Equation",
+    "One LaTeX formula, centered",
+    "Math and diagrams",
+    [],
+    sourceBlock(nodes.equation),
+  ),
+  item(
+    "math",
+    "Math block",
+    "Lines of LaTeX for derivations and proofs",
+    "Math and diagrams",
+    [],
+    sourceBlock(nodes.math),
+  ),
+  item(
+    "inlineMath",
+    "Inline math",
+    "A formula inside the text, or type $x$",
+    "Math and diagrams",
+    [],
+    insertInlineMath,
+  ),
+  item(
+    "diagram",
+    "Diagram",
+    "Flowcharts and more with Mermaid",
+    "Math and diagrams",
+    [],
+    sourceBlock(nodes.diagram),
+  ),
+  item(
+    "circuit",
+    "Circuit",
+    "Logic gates from a boolean expression, or drawn by hand",
+    "Math and diagrams",
+    [],
+    sourceBlock(nodes.circuit),
+  ),
+  item(
+    "plot",
+    "Plot",
+    "Functions and points in a coordinate system",
+    "Math and diagrams",
+    [],
+    sourceBlock(nodes.plot),
+  ),
+  item(
+    "mindmap",
+    "Mind map",
+    "Ideas branching from a topic, from an indented list",
+    "Math and diagrams",
+    [],
+    sourceBlock(nodes.mindmap),
+  ),
+  item("image", "Image", "Upload or link a picture", "Links and media", [], rowBlock(nodes.image)),
+  item("video", "Video", "Play a video file or link", "Links and media", [], rowBlock(nodes.video)),
+  item("audio", "Audio", "A recording or a song", "Links and media", [], rowBlock(nodes.audio)),
+  item(
+    "file",
+    "File",
+    "Attach any file to open later",
+    "Links and media",
+    [],
+    rowBlock(nodes.file),
+  ),
+  item(
+    "bookmark",
+    "Web bookmark",
+    "A preview card for a link",
+    "Links and media",
+    [],
+    rowBlock(nodes.bookmark),
+  ),
+  item(
+    "embed",
+    "Embed",
+    "YouTube, Figma, Maps and more, inline",
+    "Links and media",
+    [],
+    rowBlock(nodes.embed),
+  ),
+  item(
+    "linked",
+    "Linked item",
+    "A live card for a task, exam, course or page",
+    "Links and media",
+    [],
+    rowBlock(nodes.entity_card),
+  ),
 ];
 
 function toggleHeadingOn(level: number): Command {
   return setBlock(nodes.heading, { level });
 }
 
-/// The menu's items for what has been typed after the slash.
+const plain = (text: string) => text.toLowerCase().replace(/[^a-z0-9=]/g, "");
+
+/// How well a name matches what was typed: starting with it, then containing it, then having
+/// its letters in order ("inlmath"); -1 for no match. Hyphens and spaces do not count, so
+/// `inline-math` finds Inline math.
+function rank(name: string, typed: string): number {
+  const text = plain(name);
+  if (text.startsWith(typed)) return 0;
+  if (text.includes(typed)) return 1;
+  let at = 0;
+  for (const letter of typed) {
+    at = text.indexOf(letter, at) + 1;
+    if (at === 0) return -1;
+  }
+  return 2;
+}
+
+/// The menu's items for what has been typed after the slash, the best matches first.
 export function slashMatches(query: string): SlashItem[] {
-  const words = query.trim().toLowerCase();
-  if (!words) return SLASH_ITEMS;
-  return SLASH_ITEMS.filter(
-    (item) =>
-      item.label.toLowerCase().includes(words) || item.keywords.some((k) => k.startsWith(words)),
-  );
+  const typed = plain(query);
+  if (!typed) return SLASH_ITEMS;
+  return SLASH_ITEMS.map((entry, index) => {
+    const ranks = [entry.label, ...entry.keywords]
+      .map((name) => rank(name, typed))
+      .filter((r) => r >= 0);
+    return { entry, index, best: ranks.length > 0 ? Math.min(...ranks) : -1 };
+  })
+    .filter((found) => found.best >= 0)
+    .toSorted((a, b) => a.best - b.best || a.index - b.index)
+    .map((found) => found.entry);
 }
 
 /// The matches for what has been typed, under their groups' headings.
@@ -435,6 +662,8 @@ export function applySlash(
   // The deletion and the block change are one step for undo.
   const combined = state.tr.delete(trigger.from, trigger.to);
   for (const step of made[0].steps) combined.step(step);
+  // What is typed next takes the highlighter, for that item.
+  if (made[0].storedMarksSet) combined.setStoredMarks(made[0].storedMarks);
   return combined;
 }
 

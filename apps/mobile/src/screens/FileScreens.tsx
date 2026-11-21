@@ -1,4 +1,6 @@
 import { useDeviceWord } from "../ui/device-word.ts";
+import { Badge } from "../ui/Badge.tsx";
+import { Card } from "../ui/kit/Card.tsx";
 import { type Column, DataTable } from "../ui/DataTable.tsx";
 import { useIsTablet } from "../ui/pane.tsx";
 import { FixedTop } from "../ui/fixed-top.tsx";
@@ -40,7 +42,7 @@ import { storePicked } from "../data/files.ts";
 import { useFile, useFiles, useLabels, useSpaces, useViews } from "../data/queries.ts";
 import { labelShelf } from "@nookly/shared/label-shelf";
 import { NewFileView, PickedLabels, fileLabelCounts } from "./FileViewSheets.tsx";
-import { FloatingField, PASTE_BAR_MARGIN, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
+import { FloatingField, PASTE_BAR_ROOM, PASTE_BAR_STACK } from "../ui/FloatingField.tsx";
 import { Presets } from "../ui/ListBar.tsx";
 import {
   FILE_DEFAULT,
@@ -197,13 +199,13 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
           style={edge}
           className="min-h-14 flex-row items-center gap-3 py-2 active:opacity-70"
         >
-          <View className="size-10 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary">
+          <Card radius={10} className="size-10 items-center justify-center">
             <FileThumb
               file={file}
               size={120}
               fallback={<Glyph size={22} color={theme.colors.mutedForeground} strokeWidth={1.75} />}
             />
-          </View>
+          </Card>
           <View className="flex-1">
             <Text numberOfLines={1} className="font-medium">
               {name}
@@ -224,18 +226,16 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
       onLongPress={() => entityMenu(file.entity)}
       className="gap-2 active:opacity-80"
     >
-      <View className="aspect-square items-center justify-center overflow-hidden rounded-xl border border-border bg-secondary">
+      <Card radius={16} className="aspect-square items-center justify-center">
         <FileThumb
           file={file}
           size={400}
           fallback={<Glyph size={44} color={theme.colors.mutedForeground} strokeWidth={1.5} />}
         />
-        <View className="absolute bottom-2 left-2 rounded bg-background/80 px-1.5 py-0.5">
-          <Text variant="small" className="font-medium">
-            {extensionOf(file)}
-          </Text>
+        <View className="absolute bottom-2 left-2">
+          <Badge label={extensionOf(file)} variant="secondary" size="sm" />
         </View>
-      </View>
+      </Card>
       <View className="gap-0.5 px-0.5">
         <Text numberOfLines={2} className="font-medium leading-tight">
           {name}
@@ -540,7 +540,7 @@ export function FileRows({ spaceId }: { spaceId: string }) {
         <View style={{ height: PASTE_BAR_ROOM }} />
         <SaveBar
           dirty={draft.dirty}
-          above={PASTE_BAR_ROOM - PASTE_BAR_MARGIN}
+          above={PASTE_BAR_STACK}
           onDiscard={draft.discard}
           onSave={async () => {
             if (draft.viewId) {

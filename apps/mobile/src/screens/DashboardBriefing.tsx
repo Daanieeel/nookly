@@ -128,12 +128,12 @@ function DashboardBriefing({
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
       <View className="flex-row items-start" style={{ gap: FLOAT.gap }}>
-        <View style={{ paddingTop: FLOAT.lift }}>
-          <Mascot size={size} animate={focused} />
-        </View>
         <Text className={`flex-1 text-foreground ${type}`}>
           <Runs pieces={slicePieces(pieces, 0, beside)} open={open} />
         </Text>
+        <View style={{ paddingTop: FLOAT.lift }}>
+          <Mascot size={size} animate={focused} />
+        </View>
       </View>
       {beside < total ? (
         <Text className={`text-foreground ${type}`}>

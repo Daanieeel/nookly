@@ -25,6 +25,8 @@ export const CONTROL_SIZE = {
   lg: 50,
   icon: 44,
   iconSm: 36,
+  /// A row in a desktop popover list; the phone has none, its lists are sheets.
+  row: 44,
   /// A chip is a small button.
   chip: 36,
   /// `COLOR_SWATCH_CLASSES`.

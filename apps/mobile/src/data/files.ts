@@ -1,4 +1,5 @@
 import { livePath } from "./reroot.ts";
+import { withStallGuard } from "./stall-guard.ts";
 import type { SqlDriver } from "@nookly/shared/sync";
 import { BLOB_COLUMNS, type BlobPlatform } from "@nookly/shared/sync";
 import type { ApiClient } from "@nookly/shared/api";
@@ -56,8 +57,14 @@ export function phoneBlobs(serverUrl: string, api: ApiClient, driver: SqlDriver)
       folder.create({ intermediates: true, idempotent: true });
       const partial = new File(folder, `.${sha256}.partial`);
       if (partial.exists) partial.delete();
-      await File.downloadFileAsync(`${base}/v1/blobs/${sha256}`, partial, {
-        headers: { authorization: `Bearer ${token}` },
+      // A download that stops moving is cancelled, so one lost connection never holds up the
+      // files behind it: it waits, and is tried again.
+      await withStallGuard((alive) => {
+        const task = File.createDownloadTask(`${base}/v1/blobs/${sha256}`, partial, {
+          headers: { authorization: `Bearer ${token}` },
+          onProgress: alive,
+        });
+        return { done: task.downloadAsync(), cancel: () => task.cancel() };
       });
       // Only contents that match their hash are ever used.
       if ((await sha256Of(partial)) !== sha256) {

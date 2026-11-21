@@ -7,6 +7,10 @@ import { SLASH_ICON_PATHS } from "./slash-icons.ts";
 import { VIM_MODE_LABELS, closeVimHelp, vimPlugin, vimState } from "@nookly/shared/vim";
 import type { ParsedMacros } from "@nookly/shared/latex";
 import { inlineMathView, mathBlockView } from "./math-views.ts";
+import { ROW_BLOCK_TYPES } from "./row-model.ts";
+import { rowBlockView } from "./row-blocks.ts";
+import { MEDIA_BLOCK_TYPES, mediaBlockView } from "./media-blocks.ts";
+import { blockAnswer, foundItems } from "./block-bridge.ts";
 import { codeBlockView } from "./code-block-view.ts";
 import { codeHighlightPlugin } from "./code-blocks.ts";
 import { codeSpans } from "./code-highlight.ts";
@@ -144,6 +148,8 @@ interface Props {
   onCopy: (text: string) => Promise<void>;
   /// What a search found, as JSON: `{ count, index }`.
   onFound: (result: string) => Promise<void>;
+  /// What the media, link and card blocks ask of the phone (`block-bridge.ts`), as JSON each way.
+  onBlock: (request: string) => Promise<string>;
 }
 
 const COMMANDS = {
@@ -172,6 +178,82 @@ const MENU_ROOM = 372;
 /// Below this many points of height the editor is an item's description: no room kept
 /// under its text.
 const COMPACT_BELOW = 100;
+
+const ROW_BLOCK_CSS = `
+.rb { margin: 0 0 .6em; border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--fg) 3%, transparent); font: 15px/1.35 -apple-system, system-ui, sans-serif; color: var(--fg); }
+.rb-head { display: flex; align-items: center; gap: 8px; padding: 2px 12px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--fg) 4%, transparent); border-radius: 10px 10px 0 0; }
+.rb-mark { display: flex; color: var(--muted); }
+.rb-body { padding: 6px 6px 4px; }
+.rb input { min-width: 0; border: 0; padding: 0; background: transparent; color: var(--fg); font: inherit; outline: none; }
+.rb input::placeholder { color: var(--muted); }
+.rb-title { flex: 1; height: 40px; font-weight: 500; }
+.rb-row { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 2px 4px; }
+.rb-fields { display: flex; flex: 1; min-width: 0; gap: 8px; align-items: center; }
+.rb-in { flex: 1; height: 40px; }
+.rb-icon, .rb-step, .rb-dot, .rb-add { display: flex; align-items: center; justify-content: center; flex: none; border: 0; background: transparent; color: var(--muted); font: inherit; }
+.rb-icon { width: 40px; height: 40px; border-radius: 8px; }
+.rb-icon:active, .rb-add:active { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+.rb-add { gap: 6px; min-height: 44px; padding: 0 10px; border-radius: 8px; }
+.rb-step { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--muted); font: 13px/1 ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.rb-step.done { background: color-mix(in srgb, var(--muted) 20%, transparent); border-color: transparent; }
+.rb-step.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 20%, transparent); }
+.rb-dot { width: 28px; height: 28px; position: relative; }
+.rb-dot::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.rb-dot.now::before { background: var(--primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 20%, transparent); }
+.rb-dot.next::before { background: transparent; border: 1.5px solid var(--muted); }
+.rb-steps .rb-fields { flex-direction: column; align-items: stretch; gap: 0; }
+.rb-steps .rb-in { height: 24px; }
+.rb-steps .rb-detail { color: var(--muted); font-size: 13px; }
+.rb-timeline .rb-date { flex: 0 0 30%; color: var(--muted); }
+.rb-details .rb-label { flex: 0 0 38%; color: var(--muted); }
+.rb-progress .rb-fields { flex-wrap: wrap; }
+.rb-progress .rb-label { flex: 1 1 100%; }
+.rb-progress .rb-value, .rb-progress .rb-goal { flex: 0 0 56px; text-align: right; font-variant-numeric: tabular-nums; }
+.rb-track { order: 3; flex: 1 1 120px; height: 6px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--fg) 10%, transparent); }
+.rb-fill { height: 100%; border-radius: 3px; background: var(--primary); }
+.rb-track.reached .rb-fill { background: var(--accent-green); }
+.rb-stats .rb-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 4px; }
+.rb-stats .rb-row { flex-direction: column; align-items: stretch; position: relative; padding: 6px 10px; }
+.rb-stats .rb-fields { flex-direction: column; align-items: stretch; gap: 0; }
+.rb-stats .rb-in { height: 28px; }
+.rb-stats .rb-value { font-size: 24px; font-weight: 600; height: 34px; }
+.rb-stats .rb-label, .rb-stats .rb-hint { font-size: 13px; color: var(--muted); }
+.rb-stats .rb-x { position: absolute; top: 0; right: 0; }
+.rb-stats .rb-add { grid-column: 1 / -1; justify-content: flex-start; }
+.rb-tree .rb-label { font-weight: 400; }
+`;
+
+const MEDIA_BLOCK_CSS = `
+.mb { margin: 0 0 .6em; border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--fg) 3%, transparent); font: 15px/1.35 -apple-system, system-ui, sans-serif; color: var(--fg); overflow: hidden; }
+.mb-head { display: flex; align-items: center; gap: 8px; padding: 0 12px; min-height: 40px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--fg) 4%, transparent); color: var(--muted); font-weight: 500; }
+.mb-mark { display: flex; color: var(--muted); }
+.mb-form { display: flex; gap: 6px; padding: 8px 8px 0; }
+.mb input { min-width: 0; border: 0; padding: 0; background: transparent; color: var(--fg); font: inherit; outline: none; }
+.mb input::placeholder { color: var(--muted); }
+.mb-url { flex: 1; height: 44px; padding: 0 12px !important; border-radius: 8px; border: 1px solid var(--border) !important; background: var(--bg) !important; }
+.mb-go, .mb-action { min-height: 44px; padding: 0 14px; border: 0; border-radius: 8px; font: 500 15px/1 -apple-system, system-ui, sans-serif; }
+.mb-go { background: var(--primary); color: #fff; }
+.mb-go:disabled { opacity: .4; }
+.mb-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 8px 0; }
+.mb-action { border: 1px solid var(--border); background: transparent; color: var(--fg); }
+.mb-action:active { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+.mb-error { padding: 6px 12px 0; color: var(--accent-red, #e5484d); font-size: 13px; }
+.mb-error:empty { display: none; }
+.mb-results { display: flex; flex-direction: column; padding: 4px 4px 4px; max-height: 280px; overflow-y: auto; }
+.mb-results:empty { padding: 4px; }
+.mb-result { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--fg); font: inherit; text-align: left; }
+.mb-result:active { background: color-mix(in srgb, var(--primary) 15%, transparent); }
+.mb-result small { color: var(--muted); font-size: 12px; }
+.mb-result-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-none { margin: 0; padding: 10px; color: var(--muted); }
+.mb-picture { display: block; width: 100%; max-height: 360px; object-fit: contain; background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.mb-player { display: block; width: 100%; }
+.mb-card { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 4px 0 12px; }
+.mb-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); }
+.mb-icon:active { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+.mb-caption { width: calc(100% - 24px); height: 36px; margin: 0 12px 4px; color: var(--muted) !important; font-size: 13px !important; }
+`;
 
 const CSS = `
 html, body { margin: 0; height: auto; min-height: 0; background: transparent; -webkit-text-size-adjust: 100%; }
@@ -212,6 +294,8 @@ ${PLACEHOLDER_CSS}
 .pm .toggle { margin: 0 0 .6em; padding-left: .9em; border-left: 3px solid var(--border); }
 .pm .card { margin: 0 0 .6em; padding: .7em .8em; border-radius: 8px; border: 1px solid var(--border); color: var(--muted); font-size: .9em; user-select: none; }
 .pm .math { font-family: ui-monospace, Menlo, monospace; color: var(--muted); }
+${ROW_BLOCK_CSS}
+${MEDIA_BLOCK_CSS}
 .codeblock { margin: 0 0 .6em; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; background: color-mix(in srgb, var(--fg) 4%, transparent); }
 .codeblock-header { display: flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--fg) 5%, transparent); }
 .codeblock-name { flex: 1; min-width: 0; height: 40px; border: 0; padding: 0; background: transparent; color: var(--fg); font: 500 14px/1.2 -apple-system, system-ui, sans-serif; outline: none; }
@@ -261,6 +345,7 @@ export default function PageEditorDom({
   onOpen,
   onPickLanguage,
   onCopy,
+  onBlock,
   onFound,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -432,6 +517,48 @@ export default function PageEditorDom({
         inlineMath: inlineMathView(() => macrosRef.current),
         math: mathBlockView(() => macrosRef.current),
         equation: mathBlockView(() => macrosRef.current),
+        ...Object.fromEntries(
+          MEDIA_BLOCK_TYPES.map((type) => [
+            type,
+            mediaBlockView(type, {
+              editable: () => editableRef.current,
+              search: async (query, types) => {
+                try {
+                  const raw = await blockRef.current(
+                    JSON.stringify({ op: "search", query, types }),
+                  );
+                  return foundItems.parse(JSON.parse(raw));
+                } catch {
+                  return [];
+                }
+              },
+              upload: async () => {
+                const answer = blockAnswer.parse(
+                  JSON.parse(await blockRef.current(JSON.stringify({ op: "upload" }))),
+                );
+                return "canceled" in answer ? null : answer;
+              },
+              bookmark: async (url) => {
+                const answer = blockAnswer.parse(
+                  JSON.parse(await blockRef.current(JSON.stringify({ op: "bookmark", url }))),
+                );
+                return "canceled" in answer
+                  ? { error: "Couldn't add the bookmark, try again" }
+                  : answer;
+              },
+              open: (href) => void onOpenRef.current(href),
+            }),
+          ]),
+        ),
+        ...Object.fromEntries(
+          ROW_BLOCK_TYPES.map((type) => [
+            type,
+            rowBlockView(type, {
+              editable: () => editableRef.current,
+              caret: (bottom) => void caretRef.current(bottom),
+            }),
+          ]),
+        ),
       },
       attributes: {
         class: "pm",
@@ -568,6 +695,12 @@ export default function PageEditorDom({
   pickLanguageRef.current = onPickLanguage;
   const copyRef = useRef(onCopy);
   copyRef.current = onCopy;
+  const caretRef = useRef(onCaret);
+  caretRef.current = onCaret;
+  const blockRef = useRef(onBlock);
+  blockRef.current = onBlock;
+  const onOpenRef = useRef(onOpen);
+  onOpenRef.current = onOpen;
   /// The formula being edited: where it is in the page, its source, and where it sits.
   const [mathEdit, setMathEdit] = useState<{
     pos: number;
@@ -686,7 +819,18 @@ export default function PageEditorDom({
                         onClick={() =>
                           choose((e, trigger) => {
                             const tr = applySlash(e.state, trigger, item);
-                            if (tr) e.dispatch(tr);
+                            if (!tr) return;
+                            e.dispatch(tr);
+                            // An empty formula asks for its source straight away.
+                            if (item.id === "inlineMath") {
+                              const at = e.coordsAtPos(trigger.from);
+                              setMathEdit({
+                                pos: trigger.from,
+                                latex: "",
+                                top: at.bottom + 6,
+                                left: Math.max(8, at.left - 8),
+                              });
+                            }
                           })
                         }
                       >

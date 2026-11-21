@@ -1,7 +1,22 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { PlatformColor } from "react-native";
-import { CHARCOAL, PRIMARY_GLOSS, SEMANTIC, TINT, TYPE, semantic, withAlpha } from "./tokens.ts";
+import { type BoxShadowValue, PlatformColor } from "react-native";
+import {
+  CHARCOAL,
+  ELEVATION,
+  type ElevationName,
+  PRIMARY,
+  PRIMARY_GLOSS,
+  SEMANTIC,
+  SOLID,
+  TINT,
+  TYPE,
+  elevation,
+  semantic,
+  shade,
+  solidLook,
+  withAlpha,
+} from "./tokens.ts";
 
 const HEX = /^#[0-9a-f]{6}([0-9a-f]{2})?$/;
 
@@ -71,5 +86,74 @@ describe("design tokens", () => {
     for (const style of Object.values(TYPE)) {
       expect(style.lineHeight).toBeGreaterThan(style.fontSize);
     }
+  });
+
+  it("fill the main button with the desktop's own primary, the same in both schemes", () => {
+    const css = readFileSync(join(__dirname, "../../../../packages/ui/src/theme.css"), "utf8");
+    const at = css.indexOf("@variant dark {");
+    expect(css.slice(0, at)).toContain(`--primary: ${PRIMARY};`);
+    expect(css.slice(at)).toContain(`--primary: ${PRIMARY};`);
+    expect(css.slice(0, at)).toContain(`--ring: ${PRIMARY};`);
+  });
+
+  it("take the solid status fills from the desktop's own tokens", () => {
+    const css = readFileSync(join(__dirname, "../../../../packages/ui/src/theme.css"), "utf8");
+    const at = css.indexOf("@variant dark {");
+    const [light, dark] = [css.slice(0, at), css.slice(at)];
+    for (const name of ["positive", "caution", "warning", "destructive"] as const) {
+      expect(light).toContain(`--solid-${name}: ${SOLID[name].light};`);
+      expect(dark).toContain(`--solid-${name}: ${SOLID[name].dark};`);
+    }
+  });
+
+  it("shade a colour toward black by keeping a share of it", () => {
+    expect(shade("#ff8040", 0.5)).toBe("#804020");
+    expect(shade("#0a9f4a", 1)).toBe("#0a9f4a");
+    expect(shade("#ffffff", 0)).toBe("#000000");
+  });
+
+  it("draw a solid look with a gloss, a ring of its own colour and near black shadows", () => {
+    const look = solidLook(SOLID.positive.dark, "dark");
+    expect(look.backgroundColor).toBe(SOLID.positive.dark);
+    expect(look.experimental_backgroundImage).toContain("linear-gradient");
+    const [ring, ...rest] = look.boxShadow;
+    expect(ring?.spreadDistance).toBe(1);
+    expect(rest.some((s) => s.inset)).toBe(true);
+    // The drop shadows are a shade, never a glow in the colour itself.
+    for (const drop of rest.filter((s) => !s.inset && s.blurRadius > 0)) {
+      const [r, g, b] =
+        /rgba\((\d+),\s*(\d+),\s*(\d+)/.exec(drop.color)?.slice(1).map(Number) ?? [];
+      expect(Math.max(r ?? 255, g ?? 255, b ?? 255)).toBeLessThan(60);
+    }
+  });
+
+  it("keep the main button's shadows a shade with a hint of blue, not a blue glow", () => {
+    const drops = PRIMARY_GLOSS.boxShadow.filter((s) => !s.inset && s.blurRadius > 0);
+    expect(drops.length).toBeGreaterThan(0);
+    for (const drop of drops) {
+      const blue = Number(/rgba\(\d+,\s*\d+,\s*(\d+)/.exec(drop.color)?.[1] ?? 255);
+      expect(blue).toBeLessThan(60);
+    }
+  });
+
+  const shadows = (name: ElevationName, scheme: "light" | "dark"): BoxShadowValue[] =>
+    ELEVATION[name][scheme];
+
+  it("layer the desktop's elevations for each scheme, lit from above in the dark", () => {
+    for (const name of ["control", "card", "popover", "dialog"] as const) {
+      for (const scheme of ["light", "dark"] as const) {
+        expect(shadows(name, scheme).length).toBeGreaterThan(0);
+        expect(elevation(name, scheme).boxShadow).toBe(ELEVATION[name][scheme]);
+      }
+      // A top highlight is how the dark raises a surface; on light the shadow does it.
+      expect(shadows(name, "dark").some((s) => s.inset)).toBe(true);
+      expect(shadows(name, "light").some((s) => s.inset)).toBe(false);
+    }
+    // Deeper things cast a longer shadow.
+    const reach = (name: ElevationName) =>
+      Math.max(...shadows(name, "light").map((s) => Number(s.blurRadius ?? 0)));
+    expect(reach("control")).toBeLessThan(reach("card"));
+    expect(reach("card")).toBeLessThan(reach("popover"));
+    expect(reach("popover")).toBeLessThanOrEqual(reach("dialog"));
   });
 });

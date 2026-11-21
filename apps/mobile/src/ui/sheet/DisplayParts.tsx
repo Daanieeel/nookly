@@ -5,15 +5,26 @@ import { Pressable, StyleSheet, Switch, View } from "react-native";
 import { cn } from "../classes.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
-import { CORNER, TYPE } from "../tokens.ts";
-import { useSemantic } from "../kit/scheme.ts";
+import {
+  CORNER,
+  PRIMARY,
+  SPACE,
+  TINT_FILL,
+  TYPE,
+  type TintName,
+  elevation,
+  tint,
+  withAlpha,
+} from "../tokens.ts";
+import { IconBadge } from "../kit/IconBadge.tsx";
+import { useControlStyle, useScheme, useSemantic } from "../kit/scheme.ts";
 import { InlineSelect } from "./InlineMenu.tsx";
 import { TOUCH_ROW } from "../touch.ts";
 
 /// Rows and tiles at the size of the sheet's menu items.
 const BODY = { fontSize: TYPE.body.fontSize, lineHeight: TYPE.body.lineHeight };
 /// Linear's grouped rows: a little taller than a finger.
-const ROW = { minHeight: 52 };
+const ROW = { minHeight: 56 };
 import { type Option, OptionList } from "./OptionList.tsx";
 import { Sheet } from "./Sheet.tsx";
 
@@ -31,8 +42,7 @@ export function LayoutTiles<T extends string>({
   onSelect: (id: T) => void;
 }) {
   const theme = useTheme();
-  const card = useSemantic("sheetCard");
-  const quiet = useSemantic("fill");
+  const control = useControlStyle();
   return (
     <View accessibilityRole="radiogroup" accessibilityLabel="Layout" className="flex-row gap-2">
       {tiles.map((tile) => {
@@ -44,11 +54,10 @@ export function LayoutTiles<T extends string>({
             accessibilityLabel={tile.label}
             accessibilityState={{ checked: on }}
             onPress={() => onSelect(tile.id)}
-            style={[TOUCH_ROW, { backgroundColor: on ? card : quiet }]}
+            style={[TOUCH_ROW, control]}
             className={cn(
               "active:opacity-60",
-              "flex-1 items-center justify-center gap-1.5 rounded-2xl border border-transparent py-3",
-              on && "border-foreground/20",
+              "flex-1 items-center justify-center gap-1.5 rounded-2xl py-3",
             )}
           >
             <tile.icon
@@ -76,63 +85,100 @@ export function SelectRow<T extends string>(props: {
   return <InlineSelect {...props} />;
 }
 
-/// Linear's grouped card in a sheet: its rows on one rounded surface with hairlines
-/// between them.
+/// The sheet's rows, each on a raised card of its own with a little room between, so a
+/// row reads as one thing to touch and never as a line in a slab.
 export function DisplayGroup({ children }: { children: ReactNode }) {
-  const surface = useSemantic("sheetCard");
-  const separator = useSemantic("separator");
   const rows = Children.toArray(children).filter(Boolean);
   return (
-    <View
-      testID="display-group"
-      style={[CORNER, { backgroundColor: surface, borderRadius: 20, overflow: "hidden" }]}
-    >
+    <View testID="display-group" style={{ gap: SPACE.sm }}>
       {rows.map((row, index) => (
         // oxlint-disable-next-line react/no-array-index-key -- rows are positional
-        <View key={index}>
-          {index > 0 ? (
-            <View
-              style={{
-                height: StyleSheet.hairlineWidth,
-                backgroundColor: separator,
-              }}
-            />
-          ) : null}
-          {row}
-        </View>
+        <DisplayCard key={index}>{row}</DisplayCard>
       ))}
     </View>
   );
 }
 
-/// A row that opens a further step: a name, what is set, a chevron.
+function DisplayCard({ children }: { children: ReactNode }) {
+  const surface = useSemantic("sheetCard");
+  const edge = useSemantic("controlEdge");
+  const scheme = useScheme();
+  return (
+    <View
+      testID="display-card"
+      style={[
+        CORNER,
+        elevation("control", scheme),
+        {
+          backgroundColor: surface,
+          borderRadius: 20,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: edge,
+          overflow: "hidden",
+        },
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
+/// A field's own tint, the same each time, so a list of filters is not one grey column.
+const FIELD_TINTS = ["blue", "green", "purple", "pink", "yellow", "red"] as const;
+function fieldTint(label: string): TintName {
+  let sum = 0;
+  for (const ch of label) sum += ch.codePointAt(0) ?? 0;
+  return FIELD_TINTS[sum % FIELD_TINTS.length] ?? "blue";
+}
+
+/// A row that opens a further step: the field's icon on a tinted badge, its name, what is
+/// set (a chip in the primary colour once something is chosen) and a chevron.
 function NextRow({
   label,
   value,
+  active,
   icon: Icon,
   onPress,
 }: {
   label: string;
   value: string;
+  active: boolean;
   icon?: ComponentType<{ size?: number; color?: string }>;
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const scheme = useScheme();
+  const color = tint(fieldTint(label), scheme);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${label}, ${value}`}
       onPress={onPress}
       style={ROW}
-      className="flex-row items-center gap-3 px-4 active:bg-accent"
+      className="flex-row items-center gap-3 px-3 active:bg-accent"
     >
-      {Icon ? <Icon size={22} color={theme.colors.foreground} /> : null}
+      {Icon ? <IconBadge tint={fieldTint(label)} icon={<Icon size={20} color={color} />} /> : null}
       <Text className="flex-1" style={BODY}>
         {label}
       </Text>
-      <Text numberOfLines={1} tone="muted" style={[BODY, { maxWidth: "50%" }]}>
-        {value}
-      </Text>
+      {active ? (
+        <View
+          style={{
+            borderRadius: 999,
+            paddingHorizontal: SPACE.md,
+            paddingVertical: SPACE.xs,
+            backgroundColor: withAlpha(PRIMARY, TINT_FILL[scheme]),
+          }}
+        >
+          <Text numberOfLines={1} style={[BODY, { color: tint("blue", scheme), maxWidth: 160 }]}>
+            {value}
+          </Text>
+        </View>
+      ) : (
+        <Text numberOfLines={1} tone="muted" style={[BODY, { maxWidth: "50%" }]}>
+          {value}
+        </Text>
+      )}
       <IconChevronRight size={18} color={theme.colors.mutedForeground} />
     </Pressable>
   );
@@ -199,7 +245,13 @@ export function FilterField<T extends string>({
         : `${values.length} chosen`;
   return (
     <>
-      <NextRow label={label} icon={icon} value={shown} onPress={() => setOpen(true)} />
+      <NextRow
+        label={label}
+        icon={icon}
+        value={shown}
+        active={values.length > 0}
+        onPress={() => setOpen(true)}
+      />
       {/* A card over the Filter sheet, as a select opens, not a step covering it. */}
       <Sheet open={open} onOpenChange={setOpen} title={label} presentation="card">
         <FilterOptions

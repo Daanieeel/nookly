@@ -44,6 +44,7 @@ import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { EntityKey } from "#/components/entity-key.tsx";
 import { Badge } from "@nookly/ui/components/badge";
+import { NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {
   Collapsible,
@@ -235,12 +236,7 @@ export function CoursesListView({ spaceId }: { spaceId: string }) {
           ))}
         </div>
       ) : shown.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No courses match these filters.</p>
-          <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
-            Clear filters
-          </Button>
-        </div>
+        <NoMatchesNotice text="No courses match these filters." onClear={() => setFilters([])} />
       ) : semesters.length === 0 ? (
         // No Semester exists yet — grouping (and an "Active" section with
         // nothing to contrast against) wouldn't mean anything, so stay flat.

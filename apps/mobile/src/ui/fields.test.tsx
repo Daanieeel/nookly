@@ -62,7 +62,7 @@ describe("a field's box", () => {
   it("is raised, with a hairline edge", () => {
     const screen = render(<Field label="Name" value="" onChangeText={() => {}} />);
     expect(box(screen).borderWidth).toBeGreaterThan(0);
-    expect(box(screen).shadowOpacity).toBeGreaterThan(0);
+    expect(box(screen).boxShadow?.length).toBeGreaterThan(0);
   });
 
   it("takes the accent while focused, and lets go after", () => {
@@ -87,25 +87,26 @@ describe("a field's box", () => {
     expect(onBlur).toHaveBeenCalled();
   });
 
-  // Most forms hold one field in a section (New Space's name); it showed as a flat row.
-  it("draws its box in a section of its own", () => {
+  it("draws its box under the section's title", () => {
     const screen = render(
       <FormSection title="Space">
         <Field label="Name" value="" onChangeText={() => {}} />
       </FormSection>,
     );
     expect(screen.getByTestId("field-box")).toBeTruthy();
-    expect(screen.getByText("SPACE")).toBeTruthy();
+    expect(screen.getByText("Space")).toBeTruthy();
   });
 
-  it("is a grouped row among other rows", () => {
+  // A field is the same thing alone and with others: each is its own raised box, never a row
+  // of a shared slab.
+  it("keeps its own box among other fields", () => {
     const screen = render(
       <FormSection>
         <Field label="Username" value="" onChangeText={() => {}} />
         <Field label="Password" value="" onChangeText={() => {}} />
       </FormSection>,
     );
-    expect(screen.queryByTestId("field-box")).toBeNull();
+    expect(screen.getAllByTestId("field-box")).toHaveLength(2);
   });
 
   it("has a red edge with an error", () => {

@@ -8,6 +8,7 @@ import {
   IconPlus,
   IconSettings,
   IconTrash,
+  IconX,
 } from "@tabler/icons-react-native";
 import { type ReactNode, useState } from "react";
 import { View } from "react-native";
@@ -15,6 +16,11 @@ import { Badge, SpaceDot } from "@mobile/ui/Badge.tsx";
 import { BrandButton } from "@mobile/ui/BrandButton.tsx";
 import { Button, IconButton } from "@mobile/ui/Button.tsx";
 import { Chip, ChipGroup } from "@mobile/ui/Chips.tsx";
+import { AtAGlance, GlanceProvider, PartProvider } from "@mobile/ui/parts.tsx";
+import { RecipeTagChip } from "@mobile/screens/RecipeTagChip.tsx";
+import { Card } from "@mobile/ui/kit/Card.tsx";
+import { Pill } from "@mobile/ui/sheet/Compose.tsx";
+import { RoundButton } from "@mobile/ui/sheet/Floating.tsx";
 import { Field } from "@mobile/ui/Field.tsx";
 import { NumberInput } from "@mobile/ui/NumberInput.tsx";
 import { PageTabs } from "@mobile/ui/PageTabs.tsx";
@@ -32,6 +38,12 @@ import { SearchField } from "@mobile/ui/kit/SearchField.tsx";
 import { EmptyState, ErrorState, LoadingState } from "@mobile/ui/kit/States.tsx";
 import { ConfirmContent } from "@mobile/ui/sheet/Confirm.tsx";
 import { DayPicker } from "@mobile/ui/sheet/DayPicker.tsx";
+import {
+  DisplayGroup,
+  FilterField,
+  LayoutTiles,
+  SwitchRow,
+} from "@mobile/ui/sheet/DisplayParts.tsx";
 import { MenuList } from "@mobile/ui/sheet/MenuList.tsx";
 import { OptionList } from "@mobile/ui/sheet/OptionList.tsx";
 import type { GalleryEntry } from "../types";
@@ -113,6 +125,62 @@ function OptionsDemo() {
           },
         ]}
       />
+    </SheetFrame>
+  );
+}
+
+function FilterDemo() {
+  const [status, setStatus] = useState<string[]>([]);
+  const [labels, setLabels] = useState<string[]>(["a", "b"]);
+  const options = (names: string[]) => names.map((n, i) => ({ id: String(i), label: n }));
+  return (
+    <SheetFrame>
+      <DisplayGroup>
+        <FilterField
+          label="Status"
+          icon={IconBell}
+          options={options(["Open", "Done"])}
+          values={status}
+          onChange={setStatus}
+        />
+        <FilterField
+          label="Labels"
+          icon={IconBell}
+          options={options(["Biology", "Maths", "Reading"])}
+          values={labels}
+          onChange={setLabels}
+        />
+        <FilterField
+          label="Due date"
+          icon={IconBell}
+          options={options(["Today", "This week"])}
+          values={["0", "1", "2"]}
+          onChange={() => {}}
+        />
+      </DisplayGroup>
+    </SheetFrame>
+  );
+}
+
+function DisplayDemo() {
+  const [layout, setLayout] = useState("list");
+  const [subtasks, setSubtasks] = useState(true);
+  return (
+    <SheetFrame>
+      <View style={{ gap: 8 }}>
+        <LayoutTiles
+          tiles={[
+            { id: "list", label: "List", icon: IconBell },
+            { id: "board", label: "Board", icon: IconBell },
+          ]}
+          value={layout}
+          onSelect={setLayout}
+        />
+        <DisplayGroup>
+          <SwitchRow label="Show sub-tasks" value={subtasks} onChange={setSubtasks} />
+          <SwitchRow label="Show completed" value={false} onChange={() => {}} />
+        </DisplayGroup>
+      </View>
     </SheetFrame>
   );
 }
@@ -257,16 +325,16 @@ export const MOBILE_GALLERY: GalleryEntry[] = [
     source: ui("Button.tsx"),
     render: () => (
       <Wrap>
-        <IconButton label="New" icon={<IconPlus size={18} color="#fff" />} />
+        <IconButton label="New" icon={<IconPlus size={18} color="var(--foreground)" />} />
         <IconButton
           label="Settings"
           variant="secondary"
-          icon={<IconSettings size={18} color="#888" />}
+          icon={<IconSettings size={18} color="var(--foreground)" />}
         />
         <IconButton
           label="Delete"
           variant="destructive"
-          icon={<IconTrash size={18} color="#fff" />}
+          icon={<IconTrash size={18} color="var(--destructive)" />}
         />
       </Wrap>
     ),
@@ -283,7 +351,6 @@ export const MOBILE_GALLERY: GalleryEntry[] = [
     name: "Badge",
     group: "Controls",
     source: ui("Badge.tsx"),
-    note: "The phone draws the tinted badge; the desktop's is solid.",
     render: () => (
       <>
         <Wrap>
@@ -487,6 +554,67 @@ export const MOBILE_GALLERY: GalleryEntry[] = [
     render: () => <OptionsDemo />,
   },
   {
+    id: "m-card",
+    name: "Card",
+    group: "Lists",
+    source: ui("kit/Card.tsx"),
+    render: () => (
+      <View style={{ gap: 12 }}>
+        <Card onPress={() => {}} accessibilityLabel="Shakshuka">
+          <View style={{ padding: 12, gap: 8 }}>
+            <Text>Shakshuka</Text>
+            <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+              <Badge label="Breakfast" variant="secondary" size="sm" />
+              <RecipeTagChip
+                tag={{ id: "1", name: "Vegetarian", color: "#16a34a", icon: "leaf" }}
+              />
+              <RecipeTagChip tag={{ id: "2", name: "Pasta", color: "#d97706", icon: "chef" }} />
+              <RecipeTagChip tag={{ id: "3", name: "Quick", color: "#0891b2", icon: "bolt" }} />
+            </View>
+          </View>
+        </Card>
+        <Card accent>
+          <View style={{ padding: 12 }}>
+            <Text>The next one</Text>
+          </View>
+        </Card>
+      </View>
+    ),
+  },
+  {
+    id: "m-pill",
+    name: "Pill, round button, property chip",
+    group: "Controls",
+    source: ui("sheet/Compose.tsx"),
+    render: () => (
+      <View style={{ gap: 12 }}>
+        <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+          <Pill label="Priority" value={null} onPress={() => {}} />
+          <Pill label="Due" value="Tomorrow" onPress={() => {}} />
+          <Pill label="All day" value={null} checked onPress={() => {}} />
+        </View>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <RoundButton label="Close" onPress={() => {}}>
+            <IconX size={22} color="var(--foreground)" />
+          </RoundButton>
+          <RoundButton label="Send" tone="primary" onPress={() => {}}>
+            <IconPlus size={22} color="#ffffff" />
+          </RoundButton>
+        </View>
+        <PartProvider value="main">
+          <GlanceProvider value>
+            <AtAGlance>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Property label="Type" value="PDF" icon={<IconListCheck size={16} />} />
+                <Property label="Added" value="21 Nov" icon={<IconCalendar size={16} />} />
+              </View>
+            </AtAGlance>
+          </GlanceProvider>
+        </PartProvider>
+      </View>
+    ),
+  },
+  {
     id: "m-sheet-menu",
     name: "Sheet: menu",
     group: "Sheets",
@@ -519,14 +647,25 @@ export const MOBILE_GALLERY: GalleryEntry[] = [
               { value: 24, label: "notes" },
               { value: 12, label: "tasks" },
             ],
-            actions: [
-              { label: "Cancel", onPress: () => {} },
-              { label: "Delete forever", destructive: true, onPress: () => {} },
-            ],
+            actions: [{ label: "Delete forever", destructive: true, onPress: () => {} }],
           }}
         />
       </SheetFrame>
     ),
+  },
+  {
+    id: "m-sheet-filter",
+    name: "Sheet: filter",
+    group: "Sheets",
+    source: ui("sheet/DisplayParts.tsx"),
+    render: () => <FilterDemo />,
+  },
+  {
+    id: "m-sheet-display",
+    name: "Sheet: display",
+    group: "Sheets",
+    source: ui("sheet/DisplayParts.tsx"),
+    render: () => <DisplayDemo />,
   },
   {
     id: "m-sheet-day",

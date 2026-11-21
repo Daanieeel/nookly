@@ -190,7 +190,7 @@ function FixedRow({
   const toggle = useSidebarHidden((s) => s.toggle);
   const toggleLabel = `${hidden ? "Show" : "Hide"} ${label}`;
   return (
-    <li className="flex h-8 items-center gap-1.5 rounded-md bg-popover pr-1 pl-2 text-sm">
+    <li className="flex h-8 items-center gap-1.5 rounded-sm bg-popover pr-1 pl-2 text-sm">
       <Icon size={15} className={cn("shrink-0", hidden && "text-muted-foreground")} />
       <span className={cn("min-w-0 flex-1 truncate", hidden && "text-muted-foreground")}>
         {label}

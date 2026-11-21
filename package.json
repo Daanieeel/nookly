@@ -54,6 +54,7 @@
     "dev:server": "bun tools/dev.ts server",
     "stack": "bun tools/dev.ts server",
     "dev:expo": "bun run --cwd apps/mobile dev",
+    "build:ios:release": "bun run --cwd apps/mobile ios:release",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:components": "bun run --cwd apps/components dev"
   },

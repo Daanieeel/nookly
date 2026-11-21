@@ -7,19 +7,18 @@ import {
   studyQueue,
   updateCardFaces,
 } from "@nookly/shared/data";
-import { CARD_CLASSES } from "@nookly/ui/classes";
+import { Card } from "../ui/kit/Card.tsx";
 import { IconCalendarCheck, IconCards, IconClock } from "@tabler/icons-react-native";
 import { MODULE_ICONS } from "../ui/icons.tsx";
 import { useRouter } from "expo-router";
 
 import { useCallback, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { z } from "zod";
 import { useLocalWrite } from "../data/context.tsx";
 import { usePreference } from "../data/preferences.ts";
 import { useCards, useDeck, useReviewedToday } from "../data/queries.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
-import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { AtAGlance, DetailsPart, MainPart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
@@ -112,10 +111,7 @@ function WriteDesk({ deckId, onDone }: { deckId: string; onDone: () => void }) {
   );
   return (
     <View className="gap-3">
-      <View
-        className={cn(CARD_CLASSES, "min-h-48 gap-2 p-4")}
-        accessibilityLabel={`Index card, ${side}`}
-      >
+      <Card className="min-h-48 gap-2 p-4" accessibilityLabel={`Index card, ${side}`}>
         <Text variant="small" tone="muted">
           {SIDES[side].title}
         </Text>
@@ -127,7 +123,7 @@ function WriteDesk({ deckId, onDone }: { deckId: string; onDone: () => void }) {
           blocks={draft[side]}
           onChange={change}
         />
-      </View>
+      </Card>
       <View className="flex-row flex-wrap items-center gap-2">
         <Button
           label={side === "front" ? "Flip to Back" : "Flip to Front"}
@@ -190,7 +186,7 @@ function CardEditor({
   return (
     <View className="gap-3">
       {(["front", "back"] as const).map((side) => (
-        <View key={side} className={cn(CARD_CLASSES, "min-h-32 gap-2 p-4")}>
+        <Card key={side} className="min-h-32 gap-2 p-4">
           <Text variant="small" tone="muted">
             {SIDES[side].title}
           </Text>
@@ -201,7 +197,7 @@ function CardEditor({
             blocks={start[side]}
             onChange={side === "front" ? setFront : setBack}
           />
-        </View>
+        </Card>
       ))}
       <View className="flex-row flex-wrap items-center gap-2">
         <Button
@@ -224,12 +220,12 @@ function CardEditor({
 
 function MiniCard({ card, onPress }: { card: IndexCard; onPress: () => void }) {
   return (
-    <Pressable
+    <Card
       accessibilityRole="button"
       accessibilityLabel={`${card.front}, ${card.back}`}
       accessibilityHint="Edit the card"
       onPress={onPress}
-      className={cn(CARD_CLASSES, "aspect-[5/3] justify-between gap-1 p-3 active:opacity-80")}
+      className="aspect-[5/3] justify-between gap-1 p-3 active:opacity-80"
     >
       <Text numberOfLines={3} className="font-medium">
         {card.front}
@@ -237,7 +233,7 @@ function MiniCard({ card, onPress }: { card: IndexCard; onPress: () => void }) {
       <Text variant="small" tone="muted">
         {STATE_LABELS.get(card.state) ?? card.state}
       </Text>
-    </Pressable>
+    </Card>
   );
 }
 
@@ -312,7 +308,7 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
           <WriteDesk deckId={id} onDone={() => setMode("overview")} />
         ) : (
           <>
-            <View className={cn(CARD_CLASSES, "gap-4 p-4")}>
+            <Card className="gap-4 p-4">
               <View className="flex-row items-center justify-around">
                 <Figure label="New" value={deck.stats.new} color={theme.colors.primary} />
                 <Figure label="Learning" value={deck.stats.learning} color="#ec4899" />
@@ -339,7 +335,7 @@ export function DeckDetail({ id, readOnly }: { id: string; readOnly: boolean }) 
                   onPress={() => router.push(`/study/${id}`)}
                 />
               </View>
-            </View>
+            </Card>
             <Sheet
               open={edited !== undefined}
               onOpenChange={(open) => !open && setEditing(null)}

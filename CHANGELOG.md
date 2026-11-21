@@ -2,6 +2,31 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.1.0 (2026-11-21)
+
+### Added
+
+- On your phone, a magnifying glass in the top bar finds text inside a note or jot, like on your computer.
+- On your phone, the slash menu has every block your computer has, including inline math, and you can edit Steps, Tree, Details, Stats, Progress, Timeline, Image, Video, Audio, File, Web bookmark, Embed and Linked item blocks right in the page.
+- On your phone, calendar pages show a Back to Today button once today has scrolled out of view.
+- Password fields on your phone have an eye to show or hide what you typed.
+
+### Changed
+
+- On your phone, a new calendar entry now has a Starts line and an Ends line, each with its day and time, and a longer entry is made by moving the end to a later day. The entry page works the same way.
+- On your phone, the sign in and create account fields lock while you wait, and after a mistake the fields are marked and the button stays off until you have changed them.
+- On your phone, the bar for saving changes to a page has bigger buttons, a Save button with an icon and a red Discard.
+- On your phone, the floating bars sit higher with softer corners that match their buttons.
+- On your phone, the dashboard mascot sits at the top right.
+- A filter that finds nothing now shows a No matches message with a button to clear the filters, on every page that has filters.
+- The highlighted row in a popover now has corners that match the popover.
+
+### Fixed
+
+- Files on your phone download five at a time and no longer sit on Downloading for ever.
+- Icons inside coloured buttons now match the label's colour, like the white trash icon on Move to Trash.
+- The Agent settings text box is no longer cut off.
+
 ## 1.0.1 (2026-11-19)
 
 ### Fixed

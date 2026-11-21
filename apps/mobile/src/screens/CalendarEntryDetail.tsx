@@ -26,6 +26,7 @@ import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, DayProperty, InfoRow, TextRow } from "../ui/property-rows.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { addDays, daysBetween } from "./dates.ts";
 
 /// A Calendar entry: its description in the page; its day, times and place as rows of the
 /// details, each saved as it changes. An entry of a series changes alone; the series
@@ -63,22 +64,6 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
     });
   const properties = (
     <PropertyList>
-      <DayProperty
-        icon={<IconCalendarEvent size={20} color={muted} />}
-        label="Date"
-        clearable={false}
-        value={item.date}
-        readOnly={readOnly}
-        onChange={(date) => date && change({ date })}
-      />
-      <DayProperty
-        icon={<IconCalendarEvent size={20} color={muted} />}
-        label="Last day"
-        placeholder="Only this day"
-        value={item.endDate ?? null}
-        readOnly={readOnly}
-        onChange={(endDate) => change({ endDate })}
-      />
       <ChoiceProperty
         icon={<IconSun size={20} color={muted} />}
         label="All day"
@@ -90,22 +75,45 @@ export function CalendarEntryDetail({ id, readOnly }: { id: string; readOnly: bo
         ]}
         onChange={(value) => change({ allDay: value === "yes" })}
       />
-      {item.allDay ? (
-        <InfoRow icon={<IconClock size={20} color={muted} />} label="Time" value="All day" />
-      ) : (
+      {/* Starts and Ends each hold a day and a time; an end day after the start makes a longer entry. */}
+      <DayProperty
+        icon={<IconCalendarEvent size={20} color={muted} />}
+        label="Starts"
+        clearable={false}
+        value={item.date}
+        readOnly={readOnly}
+        // The end moves with it, so the entry keeps its length.
+        onChange={(date) =>
+          date &&
+          change({
+            date,
+            endDate: item.endDate ? addDays(item.endDate, daysBetween(item.date, date)) : null,
+          })
+        }
+      />
+      {item.allDay ? null : (
         <DayProperty
           icon={<IconClock size={20} color={muted} />}
-          label="Starts"
+          label="Start time"
           mode="time"
           value={item.startTime}
           readOnly={readOnly}
           onChange={(startTime) => change({ startTime })}
         />
       )}
+      <DayProperty
+        icon={<IconCalendarEvent size={20} color={muted} />}
+        label="Ends"
+        clearable={false}
+        value={item.endDate ?? item.date}
+        readOnly={readOnly}
+        // The same day as the start (or before it) is a one day entry.
+        onChange={(day) => day && change({ endDate: day > item.date ? day : null })}
+      />
       {item.allDay ? null : (
         <DayProperty
           icon={<IconClock size={20} color={muted} />}
-          label="Ends"
+          label="End time"
           mode="time"
           value={item.endTime}
           readOnly={readOnly}

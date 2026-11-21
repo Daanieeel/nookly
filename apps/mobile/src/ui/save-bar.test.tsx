@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 import { SaveBar } from "./SaveBar.tsx";
-import { pasteBarCorners, screenCornerRadius } from "./FloatingField.tsx";
+import { PASTE_BAR } from "./FloatingField.tsx";
+import { TINT } from "./tokens.ts";
+import { CONTROL_SIZE } from "./touch.ts";
 
 // Save View sat at the bottom of the Display sheet. As on the desktop, a bar floats at the
 // bottom of the page once its filters or display change: Discard, Save as View where the
@@ -37,11 +39,27 @@ describe("the save bar", () => {
     await waitFor(() => expect(onSaveAsView).toHaveBeenCalledWith("Open work"));
   });
 
-  it("is a pill in the screen's corners, like the paste bars", () => {
+  it("has a card's corners, not a pill", () => {
     render(<SaveBar dirty onDiscard={() => {}} onSave={() => {}} />);
     const bar = StyleSheet.flatten(screen.getByTestId("save-bar").props.style);
-    const corners = pasteBarCorners(screenCornerRadius({ width: 402, height: 874 }));
-    expect(bar.borderRadius).toBe(corners.top);
-    expect(bar.height).toBe(corners.height);
+    expect(bar.borderRadius).toBe(PASTE_BAR.radius);
+    expect(bar.height).toBeUndefined();
+  });
+
+  it("gives Save a positive fill and an icon, and Discard red words", () => {
+    render(<SaveBar dirty onDiscard={() => {}} onSave={() => {}} onSaveAsView={jest.fn()} />);
+    const save = StyleSheet.flatten(screen.getByRole("button", { name: "Save" }).props.style);
+    const discard = StyleSheet.flatten(screen.getByRole("button", { name: "Discard" }).props.style);
+    expect(save.backgroundColor).toBeTruthy();
+    expect(discard.backgroundColor).toBeUndefined();
+    // Discard is a ghost button with red words, not an underlined link.
+    const words = StyleSheet.flatten(screen.getByText("Discard").props.style);
+    expect(words.textDecorationLine).toBeUndefined();
+    expect(words.color).toBe(TINT.red.light);
+    // Each button is as tall as the send button of the bar beside it (44), not the small size.
+    for (const button of [save, discard]) expect(button.height).toBe(CONTROL_SIZE.default);
+    // Each button is only as wide as it needs to be.
+    expect(save.flex).toBeUndefined();
+    expect(discard.flex).toBeUndefined();
   });
 });

@@ -4,11 +4,11 @@ import { StyleSheet, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { AnimatedPressable, usePressScale } from "../press.ts";
 import { MIN_TOUCH } from "../touch.ts";
-import { CORNER, RADIUS, SPACE, type TintName } from "../tokens.ts";
+import { CORNER, RADIUS, SPACE, type TintName, elevation } from "../tokens.ts";
 import type { GlyphIcon } from "./Glyph.tsx";
 import { IconBadge } from "./IconBadge.tsx";
 import { Label } from "./Label.tsx";
-import { useSemantic, useSemanticPair, useSurface } from "./scheme.ts";
+import { useScheme, useSemantic, useSemanticPair, useSurface } from "./scheme.ts";
 
 /// A raised, rounded card that is one big button, as a Home Screen widget is: it gives way
 /// under the finger and darkens the moment it lands.
@@ -24,6 +24,7 @@ export function Tile({
   children: ReactNode;
 }) {
   const surface = useSurface();
+  const scheme = useScheme();
   const pressedFill = useSemantic("pressed");
   const press = usePressScale();
   return (
@@ -37,6 +38,7 @@ export function Tile({
         unstable_pressDelay={0}
         style={[
           CORNER,
+          elevation("card", scheme),
           {
             flex: 1,
             minHeight: MIN_TOUCH,
