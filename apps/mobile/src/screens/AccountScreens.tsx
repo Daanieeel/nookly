@@ -16,7 +16,7 @@ import {
   IconNotebook,
   IconUsers,
 } from "@tabler/icons-react-native";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -39,6 +39,7 @@ import { RouteSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
+import { useRejection } from "./form-block.ts";
 
 const serverSchema = z
   .string()
@@ -132,10 +133,13 @@ function ServerField({
   value,
   onChange,
   error,
+  disabled = false,
 }: {
   value: string;
   onChange: (next: string) => void;
   error: string | undefined;
+  /// Locked while the form is being sent.
+  disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   if (!editing && !error) {
@@ -147,7 +151,13 @@ function ServerField({
         <Text variant="small" className="flex-1" numberOfLines={1}>
           {value}
         </Text>
-        <Button label="Change Server" variant="ghost" size="sm" onPress={() => setEditing(true)} />
+        <Button
+          label="Change Server"
+          variant="ghost"
+          size="sm"
+          disabled={disabled}
+          onPress={() => setEditing(true)}
+        />
       </View>
     );
   }
@@ -155,6 +165,7 @@ function ServerField({
     <Field
       label="Server"
       required
+      editable={!disabled}
       value={value}
       onChangeText={onChange}
       error={error}
@@ -442,6 +453,9 @@ export function SignInScreen() {
       if (local.answered()) signIn.mutate(value);
     },
   });
+  const attempted = useStore(form.store, (state) => state.submissionAttempts > 0);
+  const valid = useStore(form.store, (state) => state.isValid);
+  const rejection = useRejection(signIn, ["identifier", "password"]);
   return (
     <Page
       title="Welcome back"
@@ -452,6 +466,8 @@ export function SignInScreen() {
         <form.Field name="identifier">
           {(field) => (
             <Field
+              editable={!signIn.isPending}
+              invalid={rejection.invalid("identifier")}
               label="Username or email"
               required
               autoCapitalize="none"
@@ -459,7 +475,10 @@ export function SignInScreen() {
               textContentType="username"
               autoComplete="username"
               value={field.state.value}
-              onChangeText={field.handleChange}
+              onChangeText={(next) => {
+                rejection.edit("identifier");
+                field.handleChange(next);
+              }}
               onBlur={field.handleBlur}
               error={fieldError(field)}
             />
@@ -468,25 +487,39 @@ export function SignInScreen() {
         <form.Field name="password">
           {(field) => (
             <Field
+              editable={!signIn.isPending}
+              invalid={rejection.invalid("password")}
               label="Password"
               required
               secureTextEntry
               textContentType="password"
               autoComplete="current-password"
               value={field.state.value}
-              onChangeText={field.handleChange}
+              onChangeText={(next) => {
+                rejection.edit("password");
+                field.handleChange(next);
+              }}
               onBlur={field.handleBlur}
               error={fieldError(field)}
             />
           )}
         </form.Field>
       </FormSection>
-      <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+      <ServerField
+        value={server.server}
+        onChange={(next) => {
+          rejection.editAll();
+          server.setServer(next);
+        }}
+        error={server.error}
+        disabled={signIn.isPending}
+      />
       <LocalDataQuestion data={local} />
       {signIn.error ? <Text tone="destructive">{signIn.error.message}</Text> : null}
       <View className="gap-1">
         <Button
           label="Sign In"
+          disabled={rejection.waiting || (attempted && !valid)}
           size="lg"
           status={statusOf(signIn)}
           errorLabel="Couldn't sign in"
@@ -542,6 +575,14 @@ export function SignUpScreen() {
       if (local.answered()) signUp.mutate(value);
     },
   });
+  const attempted = useStore(form.store, (state) => state.submissionAttempts > 0);
+  const valid = useStore(form.store, (state) => state.isValid);
+  const email = useStore(form.store, (state) => state.values.email);
+  const rejection = useRejection(
+    signUp,
+    ["username", "password", "betaKey", ...(email.trim() ? ["email"] : [])],
+    (error) => (error.message === BETA_KEY_MISSING ? ["betaKey"] : null),
+  );
   return (
     <Page
       title="Create your account"
@@ -553,6 +594,8 @@ export function SignUpScreen() {
         <form.Field name="username">
           {(field) => (
             <Field
+              editable={!signUp.isPending}
+              invalid={rejection.invalid("username")}
               label="Username"
               required
               autoCapitalize="none"
@@ -560,7 +603,10 @@ export function SignUpScreen() {
               textContentType="username"
               autoComplete="username-new"
               value={field.state.value}
-              onChangeText={field.handleChange}
+              onChangeText={(next) => {
+                rejection.edit("username");
+                field.handleChange(next);
+              }}
               onBlur={field.handleBlur}
               error={fieldError(field)}
             />
@@ -569,6 +615,8 @@ export function SignUpScreen() {
         <form.Field name="email">
           {(field) => (
             <Field
+              editable={!signUp.isPending}
+              invalid={rejection.invalid("email")}
               label="Email (optional)"
               autoCapitalize="none"
               autoCorrect={false}
@@ -577,7 +625,10 @@ export function SignUpScreen() {
               autoComplete="email"
               placeholder="For a forgotten password and invites"
               value={field.state.value}
-              onChangeText={field.handleChange}
+              onChangeText={(next) => {
+                rejection.edit("email");
+                field.handleChange(next);
+              }}
               onBlur={field.handleBlur}
               error={fieldError(field)}
             />
@@ -586,13 +637,18 @@ export function SignUpScreen() {
         <form.Field name="password">
           {(field) => (
             <Field
+              editable={!signUp.isPending}
+              invalid={rejection.invalid("password")}
               label="Password"
               required
               secureTextEntry
               textContentType="newPassword"
               autoComplete="password-new"
               value={field.state.value}
-              onChangeText={field.handleChange}
+              onChangeText={(next) => {
+                rejection.edit("password");
+                field.handleChange(next);
+              }}
               onBlur={field.handleBlur}
               error={fieldError(field)}
             />
@@ -601,6 +657,8 @@ export function SignUpScreen() {
         <form.Field name="betaKey">
           {(field) => (
             <Field
+              editable={!signUp.isPending}
+              invalid={rejection.invalid("betaKey")}
               label="Beta key"
               required={asksForBetaKey(server.server)}
               secureTextEntry
@@ -609,18 +667,30 @@ export function SignUpScreen() {
               textContentType="oneTimeCode"
               placeholder="Needed while Nookly is in its closed beta"
               value={field.state.value}
-              onChangeText={field.handleChange}
+              onChangeText={(next) => {
+                rejection.edit("betaKey");
+                field.handleChange(next);
+              }}
               onBlur={field.handleBlur}
               error={fieldError(field)}
             />
           )}
         </form.Field>
       </FormSection>
-      <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+      <ServerField
+        value={server.server}
+        onChange={(next) => {
+          rejection.editAll();
+          server.setServer(next);
+        }}
+        error={server.error}
+        disabled={signUp.isPending}
+      />
       <LocalDataQuestion data={local} />
       {signUp.error ? <Text tone="destructive">{signUp.error.message}</Text> : null}
       <Button
         label="Create Account"
+        disabled={rejection.waiting || (attempted && !valid)}
         size="lg"
         status={statusOf(signUp)}
         errorLabel="Couldn't create it"
@@ -652,6 +722,9 @@ export function ForgotScreen() {
     validators: { onChange: resetForm, onSubmit: resetForm },
     onSubmit: ({ value }) => send.mutate(value.email),
   });
+  const attempted = useStore(form.store, (state) => state.submissionAttempts > 0);
+  const valid = useStore(form.store, (state) => state.isValid);
+  const rejection = useRejection(send, ["email"]);
   return (
     <Page
       title="Reset your password"
@@ -660,6 +733,8 @@ export function ForgotScreen() {
       <form.Field name="email">
         {(field) => (
           <Field
+            editable={!send.isPending}
+            invalid={rejection.invalid("email")}
             label="Email"
             required
             autoCapitalize="none"
@@ -667,13 +742,24 @@ export function ForgotScreen() {
             keyboardType="email-address"
             textContentType="emailAddress"
             value={field.state.value}
-            onChangeText={field.handleChange}
+            onChangeText={(next) => {
+              rejection.edit("email");
+              field.handleChange(next);
+            }}
             onBlur={field.handleBlur}
             error={fieldError(field)}
           />
         )}
       </form.Field>
-      <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+      <ServerField
+        value={server.server}
+        onChange={(next) => {
+          rejection.editAll();
+          server.setServer(next);
+        }}
+        error={server.error}
+        disabled={send.isPending}
+      />
       {send.isSuccess ? (
         <Text tone="positive" accessibilityLiveRegion="polite">
           Check your email. The link works for one hour.
@@ -683,6 +769,7 @@ export function ForgotScreen() {
       ) : null}
       <Button
         label="Send Link"
+        disabled={rejection.waiting || (attempted && !valid)}
         size="lg"
         status={statusOf(send)}
         successLabel="Sent"

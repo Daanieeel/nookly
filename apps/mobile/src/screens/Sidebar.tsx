@@ -1,6 +1,7 @@
 import { isSharedSpace } from "@nookly/shared/api";
+import { Card } from "../ui/kit/Card.tsx";
 import { useSidebarBeside } from "../ui/pane.tsx";
-import { CARD_CLASSES, SIDEBAR_PANEL_CLASSES, sidebarMenuButtonVariants } from "@nookly/ui/classes";
+import { SIDEBAR_PANEL_CLASSES, sidebarMenuButtonVariants } from "@nookly/ui/classes";
 import { spaceRow } from "@nookly/frontend/lib/space-row";
 import { MODULE_LABELS, isModuleKey } from "@nookly/shared/modules";
 import {
@@ -367,12 +368,10 @@ export function DayCard({ go }: { go: (href: Href) => void }) {
   const now = new Date();
   const line = lines.length > 0 ? lines[tick % lines.length] : null;
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Card
       accessibilityLabel={`Today, ${line?.text ?? "nothing waiting"}`}
-      disabled={!line}
       onPress={() => line && go(line.href)}
-      className={cn(CARD_CLASSES, "mx-1 mb-3 flex-row items-center gap-3 p-3 active:opacity-80")}
+      className="mx-1 mb-3 flex-row items-center gap-3 p-3"
     >
       {/* A fixed box keeps the card's height to the text; the blob is a little larger. */}
       <View className="size-8 items-center justify-center" pointerEvents="none">
@@ -391,7 +390,7 @@ export function DayCard({ go }: { go: (href: Href) => void }) {
           {line?.text ?? "Nothing waiting. Enjoy the calm."}
         </Text>
       </View>
-    </Pressable>
+    </Card>
   );
 }
 

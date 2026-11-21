@@ -1,4 +1,5 @@
 import { deadlineBucket } from "./assignment-view.ts";
+import { Card } from "../ui/kit/Card.tsx";
 import { lineInput } from "../ui/kit/line-input.ts";
 import { statusOption } from "./option-badges.tsx";
 import { ASSIGNMENT_STATUSES, EXAM_STATUSES, type FixedStatus } from "@nookly/shared/colors";
@@ -66,7 +67,6 @@ import {
   TextRow,
 } from "../ui/property-rows.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import { cn } from "../ui/classes.ts";
 import { EntityIcon } from "../ui/icons.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -643,7 +643,7 @@ function SessionList({ courseId }: { courseId: string }) {
 
 function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <View className={cn(CARD_CLASSES, "flex-1 gap-1 p-3")} style={{ minWidth: 140 }}>
+    <Card className="flex-1 gap-1 p-3" style={{ minWidth: 140 }}>
       <Text variant="small" tone="muted">
         {label}
       </Text>
@@ -655,7 +655,7 @@ function Tile({ label, value, note }: { label: string; value: string; note?: str
           {note}
         </Text>
       ) : null}
-    </View>
+    </Card>
   );
 }
 

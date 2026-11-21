@@ -6,6 +6,7 @@ import {
   createExam,
   createOneOffSession,
   createSpace,
+  getCalendarEntry,
   getEntity,
   listSpaces,
   updateExam,
@@ -28,7 +29,7 @@ import { CalendarScreen } from "./CalendarScreen.tsx";
 import { HOUR_PX, MAX_HOUR_PX, MIN_HOUR_PX } from "./TimeGrid.tsx";
 import { DashboardScreen } from "./DashboardScreen.tsx";
 import { NewEntryScreen, entryProblem } from "./NewScreens.tsx";
-import { openRow } from "../test/sheet.ts";
+import { openRow, pickDay } from "../test/sheet.ts";
 
 /// Everything the calendar draws, over the next days from today.
 async function planned() {
@@ -89,6 +90,31 @@ describe("the calendar", () => {
     expect(screen.queryByRole("button", { name: /^Dentist/ })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Today" }));
     expect(await screen.findByRole("button", { name: /^Dentist/ })).toBeTruthy();
+  });
+
+  // Once today has scrolled out of sight, a bar floats at the bottom with the way back.
+  it("floats a way back to today once today is out of sight, in the hours and in a month", async () => {
+    const { data } = await planned();
+    const screen = await renderScreens({ index: () => <CalendarScreen /> }, data, "/", {
+      width: IPAD,
+    });
+    await fireEvent.press(await screen.findByRole("radio", { name: "Day" }));
+    await screen.findByRole("button", { name: /^Dentist/ });
+    expect(screen.queryByRole("button", { name: "Back to Today" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Next" }));
+    // A ghost button: only the bar's own background shows behind it.
+    const back = await screen.findByRole("button", { name: "Back to Today" });
+    expect(ReactNative.StyleSheet.flatten(back.props.style).backgroundColor).toBeUndefined();
+    await fireEvent.press(back);
+    expect(await screen.findByRole("button", { name: /^Dentist/ })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Back to Today" })).toBeNull());
+    // A month shows it only once its grid has no today.
+    await fireEvent.press(screen.getByRole("radio", { name: "Month" }));
+    await screen.findByRole("button", { name: "Next" });
+    expect(screen.queryByRole("button", { name: "Back to Today" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Next" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("button", { name: "Back to Today" })).toBeTruthy();
   });
 
   it("starts a new entry where a finger rests on the hours, at that quarter hour", async () => {
@@ -528,6 +554,42 @@ describe("the dashboard", () => {
 });
 
 describe("a calendar entry's page", () => {
+  // Starts and Ends each hold a day and a time; Ends on a later day makes it last longer.
+  it("is given a later end day from its Ends row, and its start day moves its end with it", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Home", "#3b82f6");
+    const day = addDays(localDay(), 3);
+    const entry = await createCalendarEntry(data.db, space, {
+      title: "Retreat",
+      date: day,
+      startTime: "09:00",
+      endTime: "17:00",
+      allDay: false,
+      location: null,
+    });
+    const screen = await renderScreens(
+      { "entity/[id]": () => <EntityScreen id={entry} /> },
+      data,
+      `/entity/${entry}`,
+    );
+    await pickDay(screen, "Ends", addDays(day, 2));
+    await waitFor(async () =>
+      expect(await getCalendarEntry(data.db, entry)).toMatchObject({ endDate: addDays(day, 2) }),
+    );
+    // Moving the start moves the end along, so it keeps lasting three days.
+    await waitFor(() =>
+      expect(screen.queryAllByRole("button", { name: "Next Month" })).toHaveLength(0),
+    );
+    await pickDay(screen, "Starts", addDays(day, 5));
+    await waitFor(async () =>
+      expect(await getCalendarEntry(data.db, entry)).toMatchObject({
+        date: addDays(day, 5),
+        endDate: addDays(day, 7),
+      }),
+    );
+    expect(screen.queryByText("Last day")).toBeNull();
+  });
+
   it("ends with Move to Trash, which takes it off the calendar", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Home", "#3b82f6");
@@ -619,6 +681,56 @@ describe("a new calendar entry", () => {
         (i) => i.kind === "calendar_entry",
       );
       expect(entries.map((e) => e.date)).toEqual([day, addDays(day, 7), addDays(day, 14)]);
+    });
+  });
+
+  // One From and one To, each with its day and time, as iOS's Calendar: a longer entry is
+  // made by moving To to a later day, not by finding a "Last day" property.
+  it("lasts several days when its end day is moved later, with times on both days", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Home", "#3b82f6");
+    const day = addDays(localDay(), 2);
+    const last = addDays(day, 2);
+    const screen = await renderScreens(
+      { index: () => <NewEntryScreen spaceId={space} date={day} start="14:30" /> },
+      data,
+    );
+    await fireEvent.changeText(await screen.findByLabelText("Entry title"), "Conference");
+    expect(screen.getByRole("button", { name: /^Repeat, / })).toBeTruthy();
+    await pickDay(screen, "End day", last);
+    // It never repeats over several days, as on the desktop.
+    expect(screen.queryByRole("button", { name: /^Repeat, / })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Add to Calendar" }));
+    await waitFor(async () => {
+      const [entry] = (await agenda(data.db, day, last)).filter((i) => i.kind === "calendar_entry");
+      expect(entry).toMatchObject({
+        title: "Conference",
+        date: day,
+        endDate: last,
+        startTime: "14:30",
+        endTime: "15:30",
+      });
+    });
+  });
+
+  it("moves its end day along when the start day moves, keeping its length", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Home", "#3b82f6");
+    const day = addDays(localDay(), 2);
+    const later = addDays(day, 3);
+    const screen = await renderScreens(
+      { index: () => <NewEntryScreen spaceId={space} date={day} start="09:00" /> },
+      data,
+    );
+    await fireEvent.changeText(await screen.findByLabelText("Entry title"), "Trip");
+    await pickDay(screen, "Start day", later);
+    await fireEvent.press(screen.getByRole("button", { name: "Add to Calendar" }));
+    await waitFor(async () => {
+      const [entry] = (await agenda(data.db, later, later)).filter(
+        (i) => i.kind === "calendar_entry",
+      );
+      // Still one day: its end day followed it.
+      expect(entry).toMatchObject({ title: "Trip", date: later, endDate: null });
     });
   });
 

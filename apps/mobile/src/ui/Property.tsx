@@ -3,7 +3,7 @@ import { Children, cloneElement, isValidElement, type ReactNode, type RefObject 
 import { Pressable, View } from "react-native";
 import { Glyph } from "./kit/Glyph.tsx";
 import { Label } from "./kit/Label.tsx";
-import { useScheme, useSemantic, useSemanticPair } from "./kit/scheme.ts";
+import { useControlStyle, useScheme, useSemantic, useSemanticPair } from "./kit/scheme.ts";
 import { CORNER, RADIUS, SPACE, TINT } from "./tokens.ts";
 import { usePropertyLook } from "./parts.tsx";
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
@@ -83,7 +83,7 @@ export function Property({
   onPress?: () => void;
 }) {
   const scheme = useScheme();
-  const fill = useSemantic("fill");
+  const control = useControlStyle();
   const pressedFill = useSemantic("pressed");
   const muted = useSemanticPair("tertiaryLabel");
   const interactive = Boolean(onPress) && !disabled;
@@ -102,6 +102,7 @@ export function Property({
         hitSlop={touchSlop(CHIP_HEIGHT, MIN_TOUCH)}
         style={({ pressed }) => [
           CORNER,
+          control,
           {
             height: CHIP_HEIGHT,
             flexDirection: "row",
@@ -109,7 +110,7 @@ export function Property({
             gap: SPACE.xs + 2,
             paddingHorizontal: SPACE.md,
             borderRadius: RADIUS.badge,
-            backgroundColor: pressed ? pressedFill : fill,
+            opacity: pressed ? 0.6 : 1,
           },
         ]}
       >

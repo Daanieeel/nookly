@@ -1,4 +1,4 @@
-import { type Icon as TablerIcon, IconPlus } from "@tabler/icons-react";
+import { type Icon as TablerIcon, IconFilterOff, IconPlus } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { type ActiveFilter, type FilterField, FilterMenu } from "#/components/filter-menu.tsx";
@@ -8,6 +8,7 @@ import { ViewIconButton } from "#/features/views/ViewIconButton.tsx";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
 import { Button } from "@nookly/ui/components/button";
 import { HEADER_ROW, PageHeaderActions } from "#/components/page-header.tsx";
+import { EmptyState } from "#/components/empty-state.tsx";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { cn } from "@nookly/ui/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -121,13 +122,13 @@ export function ModuleViewHeader<D>({
 /// "Clear filters" button.
 export function NoMatchesNotice({ text, onClear }: { text: string; onClear?: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-2 py-16 text-center">
-      <p className="text-sm text-muted-foreground">{text}</p>
-      {onClear && (
-        <Button variant="ghost" size="sm" onClick={onClear}>
-          Clear filters
-        </Button>
-      )}
+    <div className="p-6">
+      <EmptyState
+        icon={IconFilterOff}
+        title="No matches"
+        description={text}
+        action={onClear ? { label: "Clear filters", onClick: onClear } : undefined}
+      />
     </div>
   );
 }

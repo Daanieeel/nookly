@@ -2,8 +2,8 @@ import { IconMinus, IconPlus } from "@tabler/icons-react-native";
 import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { haptic } from "./haptics.ts";
-import { useSemantic, useSemanticPair } from "./kit/scheme.ts";
-import { FACE, RADIUS, TYPE } from "./tokens.ts";
+import { useScheme, useSemantic, useSemanticPair } from "./kit/scheme.ts";
+import { FACE, RADIUS, TYPE, elevation } from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
 
 /// The desktop's `NumberInput` at a finger's size: minus, the value (tap it to type one),
@@ -27,7 +27,9 @@ export function NumberInput({
   increments?: number;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
-  const fill = useSemantic("fill");
+  const scheme = useScheme();
+  const raised = useSemantic("raised");
+  const edge = useSemantic("controlEdge");
   const line = useSemantic("separator");
   const text = useSemantic("label");
   const muted = useSemanticPair("secondaryLabel");
@@ -68,15 +70,20 @@ export function NumberInput({
   );
   return (
     <View
-      style={{
-        flexDirection: "row",
-        alignItems: "stretch",
-        height: MIN_TOUCH,
-        borderRadius: RADIUS.control,
-        borderCurve: "continuous",
-        backgroundColor: fill,
-        overflow: "hidden",
-      }}
+      style={[
+        elevation("control", scheme),
+        {
+          flexDirection: "row",
+          alignItems: "stretch",
+          height: MIN_TOUCH,
+          borderRadius: RADIUS.control,
+          borderCurve: "continuous",
+          borderWidth: 1,
+          borderColor: edge,
+          backgroundColor: raised,
+          overflow: "hidden",
+        },
+      ]}
     >
       {button("Decrease", atMin, -increments)}
       <TextInput

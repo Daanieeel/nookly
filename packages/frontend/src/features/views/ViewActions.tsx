@@ -1,4 +1,4 @@
-import { IconStack2 } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconStack2 } from "@tabler/icons-react";
 import { useState } from "react";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
@@ -86,6 +86,7 @@ export function ViewSaveBar<D>({
           >
             <StatusButtonContent
               status={status}
+              icon={<IconDeviceFloppy />}
               label={view ? "Save view" : "Save"}
               successLabel="Saved"
               errorLabel="Couldn't save"

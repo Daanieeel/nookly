@@ -17,7 +17,8 @@ import {
 } from "@tabler/icons-react-native";
 import { View } from "react-native";
 import { Text } from "../ui/Text.tsx";
-import { CORNER } from "../ui/tokens.ts";
+import { useScheme } from "../ui/kit/scheme.ts";
+import { CORNER, RADIUS, TINT_FILL, withAlpha } from "../ui/tokens.ts";
 
 /// The desktop's icon per recipe tag (`recipe-tags.tsx`). Its chicken and beef are Lucide's,
 /// which the phone doesn't carry, so those two show the desktop's fallback, the tag.
@@ -36,17 +37,29 @@ const TAG_ICONS = new Map<string, Icon>([
   ["bolt", IconBolt],
 ]);
 
-/// A recipe tag as the desktop's quiet chip: tinted with the tag's colour, its icon in it.
+/// A recipe tag as a soft chip: a wash of the tag's colour with a faint ring of it and a lit
+/// top edge, its icon in the colour and its name in the text's own.
 export function RecipeTagChip({ tag }: { tag: RecipeTag }) {
   const Glyph = TAG_ICONS.get(tag.icon) ?? IconTag;
+  const scheme = useScheme();
   return (
     <View
       accessible
       accessibilityLabel={`Tag ${tag.name}`}
-      className="flex-row items-center gap-1 self-start rounded-md border px-1.5 py-0.5"
-      style={{ ...CORNER, backgroundColor: `${tag.color}24`, borderColor: `${tag.color}66` }}
+      className="flex-row items-center gap-1 self-start px-2 py-1"
+      style={[
+        CORNER,
+        {
+          borderRadius: RADIUS.badge,
+          backgroundColor: withAlpha(tag.color, TINT_FILL[scheme]),
+          boxShadow: [
+            { offsetX: 0, offsetY: 0, spreadDistance: 1, color: withAlpha(tag.color, 0.22) },
+            { offsetX: 0, offsetY: 1, color: "rgba(255,255,255,0.18)", inset: true },
+          ],
+        },
+      ]}
     >
-      <Glyph size={12} color={tag.color} />
+      <Glyph size={13} color={tag.color} />
       <Text variant="small" numberOfLines={1} style={{ maxWidth: 128 }}>
         {tag.name}
       </Text>

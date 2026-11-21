@@ -1,10 +1,11 @@
 import { useAnchor } from "../ui/sheet/anchor.ts";
 import { type EntityRecord, markOpened, renameEntity } from "@nookly/shared/data";
-import { IconDots } from "@tabler/icons-react-native";
+import { IconDots, IconSearch } from "@tabler/icons-react-native";
 import { Stack } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, TextInput, View } from "react-native";
 import { TOOLBAR_HEIGHT } from "../editor/EditorToolbar.tsx";
+import { useFindBar } from "../editor/FindBar.tsx";
 import { useToolbar } from "../editor/toolbar-store.ts";
 import { useAppData, useLocalWrite } from "../data/context.tsx";
 import { useEntity, useSpaces } from "../data/queries.ts";
@@ -66,13 +67,27 @@ export function EntityScreen({ id, embedded = false }: { id: string; embedded?: 
   return <OpenEntity entity={entity} embedded={embedded} details={!inspector} />;
 }
 
-/// What the native bar over an item on a phone carries on its right: the details and
-/// the more menu. Back is the system's own button.
+/// Whether an item's page is a text to search in (a Note, a Jot), as the desktop's find in page.
+const isSearchable = (entity: EntityRecord) => entity.type === "note" || entity.type === "jot";
+
+/// Opens the find bar over the page, or closes it when it is open.
+const toggleFind = () => useFindBar.setState((find) => ({ open: !find.open }));
+
+/// What the native bar over an item on a phone carries on its right: find in the page, the
+/// details and the more menu. Back is the system's own button.
 function BarActions({ entity, menu }: { entity: EntityRecord; menu: MenuEntry[] }) {
   const present = useMenu();
   const details = useDetails();
   return (
     <Stack.Toolbar placement="right">
+      {isSearchable(entity) ? (
+        <Stack.Toolbar.Button
+          icon={TOOLBAR_ICONS.search}
+          {...BAR_BUTTON}
+          accessibilityLabel="Find in Page"
+          onPress={toggleFind}
+        />
+      ) : null}
       {details ? (
         <Stack.Toolbar.Button
           icon={details.open ? TOOLBAR_ICONS.hideDetails : TOOLBAR_ICONS.showDetails}
@@ -125,6 +140,8 @@ function OpenEntity({
   // menu; beside the details pane (tablet, split view) they sit in the page's first row.
   const bar = !embedded && !tablet;
   const toolbarUp = useToolbar((s) => s.focused);
+  // The find bar belongs to the page it was opened on.
+  useEffect(() => () => useFindBar.setState({ open: false }), [entity.id]);
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -152,6 +169,13 @@ function OpenEntity({
             ) : null}
             <ConflictBadge entityId={entity.id} />
             <View className="flex-1" />
+            {!bar && isSearchable(entity) ? (
+              <IconButton
+                label="Find in Page"
+                icon={<IconSearch size={22} color={theme.colors.mutedForeground} />}
+                onPress={toggleFind}
+              />
+            ) : null}
             {!bar && menu.length > 0 ? (
               // The item's menu hangs from this button on a tablet (6).
               <View ref={moreAnchor.ref} collapsable={false}>

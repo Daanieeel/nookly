@@ -1,13 +1,64 @@
 import { IconAlertTriangle } from "@tabler/icons-react-native";
-import { ActivityIndicator, Pressable, View } from "react-native";
-import { MIN_TOUCH } from "../touch.ts";
-import { SPACE, TINT } from "../tokens.ts";
+import { ActivityIndicator, View } from "react-native";
+import { Button } from "../Button.tsx";
+import { CORNER, RADIUS, SPACE, TINT, elevation } from "../tokens.ts";
 import { Glyph, type GlyphIcon } from "./Glyph.tsx";
 import { Label } from "./Label.tsx";
 import { useScheme, useSemantic, useSemanticPair } from "./scheme.ts";
 
 /// The three states every list, picker and page has besides its content: nothing yet,
 /// still loading, and failed. Centred, quiet, in the same words everywhere.
+
+/// The mark of a state: an icon on a raised tile, with two more tiles behind it, tilted, like
+/// a small stack of cards.
+function StateTile({ glyph, color }: { glyph: GlyphIcon; color: string }) {
+  const scheme = useScheme();
+  const raised = useSemantic("raised");
+  const edge = useSemantic("controlEdge");
+  const tile = [
+    CORNER,
+    {
+      position: "absolute" as const,
+      width: 56,
+      height: 56,
+      borderRadius: RADIUS.section,
+      borderWidth: 1,
+      borderColor: edge,
+      backgroundColor: raised,
+    },
+  ];
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ width: 56, height: 56, marginBottom: SPACE.xs }}
+    >
+      <View
+        style={[
+          ...tile,
+          elevation("control", scheme),
+          { opacity: 0.7, transform: [{ translateX: -7 }, { rotate: "-12deg" }] },
+        ]}
+      />
+      <View
+        style={[
+          ...tile,
+          elevation("control", scheme),
+          { opacity: 0.7, transform: [{ translateX: 7 }, { rotate: "12deg" }] },
+        ]}
+      />
+      <View
+        style={[
+          ...tile,
+          elevation("card", scheme),
+          { alignItems: "center", justifyContent: "center" },
+        ]}
+      >
+        <Glyph icon={glyph} size={26} color={color} />
+      </View>
+    </View>
+  );
+}
 
 export function EmptyState({
   glyph,
@@ -20,7 +71,7 @@ export function EmptyState({
   message?: string;
   action?: { label: string; onPress: () => void };
 }) {
-  const muted = useSemanticPair("tertiaryLabel");
+  const mark = useSemanticPair("label");
   return (
     <View
       style={{
@@ -30,7 +81,7 @@ export function EmptyState({
         paddingHorizontal: SPACE.xxl,
       }}
     >
-      {glyph ? <Glyph icon={glyph} size={34} color={muted.hex} /> : null}
+      {glyph ? <StateTile glyph={glyph} color={mark.hex} /> : null}
       <Label
         type="headline"
         accessibilityRole="summary"
@@ -88,7 +139,7 @@ export function ErrorState({
         paddingHorizontal: SPACE.xxl,
       }}
     >
-      <Glyph icon={IconAlertTriangle} size={30} color={TINT.red[scheme]} />
+      <StateTile glyph={IconAlertTriangle} color={TINT.red[scheme]} />
       <Label
         type="headline"
         accessibilityRole="alert"
@@ -109,28 +160,25 @@ export function ErrorState({
           {message}
         </Label>
       ) : null}
-      {onRetry ? <StateAction label="Try Again" onPress={onRetry} /> : null}
+      {onRetry ? <StateAction label="Try Again" onPress={onRetry} quiet /> : null}
     </View>
   );
 }
 
-function StateAction({ label, onPress }: { label: string; onPress: () => void }) {
-  const scheme = useScheme();
+/// The one thing to do about a state, as a button: the main colour for what is missing, a
+/// quiet one for a retry.
+function StateAction({
+  label,
+  onPress,
+  quiet = false,
+}: {
+  label: string;
+  onPress: () => void;
+  quiet?: boolean;
+}) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: MIN_TOUCH,
-        justifyContent: "center",
-        paddingHorizontal: SPACE.lg,
-        opacity: pressed ? 0.5 : 1,
-      })}
-    >
-      <Label weight="600" tint={TINT.blue[scheme]}>
-        {label}
-      </Label>
-    </Pressable>
+    <View style={{ marginTop: SPACE.sm }}>
+      <Button label={label} onPress={onPress} variant={quiet ? "secondary" : "default"} />
+    </View>
   );
 }

@@ -3,10 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { type Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from "y-protocols/awareness";
 import * as Y from "yjs";
-import { recents, search } from "@nookly/shared/data";
+import { type LocalDb, recents, search } from "@nookly/shared/data";
+import { File } from "expo-file-system";
+import { storePicked } from "../data/files.ts";
+import { answerBlockRequest } from "./block-requests.ts";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Linking } from "react-native";
-import { useAppData, useSyncState } from "../data/context.tsx";
+import { useAppData, useLocalWrite, useSyncState } from "../data/context.tsx";
+import { useEntity } from "../data/queries.ts";
 import { automationDevice } from "../dev/device.ts";
 import { deviceName } from "../data/sync.ts";
 import { parseLatexMacros } from "@nookly/shared/latex";
@@ -241,6 +245,27 @@ export function PageDocEditor({
     [db, entityId],
   );
 
+  const { data: pageEntity } = useEntity(entityId);
+  const spaceId = pageEntity?.spaceId ?? null;
+  const runWrite = useLocalWrite((db, change: (db: LocalDb) => Promise<string>) => change(db));
+  /// What the media, link and card blocks ask for: items to point at, a file from the phone's
+  /// Files app, a link kept as a Bookmark.
+  const onBlock = useCallback(
+    (request: string) =>
+      answerBlockRequest(request, {
+        db,
+        entityId,
+        spaceId,
+        write: (change) => runWrite.mutateAsync(change),
+        pick: async () => {
+          const picked = await File.pickFileAsync({ multipleFiles: true });
+          if (picked.canceled || picked.result.length === 0) return null;
+          return storePicked(picked.result[0]);
+        },
+      }),
+    [db, entityId, spaceId, runWrite.mutateAsync],
+  );
+
   /// A mention opens the item; a web address opens in the browser.
   const onOpen = useCallback(
     async (href: string) => {
@@ -338,6 +363,7 @@ export function PageDocEditor({
         onPickLanguage={onPickLanguage}
         onCopy={onCopy}
         onFound={onFound}
+        onBlock={onBlock}
       />
       <Sheet
         open={vimHelp}

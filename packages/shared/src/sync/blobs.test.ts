@@ -158,6 +158,67 @@ describe("file contents", () => {
     expect(d.platform.disk.get(String(row.local_path))).toBe("from the phone");
   });
 
+  it("downloads five files at once, the next as soon as one is done, and never more", async () => {
+    const store = new Map<string, string>();
+    const d = device(store);
+    for (let i = 0; i < 12; i++) {
+      const body = `lecture ${i}`;
+      store.set(sha(body), body);
+      d.driver.exec(
+        "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES (?, 's1', 'file', ?, ?, ?, 'FIL', ?)",
+        `f${i}`,
+        `f${i}`,
+        now(),
+        now(),
+        i + 1,
+      );
+      d.driver.exec(
+        "INSERT INTO files (entity_id, local_path, original_filename, blob) VALUES (?, NULL, ?, ?)",
+        `f${i}`,
+        "notes.pdf",
+        sha(body),
+      );
+    }
+    let running = 0;
+    let most = 0;
+    const download = d.platform.download.bind(d.platform);
+    d.platform.download = async (sha256, target) => {
+      running += 1;
+      most = Math.max(most, running);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      running -= 1;
+      return download(sha256, target);
+    };
+    const progress = await d.blobs.runOnce();
+    expect(most).toBe(5);
+    expect(progress).toMatchObject({ downloaded: 12, toDownload: 0, waiting: 0 });
+  });
+
+  it("lets one failing download wait without holding up the others", async () => {
+    const store = new Map<string, string>();
+    const d = device(store);
+    for (let i = 0; i < 3; i++) {
+      const body = `lecture ${i}`;
+      if (i !== 1) store.set(sha(body), body);
+      d.driver.exec(
+        "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES (?, 's1', 'file', ?, ?, ?, 'FIL', ?)",
+        `f${i}`,
+        `f${i}`,
+        now(),
+        now(),
+        i + 1,
+      );
+      d.driver.exec(
+        "INSERT INTO files (entity_id, local_path, original_filename, blob) VALUES (?, NULL, ?, ?)",
+        `f${i}`,
+        "notes.pdf",
+        sha(body),
+      );
+    }
+    const progress = await d.blobs.runOnce();
+    expect(progress).toMatchObject({ downloaded: 2, waiting: 1, lastError: "missing" });
+  });
+
   it("finishes the record after a crash between download and bookkeeping, without uploading", async () => {
     const store = new Map([[sha("from the phone"), "from the phone"]]);
     const d = device(store);

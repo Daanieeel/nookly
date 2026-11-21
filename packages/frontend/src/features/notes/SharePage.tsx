@@ -57,7 +57,8 @@ function ShareOption({
   return (
     <Button
       variant="ghost"
-      className="h-auto w-full justify-start gap-2 px-2 py-1.5 font-normal"
+      size="row"
+      className="h-auto w-full justify-start gap-2 py-1.5 font-normal"
       disabled={!ready || share.isPending}
       onClick={() => share.mutate()}
     >

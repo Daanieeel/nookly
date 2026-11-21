@@ -2,7 +2,7 @@ import { IconCalendarEvent, IconX } from "@tabler/icons-react-native";
 import { View } from "react-native";
 import { localDay } from "../../screens/dates.ts";
 import { haptic } from "../haptics.ts";
-import { GroupedSection, INSET } from "../kit/GroupedSection.tsx";
+import { GroupedSection } from "../kit/GroupedSection.tsx";
 import { IconBadge } from "../kit/IconBadge.tsx";
 import { ListRow } from "../kit/ListRow.tsx";
 import { SPACE } from "../tokens.ts";
@@ -38,7 +38,7 @@ export function DayPicker({
     <View style={{ gap: SPACE.lg }}>
       <CalendarPanel value={value} onSelect={choose} />
       {quick.length > 0 || (clearable && value) ? (
-        <GroupedSection margin={0} inset={INSET.badge}>
+        <GroupedSection margin={0}>
           {[
             ...quick.map((q) => (
               <ListRow

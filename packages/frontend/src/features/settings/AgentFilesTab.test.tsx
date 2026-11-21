@@ -64,6 +64,19 @@ describe("AgentFilesTab", () => {
     // The entry file leads, then folders, then the other files.
   });
 
+  // WebKit keeps a squircle clip at the element's first size, and a text box clips its text,
+  // so one that grew with the dialog cut its text off partway across. The squircle is drawn
+  // by an empty layer behind it and the box itself is excluded by its overflow class.
+  it("draws the text box's squircle on a layer behind it, never as its clip", async () => {
+    setup();
+    const box = await editor();
+    expect(box.className).toMatch(/overflow-/);
+    expect(box.className).not.toMatch(/\bborder-input\b/);
+    const layer = box.parentElement?.querySelector("[aria-hidden]");
+    expect(layer?.className).toMatch(/rounded-md/);
+    expect(layer?.className).not.toMatch(/overflow-/);
+  });
+
   it("opens and closes folders, and opens a file inside one", async () => {
     const { user } = setup();
     expect(screen.queryByRole("button", { name: /style\.md/ })).toBeNull();
@@ -274,8 +287,9 @@ describe("AgentFilesTab layout", () => {
   it("gives the text room: tall by default, and never taller than the window", async () => {
     setup();
     const box = await editor();
-    expect(box).toHaveClass("h-96");
-    expect(box).toHaveClass("max-h-[50vh]");
+    const room = box.parentElement;
+    expect(room).toHaveClass("h-96");
+    expect(room).toHaveClass("max-h-[50vh]");
   });
 });
 

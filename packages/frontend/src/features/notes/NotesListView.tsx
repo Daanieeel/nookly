@@ -18,6 +18,7 @@ import { EntityIcon } from "#/components/entity-icon.tsx";
 import { type ActiveFilter } from "#/components/filter-menu.tsx";
 import { ScrollingListPage } from "#/components/scrolling-list-page.tsx";
 import { useQuickFilters } from "#/lib/quick-filters.ts";
+import { NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
 import { listLabels } from "#/lib/api/labels.ts";
@@ -242,19 +243,13 @@ export function NotesListView({
         <PageSummaryTable table={table} spaceId={spaceId} scrollX={false} groups={groups} />
       ) : (
         !isPending && (
-          <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <p className="text-sm text-muted-foreground">No notes match this filter.</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setQuery("");
-                setFilters([]);
-              }}
-            >
-              Clear filter
-            </Button>
-          </div>
+          <NoMatchesNotice
+            text="No notes match this filter."
+            onClear={() => {
+              setQuery("");
+              setFilters([]);
+            }}
+          />
         )
       )}
     </ScrollingListPage>

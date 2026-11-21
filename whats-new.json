@@ -1,6 +1,47 @@
 {
   "versions": [
     {
+      "version": "1.1.0",
+      "date": "2026-11-21",
+      "title": "Find in page, every block and a way back to today",
+      "summary": "Your phone edits and searches pages like your computer, and the calendar always has a way back to today.",
+      "highlights": [
+        {
+          "title": "Find inside a page",
+          "description": "A magnifying glass in the top bar of a note or jot finds text on your phone, like on your computer.",
+          "icon": "notebook",
+          "tag": "New"
+        },
+        {
+          "title": "Every block on your phone",
+          "description": "The slash menu has the same blocks as your computer, and Steps, Tree, Details, Stats, Progress, Timeline and the media blocks can be edited in the page.",
+          "icon": "layout-columns",
+          "tag": "New"
+        },
+        {
+          "title": "Longer calendar entries made clear",
+          "description": "A new entry has a Starts and an Ends line with a day and a time each. Move the end to a later day for an entry that lasts longer.",
+          "icon": "device-mobile",
+          "tag": "Improved"
+        }
+      ],
+      "more": {
+        "Improved": [
+          "Calendar pages show a Back to Today button once today has scrolled out of view.",
+          "Password fields on your phone have an eye to show or hide what you typed.",
+          "Sign in and create account fields lock while you wait, and after a mistake the button stays off until you have changed the fields.",
+          "The bar for saving changes to a page has bigger buttons, a Save button with an icon and a red Discard.",
+          "A filter that finds nothing now shows a No matches message with a button to clear the filters.",
+          "The highlighted row in a popover now has corners that match the popover."
+        ],
+        "Fixed": [
+          "Files on your phone download five at a time and no longer sit on Downloading for ever.",
+          "Icons inside coloured buttons now match the label's colour.",
+          "The Agent settings text box is no longer cut off."
+        ]
+      }
+    },
+    {
       "version": "1.0.1",
       "date": "2026-11-19",
       "highlights": [],

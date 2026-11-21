@@ -1,4 +1,5 @@
 import {
+  type BoxShadowValue,
   type ColorValue,
   DynamicColorIOS,
   Platform,
@@ -67,6 +68,16 @@ export const SEMANTIC = {
   /// What a field shows before anything is typed: a solid muted grey, never see through.
   placeholder: { ios: "systemGray2", light: "#aeaeb2", dark: "#636366" },
   separator: { ios: "separator", light: "#3c3c434a", dark: "#54545899" },
+  /// What a control stands on (a field, a quiet button, a chosen segment): the page's own
+  /// white in light, a step above a card in dark, as the desktop's `--raised`.
+  raised: {
+    ios: "secondarySystemGroupedBackground",
+    light: "#ffffff",
+    dark: "#2c2c2e",
+    ownDark: true,
+  },
+  /// A control's edge, the desktop's `--input`: a stronger line than a separator.
+  controlEdge: { ios: "separator", light: "#00000024", dark: "#ffffff26", ownDark: true },
   /// A field's or a search bar's fill.
   fill: { ios: "tertiarySystemFill", light: "#7676801f", dark: "#7676803d" },
   /// A row under a finger.
@@ -229,12 +240,90 @@ export const DEPTH = {
   },
 } satisfies Record<string, ViewStyle>;
 
+/// The desktop's elevations (`--elev-*` in `@nookly/ui/styles.css`), as box shadows: on light
+/// a soft shadow lifts a thing off the page, on dark a lit top edge does, with the shadow
+/// kept to the dark below it. Each is a thing's depth and nothing else, so a card, a control
+/// and a sheet sit at the same heights on the phone as on the desktop.
+export type ElevationName = "control" | "card" | "popover" | "dialog";
+
+export const ELEVATION = {
+  /// A field, a segment, a quiet button: barely off the page.
+  control: {
+    light: [{ offsetX: 0, offsetY: 1, blurRadius: 2, color: "rgba(0,0,0,0.05)" }],
+    dark: [
+      { offsetX: 0, offsetY: 1, color: "rgba(255,255,255,0.09)", inset: true },
+      { offsetX: 0, offsetY: 1, blurRadius: 2, color: "rgba(0,0,0,0.5)" },
+    ],
+  },
+  /// A section, a card, a tile: a step above the page.
+  card: {
+    light: [
+      { offsetX: 0, offsetY: 1, blurRadius: 2, color: "rgba(0,0,0,0.04)" },
+      { offsetX: 0, offsetY: 4, blurRadius: 8, spreadDistance: -2, color: "rgba(0,0,0,0.06)" },
+    ],
+    dark: [
+      { offsetX: 0, offsetY: 0, spreadDistance: 1, color: "rgba(255,255,255,0.03)" },
+      { offsetX: 0, offsetY: 1, color: "rgba(255,255,255,0.08)", inset: true },
+      { offsetX: 0, offsetY: 6, blurRadius: 14, spreadDistance: -4, color: "rgba(0,0,0,0.6)" },
+    ],
+  },
+  /// A menu, a picker, a toast: floating over the page.
+  popover: {
+    light: [
+      { offsetX: 0, offsetY: 0, spreadDistance: 1, color: "rgba(0,0,0,0.09)" },
+      { offsetX: 0, offsetY: 2, blurRadius: 4, spreadDistance: -1, color: "rgba(0,0,0,0.06)" },
+      { offsetX: 0, offsetY: 8, blurRadius: 20, spreadDistance: -4, color: "rgba(0,0,0,0.12)" },
+      { offsetX: 0, offsetY: 20, blurRadius: 40, spreadDistance: -12, color: "rgba(0,0,0,0.1)" },
+    ],
+    dark: [
+      { offsetX: 0, offsetY: 0, spreadDistance: 1, color: "rgba(255,255,255,0.09)" },
+      { offsetX: 0, offsetY: 1, color: "rgba(255,255,255,0.06)", inset: true },
+      { offsetX: 0, offsetY: 8, blurRadius: 20, spreadDistance: -4, color: "rgba(0,0,0,0.55)" },
+      { offsetX: 0, offsetY: 20, blurRadius: 44, spreadDistance: -12, color: "rgba(0,0,0,0.5)" },
+    ],
+  },
+  /// A sheet, a dialog: the highest, with the page dimmed behind it.
+  dialog: {
+    light: [
+      { offsetX: 0, offsetY: 0, spreadDistance: 1, color: "rgba(0,0,0,0.09)" },
+      { offsetX: 0, offsetY: 4, blurRadius: 8, spreadDistance: -2, color: "rgba(0,0,0,0.06)" },
+      { offsetX: 0, offsetY: 16, blurRadius: 32, spreadDistance: -8, color: "rgba(0,0,0,0.14)" },
+      { offsetX: 0, offsetY: 40, blurRadius: 80, spreadDistance: -20, color: "rgba(0,0,0,0.2)" },
+    ],
+    dark: [
+      { offsetX: 0, offsetY: 0, spreadDistance: 1, color: "rgba(255,255,255,0.09)" },
+      { offsetX: 0, offsetY: 1, color: "rgba(255,255,255,0.07)", inset: true },
+      { offsetX: 0, offsetY: 16, blurRadius: 32, spreadDistance: -8, color: "rgba(0,0,0,0.6)" },
+      { offsetX: 0, offsetY: 40, blurRadius: 90, spreadDistance: -20, color: "rgba(0,0,0,0.6)" },
+    ],
+  },
+} satisfies Record<ElevationName, Record<Scheme, BoxShadowValue[]>>;
+
+/// A thing's elevation as style, for the scheme shown.
+export function elevation(name: ElevationName, scheme: Scheme): ViewStyle {
+  return { boxShadow: ELEVATION[name][scheme] };
+}
+
+/// A focused field: the desktop's two-tone ring, the colour's edge (set as the border) and a
+/// faint halo of it round, over the field's own control depth.
+export function focusDepth(color: string, scheme: Scheme): ViewStyle {
+  return {
+    boxShadow: [
+      { offsetX: 0, offsetY: 0, spreadDistance: 3, color: withAlpha(color, 0.25) },
+      ...ELEVATION.control[scheme],
+    ],
+  };
+}
+
+/// What lights the top of a glossy fill, as the desktop's `from-white/15 to-white/0`.
+const GLOSS = "linear-gradient(to bottom, rgba(255,255,255,0.15), rgba(255,255,255,0))";
+
 /// The main action's depth, the desktop's glossy primary button (`--elev-primary`) in the
 /// phone's own style props: a lit top over the fill, a darker ring of its own blue, a lit top
-/// edge and a tinted glow below. Dark mode leans on the glow, light on the ring.
+/// edge, and shadows that are nearly black with a hint of blue (a glow in the colour itself
+/// reads as a smudge, a shade stays a shade).
 export const PRIMARY_GLOSS = {
-  experimental_backgroundImage:
-    "linear-gradient(to bottom, rgba(255,255,255,0.1), rgba(255,255,255,0))",
+  experimental_backgroundImage: GLOSS,
   boxShadow: [
     { offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: "rgba(0,50,130,0.5)" },
     {
@@ -245,9 +334,72 @@ export const PRIMARY_GLOSS = {
       color: "rgba(255,255,255,0.28)",
       inset: true,
     },
-    { offsetX: 0, offsetY: 4, blurRadius: 10, spreadDistance: -3, color: "rgba(0,80,200,0.38)" },
+    {
+      offsetX: 0,
+      offsetY: -1,
+      blurRadius: 2,
+      spreadDistance: 0,
+      color: "rgba(0,10,30,0.2)",
+      inset: true,
+    },
+    { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: "rgba(0,10,30,0.3)" },
+    { offsetX: 0, offsetY: 4, blurRadius: 10, spreadDistance: -3, color: "rgba(0,10,30,0.35)" },
   ],
 } satisfies ViewStyle;
+
+/// The main colour, the desktop's `--primary` (and its focus ring): one blue in light and in
+/// dark, so a main button is the same on the phone as on the desktop. The brighter
+/// `TINT.blue` is for text and icons on the dark, where a deep blue would not read.
+export const PRIMARY = "#0070f3";
+
+/// What the solid buttons and badges (positive, caution, warning, destructive) are filled
+/// with, the desktop's `--solid-*` (`@nookly/ui/theme.css`): deeper than the text colours of
+/// the same names, so a white label reads on them.
+export const SOLID = {
+  positive: { light: "#0a9f4a", dark: "#16b85b" },
+  caution: { light: "#d68a00", dark: "#eb9d00" },
+  warning: { light: "#e5560a", dark: "#f56a14" },
+  destructive: { light: "#dc2626", dark: "#dc2626" },
+} satisfies Record<string, Record<Scheme, string>>;
+
+export type SolidName = keyof typeof SOLID;
+
+/// `hex` toward black, keeping `keep` (0 to 1) of it: the desktop's `color-mix(…, black)`.
+export function shade(hex: string, keep: number): string {
+  const channel = (at: number) =>
+    Math.round(parseInt(hex.slice(at, at + 2), 16) * Math.min(1, Math.max(0, keep)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(1)}${channel(3)}${channel(5)}`;
+}
+
+/// A solid fill with the depth of the main button: the gloss over it, a ring of its own
+/// colour darkened (faint on light, where a dark ring reads as an outline), a lit top edge,
+/// and shadows nearly black with a hint of its colour.
+export function solidLook(fill: string, scheme: Scheme) {
+  const hint = (alpha: number) => {
+    const dark = shade(fill, 0.15);
+    const at = (i: number) => parseInt(dark.slice(i, i + 2), 16);
+    return `rgba(${at(1)},${at(3)},${at(5)},${alpha})`;
+  };
+  return {
+    backgroundColor: fill,
+    experimental_backgroundImage: GLOSS,
+    boxShadow: [
+      {
+        offsetX: 0,
+        offsetY: 0,
+        blurRadius: 0,
+        spreadDistance: 1,
+        color: shade(fill, scheme === "dark" ? 0.7 : 0.9),
+      },
+      { offsetX: 0, offsetY: 1, color: "rgba(255,255,255,0.28)", inset: true },
+      { offsetX: 0, offsetY: -1, blurRadius: 2, color: hint(0.4), inset: true },
+      { offsetX: 0, offsetY: 1, blurRadius: 2, color: hint(0.6) },
+      { offsetX: 0, offsetY: 4, blurRadius: 10, spreadDistance: -3, color: hint(0.55) },
+    ],
+  } satisfies ViewStyle & { boxShadow: BoxShadowValue[]; backgroundColor: string };
+}
 
 /// An icon badge: the icon in a tinted rounded square, as iOS's Settings draws them.
 export const BADGE = { size: 30, icon: 17 } as const;

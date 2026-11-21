@@ -14,7 +14,8 @@ import { FADE, SPRING } from "../motion.ts";
 import { useReduceMotion } from "../reduce-motion.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
-import { CORNER, DEPTH, TYPE } from "../tokens.ts";
+import { CORNER, TYPE } from "../tokens.ts";
+import { useElevation } from "../kit/scheme.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import type { Option } from "./OptionList.tsx";
 
@@ -148,6 +149,7 @@ function FloatingMenu<T extends string>({
   onClose: () => void;
   onPick: (id: T) => void;
 }) {
+  const floating = useElevation("popover");
   const theme = useTheme();
   const still = useReduceMotion();
   const shown = useSharedValue(0);
@@ -178,7 +180,7 @@ function FloatingMenu<T extends string>({
         style={[
           style,
           CORNER,
-          DEPTH.floating,
+          floating,
           {
             position: "absolute",
             left: place.left,

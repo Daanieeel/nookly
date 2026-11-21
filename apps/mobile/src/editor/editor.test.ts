@@ -263,7 +263,18 @@ describe("what opens a menu", () => {
 
   it("filters the menu by name or keyword", () => {
     expect(slashMatches("").length).toBe(SLASH_ITEMS.length);
-    expect(slashMatches("head").map((i) => i.id)).toEqual(["h1", "h2", "h3"]);
+    expect(slashMatches("head").map((i) => i.id)).toEqual([
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "toggleHeading",
+    ]);
+    // Hyphens and spaces do not count: /inline-math finds Inline math, as the desktop's does.
+    expect(slashMatches("inline-math")[0].id).toBe("inlineMath");
+    expect(slashMatches("inlmath")[0].id).toBe("inlineMath");
     expect(slashMatches("todo").map((i) => i.id)).toEqual(["tasks"]);
     expect(slashMatches("zzz")).toEqual([]);
   });
@@ -271,14 +282,22 @@ describe("what opens a menu", () => {
   it("names, describes and groups every block as the desktop's menu does", () => {
     for (const item of SLASH_ITEMS) {
       expect(item.description.length).toBeGreaterThan(0);
-      expect(["Text", "Lists"]).toContain(item.group);
+      expect(["Text", "Lists", "Data", "Math and diagrams", "Links and media"]).toContain(
+        item.group,
+      );
     }
     expect(SLASH_ITEMS.find((i) => i.id === "tasks")).toMatchObject({
       label: "Checklist",
       description: "Items to tick off",
     });
     // A group's items stay together, in the desktop's order of groups.
-    expect(slashGroups("").map((g) => g.group)).toEqual(["Text", "Lists"]);
+    expect(slashGroups("").map((g) => g.group)).toEqual([
+      "Text",
+      "Lists",
+      "Data",
+      "Math and diagrams",
+      "Links and media",
+    ]);
     expect(slashGroups("list").map((g) => g.group)).toEqual(["Lists"]);
     expect(slashGroups("").flatMap((g) => g.items).length).toBe(SLASH_ITEMS.length);
   });
@@ -317,6 +336,62 @@ describe("choosing from the menus", () => {
     expect(names(make("code"))).toEqual(["codeBlock"]);
     expect(names(make("divider"))).toEqual(["divider", "paragraph"]);
     expect(names(make("callout"))).toEqual(["callout"]);
+  });
+
+  it("makes the blocks that are not text, each in place of the empty paragraph", () => {
+    const make = (id: string) => {
+      const state = typed("/x");
+      const trigger = triggerAt(state);
+      const tr = trigger ? applySlash(state, trigger, item(id)) : null;
+      if (!tr) throw new Error(`${id} did nothing`);
+      return state.apply(tr);
+    };
+    for (const id of ["steps", "tree", "details", "stats", "progress", "timeline"]) {
+      expect(make(id).doc.child(0).type.name).toBe(id);
+    }
+    for (const [id, node] of [
+      ["image", "image"],
+      ["video", "video"],
+      ["audio", "audio"],
+      ["file", "file"],
+      ["bookmark", "bookmark"],
+      ["embed", "embed"],
+      ["linked", "entity_card"],
+    ] as const) {
+      expect(make(id).doc.child(0).type.name).toBe(node);
+    }
+    for (const id of ["equation", "math", "diagram", "circuit", "plot", "mindmap"]) {
+      expect(make(id).doc.child(0).type.name).toBe(id);
+    }
+    expect(make("progress").doc.child(0).attrs.rows).toBe("\t0\t10");
+    expect(make("toggle").doc.child(0).type.name).toBe("toggle");
+    expect(make("toggleHeading").doc.child(0).attrs).toMatchObject({ level: 2, toggle: "open" });
+    // A table of three by three, its first row the header.
+    const table = make("table").doc.child(0);
+    expect(table.type.name).toBe("table");
+    expect(table.childCount).toBe(3);
+    expect(table.child(0).child(0).type.name).toBe("tableHeader");
+    expect(table.child(1).childCount).toBe(3);
+  });
+
+  it("puts an empty formula in the text for /inline-math", () => {
+    const state = typed("See /inline");
+    const trigger = triggerAt(state);
+    const tr = trigger ? applySlash(state, trigger, item("inlineMath")) : null;
+    if (!tr) throw new Error("inline math did nothing");
+    const paragraph = state.apply(tr).doc.child(0);
+    expect(paragraph.textContent).toBe("See ");
+    expect(paragraph.lastChild?.type.name).toBe("inlineMath");
+    expect(paragraph.lastChild?.attrs.latex).toBe("");
+  });
+
+  it("starts the highlighter for what is typed next", () => {
+    const state = typed("/mark");
+    const trigger = triggerAt(state);
+    const tr = trigger ? applySlash(state, trigger, item("highlight")) : null;
+    if (!tr) throw new Error("highlight did nothing");
+    const next = state.apply(tr);
+    expect(next.storedMarks?.map((m) => m.type.name)).toEqual(["highlight"]);
   });
 
   it("writes a mention as a link to the item, the way every client does, and a space", () => {

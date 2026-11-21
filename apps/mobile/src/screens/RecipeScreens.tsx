@@ -1,4 +1,5 @@
 import { useDeviceWord } from "../ui/device-word.ts";
+import { Card } from "../ui/kit/Card.tsx";
 import { usePageWidth } from "../ui/pane.tsx";
 import { usePageFilters } from "../ui/page-filters.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
@@ -42,7 +43,6 @@ import {
   IconToolsKitchen2,
   IconTrash,
 } from "@tabler/icons-react-native";
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import { File } from "expo-file-system";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -55,8 +55,9 @@ import { useMenu } from "../ui/menu.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { ChoiceProperty, NumberRow, SheetProperty } from "../ui/property-rows.tsx";
 import { OptionList } from "../ui/sheet/OptionList.tsx";
-import { CORNER, RADIUS } from "../ui/tokens.ts";
-import { useSemantic } from "../ui/kit/scheme.ts";
+import { CORNER, RADIUS, TINT, TINT_FILL, withAlpha } from "../ui/tokens.ts";
+import { IconBadge } from "../ui/kit/IconBadge.tsx";
+import { useScheme, useSemantic } from "../ui/kit/scheme.ts";
 import { labelSummary } from "./ComposeForm.tsx";
 import { Badge } from "../ui/Badge.tsx";
 import { RecipeTagChip } from "./RecipeTagChip.tsx";
@@ -165,28 +166,35 @@ function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
   const entityMenu = useEntityMenu();
   const router = useRouter();
   const theme = useTheme();
+  const scheme = useScheme();
   const banner = livePath(recipe.bannerPath);
   const shown = useBannerExists(banner);
   const kind = KIND_LABELS[RECIPE_KINDS.findIndex((k) => k === recipe.kind)] ?? "Other";
   const time = minutes(recipe.totalDurationMinutes);
   return (
-    <Pressable
+    <Card
       accessibilityRole="button"
       accessibilityLabel={recipe.entity.title || "Untitled"}
       onPress={() => router.push(`/entity/${recipe.entity.id}`)}
       onLongPress={() => entityMenu(recipe.entity)}
-      className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0 active:opacity-80")}
     >
-      <View className="h-24 items-center justify-center bg-muted">
+      <View
+        className="h-28 items-center justify-center"
+        style={{ backgroundColor: withAlpha(TINT.yellow[scheme], TINT_FILL[scheme] / 2) }}
+      >
         {banner && shown ? (
           <Image source={{ uri: banner }} resizeMode="cover" className="size-full" />
         ) : (
-          <IconToolsKitchen2 size={30} color={theme.colors.mutedForeground} />
+          <IconBadge
+            icon={<IconToolsKitchen2 size={26} color={TINT.yellow[scheme]} />}
+            tint="yellow"
+            size={52}
+          />
         )}
       </View>
       <View className="gap-2 p-3">
         <View className="flex-row items-baseline gap-2">
-          <Text numberOfLines={1} className="flex-1 font-medium">
+          <Text numberOfLines={1} className="flex-1 font-semibold">
             {recipe.entity.title || "Untitled"}
           </Text>
           <Text variant="small" tone="muted">
@@ -194,7 +202,7 @@ function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
           </Text>
         </View>
         <View className="flex-row flex-wrap items-center gap-2">
-          <Badge label={kind} size="sm" />
+          <Badge label={kind} variant="secondary" size="sm" />
           {time ? (
             <View className="flex-row items-center gap-1">
               <IconClock size={12} color={theme.colors.mutedForeground} />
@@ -212,7 +220,7 @@ function RecipeCard({ recipe }: { recipe: RecipeRecord }) {
           </View>
         ) : null}
       </View>
-    </Pressable>
+    </Card>
   );
 }
 

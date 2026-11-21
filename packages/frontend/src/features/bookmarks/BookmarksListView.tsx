@@ -27,6 +27,7 @@ import {
 } from "#/components/filter-menu.tsx";
 import { ENTITY_FILTER_FIELDS, entityFilterValue } from "#/features/tasks/shared-view-defs.tsx";
 import { LabelChip, LabelDot } from "#/components/label-chip.tsx";
+import { NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Skeleton } from "@nookly/ui/components/skeleton";
@@ -273,12 +274,7 @@ export function BookmarksListView({ spaceId }: { spaceId: string }) {
           />
         </div>
       ) : visible.length === 0 && !pendingUrl ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No bookmarks match these filters.</p>
-          <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
-            Clear filters
-          </Button>
-        </div>
+        <NoMatchesNotice text="No bookmarks match these filters." onClear={() => setFilters([])} />
       ) : (
         <GroupedList
           items={visible}

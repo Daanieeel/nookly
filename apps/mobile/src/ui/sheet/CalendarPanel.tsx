@@ -16,8 +16,7 @@ import { haptic } from "../haptics.ts";
 import { Glyph, type GlyphIcon } from "../kit/Glyph.tsx";
 import { Label } from "../kit/Label.tsx";
 import { useScheme, useSemantic } from "../kit/scheme.ts";
-import { Surface } from "../kit/Surface.tsx";
-import { CORNER, RADIUS, SPACE, TINT, TINT_FILL, withAlpha } from "../tokens.ts";
+import { CORNER, PRIMARY, RADIUS, SPACE, TINT, TINT_FILL, withAlpha } from "../tokens.ts";
 import { MIN_TOUCH } from "../touch.ts";
 
 const toDate = (day: string) => {
@@ -57,7 +56,8 @@ export function CalendarPanel({
     setMonth(addMonthsTo(month, by));
   };
   return (
-    <Surface padding={SPACE.sm}>
+    // On the sheet itself, not on a raised card of its own: the days are the sheet's content.
+    <View style={{ padding: SPACE.xs }}>
       <View style={{ flexDirection: "row", alignItems: "center", paddingLeft: SPACE.sm }}>
         <Label type="headline" style={{ flex: 1 }} accessibilityRole="header">
           {title}
@@ -129,7 +129,7 @@ export function CalendarPanel({
                         alignItems: "center",
                         justifyContent: "center",
                         backgroundColor: selected
-                          ? accent
+                          ? PRIMARY
                           : pressed
                             ? pressedFill
                             : isToday
@@ -154,7 +154,7 @@ export function CalendarPanel({
           </View>
         ))}
       </View>
-    </Surface>
+    </View>
   );
 }
 

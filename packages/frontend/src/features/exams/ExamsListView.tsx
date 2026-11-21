@@ -34,6 +34,7 @@ import { ENTITY_FILTER_FIELDS, entityFilterValue } from "#/features/tasks/shared
 import { EXAM_STATUSES, EXAM_WHEN_BUCKETS, examStatusKind, examWhen } from "./exam-model.ts";
 import { TaskStatusIcon } from "#/features/tasks/task-properties.tsx";
 import { Badge } from "@nookly/ui/components/badge";
+import { NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { DateInput } from "#/components/date-input.tsx";
 import {
@@ -185,12 +186,7 @@ export function ExamsListView({
           />
         </div>
       ) : visible.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No exams match these filters.</p>
-          <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
-            Clear filters
-          </Button>
-        </div>
+        <NoMatchesNotice text="No exams match these filters." onClear={() => setFilters([])} />
       ) : (
         // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- only forwards arrow keys between the row buttons inside
         <div className="min-h-0 flex-1 overflow-y-auto" onKeyDown={moveRowFocus}>

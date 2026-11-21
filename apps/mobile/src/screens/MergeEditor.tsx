@@ -8,7 +8,7 @@ import { keys } from "../data/keys.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
-import { GroupedSection, INSET } from "../ui/kit/GroupedSection.tsx";
+import { GroupedSection } from "../ui/kit/GroupedSection.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { ListRow } from "../ui/kit/ListRow.tsx";
 import { Screen } from "../ui/Screen.tsx";
@@ -363,7 +363,7 @@ export function MergeEditor() {
     void queryClient.invalidateQueries({ queryKey: keys.local });
   };
   const list = (
-    <GroupedSection margin={0} inset={INSET.badge}>
+    <GroupedSection margin={0}>
       {views.map((view) => (
         <ListRow
           key={view.id}

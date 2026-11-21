@@ -26,6 +26,7 @@ import {
   applyFilters,
 } from "#/components/filter-menu.tsx";
 import { SpaceGlyph } from "#/components/spotlight.tsx";
+import { NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -282,19 +283,13 @@ export function TrashView() {
           {data.length > 0 ? (
             <DataTable table={table} rowContextTarget={(row) => entityTarget(row.entity)} />
           ) : (
-            <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <p className="text-sm text-muted-foreground">Nothing in the Trash matches.</p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setQuery("");
-                  setFilters([]);
-                }}
-              >
-                Clear filter
-              </Button>
-            </div>
+            <NoMatchesNotice
+              text="Nothing in the Trash matches."
+              onClear={() => {
+                setQuery("");
+                setFilters([]);
+              }}
+            />
           )}
         </>
       )}

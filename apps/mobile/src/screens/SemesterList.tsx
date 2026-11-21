@@ -1,6 +1,6 @@
 import { renameEntity, setCurrentSemester, trashEntity, updateSemester } from "@nookly/shared/data";
+import { Card } from "../ui/kit/Card.tsx";
 import { useEntityMenu } from "./entity-actions.tsx";
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
   IconCalendarEvent,
   IconCalendarStats,
@@ -17,7 +17,6 @@ import type { SemesterRecord } from "@nookly/shared/data";
 import { useCourseSemesters, useCourses, useSemesters } from "../data/queries.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button, IconButton } from "../ui/Button.tsx";
-import { cn } from "../ui/classes.ts";
 import { Field } from "../ui/Field.tsx";
 import { useMenu } from "../ui/menu.tsx";
 import { Sheet, useSheet } from "../ui/sheet/Sheet.tsx";
@@ -101,7 +100,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
   return (
     // Room under a current semester for its badge, which hangs over the card's edge.
     <View style={{ marginBottom: semester.isCurrent ? SPACE.sm : 0 }}>
-      <View className={cn(CARD_CLASSES, "gap-0 py-0", semester.isCurrent && "border-primary")}>
+      <Card accent={semester.isCurrent} className="gap-0 py-0">
         <View className="min-h-16 flex-row items-center gap-1 py-1 pl-4 pr-1.5">
           <Pressable
             accessibilityRole="button"
@@ -164,7 +163,7 @@ function SemesterRow({ semester }: { semester: SemesterRecord }) {
             }
           />
         </View>
-      </View>
+      </Card>
       {semester.isCurrent ? (
         // Centred on the card's bottom edge, over its border.
         <View

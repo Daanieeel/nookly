@@ -7,7 +7,7 @@ import { useMoodleService } from "../../moodle/service.tsx";
 import { Button, statusOf } from "../../ui/Button.tsx";
 import { Field } from "../../ui/Field.tsx";
 import { FormSection } from "../../ui/kit/Form.tsx";
-import { GroupedSection, INSET } from "../../ui/kit/GroupedSection.tsx";
+import { GroupedSection } from "../../ui/kit/GroupedSection.tsx";
 import { IconBadge } from "../../ui/kit/IconBadge.tsx";
 import { ListRow } from "../../ui/kit/ListRow.tsx";
 import { Text } from "../../ui/Text.tsx";
@@ -83,7 +83,7 @@ export function CalendarConnectionsPage() {
       </Text>
       {feed ? (
         <>
-          <GroupedSection title="Moodle" margin={0} inset={INSET.badge}>
+          <GroupedSection title="Moodle" margin={0}>
             <ListRow
               badge={<IconBadge glyph={IconSchool} tint="blue" />}
               title={feed.site}

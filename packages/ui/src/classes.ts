@@ -93,6 +93,7 @@ export const buttonVariants = cva(
         muted: "text-muted-foreground/60 hover:bg-foreground/6 hover:text-muted-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         linkMuted: "text-muted-foreground underline-offset-4 hover:text-foreground hover:underline",
+        destructiveGhost: "text-destructive hover:bg-destructive/10",
       },
       size: {
         default: "h-9 px-4 py-2",
@@ -100,6 +101,8 @@ export const buttonVariants = cva(
         lg: "h-10 px-8",
         icon: "size-9",
         iconSm: "size-7",
+        // A row in a popover's list: its corners follow the popover's, one border and padding in.
+        row: "rounded-sm px-2",
       },
     },
     defaultVariants: {
@@ -139,30 +142,6 @@ export const badgeVariants = cva(BADGE_BASE, {
         "border-transparent [--solid:var(--color-solid-warning)] text-white bg-(--solid) bg-linear-to-b from-white/15 to-white/0 shadow-solid",
       destructive:
         "border-transparent [--solid:var(--color-solid-destructive)] text-white bg-(--solid) bg-linear-to-b from-white/15 to-white/0 shadow-solid",
-    },
-    size: BADGE_SIZES,
-  },
-  defaultVariants: {
-    variant: "secondary",
-    size: "sm",
-  },
-});
-
-/// The tinted badge: a faint fill and a border in the status colour. The phone draws its
-/// badges with it, as its own buttons do not have the gloss and the solid fills.
-export const tintedBadgeVariants = cva(BADGE_BASE, {
-  variants: {
-    variant: {
-      default: "border-transparent bg-primary text-primary-foreground",
-      primary: "bg-primary/10 border border-primary/25 text-primary",
-      secondary: "border-transparent bg-accent text-accent-foreground",
-      outline: "border-foreground/30 text-foreground",
-      ghost: "border-transparent bg-transparent text-foreground",
-      neutral: "border-foreground/15 bg-foreground/10 text-foreground",
-      positive: "bg-positive/10 border border-positive/25 text-positive",
-      caution: "bg-caution/10 border border-caution/25 text-caution",
-      warning: "bg-warning/10 border border-warning/25 text-warning",
-      destructive: "bg-destructive/10 border border-destructive/25 text-destructive",
     },
     size: BADGE_SIZES,
   },

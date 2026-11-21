@@ -1,4 +1,5 @@
 import { useIsTablet } from "../ui/pane.tsx";
+import { Card } from "../ui/kit/Card.tsx";
 import {
   type CourseReport,
   type GradeItem,
@@ -7,7 +8,6 @@ import {
   updateExam,
 } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import { IconCalendarStats } from "@tabler/icons-react-native";
 import Svg, { Polyline } from "react-native-svg";
 import { useRouter } from "expo-router";
@@ -16,7 +16,6 @@ import { Pressable, TextInput, View } from "react-native";
 import { useLocalWrite } from "../data/context.tsx";
 import { useGradeReport } from "../data/queries.ts";
 import { Band } from "../ui/Band.tsx";
-import { cn } from "../ui/classes.ts";
 import { Empty } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -170,7 +169,7 @@ function CourseCard({ report }: { report: CourseReport }) {
   const table = useIsTablet();
   const { grades } = report;
   return (
-    <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0")}>
+    <Card className="gap-0 overflow-hidden py-0">
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${report.course.title || "Untitled"}, ${grades.gradedCount} of ${grades.itemCount} graded`}
@@ -204,13 +203,13 @@ function CourseCard({ report }: { report: CourseReport }) {
       {report.items.map((item) => (
         <ItemRow key={item.entity.id} item={item} table={table} />
       ))}
-    </View>
+    </Card>
   );
 }
 
 function Figure({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <View className={cn(CARD_CLASSES, "flex-1 gap-1 p-3")}>
+    <Card className="flex-1 gap-1 p-3">
       <Text variant="small" tone="muted">
         {label}
       </Text>
@@ -222,7 +221,7 @@ function Figure({ label, value, note }: { label: string; value: string; note?: s
           {note}
         </Text>
       ) : null}
-    </View>
+    </Card>
   );
 }
 
@@ -244,11 +243,11 @@ function SemesterChart({ values }: { values: number[] }) {
     })
     .join(" ");
   return (
-    <View accessibilityLabel="Average by semester" className={cn(CARD_CLASSES, "items-center p-3")}>
+    <Card accessibilityLabel="Average by semester" className="items-center p-3">
       <Svg width={width} height={height}>
         <Polyline points={points} fill="none" stroke={theme.colors.primary} strokeWidth={2} />
       </Svg>
-    </View>
+    </Card>
   );
 }
 

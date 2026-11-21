@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FieldError, StatusIcon, statusOf } from "#/components/action-feedback.tsx";
 import { contextTarget, entityTarget } from "#/components/context-menu/registry.ts";
 import { EmptyState } from "#/components/empty-state.tsx";
+import { NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Kbd } from "#/components/kbd.tsx";
 import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
@@ -127,12 +128,7 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
               action={{ label: "New deck", onClick: startCreate }}
             />
           ) : shown.length === 0 && !creating ? (
-            <div className="flex flex-col items-center gap-2 py-16 text-center">
-              <p className="text-sm text-muted-foreground">No decks match these filters.</p>
-              <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
-                Clear filters
-              </Button>
-            </div>
+            <NoMatchesNotice text="No decks match these filters." onClear={() => setFilters([])} />
           ) : (
             <>
               <DeckSection label="Ready to study" decks={ready} examOf={examOf}>

@@ -1,6 +1,6 @@
 import { PRODUCTION_SERVER } from "@nookly/shared/api";
 import { fireEvent, waitFor } from "expo-router/testing-library";
-import { Keyboard } from "react-native";
+import { Keyboard, TextInput } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
 import { SignInScreen, SignUpScreen, WelcomeScreen } from "./AccountScreens.tsx";
 
@@ -52,6 +52,12 @@ describe("signing in", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Sign In" }));
     expect(await screen.findByText("Enter your username or email")).toBeTruthy();
     expect(screen.getByText("Enter your password")).toBeTruthy();
+    // The button waits until both fields are right.
+    expect(screen.getByRole("button", { name: "Sign In" })).toBeDisabled();
+    await fireEvent.changeText(screen.getByLabelText("Username or email"), "ada");
+    expect(screen.getByRole("button", { name: "Sign In" })).toBeDisabled();
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sign In" })).toBeEnabled());
   });
 
   it("signs in with a username on the server, and says why when it fails", async () => {
@@ -64,8 +70,22 @@ describe("signing in", () => {
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
     await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
     expect(await screen.findByText("The username or the password is wrong.")).toBeTruthy();
+    // After a wrong answer both fields are drawn invalid, and the button waits until each of
+    // them was changed.
+    expect(screen.getByLabelText("Username or email").props["aria-invalid"]).toBe(true);
+    expect(screen.getByLabelText("Password").props["aria-invalid"]).toBe(true);
+    expect(screen.getByRole("button", { name: "Couldn't sign in" })).toBeDisabled();
     signIn.mockResolvedValueOnce(ADA);
-    await fireEvent.press(screen.getByRole("button", { name: "Couldn't sign in" }));
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    await waitFor(() =>
+      expect(screen.getByLabelText("Password").props["aria-invalid"]).toBe(false),
+    );
+    expect(screen.getByLabelText("Username or email").props["aria-invalid"]).toBe(true);
+    expect(screen.getByRole("button", { name: "Couldn't sign in" })).toBeDisabled();
+    await fireEvent.changeText(screen.getByLabelText("Username or email"), "ada2");
+    await fireEvent.changeText(screen.getByLabelText("Username or email"), "ada");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Sign In" })).toBeEnabled());
+    await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
     await waitFor(() =>
       expect(signIn).toHaveBeenLastCalledWith(
         expect.stringMatching(/^http/),
@@ -74,6 +94,39 @@ describe("signing in", () => {
         {},
       ),
     );
+    await waitFor(() => expect(data.onboarded.get()).toBe("1"));
+  });
+
+  it("shows or hides the typed password with an eye, without drawing the field again", async () => {
+    const screen = await renderScreens({ index: () => <SignInScreen /> });
+    const password = await screen.findByLabelText("Password");
+    const change = jest.spyOn(TextInput.prototype, "setNativeProps");
+    await fireEvent.changeText(password, "a long password");
+    await fireEvent.press(screen.getByRole("button", { name: "Show password" }));
+    expect(change).toHaveBeenLastCalledWith({ secureTextEntry: false });
+    await fireEvent.press(screen.getByRole("button", { name: "Hide password" }));
+    expect(change).toHaveBeenLastCalledWith({ secureTextEntry: true });
+    // The input itself is never given another value: it was not rendered again, and what was
+    // typed is still in it.
+    expect(screen.getByLabelText("Password").props.secureTextEntry).toBe(true);
+    expect(screen.getByLabelText("Password").props.value).toBe("a long password");
+  });
+
+  it("locks the fields while it signs in", async () => {
+    const data = testData();
+    let finish: (user: typeof ADA) => void = () => {};
+    jest.spyOn(data.sync, "signIn").mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await fireEvent.changeText(await screen.findByLabelText("Username or email"), "ada");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
+    await waitFor(() => expect(screen.getByLabelText("Password").props.editable).toBe(false));
+    expect(screen.getByLabelText("Username or email").props.editable).toBe(false);
+    finish(ADA);
     await waitFor(() => expect(data.onboarded.get()).toBe("1"));
   });
 
@@ -143,7 +196,7 @@ describe("creating an account", () => {
     expect(await screen.findByText("Enter the beta key to create an account.")).toBeTruthy();
     expect(signUp).not.toHaveBeenCalled();
     await fireEvent.changeText(screen.getByLabelText("Beta key"), " the-key ");
-    await fireEvent.press(screen.getByRole("button", { name: "Couldn't create it" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Create Account" }));
     await waitFor(() =>
       expect(signUp).toHaveBeenCalledWith(
         PRODUCTION_SERVER,

@@ -27,7 +27,7 @@ import { type DeviceWord, useDeviceWord } from "../ui/device-word.ts";
 import { Text } from "../ui/Text.tsx";
 import { useState } from "react";
 import { useSyncState } from "../data/context.tsx";
-import { GroupedSection, INSET } from "../ui/kit/GroupedSection.tsx";
+import { GroupedSection } from "../ui/kit/GroupedSection.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { Label } from "../ui/kit/Label.tsx";
 import { OnPage } from "../ui/kit/on-page.ts";
@@ -338,7 +338,6 @@ export function SettingsScreen({ initial = "general" }: { initial?: string }) {
                 key={group.label ?? `group-${index}`}
                 title={group.label ?? undefined}
                 margin={0}
-                inset={INSET.badge}
               >
                 {group.links.map((link) => (
                   <ListRow
@@ -477,7 +476,7 @@ export function SettingsCategoryScreen({ page }: { page: string }) {
 function CalendarConnectionsLink() {
   const router = useRouter();
   return (
-    <GroupedSection margin={0} inset={INSET.badge}>
+    <GroupedSection margin={0}>
       <ListRow
         badge={<IconBadge glyph={IconCalendarUser} tint="blue" />}
         title="Calendar Connections"

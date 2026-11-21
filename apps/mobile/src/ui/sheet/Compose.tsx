@@ -14,10 +14,10 @@ import { Button } from "../Button.tsx";
 import { useIsTablet } from "../pane.tsx";
 import { Pressable, ScrollView, TextInput, type TextInputProps, View } from "react-native";
 import { Glyph } from "../kit/Glyph.tsx";
-import { useScheme, useSemantic, useSemanticPair } from "../kit/scheme.ts";
+import { useControlStyle, useScheme, useSemantic, useSemanticPair } from "../kit/scheme.ts";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
-import { CORNER, FACE, RADIUS, SPACE, TYPE, tint } from "../tokens.ts";
+import { CORNER, FACE, PRIMARY, PRIMARY_GLOSS, RADIUS, SPACE, TYPE, tint } from "../tokens.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import { type Option, OptionList } from "./OptionList.tsx";
 import { RoundButton, Sheet, SheetFooter, SheetHeader, useSheet } from "./Sheet.tsx";
@@ -336,8 +336,7 @@ export function Pill({
   /// A switch rather than a value (All day): read out as one, tinted while on.
   checked?: boolean;
 }) {
-  const fill = useSemantic("fill");
-  const theme = useTheme();
+  const control = useControlStyle();
   const toggle = checked !== undefined;
   return (
     <Pressable
@@ -347,6 +346,9 @@ export function Pill({
       onPress={onPress}
       style={({ pressed }) => [
         CORNER,
+        control,
+        // The default badge's look: the accent with its gloss, ring and shadows.
+        checked && { ...PRIMARY_GLOSS, backgroundColor: PRIMARY, borderColor: "transparent" },
         {
           minHeight: MIN_TOUCH,
           borderRadius: RADIUS.control,
@@ -354,7 +356,6 @@ export function Pill({
           flexDirection: "row",
           alignItems: "center",
           gap: SPACE.sm,
-          backgroundColor: checked ? `${theme.colors.primary}2e` : fill,
           opacity: pressed ? 0.6 : 1,
         },
       ]}
@@ -363,7 +364,7 @@ export function Pill({
       <Text
         numberOfLines={1}
         tone={value === null && !checked ? "muted" : "default"}
-        style={[{ maxWidth: 180 }, checked ? { color: theme.colors.primary } : null]}
+        style={[{ maxWidth: 180 }, checked ? { color: "#ffffff" } : null]}
       >
         {value ?? label}
       </Text>

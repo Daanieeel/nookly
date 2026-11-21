@@ -1,6 +1,6 @@
 {
   "name": "@nookly/mobile",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "main": "expo-router/entry",
@@ -8,6 +8,7 @@
     "dev": "expo start",
     "start": "expo start",
     "ios": "expo run:ios",
+    "ios:release": "expo run:ios --device --configuration Release",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "test": "jest && bun test ./styles.test.ts ./code-highlight.test.ts"

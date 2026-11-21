@@ -8,19 +8,23 @@ import { Sheet } from "./Sheet.tsx";
 // Options in a Display or Filter sheet sit on cards lighter than the sheet (D68), so they
 // read as raised; they were a darker charcoal than the sheet around them.
 describe("the parts of a Display or Filter sheet", () => {
-  it("put their options on a card lighter than the sheet", () => {
+  it("put each option on its own raised card lighter than the sheet, not one slab", () => {
     render(
       <DisplayGroup>
         <Text>Show sub-tasks</Text>
+        <Text>Show completed</Text>
       </DisplayGroup>,
     );
-    expect(screen.getByTestId("display-group")).toHaveStyle({
-      backgroundColor: semantic("sheetCard", "light"),
-    });
+    const cards = screen.getAllByTestId("display-card");
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      expect(card).toHaveStyle({ backgroundColor: semantic("sheetCard", "light") });
+      expect(StyleSheet.flatten(card.props.style).boxShadow).toBeDefined();
+    }
   });
 
-  // The chosen tile is the raised one, the others quieter; it was darker than the rest.
-  it("raise the chosen layout tile on the lighter card, the others quieter", () => {
+  // Both tiles are raised controls; the chosen one is told apart by its icon and word, not a ring.
+  it("raise both layout tiles alike, with no ring on the chosen one", () => {
     render(
       <LayoutTiles
         tiles={[
@@ -31,15 +35,14 @@ describe("the parts of a Display or Filter sheet", () => {
         onSelect={() => {}}
       />,
     );
-    expect(screen.getByRole("radio", { name: "List" })).toHaveStyle({
-      backgroundColor: semantic("sheetCard", "light"),
-    });
-    expect(screen.getByRole("radio", { name: "Board" })).toHaveStyle({
-      backgroundColor: semantic("fill", "light"),
-    });
+    const shadows = (name: string) => {
+      const { boxShadow } = StyleSheet.flatten(screen.getByRole("radio", { name }).props.style);
+      return Array.isArray(boxShadow) ? boxShadow.length : 0;
+    };
+    expect(shadows("Board")).toBeGreaterThan(0);
+    expect(shadows("List")).toBe(shadows("Board"));
   });
 
-  // A bare switch was drawn at the top of its row, above its label's middle.
   it("centre a switch on its label", () => {
     render(<SwitchRow label="Show finished" value onChange={() => {}} />);
     const box = screen.getByTestId("switch-box");
@@ -68,6 +71,6 @@ describe("the parts of a Display or Filter sheet", () => {
       return null;
     };
     expect(fillOf("View name")).toEqual(semantic("sheetCard", "light"));
-    expect(fillOf("On the page")).toEqual(semantic("surface", "light"));
+    expect(fillOf("On the page")).toEqual(semantic("raised", "light"));
   });
 });

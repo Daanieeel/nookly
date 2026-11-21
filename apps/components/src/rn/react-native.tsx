@@ -26,24 +26,59 @@ type WithClass = { className?: string; style?: unknown };
 /// variable font, so a face's name becomes the family and the weight it stands for.
 const FACE = /^Inter(?:Tight)?_(\d{3})/;
 
-function fixFont(style: unknown): unknown {
-  const flat = StyleSheet.flatten(style as object) as { fontFamily?: string } | undefined;
-  const face = flat?.fontFamily ? FACE.exec(flat.fontFamily) : null;
-  if (!flat || !face) return style;
-  const tight = flat.fontFamily?.startsWith("InterTight");
-  return {
-    ...flat,
-    fontFamily: tight
+type Shadow = {
+  offsetX: number;
+  offsetY: number;
+  blurRadius?: number;
+  spreadDistance?: number;
+  color: string;
+  inset?: boolean;
+};
+
+/// The phone's shadows are a list of objects and its gradients an `experimental_` property;
+/// a browser takes both as the CSS strings they are.
+function shadowText(shadows: Shadow[]): string {
+  return shadows
+    .map((s) =>
+      [
+        s.inset ? "inset" : "",
+        `${s.offsetX}px`,
+        `${s.offsetY}px`,
+        `${s.blurRadius ?? 0}px`,
+        `${s.spreadDistance ?? 0}px`,
+        s.color,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    )
+    .join(", ");
+}
+
+function fixStyle(style: unknown, text: boolean): unknown {
+  if (typeof style === "function") return style;
+  const flat = StyleSheet.flatten(style as object) as Record<string, unknown> | undefined;
+  if (!flat) return style;
+  const next = { ...flat };
+  if (Array.isArray(next.boxShadow)) next.boxShadow = shadowText(next.boxShadow as Shadow[]);
+  if (typeof next.experimental_backgroundImage === "string") {
+    next.backgroundImage = next.experimental_backgroundImage;
+    delete next.experimental_backgroundImage;
+  }
+  const face = text && typeof next.fontFamily === "string" ? FACE.exec(next.fontFamily) : null;
+  if (face) {
+    const tight = String(next.fontFamily).startsWith("InterTight");
+    next.fontFamily = tight
       ? "Inter Tight Variable, Inter Variable, sans-serif"
-      : "Inter Variable, sans-serif",
-    fontWeight: face[1],
-  };
+      : "Inter Variable, sans-serif";
+    next.fontWeight = face[1];
+  }
+  return next;
 }
 
 function withClassName<P extends object>(Component: ComponentType<P>, text = false) {
   const Styled = forwardRef<unknown, P & WithClass>(function Styled(props, ref) {
     const { className, style: given, ...rest } = props;
-    const style = text ? fixFont(given) : given;
+    const style = fixStyle(given, text);
     const merged = className ? [{ $$css: true, className }, style] : style;
     return createElement(Component as ComponentType<object>, { ...rest, ref, style: merged });
   });

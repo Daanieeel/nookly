@@ -34,10 +34,10 @@ import { FADE, SPRING, dragFrom, settleDetent, settleSheet } from "../motion.ts"
 import { useReduceMotion } from "../reduce-motion.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
-import { useSemantic } from "../kit/scheme.ts";
+import { useElevation, useSemantic } from "../kit/scheme.ts";
 import { InCard, InSheet } from "./in-sheet.ts";
 import { WindowFrame } from "../../dev/WindowFrame.tsx";
-import { CORNER, DEPTH, RADIUS, SPACE } from "../tokens.ts";
+import { CORNER, RADIUS, SPACE } from "../tokens.ts";
 import type { Anchor } from "./anchor.ts";
 import { recentTouch } from "./touch-point.ts";
 import { LayerContext, pushLayer } from "./layers.ts";
@@ -217,6 +217,7 @@ function SheetFrame({
   onClosed: () => void;
   children: ReactNode;
 }) {
+  const lift = useElevation("dialog");
   const theme = useTheme();
   // The app's safe area; a sheet opened outside the app's frame (a test) has none.
   const insets = useContext(SafeAreaInsetsContext) ?? NO_INSETS;
@@ -469,12 +470,7 @@ function SheetFrame({
           </Animated.View>
           <Animated.View
             accessibilityViewIsModal
-            style={[
-              cardStyle,
-              CORNER,
-              DEPTH.floating,
-              { maxHeight: "100%", borderRadius: RADIUS.card },
-            ]}
+            style={[cardStyle, CORNER, lift, { maxHeight: "100%", borderRadius: RADIUS.card }]}
           >
             <CardPanel {...parts} />
           </Animated.View>
@@ -523,7 +519,7 @@ function SheetFrame({
                       style={[
                         panel,
                         CORNER,
-                        DEPTH.floating,
+                        lift,
                         {
                           borderTopLeftRadius: RADIUS.sheet,
                           borderTopRightRadius: RADIUS.sheet,

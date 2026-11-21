@@ -61,3 +61,10 @@ export const PAGE_PANE_CLIP_CLASSES =
 
 export const PAGE_PANE_CLASSES =
   "relative isolate flex min-h-0 flex-1 flex-col rounded-xl [corner-shape:superellipse(1.6)] border border-sidebar-border bg-card shadow-md transition-colors data-focused-group:border-primary/35 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:rounded-none group-has-[[data-slot=sidebar][data-state=collapsed]]/app:border-0 group-has-[[data-slot=sidebar][data-state=collapsed]]/app:shadow-none";
+
+/// A text box whose surface (squircle, border, shadow) is an empty layer behind it. WebKit keeps a
+/// squircle clip at the element's first size and a text box clips its text, so one that grows
+/// after it was drawn (a dialog opening) cuts its text off. This one has plain corners and no
+/// surface, and `overflow-auto` keeps it out of the squircle rule.
+export const LAYERED_TEXTAREA_CLASSES =
+  "size-full min-w-0 resize-none overflow-auto rounded-md bg-transparent px-3 py-2 font-mono text-xs/relaxed outline-none placeholder:text-muted-foreground focus-ring disabled:cursor-not-allowed disabled:opacity-50";

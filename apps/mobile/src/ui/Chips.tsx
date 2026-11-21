@@ -4,13 +4,13 @@ import { AnimatedPressable, usePressScale } from "./press.ts";
 import { cn } from "./classes.ts";
 import { Label } from "./kit/Label.tsx";
 import { useScheme, useSemantic } from "./kit/scheme.ts";
-import { CORNER, RADIUS, SPACE, TINT } from "./tokens.ts";
+import { CORNER, PRIMARY, PRIMARY_GLOSS, RADIUS, SPACE, elevation } from "./tokens.ts";
 import { CONTROL_SIZE, MIN_TOUCH, TOUCH_GAP, touchSlop } from "./touch.ts";
 
 /// Whether the chips of a group share its width equally.
 const Stretch = createContext(false);
 
-/// One choice of a few: a status, a Space, a label. A capsule on the gray fill, filled with
+/// One choice of a few: a status, a Space, a label. A raised capsule, filled with
 /// the accent when chosen (D53).
 export function Chip({
   label,
@@ -30,7 +30,8 @@ export function Chip({
 }) {
   const stretch = useContext(Stretch);
   const scheme = useScheme();
-  const fill = useSemantic("fill");
+  const raised = useSemantic("raised");
+  const edge = useSemantic("controlEdge");
   const press = usePressScale();
   return (
     <AnimatedPressable
@@ -54,9 +55,12 @@ export function Chip({
           gap: SPACE.xs + 2,
           paddingHorizontal: SPACE.md + 2,
           borderRadius: RADIUS.badge,
-          backgroundColor: selected ? TINT.blue[scheme] : fill,
+          borderWidth: selected ? 0 : 1,
+          borderColor: edge,
+          backgroundColor: selected ? PRIMARY : raised,
           opacity: disabled ? 0.45 : 1,
         },
+        selected ? PRIMARY_GLOSS : elevation("control", scheme),
         press.style,
       ]}
     >

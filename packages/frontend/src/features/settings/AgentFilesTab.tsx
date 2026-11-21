@@ -13,7 +13,6 @@ import {
 } from "@nookly/ui/components/alert-dialog";
 import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
-import { Textarea } from "@nookly/ui/components/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import {
@@ -41,6 +40,7 @@ import {
   revealAgentDir,
   writeAgentFile,
 } from "#/lib/api/agent-files.ts";
+import { LAYERED_TEXTAREA_CLASSES } from "#/classes.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { AgentFileTree, buildAgentTree } from "./AgentFileTree.tsx";
 import { NewAgentFileDialog } from "./NewAgentFileDialog.tsx";
@@ -276,15 +276,24 @@ export function AgentFilesTab() {
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <Textarea
-            aria-label="File content"
-            spellCheck={false}
-            value={text}
-            readOnly={readFailed}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={() => void persist()}
-            className="h-96 max-h-[50vh] min-h-64 font-mono text-xs/relaxed"
-          />
+          {/* The squircle is an empty layer behind the text box: WebKit keeps a squircle clip at
+              the element's first size and a text box clips its text, so one that grew with the
+              dialog cut its text off. The box has plain corners and no surface of its own. */}
+          <div className="group/area relative isolate h-96 max-h-[50vh] min-h-64">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 -z-10 rounded-md border border-input bg-raised shadow-control transition-colors group-hover/area:bg-accent/50"
+            />
+            <textarea
+              aria-label="File content"
+              spellCheck={false}
+              value={text}
+              readOnly={readFailed}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={() => void persist()}
+              className={LAYERED_TEXTAREA_CLASSES}
+            />
+          </div>
           <div className="flex min-h-7 items-center gap-2 text-xs">
             <span
               aria-live="polite"

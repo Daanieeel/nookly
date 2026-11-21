@@ -1,4 +1,5 @@
 import { useSemantic } from "../ui/kit/scheme.ts";
+import { Card } from "../ui/kit/Card.tsx";
 import { SaveBar } from "../ui/SaveBar.tsx";
 import { ListEmpty } from "../ui/ListEmpty.tsx";
 import { MODULE_ICONS } from "../ui/icons.tsx";
@@ -13,7 +14,6 @@ import {
 import { useEntityMenu } from "./entity-actions.tsx";
 import { EntitySwipe } from "./EntitySwipe.tsx";
 import { useClipboard } from "../ui/clipboard.tsx";
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import {
   IconBookmark,
   IconInfoCircle,
@@ -35,7 +35,6 @@ import { livePath } from "../data/reroot.ts";
 import { useBookmarks, useLabels } from "../data/queries.ts";
 import { useDraftPreference } from "../data/preferences.ts";
 import { IconButton } from "../ui/Button.tsx";
-import { cn } from "../ui/classes.ts";
 import { Grid } from "../ui/Grid.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
 import type { Option } from "../ui/sheet/OptionList.tsx";
@@ -46,7 +45,7 @@ import {
 } from "../ui/entity-filters.tsx";
 import { Section } from "../ui/Row.tsx";
 import { DisplayGroup, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
-import { FloatingField, PASTE_BAR_MARGIN, PASTE_BAR_ROOM } from "../ui/FloatingField.tsx";
+import { FloatingField, PASTE_BAR_ROOM, PASTE_BAR_STACK } from "../ui/FloatingField.tsx";
 import { localDay } from "./dates.ts";
 import { labelOption } from "./option-badges.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -143,7 +142,7 @@ function BookmarkCard({
     month: "short",
   });
   return (
-    <View className={cn(CARD_CLASSES, "gap-0 overflow-hidden py-0")}>
+    <Card className="gap-0 overflow-hidden py-0">
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={bookmark.entity.title}
@@ -183,7 +182,7 @@ function BookmarkCard({
           onPress={() => router.push(`/entity/${bookmark.entity.id}`)}
         />
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -467,7 +466,7 @@ export function BookmarkList({ spaceId }: { spaceId: string }) {
       <View style={{ height: PASTE_BAR_ROOM }} />
       <SaveBar
         dirty={draft.dirty}
-        above={PASTE_BAR_ROOM - PASTE_BAR_MARGIN}
+        above={PASTE_BAR_STACK}
         onDiscard={draft.discard}
         onSave={draft.save}
       />

@@ -10,10 +10,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { FADE, SPRING } from "../motion.ts";
 import { useReduceMotion } from "../reduce-motion.ts";
-import { CORNER, FACE, RADIUS, SPACE, TYPE } from "../tokens.ts";
+import { CORNER, FACE, RADIUS, SPACE, TYPE, elevation } from "../tokens.ts";
 import { MIN_TOUCH, touchSlop } from "../touch.ts";
 import { Glyph } from "./Glyph.tsx";
-import { useSemantic, useSemanticPair } from "./scheme.ts";
+import { useScheme, useSemantic, useSemanticPair } from "./scheme.ts";
 
 /// Roomier than a finger: the bar people type into first on a page.
 export const SEARCH_HEIGHT = 50;
@@ -36,7 +36,9 @@ export function SearchField({
   onSubmit?: () => void;
   autoFocus?: boolean;
 }) {
-  const fill = useSemantic("fill");
+  const scheme = useScheme();
+  const fill = useSemantic("raised");
+  const edge = useSemantic("controlEdge");
   // Solid, never see through: a translucent grey shows the magnifier's circle through its
   // handle where the two strokes cross.
   const muted = useSemanticPair("secondaryLabelSolid");
@@ -47,9 +49,12 @@ export function SearchField({
         testID="search-field"
         style={[
           CORNER,
+          elevation("control", scheme),
           {
             minHeight: HEIGHT,
             borderRadius: RADIUS.control,
+            borderWidth: 1,
+            borderColor: edge,
             backgroundColor: fill,
             flexDirection: "row",
             alignItems: "center",

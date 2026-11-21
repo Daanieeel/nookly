@@ -7,15 +7,15 @@ import {
   studyQueue,
   undoReview,
 } from "@nookly/shared/data";
+import { Card } from "../ui/kit/Card.tsx";
 import { IconArrowBackUp, IconConfetti, IconX } from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalWrite } from "../data/context.tsx";
 import { useCards, useDeck } from "../data/queries.ts";
-import { CARD_CLASSES } from "@nookly/ui/classes";
 import { CardFaceView } from "../editor/CardFaceView.tsx";
 import { Button } from "../ui/Button.tsx";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
@@ -201,10 +201,10 @@ export function StudyScreen({ deckId }: { deckId: string }) {
                     entering={FadeIn.duration(FADE.in)}
                     exiting={FadeOut.duration(FADE.out)}
                   >
-                    <Pressable
+                    <Card
                       accessible={false}
                       onPress={() => setRevealed(true)}
-                      className={cn(CARD_CLASSES, "min-h-56 gap-4 p-5")}
+                      className="min-h-56 gap-4 p-5"
                     >
                       <CardFaceView card={card} side="front" heading muted={revealed} />
                       {revealed ? (
@@ -215,7 +215,7 @@ export function StudyScreen({ deckId }: { deckId: string }) {
                           </View>
                         </>
                       ) : null}
-                    </Pressable>
+                    </Card>
                   </Animated.View>
                   {tablet ? null : actions}
                   {rate.isError ? (

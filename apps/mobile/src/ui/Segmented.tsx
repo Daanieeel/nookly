@@ -6,7 +6,7 @@ import { Label } from "./kit/Label.tsx";
 import { useScheme, useSemantic } from "./kit/scheme.ts";
 import { SPRING } from "./motion.ts";
 import { useReduceMotion } from "./reduce-motion.ts";
-import { CORNER, DEPTH, RADIUS, SEGMENT_THUMB } from "./tokens.ts";
+import { CORNER, RADIUS, SEGMENT_THUMB, elevation } from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
 
 export interface SegmentOption<T extends string> {
@@ -71,7 +71,7 @@ export function Segmented<T extends string>({
           pointerEvents="none"
           style={[
             CORNER,
-            DEPTH.raised,
+            elevation("control", scheme),
             {
               position: "absolute",
               top: INSET,

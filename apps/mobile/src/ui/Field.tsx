@@ -1,18 +1,29 @@
 import { useIsTablet } from "./pane.tsx";
-import { type ReactNode, useRef, useState } from "react";
+import { IconEye, IconEyeOff } from "@tabler/icons-react-native";
+import { type ReactNode, type RefObject, useRef, useState } from "react";
 import {
+  type ColorValue,
   type LayoutChangeEvent,
   Pressable,
   TextInput,
   type TextInputProps,
   View,
 } from "react-native";
-import { FormRow, useInForm } from "./kit/Form.tsx";
 import { Label } from "./kit/Label.tsx";
-import { useScheme, useSemantic, useSurface } from "./kit/scheme.ts";
+import { useRaised, useScheme, useSemantic } from "./kit/scheme.ts";
 import { useRevealWhileTyping } from "./Screen.tsx";
 import { useSectionRadius } from "./sheet/in-sheet.ts";
-import { CORNER, DEPTH, FACE, GUTTER, SPACE, TINT, TYPE } from "./tokens.ts";
+import {
+  CORNER,
+  FACE,
+  GUTTER,
+  PRIMARY,
+  SPACE,
+  TINT,
+  TYPE,
+  elevation,
+  focusDepth,
+} from "./tokens.ts";
 import { MIN_TOUCH } from "./touch.ts";
 
 /// A field's name above what it holds, for the few places that lay a control out on their
@@ -37,29 +48,35 @@ export function Field({
   label,
   required,
   error,
+  invalid = false,
   multiline,
   icon,
   className: _className,
   style,
   onFocus,
   onBlur,
+  secureTextEntry,
   ...props
 }: TextInputProps & {
   label: string;
   required?: boolean;
   error?: string;
+  /// Drawn as wrong, red edge and all, with no message of its own: one is shown elsewhere.
+  invalid?: boolean;
   className?: string;
   /// Stands for the name at the start of the row; the name is still read out.
   icon?: ReactNode;
 }) {
   const text = useSemantic("label");
   const muted = useSemantic("placeholder");
-  const edge = useSemantic("separator");
-  const surface = useSurface();
+  const controlEdge = useSemantic("controlEdge");
+  const raised = useRaised();
   const scheme = useScheme();
   const radius = useSectionRadius();
-  const inForm = useInForm();
   const [focused, setFocused] = useState(false);
+  // A locked field (a form being sent) is faded.
+  const locked = props.editable === false;
+  const wrong = Boolean(error) || invalid;
   // A tablet's field is the desktop's, at the touch minimum (3.8).
   const tablet = useIsTablet();
   const field = useRef<TextInput>(null);
@@ -77,7 +94,7 @@ export function Field({
       weight="500"
       color="secondaryLabel"
       tint={focused ? accent : undefined}
-      style={inForm ? undefined : { paddingHorizontal: SPACE.xs }}
+      style={{ paddingHorizontal: SPACE.xs }}
     >
       {label}
       {required ? " *" : ""}
@@ -87,9 +104,11 @@ export function Field({
     <TextInput
       ref={field}
       accessibilityLabel={label}
+      aria-invalid={wrong}
       multiline={multiline}
       placeholderTextColor={muted}
       {...props}
+      secureTextEntry={secureTextEntry}
       onFocus={(event) => {
         setFocused(true);
         onFocus?.(event);
@@ -100,8 +119,8 @@ export function Field({
       }}
       style={[
         {
-          flex: inForm ? undefined : 1,
-          minHeight: multiline ? 88 : icon || !inForm ? MIN_TOUCH : 26,
+          flex: 1,
+          minHeight: multiline ? 88 : MIN_TOUCH,
           fontFamily: FACE["400"],
           fontSize: TYPE.body.fontSize,
           lineHeight: multiline ? TYPE.body.lineHeight : undefined,
@@ -113,34 +132,8 @@ export function Field({
       textAlignVertical={multiline ? "top" : "center"}
     />
   );
-  if (inForm) {
-    return (
-      <FormRow error={error}>
-        <Pressable
-          ref={box}
-          testID={`field-${label}`}
-          onLayout={measured}
-          accessible={false}
-          onPress={() => field.current?.focus()}
-          style={{
-            flexDirection: "row",
-            alignItems: multiline ? "flex-start" : "center",
-            gap: SPACE.md,
-            paddingHorizontal: GUTTER,
-            paddingVertical: icon ? 0 : SPACE.sm,
-            minHeight: MIN_TOUCH + 12,
-          }}
-        >
-          {icon ? <View style={{ paddingTop: multiline ? SPACE.md : 0 }}>{icon}</View> : null}
-          <View style={{ flex: 1, flexDirection: "column", gap: SPACE.xxs }}>
-            {name}
-            {input}
-          </View>
-        </Pressable>
-      </FormRow>
-    );
-  }
-  const border = error ? TINT.red[scheme] : focused ? accent : edge;
+  const ring = wrong ? TINT.red[scheme] : PRIMARY;
+  const border = wrong || focused ? ring : controlEdge;
   return (
     <Pressable
       ref={box}
@@ -148,14 +141,13 @@ export function Field({
       onLayout={measured}
       accessible={false}
       onPress={() => field.current?.focus()}
-      style={{ flexDirection: "column", gap: SPACE.xs + 2 }}
+      style={{ flexDirection: "column", gap: SPACE.xs + 2, opacity: locked ? 0.5 : 1 }}
     >
       {name}
       <View
         testID="field-box"
         style={[
           CORNER,
-          DEPTH.raised,
           {
             flexDirection: "row",
             alignItems: multiline ? "flex-start" : "center",
@@ -163,23 +155,17 @@ export function Field({
             paddingHorizontal: SPACE.md + 2,
             minHeight: tablet ? MIN_TOUCH : MIN_TOUCH + 6,
             borderRadius: radius,
-            borderWidth: focused || error ? 1.5 : 1,
+            borderWidth: 1,
             borderColor: border,
-            backgroundColor: surface,
+            backgroundColor: raised,
           },
-          // The desktop's focus ring, as a soft glow of the accent.
-          focused && !error
-            ? {
-                shadowColor: accent,
-                shadowOpacity: 0.35,
-                shadowRadius: 6,
-                shadowOffset: { width: 0, height: 0 },
-              }
-            : null,
+          // The desktop's focus ring: the edge in the accent and a faint halo round it.
+          focused || wrong ? focusDepth(ring, scheme) : elevation("control", scheme),
         ]}
       >
         {icon ? <View style={{ paddingTop: multiline ? SPACE.md : 0 }}>{icon}</View> : null}
         {input}
+        {secureTextEntry ? <RevealEye input={field} locked={locked} color={muted} /> : null}
       </View>
       {error ? (
         <Label
@@ -191,6 +177,42 @@ export function Field({
           {error}
         </Label>
       ) : null}
+    </Pressable>
+  );
+}
+
+/// The eye of a password field: it shows the typed password or hides it again. It changes the
+/// input in place and draws only itself, so the field (and what is being typed in it) is not
+/// rendered again.
+function RevealEye({
+  input,
+  locked,
+  color,
+}: {
+  input: RefObject<TextInput | null>;
+  locked: boolean;
+  color: ColorValue;
+}) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={revealed ? "Hide password" : "Show password"}
+      accessibilityState={{ disabled: locked }}
+      disabled={locked}
+      hitSlop={8}
+      onPress={() => {
+        input.current?.setNativeProps({ secureTextEntry: revealed });
+        setRevealed(!revealed);
+      }}
+      style={{
+        minWidth: 28,
+        minHeight: MIN_TOUCH,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {revealed ? <IconEyeOff size={20} color={color} /> : <IconEye size={20} color={color} />}
     </Pressable>
   );
 }

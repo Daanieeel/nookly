@@ -69,8 +69,8 @@ export function OpenInAiApp() {
               <li key={app.id}>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-8 w-full justify-start gap-2 px-2 font-normal"
+                  size="row"
+                  className="h-8 w-full justify-start gap-2 font-normal"
                   disabled={launch.isPending}
                   onClick={() => launch.mutate(app)}
                 >
