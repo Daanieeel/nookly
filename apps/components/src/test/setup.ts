@@ -26,4 +26,9 @@ window.matchMedia ??= (query: string) =>
     dispatchEvent: () => false,
   }) as MediaQueryList;
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  // The platform picked is remembered; one test's choice is not the next one's.
+  localStorage.clear();
+  history.replaceState(null, "", "/");
+});

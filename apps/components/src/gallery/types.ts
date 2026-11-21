@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type GalleryGroup = "Primitives" | "App components";
+export type GalleryGroup = string;
 
 export interface GalleryEntry {
   /** Anchor in the page and the key in the sidebar. */
