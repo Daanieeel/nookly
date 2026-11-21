@@ -60,7 +60,7 @@ export function SelectField({
           type="button"
           aria-label={ariaLabel}
           className={cn(
-            "flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-md border border-input bg-accent px-2.5 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent/80",
+            "flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-md border border-input bg-accent px-2.5 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-ring data-[state=open]:bg-accent/80",
             className,
           )}
         >

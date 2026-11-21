@@ -248,7 +248,7 @@ function MiniCard({ card, onOpen }: { card: IndexCard; onOpen: () => void }) {
         type="button"
         onClick={onOpen}
         aria-label={`Edit card: ${faceSummary(card, "front")}`}
-        className="index-card-mini flex aspect-5/3 w-full flex-col rounded-md border border-border bg-card p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="index-card-mini flex aspect-5/3 w-full flex-col rounded-md border border-border bg-card p-3 text-left outline-none focus-ring"
       >
         <span className="line-clamp-3 min-h-0 flex-1 text-sm">
           <CardText text={faceSummary(card, "front")} />

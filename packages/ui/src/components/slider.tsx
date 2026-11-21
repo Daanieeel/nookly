@@ -43,7 +43,7 @@ function Slider({ className, marks, min = 0, max = 100, onValueChange, ...props 
         <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-muted">
           <SliderPrimitive.Range className="absolute h-full bg-primary" />
         </SliderPrimitive.Track>
-        <SliderPrimitive.Thumb className="block size-4 shrink-0 cursor-pointer rounded-full border-2 border-primary bg-background shadow-sm outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50" />
+        <SliderPrimitive.Thumb className="block size-4 shrink-0 cursor-pointer rounded-full border-2 border-primary bg-background shadow-sm outline-none transition-shadow focus-ring disabled:cursor-not-allowed disabled:opacity-50" />
       </SliderPrimitive.Root>
       {marks && marks.length > 0 && (
         <div className="relative mt-1.5 h-4 w-full text-xs text-muted-foreground">

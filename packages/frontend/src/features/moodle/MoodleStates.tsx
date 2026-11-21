@@ -142,7 +142,7 @@ export function MoodleError({
         )}
       </div>
       <details className="w-full max-w-md text-xs text-muted-foreground">
-        <summary className="cursor-pointer rounded-sm select-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+        <summary className="cursor-pointer rounded-sm select-none hover:text-foreground focus-ring">
           Details
         </summary>
         <p

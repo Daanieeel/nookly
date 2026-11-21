@@ -183,7 +183,7 @@ function CourseCard({
     <button
       type="button"
       className={cn(
-        "group flex size-full flex-col overflow-hidden rounded-2xl border border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring",
+        "group flex size-full flex-col overflow-hidden rounded-2xl border border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-ring",
         faded && "saturate-50",
       )}
       onClick={(e) => go(coursePath(course.id), e)}

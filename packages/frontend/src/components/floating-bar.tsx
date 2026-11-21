@@ -26,7 +26,7 @@ export function FloatingBar({
     >
       <div
         className={cn(
-          "pointer-events-auto flex min-h-11 w-full max-w-lg items-center gap-2 rounded-xl border border-border bg-popover py-1.5 pr-1.5 pl-3 shadow-lg transition-colors focus-within:border-foreground/30",
+          "pointer-events-auto flex min-h-11 w-full max-w-lg items-center gap-2 rounded-xl border border-border bg-popover py-1.5 pr-1.5 pl-5 shadow-lg transition-colors focus-within:border-foreground/30",
           failed && "border-destructive/60",
           className,
         )}

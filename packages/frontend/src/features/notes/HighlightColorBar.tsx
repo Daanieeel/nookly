@@ -68,7 +68,7 @@ export function HighlightColorBar({ editor }: { editor: Editor | null }) {
               aria-pressed={spot.color === color.id}
               onClick={() => editor.commands.setHighlightColor(color.id)}
               className={cn(
-                "size-5 rounded-full border border-black/10 bg-(--swatch) outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "size-5 rounded-full border border-black/10 bg-(--swatch) outline-none focus-ring",
                 spot.color === color.id &&
                   "ring-2 ring-foreground/60 ring-offset-1 ring-offset-popover",
               )}

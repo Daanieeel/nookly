@@ -75,7 +75,7 @@ export function NumberCell({
           if (e.key === "Enter") e.currentTarget.blur();
         }}
         autoComplete="off"
-        className="h-7 w-14 min-w-0 rounded-md border border-transparent bg-transparent px-1.5 text-right text-sm tabular-nums transition-colors outline-none placeholder:text-muted-foreground hover:border-input hover:bg-accent/60 focus-visible:border-input focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-7 w-14 min-w-0 rounded-md border border-transparent bg-transparent px-1.5 text-right text-sm tabular-nums transition-colors outline-none placeholder:text-muted-foreground hover:border-input hover:bg-accent/60 focus-visible:border-input focus-visible:bg-accent focus-ring"
       />
       {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
       <span className="flex size-3.5 shrink-0 items-center">

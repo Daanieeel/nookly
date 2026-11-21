@@ -332,7 +332,7 @@ function DialogDemo() {
 
 function AlertDialogDemo() {
   return (
-    <AlertDialog>
+    <AlertDialog severity="destructive">
       <AlertDialogTrigger asChild>
         <Button variant="destructive">
           <IconTrash /> Delete…
@@ -443,6 +443,7 @@ export const PRIMITIVES: GalleryEntry[] = [
               "outline",
               "ghost",
               "positive",
+              "caution",
               "warning",
               "destructive",
             ] as const

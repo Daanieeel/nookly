@@ -93,7 +93,7 @@ export function StepsBlock(props: ReactNodeViewProps) {
                     onClick={() => save(steps, active ? number + 1 : number)}
                     aria-label={`${action}: step ${number}`}
                     className={cn(
-                      "relative flex size-5 shrink-0 items-center justify-center rounded-sm font-mono text-xs tabular-nums transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "relative flex size-5 shrink-0 items-center justify-center rounded-sm font-mono text-xs tabular-nums transition-colors outline-none focus-ring",
                       done && "bg-muted-foreground/20 text-muted-foreground",
                       active && "bg-primary text-primary-foreground ring-4 ring-primary/20",
                       !done &&

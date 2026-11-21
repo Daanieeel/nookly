@@ -13,7 +13,7 @@ function SelectValue({ className, ...props }: React.ComponentProps<typeof Select
 }
 
 const selectTriggerVariants = cva(
-  "data-placeholder:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-fit max-w-full min-w-0 cursor-pointer items-center justify-between rounded-md whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&>span]:truncate [&>span]:min-w-0",
+  "data-placeholder:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground flex w-fit max-w-full min-w-0 cursor-pointer items-center justify-between rounded-md whitespace-nowrap transition-[color,box-shadow] outline-none focus-ring disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&>span]:truncate [&>span]:min-w-0",
   {
     variants: {
       variant: {
@@ -108,7 +108,7 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-8 pl-2.5 text-ui outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-8 pl-2.5 text-ui outline-none select-none data-disabled:cursor-not-allowed data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}

@@ -37,7 +37,7 @@ function DeckCard({
           type="button"
           onClick={() => openEntity(entity.id, entity.spaceId)}
           aria-label={`Open ${displayTitle(entity)}`}
-          className="flex min-w-0 flex-1 cursor-pointer flex-col gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring @sm:flex-row @sm:items-center"
+          className="flex min-w-0 flex-1 cursor-pointer flex-col gap-3 rounded-md text-left outline-none focus-ring @sm:flex-row @sm:items-center"
         >
           <DeckStack count={deck.stats.total} size="sm" />
           <div className="@container flex min-w-0 flex-1 flex-col gap-0.5">

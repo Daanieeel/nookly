@@ -40,9 +40,9 @@
 
   /* What the solid buttons (positive, caution, warning, destructive) are filled with: deeper
      than the text colours of the same names, so a white label reads on them. */
-  --solid-positive: #00873d;
-  --solid-caution: #b87800;
-  --solid-warning: #c2410c;
+  --solid-positive: #0a9f4a;
+  --solid-caution: #d68a00;
+  --solid-warning: #e5560a;
   --solid-destructive: #dc2626;
 
   --accent-blue: #0070f3;
@@ -92,9 +92,9 @@
     --raised: #282828;
     --weekend: #141414;
 
-    --solid-positive: #0f9d4a;
-    --solid-caution: #c28500;
-    --solid-warning: #ea580c;
+    --solid-positive: #16b85b;
+    --solid-caution: #eb9d00;
+    --solid-warning: #f56a14;
     --solid-destructive: #dc2626;
 
     --accent-blue: #47a8ff;

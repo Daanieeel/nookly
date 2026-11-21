@@ -126,7 +126,7 @@ const PALETTE: { kind: PartKind; label: string; name: string }[] = [
 ];
 
 const SELECT_CLASS =
-  "h-8 min-w-0 rounded-md border border-input bg-accent px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "h-8 min-w-0 rounded-md border border-input bg-accent px-2 text-xs outline-none focus-ring";
 
 /// The interactive tab of a circuit block: gates are placed and wired by hand, as
 /// on paper. A finished drawing writes the block's code, unless the code says
@@ -405,7 +405,7 @@ export function CircuitCanvas({
           stroke="currentColor"
           strokeWidth={STROKE}
           fontFamily={FONT_FAMILY}
-          className="block touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="block touch-none outline-none focus-ring"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

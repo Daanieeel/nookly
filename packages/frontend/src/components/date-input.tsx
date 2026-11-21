@@ -159,7 +159,7 @@ export function Calendar({
               onClick={() => onSelect(toDay(day))}
               className={cn(
                 compact ? "h-7" : "h-8",
-                "relative flex cursor-pointer items-center justify-center rounded-md text-xs tabular-nums transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
+                "relative flex cursor-pointer items-center justify-center rounded-md text-xs tabular-nums transition-colors outline-none hover:bg-accent focus-ring",
                 !isSameMonth(day, month) && "text-muted-foreground/50",
                 isToday && !isSelected && "font-semibold text-primary",
                 isSelected && "bg-primary font-medium text-primary-foreground hover:bg-primary/90",
@@ -218,7 +218,7 @@ export function DateInput({
             type="button"
             aria-label={ariaLabel}
             className={cn(
-              "flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-md border border-input bg-accent px-3 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-accent/80",
+              "flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-md border border-input bg-accent px-3 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=open]:bg-accent/80",
               clearable && value && "pr-8",
             )}
           >

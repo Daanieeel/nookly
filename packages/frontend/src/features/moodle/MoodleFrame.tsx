@@ -155,7 +155,7 @@ function Crumbs({ spaceId, crumbs }: { spaceId: string; crumbs: Crumb[]; glass?:
           )}
           <button
             type="button"
-            className="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-ring"
             onClick={(e) => go(crumb.path, e)}
           >
             {crumb.label}

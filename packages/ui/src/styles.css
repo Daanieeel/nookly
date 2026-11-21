@@ -6,6 +6,39 @@
 @source "./";
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* A disabled control never lights up on hover. `:where` keeps the specificity where it was. */
+@custom-variant hover {
+  &:where(:not(:disabled, [aria-disabled="true"], [data-disabled])):hover {
+    @media (hover: hover) {
+      @slot;
+    }
+  }
+}
+
+/* The focus look: a full-strength edge, then a faint, wider halo. The shadows are layered
+   into the element's own (`--tw-shadow`), so a focused field keeps its raised look. */
+@utility focus-ring {
+  &:focus-visible {
+    border-color: var(--ring);
+    --tw-ring-shadow:
+      0 0 0 1px var(--ring), 0 0 0 4px color-mix(in oklab, var(--ring) 25%, transparent);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+      var(--tw-ring-shadow), var(--tw-shadow);
+  }
+}
+
+/* The same, for a box that holds the focused thing (a field inside a framed row). */
+@utility focus-ring-within {
+  &:focus-within {
+    border-color: var(--ring);
+    --tw-ring-shadow:
+      0 0 0 1px var(--ring), 0 0 0 4px color-mix(in oklab, var(--ring) 25%, transparent);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+      var(--tw-ring-shadow), var(--tw-shadow);
+  }
+}
 
 @import "./theme.css";
 
@@ -49,11 +82,12 @@
   --elev-dialog:
     0 0 0 1px var(--border), 0 4px 8px -2px rgba(0, 0, 0, 0.06),
     0 16px 32px -8px rgba(0, 0, 0, 0.14), 0 40px 80px -20px rgba(0, 0, 0, 0.2);
-  /* The main button: a darker ring of its own blue, a lit top, a shaded base, and a blue glow. */
+  /* The main button: a darker ring of its own blue, a lit top, a shaded base, and shadows that are
+     nearly black with a hint of blue. */
   --elev-primary:
     0 0 0 1px rgba(0, 60, 140, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 2px 0 rgba(0, 20, 80, 0.2), 0 1px 2px 0 rgba(0, 80, 200, 0.3),
-    0 4px 10px -3px rgba(0, 80, 200, 0.35);
+    inset 0 -1px 2px 0 rgba(0, 10, 30, 0.2), 0 1px 2px 0 rgba(0, 10, 30, 0.3),
+    0 4px 10px -3px rgba(0, 10, 30, 0.35);
   /* How much of its own colour a solid button's ring keeps (the rest is black): faint on a
      light page, where a dark ring looks like an outline. */
   --solid-edge: 90%;
@@ -74,8 +108,8 @@
       0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 40px 90px -20px rgba(0, 0, 0, 0.6);
     --elev-primary:
       0 0 0 1px rgba(0, 40, 110, 0.9), inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
-      inset 0 -1px 2px 0 rgba(0, 20, 80, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.5),
-      0 4px 12px -3px rgba(0, 112, 243, 0.45);
+      inset 0 -1px 2px 0 rgba(0, 10, 30, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.5),
+      0 4px 12px -3px rgba(0, 10, 30, 0.5);
     --solid-edge: 70%;
     --scrim: rgba(0, 0, 0, 0.6);
   }
@@ -102,10 +136,18 @@
   --shadow-popover: var(--elev-popover);
   --shadow-dialog: var(--elev-dialog);
   --shadow-primary: var(--elev-primary);
-  /* A solid button: a ring of its own fill, darkened, over the control shadow. The variant
+  /* A solid button: a ring of its own fill, darkened, a lit top, and shadows that are nearly
+     black with only a hint of the button's colour (a glow in the colour itself reads as a
+     smudge; a shade stays a shade). The variant
      sets `--solid`, so this is written out here and resolved on the button itself. */
   --shadow-solid:
-    0 0 0 1px color-mix(in oklab, var(--solid) var(--solid-edge), black), var(--elev-control);
+    0 0 0 1px color-mix(in oklab, var(--solid) var(--solid-edge), black),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 2px 0
+      color-mix(in oklab, color-mix(in oklab, var(--solid) 15%, black) 40%, transparent),
+    0 1px 2px 0 color-mix(in oklab, color-mix(in oklab, var(--solid) 15%, black) 60%, transparent),
+    0 4px 10px -3px
+      color-mix(in oklab, color-mix(in oklab, var(--solid) 15%, black) 55%, transparent);
   --color-scrim: var(--scrim);
 }
 

@@ -49,7 +49,7 @@ export function ItemRow({
     >
       <button
         type="button"
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-2 text-left focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-2 text-left focus-ring"
         onClick={onOpen}
       >
         <span

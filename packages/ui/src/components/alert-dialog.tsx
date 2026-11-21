@@ -5,7 +5,22 @@ import type { VariantProps } from "class-variance-authority";
 import { buttonVariants } from "@nookly/ui/components/button";
 import { cn } from "@nookly/ui/lib/utils";
 
-const AlertDialog = AlertDialogPrimitive.Root;
+/// How serious what the dialog asks for is. The main action takes the same colour as the
+/// button of that name, so a destructive question has a destructive answer.
+export type AlertDialogSeverity = "caution" | "warning" | "destructive";
+
+const SeverityContext = React.createContext<AlertDialogSeverity | undefined>(undefined);
+
+function AlertDialog({
+  severity,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Root> & { severity?: AlertDialogSeverity }) {
+  return (
+    <SeverityContext.Provider value={severity}>
+      <AlertDialogPrimitive.Root {...props} />
+    </SeverityContext.Provider>
+  );
+}
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 const AlertDialogPortal = AlertDialogPrimitive.Portal;
 
@@ -102,9 +117,10 @@ function AlertDialogAction({
   variant,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action> & VariantProps<typeof buttonVariants>) {
+  const severity = React.useContext(SeverityContext);
   return (
     <AlertDialogPrimitive.Action
-      className={cn(buttonVariants({ variant }), className)}
+      className={cn(buttonVariants({ variant: variant ?? severity }), className)}
       {...props}
     />
   );

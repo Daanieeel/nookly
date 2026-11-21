@@ -33,7 +33,7 @@ export function ConflictBadge({ entityId }: { entityId: string }) {
           type="button"
           aria-label={`${label}. Review`}
           onClick={() => setMergeOpen(true)}
-          className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-md outline-none focus-ring"
         >
           <Badge variant="warning" className="cursor-pointer gap-1">
             <IconArrowsDiff size={12} />

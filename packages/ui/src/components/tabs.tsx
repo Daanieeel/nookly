@@ -23,7 +23,7 @@ const tabsListVariants = cva(
   {
     variants: {
       size: {
-        default: "h-9 p-1",
+        default: "p-1",
         sm: "h-7 p-0.5",
       },
     },
@@ -46,7 +46,7 @@ function TabsList({
 }
 
 const tabsTriggerVariants = cva(
-  "inline-flex flex-1 items-center justify-center gap-1.5 rounded-sm font-medium whitespace-nowrap text-muted-foreground outline-none transition-[color,box-shadow] focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border data-[state=active]:border-border data-[state=active]:bg-raised data-[state=active]:text-foreground data-[state=active]:shadow-xs",
+  "inline-flex flex-1 items-center justify-center gap-1.5 rounded-sm font-medium whitespace-nowrap text-muted-foreground outline-none transition-[color,box-shadow] focus-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=active]:border data-[state=active]:border-border data-[state=active]:bg-raised data-[state=active]:text-foreground data-[state=active]:shadow-xs",
   {
     variants: {
       size: {

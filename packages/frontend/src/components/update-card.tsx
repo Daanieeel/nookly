@@ -35,7 +35,7 @@ export function UpdateCard({ className }: { className?: string }) {
       title={failed ? state.message : undefined}
       onClick={() => void install(update)}
       className={cn(
-        "flex w-full items-start gap-2 rounded-xl border p-2.5 text-left text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "flex w-full items-start gap-2 rounded-xl border p-2.5 text-left text-xs transition-colors outline-none focus-ring",
         failed
           ? "border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20"
           : "border-caution/50 bg-caution/10 text-caution hover:bg-caution/20",

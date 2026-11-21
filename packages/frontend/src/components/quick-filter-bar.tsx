@@ -41,7 +41,7 @@ export function QuickFilterBar({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="flex h-full min-w-0 cursor-pointer items-center gap-1 rounded-md pr-1 pl-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-full min-w-0 cursor-pointer items-center gap-1 rounded-md pr-1 pl-1.5 outline-none focus-ring"
               >
                 <field.icon size={14} />
                 <span className="max-w-40 truncate">{field.label}</span>

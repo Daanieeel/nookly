@@ -100,7 +100,7 @@ function Toggle({
         aria-pressed={pressed}
         onClick={() => onPressedChange(!pressed)}
         className={cn(
-          "ml-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-inset text-muted-foreground outline-none hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4",
+          "ml-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-inset text-muted-foreground outline-none hover:bg-foreground/10 hover:text-foreground focus-ring [&_svg]:size-4",
           pressed && "bg-primary/20 text-foreground ring-1 ring-primary/60",
         )}
       >
@@ -230,7 +230,7 @@ export function FindBar({
         </IconTip>
         <div
           className={cn(
-            "flex h-8 min-w-0 items-center gap-0.5 rounded-md border bg-accent pr-1 shadow-xs transition-colors focus-within:ring-2 focus-within:ring-ring hover:bg-accent/80",
+            "flex h-8 min-w-0 items-center gap-0.5 rounded-md border bg-accent pr-1 shadow-xs transition-colors focus-ring-within hover:bg-accent/80",
             find.invalid ? "border-destructive" : "border-input",
           )}
         >

@@ -344,7 +344,7 @@ const ScrollProgressSearch = ({
                         setCursor(0);
                       }}
                       onKeyDown={onSearchKeyDown}
-                      className="h-8 w-full rounded-xl border border-input bg-accent/60 pr-3 pl-8 text-sm leading-none outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      className="h-8 w-full rounded-xl border border-input bg-accent/60 pr-3 pl-8 text-sm leading-none outline-none placeholder:text-muted-foreground focus-ring"
                     />
                   </div>
                 )}

@@ -94,7 +94,7 @@ export function EntityPill({
   const classes = cn(
     "inline-flex max-w-[200px] rounded-md bg-accent px-1.5 align-baseline font-semibold text-foreground",
     onClick &&
-      "cursor-pointer transition-colors hover:bg-accent/60 hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+      "cursor-pointer transition-colors hover:bg-accent/60 hover:underline hover:underline-offset-4 focus-ring focus-visible:outline-none",
     className,
   );
   const label = <span className="truncate">{title}</span>;
@@ -130,7 +130,7 @@ export function LinkToken({
       type="button"
       onClick={onClick}
       className={cn(
-        "cursor-pointer rounded-sm font-semibold text-foreground decoration-foreground/40 underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        "cursor-pointer rounded-sm font-semibold text-foreground decoration-foreground/40 underline-offset-4 hover:underline focus-ring focus-visible:outline-none",
         className,
       )}
     >

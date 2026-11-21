@@ -81,7 +81,7 @@ export function FilePage({
               <h1 className="min-w-0 truncate font-heading text-base font-medium">{title}</h1>
               <button
                 type="button"
-                className="min-w-0 shrink-0 truncate rounded-sm text-xs text-muted-foreground hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-w-0 shrink-0 truncate rounded-sm text-xs text-muted-foreground hover:text-foreground hover:underline focus-ring"
                 onClick={(e) => go(coursePath(courseId), e)}
               >
                 in {courseName}
@@ -247,7 +247,7 @@ function Property({
       {onClick ? (
         <button
           type="button"
-          className="flex min-h-7 items-start gap-2 rounded-md px-2 py-1 text-left text-sm wrap-anywhere transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-7 items-start gap-2 rounded-md px-2 py-1 text-left text-sm wrap-anywhere transition-colors hover:bg-accent focus-ring"
           onClick={onClick}
         >
           {children}

@@ -47,7 +47,7 @@ export function PickedLabels({
                 aria-label={`Stop filtering by ${name}`}
                 title={`Stop filtering by ${name}`}
                 onClick={() => onPick(live.filter((x) => x !== id))}
-                className="flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-background/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-background/60 hover:text-foreground focus-ring focus-visible:outline-none"
               >
                 <IconX size={12} aria-hidden="true" />
               </button>

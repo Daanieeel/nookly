@@ -140,7 +140,7 @@ function SpaceSlot({
           aria-label={space.name}
           onClick={() => onActivate(space)}
           className={cn(
-            "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md ring-sidebar-ring outline-hidden transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-2",
+            "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md outline-hidden transition-colors hover:bg-sidebar-accent/60 focus-ring",
             // The foreground color: light in dark mode, dark in light mode, and see through so the
             // Space's own color still shows.
             active && "bg-sidebar-foreground/20",
@@ -182,7 +182,7 @@ function SpaceOverflow({ spaces, onActivate, onOpenDialog }: { spaces: Space[] }
             <button
               type="button"
               aria-label="More Spaces"
-              className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-colors hover:bg-sidebar-accent/60 focus-visible:ring-2 data-[state=open]:bg-sidebar-accent"
+              className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground/70 outline-hidden transition-colors hover:bg-sidebar-accent/60 focus-ring data-[state=open]:bg-sidebar-accent"
             >
               <IconDots className="size-4" />
             </button>
@@ -220,7 +220,7 @@ function OverflowRow({ space, onActivate, onOpenDialog }: { space: Space } & Slo
         type="button"
         onClick={() => onActivate(space)}
         className={cn(
-          "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-sm ring-ring outline-hidden hover:bg-accent focus-visible:ring-2",
+          "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-sm outline-hidden hover:bg-accent focus-ring",
           isDragging && "opacity-40",
           isOver && !isDragging && "ring-2",
         )}
@@ -316,7 +316,7 @@ function MenuButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-sm outline-hidden hover:bg-accent focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-50 [&>svg]:size-4 [&>svg]:text-muted-foreground"
+      className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-sm outline-hidden hover:bg-accent focus-visible:bg-accent disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:size-4 [&>svg]:text-muted-foreground"
     >
       {icon}
       {label}

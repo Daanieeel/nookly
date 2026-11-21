@@ -390,7 +390,7 @@ function ChoiceCard({
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "flex cursor-pointer flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+        "flex cursor-pointer flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-colors outline-none hover:bg-accent focus-ring [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
         selected ? "border-foreground/30 bg-accent" : "border-border",
         className,
       )}

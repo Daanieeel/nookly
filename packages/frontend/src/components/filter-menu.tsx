@@ -318,7 +318,7 @@ export function FilterMenu({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="flex h-7 cursor-pointer items-center gap-1 rounded-md border border-dotted border-muted-foreground/60 px-2 text-xs text-muted-foreground outline-none hover:border-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-7 cursor-pointer items-center gap-1 rounded-md border border-dotted border-muted-foreground/60 px-2 text-xs text-muted-foreground outline-none hover:border-muted-foreground hover:text-foreground focus-ring"
                 >
                   <IconPlus size={14} />
                   Add filter
@@ -641,7 +641,7 @@ function JoinToggle({
           }`}
           onClick={onToggle}
           className={cn(
-            "flex h-5 cursor-pointer items-center rounded-sm px-1.5 text-xs leading-none font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "flex h-5 cursor-pointer items-center rounded-sm px-1.5 text-xs leading-none font-medium outline-none focus-ring",
             either
               ? badgeVariants({ variant: "neutral", size: "md", className: "rounded-sm" })
               : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground",

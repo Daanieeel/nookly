@@ -29,7 +29,7 @@ export function DataTableColumnHeader<TData extends RowData, TValue>({
           type="button"
           aria-label={`Sort by ${label}`}
           className={cn(
-            "-ml-2 flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-[state=open]:bg-accent",
+            "-ml-2 flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 hover:bg-accent/60 hover:text-foreground focus-ring focus-visible:outline-none data-[state=open]:bg-accent",
             className,
           )}
         >

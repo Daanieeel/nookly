@@ -84,7 +84,7 @@ export function TextColorBar({ editor }: { editor: Editor | null }) {
               aria-pressed={spot.color === color.id}
               onClick={() => editor.commands.setTextColor(color.id)}
               className={cn(
-                "size-5 rounded-full border border-black/10 bg-(--swatch) outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "size-5 rounded-full border border-black/10 bg-(--swatch) outline-none focus-ring",
                 spot.color === color.id &&
                   "ring-2 ring-foreground/60 ring-offset-1 ring-offset-popover",
               )}
@@ -101,7 +101,7 @@ export function TextColorBar({ editor }: { editor: Editor | null }) {
             type="button"
             aria-label="Remove color"
             onClick={() => editor.commands.unsetTextColor()}
-            className="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-ring"
           >
             <IconCircleOff size={16} />
           </button>

@@ -51,7 +51,7 @@ export function CourseForums({ spaceId, courseId }: { spaceId: string; courseId:
               <li key={forum.id}>
                 <button
                   type="button"
-                  className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-ring"
                   onClick={(e) => go(forumPath(courseId, forum.id), e)}
                 >
                   <span
@@ -138,7 +138,7 @@ export function ForumPage({
               <li key={d.discussionId}>
                 <button
                   type="button"
-                  className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-ring"
                   onClick={(e) => go(discussionPath(courseId, forumId, d.discussionId), e)}
                 >
                   <Avatar name={d.author} />

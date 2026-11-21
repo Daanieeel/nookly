@@ -138,7 +138,7 @@ export function TimeInput({
         onBlur?.();
       }}
       className={cn(
-        "flex h-8 min-w-0 items-center gap-0.5 rounded-md border border-input bg-accent px-2 text-sm shadow-xs transition-colors focus-within:ring-2 focus-within:ring-ring",
+        "flex h-8 min-w-0 items-center gap-0.5 rounded-md border border-input bg-accent px-2 text-sm shadow-xs transition-colors focus-ring-within",
         className,
       )}
     >
