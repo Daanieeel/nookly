@@ -24,7 +24,7 @@ function Checkbox({
       data-slot="checkbox"
       checked={checked}
       className={cn(
-        "peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        "peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs outline-none transition-shadow focus-ring disabled:cursor-not-allowed disabled:opacity-50",
         CHECKED_VARIANT_CLASSES[variant],
         className,
       )}

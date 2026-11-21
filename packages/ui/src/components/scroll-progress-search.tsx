@@ -344,7 +344,7 @@ const ScrollProgressSearch = ({
                         setCursor(0);
                       }}
                       onKeyDown={onSearchKeyDown}
-                      className="h-8 w-full rounded-xl border border-input bg-accent/60 pr-3 pl-8 text-sm leading-none outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      className="h-8 w-full rounded-xl border border-input bg-accent/60 pr-3 pl-8 text-sm leading-none outline-none placeholder:text-muted-foreground focus-ring"
                     />
                   </div>
                 )}
@@ -404,7 +404,7 @@ const ScrollProgressSearch = ({
                               run.match ? (
                                 <mark
                                   key={at}
-                                  className="rounded-[3px] bg-primary/25 text-popover-foreground"
+                                  className="rounded-xs bg-primary/25 text-popover-foreground"
                                 >
                                   {run.text}
                                 </mark>

@@ -184,7 +184,7 @@ function PageButton({
       aria-current={active ? "page" : undefined}
       onClick={onPick}
       className={cn(
-        "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        "flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-ring",
         active ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent/60",
         searching && count === 0 && "opacity-50",
       )}

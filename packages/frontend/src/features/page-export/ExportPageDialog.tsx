@@ -99,7 +99,7 @@ function FormatPicker({
             aria-checked={selected}
             onClick={() => onChange(format)}
             className={cn(
-              "flex h-9 items-center gap-2.5 rounded-md border px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+              "flex h-9 items-center gap-2.5 rounded-md border px-2.5 text-left text-sm outline-none transition-colors focus-ring",
               selected
                 ? "border-primary bg-primary/10 font-medium text-foreground"
                 : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground",

@@ -2,16 +2,17 @@
 
 Nookly is a [Turborepo](https://turborepo.com) workspace managed with Bun.
 
-| Path                | Package            | Contents                                                                                                                                |
-| ------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/desktop`      | `@nookly/desktop`  | The Tauri app: `src-tauri/` (Rust), `index.html`, `vite.config.ts` and the `src/main.tsx` bootstrap.                                    |
-| `apps/server`       | `@nookly/server`   | The optional sync server: Bun, Elysia, Postgres. See [server](server.md).                                                               |
-| `apps/mobile`       | `@nookly/mobile`   | The phone app: Expo, Expo Router, `expo-sqlite`. See its README.                                                                        |
-| `packages/ui`       | `@nookly/ui`       | The design system: primitives in `src/components/`, tokens and theme in `src/styles.css`, fonts, `cn`.                                  |
-| `packages/frontend` | `@nookly/frontend` | Every other component, feature, hook, store and API client. Shared by the desktop app and any future app.                               |
-| `packages/shared`   | `@nookly/shared`   | What every client and the server agree on: the exported desktop schema, the sync engine and protocol, the API client. No React, no DOM. |
-| `packages/config`   | `@nookly/config`   | Shared config: oxlint rules and the anti slop plugin, oxfmt options, TypeScript bases.                                                  |
-| `tools/`            |                    | Repo scripts (version check and bump).                                                                                                  |
+| Path                | Package              | Contents                                                                                                                                                                                                                                                       |
+| ------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/desktop`      | `@nookly/desktop`    | The Tauri app: `src-tauri/` (Rust), `index.html`, `vite.config.ts` and the `src/main.tsx` bootstrap.                                                                                                                                                           |
+| `apps/server`       | `@nookly/server`     | The optional sync server: Bun, Elysia, Postgres. See [server](server.md).                                                                                                                                                                                      |
+| `apps/mobile`       | `@nookly/mobile`     | The phone app: Expo, Expo Router, `expo-sqlite`. See its README.                                                                                                                                                                                               |
+| `apps/components`   | `@nookly/components` | A Next.js gallery of the desktop and the phone components, in light and dark, with a switch between the two. The phone's run through react-native-web with small stand-ins for the native modules (`src/rn`). `bun run dev:components` serves it on port 3300. |
+| `packages/ui`       | `@nookly/ui`         | The design system: primitives in `src/components/`, tokens and theme in `src/styles.css`, fonts, `cn`.                                                                                                                                                         |
+| `packages/frontend` | `@nookly/frontend`   | Every other component, feature, hook, store and API client. Shared by the desktop app and any future app.                                                                                                                                                      |
+| `packages/shared`   | `@nookly/shared`     | What every client and the server agree on: the exported desktop schema, the sync engine and protocol, the API client. No React, no DOM.                                                                                                                        |
+| `packages/config`   | `@nookly/config`     | Shared config: oxlint rules and the anti slop plugin, oxfmt options, TypeScript bases.                                                                                                                                                                         |
+| `tools/`            |                      | Repo scripts (version check and bump).                                                                                                                                                                                                                         |
 
 ## Where code goes
 
@@ -40,6 +41,7 @@ Run from the repo root.
 | `bun run dev`                    | Starts the sync server, the desktop app and the mobile app (Expo). |
 | `bun run dev:desktop`            | Starts the sync server and the desktop app.                        |
 | `bun run dev:mobile`             | Starts the sync server and the mobile app.                         |
+| `bun run dev:components`         | Starts the component gallery on `http://localhost:3300`.           |
 | `bun run dev:server`             | Starts the sync server alone.                                      |
 | `bun run tauri build`            | Builds the installers.                                             |
 | `bun run build`                  | Typechecks and builds the frontend bundle via Turborepo.           |

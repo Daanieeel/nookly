@@ -25,7 +25,7 @@ interface SemanticColor {
 
 /// The backmost background in dark mode, the desktop's `--background`: a deep charcoal,
 /// not the system's black.
-export const CHARCOAL = "#111111";
+export const CHARCOAL = "#0e0e0e";
 
 /// Surfaces, text and lines: iOS's own adaptive colours.
 export const SEMANTIC = {
@@ -228,6 +228,26 @@ export const DEPTH = {
     elevation: 8,
   },
 } satisfies Record<string, ViewStyle>;
+
+/// The main action's depth, the desktop's glossy primary button (`--elev-primary`) in the
+/// phone's own style props: a lit top over the fill, a darker ring of its own blue, a lit top
+/// edge and a tinted glow below. Dark mode leans on the glow, light on the ring.
+export const PRIMARY_GLOSS = {
+  experimental_backgroundImage:
+    "linear-gradient(to bottom, rgba(255,255,255,0.1), rgba(255,255,255,0))",
+  boxShadow: [
+    { offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: "rgba(0,50,130,0.5)" },
+    {
+      offsetX: 0,
+      offsetY: 1,
+      blurRadius: 0,
+      spreadDistance: 0,
+      color: "rgba(255,255,255,0.28)",
+      inset: true,
+    },
+    { offsetX: 0, offsetY: 4, blurRadius: 10, spreadDistance: -3, color: "rgba(0,80,200,0.38)" },
+  ],
+} satisfies ViewStyle;
 
 /// An icon badge: the icon in a tinted rounded square, as iOS's Settings draws them.
 export const BADGE = { size: 30, icon: 17 } as const;

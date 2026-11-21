@@ -71,7 +71,7 @@ export function ConfirmPermanentDialog({
   const confirmed = phrase === undefined || matchesPhrase(typed, phrase);
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={onOpenChange} severity="destructive">
       <AlertDialogContent
         onOpenAutoFocus={(event) => {
           if (phrase === undefined) return;
@@ -124,7 +124,6 @@ export function ConfirmPermanentDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            variant="destructive"
             disabled={!confirmed}
             onClick={(event) => {
               event.preventDefault();

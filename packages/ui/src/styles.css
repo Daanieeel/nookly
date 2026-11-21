@@ -6,6 +6,39 @@
 @source "./";
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* A disabled control never lights up on hover. `:where` keeps the specificity where it was. */
+@custom-variant hover {
+  &:where(:not(:disabled, [aria-disabled="true"], [data-disabled])):hover {
+    @media (hover: hover) {
+      @slot;
+    }
+  }
+}
+
+/* The focus look: a full-strength edge, then a faint, wider halo. The shadows are layered
+   into the element's own (`--tw-shadow`), so a focused field keeps its raised look. */
+@utility focus-ring {
+  &:focus-visible {
+    border-color: var(--ring);
+    --tw-ring-shadow:
+      0 0 0 1px var(--ring), 0 0 0 4px color-mix(in oklab, var(--ring) 25%, transparent);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+      var(--tw-ring-shadow), var(--tw-shadow);
+  }
+}
+
+/* The same, for a box that holds the focused thing (a field inside a framed row). */
+@utility focus-ring-within {
+  &:focus-within {
+    border-color: var(--ring);
+    --tw-ring-shadow:
+      0 0 0 1px var(--ring), 0 0 0 4px color-mix(in oklab, var(--ring) 25%, transparent);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+      var(--tw-ring-shadow), var(--tw-shadow);
+  }
+}
 
 @import "./theme.css";
 
@@ -14,11 +47,11 @@
    with the app's theme on purpose. Not the app theme itself: nothing outside
    the file viewer should ever toggle these. Values mirror `theme.css`. */
 .viewer-light {
-  --background: #f2f2f2;
+  --background: #fafafa;
   --foreground: #0a0a0a;
-  --muted: #f2f2f2;
+  --muted: #f4f4f4;
   --muted-foreground: #666666;
-  --border: #e2e2e2;
+  --border: rgba(0, 0, 0, 0.09);
   --accent-blue: #0070f3;
   --accent-green: #00873d;
   --accent-pink: #d6336c;
@@ -26,15 +59,96 @@
 }
 
 .viewer-dark {
-  --background: #111111;
+  --background: #0e0e0e;
   --foreground: #eeeeee;
-  --muted: #1a1a1a;
+  --muted: #161616;
   --muted-foreground: #a0a0a0;
-  --border: #2a2a2a;
+  --border: rgba(255, 255, 255, 0.09);
   --accent-blue: #47a8ff;
   --accent-green: #00cb50;
   --accent-pink: #ff4d8d;
   --accent-purple: #c473fc;
+}
+
+/* Elevation: one stack of shadows per layer, written once per theme. Light themes cast
+   soft shadows; dark ones can't, so they lean on a lit top edge (the inset highlight)
+   and a deeper drop shadow. Controls sit lowest, then cards, popovers and dialogs. */
+:root {
+  --elev-control: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --elev-card: 0 1px 2px 0 rgba(0, 0, 0, 0.04), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
+  --elev-popover:
+    0 0 0 1px var(--border), 0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 8px 20px -4px rgba(0, 0, 0, 0.12), 0 20px 40px -12px rgba(0, 0, 0, 0.1);
+  --elev-dialog:
+    0 0 0 1px var(--border), 0 4px 8px -2px rgba(0, 0, 0, 0.06),
+    0 16px 32px -8px rgba(0, 0, 0, 0.14), 0 40px 80px -20px rgba(0, 0, 0, 0.2);
+  /* The main button: a darker ring of its own blue, a lit top, a shaded base, and shadows that are
+     nearly black with a hint of blue. */
+  --elev-primary:
+    0 0 0 1px rgba(0, 60, 140, 0.55), inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 2px 0 rgba(0, 10, 30, 0.2), 0 1px 2px 0 rgba(0, 10, 30, 0.3),
+    0 4px 10px -3px rgba(0, 10, 30, 0.35);
+  /* How much of its own colour a solid button's ring keeps (the rest is black): faint on a
+     light page, where a dark ring looks like an outline. */
+  --solid-edge: 90%;
+  --scrim: rgba(10, 10, 10, 0.28);
+}
+
+:root {
+  @variant dark {
+    --elev-control: inset 0 1px 0 0 rgba(255, 255, 255, 0.09), 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+    --elev-card:
+      0 0 0 1px rgba(255, 255, 255, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+      0 6px 14px -4px rgba(0, 0, 0, 0.6);
+    --elev-popover:
+      0 0 0 1px var(--border), inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+      0 8px 20px -4px rgba(0, 0, 0, 0.55), 0 20px 44px -12px rgba(0, 0, 0, 0.5);
+    --elev-dialog:
+      0 0 0 1px var(--border), inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+      0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 40px 90px -20px rgba(0, 0, 0, 0.6);
+    --elev-primary:
+      0 0 0 1px rgba(0, 40, 110, 0.9), inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+      inset 0 -1px 2px 0 rgba(0, 10, 30, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.5),
+      0 4px 12px -3px rgba(0, 10, 30, 0.5);
+    --solid-edge: 70%;
+    --scrim: rgba(0, 0, 0, 0.6);
+  }
+}
+
+@theme inline {
+  /* Tailwind's own scale follows the elevations too, so every `shadow-sm` or `shadow-lg`
+     already in the app is lit and layered the same way in both themes. */
+  /* Desktop only: a step rounder than the shared tokens, which the phone keeps. */
+  --radius-xs: 3px;
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --shadow-xs: var(--elev-control);
+  --shadow-sm: var(--elev-control);
+  --shadow-md: var(--elev-card);
+  --shadow-lg: var(--elev-popover);
+  --shadow-xl: var(--elev-dialog);
+  --shadow-2xl: var(--elev-dialog);
+  --shadow-control: var(--elev-control);
+  --shadow-card: var(--elev-card);
+  --shadow-popover: var(--elev-popover);
+  --shadow-dialog: var(--elev-dialog);
+  --shadow-primary: var(--elev-primary);
+  /* A solid button: a ring of its own fill, darkened, a lit top, and shadows that are nearly
+     black with only a hint of the button's colour (a glow in the colour itself reads as a
+     smudge; a shade stays a shade). The variant
+     sets `--solid`, so this is written out here and resolved on the button itself. */
+  --shadow-solid:
+    0 0 0 1px color-mix(in oklab, var(--solid) var(--solid-edge), black),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 2px 0
+      color-mix(in oklab, color-mix(in oklab, var(--solid) 15%, black) 40%, transparent),
+    0 1px 2px 0 color-mix(in oklab, color-mix(in oklab, var(--solid) 15%, black) 60%, transparent),
+    0 4px 10px -3px
+      color-mix(in oklab, color-mix(in oklab, var(--solid) 15%, black) 55%, transparent);
+  --color-scrim: var(--scrim);
 }
 
 @theme inline {

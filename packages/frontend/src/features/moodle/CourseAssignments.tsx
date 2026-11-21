@@ -78,7 +78,7 @@ function AssignmentCard({
   return (
     <button
       type="button"
-      className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-ring"
       onClick={onOpen}
     >
       <span

@@ -164,7 +164,7 @@ function TabItem({
           if (e.key === "Enter" || e.key === " ") useNavStore.getState().switchTab(tab.id);
         }}
         className={cn(
-          "flex h-full min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          "flex h-full min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md outline-none focus-ring",
           tab.pinned ? "px-1.5" : "px-6",
         )}
       >

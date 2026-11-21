@@ -305,7 +305,7 @@ export function MergeEditor() {
                     aria-current={view.id === selected?.id ? "true" : undefined}
                     onClick={() => setPick(view.id)}
                     className={cn(
-                      "flex w-full flex-col rounded-md px-2.5 py-1.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                      "flex w-full flex-col rounded-md px-2.5 py-1.5 text-left text-sm outline-none transition-colors focus-ring",
                       view.id === selected?.id ? "bg-accent" : "hover:bg-accent/60",
                     )}
                   >

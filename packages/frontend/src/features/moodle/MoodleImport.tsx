@@ -208,7 +208,7 @@ const NO_COURSE = "none";
 
 /// A quiet pill button, for the suggestions under a field.
 const SUGGESTION_CLASS =
-  "inline-flex h-6 max-w-full items-center gap-1.5 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex h-6 max-w-full items-center gap-1.5 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-ring";
 
 /// A caption and its row of suggestions, named as a group for assistive tech.
 function Suggestions({ caption, children }: { caption: string; children: ReactNode }) {
@@ -377,7 +377,7 @@ function ImportFields({
             aria-label={
               chosen.length > 0 ? `Labels: ${chosen.map((l) => l.name).join(", ")}` : "Labels"
             }
-            className="flex min-h-7 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-accent px-2 py-0.5 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex min-h-7 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-accent px-2 py-0.5 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-ring"
           >
             {chosen.length > 0 ? (
               chosen.map((label) => <LabelChip key={label.id} label={label} />)
@@ -433,7 +433,7 @@ function ImportFields({
                 id="moodle-import-course"
                 type="button"
                 aria-label={`Attach to a course: ${course ? displayTitle(course) : "No course"}`}
-                className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-input bg-accent px-3 py-1 text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-input bg-accent px-3 py-1 text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-ring"
               >
                 <EntityPickerValue entity={course ?? null} placeholder="No course" />
                 <IconChevronDown

@@ -4,40 +4,46 @@
    `.dark` class its theme setting puts on the page, the phone by the system setting.
    Plain values only (no `calc()`), so the phone's style engine reads them as they are. */
 
+/* Depth comes from edges and light, not from fills that fight each other: the page is a
+   near white, raised things (controls, cards, popovers) are white on it, and the hairline
+   `--border` is a translucent ink, so it reads on any surface in either theme. */
 :root {
-  /* Page bg is a soft neutral (same tone as --muted) so raised --card surfaces (dialogs,
-     popovers, panels) actually read as elevated instead of blending in. */
-  --background: #f2f2f2;
+  --background: #fafafa;
   --foreground: #0a0a0a;
   --card: #ffffff;
   --card-foreground: #0a0a0a;
-  /* Popovers/dropdowns/menus get the page's muted tone rather than the card's white, so they
-     read as a distinct floating layer instead of just "another white rectangle" on top of
-     the panes they open from. */
-  --popover: #f2f2f2;
+  /* Floating layers (popovers, menus, dialogs) are white too, lifted by their shadow. */
+  --popover: #ffffff;
   --popover-foreground: #0a0a0a;
   --primary: #0070f3;
   --primary-foreground: #ffffff;
-  --secondary: #f2f2f2;
+  --secondary: #f4f4f4;
   --secondary-foreground: #0a0a0a;
-  --muted: #f2f2f2;
+  --muted: #f4f4f4;
   --muted-foreground: #666666;
-  --accent: #ececec;
+  /* Hover and selected rows, and the track things sit in. */
+  --accent: #f1f1f1;
   --accent-foreground: #0a0a0a;
-  --destructive: #d6336c;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --warning: #c2410c;
   --warning-foreground: #ffffff;
-  --border: #e2e2e2;
-  --input: #d4d4d4;
+  /* Hairlines are ink at a low alpha rather than a gray, so they adapt to what is behind. */
+  --border: rgba(0, 0, 0, 0.09);
+  --input: rgba(0, 0, 0, 0.14);
   --ring: #0070f3;
-  /* A raised-surface tone guaranteed to read against --muted in both themes —
-     --card/--popover/--muted collapse to the same value in dark mode, so
-     neither works for e.g. Tabs' active-segment fill inside a muted track. */
+  /* What a control or a card is filled with: lighter than the page in both themes. */
   --raised: #ffffff;
   /* Saturday and Sunday on the Sessions calendar: a step off --card, readable in
      both themes (--muted equals --card in dark mode). */
-  --weekend: #f5f5f6;
+  --weekend: #f6f6f6;
+
+  /* What the solid buttons (positive, caution, warning, destructive) are filled with: deeper
+     than the text colours of the same names, so a white label reads on them. */
+  --solid-positive: #0a9f4a;
+  --solid-caution: #d68a00;
+  --solid-warning: #e5560a;
+  --solid-destructive: #dc2626;
 
   --accent-blue: #0070f3;
   --accent-green: #00873d;
@@ -61,31 +67,35 @@
 
 :root {
   @variant dark {
-    /* Card surfaces are a lighter charcoal than the page bg (same tone as --muted) so they
-       read as raised toward the light, mirroring the light theme's white-card-on-gray-page. */
-    --background: #111111;
+    /* Each layer is a step lighter than the one under it: page, card, control, popover. */
+    --background: #0e0e0e;
     --foreground: #eeeeee;
-    --card: #1a1a1a;
+    --card: #1b1b1b;
     --card-foreground: #eeeeee;
-    --popover: #1a1a1a;
+    --popover: #232323;
     --popover-foreground: #eeeeee;
     --primary: #0070f3;
     --primary-foreground: #ffffff;
-    --secondary: #1a1a1a;
+    --secondary: #1b1b1b;
     --secondary-foreground: #eeeeee;
-    --muted: #1a1a1a;
+    --muted: #161616;
     --muted-foreground: #a0a0a0;
-    --accent: #2a2a2a;
+    --accent: #2c2c2c;
     --accent-foreground: #eeeeee;
-    --destructive: #ff4d8d;
+    --destructive: #ff4040;
     --destructive-foreground: #ffffff;
     --warning: #fb923c;
     --warning-foreground: #0a0a0a;
-    --border: #2a2a2a;
-    --input: #3a3a3a;
+    --border: rgba(255, 255, 255, 0.09);
+    --input: rgba(255, 255, 255, 0.15);
     --ring: #0070f3;
-    --raised: #333333;
-    --weekend: #161616;
+    --raised: #282828;
+    --weekend: #141414;
+
+    --solid-positive: #16b85b;
+    --solid-caution: #eb9d00;
+    --solid-warning: #f56a14;
+    --solid-destructive: #dc2626;
 
     --accent-blue: #47a8ff;
     --accent-green: #00cb50;
@@ -127,6 +137,10 @@
   --color-ring: var(--ring);
   --color-raised: var(--raised);
   --color-weekend: var(--weekend);
+  --color-solid-positive: var(--solid-positive);
+  --color-solid-caution: var(--solid-caution);
+  --color-solid-warning: var(--solid-warning);
+  --color-solid-destructive: var(--solid-destructive);
   --color-accent-blue: var(--accent-blue);
   --color-accent-green: var(--accent-green);
   --color-accent-pink: var(--accent-pink);
@@ -138,6 +152,9 @@
   --color-brand-button: var(--brand-button);
   --color-brand-button-foreground: var(--brand-button-foreground);
   --color-brand-button-border: var(--brand-button-border);
+  /* The size of controls, menus and chips: a step under the 14px body text. */
+  --text-ui: 0.8125rem;
+  --text-ui--line-height: 1.25rem;
   --radius-sm: 7px;
   --radius-md: 10px;
   --radius-lg: 12px;

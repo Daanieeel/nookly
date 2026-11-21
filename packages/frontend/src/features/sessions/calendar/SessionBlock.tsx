@@ -191,7 +191,7 @@ export function SessionPickBlock({
       title={sessionTooltip(occurrence)}
       onClick={onPick}
       className={cn(
-        "absolute top-(--occ-top) left-(--occ-left) z-10 flex h-(--occ-height) w-(--occ-width) cursor-pointer flex-col items-stretch overflow-hidden rounded-md border-2 border-primary px-1.5 py-0.5 text-left text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "absolute top-(--occ-top) left-(--occ-left) z-10 flex h-(--occ-height) w-(--occ-width) cursor-pointer flex-col items-stretch overflow-hidden rounded-md border-2 border-primary px-1.5 py-0.5 text-left text-xs transition-colors outline-none focus-ring",
         picked
           ? "bg-primary font-medium text-primary-foreground"
           : "bg-primary/6 text-foreground hover:bg-primary/14",

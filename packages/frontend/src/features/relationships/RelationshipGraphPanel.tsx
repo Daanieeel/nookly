@@ -354,7 +354,7 @@ function GraphNodeButton({
         if (event.button === 1) open(event);
       }}
       className={cn(
-        "flex w-24 flex-col items-center gap-1 rounded-md border border-border bg-card px-1.5 py-1 text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring motion-safe:transition-colors",
+        "flex w-24 flex-col items-center gap-1 rounded-md border border-border bg-card px-1.5 py-1 text-xs outline-none hover:bg-accent focus-ring motion-safe:transition-colors",
         entity.deletedAt && "opacity-50",
       )}
     >

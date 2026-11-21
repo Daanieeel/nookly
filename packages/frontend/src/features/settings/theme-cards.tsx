@@ -84,7 +84,7 @@ function ChoiceCards<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(choice.value)}
             className={cn(
-              "flex cursor-pointer flex-col gap-2 rounded-lg border border-border p-2 text-left outline-none transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring",
+              "flex cursor-pointer flex-col gap-2 rounded-lg border border-border p-2 text-left outline-none transition-colors hover:bg-accent/40 focus-ring",
               selected && "border-primary bg-primary/10",
             )}
           >

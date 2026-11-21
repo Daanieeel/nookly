@@ -60,7 +60,7 @@ export function NumberInput({
           onChange(clamp(value - increments));
         }}
         className={cn(
-          "flex shrink-0 items-center justify-center text-muted-foreground hover:bg-accent/80 hover:text-foreground disabled:pointer-events-none disabled:opacity-40",
+          "flex shrink-0 items-center justify-center text-muted-foreground hover:bg-accent/80 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40",
           small ? "w-5" : "w-8",
         )}
       >
@@ -93,7 +93,7 @@ export function NumberInput({
           onChange(clamp(value + increments));
         }}
         className={cn(
-          "flex shrink-0 items-center justify-center text-muted-foreground hover:bg-accent/80 hover:text-foreground disabled:pointer-events-none disabled:opacity-40",
+          "flex shrink-0 items-center justify-center text-muted-foreground hover:bg-accent/80 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40",
           small ? "w-5" : "w-8",
         )}
       >

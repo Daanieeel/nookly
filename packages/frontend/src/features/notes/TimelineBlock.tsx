@@ -76,7 +76,7 @@ export function TimelineBlock(props: ReactNodeViewProps) {
                   type="button"
                   onClick={() => patch(index, { state: NEXT_STATE[row.state] })}
                   aria-label={STATE_ACTION[row.state]}
-                  className="relative flex size-4 shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="relative flex size-4 shrink-0 items-center justify-center rounded-full outline-none focus-ring"
                 >
                   <span
                     className={cn(

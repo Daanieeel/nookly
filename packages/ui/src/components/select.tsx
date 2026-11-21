@@ -13,17 +13,18 @@ function SelectValue({ className, ...props }: React.ComponentProps<typeof Select
 }
 
 const selectTriggerVariants = cva(
-  "data-placeholder:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex w-fit max-w-full min-w-0 cursor-pointer items-center justify-between rounded-md whitespace-nowrap transition-[color,box-shadow] outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&>span]:truncate [&>span]:min-w-0",
+  "data-placeholder:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground flex w-fit max-w-full min-w-0 cursor-pointer items-center justify-between rounded-md whitespace-nowrap transition-[color,box-shadow] outline-none focus-ring disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&>span]:truncate [&>span]:min-w-0",
   {
     variants: {
       variant: {
-        default: "border border-input bg-accent hover:bg-accent/80 hover:text-accent-foreground",
+        default:
+          "border border-input bg-raised shadow-control hover:bg-accent hover:text-accent-foreground",
         ghost: "border-none bg-transparent shadow-none",
         nav: "text-muted-foreground hover:bg-accent hover:text-foreground border-none bg-transparent shadow-none",
       },
       size: {
         sm: "h-8 gap-2 px-3 text-xs [&_svg:not([class*='size-'])]:size-4",
-        default: "h-9 gap-2 px-3 text-sm [&_svg:not([class*='size-'])]:size-4",
+        default: "h-9 gap-2 px-3 text-ui [&_svg:not([class*='size-'])]:size-4",
         lg: "h-12 gap-3 px-4 text-base [&_svg:not([class*='size-'])]:size-5",
       },
     },
@@ -65,7 +66,7 @@ function SelectContent({
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         className={cn(
-          "bg-popover text-popover-foreground relative z-50 max-h-(--radix-select-content-available-height) min-w-32 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border shadow-lg",
+          "bg-popover text-popover-foreground relative z-50 max-h-(--radix-select-content-available-height) min-w-32 max-w-(--radix-select-content-available-width) origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border shadow-popover",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
@@ -107,7 +108,7 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-8 pl-2.5 text-ui outline-none select-none data-disabled:cursor-not-allowed data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}

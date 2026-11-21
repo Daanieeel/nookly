@@ -59,7 +59,12 @@ export function TaskBoard({
       hiddenColumns={hiddenColumns}
       onHiddenColumnsChange={onHiddenColumnsChange}
       renderOverlay={(task) => (
-        <TaskCardBody task={task} properties={properties} className="rotate-2 shadow-lg" />
+        <TaskCardBody
+          task={task}
+          properties={properties}
+          className="rotate-2"
+          frameClassName="shadow-lg"
+        />
       )}
       renderCard={(task, drag) => (
         <TaskCard
@@ -95,8 +100,8 @@ function TaskCard({
       task={task}
       properties={properties}
       interactive
-      className={cn(
-        drag.isDragging && "opacity-40",
+      className={cn(drag.isDragging && "opacity-40")}
+      frameClassName={cn(
         highlighted && "border-positive/60 bg-positive/10",
         failed && "border-destructive/60",
       )}
@@ -114,10 +119,7 @@ function TaskCard({
         data-task-row
         aria-label={`Open ${displayTitle(task.entity)}`}
         onClick={onOpen}
-        className={cn(
-          "absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          drag.cursorClass,
-        )}
+        className={cn("absolute inset-0 rounded-md outline-none focus-ring", drag.cursorClass)}
         {...drag.listeners}
         {...drag.attributes}
       />
@@ -130,6 +132,7 @@ function TaskCardBody({
   properties,
   interactive = false,
   className,
+  frameClassName,
   children,
   footer,
 }: {
@@ -138,6 +141,8 @@ function TaskCardBody({
   /// Live property controls; the drag preview renders them inert.
   interactive?: boolean;
   className?: string;
+  /// The card's own surface (border, fill, shadow), which `className` leaves alone.
+  frameClassName?: string;
   /// The overlay button that opens and drags the card.
   children?: React.ReactNode;
   footer?: React.ReactNode;
@@ -150,12 +155,21 @@ function TaskCardBody({
   return (
     <div
       className={cn(
-        "relative flex shrink-0 flex-col gap-1.5 rounded-md border border-foreground/10 bg-card p-3 shadow-xs transition-colors duration-700 hover:border-foreground/20 dark:bg-accent",
+        "group/card relative isolate flex shrink-0 flex-col gap-1.5 p-3",
         !interactive && "pointer-events-none",
         className,
       )}
       {...entityTarget(task.entity)}
     >
+      {/* The squircle surface is its own empty layer behind the content: WebKit keeps a
+          squircle clip at the element's first size, so nothing that grows sits inside one. */}
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 -z-10 rounded-md border border-foreground/10 bg-card shadow-xs transition-colors duration-700 group-hover/card:border-foreground/20 dark:bg-accent",
+          frameClassName,
+        )}
+      />
       {children}
       {show("key") && <CardKey entityKey={task.entity.key} interactive={interactive} />}
       <div className="flex items-start gap-1.5">

@@ -190,7 +190,7 @@ function DeckTile({ deck, exam }: { deck: DeckSummary; exam: Exam | undefined })
         type="button"
         onClick={open}
         aria-label={`Open ${displayTitle(entity)}`}
-        className="flex w-full flex-col gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-full flex-col gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors outline-none hover:bg-accent/40 focus-ring"
       >
         <div className="flex items-start justify-between gap-3">
           <DeckStack count={stats.total} size="sm" className="mt-1" />

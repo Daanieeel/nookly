@@ -207,7 +207,7 @@ describe("the account dialog", () => {
     const { user } = open();
     const fits = () => screen.getByRole("dialog");
     expect(fits()).toHaveClass("overflow-y-auto", "max-h-[calc(100dvh-2rem)]");
-    await user.click(screen.getByRole("radio", { name: "I'm new here" }));
+    await user.click(screen.getByRole("tab", { name: "I'm new here" }));
     expect(fits()).toHaveClass("overflow-y-auto", "max-h-[calc(100dvh-2rem)]");
   });
 
@@ -217,7 +217,7 @@ describe("the account dialog", () => {
       const button = screen.getByRole("button", { name: `Sign up with ${provider}` });
       expect(button).toHaveTextContent("");
       expect(button.querySelector("svg")).not.toBeNull();
-      expect(button).toHaveClass("bg-accent", "border-input");
+      expect(button).toHaveClass("bg-raised", "border-input");
       expect(button).not.toHaveAttribute("data-slot", "brand-button");
     }
     // Google's mark keeps its own colours; the others are single colour marks that follow the text.
@@ -251,7 +251,7 @@ describe("the account dialog", () => {
 
   it("invites someone new to create an account, free during the beta", async () => {
     const { user } = open();
-    await user.click(screen.getByRole("radio", { name: "I'm new here" }));
+    await user.click(screen.getByRole("tab", { name: "I'm new here" }));
     expect(screen.getByRole("dialog", { name: "Create your account" })).toBeInTheDocument();
     expect(screen.getByText(/free during the closed beta/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create Account" })).toBeInTheDocument();

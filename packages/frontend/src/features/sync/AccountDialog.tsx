@@ -28,14 +28,8 @@ import {
   DialogTitle,
 } from "@nookly/ui/components/dialog";
 import { Input } from "@nookly/ui/components/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
-import { cn } from "@nookly/ui/lib/utils";
-import {
-  SEGMENTED_CLASSES,
-  SEGMENT_CLASSES,
-  SEGMENT_IDLE_CLASSES,
-  SEGMENT_SELECTED_CLASSES,
-} from "#/classes.ts";
 import { GitHubMark, GoogleMark, NotionMark } from "./provider-marks.tsx";
 import { type AccountMode, useAccountDialog } from "./account-dialog-store.ts";
 import { syncRuntime } from "./sync-instance.ts";
@@ -157,33 +151,6 @@ function ServerField({
         onChange={(e) => onChange(e.target.value)}
       />
     </FormField>
-  );
-}
-
-function ModeToggle({ mode, onChange }: { mode: AccountMode; onChange: (m: AccountMode) => void }) {
-  const options: { mode: AccountMode; label: string }[] = [
-    { mode: "signIn", label: "I have an account" },
-    { mode: "signUp", label: "I'm new here" },
-  ];
-  return (
-    <div role="radiogroup" aria-label="Account" className={cn(SEGMENTED_CLASSES, "w-full")}>
-      {options.map((option) => (
-        <button
-          key={option.mode}
-          type="button"
-          role="radio"
-          aria-checked={mode === option.mode}
-          onClick={() => onChange(option.mode)}
-          className={cn(
-            SEGMENT_CLASSES,
-            "flex-1",
-            mode === option.mode ? SEGMENT_SELECTED_CLASSES : SEGMENT_IDLE_CLASSES,
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -573,9 +540,26 @@ export function AccountDialog() {
           </div>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        {mode !== "reset" && <ModeToggle mode={mode} onChange={setMode} />}
-        {mode === "signIn" && <SignInForm onForgot={() => setMode("reset")} />}
-        {mode === "signUp" && <SignUpForm />}
+        {mode !== "reset" && (
+          <Tabs
+            value={mode}
+            onValueChange={(value) => {
+              if (value === "signIn" || value === "signUp") setMode(value);
+            }}
+            className="gap-3"
+          >
+            <TabsList aria-label="Account" className="w-full">
+              <TabsTrigger value="signIn">I have an account</TabsTrigger>
+              <TabsTrigger value="signUp">I'm new here</TabsTrigger>
+            </TabsList>
+            <TabsContent value="signIn">
+              <SignInForm onForgot={() => setMode("reset")} />
+            </TabsContent>
+            <TabsContent value="signUp">
+              <SignUpForm />
+            </TabsContent>
+          </Tabs>
+        )}
         {mode !== "reset" && <OtherAccounts verb={mode === "signUp" ? "up" : "in"} />}
         {mode === "reset" && <ResetForm onBack={() => setMode("signIn")} />}
       </DialogContent>

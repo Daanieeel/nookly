@@ -280,10 +280,7 @@ export function AssignmentCard({
         data-task-row
         aria-label={`Open ${displayTitle(assignment.entity)}`}
         onClick={onOpen}
-        className={cn(
-          "absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          drag.cursorClass,
-        )}
+        className={cn("absolute inset-0 rounded-md outline-none focus-ring", drag.cursorClass)}
         {...drag.listeners}
         {...drag.attributes}
       />
