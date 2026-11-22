@@ -39,11 +39,12 @@ import {
   useMoodlePosts,
 } from "../moodle/queries.ts";
 import { useMoodleService } from "../moodle/service.tsx";
+import { Card } from "../ui/kit/Card.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { EmptyState } from "../ui/kit/States.tsx";
 import { useSemantic } from "../ui/kit/scheme.ts";
 import { PageTabs } from "../ui/PageTabs.tsx";
-import { Row, ROW_DIVIDER, Section } from "../ui/Row.tsx";
+import { Row, Section } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { CORNER, RADIUS } from "../ui/tokens.ts";
@@ -401,7 +402,7 @@ function GradeRow({ item }: { item: MoodleGradeItem }) {
     item.rangeformatted ? `Out of ${item.rangeformatted}` : null,
   ].filter(Boolean);
   return (
-    <View accessible className={`gap-1.5 px-1 py-2.5 ${ROW_DIVIDER}`}>
+    <Card accessible accent={total} className="gap-2 p-3">
       <View className="flex-row items-center gap-3">
         <IconBadge glyph={IconReportAnalytics} tint="green" />
         <View className="flex-1 gap-0.5">
@@ -420,7 +421,7 @@ function GradeRow({ item }: { item: MoodleGradeItem }) {
       </View>
       {percent !== null ? <GradeBar percent={percent} /> : null}
       {item.feedback ? <MoodleText html={item.feedback} muted /> : null}
-    </View>
+    </Card>
   );
 }
 
@@ -442,7 +443,7 @@ function Grades({ courseId, webUrl }: { courseId: number; webUrl: string | null 
       }
     >
       {(items) => (
-        <View>
+        <View className="gap-3">
           {[...items]
             .sort((a, b) => Number(a.itemtype === "course") - Number(b.itemtype === "course"))
             .map((item) => (
@@ -688,31 +689,33 @@ export function MoodleDiscussionScreen({
     <Screen>
       <MoodleBar url={webUrl} />
       <MoodleData query={posts} label="Loading the posts" webUrl={webUrl} rows={3}>
-        {(all) =>
-          all.map((post) => (
-            <View key={post.id} className={`gap-2 pb-4 ${ROW_DIVIDER}`}>
-              <View className="flex-row items-center gap-2.5">
-                <Initials name={post.author.fullname} />
-                <View className="flex-1">
-                  <Text className="font-semibold">{post.subject}</Text>
-                  <Text variant="small" tone="muted">
-                    {[post.author.fullname, moodleDay(post.timecreated)]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </Text>
+        {(all) => (
+          <View className="gap-3">
+            {all.map((post) => (
+              <Card key={post.id} className="gap-2 p-4">
+                <View className="flex-row items-center gap-2.5">
+                  <Initials name={post.author.fullname} />
+                  <View className="flex-1">
+                    <Text className="font-semibold">{post.subject}</Text>
+                    <Text variant="small" tone="muted">
+                      {[post.author.fullname, moodleDay(post.timecreated)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <MoodleText html={post.message} />
-              {post.attachments.map((file) => (
-                <FileRow
-                  key={file.fileurl}
-                  file={file}
-                  onPress={() => openFile({ courseId, file })}
-                />
-              ))}
-            </View>
-          ))
-        }
+                <MoodleText html={post.message} />
+                {post.attachments.map((file) => (
+                  <FileRow
+                    key={file.fileurl}
+                    file={file}
+                    onPress={() => openFile({ courseId, file })}
+                  />
+                ))}
+              </Card>
+            ))}
+          </View>
+        )}
       </MoodleData>
     </Screen>
   );

@@ -74,7 +74,9 @@ describe("connecting", () => {
     const { user } = open();
     await user.type(await screen.findByLabelText(/Moodle address/), "moodle.uni.edu");
     await user.click(screen.getByRole("button", { name: "Sign in with Moodle" }));
-    await waitFor(() => expect(callsOf("moodle_open_login")).toEqual([{ site: "moodle.uni.edu" }]));
+    await waitFor(() =>
+      expect(callsOf("moodle_open_login")).toEqual([{ site: "https://moodle.uni.edu" }]),
+    );
     // No browser: it would not hand Moodle's redirect back to the app.
     expect(callsOf("plugin:opener|open_url")).toHaveLength(0);
     expect(await screen.findByText(/Sign in in the window that opened/)).toBeTruthy();

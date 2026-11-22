@@ -6,7 +6,7 @@ import { IconLock, IconSchool, IconWorld } from "@tabler/icons-react-native";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import type { Connection, MoodleCourse } from "../moodle/api.ts";
 import { splitCourses } from "../moodle/format.ts";
 import { signInPath } from "../moodle/intent.ts";
@@ -14,7 +14,7 @@ import { useForgetMoodle, useMoodleConnection, useMoodleCourses } from "../moodl
 import { type MoodleService, useMoodleService } from "../moodle/service.tsx";
 import { BrandButton, MoodleMark } from "../ui/BrandButton.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
-import { Field } from "../ui/Field.tsx";
+import { UrlField } from "../ui/UrlField.tsx";
 import { FormSection } from "../ui/kit/Form.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { EmptyState } from "../ui/kit/States.tsx";
@@ -23,6 +23,7 @@ import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { CourseArt, MoodleBar, MoodleData } from "./MoodleParts.tsx";
+import { Card } from "../ui/kit/Card.tsx";
 
 /// Moodle on the phone, as on the desktop (`features/moodle`): connect once with the
 /// university's own sign in page, then read the courses, their contents, assignments,
@@ -55,16 +56,13 @@ function ConnectMoodle() {
         </Text>
       </View>
       <FormSection>
-        <Field
+        <UrlField
           label="Moodle address"
-          icon={<IconWorld size={18} color={theme.colors.mutedForeground} />}
+          icon={IconWorld}
           placeholder="moodle.youruniversity.edu"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
           returnKeyType="go"
           value={site}
-          onChangeText={setSite}
+          onValueChange={setSite}
           onSubmitEditing={() => site.trim() && open.mutate(site)}
         />
       </FormSection>
@@ -114,13 +112,11 @@ function CourseGroup({
       <Section title={title}>
         <Grid min={220} max={4}>
           {courses.map((course) => (
-            <Pressable
+            <Card
               key={course.id}
               testID="course-card"
-              accessibilityRole="button"
               accessibilityLabel={`${course.fullname}, ${detail(course)}`}
               onPress={() => open(course)}
-              className="overflow-hidden rounded-xl border border-border bg-card active:opacity-70"
             >
               <View className="h-24 overflow-hidden">
                 <CourseArt course={course} size={320} />
@@ -133,7 +129,7 @@ function CourseGroup({
                   {detail(course)}
                 </Text>
               </View>
-            </Pressable>
+            </Card>
           ))}
         </Grid>
       </Section>

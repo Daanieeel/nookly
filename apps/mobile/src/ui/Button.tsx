@@ -28,7 +28,7 @@ import {
 import { CONTROL_SIZE, MIN_TOUCH, touchSlop } from "./touch.ts";
 import { AnimatedPressable, usePressScale } from "./press.ts";
 import { useIsTablet } from "./pane.tsx";
-import { haptic } from "./haptics.ts";
+import { type HapticName, haptic } from "./haptics.ts";
 
 export type ButtonStatus = "idle" | "pending" | "success" | "error";
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
@@ -55,6 +55,27 @@ export function statusOf(mutation: {
   if (mutation.isPending) return "pending";
   if (mutation.isError) return "error";
   return mutation.isSuccess ? "success" : "idle";
+}
+
+/// How pressing a variant feels: a thud to commit, a firm one for something with consequences,
+/// a plain tap for a neutral button and the lightest tick for the quiet ones.
+function pressHaptic(variant: ButtonVariant): HapticName {
+  switch (variant) {
+    case "default":
+    case "positive":
+      return "detent";
+    case "destructive":
+    case "destructiveGhost":
+    case "warning":
+    case "caution":
+      return "edge";
+    case "secondary":
+    case "neutral":
+    case "outline":
+      return "tap";
+    default:
+      return "select";
+  }
 }
 
 /// How a variant is drawn on the phone (D53): iOS's button styles in Nookly's colours. The
@@ -184,6 +205,10 @@ export function Button({
       hitSlop={slopFor(size)}
       unstable_pressDelay={0}
       {...props}
+      onPress={(event) => {
+        haptic(pressHaptic(variant));
+        props.onPress?.(event);
+      }}
       onPressIn={(event) => {
         press.onPressIn();
         props.onPressIn?.(event);
@@ -267,7 +292,10 @@ export function IconButton({
       accessibilityState={{ disabled }}
       disabled={disabled}
       hitSlop={slopFor(size)}
-      onPress={onPress}
+      onPress={() => {
+        haptic(variant === "default" ? "detent" : variant === "secondary" ? "tap" : "select");
+        onPress();
+      }}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       unstable_pressDelay={0}

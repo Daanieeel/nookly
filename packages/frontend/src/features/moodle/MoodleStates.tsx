@@ -1,6 +1,5 @@
 import {
   IconAlertTriangle,
-  IconExclamationMark,
   IconEyeOff,
   IconExternalLink,
   IconLoader2,
@@ -18,6 +17,8 @@ import { cn } from "@nookly/ui/lib/utils";
 import type { Fetched } from "#/lib/api/moodle.ts";
 import { type ProblemKind, describeMoodleProblem } from "@nookly/shared/moodle/errors";
 import { useMoodleWebUrl } from "./moodle-context.ts";
+import { EmptyState } from "#/components/empty-state.tsx";
+import { card } from "./moodle-classes.ts";
 
 /// A Moodle answer on its way. While it loads, a skeleton in the shape of `sample` (a stand in
 /// for the real data, drawn from what `children` renders) takes the room the page will fill, so
@@ -98,32 +99,20 @@ export function MoodleError({
     <div
       role="alert"
       className={cn(
-        "relative isolate flex flex-col items-center gap-5 overflow-hidden rounded-2xl border px-6 py-12 text-center",
-        look.caution ? "border-caution/40 bg-caution/5" : "border-destructive/40 bg-destructive/5",
+        card("items-center gap-5 px-6 py-12 text-center"),
+        look.caution ? "border-caution/40" : "border-destructive/40",
         className,
       )}
     >
-      <Halo className={look.caution ? "bg-caution/20" : "bg-destructive/20"} />
-      <div className="relative">
-        <div
-          className={cn(
-            "flex size-14 items-center justify-center rounded-2xl border",
-            look.caution
-              ? "border-caution/40 bg-caution/10 text-caution"
-              : "border-destructive/40 bg-destructive/10 text-destructive",
-          )}
-        >
-          <Glyph size={26} aria-hidden="true" />
-        </div>
-        <span
-          aria-hidden="true"
-          className={cn(
-            "absolute -right-2 -bottom-2 flex size-6 items-center justify-center rounded-md border-2 border-background",
-            look.caution ? "bg-caution text-background" : "bg-destructive text-background",
-          )}
-        >
-          <IconExclamationMark size={14} stroke={3} />
-        </span>
+      <div
+        className={cn(
+          "flex size-14 items-center justify-center rounded-xl border",
+          look.caution
+            ? "border-caution/40 bg-caution/10 text-caution"
+            : "border-destructive/40 bg-destructive/10 text-destructive",
+        )}
+      >
+        <Glyph size={26} aria-hidden="true" />
       </div>
       <div className="flex max-w-sm flex-col gap-1.5">
         <h2 className="text-base font-semibold">{problem.title}</h2>
@@ -147,7 +136,7 @@ export function MoodleError({
         </summary>
         <p
           className={cn(
-            "mt-2 rounded-lg border px-3 py-2 text-left font-mono wrap-break-word",
+            "mt-2 rounded-md border px-3 py-2 text-left font-mono wrap-break-word",
             look.caution
               ? "border-caution/30 bg-caution/10"
               : "border-destructive/30 bg-destructive/10",
@@ -160,51 +149,17 @@ export function MoodleError({
   );
 }
 
-/// A nothing-here-yet, with a little room around it.
+/// A nothing-here-yet: the app's own empty state, so it reads like every other one.
 export function MoodleEmpty({
-  icon: Glyph,
+  icon,
   title,
   description,
-  action,
   className,
 }: {
   icon: Icon;
   title: string;
   description?: string;
-  /// The one thing to do about it, a button.
-  action?: ReactNode;
   className?: string;
 }) {
-  return (
-    <div
-      className={cn(
-        "relative isolate flex flex-col items-center gap-4 overflow-hidden rounded-2xl border border-dashed border-border px-6 py-12 text-center",
-        className,
-      )}
-    >
-      <Halo className="bg-accent-blue/10" />
-      <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card shadow-xs">
-        <Glyph size={26} aria-hidden="true" className="text-muted-foreground" />
-      </div>
-      <div className="flex max-w-sm flex-col gap-1.5">
-        <h2 className="text-base font-semibold">{title}</h2>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      </div>
-      {action}
-    </div>
-  );
-}
-
-/// A soft glow behind the icon.
-function Halo({ className }: { className: string }) {
-  return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-      <div
-        className={cn(
-          "absolute top-6 left-1/2 size-56 -translate-x-1/2 rounded-full blur-3xl",
-          className,
-        )}
-      />
-    </div>
-  );
+  return <EmptyState icon={icon} title={title} description={description} className={className} />;
 }

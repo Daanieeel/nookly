@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
 import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { restoreEntity, softDeleteEntity, updateEntity } from "#/lib/api/entities.ts";
 import {
@@ -411,7 +412,8 @@ export function SessionEditForm({
         <form.Field name="location">
           {(field) => (
             <FormField label="Location" htmlFor="session-edit-location" className="col-span-2">
-              <Input
+              <IconInput
+                icon={IconMapPin}
                 id="session-edit-location"
                 placeholder="Optional"
                 value={field.state.value}

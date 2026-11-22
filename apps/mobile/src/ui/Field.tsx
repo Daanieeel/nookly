@@ -1,15 +1,17 @@
 import { useIsTablet } from "./pane.tsx";
 import { IconEye, IconEyeOff } from "@tabler/icons-react-native";
-import { type ReactNode, type RefObject, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import {
   type ColorValue,
   type LayoutChangeEvent,
   Pressable,
+  Text,
   TextInput,
   type TextInputProps,
   View,
 } from "react-native";
 import { Label } from "./kit/Label.tsx";
+import { haptic } from "./haptics.ts";
 import { useRaised, useScheme, useSemantic } from "./kit/scheme.ts";
 import { useRevealWhileTyping } from "./Screen.tsx";
 import { useSectionRadius } from "./sheet/in-sheet.ts";
@@ -29,11 +31,12 @@ import { MIN_TOUCH } from "./touch.ts";
 /// A field's name above what it holds, for the few places that lay a control out on their
 /// own (a list of labels to tick).
 export function FieldLabel({ label, required }: { label: string; required?: boolean }) {
+  const scheme = useScheme();
   return (
     <View style={{ paddingHorizontal: GUTTER, paddingBottom: SPACE.xs }}>
       <Label type="footnote" color="secondaryLabel">
         {label.toUpperCase()}
-        {required ? " *" : ""}
+        {required ? <Text style={{ color: TINT.red[scheme] }}> *</Text> : null}
       </Label>
     </View>
   );
@@ -51,6 +54,7 @@ export function Field({
   invalid = false,
   multiline,
   icon,
+  showName = false,
   className: _className,
   style,
   onFocus,
@@ -66,6 +70,8 @@ export function Field({
   className?: string;
   /// Stands for the name at the start of the row; the name is still read out.
   icon?: ReactNode;
+  /// Keep the name drawn above the field beside its icon, for a form where every field is named.
+  showName?: boolean;
 }) {
   const text = useSemantic("label");
   const muted = useSemantic("placeholder");
@@ -77,6 +83,12 @@ export function Field({
   // A locked field (a form being sent) is faded.
   const locked = props.editable === false;
   const wrong = Boolean(error) || invalid;
+  // A buzz as the field turns wrong, not for one that opens wrong nor for a new message.
+  const wasWrong = useRef(wrong);
+  useEffect(() => {
+    if (wrong && !wasWrong.current) haptic("error");
+    wasWrong.current = wrong;
+  }, [wrong]);
   // A tablet's field is the desktop's, at the touch minimum (3.8).
   const tablet = useIsTablet();
   const field = useRef<TextInput>(null);
@@ -88,18 +100,19 @@ export function Field({
     boxHeight.current = event.nativeEvent.layout.height;
   };
   const accent = TINT.blue[scheme];
-  const name = icon ? null : (
-    <Label
-      type="footnote"
-      weight="500"
-      color="secondaryLabel"
-      tint={focused ? accent : undefined}
-      style={{ paddingHorizontal: SPACE.xs }}
-    >
-      {label}
-      {required ? " *" : ""}
-    </Label>
-  );
+  const name =
+    icon && !showName ? null : (
+      <Label
+        type="footnote"
+        weight="500"
+        color="secondaryLabel"
+        tint={focused ? accent : undefined}
+        style={{ paddingHorizontal: SPACE.xs }}
+      >
+        {label}
+        {required ? <Text style={{ color: TINT.red[scheme] }}> *</Text> : null}
+      </Label>
+    );
   const input = (
     <TextInput
       ref={field}
@@ -202,6 +215,8 @@ function RevealEye({
       disabled={locked}
       hitSlop={8}
       onPress={() => {
+        // A click as the text is shown, a lighter tick as it is hidden again.
+        haptic(revealed ? "select" : "toggle");
         input.current?.setNativeProps({ secureTextEntry: revealed });
         setRevealed(!revealed);
       }}

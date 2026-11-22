@@ -23,6 +23,7 @@ import {
   pagePath,
 } from "@nookly/shared/moodle/path";
 import { useMoodleAssignments, useMoodleContents, useMoodleForums } from "./moodle-queries.ts";
+import { card } from "./moodle-classes.ts";
 
 /// Whether a section has anything to show; Moodle sends empty ones.
 export function sectionHasContent(section: MoodleSection): boolean {
@@ -49,10 +50,7 @@ export function CourseContents({ spaceId, courseId }: { spaceId: string; courseI
       {(all) => (
         <div className="flex flex-col gap-4">
           {all.filter(sectionHasContent).map((section, index) => (
-            <section
-              key={section.id}
-              className="overflow-hidden rounded-2xl border border-border bg-card"
-            >
+            <section key={section.id} className={card("overflow-hidden")}>
               <header className="flex items-center gap-3 border-b border-border px-4 py-3">
                 <span
                   aria-hidden="true"

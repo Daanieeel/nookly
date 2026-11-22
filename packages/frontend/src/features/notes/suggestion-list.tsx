@@ -1,3 +1,4 @@
+import { IconSearch } from "@tabler/icons-react";
 import {
   Fragment,
   forwardRef,
@@ -7,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { cn } from "@nookly/ui/lib/utils";
 import { rankMatches } from "#/lib/text-search.ts";
 
@@ -119,7 +120,8 @@ export const SuggestionList = forwardRef<
     >
       {searchable && (
         <div className="border-b border-border p-1">
-          <Input
+          <IconInput
+            icon={IconSearch}
             ref={searchRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -130,7 +132,7 @@ export const SuggestionList = forwardRef<
             }}
             placeholder="Search blocks"
             aria-label="Search blocks"
-            className="h-7 text-xs"
+            inputClassName="h-7 text-xs"
           />
         </div>
       )}

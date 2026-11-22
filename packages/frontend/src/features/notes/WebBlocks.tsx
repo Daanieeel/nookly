@@ -22,7 +22,7 @@ import {
 import { entityTarget } from "#/components/context-menu/registry.ts";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { createBookmark, fetchBookmarkMetadata, getBookmark } from "#/lib/api/bookmarks.ts";
 import type { Bookmark, Entity } from "#/lib/api/types.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -85,14 +85,16 @@ function UrlForm({
         <span className="flex shrink-0 text-muted-foreground">{icon}</span>
         <form.Field name="url">
           {(field) => (
-            <Input
+            <IconInput
+              icon={IconLink}
               value={field.state.value}
               onBlur={field.handleBlur}
               onChange={(event) => field.handleChange(event.target.value)}
               placeholder={prompt}
               aria-label={prompt}
               aria-invalid={field.state.meta.errors.length > 0}
-              className="h-7 min-w-0 flex-1 text-xs"
+              className="flex-1"
+              inputClassName="h-7 text-xs"
             />
           )}
         </form.Field>

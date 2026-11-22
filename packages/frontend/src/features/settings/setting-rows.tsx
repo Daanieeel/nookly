@@ -77,14 +77,7 @@ const SECTIONS = {
   notes: ["Text", "Code", "Editing", "Spelling", "LaTeX"],
   backup: ["Status", "Backup", "Restore"],
   agent: ["Files"],
-  sync: [
-    "Account",
-    "Devices",
-    "Changes to review",
-    "Shared with me",
-    "Password and account",
-    "Server",
-  ],
+  sync: ["Account", "Password", "Devices", "Delete account", "Server"],
   shortcuts: [...SHORTCUT_SECTIONS],
 } satisfies Record<SettingCategory, string[]>;
 

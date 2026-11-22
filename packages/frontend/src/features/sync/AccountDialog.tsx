@@ -3,14 +3,13 @@ import {
   BETA_KEY_MISSING,
   PRODUCTION_SERVER,
   asksForBetaKey,
-  emailSchema,
   signInSchema,
-  usernameSchema,
+  signUpFormSchema,
 } from "@nookly/shared/api";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconBrandAppleFilled } from "@tabler/icons-react";
+import { IconBrandAppleFilled, IconKey, IconMail, IconServer, IconUser } from "@tabler/icons-react";
 import { type ReactNode, useId, useState } from "react";
 import { z } from "zod";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
@@ -27,7 +26,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
-import { Input } from "@nookly/ui/components/input";
+import { UrlInput } from "#/components/url-input.tsx";
+import { PasswordInput } from "#/components/password-input.tsx";
+import { PasswordStrengthMeter } from "#/components/password-strength-meter.tsx";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { GitHubMark, GoogleMark, NotionMark } from "./provider-marks.tsx";
@@ -41,15 +43,9 @@ const serverSchema = z
   .min(1, "Enter the server's address")
   .refine(
     (url) => z.url().safeParse(normalizeServerUrl(url)).success,
-    "Enter an address like https://sync.example.com",
+    "Enter an address like sync.example.com",
   );
 
-const signUpForm = z.object({
-  username: usernameSchema,
-  email: z.union([emailSchema, z.literal("")]),
-  password: z.string().min(10, "Use at least 10 characters").max(256),
-  betaKey: z.string().max(256),
-});
 const resetForm = z.object({ email: z.email("Enter the email address of your account") });
 
 const TITLES = {
@@ -143,12 +139,13 @@ function ServerField({
   }
   return (
     <FormField label="Server" htmlFor={id} required error={error}>
-      <Input
+      <UrlInput
+        icon={IconServer}
         id={id}
         value={value}
-        placeholder="https://sync.example.com"
+        placeholder="sync.example.com"
         autoComplete="url"
-        onChange={(e) => onChange(e.target.value)}
+        onValueChange={onChange}
       />
     </FormField>
   );
@@ -262,7 +259,8 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
             required
             error={fieldMessage(field)}
           >
-            <Input
+            <IconInput
+              icon={IconUser}
               id={identifierId}
               autoComplete="username"
               autoFocus
@@ -276,9 +274,8 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
       <form.Field name="password">
         {(field) => (
           <FormField label="Password" htmlFor={passwordId} required error={fieldMessage(field)}>
-            <Input
+            <PasswordInput
               id={passwordId}
-              type="password"
               autoComplete="current-password"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
@@ -321,9 +318,15 @@ function SignUpForm() {
   const queryClient = useQueryClient();
   const server = useServer();
   const local = useLocalData();
-  const ids = { username: useId(), email: useId(), password: useId(), betaKey: useId() };
+  const ids = {
+    username: useId(),
+    email: useId(),
+    password: useId(),
+    confirm: useId(),
+    betaKey: useId(),
+  };
   const signUp = useMutation({
-    mutationFn: (value: z.infer<typeof signUpForm>) => {
+    mutationFn: (value: z.infer<typeof signUpFormSchema>) => {
       const url = server.commit();
       const betaKey = value.betaKey.trim() || undefined;
       if (!betaKey && asksForBetaKey(url)) throw new Error(BETA_KEY_MISSING);
@@ -341,8 +344,8 @@ function SignUpForm() {
     onSuccess: () => afterSignIn(queryClient),
   });
   const form = useForm({
-    defaultValues: { username: "", email: "", password: "", betaKey: "" },
-    validators: { onChange: signUpForm, onSubmit: signUpForm },
+    defaultValues: { username: "", email: "", password: "", confirm: "", betaKey: "" },
+    validators: { onChange: signUpFormSchema, onSubmit: signUpFormSchema },
     onSubmit: ({ value }) => signUp.mutate(value),
   });
   return (
@@ -358,7 +361,8 @@ function SignUpForm() {
         <form.Field name="username">
           {(field) => (
             <FormField label="Username" htmlFor={ids.username} required error={fieldMessage(field)}>
-              <Input
+              <IconInput
+                icon={IconUser}
                 id={ids.username}
                 autoComplete="username"
                 autoFocus
@@ -378,7 +382,8 @@ function SignUpForm() {
               hint="Optional, for password resets."
               error={fieldMessage(field)}
             >
-              <Input
+              <IconInput
+                icon={IconMail}
                 id={ids.email}
                 type="email"
                 autoComplete="email"
@@ -400,15 +405,40 @@ function SignUpForm() {
             hint="At least 10 characters."
             error={fieldMessage(field)}
           >
-            <Input
+            <PasswordInput
               id={ids.password}
-              type="password"
+              placeholder="Password"
               autoComplete="new-password"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onBlur={field.handleBlur}
             />
           </FormField>
+        )}
+      </form.Field>
+      <form.Field name="confirm">
+        {(field) => (
+          <div className="flex flex-col gap-1.5">
+            <PasswordInput
+              id={ids.confirm}
+              aria-label="Repeat password"
+              placeholder="Repeat password"
+              aria-invalid={fieldMessage(field) !== undefined}
+              autoComplete="new-password"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+            />
+            <FieldError message={fieldMessage(field)} />
+            <form.Subscribe selector={(state) => state.values}>
+              {(values) => (
+                <PasswordStrengthMeter
+                  password={values.password}
+                  userInputs={[values.username, values.email].filter(Boolean)}
+                />
+              )}
+            </form.Subscribe>
+          </div>
         )}
       </form.Field>
       <form.Field name="betaKey">
@@ -420,9 +450,9 @@ function SignUpForm() {
             hint="Needed while Nookly is in its closed beta."
             error={fieldMessage(field)}
           >
-            <Input
+            <PasswordInput
+              icon={IconKey}
               id={ids.betaKey}
-              type="password"
               autoComplete="off"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
@@ -481,7 +511,8 @@ function ResetForm({ onBack }: { onBack: () => void }) {
       <form.Field name="email">
         {(field) => (
           <FormField label="Email" htmlFor={emailId} required error={fieldMessage(field)}>
-            <Input
+            <IconInput
+              icon={IconMail}
               id={emailId}
               type="email"
               autoComplete="email"

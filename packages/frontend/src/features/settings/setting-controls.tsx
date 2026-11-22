@@ -1,5 +1,6 @@
+import { IconUser } from "@tabler/icons-react";
 import { type CSSProperties, useEffect, useState } from "react";
-import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { Textarea } from "@nookly/ui/components/textarea";
 import { parseLatexMacros } from "#/lib/latex-macros.ts";
 import { SelectField } from "#/components/select-field.tsx";
@@ -67,7 +68,8 @@ export function DisplayNameControl() {
     if (next !== saved) setSaved(next);
   };
   return (
-    <Input
+    <IconInput
+      icon={IconUser}
       aria-label="Your name"
       maxLength={40}
       placeholder="Your first name"

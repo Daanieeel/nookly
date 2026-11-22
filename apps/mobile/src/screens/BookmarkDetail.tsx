@@ -16,6 +16,7 @@ import { keys } from "../data/keys.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { useClipboard } from "../ui/clipboard.tsx";
 import { Field } from "../ui/Field.tsx";
+import { FieldIcon } from "../ui/FieldIcon.tsx";
 import { AtAGlance, DetailsPart, MainPart, usePart } from "../ui/parts.tsx";
 import { PropertyList } from "../ui/Property.tsx";
 import { InfoRow } from "../ui/property-rows.tsx";
@@ -157,6 +158,8 @@ export function BookmarkDetail({ id, readOnly }: { id: string; readOnly: boolean
         <View className="gap-3">
           <Field
             label="Address"
+            icon={<FieldIcon icon={IconLink} />}
+            placeholder="Address"
             required
             value={url}
             editable={!readOnly}

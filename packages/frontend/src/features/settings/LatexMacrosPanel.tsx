@@ -1,9 +1,10 @@
-import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconSearch, IconTrash } from "@tabler/icons-react";
 import { includesFolded } from "#/lib/text-search.ts";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@nookly/ui/components/button";
 import { CopyButton } from "@nookly/ui/components/copy-button";
 import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import {
   PageTabs,
   PageTabsBar,
@@ -400,7 +401,8 @@ export function LatexMacrosPanel() {
             />
           )}
           {entries.length > 5 && (
-            <Input
+            <IconInput
+              icon={IconSearch}
               type="search"
               aria-label="Search macros"
               placeholder="Search macros"

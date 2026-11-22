@@ -13,10 +13,11 @@ import { FieldError, StatusButtonContent, statusOf } from "#/components/action-f
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
 import { BrandButton } from "@nookly/ui/components/brand-button";
 import { MoodleIcon } from "@nookly/ui/components/moodle-icon";
-import { Input } from "@nookly/ui/components/input";
+import { UrlInput } from "#/components/url-input.tsx";
 import { moodleOpenLogin } from "#/lib/api/moodle.ts";
 import { qk } from "#/lib/query-keys.ts";
 import { type SignInState, messageOf, useSignInState } from "./moodle-login.ts";
+import { card } from "./moodle-classes.ts";
 
 const siteSchema = z.object({ site: z.string().trim().min(1, "Enter the address of your Moodle") });
 
@@ -46,9 +47,8 @@ export function ConnectMoodle({
     },
   });
   return (
-    <div className="relative isolate flex min-h-full items-center justify-center overflow-hidden rounded-xl px-4 py-12">
-      <Backdrop />
-      <div className="flex w-full max-w-md flex-col gap-7 rounded-2xl border border-border bg-card/80 p-8 shadow-sm backdrop-blur-sm">
+    <div className="flex min-h-full items-center justify-center px-4 py-12">
+      <div className={card("max-w-md gap-7 p-8")}>
         <div className="flex flex-col items-center gap-4 text-center">
           <ModuleChips />
           <div className="flex flex-col gap-1.5">
@@ -77,21 +77,16 @@ export function ConnectMoodle({
                 htmlFor="moodle-site"
                 error={fieldMessage(field)}
               >
-                <div className="relative">
-                  <IconWorld
-                    size={18}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted-foreground"
-                  />
-                  <Input
-                    id="moodle-site"
-                    placeholder="moodle.youruniversity.edu"
-                    className="h-12 pl-10 text-base"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </div>
+                <UrlInput
+                  icon={IconWorld}
+                  id="moodle-site"
+                  placeholder="moodle.youruniversity.edu"
+                  inputClassName="h-12 text-base"
+                  addonClassName="text-base"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onValueChange={field.handleChange}
+                />
               </FormField>
             )}
           </siteForm.Field>
@@ -144,22 +139,11 @@ function ModuleChips() {
       {chips.map(({ Icon, tilt }) => (
         <div
           key={tilt}
-          className={`flex size-11 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground shadow-xs ${tilt}`}
+          className={`flex size-11 items-center justify-center rounded-xl border bg-raised text-muted-foreground shadow-control ${tilt}`}
         >
           <Icon size={20} />
         </div>
       ))}
-    </div>
-  );
-}
-
-/// A soft orange glow and two faint rings behind the card.
-function Backdrop() {
-  return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-      <div className="absolute top-1/2 left-1/2 size-160 -translate-1/2 rounded-4xl border border-border/60" />
-      <div className="absolute top-1/2 left-1/2 size-240 -translate-1/2 rounded-4xl border border-border/40" />
-      <div className="absolute top-0 left-1/2 h-64 w-xl max-w-full -translate-x-1/2 -translate-y-1/3 rounded-full bg-brand-moodle/20 blur-3xl" />
     </div>
   );
 }

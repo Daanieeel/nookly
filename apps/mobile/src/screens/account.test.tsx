@@ -191,6 +191,7 @@ describe("creating an account", () => {
     expect(signUp).not.toHaveBeenCalled();
     await fireEvent.changeText(screen.getByLabelText("Username"), "ada");
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    await fireEvent.changeText(screen.getByLabelText("Repeat password"), "a long password");
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
     // Nookly's server is a closed beta: no key, no account.
     expect(await screen.findByText("Enter the beta key to create an account.")).toBeTruthy();
@@ -204,5 +205,43 @@ describe("creating an account", () => {
         {},
       ),
     );
+  });
+
+  it("names the fields above them, gives the main ones placeholders and shows how strong the password is", async () => {
+    const data = testData();
+    data.serverUrl.set(PRODUCTION_SERVER);
+    const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
+    await screen.findByLabelText("Username");
+    for (const name of ["Username", "Email (optional)", "Password", "Beta key"]) {
+      // The drawn name, which may carry a star for a required field.
+      expect(
+        screen.getByText(new RegExp(`^${name.replace(/[()]/g, "\\$&")}( \\*)?$`)),
+      ).toBeTruthy();
+      expect(screen.getByLabelText(name)).toBeTruthy();
+    }
+    // The repeat field has no name drawn, only its placeholder and a name for screen readers.
+    expect(screen.queryByText(/^Repeat password/)).toBeNull();
+    expect(screen.getByLabelText("Repeat password")).toBeTruthy();
+    for (const placeholder of ["Username", "Password", "Repeat password"]) {
+      expect(screen.getByPlaceholderText(placeholder)).toBeTruthy();
+    }
+    // How strong the password is shows under the repeat field once one is typed.
+    expect(screen.queryByRole("progressbar", { name: "Password strength" })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText("Password"), "password123");
+    expect(await screen.findByRole("progressbar", { name: "Password strength" })).toBeTruthy();
+  });
+
+  it("asks for the password twice and refuses two that differ", async () => {
+    const data = testData();
+    const signUp = jest.spyOn(data.sync, "signUp").mockResolvedValue(ADA);
+    data.serverUrl.set(PRODUCTION_SERVER);
+    const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
+    await fireEvent.changeText(await screen.findByLabelText("Username"), "ada");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    await fireEvent.changeText(screen.getByLabelText("Repeat password"), "another long one");
+    await fireEvent.changeText(screen.getByLabelText("Beta key"), "the-key");
+    await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
+    expect(await screen.findByText("The passwords don't match")).toBeTruthy();
+    expect(signUp).not.toHaveBeenCalled();
   });
 });

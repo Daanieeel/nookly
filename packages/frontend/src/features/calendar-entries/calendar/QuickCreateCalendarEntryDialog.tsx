@@ -1,3 +1,4 @@
+import { IconMapPin } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { AllDayTimeFields, DateField } from "../../sessions/calendar/date-time-form-fields";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +15,7 @@ import {
 } from "#/lib/api/calendarEntries.ts";
 import { listSpaces } from "#/lib/api/spaces.ts";
 import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import {
   Select,
   SelectContent,
@@ -274,7 +276,8 @@ export function QuickCreateCalendarEntryDialog({
             htmlFor="calendar-entry-create-location"
             className="col-span-2"
           >
-            <Input
+            <IconInput
+              icon={IconMapPin}
               id="calendar-entry-create-location"
               placeholder="Optional"
               value={field.state.value}

@@ -1,4 +1,4 @@
-import { IconExternalLink, IconRefresh } from "@tabler/icons-react";
+import { IconExternalLink, IconLink, IconMail, IconRefresh } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -21,7 +21,9 @@ import {
   DialogTitle,
 } from "@nookly/ui/components/dialog";
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
-import { Input } from "@nookly/ui/components/input";
+import { PasswordInput } from "#/components/password-input.tsx";
+import { UrlInput } from "#/components/url-input.tsx";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import {
   type CalendarConnection,
   type CalendarProvider,
@@ -323,14 +325,15 @@ function MoodleConnect() {
             htmlFor="moodle-link"
             error={fieldMessage(field)}
           >
-            <Input
+            <UrlInput
+              secret
+              icon={IconLink}
               id="moodle-link"
-              type="password"
               autoComplete="off"
-              placeholder="https://moodle.example.edu/calendar/export_execute.php?..."
+              placeholder="moodle.example.edu/calendar/export_execute.php?..."
               value={field.state.value}
               onBlur={field.handleBlur}
-              onChange={(e) => field.handleChange(e.target.value)}
+              onValueChange={field.handleChange}
             />
           </FormField>
         )}
@@ -420,7 +423,8 @@ function IcloudConnect() {
               htmlFor="icloud-apple-id"
               error={fieldMessage(field)}
             >
-              <Input
+              <IconInput
+                icon={IconMail}
                 id="icloud-apple-id"
                 type="email"
                 placeholder="you@icloud.com"
@@ -439,9 +443,8 @@ function IcloudConnect() {
               htmlFor="icloud-password"
               error={fieldMessage(field)}
             >
-              <Input
+              <PasswordInput
                 id="icloud-password"
-                type="password"
                 placeholder="xxxx-xxxx-xxxx-xxxx"
                 value={field.state.value}
                 onBlur={field.handleBlur}

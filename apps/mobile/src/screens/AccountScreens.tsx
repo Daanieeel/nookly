@@ -2,19 +2,23 @@ import {
   ApiClient,
   BETA_KEY_MISSING,
   asksForBetaKey,
-  emailSchema,
   signInSchema,
-  usernameSchema,
+  signUpFormSchema,
 } from "@nookly/shared/api";
 import { useIsTablet } from "../ui/pane.tsx";
 import { useDeviceWord } from "../ui/device-word.ts";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import {
-  type Icon,
   IconCloudOff,
   IconDevices,
+  IconKey,
+  IconLock,
+  IconMail,
   IconNotebook,
+  IconServer,
+  IconUser,
   IconUsers,
+  type Icon,
 } from "@tabler/icons-react-native";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +33,9 @@ import { DEFAULT_SERVER } from "../data/sync.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
+import { FieldIcon } from "../ui/FieldIcon.tsx";
+import { PasswordStrengthMeter } from "../ui/PasswordStrengthMeter.tsx";
+import { UrlField } from "../ui/UrlField.tsx";
 import { FormSection } from "../ui/kit/Form.tsx";
 import { useSemantic } from "../ui/kit/scheme.ts";
 import { RADIUS, SPACE } from "../ui/tokens.ts";
@@ -47,15 +54,9 @@ const serverSchema = z
   .min(1, "Enter the server's address")
   .refine(
     (url) => z.url().safeParse(normalizeServerUrl(url)).success,
-    "Enter an address like https://sync.example.com",
+    "Enter an address like sync.example.com",
   );
 
-const signUpForm = z.object({
-  username: usernameSchema,
-  email: z.union([emailSchema, z.literal("")]),
-  password: z.string().min(10, "Use at least 10 characters").max(256),
-  betaKey: z.string().max(256),
-});
 const resetForm = z.object({ email: z.email("Enter the email address of your account") });
 
 /// The first thing on a new phone, like the apps it sits beside: what Nookly is, and
@@ -162,17 +163,16 @@ function ServerField({
     );
   }
   return (
-    <Field
+    <UrlField
       label="Server"
+      icon={IconServer}
+      showName
       required
       editable={!disabled}
       value={value}
-      onChangeText={onChange}
+      onValueChange={onChange}
       error={error}
-      autoCapitalize="none"
-      autoCorrect={false}
-      keyboardType="url"
-      placeholder="https://sync.example.com"
+      placeholder="sync.example.com"
     />
   );
 }
@@ -469,6 +469,9 @@ export function SignInScreen() {
               editable={!signIn.isPending}
               invalid={rejection.invalid("identifier")}
               label="Username or email"
+              icon={<FieldIcon icon={IconUser} />}
+              showName
+              placeholder="Username or email"
               required
               autoCapitalize="none"
               autoCorrect={false}
@@ -490,6 +493,9 @@ export function SignInScreen() {
               editable={!signIn.isPending}
               invalid={rejection.invalid("password")}
               label="Password"
+              icon={<FieldIcon icon={IconLock} />}
+              showName
+              placeholder="Password"
               required
               secureTextEntry
               textContentType="password"
@@ -551,7 +557,7 @@ export function SignUpScreen() {
   const local = useLocalData();
   const done = useAfterSignIn();
   const signUp = useMutation({
-    mutationFn: (value: z.infer<typeof signUpForm>) => {
+    mutationFn: (value: z.infer<typeof signUpFormSchema>) => {
       const url = server.commit();
       const betaKey = value.betaKey.trim() || undefined;
       if (!betaKey && asksForBetaKey(url)) throw new Error(BETA_KEY_MISSING);
@@ -569,8 +575,8 @@ export function SignUpScreen() {
     onSuccess: done,
   });
   const form = useForm({
-    defaultValues: { username: "", email: "", password: "", betaKey: "" },
-    validators: { onChange: signUpForm, onSubmit: signUpForm },
+    defaultValues: { username: "", email: "", password: "", confirm: "", betaKey: "" },
+    validators: { onChange: signUpFormSchema, onSubmit: signUpFormSchema },
     onSubmit: ({ value }) => {
       if (local.answered()) signUp.mutate(value);
     },
@@ -597,6 +603,9 @@ export function SignUpScreen() {
               editable={!signUp.isPending}
               invalid={rejection.invalid("username")}
               label="Username"
+              icon={<FieldIcon icon={IconUser} />}
+              showName
+              placeholder="Username"
               required
               autoCapitalize="none"
               autoCorrect={false}
@@ -618,6 +627,8 @@ export function SignUpScreen() {
               editable={!signUp.isPending}
               invalid={rejection.invalid("email")}
               label="Email (optional)"
+              icon={<FieldIcon icon={IconMail} />}
+              showName
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
@@ -640,6 +651,9 @@ export function SignUpScreen() {
               editable={!signUp.isPending}
               invalid={rejection.invalid("password")}
               label="Password"
+              icon={<FieldIcon icon={IconLock} />}
+              showName
+              placeholder="Password"
               required
               secureTextEntry
               textContentType="newPassword"
@@ -654,12 +668,40 @@ export function SignUpScreen() {
             />
           )}
         </form.Field>
+        <form.Field name="confirm">
+          {(field) => (
+            <Field
+              editable={!signUp.isPending}
+              label="Repeat password"
+              icon={<FieldIcon icon={IconLock} />}
+              placeholder="Repeat password"
+              required
+              secureTextEntry
+              textContentType="newPassword"
+              autoComplete="password-new"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              error={fieldError(field)}
+            />
+          )}
+        </form.Field>
+        <form.Subscribe selector={(state) => state.values}>
+          {(values) => (
+            <PasswordStrengthMeter
+              password={values.password}
+              userInputs={[values.username, values.email].filter(Boolean)}
+            />
+          )}
+        </form.Subscribe>
         <form.Field name="betaKey">
           {(field) => (
             <Field
               editable={!signUp.isPending}
               invalid={rejection.invalid("betaKey")}
               label="Beta key"
+              icon={<FieldIcon icon={IconKey} />}
+              showName
               required={asksForBetaKey(server.server)}
               secureTextEntry
               autoCapitalize="none"
@@ -736,6 +778,8 @@ export function ForgotScreen() {
             editable={!send.isPending}
             invalid={rejection.invalid("email")}
             label="Email"
+            icon={<FieldIcon icon={IconMail} />}
+            showName
             required
             autoCapitalize="none"
             autoCorrect={false}

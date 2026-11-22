@@ -1,5 +1,5 @@
 import type { Share, ShareRole } from "@nookly/shared/api";
-import { IconUserMinus } from "@tabler/icons-react";
+import { IconMail, IconUserMinus } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@nookly/ui/components/dialog";
-import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import {
@@ -172,7 +172,8 @@ export function ShareDialog({
                 error={fieldMessage(field)}
                 className="flex-1"
               >
-                <Input
+                <IconInput
+                  icon={IconMail}
                   id={emailId}
                   type="email"
                   autoComplete="off"

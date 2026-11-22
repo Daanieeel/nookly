@@ -16,7 +16,7 @@ import { refreshMoodle } from "./moodle-queries.ts";
 /// The look of the pills at the top: a pane over whatever scrolls under them, which lifts
 /// once the page has scrolled and they float.
 const PILL =
-  "flex flex-wrap items-center rounded-lg border border-border bg-background/70 p-0.5 shadow-none backdrop-blur-sm transition-all duration-300 group-data-stuck/bar:bg-background/90 group-data-stuck/bar:shadow-md";
+  "flex flex-wrap items-center rounded-lg border bg-raised/80 p-0.5 shadow-control backdrop-blur-sm transition-all duration-300 group-data-stuck/bar:bg-raised/95 group-data-stuck/bar:shadow-card";
 
 /// Goes to a page of the Moodle module in the Space it is open in. A Cmd or Ctrl click
 /// opens it in a background tab, like every other link in the app. `newTab` opens a tab and
@@ -109,7 +109,7 @@ export function MoodleFrame({
             (course ? (
               <CourseArt
                 course={course}
-                className={cn("rounded-2xl border border-border", tall ? "h-52" : "h-32")}
+                className={cn("rounded-xl border shadow-card", tall ? "h-52" : "h-32")}
               >
                 <div className="absolute inset-0 bg-linear-to-t from-card via-card/50 to-transparent" />
                 <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-5">

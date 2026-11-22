@@ -1,20 +1,23 @@
-import type { Session, Share } from "@nookly/shared/api";
+import type { Session } from "@nookly/shared/api";
 import type { SyncStatus } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
+  IconCloudCheck,
   IconCloudOff,
   IconDeviceLaptop,
+  IconDeviceLaptopOff,
   IconDeviceMobile,
   IconDeviceTablet,
   IconDevices,
+  IconFileOff,
+  IconFolder,
   IconGitCompare,
   IconLoader2,
   IconLogout,
   IconMailExclamation,
   IconRefresh,
   IconServer,
-  IconShare,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,7 +41,6 @@ import { Checkbox } from "@nookly/ui/components/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { useAccountDialog } from "./account-dialog-store.ts";
-import { migrationSummary } from "./FirstSyncDialog.tsx";
 import { syncRuntime, useSyncState } from "./sync-instance.ts";
 
 /// The Account page's cards, in the style of the Backup and Connections pages: each says
@@ -157,27 +159,27 @@ export function statusLine(status: SyncStatus): StatusLine {
         icon: IconCloudOff,
         text:
           status.pending > 0
-            ? `Offline. ${status.pending} ${status.pending === 1 ? "change waits" : "changes wait"} to sync.`
-            : "Offline. Changes sync once the server is back.",
+            ? `Offline, ${status.pending} ${status.pending === 1 ? "change waits" : "changes wait"}`
+            : "Offline",
         tone: "caution",
       };
     case "error":
-      return { icon: IconAlertTriangle, text: status.error ?? "Sync failed.", tone: "error" };
+      return { icon: IconAlertTriangle, text: status.error ?? "Sync failed", tone: "error" };
     case "off":
-      return { icon: IconCloudOff, text: "Sync is off.", tone: "idle" };
+      return { icon: IconCloudOff, text: "Sync is off", tone: "idle" };
     case "idle":
       if (!status.live) {
         return {
           icon: IconAlertTriangle,
-          text: "Synced, but not live. Changes from your other devices may take a minute.",
+          text: "Synced, but not live",
           tone: "caution",
         };
       }
       return {
         icon: IconCircleCheck,
         text: status.lastSyncedAt
-          ? `Synced ${formatEditedAt(new Date(status.lastSyncedAt).toISOString()).toLowerCase()}. Changes arrive as you make them.`
-          : "Synced. Changes arrive as you make them.",
+          ? `Synced ${formatEditedAt(new Date(status.lastSyncedAt).toISOString()).toLowerCase()}`
+          : "Synced",
         tone: "ok",
       };
   }
@@ -187,13 +189,12 @@ export function statusLine(status: SyncStatus): StatusLine {
 function FirstSyncLine() {
   const migration = useSyncState((state) => state.migration);
   const setFirstSyncOpen = useAccountDialog((state) => state.setFirstSyncOpen);
-  if (!migration) return null;
+  // Once it is done there is nothing left to look at.
+  if (!migration || migration.phase === "done") return null;
   const text =
-    migration.phase === "done"
-      ? migrationSummary(migration)
-      : migration.phase === "failed"
-        ? (migration.error ?? "The first sync stopped.")
-        : `Bringing this device into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
+    migration.phase === "failed"
+      ? (migration.error ?? "The first sync stopped.")
+      : `Bringing this device into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
   return (
     <CardFoot>
       <IconDevices size={14} className="shrink-0" />
@@ -222,6 +223,28 @@ function FilesLine() {
         {files.lastError && <span className="text-caution"> Trying again: {files.lastError}</span>}
       </span>
     </CardFoot>
+  );
+}
+
+/// One short line of a dialog, led by an icon.
+function Point({
+  icon: Icon,
+  tone,
+  children,
+}: {
+  icon: TablerIcon;
+  tone?: "caution";
+  children: ReactNode;
+}) {
+  return (
+    <li className="flex items-center gap-2.5 text-sm">
+      <Icon
+        size={16}
+        aria-hidden
+        className={cn("shrink-0", tone === "caution" ? "text-caution" : "text-muted-foreground")}
+      />
+      <span>{children}</span>
+    </li>
   );
 }
 
@@ -261,27 +284,44 @@ function SignOutDialog({
       void queryClient.invalidateQueries();
     },
   });
-  const changes = unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`;
+  const sent = unsent === 1 ? "1 change" : `${unsent.toLocaleString()} changes`;
+  const missing = missingFiles === 1 ? "1 file" : `${missingFiles.toLocaleString()} files`;
   return (
-    <AlertDialog
-      open={open}
-      onOpenChange={close}
-      severity={keepLocalCopy ? undefined : "destructive"}
-    >
+    <AlertDialog open={open} onOpenChange={close} severity="warning">
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Sign out of this computer?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {keepLocalCopy
-              ? "Everything stays in your account and on your other devices. A copy stays on this computer and keeps working on its own, but changes here no longer sync."
-              : "Everything stays in your account and on your other devices. Your items are removed from this computer, and come back when you sign in again. Attached files stay in Nookly's folder on this computer."}
-            {unsent > 0 &&
-              (keepLocalCopy
-                ? ` ${changes} not reached the account yet. They stay on this computer.`
-                : ` ${changes} not reached the account yet. Nookly tries once more and saves a backup of this computer first.`)}
-            {keepLocalCopy &&
-              missingFiles > 0 &&
-              ` ${missingFiles === 1 ? "1 file from your account is" : `${missingFiles.toLocaleString()} files from your account are`} not on this computer yet and will be missing from the copy.`}
+          <AlertDialogDescription asChild>
+            <ul className="flex flex-col gap-2.5 pt-1">
+              <Point icon={IconCloudCheck}>Stays in your account and on your other devices</Point>
+              {keepLocalCopy ? (
+                <>
+                  <Point icon={IconDeviceLaptop}>
+                    A copy stays on this computer and works alone
+                  </Point>
+                  <Point icon={IconCloudOff}>Changes here no longer sync</Point>
+                </>
+              ) : (
+                <>
+                  <Point icon={IconDeviceLaptopOff}>
+                    Removed from this computer, back when you sign in
+                  </Point>
+                  <Point icon={IconFolder}>Attached files stay in Nookly's folder</Point>
+                </>
+              )}
+              {unsent > 0 && (
+                <Point icon={IconAlertTriangle} tone="caution">
+                  {keepLocalCopy
+                    ? `${sent} not sent yet, kept here`
+                    : `${sent} not sent yet, backed up first`}
+                </Point>
+              )}
+              {keepLocalCopy && missingFiles > 0 && (
+                <Point icon={IconFileOff} tone="caution">
+                  {missing} not on this computer yet, missing from the copy
+                </Point>
+              )}
+            </ul>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex items-center gap-2">
@@ -326,9 +366,7 @@ function UnconfirmedEmail({ email }: { email: string }) {
   return (
     <CardFoot>
       <IconMailExclamation size={14} className="shrink-0 text-caution" />
-      <span className="min-w-0 flex-1">
-        Confirm {email} with the link we sent, so you can reset a forgotten password.
-      </span>
+      <span className="min-w-0 flex-1">Confirm {email} to reset a forgotten password.</span>
       <Button size="sm" variant="ghost" onClick={() => resend.mutate()}>
         <StatusButtonContent
           status={statusOf(resend)}
@@ -341,7 +379,26 @@ function UnconfirmedEmail({ email }: { email: string }) {
   );
 }
 
-/// Signed in: who, how sync is doing, the server, and the way out.
+/// Changes two devices disagreed on: only there while some wait for a decision.
+function ChangesNotice() {
+  const setMergeOpen = useAccountDialog((state) => state.setMergeOpen);
+  // The sync status counts this device's conflicts and the ones only the server logged.
+  const count = useSyncState((s) => s.status.conflicts);
+  if (count === 0) return null;
+  return (
+    <CardFoot>
+      <IconGitCompare size={14} className="shrink-0 text-caution" />
+      <span className="min-w-0 flex-1">
+        {count === 1 ? "1 change needs a look" : `${count} changes need a look`}
+      </span>
+      <Button size="sm" variant="secondary" onClick={() => setMergeOpen(true)}>
+        Review Changes
+      </Button>
+    </CardFoot>
+  );
+}
+
+/// Signed in: who, how sync is doing, and the way out.
 function SignedInCard() {
   const user = useSyncState((s) => s.user);
   const serverUrl = useSyncState((s) => s.serverUrl);
@@ -369,18 +426,25 @@ function SignedInCard() {
           </span>
         }
         action={
-          <Button size="sm" variant="secondary" onClick={() => syncNow.mutate()}>
-            <StatusButtonContent
-              status={statusOf(syncNow)}
-              icon={<IconRefresh size={14} />}
-              label="Sync Now"
-              successLabel="Synced"
-              errorLabel="Couldn't sync"
-            />
-          </Button>
+          <>
+            <Button size="sm" variant="secondary" onClick={() => syncNow.mutate()}>
+              <StatusButtonContent
+                status={statusOf(syncNow)}
+                icon={<IconRefresh size={14} />}
+                label="Sync Now"
+                successLabel="Synced"
+                errorLabel="Couldn't sync"
+              />
+            </Button>
+            <Button size="sm" variant="warning" onClick={() => setSigningOut(true)}>
+              <IconLogout size={14} />
+              Sign Out
+            </Button>
+          </>
         }
       />
       {user.email !== null && !user.emailVerified && <UnconfirmedEmail email={user.email} />}
+      <ChangesNotice />
       <FirstSyncLine />
       <FilesLine />
       <CardFoot>
@@ -388,10 +452,6 @@ function SignedInCard() {
         <span className="min-w-0 flex-1 truncate" title={serverUrl ?? undefined}>
           {serverUrl}
         </span>
-        <Button size="sm" variant="ghost" onClick={() => setSigningOut(true)}>
-          <IconLogout size={14} />
-          Sign Out
-        </Button>
       </CardFoot>
       <SignOutDialog open={signingOut} onOpenChange={setSigningOut} />
     </Card>
@@ -421,11 +481,7 @@ function SignedOutCard() {
         }
       />
       <CardFoot>
-        <span>
-          An account keeps your Spaces, pages, tasks, files and settings the same on your phone and
-          every other device, live, and lets you share pages. It is optional. When you sign in, you
-          decide what happens to what is already here.
-        </span>
+        <span>Optional. Keeps all your devices the same.</span>
       </CardFoot>
     </Card>
   );
@@ -451,52 +507,56 @@ function deviceIcon(session: Session): TablerIcon {
   return IconDevices;
 }
 
-function DeviceCard({ session }: { session: Session }) {
+function DeviceRow({ session }: { session: Session }) {
   const queryClient = useQueryClient();
   const revoke = useMutation({
     mutationFn: () => syncRuntime.account()?.revokeSession(session.id) ?? Promise.resolve(),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: qk.sync.sessions }),
   });
+  const Icon = deviceIcon(session);
   return (
-    <Card as="li" tone={revoke.isError ? "error" : undefined}>
-      <CardHead
-        icon={deviceIcon(session)}
-        tone={session.current ? "ok" : "idle"}
-        title={
-          <span className="flex items-center gap-2">
-            {session.deviceName}
-            {session.current && <Badge variant="primary">This device</Badge>}
+    <li className="flex flex-col gap-1 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-md",
+            session.current ? BADGE_TONES.ok : BADGE_TONES.idle,
+          )}
+        >
+          <Icon size={16} />
+        </span>
+        <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
+          <span className="truncate">{session.deviceName}</span>
+          {session.current && <Badge variant="primary">This device</Badge>}
+        </span>
+        {!session.current && (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {formatEditedAt(session.lastUsedAt)}
           </span>
-        }
-        detail={
-          session.current
-            ? "The one you are using."
-            : `Last active ${formatEditedAt(session.lastUsedAt).toLowerCase()}`
-        }
-        action={
-          !session.current && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="iconSm"
-                  variant="ghost"
-                  aria-label="Sign Out Device"
-                  onClick={() => revoke.mutate()}
-                >
-                  {revoke.isPending ? <IconLoader2 className="animate-spin" /> : <IconLogout />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Sign Out Device</TooltipContent>
-            </Tooltip>
-          )
-        }
-      />
+        )}
+        {!session.current && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="iconSm"
+                variant="ghost"
+                aria-label="Sign Out Device"
+                onClick={() => revoke.mutate()}
+              >
+                {revoke.isPending ? <IconLoader2 className="animate-spin" /> : <IconLogout />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Sign Out Device</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
       <FieldError message={errorText(revoke.error)} />
-    </Card>
+    </li>
   );
 }
 
-/// Every device signed in to the account, this one first.
+/// Every device signed in to the account, this one first, in one list.
 export function DeviceCards() {
   const { data: sessions = [], error } = useQuery({
     queryKey: qk.sync.sessions,
@@ -506,119 +566,14 @@ export function DeviceCards() {
   return (
     <div className="flex w-full flex-col gap-2">
       <FieldError message={errorText(error)} />
-      <ul aria-label="Signed in devices" className="flex flex-col gap-2">
+      <ul
+        aria-label="Signed in devices"
+        className="flex flex-col divide-y divide-border/60 rounded-lg border border-border bg-card"
+      >
         {ordered.map((session) => (
-          <DeviceCard key={session.id} session={session} />
+          <DeviceRow key={session.id} session={session} />
         ))}
       </ul>
     </div>
-  );
-}
-
-function SharedCard({ share }: { share: Share }) {
-  const queryClient = useQueryClient();
-  const respond = useMutation({
-    mutationFn: async (action: "accept" | "decline" | "leave") => {
-      const api = syncRuntime.account();
-      if (!api) return;
-      if (action === "accept") await api.acceptShare(share.id);
-      else if (action === "decline") await api.declineShare(share.id);
-      else await api.removeShare(share.id);
-      await syncRuntime.syncNow();
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: qk.sync.sharesWithMe }),
-  });
-  const pending = share.status === "pending";
-  return (
-    <Card as="li" tone={respond.isError ? "error" : undefined}>
-      <CardHead
-        icon={IconShare}
-        tone={pending ? "caution" : "ok"}
-        title={share.title || "Untitled"}
-        detail={`From ${share.owner}. ${share.role === "editor" ? "You can edit it." : "You can view it."}${pending ? " Waiting for your answer." : ""}`}
-        action={
-          pending ? (
-            <>
-              <Button size="sm" variant="ghost" onClick={() => respond.mutate("decline")}>
-                Decline
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => respond.mutate("accept")}>
-                <StatusButtonContent
-                  status={respond.variables === "accept" ? statusOf(respond) : "idle"}
-                  label="Accept"
-                  successLabel="Accepted"
-                  errorLabel="Couldn't accept"
-                />
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" variant="ghost" onClick={() => respond.mutate("leave")}>
-              <StatusButtonContent
-                status={respond.variables === "leave" ? statusOf(respond) : "idle"}
-                label="Leave"
-                successLabel="Left"
-                errorLabel="Couldn't leave"
-              />
-            </Button>
-          )
-        }
-      />
-      <FieldError message={errorText(respond.error)} />
-    </Card>
-  );
-}
-
-/// Pages and tasks other people shared with this account.
-export function SharedCards() {
-  const { data: shares = [], error } = useQuery({
-    queryKey: qk.sync.sharesWithMe,
-    queryFn: async () => (await syncRuntime.account()?.sharesWithMe()) ?? [],
-  });
-  if (shares.length === 0 && !error) {
-    return <p className="text-xs text-muted-foreground">Nothing is shared with you yet.</p>;
-  }
-  return (
-    <div className="flex w-full flex-col gap-2">
-      <FieldError message={errorText(error)} />
-      <ul aria-label="Shared with me" className="flex flex-col gap-2">
-        {shares.map((share) => (
-          <SharedCard key={share.id} share={share} />
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/// How many changes wait for a decision, and the way into the merge editor.
-export function ChangesCard() {
-  const setMergeOpen = useAccountDialog((state) => state.setMergeOpen);
-  // The sync status counts this device's conflicts and the ones only the server logged.
-  const count = useSyncState((s) => s.status.conflicts);
-  return (
-    <Card tone={count > 0 ? "caution" : "idle"} className="w-full">
-      <CardHead
-        icon={IconGitCompare}
-        tone={count > 0 ? "caution" : "idle"}
-        title={
-          count === 0
-            ? "Nothing to review"
-            : count === 1
-              ? "1 change needs a look"
-              : `${count} changes need a look`
-        }
-        detail={
-          count === 0
-            ? "Every change from your devices fit together."
-            : "Two devices changed the same thing. Nothing was lost: pick a version, or keep both."
-        }
-        action={
-          count > 0 && (
-            <Button size="sm" onClick={() => setMergeOpen(true)}>
-              Review Changes
-            </Button>
-          )
-        }
-      />
-    </Card>
   );
 }

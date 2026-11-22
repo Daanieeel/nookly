@@ -49,6 +49,7 @@ import {
 } from "@nookly/shared/moodle/import";
 import { messageOf } from "./moodle-login.ts";
 import { useMoodleCourse } from "./moodle-queries.ts";
+import { INPUT_CLASSES } from "@nookly/ui/classes";
 
 /// Where a file sits in the course, to suggest a name, labels and a course for it.
 export interface ImportContext {
@@ -377,7 +378,10 @@ function ImportFields({
             aria-label={
               chosen.length > 0 ? `Labels: ${chosen.map((l) => l.name).join(", ")}` : "Labels"
             }
-            className="flex min-h-7 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-accent px-2 py-0.5 text-left text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-ring"
+            className={cn(
+              INPUT_CLASSES,
+              "h-auto min-h-8 flex-wrap items-center gap-1.5 px-2 py-0.5 text-left",
+            )}
           >
             {chosen.length > 0 ? (
               chosen.map((label) => <LabelChip key={label.id} label={label} />)
@@ -433,7 +437,7 @@ function ImportFields({
                 id="moodle-import-course"
                 type="button"
                 aria-label={`Attach to a course: ${course ? displayTitle(course) : "No course"}`}
-                className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-input bg-accent px-3 py-1 text-sm shadow-xs transition-colors outline-none hover:bg-accent/80 focus-ring"
+                className={cn(INPUT_CLASSES, "items-center gap-2 text-left")}
               >
                 <EntityPickerValue entity={course ?? null} placeholder="No course" />
                 <IconChevronDown

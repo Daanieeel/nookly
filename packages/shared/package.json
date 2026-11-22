@@ -9,6 +9,8 @@
     "./moodle/*": "./src/moodle/*.ts",
     "./sync": "./src/sync/index.ts",
     "./api": "./src/api/index.ts",
+    "./password-strength": "./src/password-strength.ts",
+    "./url-field": "./src/url-field.ts",
     "./testing": "./src/sync/testing/index.ts",
     "./data": "./src/data/index.ts",
     "./modules": "./src/modules.ts",
@@ -38,6 +40,9 @@
   },
   "dependencies": {
     "@hocuspocus/provider": "4.8.0",
+    "@zxcvbn-ts/core": "4.3.0",
+    "@zxcvbn-ts/language-common": "4.2.0",
+    "@zxcvbn-ts/language-en": "4.1.2",
     "prosemirror-model": "1.25.13",
     "prosemirror-state": "1.4.4",
     "prosemirror-view": "1.42.9",

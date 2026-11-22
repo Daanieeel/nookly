@@ -1,3 +1,4 @@
+import { haptic } from "./haptics.ts";
 import type { ReactNode } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SvgXml } from "react-native-svg";
@@ -33,7 +34,10 @@ export function BrandButton({
       accessibilityLabel={shown}
       accessibilityState={{ busy: status === "pending" }}
       disabled={status === "pending"}
-      onPress={onPress}
+      onPress={() => {
+        haptic("tap");
+        onPress();
+      }}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       unstable_pressDelay={0}

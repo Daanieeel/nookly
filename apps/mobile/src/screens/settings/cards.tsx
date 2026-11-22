@@ -129,3 +129,9 @@ export function CardFoot({ children }: { children: ReactNode }) {
     </View>
   );
 }
+
+/// A hairline between the rows of one card.
+export function CardDivider() {
+  const separator = useSemantic("separator");
+  return <View style={{ height: 0.5, backgroundColor: separator }} />;
+}

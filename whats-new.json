@@ -71,7 +71,17 @@
           "Files has an Unsorted view for files in no course and without a label.",
           "A saved Files View keeps what you searched for.",
           "The same Jots, Notes and Files changes are on your phone.",
-          "Notes has a Display menu to pick the layout and hide the ID, preview, labels or last edited date."
+          "Notes has a Display menu to pick the layout and hide the ID, preview, labels or last edited date.",
+          "Settings, Account is shorter and easier to scan on your computer and phone.",
+          "Sign Out is shown as a warning and explains what happens in a few short lines.",
+          "Change Password and Delete Account open in their own window on your computer and in a sheet on your phone.",
+          "Changing your password asks for the new one twice and shows how strong it is, without stopping you from using a weaker one.",
+          "Text fields for your name, email, password, search, locations and addresses now start with a small icon that shows what they are for.",
+          "Password fields on your computer have an eye to show or hide what you type.",
+          "Address fields show https:// for you, so you never have to type it, and a pasted one is not doubled.",
+          "On your phone, buttons, chips and the eye on password fields now give a haptic feedback that fits what they do: a firm one for Sign Out and Delete, a soft tick for quiet buttons, a warning when a confirmation opens, and an error buzz when a field turns out wrong.",
+          "Creating an account asks for the password twice, with a bar under it that shows how strong it is, and on your phone every field has its name above it and a red asterisk when it is required.",
+          "Moodle has the same look as the rest of Nookly on your computer and phone: raised cards, calmer course headers, and the shared empty and error states."
         ],
         "Fixed": [
           "The hidden sidebar slides in on a solid background with a clear shadow when you rest the pointer on the left edge.",
@@ -86,7 +96,8 @@
           "Signing in closes the window straight away instead of spinning until everything has been sent.",
           "Keeping what is on a device out of your account no longer shows the page about bringing the device into your account, and a device with nothing on it skips that page too.",
           "On your phone, the Display button no longer drops onto a line of its own next to a long page title.",
-          "On your phone, the cards on the Courses page and other galleries stand out from the page."
+          "On your phone, the cards on the Courses page and other galleries stand out from the page.",
+          "The search field in Settings now follows the rounded corner of the window."
         ]
       }
     },

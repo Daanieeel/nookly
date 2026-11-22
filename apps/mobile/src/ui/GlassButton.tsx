@@ -1,3 +1,4 @@
+import { haptic } from "./haptics.ts";
 import type { ComponentType, ReactNode } from "react";
 import { Pressable, View, type ViewProps } from "react-native";
 import { useSemantic } from "./kit/scheme.ts";
@@ -46,7 +47,10 @@ export function GlassButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={onPress}
+      onPress={() => {
+        haptic("tap");
+        onPress();
+      }}
       style={({ pressed }) => [round, { opacity: pressed && !Glass ? 0.6 : 1 }]}
     >
       {Glass ? (
