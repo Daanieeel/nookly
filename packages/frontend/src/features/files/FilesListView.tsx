@@ -5,8 +5,11 @@ import {
   IconExternalLink,
   IconFile,
   IconFileUpload,
+  IconInbox,
   IconLink,
+  IconPaperclip,
   IconRefresh,
+  IconSchool,
   IconStack2,
   IconTag,
   IconWorld,
@@ -57,7 +60,8 @@ import {
   type ReindexProgress,
   reindexMissingFiles,
 } from "#/lib/api/files.ts";
-import type { FileEntity } from "#/lib/api/types.ts";
+import type { Entity, FileEntity } from "#/lib/api/types.ts";
+import { EntityIcon } from "#/components/entity-icon.tsx";
 import { formatShortDate } from "#/lib/datetime.ts";
 import { localPath } from "#/lib/local-path.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -78,6 +82,7 @@ import {
   FILE_VIEW_PRESETS,
   describeFileDisplay,
   fileGroupDefs,
+  isUnsorted,
   normalizeDisplay,
   reindexLabel,
   orderFiles,
@@ -92,13 +97,49 @@ import { viewTarget } from "#/features/views/view-target.ts";
 import { labelShelf } from "@nookly/shared/label-shelf";
 import { ModuleViewHeader, NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { ViewPresetsButton } from "#/features/views/ViewPresetsButton.tsx";
+import { useStarterViews } from "#/features/files/use-starter-views.ts";
 import { useViewPage } from "#/features/views/use-view-page.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { WindowedFiles } from "./windowed-files";
+import { useFileSearch } from "./use-file-search";
+import { ListSearchInput } from "#/features/notes/list-table-shared.tsx";
 import { ignoreError } from "#/lib/log.ts";
 
 const NO_FILTERS: ActiveFilter[] = [];
+
+/// What a file holds for a filter field: its kind, labels, courses, what it is attached to,
+/// whether it is still unsorted, and the pinned and age fields every item has.
+function fileFilterValue(f: FileEntity, fieldId: string): string | string[] {
+  const shared = entityFilterValue(f.entity, fieldId);
+  if (shared !== undefined) return shared;
+  switch (fieldId) {
+    case "labels":
+      return f.labelIds;
+    case "course":
+      return f.courses.map((c) => c.id);
+    case "attached":
+      return f.attachedTo.map((e) => e.id);
+    case "filing":
+      return isUnsorted(f) ? "unsorted" : "sorted";
+    default:
+      return fileKind(f).id;
+  }
+}
+
+/// One option per distinct entity across the files, by title.
+function entityOptions(lists: Entity[][]): FilterField["options"] {
+  const byId = new Map(lists.flat().map((e) => [e.id, e]));
+  return [...byId.values()]
+    .sort((a, b) =>
+      displayTitle(a).localeCompare(displayTitle(b), undefined, { sensitivity: "base" }),
+    )
+    .map((e) => ({
+      value: e.id,
+      label: displayTitle(e),
+      icon: <EntityIcon entity={e} size={14} />,
+    }));
+}
 
 /// Marks items that just arrived for a moment, so a new file never appears silently.
 function useFreshIds() {
@@ -134,16 +175,19 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
   const queryClient = useQueryClient();
   const openEntity = useNavStore((s) => s.openEntity);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { display, setDisplay, filters, setFilters, view, dirty, save, discard } = useViewPage({
-    spaceId,
-    module: "files",
-    viewId,
-    readDisplay,
-    normalizeDisplay,
-    remember: writeDisplay,
-    filtersKey: STORAGE_KEYS.filesFilters,
-    defaultFilters: NO_FILTERS,
-  });
+  const { display, setDisplay, filters, setFilters, query, setQuery, view, dirty, save, discard } =
+    useViewPage({
+      spaceId,
+      module: "files",
+      viewId,
+      readDisplay,
+      normalizeDisplay,
+      remember: writeDisplay,
+      filtersKey: STORAGE_KEYS.filesFilters,
+      defaultFilters: NO_FILTERS,
+    });
+  useStarterViews(spaceId);
+  const { ids: hitIds } = useFileSearch(spaceId, query);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [offer, setOffer] = useState<Offer | null>(null);
   const [fresh, markFresh] = useFreshIds();
@@ -289,6 +333,27 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
           icon: <LabelDot label={l} />,
         })),
       },
+      {
+        id: "course",
+        label: "Course",
+        icon: IconSchool,
+        options: entityOptions(files.map((f) => f.courses)),
+      },
+      {
+        id: "attached",
+        label: "Attached to",
+        icon: IconPaperclip,
+        options: entityOptions(files.map((f) => f.attachedTo)),
+      },
+      {
+        id: "filing",
+        label: "Filing",
+        icon: IconInbox,
+        options: [
+          { value: "unsorted", label: "Unsorted" },
+          { value: "sorted", label: "In a course or labelled" },
+        ],
+      },
       ...ENTITY_FILTER_FIELDS,
     ];
   }, [files, labels]);
@@ -297,17 +362,12 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
   const shelf = labelShelf(files, (f) => f.labelIds, display.shelf, labelName);
   const labelOptions = useMemo(() => fileLabelOptions(files, labels), [files, labels]);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const visible = orderFiles(
-    applyFilters(
-      shelf.shown,
-      filters,
-      (f, fieldId) =>
-        entityFilterValue(f.entity, fieldId) ??
-        (fieldId === "labels" ? f.labelIds : fileKind(f).id),
-    ),
-    display.ordering,
-  );
-  const defs = fileGroupDefs(display.grouping, labels);
+  const filtered = applyFilters(shelf.shown, filters, fileFilterValue);
+  // A search lists its hits best match first, whatever the display orders by.
+  const visible = hitIds
+    ? hitIds.flatMap((id) => filtered.find((f) => f.entity.id === id) ?? [])
+    : orderFiles(filtered, display.ordering);
+  const defs = fileGroupDefs(display.grouping, labels, files);
   const openFile = (f: FileEntity) => openEntity(f.entity.id, spaceId);
 
   const renderItems = (items: FileEntity[]) => (
@@ -356,61 +416,71 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
         title="Files"
         view={view}
         viewMenu
-        presets={
+        presets={null}
+        toolbar={
           <>
-            {files.some((f) => f.needsReindex) && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 gap-1.5"
-                    disabled={reindexMissing.isPending}
-                    onClick={() => reindexStatus === "idle" && reindexMissing.mutate()}
-                  >
-                    <StatusButtonContent
-                      status={reindexStatus}
-                      icon={<IconRefresh />}
-                      label={reindexLabel(reindexMissing.isPending ? reindexProgress : null)}
-                      successLabel={
-                        reindexMissing.data
-                          ? `${reindexMissing.data.reindexed} reindexed`
-                          : "Reindexed"
-                      }
-                      errorLabel="Couldn't reindex, try again"
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Index older files for search</TooltipContent>
-              </Tooltip>
-            )}
-            {!view && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 gap-1.5"
-                    onClick={() => setViewDialogOpen(true)}
-                  >
-                    <IconStack2 />
-                    New view
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Name a View of some labels, with this page's filters
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <ViewPresetsButton
-              spaceId={spaceId}
-              module="files"
-              presets={FILE_VIEW_PRESETS}
-              fields={filterFields}
-              describeDisplay={describeFileDisplay}
+            <ListSearchInput
+              query={query}
+              onQueryChange={setQuery}
+              placeholder="Search files"
+              ariaLabel="Search files by name, content and label"
             />
+            <div className="ml-auto flex items-center gap-1">
+              {files.some((f) => f.needsReindex) && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 gap-1.5"
+                      disabled={reindexMissing.isPending}
+                      onClick={() => reindexStatus === "idle" && reindexMissing.mutate()}
+                    >
+                      <StatusButtonContent
+                        status={reindexStatus}
+                        icon={<IconRefresh />}
+                        label={reindexLabel(reindexMissing.isPending ? reindexProgress : null)}
+                        successLabel={
+                          reindexMissing.data
+                            ? `${reindexMissing.data.reindexed} reindexed`
+                            : "Reindexed"
+                        }
+                        errorLabel="Couldn't reindex, try again"
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Index older files for search</TooltipContent>
+                </Tooltip>
+              )}
+              {!view && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="iconSm"
+                      aria-label="New view"
+                      className="shrink-0"
+                      onClick={() => setViewDialogOpen(true)}
+                    >
+                      <IconStack2 />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Name a View of some labels, with this page's filters
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              <ViewPresetsButton
+                spaceId={spaceId}
+                module="files"
+                compact
+                presets={FILE_VIEW_PRESETS}
+                fields={filterFields}
+                describeDisplay={describeFileDisplay}
+              />
+            </div>
           </>
         }
         displayMenu={<FileDisplayMenu display={display} onChange={setDisplay} />}
@@ -424,6 +494,7 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
         spaceId={spaceId}
         module="files"
         display={display}
+        query={query}
       />
       <PickedLabels
         picked={display.shelf}
@@ -440,7 +511,7 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
         labels={{
           options: labelOptions,
           picked: display.shelf,
-          configFor: (picked) => serializeViewConfig(filters, { ...display, shelf: picked }),
+          configFor: (picked) => serializeViewConfig(filters, { ...display, shelf: picked }, query),
         }}
         onSaved={(created) =>
           useNavStore.getState().setView(viewTarget("files", spaceId, created.id))
@@ -461,6 +532,7 @@ export function FilesListView({ spaceId, viewId }: { spaceId: string; viewId?: s
           text="No files match these filters."
           onClear={() => {
             setFilters([]);
+            setQuery("");
             setDisplay({ ...display, shelf: [] });
           }}
         />

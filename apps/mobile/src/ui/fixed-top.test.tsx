@@ -53,7 +53,7 @@ describe("a list page's top", () => {
     expect(scrolls(page.getByRole("header", { name: /^Trash/ }))).toBe(false);
   });
 
-  it("keeps Jots' tabs put", async () => {
+  it("keeps Jots' toggle put", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
     await createPage(data.db, space, "jot", "An idea");
@@ -68,7 +68,7 @@ describe("a list page's top", () => {
       data,
     );
     expect(await page.findByRole("button", { name: /^An idea/ })).toBeTruthy();
-    expect(scrolls(page.getByRole("tab", { name: /^Unrefined/ }))).toBe(false);
+    expect(scrolls(page.getByRole("button", { name: /^Show refined/ }))).toBe(false);
     expect(scrolls(page.getByRole("button", { name: /^An idea/ }))).toBe(true);
   });
 });

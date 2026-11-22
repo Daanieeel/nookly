@@ -1,58 +1,6 @@
 {
   "versions": [
     {
-      "version": "1.1.0",
-      "date": "2026-11-21",
-      "title": "Find in page, every block and a way back to today",
-      "summary": "Your phone edits and searches pages like your computer, and the calendar always has a way back to today.",
-      "highlights": [
-        {
-          "title": "Find inside a page",
-          "description": "A magnifying glass in the top bar of a note or jot finds text on your phone, like on your computer.",
-          "icon": "notebook",
-          "tag": "New"
-        },
-        {
-          "title": "Every block on your phone",
-          "description": "The slash menu has the same blocks as your computer, and Steps, Tree, Details, Stats, Progress, Timeline and the media blocks can be edited in the page.",
-          "icon": "layout-columns",
-          "tag": "New"
-        },
-        {
-          "title": "Longer calendar entries made clear",
-          "description": "A new entry has a Starts and an Ends line with a day and a time each. Move the end to a later day for an entry that lasts longer.",
-          "icon": "device-mobile",
-          "tag": "Improved"
-        }
-      ],
-      "more": {
-        "Improved": [
-          "Calendar pages show a Back to Today button once today has scrolled out of view.",
-          "Password fields on your phone have an eye to show or hide what you typed.",
-          "Sign in and create account fields lock while you wait, and after a mistake the button stays off until you have changed the fields.",
-          "The bar for saving changes to a page has bigger buttons, a Save button with an icon and a red Discard.",
-          "A filter that finds nothing now shows a No matches message with a button to clear the filters.",
-          "The highlighted row in a popover now has corners that match the popover."
-        ],
-        "Fixed": [
-          "Files on your phone download five at a time and no longer sit on Downloading for ever.",
-          "Icons inside coloured buttons now match the label's colour.",
-          "The Agent settings text box is no longer cut off."
-        ]
-      }
-    },
-    {
-      "version": "1.0.1",
-      "date": "2026-11-19",
-      "highlights": [],
-      "more": {
-        "Fixed": [
-          "Signing in closes the window straight away instead of spinning until everything has been sent.",
-          "Keeping what is on a device out of your account no longer shows the page about bringing the device into your account, and a device with nothing on it skips that page too."
-        ]
-      }
-    },
-    {
       "version": "1.0.0",
       "date": "2026-11-10",
       "title": "Nookly on your phone, synced everywhere",
@@ -87,6 +35,12 @@
           "description": "Make a View in Files from a name and the labels you search and tick, and it keeps your filters and display too.",
           "icon": "filter",
           "tag": "New"
+        },
+        {
+          "title": "Easier Jots, Notes and Files",
+          "description": "Jots open on what is left to refine, Notes start with what you edited last and group by course, and Files can be searched and filed by course.",
+          "icon": "notebook",
+          "tag": "Improved"
         }
       ],
       "more": {
@@ -103,7 +57,21 @@
           "A backup is made before a device first sends its things to your account.",
           "On your phone, scan paper documents straight into a Space's files and name, label and link them while they upload.",
           "Moodle works on your phone just like on your computer: read your courses, pages, assignments, grades and forums, open and import files, read them offline, and see Moodle's deadlines on your calendar.",
-          "Your coding agent can read and change Nookly's settings, make backups, check how syncing is going and see your connected calendars through the command line, and the open app shows a changed setting within a few seconds."
+          "Your coding agent can read and change Nookly's settings, make backups, check how syncing is going and see your connected calendars through the command line, and the open app shows a changed setting within a few seconds.",
+          "A magnifying glass in the top bar of a note or jot finds text on your phone, like on your computer.",
+          "The slash menu has the same blocks as your computer, and Steps, Tree, Details, Stats, Progress, Timeline and the media blocks can be edited in the page.",
+          "A new entry has a start and an end with a day and a time each, in the pills above the keyboard. Move the end to a later day for an entry that lasts longer.",
+          "Calendar pages show a Back to Today button once today has scrolled out of view.",
+          "Password fields on your phone have an eye to show or hide what you typed.",
+          "Sign in and create account fields lock while you wait, and after a mistake the button stays off until you have changed the fields.",
+          "The bar for saving changes to a page has bigger buttons, a Save button with an icon and a red Discard.",
+          "A filter that finds nothing now shows a No matches message with a button to clear the filters.",
+          "The highlighted row in a popover now has corners that match the popover.",
+          "Jots have a Show refined button and a Refine button on every row, and R refines the selected one.",
+          "Files has an Unsorted view for files in no course and without a label.",
+          "A saved Files View keeps what you searched for.",
+          "The same Jots, Notes and Files changes are on your phone.",
+          "Notes has a Display menu to pick the layout and hide the ID, preview, labels or last edited date."
         ],
         "Fixed": [
           "The hidden sidebar slides in on a solid background with a clear shadow when you rest the pointer on the left edge.",
@@ -111,7 +79,14 @@
           "Your cursor stays in its word while someone on another device types earlier in the same line.",
           "Names next to other people's cursors stay visible in the first line of a page.",
           "An empty Notes or Jots page has room around it instead of touching the edges.",
-          "A quick swipe between Spaces goes through even while Nookly is busy, instead of sliding back."
+          "A quick swipe between Spaces goes through even while Nookly is busy, instead of sliding back.",
+          "Files on your phone download five at a time and no longer sit on Downloading for ever.",
+          "Icons inside coloured buttons now match the label's colour.",
+          "The Agent settings text box is no longer cut off.",
+          "Signing in closes the window straight away instead of spinning until everything has been sent.",
+          "Keeping what is on a device out of your account no longer shows the page about bringing the device into your account, and a device with nothing on it skips that page too.",
+          "On your phone, the Display button no longer drops onto a line of its own next to a long page title.",
+          "On your phone, the cards on the Courses page and other galleries stand out from the page."
         ]
       }
     },

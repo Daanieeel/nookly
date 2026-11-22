@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ActiveFilter, FilterJoin, FilterOperator } from "#/components/filter-menu.tsx";
 
 /// What a saved View remembers of its page: the applied filters and the display
@@ -6,11 +7,14 @@ import type { ActiveFilter, FilterJoin, FilterOperator } from "#/components/filt
 export interface ViewConfig<D> {
   filters: ActiveFilter[];
   display: D;
+  /// The text in the page's search field, for pages that have one (Files).
+  query?: string;
 }
 
 interface StoredConfig<D> {
   filters?: { fieldId?: string; operator?: string; values?: string[]; join?: string }[];
   display?: Partial<D>;
+  query?: unknown;
 }
 
 const OPERATORS: FilterOperator[] = ["is", "isNot"];
@@ -46,11 +50,17 @@ export function parseViewConfig<D>(
       ];
     }),
     display: normalizeDisplay(stored.display ?? {}),
+    query: z.string().safeParse(stored.query).data || undefined,
   };
 }
 
-export function serializeViewConfig<D>(filters: ActiveFilter[], display: D): string {
-  return JSON.stringify({ filters, display } satisfies ViewConfig<D>);
+export function serializeViewConfig<D>(
+  filters: ActiveFilter[],
+  display: D,
+  query?: string,
+): string {
+  // Left out when empty, so a View without search text reads the same as before.
+  return JSON.stringify({ filters, display, ...(query && { query }) } satisfies ViewConfig<D>);
 }
 
 /// Whether the page differs from what the View saved.

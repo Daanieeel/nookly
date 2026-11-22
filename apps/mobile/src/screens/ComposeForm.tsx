@@ -31,7 +31,6 @@ import { useCloseSheet } from "../ui/sheet/route.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { localDay } from "./dates.ts";
-import { SPACE } from "../ui/tokens.ts";
 import { courseOption, entityOption, labelOption, spaceOption } from "./option-badges.tsx";
 
 const PILL_ICON = 18;
@@ -356,60 +355,3 @@ export function TimePill({
     </PillSheet>
   );
 }
-
-/// When an entry happens, as iOS's Calendar: a Starts line and an Ends line, each with its
-/// day and, unless the entry lasts all day, its time. A longer entry is one whose end day is
-/// later than its start day.
-export function WhenLines({
-  allDay,
-  startDay,
-  endDay,
-  starts,
-  ends,
-  onStartDay,
-  onEndDay,
-  onStarts,
-  onEnds,
-}: {
-  allDay: boolean;
-  startDay: string;
-  endDay: string;
-  starts: string | null;
-  ends: string | null;
-  onStartDay: (day: string) => void;
-  onEndDay: (day: string) => void;
-  onStarts: (time: string | null) => void;
-  onEnds: (time: string | null) => void;
-}) {
-  return (
-    <View style={{ gap: SPACE.sm, paddingVertical: SPACE.sm }}>
-      <View style={WHEN_LINE}>
-        <Text tone="muted" style={{ width: WHEN_LABEL }}>
-          Starts
-        </Text>
-        <DayPill
-          label="Start day"
-          value={startDay}
-          clearable={false}
-          onChange={(d) => d && onStartDay(d)}
-        />
-        {allDay ? null : <TimePill label="Starts" value={starts} onChange={onStarts} />}
-      </View>
-      <View style={WHEN_LINE}>
-        <Text tone="muted" style={{ width: WHEN_LABEL }}>
-          Ends
-        </Text>
-        <DayPill
-          label="End day"
-          value={endDay}
-          clearable={false}
-          onChange={(d) => d && onEndDay(d)}
-        />
-        {allDay ? null : <TimePill label="Ends" value={ends} onChange={onEnds} />}
-      </View>
-    </View>
-  );
-}
-
-const WHEN_LABEL = 52;
-const WHEN_LINE = { flexDirection: "row", alignItems: "center", gap: SPACE.sm } as const;

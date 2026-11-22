@@ -49,6 +49,12 @@ pub struct FileEntity {
     /// for: a stored copy is found or missing, a pointer to a file is its reference's state.
     /// `None` for a link that was never downloaded (it needs the network: `check_reference`).
     pub availability: Option<ReferenceStatus>,
+    /// Read only. The live entities this File is attached to, by title: whatever has it
+    /// as an `attached-file` (a Task, an Assignment, a Course, ...).
+    pub attached_to: Vec<Entity>,
+    /// Read only. The live Courses this File belongs to: attached to one directly, or
+    /// attached to something linked to one (an Assignment, an Exam, a Session).
+    pub courses: Vec<Entity>,
     #[serde(skip)]
     has_indexed_content: bool,
 }
@@ -76,6 +82,8 @@ fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileEntity> {
         indexed_content: None,
         reference: None,
         availability: None,
+        attached_to: Vec::new(),
+        courses: Vec::new(),
         has_indexed_content,
     })
 }
@@ -852,6 +860,66 @@ const FILE_SELECT: &str =
      JOIN files f ON f.entity_id = e.id \
      LEFT JOIN search_index si ON si.entity_id = e.id";
 
+/// Fills `attached_to` and `courses` for the Files `scope` picks (`e.space_id = ?1` or
+/// `e.id = ?1`, with `value` as the parameter). Trashed owners and Courses are left out.
+fn fill_links(
+    conn: &Connection,
+    files: &mut [FileEntity],
+    scope: &str,
+    value: &str,
+) -> AppResult<()> {
+    let index: std::collections::HashMap<String, usize> = files
+        .iter()
+        .enumerate()
+        .map(|(i, f)| (f.entity.id.clone(), i))
+        .collect();
+    let mut stmt = conn.prepare(&format!(
+        "SELECT DISTINCT e.id AS owner_id, o.* FROM entities e
+         JOIN relationships r ON r.to_entity_id = e.id AND r.relationship_type = 'attached-file'
+         JOIN entities o ON o.id = r.from_entity_id
+         WHERE {scope} AND e.type = 'file' AND e.deleted_at IS NULL AND o.deleted_at IS NULL
+         ORDER BY o.title COLLATE NOCASE ASC"
+    ))?;
+    let rows = stmt.query_map(params![value], |row| {
+        Ok((
+            row.get::<_, String>("owner_id")?,
+            crate::db::entities::row_to_entity(row)?,
+        ))
+    })?;
+    for row in rows {
+        let (file_id, owner) = row?;
+        if let Some(&i) = index.get(&file_id) {
+            files[i].attached_to.push(owner);
+        }
+    }
+    let mut stmt = conn.prepare(&format!(
+        "SELECT DISTINCT e.id AS owner_id, c.* FROM entities e
+         JOIN relationships a ON a.to_entity_id = e.id AND a.relationship_type = 'attached-file'
+         JOIN entities o ON o.id = a.from_entity_id AND o.deleted_at IS NULL
+         LEFT JOIN relationships rc ON o.type != 'course'
+           AND (rc.from_entity_id = o.id OR rc.to_entity_id = o.id)
+         JOIN entities c ON c.type = 'course' AND c.deleted_at IS NULL AND c.id = CASE
+           WHEN o.type = 'course' THEN o.id
+           WHEN rc.from_entity_id = o.id THEN rc.to_entity_id
+           ELSE rc.from_entity_id END
+         WHERE {scope} AND e.type = 'file' AND e.deleted_at IS NULL
+         ORDER BY c.title COLLATE NOCASE ASC"
+    ))?;
+    let rows = stmt.query_map(params![value], |row| {
+        Ok((
+            row.get::<_, String>("owner_id")?,
+            crate::db::entities::row_to_entity(row)?,
+        ))
+    })?;
+    for row in rows {
+        let (file_id, course) = row?;
+        if let Some(&i) = index.get(&file_id) {
+            files[i].courses.push(course);
+        }
+    }
+    Ok(())
+}
+
 pub fn list_files(conn: &Connection, space_id: &str) -> AppResult<Vec<FileEntity>> {
     let mut stmt = conn.prepare(&format!(
         "{FILE_SELECT} WHERE e.space_id = ?1 AND e.deleted_at IS NULL ORDER BY e.created_at ASC"
@@ -881,6 +949,7 @@ pub fn list_files(conn: &Connection, space_id: &str) -> AppResult<Vec<FileEntity
             files[i].label_ids.push(row.get(1)?);
         }
     }
+    fill_links(conn, &mut files, "e.space_id = ?1", space_id)?;
     Ok(files)
 }
 
@@ -895,6 +964,12 @@ pub fn get_file(conn: &Connection, entity_id: &str) -> AppResult<FileEntity> {
     resolve_reference(conn, &mut file)?;
     file.label_ids = crate::db::labels::label_ids_for(conn, entity_id)?;
     file.indexed_content = Some(indexed_content_for(conn, entity_id)?);
+    fill_links(
+        conn,
+        std::slice::from_mut(&mut file),
+        "e.id = ?1",
+        entity_id,
+    )?;
     Ok(file)
 }
 
@@ -1206,6 +1281,27 @@ inventory::submit! {
 inventory::submit! {
     crate::db::schema::ComputedFieldDef {
         entity_type: "file",
+        name: "attachedTo",
+        kind: FieldKind::Object,
+        description: "Read only. A JSON array of the live entities this File is attached to, by title \
+                      (whatever has it as an `attached-file`). Empty for a File nothing holds.",
+    }
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "file",
+        name: "courses",
+        kind: FieldKind::Object,
+        description: "Read only. A JSON array of the live Courses this File belongs to: attached to \
+                      one directly, or to something linked to one (an Assignment, an Exam, a Session). \
+                      Empty for a File that is in no Course.",
+    }
+}
+
+inventory::submit! {
+    crate::db::schema::ComputedFieldDef {
+        entity_type: "file",
         name: "needsReindex",
         kind: FieldKind::Boolean,
         description: "Read only. True for an indexable File (pdf, png/jpg, docx, pptx, xlsx, code/plain \
@@ -1362,6 +1458,71 @@ mod tests {
         // The listing carries the origin too.
         let listed = list_files(&conn, &space.id).unwrap();
         assert_eq!(listed[0].origin, file.origin);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn listed_files_carry_what_they_are_attached_to_and_its_courses() {
+        let conn = crate::db::test_conn();
+        let space = crate::db::test_space(&conn, "Uni");
+        let maths =
+            crate::db::courses::create_course(&conn, space.id.clone(), "Maths".into()).unwrap();
+        let note = crate::db::entities::create_entity(
+            &conn,
+            space.id.clone(),
+            "note".into(),
+            "Week 1".into(),
+            None,
+        )
+        .unwrap();
+        let rel = |from: &str, to: &str, kind: &str| {
+            crate::db::relationships::create_relationship(
+                &conn,
+                from.into(),
+                to.into(),
+                kind.into(),
+                None,
+                None,
+            )
+            .unwrap();
+        };
+        let dir = std::env::temp_dir().join(format!("nookly-links-{}", crate::db::new_id()));
+        let stored =
+            |name: &str| store_pasted_file(&conn, &dir, space.id.clone(), name, b"x").unwrap();
+        let direct = stored("direct.txt");
+        let through_note = stored("through-note.txt");
+        let loose = stored("loose.txt");
+        rel(&maths.id, &direct.entity.id, "attached-file");
+        rel(&note.id, &through_note.entity.id, "attached-file");
+        rel(&maths.id, &note.id, "course-notes");
+
+        let listed = list_files(&conn, &space.id).unwrap();
+        let find = |id: &str| listed.iter().find(|f| f.entity.id == id).unwrap();
+        let titles = |list: &[Entity]| list.iter().map(|e| e.title.clone()).collect::<Vec<_>>();
+        assert_eq!(titles(&find(&direct.entity.id).attached_to), vec!["Maths"]);
+        assert_eq!(titles(&find(&direct.entity.id).courses), vec!["Maths"]);
+        assert_eq!(
+            titles(&find(&through_note.entity.id).attached_to),
+            vec!["Week 1"]
+        );
+        assert_eq!(
+            titles(&find(&through_note.entity.id).courses),
+            vec!["Maths"]
+        );
+        assert!(find(&loose.entity.id).attached_to.is_empty());
+        assert!(find(&loose.entity.id).courses.is_empty());
+        // A single File carries them too, as the CLI's `get` shows it.
+        assert_eq!(
+            titles(&get_file(&conn, &through_note.entity.id).unwrap().courses),
+            vec!["Maths"]
+        );
+
+        // A trashed owner or course no longer counts.
+        crate::db::entities::soft_delete_entity(&conn, &note.id).unwrap();
+        let listed = list_files(&conn, &space.id).unwrap();
+        let find = |id: &str| listed.iter().find(|f| f.entity.id == id).unwrap();
+        assert!(find(&through_note.entity.id).attached_to.is_empty());
+        assert!(find(&through_note.entity.id).courses.is_empty());
         let _ = std::fs::remove_dir_all(dir);
     }
 

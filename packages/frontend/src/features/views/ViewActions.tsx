@@ -4,6 +4,7 @@ import { StatusButtonContent, useActionStatus } from "#/components/action-feedba
 import type { ActiveFilter } from "#/components/filter-menu.tsx";
 import type { SavedView, ViewModule } from "#/lib/api/views.ts";
 import { useNavStore } from "#/lib/store/nav.ts";
+import { cn } from "@nookly/ui/lib/utils";
 import { Button } from "@nookly/ui/components/button";
 import { ViewDialog } from "./ViewDialog";
 import { serializeViewConfig } from "./view-config";
@@ -32,6 +33,7 @@ export function ViewSaveBar<D>({
   module,
   filters,
   display,
+  query,
 }: {
   view: SavedView | undefined;
   dirty: boolean;
@@ -42,6 +44,8 @@ export function ViewSaveBar<D>({
   module: ViewModule;
   filters: ActiveFilter[];
   display: D;
+  /// The page's search text, for pages that have one, saved with a new View.
+  query?: string;
 }) {
   const status = useActionStatus(save);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -50,7 +54,11 @@ export function ViewSaveBar<D>({
     <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
       <section
         aria-label="Unsaved changes"
-        className="pointer-events-auto flex items-center gap-3 rounded-lg border border-border bg-popover py-1.5 pr-1.5 pl-3 shadow-lg"
+        className={cn(
+          "pointer-events-auto flex items-center gap-3 rounded-lg border border-border bg-popover py-1.5 pr-1.5 pl-3 shadow-lg",
+          // With three buttons it spans what the floating bar on Files does.
+          dirty && !view && "w-full max-w-lg justify-between",
+        )}
       >
         <span className="text-sm text-muted-foreground">
           {dirty
@@ -100,7 +108,7 @@ export function ViewSaveBar<D>({
           onOpenChange={setDialogOpen}
           spaceId={spaceId}
           module={module}
-          config={serializeViewConfig(filters, display)}
+          config={serializeViewConfig(filters, display, query)}
           onSaved={(created) =>
             useNavStore.getState().setView(viewTarget(module, spaceId, created.id))
           }

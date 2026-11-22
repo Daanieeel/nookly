@@ -79,3 +79,60 @@ describe("Files views", () => {
     expect(fileDisplaySchema.parse(stored)).toEqual({ ...FILE_DEFAULT, ...stored });
   });
 });
+
+// The desktop's Files page searches, files by course and keeps the search in a View.
+describe("Files views with a search, courses and unsorted files", () => {
+  it("reads the search text, the course and attached filters, and unsorted", () => {
+    const raw = JSON.stringify({
+      query: "fourier",
+      filters: [
+        { fieldId: "course", operator: "is", values: ["c1"] },
+        { fieldId: "attached", operator: "is", values: ["a1"] },
+        { fieldId: "filing", operator: "is", values: ["unsorted"] },
+      ],
+      display: { grouping: "course" },
+    });
+    expect(fileDisplayFromView(raw, { labelIds: [] })).toEqual({
+      display: {
+        ...FILE_DEFAULT,
+        courses: ["c1"],
+        attached: ["a1"],
+        unsorted: true,
+        grouping: "course",
+      },
+      query: "fourier",
+      ignored: [],
+    });
+  });
+
+  it("names a filing filter it can't show", () => {
+    const raw = JSON.stringify({
+      filters: [{ fieldId: "filing", operator: "is", values: ["sorted"] }],
+    });
+    expect(fileDisplayFromView(raw, { labelIds: [] }).ignored).toEqual(["filing"]);
+  });
+
+  it("writes them for the desktop, and reads them back the same", () => {
+    const display = {
+      ...FILE_DEFAULT,
+      courses: ["c1"],
+      attached: ["a1"],
+      unsorted: true,
+      grouping: "attached" as const,
+    };
+    const raw = fileViewConfig(display, "fourier");
+    expect(JSON.parse(raw)).toMatchObject({
+      query: "fourier",
+      filters: [
+        { fieldId: "course", operator: "is", values: ["c1"] },
+        { fieldId: "attached", operator: "is", values: ["a1"] },
+        { fieldId: "filing", operator: "is", values: ["unsorted"] },
+      ],
+    });
+    expect(fileDisplayFromView(raw, { labelIds: [] })).toMatchObject({ display, query: "fourier" });
+  });
+
+  it("leaves the query out when there is none", () => {
+    expect(JSON.parse(fileViewConfig(FILE_DEFAULT))).not.toHaveProperty("query");
+  });
+});

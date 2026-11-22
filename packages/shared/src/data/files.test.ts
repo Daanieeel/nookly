@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { LocalDb } from "./db.ts";
-import { rows } from "./db.ts";
+import { rows, write } from "./db.ts";
 import { createSpace, trashEntity } from "./entities.ts";
 import { createCourse } from "./study.ts";
+import { createPage } from "./notes.ts";
 import { createLabel, entityLabels } from "./links.ts";
 import {
   addFile,
@@ -183,5 +184,49 @@ describe("a file imported with its details", () => {
       }),
     ).rejects.toThrow();
     expect(await listFiles(db, space)).toEqual([]);
+  });
+});
+
+/// A link of any type, written as sync or the desktop would: some are not made by hand.
+const link = (from: string, to: string, type: string) =>
+  write(db, [
+    {
+      sql: "INSERT INTO relationships (id, from_entity_id, to_entity_id, relationship_type, created_at) VALUES (?, ?, ?, ?, ?)",
+      params: [db.newId(), from, to, type, "2026-01-01T00:00:00.000Z"],
+    },
+  ]);
+
+describe("what a file is attached to", () => {
+  it("lists the entities it is attached to and the courses it belongs to, directly or through them", async () => {
+    const space = await createSpace(db, "Uni", "#000000");
+    const maths = await createCourse(db, space, "Maths");
+    const note = await createPage(db, space, "note", "Week 1");
+    await link(maths, note, "course-notes");
+    const direct = await addFile(db, space, "direct.pdf", "file:///direct.pdf");
+    const throughNote = await addFile(db, space, "through.pdf", "file:///through.pdf");
+    const loose = await addFile(db, space, "loose.pdf", "file:///loose.pdf");
+    await link(maths, direct, "attached-file");
+    await link(note, throughNote, "attached-file");
+
+    const files = await listFiles(db, space);
+    const of = (id: string) => files.find((f) => f.entity.id === id);
+    expect(of(direct)?.attachedTo.map((e) => e.title)).toEqual(["Maths"]);
+    expect(of(direct)?.courses.map((c) => c.title)).toEqual(["Maths"]);
+    expect(of(throughNote)?.attachedTo.map((e) => e.title)).toEqual(["Week 1"]);
+    expect(of(throughNote)?.courses.map((c) => c.title)).toEqual(["Maths"]);
+    expect(of(loose)?.attachedTo).toEqual([]);
+    expect(of(loose)?.courses).toEqual([]);
+    expect((await getFile(db, throughNote))?.courses.map((c) => c.title)).toEqual(["Maths"]);
+  });
+
+  it("leaves out an owner or course in the Trash", async () => {
+    const space = await createSpace(db, "Uni", "#000000");
+    const maths = await createCourse(db, space, "Maths");
+    const file = await addFile(db, space, "a.pdf", "file:///a.pdf");
+    await link(maths, file, "attached-file");
+    await trashEntity(db, maths);
+    const [listed] = await listFiles(db, space);
+    expect(listed?.attachedTo).toEqual([]);
+    expect(listed?.courses).toEqual([]);
   });
 });

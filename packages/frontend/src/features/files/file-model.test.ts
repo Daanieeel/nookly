@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildGroups } from "#/components/grouped-view/grouping.ts";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { makeFile, makeLabel } from "#/test/fixtures.ts";
+import { makeEntity, makeFile, makeLabel } from "#/test/fixtures.ts";
 import { freezeTime, setDateTimeSettings } from "#/test/time.ts";
 import {
   fileExtension,
@@ -14,6 +14,7 @@ import {
 } from "./file-kind.ts";
 import {
   fileGroupDefs,
+  isUnsorted,
   orderFiles,
   readDisplay,
   reindexLabel,
@@ -222,5 +223,46 @@ describe("reindexLabel", () => {
     expect(reindexLabel({ done: 0, total: 0 })).toBe("Reindexing");
     expect(reindexLabel({ done: 0, total: 12 })).toBe("Reindexing 0 of 12");
     expect(reindexLabel({ done: 3, total: 12 })).toBe("Reindexing 3 of 12");
+  });
+});
+
+describe("grouping by course and by what a file is attached to", () => {
+  const maths = makeEntity({ id: "c1", type: "course", title: "Maths" });
+  const art = makeEntity({ id: "c2", type: "course", title: "Art" });
+  const sheet = makeEntity({ id: "a1", type: "assignment", title: "Sheet 1" });
+  const files = [
+    makeFile({ courses: [maths], attachedTo: [maths] }, { id: "f1" }),
+    makeFile({ courses: [art, maths], attachedTo: [sheet] }, { id: "f2" }),
+    makeFile({}, { id: "f3" }),
+  ];
+
+  it("lists each course by name, a file of two courses in both, and the rest last", () => {
+    const groups = buildGroups(files, fileGroupDefs("course", [], files) ?? [], null).filter(
+      (g) => g.items.length > 0,
+    );
+    expect(groups.map((g) => [g.name, ids(g.items)])).toEqual([
+      ["Art", ["f2"]],
+      ["Maths", ["f1", "f2"]],
+      ["No course", ["f3"]],
+    ]);
+  });
+
+  it("lists each thing files are attached to, and the files attached to nothing last", () => {
+    const groups = buildGroups(files, fileGroupDefs("attached", [], files) ?? [], null).filter(
+      (g) => g.items.length > 0,
+    );
+    expect(groups.map((g) => [g.name, ids(g.items)])).toEqual([
+      ["Maths", ["f1"]],
+      ["Sheet 1", ["f2"]],
+      ["Not attached", ["f3"]],
+    ]);
+  });
+});
+
+describe("isUnsorted", () => {
+  it("means in no course and with no label", () => {
+    expect(isUnsorted(makeFile())).toBe(true);
+    expect(isUnsorted(makeFile({ labelIds: ["l1"] }))).toBe(false);
+    expect(isUnsorted(makeFile({ courses: [makeEntity({ type: "course" })] }))).toBe(false);
   });
 });

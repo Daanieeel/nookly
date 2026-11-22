@@ -152,6 +152,8 @@ export const qk = {
   },
   files: {
     ...spaceList("files"),
+    /// Nested under `bySpace`, so an import or a trash refreshes the hits too.
+    search: (spaceId: string, query: string) => ["files", spaceId, "search", query] as const,
     byId: (id: string | undefined) => ["file", id] as const,
     text: (id: string) => ["file-text", id] as const,
     shareBytes: (id: string, path: string | null) => ["file-share-bytes", id, path] as const,

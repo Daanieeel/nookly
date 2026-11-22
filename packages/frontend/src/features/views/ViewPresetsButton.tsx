@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@nookly/ui/components/dialog";
 import { cn } from "@nookly/ui/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { serializeViewConfig } from "./view-config";
 import type { DisplaySummary, ViewPreset } from "./view-presets";
 
@@ -32,7 +33,10 @@ export function ViewPresetsButton<D>({
   presets,
   fields,
   describeDisplay,
+  compact,
 }: {
+  /// Only the icon, with the name in a tooltip, for a crowded header.
+  compact?: boolean;
   spaceId: string;
   /// Set on a cross-Space page. Its Views show every Space's items whichever Space stores
   /// them, so a preset is stored in `spaceId` and counts as added when any Space has it.
@@ -86,10 +90,21 @@ export function ViewPresetsButton<D>({
 
   return (
     <>
-      <Button variant="ghost" size="sm" className="shrink-0 gap-1.5" onClick={() => setOpen(true)}>
-        <IconLayoutList />
-        View presets
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size={compact ? "iconSm" : "sm"}
+            aria-label={compact ? "View presets" : undefined}
+            className="shrink-0 gap-1.5"
+            onClick={() => setOpen(true)}
+          >
+            <IconLayoutList />
+            {!compact && "View presets"}
+          </Button>
+        </TooltipTrigger>
+        {compact && <TooltipContent>View presets</TooltipContent>}
+      </Tooltip>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>

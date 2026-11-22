@@ -10,11 +10,13 @@ import {
   setCurrentSemester,
 } from "@nookly/shared/data";
 import { fireEvent, waitFor } from "expo-router/testing-library";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import { openRow } from "../test/sheet.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { addDays, localDay } from "./dates.ts";
 import { CourseGallery, DeckGrid, ExamTimeline } from "./StudyGalleries.tsx";
+import { ModuleScreen } from "./ModuleScreen.tsx";
+import { semantic } from "../ui/tokens.ts";
 
 describe("the Courses gallery", () => {
   it("groups cards under a band per semester, the current one Active, loose ones last", async () => {
@@ -34,6 +36,25 @@ describe("the Courses gallery", () => {
     expect(screen.getAllByText("No sessions").length).toBe(2);
     await fireEvent.press(screen.getByRole("button", { name: "Winter 26" }));
     expect(screen.queryByRole("button", { name: "Algorithms" })).toBeNull();
+  });
+});
+
+describe("the cards on a gallery page", () => {
+  // On the Courses page a card was drawn in the page's own tone, so it did not read as a
+  // card at all in light mode. A page of cards puts them one step off the page, like Home.
+  it("are a step off the page, not its own colour", async () => {
+    const data = testData();
+    const space = await createSpace(data.db, "Uni", "#3b82f6");
+    await createCourse(data.db, space, "Algorithms");
+    const screen = await renderScreens(
+      { "module/[spaceId]/[module]": () => <ModuleScreen spaceId={space} module="courses" /> },
+      data,
+      `/module/${space}/courses`,
+    );
+    const card = await screen.findByRole("button", { name: "Algorithms" });
+    const { backgroundColor, borderRadius } = StyleSheet.flatten(card.props.style);
+    expect(backgroundColor).toEqual(semantic("pageCard", "light"));
+    expect(borderRadius).toBeGreaterThan(0);
   });
 });
 

@@ -54,6 +54,10 @@ describe("swiping a row", () => {
     const space = await createSpace(data.db, "Work", "#0070f3");
     const id = await createPage(data.db, space, "note", "Plans");
     const screen = await renderScreens({ index: () => <NoteList spaceId={space} /> }, data);
+    // Notes open as cards, which have the long press menu; the list's rows swipe.
+    await screen.findByRole("button", { name: "Plans" });
+    await fireEvent.press(screen.getByRole("button", { name: "Display" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "List" }));
     const row = await screen.findByRole("button", { name: "Plans" });
     expect(names(row)).toEqual(["Pin", "More", "Trash"]);
     await act(row, "Pin");

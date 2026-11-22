@@ -1,6 +1,6 @@
 import type { SqlStatement } from "../sync/sql.ts";
 import { labelColorFor } from "../colors.ts";
-import { type LocalDb, first, iso, optStr, rows, write } from "./db.ts";
+import { type LocalDb, first, iso, optStr, rows, str, write } from "./db.ts";
 import { ENTITY_COLUMNS, type EntityRecord, createEntityStatements, toEntity } from "./entities.ts";
 import { LABEL_IDS_COLUMN, labelIdsOf } from "./links.ts";
 
@@ -16,6 +16,11 @@ export interface FileRecord {
   blob: string | null;
   /// The labels on it, to filter by.
   labelIds: string[];
+  /// What it is attached to (`attached-file`), live items only, by title.
+  attachedTo: { id: string; title: string; type: string }[];
+  /// The live Courses it belongs to: attached to one directly, or to something linked to one
+  /// (an Assignment, an Exam, a Session, a Note of the Course). As the desktop's.
+  courses: { id: string; title: string }[];
 }
 
 const FILE_SELECT = `SELECT ${ENTITY_COLUMNS}, f.local_path, f.provider, f.url, f.original_filename, f.source_path, f.blob, ${LABEL_IDS_COLUMN}
@@ -31,23 +36,67 @@ function toFile(row: Record<string, string | number | null>): FileRecord {
     sourcePath: optStr(row.source_path),
     blob: optStr(row.blob),
     labelIds: labelIdsOf(row),
+    attachedTo: [],
+    courses: [],
   };
+}
+
+/// Fills in what each file is attached to and its Courses, in two queries for all of them.
+async function withLinks(db: LocalDb, files: FileRecord[]): Promise<FileRecord[]> {
+  if (files.length === 0) return files;
+  const marks = files.map(() => "?").join(", ");
+  const ids = files.map((f) => f.entity.id);
+  const owners = await rows(
+    db,
+    `SELECT r.to_entity_id AS file_id, o.id, o.title, o.type FROM relationships r
+     JOIN entities o ON o.id = r.from_entity_id
+     WHERE r.relationship_type = 'attached-file' AND r.to_entity_id IN (${marks})
+       AND o.deleted_at IS NULL
+     ORDER BY o.title COLLATE NOCASE`,
+    ...ids,
+  );
+  const courses = await rows(
+    db,
+    `SELECT DISTINCT a.to_entity_id AS file_id, c.id, c.title FROM relationships a
+     JOIN entities o ON o.id = a.from_entity_id AND o.deleted_at IS NULL
+     LEFT JOIN relationships rc ON o.type != 'course'
+       AND (rc.from_entity_id = o.id OR rc.to_entity_id = o.id)
+     JOIN entities c ON c.type = 'course' AND c.deleted_at IS NULL AND c.id = CASE
+       WHEN o.type = 'course' THEN o.id
+       WHEN rc.from_entity_id = o.id THEN rc.to_entity_id
+       ELSE rc.from_entity_id END
+     WHERE a.relationship_type = 'attached-file' AND a.to_entity_id IN (${marks})
+     ORDER BY c.title COLLATE NOCASE`,
+    ...ids,
+  );
+  return files.map((file) => ({
+    ...file,
+    attachedTo: owners
+      .filter((o) => str(o.file_id) === file.entity.id)
+      .map((o) => ({ id: str(o.id), title: str(o.title), type: str(o.type) })),
+    courses: courses
+      .filter((c) => str(c.file_id) === file.entity.id)
+      .map((c) => ({ id: str(c.id), title: str(c.title) })),
+  }));
 }
 
 /// A Space's files, or every Space's, newest first.
 export async function listFiles(db: LocalDb, spaceId?: string): Promise<FileRecord[]> {
-  return (
+  const found = (
     await rows(
       db,
       `${FILE_SELECT} WHERE e.deleted_at IS NULL AND e.hidden_at IS NULL${spaceId ? " AND e.space_id = ?" : ""} ORDER BY e.created_at DESC`,
       ...(spaceId ? [spaceId] : []),
     )
   ).map(toFile);
+  return withLinks(db, found);
 }
 
 export async function getFile(db: LocalDb, id: string): Promise<FileRecord | null> {
   const row = await first(db, `${FILE_SELECT} WHERE e.id = ?`, id);
-  return row ? toFile(row) : null;
+  if (!row) return null;
+  const [file] = await withLinks(db, [toFile(row)]);
+  return file ?? null;
 }
 
 /// A new File whose contents are already stored on this device at `localPath`. Sync

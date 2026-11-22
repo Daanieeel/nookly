@@ -9,7 +9,7 @@ import {
 } from "#/components/grouped-view/grouping.ts";
 
 /// A collapsible group with a sticky header, shared by the grouped card/row lists.
-function GroupSection({
+export function GroupSection({
   name,
   count,
   collapsed,

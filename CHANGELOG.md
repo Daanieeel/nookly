@@ -2,38 +2,6 @@
 
 All notable changes to Nookly are listed here.
 
-## 1.1.0 (2026-11-21)
-
-### Added
-
-- On your phone, a magnifying glass in the top bar finds text inside a note or jot, like on your computer.
-- On your phone, the slash menu has every block your computer has, including inline math, and you can edit Steps, Tree, Details, Stats, Progress, Timeline, Image, Video, Audio, File, Web bookmark, Embed and Linked item blocks right in the page.
-- On your phone, calendar pages show a Back to Today button once today has scrolled out of view.
-- Password fields on your phone have an eye to show or hide what you typed.
-
-### Changed
-
-- On your phone, a new calendar entry now has a Starts line and an Ends line, each with its day and time, and a longer entry is made by moving the end to a later day. The entry page works the same way.
-- On your phone, the sign in and create account fields lock while you wait, and after a mistake the fields are marked and the button stays off until you have changed them.
-- On your phone, the bar for saving changes to a page has bigger buttons, a Save button with an icon and a red Discard.
-- On your phone, the floating bars sit higher with softer corners that match their buttons.
-- On your phone, the dashboard mascot sits at the top right.
-- A filter that finds nothing now shows a No matches message with a button to clear the filters, on every page that has filters.
-- The highlighted row in a popover now has corners that match the popover.
-
-### Fixed
-
-- Files on your phone download five at a time and no longer sit on Downloading for ever.
-- Icons inside coloured buttons now match the label's colour, like the white trash icon on Move to Trash.
-- The Agent settings text box is no longer cut off.
-
-## 1.0.1 (2026-11-19)
-
-### Fixed
-
-- Signing in closes the window straight away instead of spinning until everything has been sent.
-- Keeping what is on a device out of your account no longer shows the page about bringing the device into your account, and a device with nothing on it skips that page too.
-
 ## 1.0.0 (2026-11-10)
 
 ### Added
@@ -46,7 +14,15 @@ All notable changes to Nookly are listed here.
 - On your phone, scan paper documents straight into a Space's files, then name, label and link them while they upload.
 - Moodle works on your phone just like on your computer: sign in with your saved passwords, read your courses, pages, assignments, grades and forums, open files and import them into a Space, read what you opened before while offline, and see Moodle's deadlines on your calendar.
 - In Files, New View makes a View from a name and the labels you search for and tick, with your filters and display, and it shows up on your other devices. A View shows only its own labels at the top, and you can find the files that still have no label.
+- Jots open on the ones still to refine, with a Show refined button that adds the refined ones underneath. Every row has a Refine button, and pressing R on a selected row does the same.
+- The Notes page starts with Continue cards for the notes you edited last, then groups your notes by course, label or when you last edited them, as cards, a list or the table. Display picks the layout, the grouping, whether Continue shows, and which of ID, Preview, Labels and Last edited to show.
+- Files has a search field, an Unsorted view, added to each Space, for files that are in no course and have no label (you can rename or delete it), and Course and Attached to filters and groupings. A saved View keeps what you searched for.
+- The same Jots, Notes and Files changes are on your phone.
 - Your coding agent can now read and change Nookly's settings, make backups, check how syncing is going and see your connected calendars through the command line, and the open app shows a changed setting within a few seconds.
+- On your phone, a magnifying glass in the top bar finds text inside a note or jot, like on your computer.
+- On your phone, the slash menu has every block your computer has, including inline math, and you can edit Steps, Tree, Details, Stats, Progress, Timeline, Image, Video, Audio, File, Web bookmark, Embed and Linked item blocks right in the page.
+- On your phone, calendar pages show a Back to Today button once today has scrolled out of view.
+- Password fields on your phone have an eye to show or hide what you typed.
 
 ### Changed
 
@@ -59,15 +35,29 @@ All notable changes to Nookly are listed here.
 - New pages open at once.
 - Every list can be filtered by more of what its items have: pinned, created and updated everywhere, and its own details, like a recipe's kind and time, an exam's date and status, or when something went to Trash.
 - Typing an item's short code like TSK in search first shows what contains it, then lists every item with that code, newest first.
+- On your phone, a new calendar entry has a start and an end, each with its day and time, in the row of pills above the keyboard, and a longer entry is made by moving the end to a later day. The entry page works the same way.
+- On your phone, the sign in and create account fields lock while you wait, and after a mistake the fields are marked and the button stays off until you have changed them.
+- On your phone, the bar for saving changes to a page has bigger buttons, a Save button with an icon and a red Discard.
+- On your phone, the floating bars sit higher with softer corners that match their buttons.
+- On your phone, the dashboard mascot sits at the top right.
+- A filter that finds nothing now shows a No matches message with a button to clear the filters, on every page that has filters.
+- The highlighted row in a popover now has corners that match the popover.
 
 ### Fixed
 
+- On your phone, the Display button no longer drops onto a line of its own next to a long page title.
+- On your phone, the cards on the Courses and Notes pages and other galleries stand out from the page, a note card with more labels than fit shows a ... badge, and file icons are coloured by type like on your computer.
 - **The hidden sidebar is readable when it slides in.** Resting the pointer on the left edge shows it on a solid background with a clear shadow, no longer see through over the page.
 - **Vim keys show their cursor again.** In normal and visual mode the cursor is a block over the character it is on.
 - **Your cursor stays in its word** while someone on another device types earlier in the same line.
 - **Names next to other people's cursors stay visible** in the first line of a page.
 - **An empty Notes or Jots page has room around it** instead of touching the edges.
 - **A quick swipe between Spaces goes through** even while Nookly is busy, instead of sliding back.
+- Files on your phone download five at a time and no longer sit on Downloading for ever.
+- Icons inside coloured buttons now match the label's colour, like the white trash icon on Move to Trash.
+- The Agent settings text box is no longer cut off.
+- Signing in closes the window straight away instead of spinning until everything has been sent.
+- Keeping what is on a device out of your account no longer shows the page about bringing the device into your account, and a device with nothing on it skips that page too.
 
 ## 0.75.3 (2026-11-17)
 

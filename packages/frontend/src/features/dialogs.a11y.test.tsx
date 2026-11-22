@@ -5,6 +5,7 @@ import { describe, it } from "vitest";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
 import { RepeatChip } from "#/components/repeat-chip.tsx";
 import { TaskDisplayMenu } from "#/features/tasks/TaskDisplayMenu.tsx";
+import { NotesDisplayMenu } from "#/features/notes/NotesDisplayMenu.tsx";
 import { DEFAULT_DISPLAY } from "#/features/tasks/task-model.ts";
 import { createCourse } from "#/lib/api/courses.ts";
 import { DEFAULT_REPEAT } from "#/lib/repeat.ts";
@@ -192,6 +193,21 @@ describe("dialogs and menus have no axe violations", () => {
   // true and turns red the day it is fixed, which is the cue to make it a plain `it`.
   it.fails("TaskDisplayMenu, open", async () => {
     renderTaskMenu();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Display" }));
+    await screen.findByRole("dialog");
+    await expectNoA11yViolations();
+  });
+});
+
+describe("NotesDisplayMenu", () => {
+  it("has no accessibility violations, closed or open", async () => {
+    render(
+      <NotesDisplayMenu
+        display={{ layout: "cards", groupBy: "course", showContinue: true, hidden: [] }}
+        onChange={() => {}}
+      />,
+    );
+    await expectNoA11yViolations();
     await userEvent.setup().click(screen.getByRole("button", { name: "Display" }));
     await screen.findByRole("dialog");
     await expectNoA11yViolations();

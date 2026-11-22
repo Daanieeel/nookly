@@ -106,7 +106,7 @@ export function DecksListView({ spaceId }: { spaceId: string }) {
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="secondary" size="sm" className="gap-1.5" onClick={startCreate}>
+              <Button variant="default" size="sm" className="gap-1.5" onClick={startCreate}>
                 <IconPlus />
                 New deck
               </Button>

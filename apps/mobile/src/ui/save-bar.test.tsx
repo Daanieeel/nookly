@@ -46,6 +46,23 @@ describe("the save bar", () => {
     expect(bar.height).toBeUndefined();
   });
 
+  // Three buttons made it wider than the screen's margins. It spans what the paste bar on the
+  // Files page does, and the middle button takes up the slack.
+  it("is only as wide as Discard and Save need, where there is no Save as View", () => {
+    render(<SaveBar dirty onDiscard={() => {}} onSave={() => {}} />);
+    const bar = StyleSheet.flatten(screen.getByTestId("save-bar").props.style);
+    expect(bar.alignSelf).toBeUndefined();
+  });
+
+  it("spans the width of the paste bar with three buttons, not that of its buttons", () => {
+    render(<SaveBar dirty onDiscard={() => {}} onSave={() => {}} onSaveAsView={jest.fn()} />);
+    const bar = StyleSheet.flatten(screen.getByTestId("save-bar").props.style);
+    expect(bar.alignSelf).toBe("stretch");
+    expect(screen.getByRole("button", { name: "Save as View" }).props.className).toContain(
+      "flex-1",
+    );
+  });
+
   it("gives Save a positive fill and an icon, and Discard red words", () => {
     render(<SaveBar dirty onDiscard={() => {}} onSave={() => {}} onSaveAsView={jest.fn()} />);
     const save = StyleSheet.flatten(screen.getByRole("button", { name: "Save" }).props.style);

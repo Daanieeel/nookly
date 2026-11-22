@@ -5,6 +5,7 @@ import {
   createDeck,
   createLabel,
   createPage,
+  createRelationship,
   createSpace,
   createView,
   entityLabels,
@@ -21,12 +22,14 @@ import { EntityScreen } from "./EntityScreen.tsx";
 import { FilePasteBar, FileRows } from "./FileScreens.tsx";
 import { FILE_DEFAULT } from "./file-view.ts";
 import { forgetPreferences, writePreference } from "../data/preferences.ts";
+import { starterViewsKey } from "./use-starter-views.ts";
 import { ModuleScreen } from "./ModuleScreen.tsx";
 
 describe("files", () => {
   it("lists a Space's files with what each is, and which are still downloading", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     await addFile(data.db, space, "notes.pdf", "file:///docs/files/aaa-notes.pdf");
     const remote = await addFile(
       data.db,
@@ -50,6 +53,7 @@ describe("files", () => {
   it("lists files as a table on a tablet", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     await addFile(data.db, space, "notes.pdf", "file:///docs/files/aaa-notes.pdf");
     writePreference(`files.display.${space}`, { ...FILE_DEFAULT, layout: "list" });
     const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data, "/", {
@@ -65,6 +69,7 @@ describe("files", () => {
   it("narrows to a kind and a label, and shows a list ordered by name", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     await addFile(data.db, space, "zebra.pdf", "file:///docs/files/z.pdf");
     const tagged = await addFile(data.db, space, "apple.pdf", "file:///docs/files/a.pdf");
     await addFile(data.db, space, "photo.png", "file:///docs/files/p.png");
@@ -96,6 +101,7 @@ describe("files", () => {
   it("filters on pinned, created and updated too", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const old = await addFile(data.db, space, "old.pdf", "file:///docs/files/old.pdf");
     await addFile(data.db, space, "new.pdf", "file:///docs/files/new.pdf");
     data.driver.exec(
@@ -118,6 +124,7 @@ describe("files", () => {
   it("makes a View from a name and labels, and shows only the labels picked", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const uni = await createLabel(data.db, space, "Uni");
     const math = await createLabel(data.db, space, "Math");
     const both = await addFile(data.db, space, "algebra.pdf", "file:///docs/files/a.pdf");
@@ -156,6 +163,7 @@ describe("files", () => {
   it("changes the labels shown, and nudges quietly toward the files without one", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const uni = await createLabel(data.db, space, "Uni");
     const one = await addFile(data.db, space, "essay.pdf", "file:///docs/files/e.pdf");
     await addFile(data.db, space, "loose.pdf", "file:///docs/files/l.pdf");
@@ -182,6 +190,7 @@ describe("files", () => {
   it("groups by label, a file under each of its labels", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const file = await addFile(data.db, space, "algebra.pdf", "file:///docs/files/a.pdf");
     await attachLabel(data.db, file, await createLabel(data.db, space, "Math"));
     await attachLabel(data.db, file, await createLabel(data.db, space, "Exam"));
@@ -196,9 +205,58 @@ describe("files", () => {
     expect(screen.getAllByRole("button", { name: "algebra.pdf" })).toHaveLength(2);
   });
 
+  // The desktop finds files by searching, and shelves them by course: the phone does too.
+  describe("finding and filing files", () => {
+    async function uni() {
+      const data = testData();
+      const space = await createSpace(data.db, "Uni", "#3b82f6");
+      writePreference(starterViewsKey(space), true);
+      const maths = await createCourse(data.db, space, "Maths");
+      const algebra = await addFile(data.db, space, "algebra.pdf", "file:///docs/files/a.pdf");
+      await createRelationship(data.db, maths, algebra, "attached-file");
+      await addFile(data.db, space, "receipt.pdf", "file:///docs/files/r.pdf");
+      return { data, space };
+    }
+
+    it("narrows to what the search field finds", async () => {
+      const { data, space } = await uni();
+      const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+      expect(await screen.findByRole("button", { name: "receipt.pdf" })).toBeTruthy();
+      await fireEvent.changeText(screen.getByLabelText("Search files"), "alge");
+      await waitFor(() => expect(screen.queryByRole("button", { name: "receipt.pdf" })).toBeNull());
+      expect(screen.getByRole("button", { name: "algebra.pdf" })).toBeTruthy();
+      // The course a file belongs to is searchable too.
+      await fireEvent.changeText(screen.getByLabelText("Search files"), "maths");
+      await waitFor(() => expect(screen.getByRole("button", { name: "algebra.pdf" })).toBeTruthy());
+      expect(screen.queryByRole("button", { name: "receipt.pdf" })).toBeNull();
+    });
+
+    it("groups by course, the files of none last", async () => {
+      const { data, space } = await uni();
+      const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+      await screen.findByRole("button", { name: "receipt.pdf" });
+      await fireEvent.press(screen.getByRole("button", { name: "Display" }));
+      await choose(screen, "Grouping", "Course");
+      expect(await screen.findByRole("header", { name: "Maths" })).toBeTruthy();
+      expect(screen.getByRole("header", { name: "No course" })).toBeTruthy();
+    });
+
+    it("narrows to a course from Filter", async () => {
+      const { data, space } = await uni();
+      const screen = await renderScreens({ index: () => <FileRows spaceId={space} /> }, data);
+      await screen.findByRole("button", { name: "receipt.pdf" });
+      await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
+      await openRow(screen, "Course");
+      await fireEvent.press(await screen.findByRole("checkbox", { name: "Maths" }));
+      await waitFor(() => expect(screen.queryByRole("button", { name: "receipt.pdf" })).toBeNull());
+      expect(screen.getByRole("button", { name: "algebra.pdf" })).toBeTruthy();
+    });
+  });
+
   it("opens a Files View saved on the desktop, and saves one the desktop reads", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const exam = await createLabel(data.db, space, "Exam");
     const tagged = await addFile(data.db, space, "exam.pdf", "file:///docs/files/x.pdf");
     await attachLabel(data.db, tagged, exam);
@@ -230,6 +288,7 @@ describe("files", () => {
   it("adds a link to a file kept elsewhere, and sends a web page to the bookmarks", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const screen = await renderScreens(
       {
         index: () => (
@@ -257,6 +316,7 @@ describe("files", () => {
   it("opens a file's own page with its state and a way to open it elsewhere", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const id = await addFile(data.db, space, "notes.pdf", "file:///docs/files/aaa-notes.pdf");
     const screen = await renderScreens(
       { "entity/[id]": () => <EntityScreen id={id} /> },
@@ -284,6 +344,7 @@ describe("scanning a document", () => {
   it("offers Scan next to Add Files only where the phone can scan", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const screen = await filesPage(space, data, { available: false, scan: jest.fn() });
     await pressBarButton(screen, "Add Files");
     expect(barLabels(screen)).not.toContain("Scan Document");
@@ -295,6 +356,7 @@ describe("scanning a document", () => {
   it("keeps the scan at once, then names it, labels it and links it as asked", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     await createLabel(data.db, space, "Contracts");
     const page = await createPage(data.db, space, "note", "Moving house");
     const screen = await filesPage(space, data, scanner("file:///docs/files/abc-scan.pdf"));
@@ -331,6 +393,7 @@ describe("scanning a document", () => {
   it("adds nothing when the person backs out of the camera", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const scan = scanner(null);
     const screen = await filesPage(space, data, scan);
     await pressBarButton(screen, "Scan Document");
@@ -344,6 +407,7 @@ describe("saving as a Nookly file", () => {
   it("is offered for pages, tasks, decks and assignments, and for nothing else", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const deck = await createDeck(data.db, space, "Sorting");
     const course = await createCourse(data.db, space, "Algorithms");
     const deckMenu = new RecordingMenu();
@@ -372,6 +436,7 @@ describe("copying a link", () => {
   it("puts a mention of the item on the clipboard, as the desktop does", async () => {
     const data = testData();
     const space = await createSpace(data.db, "Uni", "#3b82f6");
+    writePreference(starterViewsKey(space), true);
     const deck = await createDeck(data.db, space, "Sorting");
     const menu = new RecordingMenu();
     const clipboard = new RecordingClipboard();

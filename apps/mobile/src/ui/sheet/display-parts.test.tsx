@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react-native";
 import { StyleSheet, Text } from "react-native";
-import { semantic } from "../tokens.ts";
+import { PRIMARY, semantic } from "../tokens.ts";
 import { Field } from "../Field.tsx";
 import { DisplayGroup, LayoutTiles, SwitchRow } from "./DisplayParts.tsx";
 import { Sheet } from "./Sheet.tsx";
@@ -23,8 +23,9 @@ describe("the parts of a Display or Filter sheet", () => {
     }
   });
 
-  // Both tiles are raised controls; the chosen one is told apart by its icon and word, not a ring.
-  it("raise both layout tiles alike, with no ring on the chosen one", () => {
+  // Both tiles are raised controls, but the chosen one wore only a different icon colour, easy
+  // to miss: it takes the accent's edge and a wash of it.
+  it("raise both layout tiles alike, and mark the chosen one with the accent", () => {
     render(
       <LayoutTiles
         tiles={[
@@ -35,12 +36,17 @@ describe("the parts of a Display or Filter sheet", () => {
         onSelect={() => {}}
       />,
     );
+    const style = (name: string) =>
+      StyleSheet.flatten(screen.getByRole("radio", { name }).props.style);
     const shadows = (name: string) => {
-      const { boxShadow } = StyleSheet.flatten(screen.getByRole("radio", { name }).props.style);
+      const { boxShadow } = style(name);
       return Array.isArray(boxShadow) ? boxShadow.length : 0;
     };
     expect(shadows("Board")).toBeGreaterThan(0);
     expect(shadows("List")).toBe(shadows("Board"));
+    expect(style("List").borderColor).toBe(PRIMARY);
+    expect(style("Board").borderColor).not.toBe(PRIMARY);
+    expect(style("List").backgroundColor).not.toBe(style("Board").backgroundColor);
   });
 
   it("centre a switch on its label", () => {

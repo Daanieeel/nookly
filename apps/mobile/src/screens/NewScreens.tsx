@@ -62,7 +62,7 @@ import {
   EntitySearch,
   LabelsPill,
   LinkPill,
-  WhenLines,
+  TimePill,
 } from "./ComposeForm.tsx";
 
 /// The Space to make something in: the one asked for, else the first.
@@ -364,27 +364,33 @@ export function NewEntryScreen({
         onChangeText={setDescription}
         placeholder="Description…"
       />
-      <WhenLines
-        allDay={allDay}
-        startDay={day}
-        endDay={endDay}
-        starts={starts}
-        ends={ends}
-        // Moving the start moves the end with it, so the entry keeps its length.
-        onStartDay={(d) => {
-          setEndDay(addDays(endDay, daysBetween(day, d)));
-          setDay(d);
-        }}
-        onEndDay={setEndDay}
-        onStarts={setStarts}
-        onEnds={setEnds}
-      />
       {problem || create.error ? (
         <Text tone="destructive" variant="small">
           {problem ?? create.error?.message}
         </Text>
       ) : null}
       <ComposeFooter>
+        {/* When it starts and ends, in the pills above the keyboard: a day, and unless the
+            entry lasts all day a time, for each. A later end day makes it last longer. */}
+        <DayPill
+          label="Start day"
+          value={day}
+          clearable={false}
+          // Moving the start moves the end with it, so the entry keeps its length.
+          onChange={(d) => {
+            if (!d) return;
+            setEndDay(addDays(endDay, daysBetween(day, d)));
+            setDay(d);
+          }}
+        />
+        {allDay ? null : <TimePill label="Starts" value={starts} onChange={setStarts} />}
+        <DayPill
+          label="End day"
+          value={endDay}
+          clearable={false}
+          onChange={(d) => d && setEndDay(d)}
+        />
+        {allDay ? null : <TimePill label="Ends" value={ends} onChange={setEnds} />}
         <Pill
           label="All day"
           value={null}

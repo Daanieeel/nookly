@@ -42,14 +42,54 @@ import {
 } from "./list-table-shared";
 import { keyColumn } from "./key-column";
 import { noteFilterFields, passesNoteFilters } from "./note-filters";
+import { type NoteGroupBy, NOTE_GROUP_BYS } from "@nookly/shared/note-groups";
+import { groupNotes, noteGroupId, PINNED_GROUP } from "./note-groups";
+import { ContinueStrip, GroupedNotes } from "./NotesBrowse";
+import {
+  NOTES_LAYOUTS,
+  NOTE_PROPERTIES,
+  NotesDisplayMenu,
+  type NoteProperty,
+  type NotesDisplay,
+  type NotesLayout,
+} from "./NotesDisplayMenu";
 import { notePreviewText } from "./note-preview";
 import {} from "#/lib/datetime.ts";
-import {} from "#/lib/preferences.ts";
+import { preferences } from "#/lib/preferences.ts";
 import { useCreateShortcut } from "#/hooks/use-create-shortcut.ts";
 
 function courseFilter(courseId: string | undefined): ActiveFilter[] {
   return courseId ? [{ fieldId: "course", operator: "is", values: [courseId] }] : [];
 }
+
+const readLayout = (): NotesLayout => {
+  const stored = preferences.get(STORAGE_KEYS.notesLayout);
+  return NOTES_LAYOUTS.find((layout) => layout === stored) ?? "cards";
+};
+
+/// The properties left out, as saved; anything that is not a property is dropped.
+const readHidden = (): NoteProperty[] => {
+  try {
+    const stored: unknown = JSON.parse(preferences.get(STORAGE_KEYS.notesHidden) ?? "[]");
+    return NOTE_PROPERTIES.map((p) => p.id).filter(
+      (id) => Array.isArray(stored) && stored.includes(id),
+    );
+  } catch {
+    return [];
+  }
+};
+
+const readGroupBy = (): NoteGroupBy => {
+  const stored = preferences.get(STORAGE_KEYS.notesGroupBy);
+  return NOTE_GROUP_BYS.find((g) => g.id === stored)?.id ?? "course";
+};
+
+const readDisplay = (): NotesDisplay => ({
+  layout: readLayout(),
+  groupBy: readGroupBy(),
+  hidden: readHidden(),
+  showContinue: preferences.get(STORAGE_KEYS.notesContinue) !== "off",
+});
 
 export interface NoteRow {
   summary: PageSummary;
@@ -110,6 +150,8 @@ export function NotesListView({
   useEffect(() => setFilters(courseFilter(filterCourseId)), [filterCourseId]);
   const quick = useQuickFilters(`${STORAGE_KEYS.notesQuickFilters}:${spaceId}`);
   const [sorting, setSorting] = useState<SortingState>(readSorting);
+  const [display, setDisplay] = useState<NotesDisplay>(readDisplay);
+  const { layout } = display;
 
   // Nested under ["entities", spaceId] so every rename/pin/trash invalidation refreshes it.
   const { data: summaries = [], isPending } = useQuery({
@@ -151,9 +193,13 @@ export function NotesListView({
     writeSorting(next);
   };
 
+  const shownColumns = useMemo(
+    () => noteColumns.filter((column) => !display.hidden.some((id) => id === column.id)),
+    [display.hidden],
+  );
   const table = useTable({
     features: dataTableFeatures,
-    columns: noteColumns,
+    columns: shownColumns,
     data,
     getRowId: (row) => row.summary.entity.id,
     state: { sorting },
@@ -161,22 +207,25 @@ export function NotesListView({
     enableMultiSort: false,
   });
 
-  const hasPinned = data.some((r) => r.summary.entity.pinned);
-  const groups: DataTableGroup<NoteRow>[] | undefined = hasPinned
-    ? [
-        {
-          id: "pinned",
-          label: (
-            <span className="flex items-center gap-1.5">
-              <IconPin size={12} />
-              Pinned
-            </span>
-          ),
-          match: (r) => r.summary.entity.pinned,
-        },
-        { id: "rest", label: "All notes", match: () => true },
-      ]
-    : undefined;
+  // The table takes the same groups as the cards.
+  const noteGroups = groupNotes(data, display.groupBy);
+  const groups: DataTableGroup<NoteRow>[] | undefined =
+    noteGroups.length > 1 || noteGroups[0]?.id === PINNED_GROUP
+      ? noteGroups.map((g) => ({
+          id: g.id,
+          label:
+            g.id === PINNED_GROUP ? (
+              <span className="flex items-center gap-1.5">
+                <IconPin size={12} />
+                Pinned
+              </span>
+            ) : (
+              g.name
+            ),
+          match: (r) => noteGroupId(r, display.groupBy) === g.id,
+        }))
+      : undefined;
+  const browsing = !needle && filters.length === 0;
 
   if (!isPending && rows.length === 0) {
     return (
@@ -212,7 +261,7 @@ export function NotesListView({
               </span>
             </h1>
             <Button
-              variant={createStatus === "error" ? "destructive" : "secondary"}
+              variant={createStatus === "error" ? "destructive" : "default"}
               size="sm"
               className="gap-1.5"
               onClick={startNote}
@@ -235,12 +284,38 @@ export function NotesListView({
             filters={filters}
             onFiltersChange={setFilters}
             quick={quick}
+            display={
+              <NotesDisplayMenu
+                display={display}
+                onChange={(next) => {
+                  setDisplay(next);
+                  preferences.set(STORAGE_KEYS.notesLayout, next.layout);
+                  preferences.set(STORAGE_KEYS.notesGroupBy, next.groupBy);
+                  preferences.set(STORAGE_KEYS.notesContinue, next.showContinue ? "on" : "off");
+                  preferences.set(STORAGE_KEYS.notesHidden, JSON.stringify(next.hidden));
+                }}
+              />
+            }
           />
         </>
       }
     >
       {data.length > 0 ? (
-        <PageSummaryTable table={table} spaceId={spaceId} scrollX={false} groups={groups} />
+        layout === "table" ? (
+          <PageSummaryTable table={table} spaceId={spaceId} scrollX={false} groups={groups} />
+        ) : (
+          <>
+            {browsing && display.showContinue && (
+              <ContinueStrip rows={data} hidden={display.hidden} />
+            )}
+            <GroupedNotes
+              rows={data}
+              layout={layout}
+              groupBy={display.groupBy}
+              hidden={display.hidden}
+            />
+          </>
+        )
       ) : (
         !isPending && (
           <NoMatchesNotice
