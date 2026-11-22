@@ -1,3 +1,4 @@
+import { haptic } from "./haptics.ts";
 import { createContext, useContext } from "react";
 import { ScrollView, View } from "react-native";
 import { AnimatedPressable, usePressScale } from "./press.ts";
@@ -39,7 +40,10 @@ export function Chip({
       accessibilityState={{ checked: selected, disabled }}
       accessibilityLabel={label}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => {
+        haptic(multiple ? "toggle" : "select");
+        onPress();
+      }}
       hitSlop={touchSlop(CONTROL_SIZE.chip, MIN_TOUCH)}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}

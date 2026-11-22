@@ -1,3 +1,4 @@
+import { haptic } from "./haptics.ts";
 import { IconX } from "@tabler/icons-react-native";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -94,6 +95,7 @@ function FilterChip({ filter }: { filter: ListFilter }) {
         // Every option picked reads the same both ways round; there is nothing to flip.
         disabled={rest.length === 0}
         onPress={() => {
+          haptic("toggle");
           setTurned(!negated);
           filter.onChange(rest);
         }}
@@ -122,7 +124,10 @@ function FilterChip({ filter }: { filter: ListFilter }) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Remove ${filter.label} Filter`}
-        onPress={() => filter.onChange([])}
+        onPress={() => {
+          haptic("tap");
+          filter.onChange([]);
+        }}
         style={({ pressed: down }) => [
           divider,
           { width: MIN_TOUCH, alignItems: "center", justifyContent: "center" },

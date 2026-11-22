@@ -1,17 +1,20 @@
-import { type Session, type Share, passwordSchema } from "@nookly/shared/api";
+import { type ChangePassword, type Session, changePasswordSchema } from "@nookly/shared/api";
 import type { SyncStatus } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
+  IconCloudCheck,
   IconCloudOff,
+  IconCloudX,
   IconDeviceLaptop,
   IconDeviceMobile,
   IconDeviceTablet,
   IconDevices,
-  IconGitCompare,
   IconLoader2,
+  IconLock,
+  IconLogout,
   IconServer,
-  IconShare,
+  IconTrash,
   type Icon as TablerIcon,
 } from "@tabler/icons-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,22 +25,37 @@ import { z } from "zod";
 import { useAppData, useSyncState } from "../../data/context.tsx";
 import { keys } from "../../data/keys.ts";
 import { Badge } from "../../ui/Badge.tsx";
-import { Button, statusOf } from "../../ui/Button.tsx";
+import { Button, IconButton, statusOf } from "../../ui/Button.tsx";
 import { useDeviceWord } from "../../ui/device-word.ts";
 import { Field } from "../../ui/Field.tsx";
+import { FieldIcon } from "../../ui/FieldIcon.tsx";
 import { Section } from "../../ui/Row.tsx";
+import { PasswordStrengthMeter } from "../../ui/PasswordStrengthMeter.tsx";
 import { Screen } from "../../ui/Screen.tsx";
+import { GroupedSection } from "../../ui/kit/GroupedSection.tsx";
+import { IconBadge } from "../../ui/kit/IconBadge.tsx";
 import { Label } from "../../ui/kit/Label.tsx";
+import { ListRow } from "../../ui/kit/ListRow.tsx";
+import { Points } from "../../ui/sheet/Confirm.tsx";
+import { useOptionalSheetHost } from "../../ui/sheet/SheetHost.tsx";
+import { useSheet } from "../../ui/sheet/Sheet.tsx";
 import { SPACE } from "../../ui/tokens.ts";
 import { useMenu } from "../../ui/menu.tsx";
 import { Text } from "../../ui/Text.tsx";
 import { useTheme } from "../../ui/theme.ts";
 import { ago } from "../dates.ts";
-import { CardActions, CardFoot, CardHead, type CardTone, SettingsCard } from "./cards.tsx";
+import {
+  CardActions,
+  CardDivider,
+  CardFoot,
+  CardHead,
+  type CardTone,
+  SettingsCard,
+} from "./cards.tsx";
 
-/// Settings, Account, as the desktop's cards: who is signed in and how sync is doing, every
-/// device, the changes to review, what is shared, then the password, deleting the account
-/// and the server.
+/// Settings, Account, as the desktop's cards: who is signed in and how sync is doing (with
+/// the server and anything waiting for a decision), every device in one list, what is shared,
+/// then the password and deleting the account. Quiet: a line says nothing it need not.
 
 interface StatusLine {
   icon: TablerIcon;
@@ -55,47 +73,41 @@ function statusLine(status: SyncStatus): StatusLine {
         icon: IconCloudOff,
         text:
           status.pending > 0
-            ? `Offline. ${status.pending} ${status.pending === 1 ? "change waits" : "changes wait"} to sync.`
-            : "Offline. Changes sync once the server is back.",
+            ? `Offline, ${status.pending} ${status.pending === 1 ? "change waits" : "changes wait"}`
+            : "Offline",
         tone: "caution",
       };
     case "error":
-      return { icon: IconAlertTriangle, text: status.error ?? "Sync failed.", tone: "error" };
+      return { icon: IconAlertTriangle, text: status.error ?? "Sync failed", tone: "error" };
     case "off":
-      return { icon: IconCloudOff, text: "Sync is off.", tone: "idle" };
+      return { icon: IconCloudOff, text: "Sync is off", tone: "idle" };
     case "idle":
       if (!status.live) {
         return {
           icon: IconAlertTriangle,
-          text: "Synced, but not live. Changes from your other devices may take a minute.",
+          text: "Synced, but not live",
           tone: "caution",
         };
       }
       return {
         icon: IconCircleCheck,
         text: status.lastSyncedAt
-          ? `Synced ${ago(new Date(status.lastSyncedAt).toISOString())}. Changes arrive as you make them.`
-          : "Synced. Changes arrive as you make them.",
+          ? `Synced ${ago(new Date(status.lastSyncedAt).toISOString())}`
+          : "Synced",
         tone: "ok",
       };
   }
 }
 
-const plural = (n: number, one: string, many: string) =>
-  `${n.toLocaleString()} ${n === 1 ? one : many}`;
-
-/// How the first sync of this phone went, or how far it is.
+/// How far the first sync of this phone is, or why it stopped. Nothing once it is done.
 function FirstSyncLine() {
   const device = useDeviceWord();
   const migration = useSyncState((state) => state.migration);
-  if (!migration) return null;
-  const files = migration.files > 0 ? ` and ${plural(migration.files, "file", "files")}` : "";
+  if (!migration || migration.phase === "done") return null;
   const text =
-    migration.phase === "done"
-      ? `All ${plural(migration.items, "item", "items")}${files} from this ${device} reached your account, checked with the server.`
-      : migration.phase === "failed"
-        ? (migration.error ?? "The first sync stopped.")
-        : `Bringing this ${device} into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
+    migration.phase === "failed"
+      ? (migration.error ?? "The first sync stopped.")
+      : `Bringing this ${device} into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
   return (
     <CardFoot>
       <Text variant="small" tone={migration.phase === "failed" ? "destructive" : "muted"}>
@@ -125,6 +137,29 @@ function FilesLine() {
   );
 }
 
+const plural = (n: number, one: string, many: string) =>
+  `${n.toLocaleString()} ${n === 1 ? one : many}`;
+
+/// Changes two devices disagreed on: only there while some wait for a decision.
+function ChangesNotice() {
+  const router = useRouter();
+  const count = useSyncState((s) => s.status.conflicts);
+  if (count === 0) return null;
+  return (
+    <CardFoot>
+      <Text variant="small" tone="caution" className="flex-1">
+        {count === 1 ? "1 change needs a look" : `${count} changes need a look`}
+      </Text>
+      <Button
+        size="sm"
+        variant="secondary"
+        label="Review Changes"
+        onPress={() => router.push("/conflicts")}
+      />
+    </CardFoot>
+  );
+}
+
 /// Signed in: who, how sync is doing, and the way out.
 function SignedInCard() {
   const device = useDeviceWord();
@@ -133,6 +168,8 @@ function SignedInCard() {
   const queryClient = useQueryClient();
   const user = useSyncState((s) => s.user);
   const status = useSyncState((s) => s.status);
+  const serverUrl = useSyncState((s) => s.serverUrl);
+  const theme = useTheme();
   const syncNow = useMutation({ mutationFn: () => sync.syncNow() });
   const resend = useMutation({
     mutationFn: async (email: string) => sync.account()?.resendVerification(email),
@@ -146,17 +183,25 @@ function SignedInCard() {
     },
   });
   /// Signing out clears this phone: said before it happens, with what has not reached the
-  /// account yet, which is backed up first.
+  /// account yet, which is backed up first. A warning, not a deletion: the account keeps it.
   const confirmSignOut = async () => {
     const unsent = await sync.unsentCount().catch(() => 0);
-    const waiting =
-      unsent === 0
-        ? ""
-        : ` ${unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`} not reached the account yet. Nookly tries once more and saves a backup of this ${device} first.`;
     menu.confirm({
       title: `Sign out of this ${device}?`,
-      description: `Everything stays in your account and on your other devices. It is removed from this ${device}, and comes back when you sign in again.${waiting}`,
-      actions: [{ label: "Sign Out", onPress: () => signOut.mutate() }],
+      points: [
+        { icon: IconCloudCheck, text: "Stays in your account and on your other devices" },
+        { icon: IconDeviceMobile, text: `Removed from this ${device}, back when you sign in` },
+        ...(unsent > 0
+          ? [
+              {
+                icon: IconAlertTriangle,
+                tone: "caution" as const,
+                text: `${plural(unsent, "change", "changes")} not sent yet, backed up first`,
+              },
+            ]
+          : []),
+      ],
+      actions: [{ label: "Sign Out", warning: true, onPress: () => signOut.mutate() }],
     });
   };
   if (!user) return null;
@@ -181,7 +226,7 @@ function SignedInCard() {
         />
         <Button
           size="sm"
-          variant="ghost"
+          variant="warning"
           label="Sign Out"
           status={statusOf(signOut)}
           errorLabel="Couldn't sign out"
@@ -192,7 +237,7 @@ function SignedInCard() {
       {user.email !== null && !user.emailVerified ? (
         <CardFoot>
           <Text variant="small" tone="caution" className="flex-1">
-            Confirm {user.email} with the link we sent, so you can reset a forgotten password.
+            Confirm {user.email} to reset a forgotten password.
           </Text>
           <Button
             size="sm"
@@ -205,8 +250,17 @@ function SignedInCard() {
           />
         </CardFoot>
       ) : null}
+      <ChangesNotice />
       <FirstSyncLine />
       <FilesLine />
+      {serverUrl ? (
+        <CardFoot>
+          <IconServer size={14} color={theme.colors.mutedForeground} />
+          <Text variant="small" tone="muted" numberOfLines={1} className="flex-1">
+            {serverUrl}
+          </Text>
+        </CardFoot>
+      ) : null}
     </SettingsCard>
   );
 }
@@ -235,9 +289,7 @@ function SignedOutCard() {
       </CardActions>
       <CardFoot>
         <Text variant="small" tone="muted" className="flex-1">
-          An account keeps your Spaces, pages, tasks, files and settings the same on your computer
-          and every other device, live, and lets you share pages. It is optional. When you sign in,
-          you decide what happens to what is already here.
+          Optional. Keeps all your devices the same.
         </Text>
       </CardFoot>
     </SettingsCard>
@@ -252,43 +304,57 @@ function deviceIcon(session: Session): TablerIcon {
   return IconDevices;
 }
 
-function DeviceCard({ session }: { session: Session }) {
+function DeviceRow({ session }: { session: Session }) {
+  const theme = useTheme();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
   const revoke = useMutation({
     mutationFn: async () => sync.account()?.revokeSession(session.id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: keys.sync.sessions }),
   });
+  const Icon = deviceIcon(session);
+  const tint = session.current ? "blue" : "gray";
   return (
-    <SettingsCard tone={revoke.isError ? "error" : undefined}>
-      <CardHead
-        icon={deviceIcon(session)}
-        tone={session.current ? "ok" : "idle"}
-        title={session.deviceName}
-        badge={session.current ? <Badge label="This device" variant="primary" /> : null}
-        detail={
-          session.current ? "The one you are using." : `Last active ${ago(session.lastUsedAt)}`
-        }
-      />
-      {session.current ? null : (
-        <CardActions>
-          <Button
-            size="sm"
-            variant="ghost"
-            label="Sign Out Device"
-            accessibilityLabel={`Sign Out ${session.deviceName}`}
-            status={statusOf(revoke)}
-            errorLabel="Couldn't sign it out"
+    <View style={{ gap: SPACE.xs }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.md }}>
+        <IconBadge
+          tint={tint}
+          icon={
+            <Icon
+              size={18}
+              color={session.current ? theme.colors.primary : theme.colors.mutedForeground}
+            />
+          }
+        />
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <View
+            style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: SPACE.sm }}
+          >
+            <Label weight="600" numberOfLines={1}>
+              {session.deviceName}
+            </Label>
+            {session.current ? <Badge label="This device" variant="primary" /> : null}
+          </View>
+          {session.current ? null : (
+            <Label type="subheadline" color="secondaryLabel">
+              {`Active ${ago(session.lastUsedAt)}`}
+            </Label>
+          )}
+        </View>
+        {session.current ? null : (
+          <IconButton
+            label={`Sign Out ${session.deviceName}`}
+            icon={<IconLogout size={18} color={theme.colors.mutedForeground} />}
             onPress={() => revoke.mutate()}
           />
-        </CardActions>
-      )}
+        )}
+      </View>
       {revoke.error ? <Text tone="destructive">{revoke.error.message}</Text> : null}
-    </SettingsCard>
+    </View>
   );
 }
 
-/// Every device signed in to the account, this one first.
+/// Every device signed in to the account, this one first, in one card.
 function DeviceCards() {
   const device = useDeviceWord();
   const { sync } = useAppData();
@@ -305,152 +371,41 @@ function DeviceCards() {
     );
   }
   return (
-    <View accessibilityLabel="Signed in devices" className="gap-2">
-      {ordered.map((session) => (
-        <DeviceCard key={session.id} session={session} />
-      ))}
-    </View>
-  );
-}
-
-/// How many changes wait for a decision, and the way into the merge editor.
-function ChangesCard() {
-  const router = useRouter();
-  const count = useSyncState((s) => s.status.conflicts);
-  return (
-    <SettingsCard tone={count > 0 ? "caution" : "idle"}>
-      <CardHead
-        icon={IconGitCompare}
-        tone={count > 0 ? "caution" : "idle"}
-        title={
-          count === 0
-            ? "Nothing to review"
-            : count === 1
-              ? "1 change needs a look"
-              : `${count} changes need a look`
-        }
-        detail={
-          count === 0
-            ? "Every change from your devices fit together."
-            : "Two devices changed the same thing. Nothing was lost: pick a version, or keep both."
-        }
-      />
-      {count > 0 ? (
-        <CardActions>
-          <Button size="sm" label="Review Changes" onPress={() => router.push("/conflicts")} />
-        </CardActions>
-      ) : null}
+    <SettingsCard>
+      <View accessibilityLabel="Signed in devices" style={{ gap: SPACE.md }}>
+        {ordered.map((session, index) => (
+          <View key={session.id} style={{ gap: SPACE.md }}>
+            {index > 0 ? <CardDivider /> : null}
+            <DeviceRow session={session} />
+          </View>
+        ))}
+      </View>
     </SettingsCard>
   );
 }
 
-function SharedCard({ share }: { share: Share }) {
-  const { sync } = useAppData();
-  const queryClient = useQueryClient();
-  const respond = useMutation({
-    mutationFn: async (action: "accept" | "decline" | "leave") => {
-      const api = sync.account();
-      if (!api) return;
-      if (action === "accept") await api.acceptShare(share.id);
-      else if (action === "decline") await api.declineShare(share.id);
-      else await api.removeShare(share.id);
-      await sync.syncNow();
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: keys.sync.sharesWithMe }),
-  });
-  const pending = share.status === "pending";
-  return (
-    <SettingsCard tone={respond.isError ? "error" : undefined}>
-      <CardHead
-        icon={IconShare}
-        tone={pending ? "caution" : "ok"}
-        title={share.title || "Untitled"}
-        detail={`From ${share.owner}. ${share.role === "editor" ? "You can edit it." : "You can view it."}${pending ? " Waiting for your answer." : ""}`}
-      />
-      <CardActions>
-        {pending ? (
-          <>
-            <Button
-              size="sm"
-              variant="secondary"
-              label="Accept"
-              status={respond.variables === "accept" ? statusOf(respond) : "idle"}
-              successLabel="Accepted"
-              errorLabel="Couldn't accept"
-              onPress={() => respond.mutate("accept")}
-            />
-            <Button
-              size="sm"
-              variant="ghost"
-              label="Decline"
-              onPress={() => respond.mutate("decline")}
-            />
-          </>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            label="Leave"
-            status={respond.variables === "leave" ? statusOf(respond) : "idle"}
-            successLabel="Left"
-            errorLabel="Couldn't leave"
-            onPress={() => respond.mutate("leave")}
-          />
-        )}
-      </CardActions>
-      {respond.error ? <Text tone="destructive">{respond.error.message}</Text> : null}
-    </SettingsCard>
-  );
-}
-
-function SharedCards() {
-  const { sync } = useAppData();
-  const { data: shares = [] } = useQuery({
-    queryKey: keys.sync.sharesWithMe,
-    queryFn: async () => (await sync.account()?.sharesWithMe()) ?? [],
-  });
-  if (shares.length === 0) {
-    return (
-      <Text variant="small" tone="muted" className="px-1">
-        Nothing is shared with you yet.
-      </Text>
-    );
-  }
-  return (
-    <View className="gap-2">
-      {shares.map((share) => (
-        <SharedCard key={share.id} share={share} />
-      ))}
-    </View>
-  );
-}
-
-const changePasswordSchema = z.object({
-  current: z.string().min(1, "Enter your current password"),
-  next: passwordSchema,
-});
-
-function ChangePassword() {
+/// The change password form, in the sheet its row opens.
+function ChangePasswordSheet() {
+  const sheet = useSheet();
   const { sync } = useAppData();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
-  const [errors, setErrors] = useState<{ current?: string; next?: string }>({});
+  const [confirm, setConfirm] = useState("");
+  const user = useSyncState((state) => state.user);
+  const [errors, setErrors] = useState<{ current?: string; next?: string; confirm?: string }>({});
   const change = useMutation({
-    mutationFn: async (value: z.infer<typeof changePasswordSchema>) => {
+    mutationFn: async (value: ChangePassword) => {
       const api = sync.account();
       if (!api) throw new Error("Sign in first.");
       await api.changePassword(value.current, value.next);
     },
-    onSuccess: () => {
-      setCurrent("");
-      setNext("");
-    },
+    onSuccess: () => sheet?.close(),
   });
   const submit = () => {
-    const parsed = changePasswordSchema.safeParse({ current, next });
+    const parsed = changePasswordSchema.safeParse({ current, next, confirm });
     if (!parsed.success) {
       const flat = z.flattenError(parsed.error).fieldErrors;
-      setErrors({ current: flat.current?.[0], next: flat.next?.[0] });
+      setErrors({ current: flat.current?.[0], next: flat.next?.[0], confirm: flat.confirm?.[0] });
       return;
     }
     setErrors({});
@@ -460,6 +415,8 @@ function ChangePassword() {
     <View className="gap-3">
       <Field
         label="Current password"
+        icon={<FieldIcon icon={IconLock} />}
+        placeholder="Current password"
         secureTextEntry
         autoComplete="current-password"
         value={current}
@@ -468,32 +425,46 @@ function ChangePassword() {
       />
       <Field
         label="New password"
+        icon={<FieldIcon icon={IconLock} />}
+        placeholder="New password"
         secureTextEntry
         autoComplete="new-password"
         value={next}
         onChangeText={setNext}
         error={errors.next}
       />
-      <View className="items-start">
-        <Button
-          size="sm"
-          variant="secondary"
-          label="Change Password"
-          status={statusOf(change)}
-          successLabel="Changed"
-          errorLabel="Couldn't change it"
-          onPress={submit}
-        />
-      </View>
+      <Field
+        label="Repeat new password"
+        placeholder="Repeat new password"
+        icon={<FieldIcon icon={IconLock} />}
+        secureTextEntry
+        autoComplete="new-password"
+        value={confirm}
+        onChangeText={setConfirm}
+        error={errors.confirm}
+      />
+      <PasswordStrengthMeter
+        password={next}
+        userInputs={[user?.username, user?.email].filter((v): v is string => !!v)}
+      />
+      <Button
+        size="lg"
+        label="Change Password"
+        status={statusOf(change)}
+        successLabel="Changed"
+        errorLabel="Couldn't change it"
+        onPress={submit}
+      />
       {change.error ? <Text tone="destructive">{change.error.message}</Text> : null}
     </View>
   );
 }
 
 /// Deleting the account removes it and everything on the server. This phone keeps its data.
-function DeleteAccount() {
+/// The sheet says so, and asks for the password: that is the confirmation.
+function DeleteAccountSheet() {
+  const sheet = useSheet();
   const device = useDeviceWord();
-  const menu = useMenu();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
   const [password, setPassword] = useState("");
@@ -503,36 +474,72 @@ function DeleteAccount() {
       // The account is gone: what is on this phone is the only copy, and stays.
       await sync.detach();
     },
-    onSuccess: () => queryClient.removeQueries({ queryKey: keys.sync.root }),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: keys.sync.root });
+      sheet?.close();
+    },
   });
-  const confirmDelete = () =>
-    menu.confirm({
-      title: "Delete your sync account forever?",
-      description: `The account, its synced data, its devices and its shares are removed from the server. This can't be undone. Everything on this ${device} stays.`,
-      actions: [{ label: "Delete Account", destructive: true, onPress: () => remove.mutate() }],
-    });
   return (
     <View className="gap-3">
+      <Points
+        points={[
+          { icon: IconCloudX, text: "Removed from the server for good" },
+          { icon: IconDeviceMobile, text: `This ${device} keeps its data` },
+        ]}
+      />
       <Field
         label="Your password"
+        icon={<FieldIcon icon={IconLock} />}
+        placeholder="Your password"
         secureTextEntry
         autoComplete="current-password"
         value={password}
         onChangeText={setPassword}
       />
-      <View className="items-start">
-        <Button
-          size="sm"
-          variant="secondary"
-          label="Delete Account"
-          disabled={!password}
-          status={statusOf(remove)}
-          errorLabel="Couldn't delete it"
-          onPress={confirmDelete}
-        />
-      </View>
+      <Button
+        size="lg"
+        variant="destructive"
+        label="Delete Account"
+        disabled={!password}
+        status={statusOf(remove)}
+        errorLabel="Couldn't delete it"
+        onPress={() => remove.mutate()}
+      />
       {remove.error ? <Text tone="destructive">{remove.error.message}</Text> : null}
     </View>
+  );
+}
+
+/// The way into changing the password: a row that opens its form in a sheet.
+function PasswordRow() {
+  const host = useOptionalSheetHost();
+  return (
+    <GroupedSection margin={0}>
+      <ListRow
+        badge={<IconBadge glyph={IconLock} tint="gray" />}
+        title="Change Password"
+        accessory="chevron"
+        onPress={() =>
+          host?.present({ title: "Change Password", content: <ChangePasswordSheet /> })
+        }
+      />
+    </GroupedSection>
+  );
+}
+
+/// The account's end: a row that opens what it takes in a sheet.
+function DeleteRow() {
+  const host = useOptionalSheetHost();
+  return (
+    <GroupedSection margin={0}>
+      <ListRow
+        badge={<IconBadge glyph={IconTrash} tint="red" />}
+        title="Delete Account"
+        destructive
+        accessory="chevron"
+        onPress={() => host?.present({ title: "Delete Account", content: <DeleteAccountSheet /> })}
+      />
+    </GroupedSection>
   );
 }
 
@@ -551,71 +558,27 @@ function ServerLine() {
   );
 }
 
-/// What a section says when it only means something with an account.
-function SignedInOnly({ what, children }: { what: string; children: React.ReactNode }) {
-  const signedIn = useSyncState((s) => s.user !== null);
-  if (!signedIn) {
-    return (
-      <Text variant="small" tone="muted" className="px-1">
-        Sign in to see {what}.
-      </Text>
-    );
-  }
-  return children;
-}
-
-function Description({ children }: { children: string }) {
-  return (
-    <Label
-      type="footnote"
-      color="secondaryLabel"
-      style={{ paddingHorizontal: SPACE.xs, paddingBottom: SPACE.sm }}
-    >
-      {children}
-    </Label>
-  );
-}
-
 /// Settings, Account.
 export function AccountPage() {
-  const device = useDeviceWord();
   const signedIn = useSyncState((s) => s.user !== null);
   return (
     <Screen grouped>
       <Section title="Account">{signedIn ? <SignedInCard /> : <SignedOutCard />}</Section>
-      <Section title="Devices">
-        <Description>
-          Every device signed in to your account. Signing one out stops it syncing at once; what it
-          holds stays on it.
-        </Description>
-        <SignedInOnly what="your devices">
-          <DeviceCards />
-        </SignedInOnly>
-      </Section>
-      <Section title="Changes to review">
-        <ChangesCard />
-      </Section>
-      <Section title="Shared with me">
-        <Description>
-          {`Pages and tasks people shared with you. Accepted ones sync to this ${device} in a Space of their own.`}
-        </Description>
-        <SignedInOnly what="what is shared with you">
-          <SharedCards />
-        </SignedInOnly>
-      </Section>
       {signedIn ? (
-        <Section title="Password and account">
-          <Description>
-            The password you sign in with on every device. Devices already signed in stay signed in.
-          </Description>
-          <ChangePassword />
-          <Description>
-            {`Deleting the account removes it and everything in it from the server, for good. What is on this ${device} stays here.`}
-          </Description>
-          <DeleteAccount />
-        </Section>
-      ) : null}
-      <ServerLine />
+        <>
+          <Section title="Password">
+            <PasswordRow />
+          </Section>
+          <Section title="Devices">
+            <DeviceCards />
+          </Section>
+          <Section title="Delete account">
+            <DeleteRow />
+          </Section>
+        </>
+      ) : (
+        <ServerLine />
+      )}
     </Screen>
   );
 }

@@ -1,10 +1,11 @@
 import { qk } from "#/lib/query-keys.ts";
 import {
+  IconArrowUpRight,
   IconExternalLink,
   IconFile,
   IconFileOff,
   IconFolderOpen,
-  IconArrowUpRight,
+  IconLink,
   IconMovie,
   IconMusic,
   IconPencil,
@@ -28,7 +29,7 @@ import {
 import { FieldError, StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
-import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { getEntity } from "#/lib/api/entities.ts";
 import { hasPages } from "#/features/files/file-kind.ts";
 import { getFile, importFile } from "#/lib/api/files.ts";
@@ -556,7 +557,8 @@ function TargetForm({
       }}
     >
       <div className="flex min-w-0 items-center gap-1.5">
-        <Input
+        <IconInput
+          icon={IconLink}
           // oxlint-disable-next-line jsx-a11y/no-autofocus -- opened by the user to type the value, so focus belongs in the field
           autoFocus
           value={value}
@@ -568,7 +570,8 @@ function TargetForm({
           placeholder="/Users/you/file.pdf or https://"
           aria-label={`Path or link to the ${noun}`}
           aria-invalid={error ? true : undefined}
-          className="h-7 min-w-0 flex-1 text-xs"
+          className="flex-1"
+          inputClassName="h-7 text-xs"
         />
         <Button type="submit" variant="secondary" size="sm" className="h-7">
           {submitLabel}

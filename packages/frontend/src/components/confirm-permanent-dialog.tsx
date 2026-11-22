@@ -44,6 +44,8 @@ export function ConfirmPermanentDialog({
   status,
   error,
   onConfirm,
+  disabled = false,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,6 +62,10 @@ export function ConfirmPermanentDialog({
   status: ActionStatus;
   error?: string | false;
   onConfirm: () => void;
+  /// Keeps the confirm button off for what the dialog still lacks (a password asked in `children`).
+  disabled?: boolean;
+  /// Fields the action needs, above the phrase.
+  children?: ReactNode;
 }) {
   const [typed, setTyped] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -68,13 +74,13 @@ export function ConfirmPermanentDialog({
   useEffect(() => {
     if (!open) setTyped("");
   }, [open]);
-  const confirmed = phrase === undefined || matchesPhrase(typed, phrase);
+  const confirmed = !disabled && (phrase === undefined || matchesPhrase(typed, phrase));
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange} severity="destructive">
       <AlertDialogContent
         onOpenAutoFocus={(event) => {
-          if (phrase === undefined) return;
+          if (phrase === undefined || children) return;
           event.preventDefault();
           input.current?.focus();
         }}
@@ -99,6 +105,7 @@ export function ConfirmPermanentDialog({
             ))}
           </div>
         )}
+        {children}
         {phrase !== undefined && (
           <div className="flex flex-col gap-1.5 text-sm">
             <label htmlFor={inputId}>

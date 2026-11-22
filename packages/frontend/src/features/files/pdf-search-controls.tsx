@@ -1,6 +1,6 @@
 import { IconChevronLeft, IconChevronRight, IconSearch, IconX } from "@tabler/icons-react";
 import { Button } from "@nookly/ui/components/button";
-import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import type { PdfSearch } from "./use-pdf-search";
 
@@ -21,7 +21,8 @@ export function PdfSearchControls({ search }: { search: PdfSearch }) {
   return searchOpen ? (
     // Escape closes the search first, before the page goes back (`use-escape-back.ts`).
     <div className="flex items-center gap-1" data-owns-escape>
-      <Input
+      <IconInput
+        icon={IconSearch}
         ref={searchInputRef}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -29,7 +30,8 @@ export function PdfSearchControls({ search }: { search: PdfSearch }) {
           if (e.key === "Enter") (e.shiftKey ? prevMatch : nextMatch)();
         }}
         placeholder="Find in document…"
-        className="h-7 w-40"
+        className="w-40"
+        inputClassName="h-7"
       />
       {query && (
         <span className="w-14 shrink-0 text-center text-xs tabular-nums text-muted-foreground">

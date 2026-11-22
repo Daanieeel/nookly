@@ -90,19 +90,56 @@ describe("the Sync settings", () => {
     const { user } = await openSync();
     await user.click(await screen.findByRole("button", { name: "Sign Out" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
-    expect(dialog).toHaveTextContent("removed from this computer");
+    expect(dialog).toHaveTextContent("Removed from this computer");
     // The files are not deleted from the disk, and the dialog doesn't claim they are.
-    expect(dialog).toHaveTextContent("Attached files stay in Nookly's folder on this computer");
-    await waitFor(() =>
-      expect(dialog).toHaveTextContent("3 changes have not reached the account yet"),
-    );
+    expect(dialog).toHaveTextContent("Attached files stay in Nookly's folder");
+    await waitFor(() => expect(dialog).toHaveTextContent("3 changes not sent yet"));
     expect(signOut).not.toHaveBeenCalled();
     await expectNoA11yViolations();
-    // Removing the data from this computer is permanent here, so the button is destructive.
+    // Signing out is a warning, not a deletion: the account keeps everything, and it comes back.
     const confirm = within(dialog).getByRole("button", { name: "Sign Out" });
-    expect(confirm.className).toContain("solid-destructive");
+    expect(confirm.className).toContain("solid-warning");
+    expect(confirm.className).not.toContain("solid-destructive");
     await user.click(confirm);
     expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("has no Shared with me section, as sharing is not possible yet", async () => {
+    signedIn();
+    await openSync();
+    expect(await screen.findByText("Devices")).toBeInTheDocument();
+    expect(screen.queryByText("Shared with me")).toBeNull();
+    expect(screen.queryByText(/Nothing is shared with you/)).toBeNull();
+  });
+
+  it("puts Change password above the devices, and Delete account last", async () => {
+    signedIn();
+    await openSync();
+    const password = await screen.findByRole("heading", { name: "Password" });
+    const devices = screen.getByRole("heading", { name: "Devices" });
+    const remove = screen.getByRole("heading", { name: "Delete account" });
+    expect(
+      password.compareDocumentPosition(devices) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(devices.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows the way out as a warning before the dialog opens", async () => {
+    signedIn();
+    await openSync();
+    const button = await screen.findByRole("button", { name: "Sign Out" });
+    expect(button.className).toContain("solid-warning");
+  });
+
+  it("says it in short lines, not a paragraph", async () => {
+    signedIn();
+    vi.spyOn(syncRuntime, "unsentCount").mockResolvedValue(0);
+    const { user } = await openSync();
+    await user.click(await screen.findByRole("button", { name: "Sign Out" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
+    const lines = within(dialog).getAllByRole("listitem");
+    expect(lines.length).toBeGreaterThanOrEqual(3);
+    for (const line of lines) expect(line.textContent?.length ?? 0).toBeLessThan(70);
   });
 
   it("signs out without a local copy unless asked, and removes the data from this computer", async () => {
@@ -130,8 +167,8 @@ describe("the Sync settings", () => {
     await user.click(await screen.findByRole("button", { name: "Sign Out" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
     await user.click(within(dialog).getByRole("checkbox", { name: "Keep a local copy" }));
-    expect(dialog).toHaveTextContent("stays on this computer");
-    expect(dialog).not.toHaveTextContent("removed from this computer");
+    expect(dialog).toHaveTextContent("A copy stays on this computer");
+    expect(dialog).not.toHaveTextContent("Removed from this computer");
     await expectNoA11yViolations();
     await user.click(within(dialog).getByRole("button", { name: "Sign Out" }));
     expect(signOut).toHaveBeenCalledWith({ keepLocalCopy: true });
@@ -142,7 +179,7 @@ describe("the Sync settings", () => {
     await openSync();
     expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create Account" })).toBeInTheDocument();
-    expect(screen.getByText(/It is optional/)).toBeInTheDocument();
+    expect(screen.getByText(/^Optional\./)).toBeInTheDocument();
     await expectNoA11yViolations();
   });
 
@@ -159,7 +196,10 @@ describe("the Sync settings", () => {
     const account = await openSync();
     expect(screen.queryByRole("textbox", { name: "Server" })).not.toBeInTheDocument();
     await account.user.click(screen.getByRole("button", { name: "General" }));
-    expect(screen.getByRole("textbox", { name: "Server" })).toHaveValue(PRODUCTION_SERVER);
+    // The https:// is shown beside the icon, never typed.
+    expect(screen.getByRole("textbox", { name: "Server" })).toHaveValue(
+      PRODUCTION_SERVER.replace("https://", ""),
+    );
     expect(settings.get("sync.serverUrl")).toBe(PRODUCTION_SERVER);
   });
 
@@ -168,7 +208,7 @@ describe("the Sync settings", () => {
     const { user } = await openGeneral();
     const field = screen.getByRole("textbox", { name: "Server" });
     await user.clear(field);
-    await user.type(field, "https://sync.example.com{Enter}");
+    await user.type(field, "sync.example.com{Enter}");
     expect(settings.get("sync.serverUrl")).toBe("https://sync.example.com");
     act(() => settings.reset("sync.serverUrl"));
   });
@@ -179,7 +219,7 @@ describe("the Sync settings", () => {
     const field = screen.getByRole("textbox", { name: "Server" });
     await user.clear(field);
     await user.type(field, "not a url{Enter}");
-    expect(screen.getByText("Enter an address like https://sync.example.com")).toBeInTheDocument();
+    expect(screen.getByText("Enter an address like sync.example.com")).toBeInTheDocument();
     expect(settings.get("sync.serverUrl")).toBe(PRODUCTION_SERVER);
   });
 
@@ -212,24 +252,102 @@ describe("the Sync settings", () => {
     ]);
     await openSync();
     expect(screen.getByText("ada@example.com")).toBeInTheDocument();
-    expect(screen.getByText(/Confirm ada@example.com with the link/)).toBeInTheDocument();
+    expect(screen.getByText(/Confirm ada@example.com to reset/)).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/Synced/);
     expect(await screen.findByText("iPhone")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign Out Device" })).toBeInTheDocument();
     await expectNoA11yViolations();
   });
 
-  it("asks to type a phrase before deleting the account", async () => {
+  it("keeps both password forms off the page and opens each in a dialog", async () => {
+    signedIn();
+    await openSync();
+    expect(screen.queryByLabelText("Current password")).toBeNull();
+    expect(screen.queryByLabelText(/Your password/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Change Password" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Account" })).toBeInTheDocument();
+  });
+
+  it("changes the password from a dialog, which closes when it is done", async () => {
+    signedIn();
+    const change = vi.spyOn(syncRuntime.account()!, "changePassword").mockResolvedValue();
+    const { user } = await openSync();
+    await user.click(screen.getByRole("button", { name: "Change Password" }));
+    const dialog = await screen.findByRole("dialog", { name: "Change Password" });
+    await user.type(within(dialog).getByLabelText("Current password"), "old password");
+    await user.type(within(dialog).getByLabelText("New password"), "a much newer password");
+    await user.type(within(dialog).getByLabelText("Repeat new password"), "a much newer password");
+    await expectNoA11yViolations();
+    await user.click(within(dialog).getByRole("button", { name: "Change Password" }));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith("old password", "a much newer password"),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Change Password" })).toBeNull(),
+    );
+  });
+
+  it("asks for the new password twice and rates it, but never refuses a weak one", async () => {
+    signedIn();
+    const change = vi.spyOn(syncRuntime.account()!, "changePassword").mockResolvedValue();
+    const { user } = await openSync();
+    await user.click(screen.getByRole("button", { name: "Change Password" }));
+    const dialog = await screen.findByRole("dialog", { name: "Change Password" });
+    // Nothing to rate before there is a new password.
+    expect(within(dialog).queryByRole("meter")).toBeNull();
+    await user.type(within(dialog).getByLabelText("Current password"), "old password");
+    await user.type(within(dialog).getByLabelText("New password"), "password1234");
+    const confirm = within(dialog).getByLabelText("Repeat new password");
+    // The bar sits under the second field.
+    const meter = within(dialog).getByRole("meter", { name: "Password strength" });
+    expect(confirm.compareDocumentPosition(meter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(meter).toHaveAttribute("aria-valuetext", expect.stringMatching(/weak/i));
+    // Two different entries are caught.
+    await user.type(confirm, "password12345");
+    await user.click(within(dialog).getByRole("button", { name: "Change Password" }));
+    expect(await within(dialog).findByText("The passwords don't match")).toBeInTheDocument();
+    expect(change).not.toHaveBeenCalled();
+    // A weak password goes through once it is typed twice: the bar only advises.
+    await user.clear(confirm);
+    await user.type(confirm, "password1234");
+    await user.click(within(dialog).getByRole("button", { name: "Change Password" }));
+    await waitFor(() => expect(change).toHaveBeenCalledWith("old password", "password1234"));
+    await expectNoA11yViolations();
+  });
+
+  it("rates a strong password strong", async () => {
     signedIn();
     const { user } = await openSync();
-    await user.type(screen.getByLabelText(/Your password/), "a long password");
-    await user.click(screen.getByRole("button", { name: "Delete Account" }));
-    const confirm = await screen.findByRole("alertdialog");
-    expect(confirm).toHaveTextContent("Delete your sync account forever?");
-    await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: "Delete Account" }).at(-1)).toBeDisabled(),
+    await user.click(screen.getByRole("button", { name: "Change Password" }));
+    const dialog = await screen.findByRole("dialog", { name: "Change Password" });
+    await user.type(
+      within(dialog).getByLabelText("New password"),
+      "violet lantern kettle orbit ferment",
     );
+    expect(within(dialog).getByRole("meter", { name: "Password strength" })).toHaveAttribute(
+      "aria-valuetext",
+      "Strong",
+    );
+  });
+
+  it("asks for the password and a typed phrase in a dialog before deleting the account", async () => {
+    signedIn();
+    const remove = vi.spyOn(syncRuntime.account()!, "deleteAccount").mockResolvedValue();
+    vi.spyOn(syncRuntime, "detach").mockResolvedValue();
+    const { user } = await openSync();
+    await user.click(screen.getByRole("button", { name: "Delete Account" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Delete your sync account forever?");
+    const confirm = within(dialog).getByRole("button", { name: "Delete Account" });
+    expect(confirm).toBeDisabled();
+    await user.type(within(dialog).getByLabelText(/Your password/), "a long password");
+    // The phrase is still missing.
+    expect(confirm).toBeDisabled();
     await expectNoA11yViolations();
+    await user.type(within(dialog).getByLabelText(/Type delete my account/), "delete my account");
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+    await waitFor(() => expect(remove).toHaveBeenCalledWith("a long password"));
   });
 });
 
@@ -245,6 +363,7 @@ describe("the conflicts summary", () => {
     );
 
   it("counts the changes that need a look and opens the merge editor", async () => {
+    signedIn();
     const { user } = await openSync();
     withConflicts(2);
     expect(await screen.findByText("2 changes need a look")).toBeInTheDocument();
@@ -255,10 +374,11 @@ describe("the conflicts summary", () => {
     await expectNoA11yViolations();
   });
 
-  it("says when there are none", async () => {
+  it("shows nothing at all when there are none", async () => {
+    signedIn();
     await openSync();
     withConflicts(0);
-    expect(await screen.findByText("Nothing to review")).toBeInTheDocument();
+    expect(screen.queryByText("Nothing to review")).toBeNull();
     expect(screen.queryByRole("button", { name: "Review Changes" })).toBeNull();
   });
 });

@@ -95,6 +95,7 @@ describe("the account dialog", () => {
     expect(screen.getByRole("dialog", { name: "Create your account" })).toBeInTheDocument();
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText("Repeat password"), "a long password");
     await user.type(screen.getByLabelText(/^Beta key/), " the-key ");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(signUp).toHaveBeenCalledWith(
@@ -109,6 +110,38 @@ describe("the account dialog", () => {
     );
   });
 
+  it("asks for the password twice, with placeholders, and refuses two that differ", async () => {
+    const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    // The repeat field has no label of its own, only a placeholder and a name for screen readers.
+    expect(screen.queryByText("Repeat password")).not.toBeInTheDocument();
+    for (const placeholder of ["ada", "Password", "Repeat password"]) {
+      expect(screen.getByPlaceholderText(placeholder)).toBeVisible();
+    }
+    await user.type(screen.getByLabelText(/^Username/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText("Repeat password"), "another long one");
+    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(await screen.findByText("The passwords don't match")).toBeInTheDocument();
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("shows how strong the password is under the repeat field, and still allows a weak one", async () => {
+    const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    expect(screen.queryByRole("meter")).not.toBeInTheDocument();
+    const weak = "password123";
+    await user.type(screen.getByLabelText(/^Password/), weak);
+    expect(screen.getByRole("meter")).toHaveAccessibleName(/password strength/i);
+    expect(screen.getByRole("meter")).toHaveAttribute("aria-valuenow", "0");
+    await user.type(screen.getByLabelText(/^Username/), "ada");
+    await user.type(screen.getByLabelText("Repeat password"), weak);
+    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(signUp).toHaveBeenCalled();
+  });
+
   it("keeps the beta key hidden while it is typed", () => {
     open("signUp");
     expect(screen.getByLabelText(/^Beta key/)).toHaveAttribute("type", "password");
@@ -119,6 +152,7 @@ describe("the account dialog", () => {
     const { user } = open("signUp");
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText("Repeat password"), "a long password");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("Enter the beta key to create an account.")).toBeInTheDocument();
     expect(signUp).not.toHaveBeenCalled();
@@ -133,6 +167,7 @@ describe("the account dialog", () => {
     await user.type(server, "https://sync.example.com");
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText("Repeat password"), "a long password");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(signUp).toHaveBeenCalledWith(
       "https://sync.example.com",
@@ -148,6 +183,7 @@ describe("the account dialog", () => {
     const { user } = open("signUp");
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText("Repeat password"), "a long password");
     await user.type(screen.getByLabelText(/^Beta key/), "nope");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("That beta key isn't right.")).toBeInTheDocument();

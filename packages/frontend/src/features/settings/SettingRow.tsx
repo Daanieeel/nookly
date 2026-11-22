@@ -40,6 +40,8 @@ export function SettingRow({
   hideTitle?: boolean;
 }) {
   const labelId = useId();
+  // A card that says it all itself: the heading above it is its title, so no header row.
+  const bare = hideTitle && !description && control == null;
   return (
     <fieldset
       aria-labelledby={labelId}
@@ -49,21 +51,28 @@ export function SettingRow({
         hideTitle && "pt-0",
       )}
     >
-      <div className="flex items-center justify-between gap-6">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          {settingId && <CopyIdButton settingId={settingId} />}
-          <div className="flex items-center gap-1.5">
-            <span id={labelId} className={cn(SETTING_TITLE_CLASSES, hideTitle && "sr-only")}>
-              {title}
-            </span>
-            {settingId && <ResetButton settingId={settingId} title={title} />}
+      {bare && (
+        <span id={labelId} className="sr-only">
+          {title}
+        </span>
+      )}
+      {!bare && (
+        <div className="flex items-center justify-between gap-6">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            {settingId && <CopyIdButton settingId={settingId} />}
+            <div className="flex items-center gap-1.5">
+              <span id={labelId} className={cn(SETTING_TITLE_CLASSES, hideTitle && "sr-only")}>
+                {title}
+              </span>
+              {settingId && <ResetButton settingId={settingId} title={title} />}
+            </div>
+            {description && <p className={SETTING_DESCRIPTION_CLASSES}>{description}</p>}
           </div>
-          <p className={SETTING_DESCRIPTION_CLASSES}>{description}</p>
+          {control != null && (
+            <div className="flex w-72 shrink-0 items-center justify-end">{control}</div>
+          )}
         </div>
-        {control != null && (
-          <div className="flex w-72 shrink-0 items-center justify-end">{control}</div>
-        )}
-      </div>
+      )}
       {footer}
     </fieldset>
   );

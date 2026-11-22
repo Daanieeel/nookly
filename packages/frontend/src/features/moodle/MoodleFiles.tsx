@@ -174,7 +174,7 @@ function FileRow({
   return (
     <li className="flex flex-col gap-1">
       <ItemRow
-        className="border border-border bg-background"
+        className="border bg-raised shadow-control"
         look={fileLook(file.kind, file.fileName)}
         title={file.fileName || file.fileUrl}
         facts={fileFacts(file)}

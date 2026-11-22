@@ -8,6 +8,7 @@ import {
   IconMoodSmile,
   IconPaw,
   IconPlane,
+  IconSearch,
   IconUsers,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
@@ -21,7 +22,7 @@ import {
 } from "#/components/entity-icon.tsx";
 import { ACCENT_COLORS } from "#/lib/colors.ts";
 import { ALL_EMOJI, type EmojiEntry } from "#/lib/emoji.ts";
-import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@nookly/ui/components/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import { cn } from "@nookly/ui/lib/utils";
@@ -185,11 +186,12 @@ export function IconPicker({
           </TabsContent>
 
           <TabsContent value="emoji" className="flex flex-col gap-2">
-            <Input
+            <IconInput
+              icon={IconSearch}
               placeholder="Search emoji…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-7 text-sm"
+              inputClassName="h-7 text-sm"
             />
 
             {!query && (

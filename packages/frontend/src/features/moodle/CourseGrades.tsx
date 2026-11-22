@@ -9,6 +9,7 @@ import { percentOf } from "@nookly/shared/moodle/format";
 import { hasMoodleText } from "./moodle-html.ts";
 import { SAMPLE_GRADES } from "./moodle-samples.ts";
 import { useMoodleGrades } from "./moodle-queries.ts";
+import { card } from "./moodle-classes.ts";
 
 /// The course total last, whatever order Moodle lists it in.
 export function orderGradeItems(items: MoodleGradeItem[]): MoodleGradeItem[] {
@@ -64,7 +65,7 @@ function GradeCard({ item, prominent }: { item: MoodleGradeItem; prominent?: boo
   return (
     <div
       className={cn(
-        "flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-4",
+        card("h-full gap-3 p-4"),
         prominent && "bg-linear-to-br from-accent-green/10 to-transparent p-5",
       )}
     >

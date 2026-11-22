@@ -18,6 +18,7 @@ import {
   useMoodleAssignments,
   useMoodleCourse,
 } from "./moodle-queries.ts";
+import { card, cardButton } from "./moodle-classes.ts";
 
 /// Due soonest first; those without a due date last.
 export function sortAssignments(items: MoodleAssignment[]): MoodleAssignment[] {
@@ -78,7 +79,7 @@ function AssignmentCard({
   return (
     <button
       type="button"
-      className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-ring"
+      className={cardButton("group flex-row items-center gap-4 p-3")}
       onClick={onOpen}
     >
       <span
@@ -174,7 +175,7 @@ export function AssignmentPage({
                 <Fact label="Due" value={moodleDate(shown.dueDate)} />
                 <Fact label="Cut off" value={moodleDate(shown.cutOffDate)} />
                 <Fact label="Grade" value={state?.grade ?? null} />
-                <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3 sm:col-span-2 lg:col-span-4">
+                <div className={card("gap-1.5 p-3 sm:col-span-2 lg:col-span-4")}>
                   <dt className="text-xs text-muted-foreground">Your submission</dt>
                   <dd className="flex items-center gap-1.5">
                     <Badge variant="secondary">{submissionLabel(state?.submissionStatus)}</Badge>
@@ -183,7 +184,7 @@ export function AssignmentPage({
                 </div>
               </dl>
               {hasMoodleText(shown.intro) && (
-                <div className="rounded-2xl border border-border bg-card p-4">
+                <div className={card("p-4")}>
                   <MoodleHtml html={shown.intro} />
                 </div>
               )}
@@ -192,11 +193,7 @@ export function AssignmentPage({
                 <section className="flex flex-col gap-2">
                   <h2 className="text-sm font-semibold">Feedback</h2>
                   {state.feedback.map((html) => (
-                    <MoodleHtml
-                      key={html}
-                      html={html}
-                      className="rounded-2xl border border-border bg-card p-4"
-                    />
+                    <MoodleHtml key={html} html={html} className={card("p-4")} />
                   ))}
                 </section>
               )}
@@ -211,7 +208,7 @@ export function AssignmentPage({
 function Fact({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3">
+    <div className={card("gap-1 p-3")}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-sm font-medium">{value}</dd>
     </div>

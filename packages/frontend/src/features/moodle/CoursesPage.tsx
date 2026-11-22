@@ -12,6 +12,7 @@ import { firstNameOf } from "@nookly/shared/moodle/format";
 import { SAMPLE_COURSES } from "./moodle-samples.ts";
 import { coursePath, moodleWebUrl } from "@nookly/shared/moodle/path";
 import { useMoodleCourses } from "./moodle-queries.ts";
+import { card, cardButton } from "./moodle-classes.ts";
 
 const hasEnded = (c: MoodleCourse, now: number) => c.endDate > 0 && c.endDate < now;
 
@@ -62,13 +63,8 @@ export function CoursesPage({
         />
       }
       header={
-        <header className="relative isolate flex flex-wrap items-center gap-x-4 gap-y-3 overflow-hidden rounded-2xl border border-border bg-card p-5 pt-16">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-            <div className="absolute -top-24 -left-10 size-64 rounded-full bg-brand-moodle/20 blur-3xl" />
-            <div className="absolute -top-20 -right-12 size-72 rounded-4xl border border-border/60" />
-            <div className="absolute -top-32 -right-24 size-96 rounded-4xl border border-border/40" />
-          </div>
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-border bg-background shadow-xs">
+        <header className={card("flex-row flex-wrap items-center gap-x-4 gap-y-3 p-5 pt-16")}>
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border bg-raised shadow-control">
             <MoodleIcon className="size-8" />
           </div>
           <div className="flex min-w-0 flex-1 basis-60 flex-col">
@@ -182,15 +178,12 @@ function CourseCard({
   return (
     <button
       type="button"
-      className={cn(
-        "group flex size-full flex-col overflow-hidden rounded-2xl border border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-ring",
-        faded && "saturate-50",
-      )}
+      className={cn(cardButton("group size-full flex-col overflow-hidden"), faded && "saturate-50")}
       onClick={(e) => go(coursePath(course.id), e)}
     >
       <CourseArt course={course} className="h-28">
         {course.shortName && course.fullName && (
-          <span className="absolute top-3 left-3 rounded-md bg-background/80 px-2 py-0.5 text-xs font-medium backdrop-blur-sm">
+          <span className="absolute top-3 left-3 rounded-md border bg-raised px-2 py-0.5 text-xs font-medium shadow-control">
             {course.shortName}
           </span>
         )}

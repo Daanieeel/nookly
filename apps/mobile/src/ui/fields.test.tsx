@@ -32,6 +32,20 @@ describe("a text field", () => {
     expect(semanticHex("placeholder", "dark")).toMatch(/^#[0-9a-f]{6}$/);
   });
 
+  it("marks a required field with a red asterisk after its name", () => {
+    const screen = render(<Field label="Title" required value="" onChangeText={() => {}} />);
+    const star = screen.getByText("*");
+    expect(StyleSheet.flatten(star.props.style).color).toEqual(TINT.red.light);
+    expect(screen.getByText(/Title/)).toBeTruthy();
+    // Read out as part of the name only by its label, never as a character.
+    expect(screen.getByLabelText("Title")).toBeTruthy();
+  });
+
+  it("draws no asterisk on a field that is optional", () => {
+    const screen = render(<Field label="Title" value="" onChangeText={() => {}} />);
+    expect(screen.queryByText("*")).toBeNull();
+  });
+
   it("has its name small above it", () => {
     const screen = render(<Field label="Title" value="" onChangeText={() => {}} />);
     nameAbove(screen, "Title", "Title");

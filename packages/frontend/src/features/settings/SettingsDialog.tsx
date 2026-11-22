@@ -282,10 +282,10 @@ export function SettingsDialog() {
         </DialogDescription>
         <div className="flex min-h-0 flex-1">
           <div className="flex w-56 shrink-0 flex-col border-r border-border">
-            <div className="relative shrink-0 p-2 pb-1">
+            <div className="relative shrink-0 p-1.5 pb-1">
               <IconSearch
                 size={14}
-                className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute top-1/2 left-4.5 -translate-y-1/2 text-muted-foreground"
               />
               <Input
                 ref={searchRef}
@@ -299,7 +299,7 @@ export function SettingsDialog() {
               {!searching && (
                 <Kbd
                   aria-hidden
-                  className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2"
+                  className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2"
                 >
                   /
                 </Kbd>
@@ -307,7 +307,7 @@ export function SettingsDialog() {
             </div>
             <nav
               aria-label="Settings categories"
-              className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2"
+              className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-1.5"
             >
               {NAV_GROUPS.map((group, index) => (
                 <div
@@ -328,7 +328,7 @@ export function SettingsDialog() {
                 </div>
               ))}
             </nav>
-            <div className="flex shrink-0 flex-col gap-0.5 border-t border-border p-2">
+            <div className="flex shrink-0 flex-col gap-0.5 border-t border-border p-1.5">
               {FOOTER_PAGES.map(pageButton)}
               <FooterActionButton
                 action={openSettingsFile}

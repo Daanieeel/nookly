@@ -1,4 +1,4 @@
-import { IconBook2, IconChevronDown } from "@tabler/icons-react";
+import { IconBook2, IconChevronDown, IconMapPin } from "@tabler/icons-react";
 import { DateField, TimeRangeFields } from "./date-time-form-fields";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { EntityIcon } from "#/components/entity-icon.tsx";
 import { EntityPickerPopover } from "#/components/entity-picker.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import {
   createOneOffSession,
   createSessionTemplate,
@@ -247,7 +248,8 @@ export function QuickCreateSessionDialog({
       <form.Field name="location">
         {(field) => (
           <FormField label="Location" htmlFor="session-location">
-            <Input
+            <IconInput
+              icon={IconMapPin}
               id="session-location"
               placeholder="Room..."
               value={field.state.value}

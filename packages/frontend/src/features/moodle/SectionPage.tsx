@@ -6,6 +6,7 @@ import { useCourseName } from "./CoursePage.tsx";
 import { coursePath, moodleWebUrl } from "@nookly/shared/moodle/path";
 import { SAMPLE_SECTIONS } from "./moodle-samples.ts";
 import { useMoodleContents, useMoodleCourse, useMoodlePageText } from "./moodle-queries.ts";
+import { card } from "./moodle-classes.ts";
 
 const SAMPLE_PAGE =
   "<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p><p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>";
@@ -67,7 +68,7 @@ export function SectionPage({
               label="Loading the page"
             >
               {(html) => (
-                <div className="rounded-2xl border border-border bg-card p-5">
+                <div className={card("p-5")}>
                   <MoodleHtml html={html} />
                 </div>
               )}

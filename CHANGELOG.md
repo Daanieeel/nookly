@@ -42,6 +42,18 @@ All notable changes to Nookly are listed here.
 - On your phone, the dashboard mascot sits at the top right.
 - A filter that finds nothing now shows a No matches message with a button to clear the filters, on every page that has filters.
 - The highlighted row in a popover now has corners that match the popover.
+- Settings, Account is shorter and easier to scan on your computer and phone: your account, devices and security each sit in one tidy block with short lines instead of long paragraphs.
+- Sign Out is now shown as a warning, and asks with a few short lines about what happens instead of a paragraph.
+- Change Password and Delete Account are now buttons that open their own window on your computer and a sheet on your phone, so their fields are no longer spread over the page. Change Password sits above Devices, and Delete Account comes last.
+- Changing your password asks for the new one twice and shows how strong it is under the second field. It only advises: you can still pick any password that is long enough.
+- Changes that need a look only show up on the Account page when there are some.
+- Removed the Shared with me section, as sharing is not possible yet.
+- Text fields for your name, email, password, search, locations and addresses now start with a small icon that shows what they are for.
+- Password fields on your computer have an eye to show or hide what you type.
+- Address fields show https:// for you, so you never have to type it. If you paste or type it anyway, it is not doubled.
+- On your phone, buttons, chips and the eye on password fields now give a haptic feedback that fits what they do: a firm one for Sign Out and Delete, a soft tick for quiet buttons, a warning when a confirmation opens, and an error buzz when a field turns out wrong.
+- Creating an account asks for the password twice, with a bar under it that shows how strong it is, and on your phone every field has its name above it and a red asterisk when it is required.
+- Moodle has the same look as the rest of Nookly on your computer and phone: raised cards, calmer course headers, and the shared empty and error states.
 
 ### Fixed
 
@@ -58,6 +70,7 @@ All notable changes to Nookly are listed here.
 - The Agent settings text box is no longer cut off.
 - Signing in closes the window straight away instead of spinning until everything has been sent.
 - Keeping what is on a device out of your account no longer shows the page about bringing the device into your account, and a device with nothing on it skips that page too.
+- The search field in Settings now follows the rounded corner of the window.
 
 ## 0.75.3 (2026-11-17)
 

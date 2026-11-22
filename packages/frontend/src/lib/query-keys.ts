@@ -182,7 +182,6 @@ export const qk = {
     root: ["sync"] as const,
     account: ["sync", "account"] as const,
     sessions: ["sync", "sessions"] as const,
-    sharesWithMe: ["sync", "shares", "incoming"] as const,
     sharesByMe: ["sync", "shares", "outgoing"] as const,
     conflicts: ["sync", "conflicts"] as const,
     conflictViews: ["sync", "conflict-views"] as const,

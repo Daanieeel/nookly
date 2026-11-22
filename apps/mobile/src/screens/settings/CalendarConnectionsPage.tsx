@@ -5,7 +5,7 @@ import { View } from "react-native";
 import { useMoodleCalendar, useSetMoodleCalendar } from "../../moodle/queries.ts";
 import { useMoodleService } from "../../moodle/service.tsx";
 import { Button, statusOf } from "../../ui/Button.tsx";
-import { Field } from "../../ui/Field.tsx";
+import { UrlField } from "../../ui/UrlField.tsx";
 import { FormSection } from "../../ui/kit/Form.tsx";
 import { GroupedSection } from "../../ui/kit/GroupedSection.tsx";
 import { IconBadge } from "../../ui/kit/IconBadge.tsx";
@@ -19,7 +19,6 @@ import { ago } from "../dates.ts";
 /// iCloud are only on the desktop for now.
 
 function ConnectMoodleCalendar() {
-  const theme = useTheme();
   const { calendar } = useMoodleService();
   const set = useSetMoodleCalendar();
   const [link, setLink] = useState("");
@@ -33,15 +32,13 @@ function ConnectMoodleCalendar() {
         below and treat it like a password.
       </Text>
       <FormSection>
-        <Field
+        <UrlField
           label="Calendar link"
-          icon={<IconLink size={18} color={theme.colors.mutedForeground} />}
-          placeholder="https://moodle.example.edu/calendar/export_execute.php?..."
-          autoCapitalize="none"
-          autoCorrect={false}
+          icon={IconLink}
+          placeholder="moodle.example.edu/calendar/export_execute.php?..."
           secureTextEntry
           value={link}
-          onChangeText={setLink}
+          onValueChange={setLink}
           onSubmitEditing={() => link.trim() && connect.mutate(link)}
         />
       </FormSection>

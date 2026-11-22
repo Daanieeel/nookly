@@ -17,6 +17,7 @@ import {
   useMoodleForums,
   useMoodlePosts,
 } from "./moodle-queries.ts";
+import { card, cardButton } from "./moodle-classes.ts";
 
 /// The course's announcements first.
 export function orderForums(forums: MoodleForum[]): MoodleForum[] {
@@ -51,7 +52,7 @@ export function CourseForums({ spaceId, courseId }: { spaceId: string; courseId:
               <li key={forum.id}>
                 <button
                   type="button"
-                  className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-ring"
+                  className={cardButton("group flex-row items-center gap-4 p-3")}
                   onClick={(e) => go(forumPath(courseId, forum.id), e)}
                 >
                   <span
@@ -138,7 +139,7 @@ export function ForumPage({
               <li key={d.discussionId}>
                 <button
                   type="button"
-                  className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md focus-ring"
+                  className={cardButton("group flex-row items-center gap-3 p-3")}
                   onClick={(e) => go(discussionPath(courseId, forumId, d.discussionId), e)}
                 >
                   <Avatar name={d.author} />
@@ -218,7 +219,7 @@ export function DiscussionPage({
         {(items) => (
           <ol className="flex flex-col gap-3">
             {items.map((post) => (
-              <li key={post.id} className="flex gap-3 rounded-2xl border border-border bg-card p-4">
+              <li key={post.id} className={card("flex-row gap-3 p-4")}>
                 <Avatar name={post.author.fullName} />
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">

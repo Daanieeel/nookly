@@ -1,3 +1,4 @@
+import { IconMail } from "@tabler/icons-react-native";
 import type { ShareRole } from "@nookly/shared/api";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +17,7 @@ import {
 import { cn, row, splitText } from "../ui/classes.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
 import { Field } from "../ui/Field.tsx";
+import { FieldIcon } from "../ui/FieldIcon.tsx";
 import { Empty, Section, ROW_DIVIDER } from "../ui/Row.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Text } from "../ui/Text.tsx";
@@ -121,6 +123,7 @@ export function ShareScreen({ entityId }: { entityId: string }) {
         {(field) => (
           <Field
             label="Email"
+            icon={<FieldIcon icon={IconMail} />}
             required
             autoCapitalize="none"
             keyboardType="email-address"

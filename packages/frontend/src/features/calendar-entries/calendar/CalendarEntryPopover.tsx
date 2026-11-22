@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@nookly/ui/components/dropdown-menu";
 import { Input } from "@nookly/ui/components/input";
+import { IconInput } from "@nookly/ui/components/icon-input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import {
   type CalendarEntrySeriesPatch,
@@ -388,7 +389,8 @@ function CalendarEntryEditForm({ entry, onDone }: { entry: CalendarEntry; onDone
       <form.Field name="location">
         {(field) => (
           <FormField label="Location" htmlFor="calendar-entry-edit-location" className="col-span-2">
-            <Input
+            <IconInput
+              icon={IconMapPin}
               id="calendar-entry-edit-location"
               placeholder="Optional"
               value={field.state.value}
