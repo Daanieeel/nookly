@@ -2,18 +2,17 @@ import { useShortcut } from "#/hooks/use-shortcut.ts";
 import { displayText } from "#/lib/shortcuts.ts";
 import { qk } from "#/lib/query-keys.ts";
 import {
+  IconArrowRight,
   IconCalendarEvent,
-  IconCalendarWeek,
   IconFeather,
   IconFileText,
   IconInbox,
-  IconLayoutList,
   IconLink,
   IconPlus,
   IconSchool,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
-import { type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
   functionalUpdate,
@@ -24,7 +23,7 @@ import {
 import { useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import { contextTarget } from "#/components/context-menu/registry.ts";
-import {} from "#/components/data-table/data-table-column-header.tsx";
+import type { DataTableGroup } from "#/components/data-table/data-table.tsx";
 import { EmptyState } from "#/components/empty-state.tsx";
 import { EntityIcon } from "#/components/entity-icon.tsx";
 import { type ActiveFilter, type FilterField } from "#/components/filter-menu.tsx";
@@ -33,7 +32,6 @@ import { useQuickFilters } from "#/lib/quick-filters.ts";
 import { NoMatchesNotice } from "#/components/module-view-header.tsx";
 import { Button } from "@nookly/ui/components/button";
 import {} from "@nookly/ui/components/input";
-import { ShortcutKbd } from "#/components/shortcut-kbd.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { listLabels } from "#/lib/api/labels.ts";
 import { listJotSummaries } from "#/lib/api/notes.ts";
@@ -62,6 +60,7 @@ import {
   writeStoredSorting,
 } from "./list-table-shared";
 import { prefetchBlocks } from "./blocks-query";
+import { refineJotIntoNote } from "./refine-jot";
 import { keyColumn } from "./key-column";
 import { notePreviewText, previewLines } from "./note-preview";
 import { formatClock, formatShortDate, formatWeekday } from "#/lib/datetime.ts";
@@ -113,8 +112,9 @@ interface Preset {
   filters: ActiveFilter[];
 }
 
-/// One click views over the same table: each is just a saved filter set, so picking
-/// one shows its chips in the filter row, ready to adjust.
+/// The two states of the inbox. It opens on the Jots still to refine; Show refined adds the
+/// refined ones, grouped under the rest. While the filters are exactly one of these the chip
+/// row stays hidden, and it shows as soon as a filter is added.
 const PRESETS: Preset[] = [
   {
     id: "unrefined",
@@ -122,19 +122,7 @@ const PRESETS: Preset[] = [
     icon: IconInbox,
     filters: [{ fieldId: "link", operator: "is", values: ["unlinked"] }],
   },
-  {
-    id: "refined",
-    label: "Refined",
-    icon: IconFileText,
-    filters: [{ fieldId: "link", operator: "is", values: ["linked"] }],
-  },
-  {
-    id: "week",
-    label: "This week",
-    icon: IconCalendarWeek,
-    filters: [{ fieldId: "edited", operator: "is", values: ["week"] }],
-  },
-  { id: "all", label: "All", icon: IconLayoutList, filters: [] },
+  { id: "all", label: "Show refined", icon: IconFileText, filters: [] },
 ];
 
 function filterKey(filters: ActiveFilter[]): string {
@@ -145,6 +133,13 @@ function filterKey(filters: ActiveFilter[]): string {
 }
 
 const PRESET_BY_KEY = new Map(PRESETS.map((p) => [filterKey(p.filters), p.id]));
+const PRESET_BY_ID = new Map(PRESETS.map((p) => [p.id, p]));
+
+/// With the refined Jots shown they sit under the ones still to refine, in a quieter group.
+const REFINED_GROUPS: DataTableGroup<JotRow>[] = [
+  { id: "todo", label: "To refine", match: (r) => !r.refined },
+  { id: "refined", label: "Refined", match: () => true },
+];
 
 /// The Jots still to refine, which the Dashboard opens the page on.
 export const UNREFINED_JOT_FILTERS: ActiveFilter[] = [
@@ -248,14 +243,9 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
 
   // Time windows ("Past 7 days") are measured from the latest load, not every render.
   const now = useMemo(() => Date.now(), [summaries]);
-  const presetCounts = useMemo(
-    () =>
-      new Map(
-        PRESETS.map((p) => [p.id, rows.filter((r) => passesFilters(r, p.filters, now)).length]),
-      ),
-    [rows, now],
-  );
+  const refinedCount = useMemo(() => rows.filter((r) => r.refined).length, [rows]);
   const activePreset = PRESET_BY_KEY.get(filterKey(filters));
+  const showingRefined = activePreset === "all";
 
   const needle = query.trim().toLowerCase();
   const data = useMemo(
@@ -263,9 +253,11 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
     [rows, needle, filters, now],
   );
 
+  const showPreview = data.some((r) => r.preview);
+  const showSession = data.some((r) => r.summary.session);
   const columns = useMemo(
-    () => buildColumns({ spaceId, spaces, queryClient, openEntity }),
-    [spaceId, spaces, queryClient, openEntity],
+    () => buildColumns({ spaceId, spaces, queryClient, openEntity, showPreview, showSession }),
+    [spaceId, spaces, queryClient, openEntity, showPreview, showSession],
   );
 
   const onSortingChange = (updater: Updater<SortingState>) => {
@@ -285,10 +277,9 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
   });
 
   const newJotButton = (
-    <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setQuickJotOpen(true)}>
+    <Button variant="default" size="sm" className="gap-1.5" onClick={() => setQuickJotOpen(true)}>
       <IconPlus size={14} />
       New Jot
-      <ShortcutKbd name="quickJot" />
     </Button>
   );
 
@@ -337,29 +328,31 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
             {newJotButton}
           </div>
 
-          <div className="flex flex-wrap items-center gap-1">
-            {PRESETS.map((preset) => (
+          <ListFilterToolbar
+            afterSearch={
               <Button
-                key={preset.id}
-                variant={activePreset === preset.id ? "secondary" : "ghost"}
+                variant={showingRefined ? "default" : "ghost"}
                 size="sm"
-                aria-pressed={activePreset === preset.id}
+                aria-pressed={showingRefined}
                 className="gap-1.5"
                 onClick={() => {
-                  setFilters(preset.filters);
-                  preferences.set(STORAGE_KEYS.jotsPreset, preset.id);
+                  const next = PRESET_BY_ID.get(showingRefined ? "unrefined" : "all");
+                  if (!next) return;
+                  setFilters(next.filters);
+                  preferences.set(STORAGE_KEYS.jotsPreset, next.id);
                 }}
               >
-                <preset.icon size={14} />
-                {preset.label}
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {presetCounts.get(preset.id)}
+                <IconFileText size={14} />
+                {showingRefined ? "Hide refined" : "Show refined"}
+                {/* Muted on the quiet button; on the filled one it keeps the button's own text colour. */}
+                <span
+                  className={cn("text-xs tabular-nums", !showingRefined && "text-muted-foreground")}
+                >
+                  {refinedCount}
                 </span>
               </Button>
-            ))}
-          </div>
-
-          <ListFilterToolbar
+            }
+            hideChips={activePreset !== undefined}
             query={query}
             onQueryChange={setQuery}
             placeholder="Filter Jots"
@@ -373,7 +366,18 @@ export function JotsListView({ spaceId }: { spaceId: string }) {
       }
     >
       {data.length > 0 ? (
-        <PageSummaryTable table={table} spaceId={spaceId} scrollX={false} />
+        <PageSummaryTable
+          table={table}
+          spaceId={spaceId}
+          scrollX={false}
+          groups={showingRefined ? REFINED_GROUPS : undefined}
+          onRowKeyDown={(e, row) => {
+            if (e.key.toLowerCase() !== "r" || e.metaKey || e.ctrlKey || e.altKey) return;
+            if (row.refined || row.summary.entity.deletedAt) return;
+            e.preventDefault();
+            void refineJotIntoNote(row.summary.entity, queryClient);
+          }}
+        />
       ) : (
         !isPending && (
           <NoMatchesNotice
@@ -398,11 +402,16 @@ export function buildColumns({
   spaces,
   queryClient,
   openEntity,
+  showPreview = true,
+  showSession = true,
 }: {
   spaceId: string;
   spaces: Space[];
   queryClient: QueryClient;
   openEntity: (entityId: string, spaceId: string) => void;
+  /// Columns nothing in the list fills are left out instead of showing empty space.
+  showPreview?: boolean;
+  showSession?: boolean;
 }): ColumnDef<DataTableFeatures, JotRow>[] {
   const open = (entity: Entity) => (e: MouseEvent) => {
     // The row itself opens on click too; this chip opens something else.
@@ -411,7 +420,7 @@ export function buildColumns({
   };
   const prefetch = (entity: Entity) => () => prefetchBlocks(queryClient, entity.id);
 
-  return [
+  const columns: ColumnDef<DataTableFeatures, JotRow>[] = [
     keyColumn<JotRow>(),
     titleColumn<JotRow>(TitleCell),
     {
@@ -427,10 +436,10 @@ export function buildColumns({
     },
     {
       id: "linked",
-      header: "Refined into",
+      header: "Note",
       cell: ({ row }) => {
         const [first, ...rest] = row.original.summary.linked;
-        if (!first) return null;
+        if (!first) return <RefineAction jot={row.original.summary.entity} />;
         const otherSpace =
           first.spaceId !== spaceId ? spaces.find((s) => s.id === first.spaceId) : undefined;
         return (
@@ -462,7 +471,7 @@ export function buildColumns({
         );
       },
       enableSorting: false,
-      meta: { label: "Refined into", width: "fit", hideBelow: "md" },
+      meta: { label: "Note", width: "fit", hideBelow: "md" },
     },
     {
       id: "session",
@@ -497,6 +506,41 @@ export function buildColumns({
     labelsColumn<JotRow>(),
     editedColumn<JotRow>(),
   ];
+  return columns.filter(
+    (c) => (c.id !== "preview" || showPreview) && (c.id !== "session" || showSession),
+  );
+}
+
+/// The way out of the inbox: shows on the row's hover or focus, and `R` does the same
+/// on a focused row. Creates the Note and opens it beside the Jot.
+function RefineAction({ jot }: { jot: Entity }) {
+  const queryClient = useQueryClient();
+  const refine = useMutation({ mutationFn: () => refineJotIntoNote(jot, queryClient) });
+  if (jot.deletedAt) return null;
+  return (
+    <div className="w-fit opacity-0 focus-within:opacity-100 [tr:focus-visible_&]:opacity-100 [tr:hover_&]:opacity-100">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1.5 px-1.5 text-xs"
+            disabled={refine.isPending}
+            onClick={(e) => {
+              e.stopPropagation();
+              refine.mutate();
+            }}
+          >
+            <IconArrowRight size={12} />
+            Refine
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          Refine into New Note <kbd className="ml-1 font-sans">R</kbd>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
 }
 
 function TitleCell({ row }: { row: JotRow }) {

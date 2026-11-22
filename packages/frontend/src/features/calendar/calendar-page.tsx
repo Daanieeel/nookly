@@ -188,7 +188,7 @@ export function CalendarPageHeader({
         </nav>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="secondary" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
+            <Button variant="default" size="sm" className="ml-1 gap-1.5" onClick={startCreate}>
               <IconPlus />
               {createLabel}
             </Button>

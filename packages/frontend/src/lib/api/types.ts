@@ -487,6 +487,11 @@ export interface FileEntity {
   blob: string | null;
   /// Attached Label ids, ordered by label name.
   labelIds: string[];
+  /// Read only. The live entities this File is attached to, by title.
+  attachedTo: Entity[];
+  /// Read only. The live Courses it belongs to: attached to one directly, or to something
+  /// linked to one (an Assignment, an Exam, a Session).
+  courses: Entity[];
   /// Read only. The full extracted/OCR'd text last indexed for this File.
   /// Only populated by `getFile` (a single File); `listFiles` always returns
   /// `null` here to keep listing many Files cheap.

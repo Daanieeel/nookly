@@ -13,19 +13,22 @@ import { FADE, SPRING } from "./motion.ts";
 import { useReduceMotion } from "./reduce-motion.ts";
 import { CORNER, SPACE } from "./tokens.ts";
 
-/// A bar floating over the bottom of a page, as wide as its buttons: it rises on a spring as
+/// A bar floating over the bottom of a page, as wide as its buttons (or `fill`): it rises on a spring as
 /// it appears and sinks away after (the save bar, the way back to today).
 export function FloatingBar({
   shown,
   above,
   testID,
   label,
+  fill = false,
   children,
 }: {
   shown: boolean;
   above: number;
   testID: string;
   label: string;
+  /// Spans the page between the margins, as the paste bar does, instead of its buttons' width.
+  fill?: boolean;
   children: React.ReactNode;
 }) {
   const floating = useElevation("popover");
@@ -76,6 +79,7 @@ export function FloatingBar({
             gap: SPACE.xs,
             flexDirection: "row",
             alignItems: "center",
+            alignSelf: fill ? "stretch" : undefined,
             backgroundColor: card,
             borderWidth: 1,
             borderColor: separator,

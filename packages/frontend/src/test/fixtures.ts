@@ -163,6 +163,8 @@ export function makeFile(
     needsReindex: false,
     blob: null,
     labelIds: [],
+    attachedTo: [],
+    courses: [],
     indexedContent: null,
     ...patch,
   };

@@ -11,7 +11,7 @@ import {
 import type { GroupDef } from "#/components/grouped-view/grouping.ts";
 import { currentWeekStartsOn } from "#/lib/week-start.ts";
 import type { ReindexProgress } from "#/lib/api/files.ts";
-import type { FileEntity, Label } from "#/lib/api/types.ts";
+import type { Entity, FileEntity, Label } from "#/lib/api/types.ts";
 import { UNLABELLED } from "@nookly/shared/label-shelf";
 import { type DisplaySummary, type ViewPreset, is } from "#/features/views/view-presets.ts";
 import { displayTitle } from "#/lib/entity-title.ts";
@@ -21,7 +21,7 @@ import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
 import { FILE_KINDS, fileKind } from "./file-kind";
 
 type Layout = "grid" | "list";
-export type Grouping = "none" | "kind" | "added" | "label";
+export type Grouping = "none" | "kind" | "added" | "label" | "course" | "attached";
 export type Ordering = "newest" | "oldest" | "name";
 
 export interface DisplayOptions {
@@ -37,6 +37,8 @@ export const GROUPINGS: { id: Grouping; label: string }[] = [
   { id: "kind", label: "Kind" },
   { id: "added", label: "Date added" },
   { id: "label", label: "Label" },
+  { id: "course", label: "Course" },
+  { id: "attached", label: "Attached to" },
 ];
 
 export const ORDERINGS: { id: Ordering; label: string }[] = [
@@ -138,12 +140,42 @@ function addedBuckets(now: Date): AddedBucket[] {
   return buckets;
 }
 
-/// Groups for `grouping`, or null without grouping.
+/// A File in no Course and with no Label: the ones still to file.
+export function isUnsorted(file: FileEntity): boolean {
+  return file.courses.length === 0 && file.labelIds.length === 0;
+}
+
+/// The distinct entities across `lists`, by title, for a group each.
+function distinctByTitle(lists: Entity[][]): Entity[] {
+  const byId = new Map(lists.flat().map((e) => [e.id, e]));
+  return [...byId.values()].sort((a, b) =>
+    displayTitle(a).localeCompare(displayTitle(b), undefined, { sensitivity: "base" }),
+  );
+}
+
+/// Groups for `grouping`, or null without grouping. `files` is every file on the page,
+/// which names the Courses and the things to group by.
 export function fileGroupDefs(
   grouping: Grouping,
   labels: Label[] = [],
+  files: FileEntity[] = [],
 ): GroupDef<FileEntity>[] | null {
   if (grouping === "none") return null;
+  if (grouping === "course" || grouping === "attached") {
+    const key = grouping === "course" ? "courses" : "attachedTo";
+    return [
+      ...distinctByTitle(files.map((f) => f[key])).map((entity) => ({
+        id: entity.id,
+        name: displayTitle(entity),
+        match: (f: FileEntity) => f[key].some((e) => e.id === entity.id),
+      })),
+      {
+        id: `no-${grouping}`,
+        name: grouping === "course" ? "No course" : "Not attached",
+        match: (f: FileEntity) => f[key].length === 0,
+      },
+    ];
+  }
   if (grouping === "label") {
     return [
       ...labels.map((label) => ({

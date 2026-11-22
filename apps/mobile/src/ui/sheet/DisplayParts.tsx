@@ -54,17 +54,27 @@ export function LayoutTiles<T extends string>({
             accessibilityLabel={tile.label}
             accessibilityState={{ checked: on }}
             onPress={() => onSelect(tile.id)}
-            style={[TOUCH_ROW, control]}
+            style={[
+              TOUCH_ROW,
+              control,
+              // The chosen tile: the accent's edge and a wash of it, so it is plain at a glance.
+              on && {
+                borderColor: PRIMARY,
+                borderWidth: 1.5,
+                backgroundColor: withAlpha(PRIMARY, 0.14),
+              },
+            ]}
             className={cn(
               "active:opacity-60",
               "flex-1 items-center justify-center gap-1.5 rounded-2xl py-3",
             )}
           >
-            <tile.icon
-              size={24}
-              color={on ? theme.colors.foreground : theme.colors.mutedForeground}
-            />
-            <Text tone={on ? "default" : "muted"} style={BODY}>
+            <tile.icon size={24} color={on ? PRIMARY : theme.colors.mutedForeground} />
+            <Text
+              tone={on ? "default" : "muted"}
+              className={on ? "font-semibold" : undefined}
+              style={BODY}
+            >
               {tile.label}
             </Text>
           </Pressable>

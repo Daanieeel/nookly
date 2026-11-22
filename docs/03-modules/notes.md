@@ -49,6 +49,10 @@ A mention is a link whose label is the entity's title when it was written. Renam
 
 The Notes and Jots pages keep favorite filters per page and Space. The star on a filter chip adds that filter to the bar beside the search field, where one click turns it on or off.
 
+## The Notes Page
+
+Cards by default (a list or the table, picked in the Display popover with Group by (Course, Label, Last edited, None), the "Continue" category switch and a chip per property: ID, Preview, Labels, Last edited; all remembered per device). Above four notes a Continue row shows the latest edits; below, the notes sit under Pinned, then one group per Course (or label, or age) and the rest, each group folding on its header (`@nookly/shared/note-groups`, the same on the phone). A note of several Courses shows once, under the first.
+
 ## Layout Direction
 
 A full-width document canvas. The writing surface never uses a list plus detail pane split. The page itself is the canvas.

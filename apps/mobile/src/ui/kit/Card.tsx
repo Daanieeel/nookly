@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Pressable, StyleSheet, View, type ViewProps } from "react-native";
 import { useSectionRadius } from "../sheet/in-sheet.ts";
 import { CORNER, PRIMARY, elevation, withAlpha } from "../tokens.ts";
@@ -34,6 +34,7 @@ export function Card({
   const edge = useSemantic("separator");
   const sectionRadius = useSectionRadius();
   const radius = own ?? sectionRadius;
+  const [pressed, setPressed] = useState(false);
   const look = [
     CORNER,
     elevation("card", scheme),
@@ -53,8 +54,12 @@ export function Card({
         accessibilityLabel={accessibilityLabel}
         onPress={onPress}
         onLongPress={onLongPress}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
         className={className}
-        style={({ pressed }) => [look, style, pressed && { opacity: 0.8 }]}
+        // A plain style, not a function of the press: NativeWind adds the className to a plain
+        // one only, and a function lost the card its background, edge and shadow.
+        style={[look, style, pressed && { opacity: 0.8 }]}
       >
         {children}
       </Pressable>

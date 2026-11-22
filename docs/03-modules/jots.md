@@ -13,3 +13,7 @@ A Jot is refined into a regular Note. The two are linked through the standard ge
 ## Creation UX
 
 Creating a Jot must feel instant. One keystroke or click from anywhere opens a blank capture surface with no friction.
+
+## The Jots Page
+
+An inbox: it opens on the Jots still to refine, and Show refined adds the refined ones under them in a group of their own. One toolbar row holds the search, Show refined and Filter; the chip row appears only once a filter beyond those is added. Every unrefined row has a Refine button on hover, and `R` on a focused row does the same. Columns nothing fills (Preview, Session) are left out. The phone has the same: Unrefined by default and a Show refined chip.

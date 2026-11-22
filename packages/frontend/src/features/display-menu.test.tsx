@@ -57,6 +57,18 @@ describe("CardDisplayMenu", () => {
     );
   });
 
+  // The chosen layout tile only had a slightly lighter fill; it takes the accent.
+  it("marks the chosen layout tile with the accent", async () => {
+    render(<Bookmarks onChange={vi.fn()} />);
+    const { panel } = await openMenu();
+    expect(within(panel).getByRole("button", { name: "Grid" }).className).toContain(
+      "border-primary",
+    );
+    expect(within(panel).getByRole("button", { name: "List" }).className).not.toContain(
+      "border-primary",
+    );
+  });
+
   it("picks a grouping and an ordering", async () => {
     const onChange = vi.fn();
     render(<Bookmarks onChange={onChange} />);
@@ -100,6 +112,8 @@ describe("CardDisplayMenu", () => {
       "Kind",
       "Date added",
       "Label",
+      "Course",
+      "Attached to",
     ]);
     await user.click(screen.getByRole("option", { name: "Date added" }));
     expect(onChange).toHaveBeenLastCalledWith({ ...display, grouping: "added" });

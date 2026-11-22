@@ -59,33 +59,36 @@ export function ListHeader({
   const actions = useClaimedPageActions();
   const toggle = (which: Exclude<ListPanel, null>) => onPanel(panel === which ? null : which);
   return (
-    // With large text the buttons go under the title rather than squeeze it.
+    // With large text the buttons go under the title rather than squeeze it, together.
     <View className="flex-row flex-wrap items-center gap-2">
       <View style={{ flexGrow: 1, flexShrink: 0, maxWidth: "100%" }}>
         <ListTitle title={title} count={count} />
       </View>
-      <View ref={anchors?.filter} collapsable={false}>
-        <Button
-          label="Filter"
-          variant="secondary"
-          size="sm"
-          icon={<IconFilter size={16} color={theme.colors.foreground} />}
-          onPress={() => toggle("filter")}
-        />
-      </View>
-      {display ? (
-        <View ref={anchors?.display} collapsable={false}>
+      {/* One group, so Display never wraps alone below Filter. */}
+      <View testID="list-header-buttons" className="flex-row items-center gap-2">
+        <View ref={anchors?.filter} collapsable={false}>
           <Button
-            label="Display"
+            label="Filter"
             variant="secondary"
             size="sm"
-            icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
-            onPress={() => toggle("display")}
+            icon={<IconFilter size={16} color={theme.colors.foreground} />}
+            onPress={() => toggle("filter")}
           />
         </View>
-      ) : null}
-      {/* A tablet's page actions, after Filter and Display as on the desktop. */}
-      {actions}
+        {display ? (
+          <View ref={anchors?.display} collapsable={false}>
+            <Button
+              label="Display"
+              variant="secondary"
+              size="sm"
+              icon={<IconAdjustmentsHorizontal size={16} color={theme.colors.foreground} />}
+              onPress={() => toggle("display")}
+            />
+          </View>
+        ) : null}
+        {/* A tablet's page actions, after Filter and Display as on the desktop. */}
+        {actions}
+      </View>
     </View>
   );
 }

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { preferences } from "#/lib/preferences.ts";
 import type { Entity, PageSummary } from "#/lib/api/types.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { makeEntity } from "#/test/fixtures.ts";
+import { makeEntity, makeLabel } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { installTauriMock, mockCommand, uninstallTauriMock } from "#/test/tauri.ts";
 import { NotesListView } from "./NotesListView";
@@ -27,6 +27,8 @@ function note(id: string, title: string, courses: Entity[] = []): PageSummary {
 beforeEach(() => {
   installTauriMock();
   preferences.remove(KEY);
+  // These tests are about the table; the default layout has its own tests below.
+  preferences.set(STORAGE_KEYS.notesLayout, "table");
   mockCommand("list_labels", []);
   mockCommand("list_note_summaries", [
     note("n1", "Sorting lecture", [algorithms]),
@@ -36,11 +38,13 @@ beforeEach(() => {
 });
 afterEach(uninstallTauriMock);
 
+// The table groups its rows under a heading per course, which are rows too.
 const rowTitles = () =>
   screen
     .getAllByRole("row")
     .slice(1)
-    .map((row) => within(row).queryByText(/lecture|Groceries/)?.textContent);
+    .map((row) => within(row).queryByText(/lecture|Groceries/)?.textContent)
+    .filter(Boolean);
 
 describe("quick filters on the Notes page", () => {
   it("opens on the course a link asked for", async () => {
@@ -104,6 +108,108 @@ describe("quick filters on the Notes page", () => {
     renderWithProviders(<NotesListView spaceId="space-2" />);
     await screen.findByText("Groceries");
     expect(screen.queryByRole("group", { name: "Quick filters" })).toBeNull();
+  });
+});
+
+describe("the default Notes layout", () => {
+  beforeEach(() => preferences.remove(STORAGE_KEYS.notesLayout));
+
+  it("shows cards under a heading per course, with notes of no course last", async () => {
+    renderWithProviders(<NotesListView spaceId="space-1" />);
+    await screen.findByText("Sorting lecture");
+    const headings = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+    expect(headings).toEqual(["Algorithms", "Databases", "No course"]);
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("folds a course away on its header", async () => {
+    const { user } = renderWithProviders(<NotesListView spaceId="space-1" />);
+    await screen.findByText("Sorting lecture");
+    await user.click(
+      within(screen.getByRole("region", { name: "Algorithms" })).getByRole("button", {
+        name: /Algorithms/,
+      }),
+    );
+    expect(screen.queryByText("Sorting lecture")).toBeNull();
+    expect(screen.getByText("Joins lecture")).toBeInTheDocument();
+  });
+
+  it("picks the layout from Display, and remembers it", async () => {
+    const { user } = renderWithProviders(<NotesListView spaceId="space-1" />);
+    await screen.findByText("Sorting lecture");
+    await user.click(screen.getByRole("button", { name: "Display" }));
+    await user.click(await screen.findByRole("button", { name: "Table" }));
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(preferences.get(STORAGE_KEYS.notesLayout)).toBe("table");
+    await user.click(screen.getByRole("button", { name: "List" }));
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(preferences.get(STORAGE_KEYS.notesLayout)).toBe("list");
+  });
+
+  it("hides properties from Display, on the cards and in the table", async () => {
+    mockCommand("list_note_summaries", [
+      { ...note("n1", "Sorting lecture"), preview: "Quicksort and friends" },
+    ]);
+    const { user } = renderWithProviders(<NotesListView spaceId="space-1" />);
+    expect(await screen.findByText("Quicksort and friends")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Display" }));
+    await user.click(await screen.findByRole("button", { name: "Preview" }));
+    expect(screen.queryByText("Quicksort and friends")).toBeNull();
+    expect(JSON.parse(preferences.get(STORAGE_KEYS.notesHidden) ?? "[]")).toEqual(["preview"]);
+    await user.click(screen.getByRole("button", { name: "Table" }));
+    expect(screen.queryByRole("columnheader", { name: "Preview" })).toBeNull();
+    expect(screen.getByRole("columnheader", { name: /Last edited/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Last edited" }));
+    expect(screen.queryByRole("columnheader", { name: /Last edited/ })).toBeNull();
+  });
+
+  it("groups by label, and remembers it, from Display", async () => {
+    mockCommand("list_labels", [makeLabel({ id: "l1", name: "Exam" })]);
+    mockCommand("list_note_summaries", [
+      { ...note("n1", "Sorting lecture", [algorithms]), labelIds: ["l1"] },
+      note("n2", "Joins lecture", [databases]),
+    ]);
+    const { user } = renderWithProviders(<NotesListView spaceId="space-1" />);
+    await screen.findByText("Sorting lecture");
+    await user.click(screen.getByRole("button", { name: "Display" }));
+    await user.click(await screen.findByRole("combobox", { name: "Group by" }));
+    await user.click(await screen.findByRole("option", { name: "Label" }));
+    await waitFor(() => {
+      const headings = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+      expect(headings).toEqual(["Exam", "No label"]);
+    });
+    expect(preferences.get(STORAGE_KEYS.notesGroupBy)).toBe("label");
+  });
+
+  it("lists every note together when not grouping", async () => {
+    preferences.set(STORAGE_KEYS.notesGroupBy, "none");
+    renderWithProviders(<NotesListView spaceId="space-1" />);
+    await screen.findByText("Sorting lecture");
+    expect(screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual([
+      "All notes",
+    ]);
+  });
+
+  it("hides the Continue row from Display", async () => {
+    mockCommand(
+      "list_note_summaries",
+      [1, 2, 3, 4, 5].map((i) => note(`m${i}`, `Memo ${i}`)),
+    );
+    const { user } = renderWithProviders(<NotesListView spaceId="space-1" />);
+    expect(await screen.findByRole("region", { name: "Continue" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Display" }));
+    await user.click(await screen.findByRole("switch", { name: 'Show category "Continue"' }));
+    expect(screen.queryByRole("region", { name: "Continue" })).toBeNull();
+    expect(preferences.get(STORAGE_KEYS.notesContinue)).toBe("off");
+  });
+
+  it("offers Continue only once there are more notes than it would show", async () => {
+    mockCommand(
+      "list_note_summaries",
+      [1, 2, 3, 4, 5].map((i) => note(`m${i}`, `Memo ${i}`)),
+    );
+    renderWithProviders(<NotesListView spaceId="space-1" />);
+    expect(await screen.findByRole("region", { name: "Continue" })).toBeInTheDocument();
   });
 });
 

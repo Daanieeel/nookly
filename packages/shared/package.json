@@ -23,6 +23,8 @@
     "./academic": "./src/academic.ts",
     "./effort": "./src/effort.ts",
     "./label-shelf": "./src/label-shelf.ts",
+    "./note-groups": "./src/note-groups.ts",
+    "./file-views": "./src/file-views.ts",
     "./icons": "./src/icons.ts",
     "./page-typography": "./src/page-typography.ts",
     "./editor-schema": "./src/editor-schema.ts",

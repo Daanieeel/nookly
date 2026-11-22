@@ -22,7 +22,15 @@ import {
 } from "@nookly/shared/data";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { EntitySwipe } from "./EntitySwipe.tsx";
-import { KIND_ICONS, KIND_LABELS, hasThumbnail, nameOf, pathOf, viewerFor } from "./file-kinds.ts";
+import {
+  KIND_ICONS,
+  KIND_LABELS,
+  hasThumbnail,
+  kindColor,
+  nameOf,
+  pathOf,
+  viewerFor,
+} from "./file-kinds.ts";
 import { useFileViewer } from "../ui/file-viewer.tsx";
 import {
   IconBrandDropbox,
@@ -36,14 +44,23 @@ import { File } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { type ReactNode, useState } from "react";
 import { Image, Linking, Pressable, View } from "react-native";
-import { IconLayoutGrid, IconList, IconPlus, IconTag } from "@tabler/icons-react-native";
+import {
+  IconLayoutGrid,
+  IconList,
+  IconPaperclip,
+  IconPlus,
+  IconSchool,
+  IconTag,
+} from "@tabler/icons-react-native";
+import { isUnsortedView } from "@nookly/shared/file-views";
+import { useStarterViews } from "./use-starter-views.ts";
 import { useLocalWrite } from "../data/context.tsx";
 import { storePicked } from "../data/files.ts";
 import { useFile, useFiles, useLabels, useSpaces, useViews } from "../data/queries.ts";
 import { labelShelf } from "@nookly/shared/label-shelf";
 import { NewFileView, PickedLabels, fileLabelCounts } from "./FileViewSheets.tsx";
 import { FloatingField, PASTE_BAR_ROOM, PASTE_BAR_STACK } from "../ui/FloatingField.tsx";
-import { Presets } from "../ui/ListBar.tsx";
+import { FilterField, Presets } from "../ui/ListBar.tsx";
 import {
   FILE_DEFAULT,
   FILE_GROUPINGS,
@@ -184,6 +201,12 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
       ? IconBrandDropbox
       : IconLink
     : KIND_ICONS[fileKindOf(name)];
+  // A link is quiet, as on the desktop; the rest take their kind's colour.
+  const tint = isLinkOnly(file)
+    ? file.provider === "dropbox"
+      ? theme.colors.primary
+      : theme.colors.mutedForeground
+    : kindColor(fileKindOf(name), theme.colors);
   const added = new Date(file.entity.createdAt).toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
@@ -203,7 +226,7 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
             <FileThumb
               file={file}
               size={120}
-              fallback={<Glyph size={22} color={theme.colors.mutedForeground} strokeWidth={1.75} />}
+              fallback={<Glyph size={22} color={tint} strokeWidth={1.75} />}
             />
           </Card>
           <View className="flex-1">
@@ -230,7 +253,7 @@ function FileTile({ file, row = false }: { file: FileRecord; row?: boolean }) {
         <FileThumb
           file={file}
           size={400}
-          fallback={<Glyph size={44} color={theme.colors.mutedForeground} strokeWidth={1.5} />}
+          fallback={<Glyph size={44} color={tint} strokeWidth={1.5} />}
         />
         <View className="absolute bottom-2 left-2">
           <Badge label={extensionOf(file)} variant="secondary" size="sm" />
@@ -273,8 +296,9 @@ const kindLabel = (k: FileKindId | "link") => (k === "link" ? "Links" : KIND_LAB
 /// A file's kind as its icon, where it has no thumbnail.
 function KindIcon({ file }: { file: FileRecord }) {
   const theme = useTheme();
-  const Glyph = KIND_ICONS[fileKindOf(nameOf(file))];
-  return <Glyph size={14} color={theme.colors.mutedForeground} strokeWidth={1.75} />;
+  const kind = fileKindOf(nameOf(file));
+  const Glyph = KIND_ICONS[kind];
+  return <Glyph size={14} color={kindColor(kind, theme.colors)} strokeWidth={1.75} />;
 }
 
 /// A tablet's list of files, the desktop's table (5.5): the file with its thumbnail, what
@@ -341,6 +365,36 @@ function addedGroup(f: FileRecord, today = localDay()): string {
   return days <= 0 ? "Today" : days <= 6 ? "This week" : days <= 30 ? "This month" : "Earlier";
 }
 
+/// A file in no course and with no label: the ones still to file, as the desktop's Unsorted.
+const isUnsorted = (f: FileRecord) => f.courses.length === 0 && f.labelIds.length === 0;
+
+/// The distinct courses or owners across the files, by title.
+function distinctOwners<T extends { id: string; title: string }>(lists: T[][]): T[] {
+  const byId = new Map(lists.flat().map((o) => [o.id, { ...o, title: o.title || "Untitled" }]));
+  return [...byId.values()].sort((a, b) =>
+    a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
+  );
+}
+
+/// Whether a file's name, its original name, a label, its course or what it is attached to
+/// has the text typed. The phone does not hold what is inside a file, which the desktop also
+/// searches.
+function matchesFile(file: FileRecord, query: string, labels: LabelRecord[]): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [
+    nameOf(file),
+    file.originalFilename ?? "",
+    file.entity.key,
+    ...labels.filter((l) => file.labelIds.includes(l.id)).map((l) => l.name),
+    ...file.courses.map((c) => c.title),
+    ...file.attachedTo.map((o) => o.title),
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
+}
+
 /// Files in the order and groups picked, as the desktop's `file-model.ts`. By label, a file
 /// shows under each of its labels, in the labels' order, and those with none last.
 function fileGroups(files: FileRecord[], display: FileDisplay, labels: LabelRecord[]) {
@@ -351,6 +405,22 @@ function fileGroups(files: FileRecord[], display: FileDisplay, labels: LabelReco
         ? a.entity.createdAt.localeCompare(b.entity.createdAt)
         : b.entity.createdAt.localeCompare(a.entity.createdAt),
   );
+  if (display.grouping === "course" || display.grouping === "attached") {
+    const of = (f: FileRecord) => (display.grouping === "course" ? f.courses : f.attachedTo);
+    const owners = new Map(ordered.flatMap((f) => of(f).map((o) => [o.id, o.title || "Untitled"])));
+    return [
+      ...[...owners]
+        .sort(([, a], [, b]) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+        .map(([id, title]) => ({
+          title,
+          items: ordered.filter((f) => of(f).some((o) => o.id === id)),
+        })),
+      {
+        title: display.grouping === "course" ? "No course" : "Not attached",
+        items: ordered.filter((f) => of(f).length === 0),
+      },
+    ].filter((g) => g.items.length > 0);
+  }
   if (display.grouping === "label") {
     return [
       ...labels.map((label) => ({
@@ -378,6 +448,7 @@ export function FileRows({ spaceId }: { spaceId: string }) {
   const { data: files = [] } = useFiles(spaceId);
   const { data: labels = [] } = useLabels(spaceId);
   const { data: views = [] } = useViews({ spaceId, module: "files" });
+  useStarterViews(spaceId);
   const theme = useTheme();
   const draft = useDraftPreference<FileDisplay>(
     `files.display.${spaceId}`,
@@ -389,6 +460,8 @@ export function FileRows({ spaceId }: { spaceId: string }) {
   const tablet = useIsTablet();
   const view = draft.viewId ?? "all";
   const [note, setNote] = useState<string | null>(null);
+  // The search text: a saved View keeps it, the plain page only holds what is typed.
+  const [query, setQuery] = useState("");
   const kinds = [...new Set(files.map(kindOf))];
   const used = labels.filter((l) => files.some((f) => f.labelIds.includes(l.id)));
   const own = useEntityFilters(display, (next) => setDisplay({ ...display, ...next }));
@@ -398,34 +471,48 @@ export function FileRows({ spaceId }: { spaceId: string }) {
     display.shelf,
     (id) => labels.find((l) => l.id === id)?.name ?? id,
   );
+  const courses = distinctOwners(files.map((f) => f.courses));
+  const attached = distinctOwners(files.map((f) => f.attachedTo));
+  const unsortedCount = files.filter(isUnsorted).length;
   const shown = shelf.shown.filter(
     (f) =>
       (display.kinds.length === 0 || display.kinds.includes(kindOf(f))) &&
       (display.labels.length === 0 || display.labels.some((id) => f.labelIds.includes(id))) &&
+      (display.courses.length === 0 || f.courses.some((c) => display.courses.includes(c.id))) &&
+      (display.attached.length === 0 ||
+        f.attachedTo.some((o) => display.attached.includes(o.id))) &&
+      (!display.unsorted || isUnsorted(f)) &&
+      matchesFile(f, query, labels) &&
       own.passes(f.entity),
   );
   const groups = fileGroups(shown, display, used);
   const saveView = useLocalWrite((db, id: string) =>
-    updateViewConfig(db, id, fileViewConfig(display)),
+    updateViewConfig(db, id, fileViewConfig(display, query)),
   );
   const saveAsView = useLocalWrite((db, input: { title: string; value: FileDisplay }) =>
     createView(db, spaceId, {
       title: input.title,
       module: "files",
-      config: fileViewConfig(input.value),
+      config: fileViewConfig(input.value, query),
     }),
   );
   const counts = fileLabelCounts(files, labels);
   const [making, setMaking] = useState(false);
   const openView = (id: string) => {
     setNote(null);
-    if (id === "all") return draft.open(null);
+    if (id === "all") {
+      setQuery("");
+      return draft.open(null);
+    }
     const saved = views.find((v) => v.entity.id === id);
     if (!saved) return;
     const opened = fileDisplayFromView(saved.config, {
       labelIds: labels.map((l) => l.id),
       kinds,
+      courseIds: courses.map((c) => c.id),
+      attachedIds: attached.map((o) => o.id),
     });
+    setQuery(opened.query ?? "");
     draft.open({ id, value: opened.display });
     if (opened.ignored.length > 0) {
       setNote(
@@ -458,30 +545,52 @@ export function FileRows({ spaceId }: { spaceId: string }) {
               options: used.map(labelOption),
               onChange: (next) => setDisplay({ ...display, labels: next }),
             },
+            {
+              label: "Course",
+              icon: IconSchool,
+              values: display.courses,
+              options: courses.map((c) => ({ id: c.id, label: c.title, glyph: IconSchool })),
+              onChange: (next) => setDisplay({ ...display, courses: next }),
+            },
+            {
+              label: "Attached to",
+              icon: IconPaperclip,
+              values: display.attached,
+              options: attached.map((o) => ({ id: o.id, label: o.title })),
+              onChange: (next) => setDisplay({ ...display, attached: next }),
+            },
             ...own.fields,
           ]}
           display={<FileDisplayPanel display={display} onChange={setDisplay} />}
         />
+        <FilterField label="Search files" value={query} onChange={setQuery} />
         {files.length > 0 ? (
           <FixedTop>
-            <View className="flex-row items-center gap-2">
-              <View className="flex-1">
-                <Presets
-                  label="Views"
-                  value={view}
-                  onChange={openView}
-                  options={[
-                    { id: "all", label: "All" },
-                    ...views.map((v) => ({ id: v.entity.id, label: v.entity.title || "Untitled" })),
-                  ]}
+            <View className="gap-2">
+              <View className="flex-row items-center gap-2">
+                <View className="flex-1">
+                  <Presets
+                    label="Views"
+                    value={view}
+                    onChange={openView}
+                    options={[
+                      { id: "all", label: "All" },
+                      ...views.map((v) => ({
+                        id: v.entity.id,
+                        label: `${v.entity.title || "Untitled"}${
+                          isUnsortedView(v.config) ? ` ${unsortedCount}` : ""
+                        }`,
+                      })),
+                    ]}
+                  />
+                </View>
+                <IconButton
+                  label="New View"
+                  variant="secondary"
+                  icon={<IconPlus size={18} color={theme.colors.foreground} />}
+                  onPress={() => setMaking(true)}
                 />
               </View>
-              <IconButton
-                label="New View"
-                variant="secondary"
-                icon={<IconPlus size={18} color={theme.colors.foreground} />}
-                onPress={() => setMaking(true)}
-              />
             </View>
           </FixedTop>
         ) : null}
@@ -515,9 +624,19 @@ export function FileRows({ spaceId }: { spaceId: string }) {
           total={files.length}
           shown={groups.length}
           nothingYet={{ title: "No Files", message: "Tap + to add some, or paste a link below." }}
-          onClear={() =>
-            setDisplay({ ...display, kinds: [], labels: [], shelf: [], ...ENTITY_FILTERS_NONE })
-          }
+          onClear={() => {
+            setQuery("");
+            setDisplay({
+              ...display,
+              kinds: [],
+              labels: [],
+              courses: [],
+              attached: [],
+              unsorted: false,
+              shelf: [],
+              ...ENTITY_FILTERS_NONE,
+            });
+          }}
         />
         {groups.length === 0
           ? null
@@ -635,7 +754,7 @@ function Preview({ file }: { file: FileRecord }) {
         <Image source={{ uri: picture }} resizeMode="contain" className="aspect-[4/3] w-full" />
       ) : (
         <View className="aspect-[4/3] w-full items-center justify-center">
-          <Glyph size={56} color={theme.colors.mutedForeground} strokeWidth={1.5} />
+          <Glyph size={56} color={kindColor(fileKindOf(name), theme.colors)} strokeWidth={1.5} />
         </View>
       )}
     </Pressable>

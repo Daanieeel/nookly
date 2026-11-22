@@ -9,6 +9,8 @@ export const FILE_GROUPINGS = [
   { id: "kind", label: "Kind" },
   { id: "added", label: "Date added" },
   { id: "label", label: "Label" },
+  { id: "course", label: "Course" },
+  { id: "attached", label: "Attached to" },
 ] as const;
 
 export const FILE_ORDERINGS = [
@@ -22,12 +24,18 @@ type Ordering = (typeof FILE_ORDERINGS)[number]["id"];
 
 export const fileDisplaySchema = z.object({
   layout: z.enum(["grid", "list"]),
-  grouping: z.enum(["none", "kind", "added", "label"]),
+  grouping: z.enum(["none", "kind", "added", "label", "course", "attached"]),
   ordering: z.enum(["newest", "oldest", "name"]),
   /// Kinds and labels the list is narrowed to; empty means all.
   kinds: z.array(z.string()),
   labels: z.array(z.string()),
   ...ENTITY_FILTER_PICKS,
+  /// Courses and the things files are attached to, narrowed to; a display saved before they
+  /// existed reads as all.
+  courses: z.array(z.string()).default([]),
+  attached: z.array(z.string()).default([]),
+  /// Only the files in no course and with no label, the desktop's Unsorted.
+  unsorted: z.boolean().default(false),
   /// The labels picked on the shelf, every one on each file shown. A display saved before
   /// the shelf reads as nothing picked.
   shelf: z.array(z.string()).default([]),
@@ -42,6 +50,9 @@ export const FILE_DEFAULT: FileDisplay = {
   kinds: [],
   labels: [],
   ...ENTITY_FILTERS_NONE,
+  courses: [],
+  attached: [],
+  unsorted: false,
   shelf: [],
 };
 
@@ -49,6 +60,8 @@ export const FILE_DEFAULT: FileDisplay = {
 const FILTER_KEYS = [
   { fieldId: "kind", key: "kinds" },
   { fieldId: "labels", key: "labels" },
+  { fieldId: "course", key: "courses" },
+  { fieldId: "attached", key: "attached" },
   { fieldId: "pinned", key: "pinned" },
   { fieldId: "created", key: "created" },
   { fieldId: "updated", key: "updated" },
@@ -61,7 +74,11 @@ const EVERY = {
   updated: ["today", "week", "last", "earlier"],
 } satisfies Record<"pinned" | "created" | "updated", string[]>;
 
+/// The `filing` filter's one value the phone shows as a switch.
+const UNSORTED = "unsorted";
+
 const storedView = z.object({
+  query: z.string().catch(""),
   filters: z
     .array(z.object({ fieldId: z.string(), operator: z.string(), values: z.array(z.string()) }))
     .catch([]),
@@ -85,11 +102,13 @@ const viewText = z
       return {};
     }
   })
-  .pipe(storedView.catch({ filters: [], display: {} }));
+  .pipe(storedView.catch({ query: "", filters: [], display: {} }));
 
 /// A saved Files View as this phone's display, and what of it the phone can't show.
 export interface FileViewDisplay {
   display: FileDisplay;
+  /// The search text the View keeps, when it has any.
+  query?: string;
   ignored: string[];
 }
 
@@ -97,12 +116,17 @@ export interface FileViewDisplay {
 /// a person knows the list is wider than the View on the computer.
 export function fileDisplayFromView(
   raw: string,
-  all: { labelIds: string[]; kinds?: string[] },
+  all: { labelIds: string[]; kinds?: string[]; courseIds?: string[]; attachedIds?: string[] },
 ): FileViewDisplay {
   const stored = viewText.parse(raw);
   const display: FileDisplay = { ...FILE_DEFAULT };
   const ignored: string[] = [];
   for (const filter of stored.filters) {
+    if (filter.fieldId === "filing") {
+      if (filter.operator === "is" && filter.values.join() === UNSORTED) display.unsorted = true;
+      else ignored.push("filing");
+      continue;
+    }
     const known = FILTER_KEYS.find((f) => f.fieldId === filter.fieldId);
     if (!known) {
       ignored.push(filter.fieldId);
@@ -113,7 +137,11 @@ export function fileDisplayFromView(
         ? all.labelIds
         : known.key === "kinds"
           ? (all.kinds ?? [])
-          : EVERY[known.key];
+          : known.key === "courses"
+            ? (all.courseIds ?? [])
+            : known.key === "attached"
+              ? (all.attachedIds ?? [])
+              : EVERY[known.key];
     display[known.key] =
       filter.operator === "isNot"
         ? every.filter((id) => !filter.values.includes(id))
@@ -128,17 +156,21 @@ export function fileDisplayFromView(
   if (o) display.ordering = o.id satisfies Ordering;
   else if (ordering) ignored.push(`ordering by ${ordering}`);
   if (shelf) display.shelf = shelf;
-  return { display, ignored };
+  return { display, ...(stored.query && { query: stored.query }), ignored };
 }
 
 /// The settings of a Files View saved from this phone, in the form the desktop reads.
-export function fileViewConfig(display: FileDisplay): string {
+export function fileViewConfig(display: FileDisplay, query = ""): string {
   return JSON.stringify({
-    filters: FILTER_KEYS.filter(({ key }) => display[key].length > 0).map(({ fieldId, key }) => ({
-      fieldId,
-      operator: "is",
-      values: display[key],
-    })),
+    ...(query.trim() && { query: query.trim() }),
+    filters: [
+      ...FILTER_KEYS.filter(({ key }) => display[key].length > 0).map(({ fieldId, key }) => ({
+        fieldId,
+        operator: "is",
+        values: display[key],
+      })),
+      ...(display.unsorted ? [{ fieldId: "filing", operator: "is", values: [UNSORTED] }] : []),
+    ],
     display: {
       layout: display.layout,
       grouping: display.grouping,

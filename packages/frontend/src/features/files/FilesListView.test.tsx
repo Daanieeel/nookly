@@ -2,7 +2,7 @@ import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { preferences } from "#/lib/preferences.ts";
 import { STORAGE_KEYS } from "#/lib/storage-keys.ts";
-import { makeFile, makeLabel, makeView } from "#/test/fixtures.ts";
+import { makeEntity, makeFile, makeLabel, makeView } from "#/test/fixtures.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import {
   callsOf,
@@ -14,6 +14,8 @@ import {
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { FilesListView } from "./FilesListView";
 
+const STARTER_KEY = `${STORAGE_KEYS.filesStarterViews}:space-1`;
+
 const file = (id: string, title: string, labelIds: string[]) =>
   makeFile(
     { labelIds, localPath: `/files/${id}.pdf`, originalFilename: `${id}.pdf` },
@@ -23,6 +25,8 @@ const file = (id: string, title: string, labelIds: string[]) =>
 beforeEach(() => {
   installTauriMock();
   preferences.remove(STORAGE_KEYS.filesDisplay);
+  // Every Space starts with an Unsorted view; most tests are not about it.
+  preferences.set(STARTER_KEY, "done");
   mockCommand("list_labels", [
     makeLabel({ id: "uni", name: "Uni" }),
     makeLabel({ id: "math", name: "Math" }),
@@ -120,5 +124,89 @@ describe("Files Views are built in a dialog, not a list of every label", () => {
     expect(await screen.findByText("Receipt")).toBeInTheDocument();
     expect(screen.queryByText("Timetable")).toBeNull();
     expect(screen.getByText(/Give these a label/)).toBeInTheDocument();
+  });
+});
+
+describe("finding files by searching and by what they are filed under", () => {
+  const maths = makeEntity({ id: "c1", type: "course", title: "Maths" });
+
+  beforeEach(() => {
+    mockCommand("list_files", [
+      { ...file("a", "Algebra notes", ["uni"]), courses: [maths], attachedTo: [maths] },
+      file("b", "Timetable", ["uni"]),
+      file("c", "Receipt", []),
+    ]);
+  });
+
+  it("lists only the files the search finds", async () => {
+    mockCommand("search", [{ entityId: "a" }]);
+    const { user } = renderWithProviders(<FilesListView spaceId="space-1" />);
+    await screen.findByText("Timetable");
+    await user.type(screen.getByRole("textbox", { name: /Search files/ }), "fourier");
+    await waitFor(() => expect(screen.queryByText("Timetable")).toBeNull());
+    expect(await screen.findByText("Algebra notes")).toBeInTheDocument();
+    expect(screen.queryByText("Receipt")).toBeNull();
+  });
+
+  // Unsorted was a button on the page; it is a view the app adds, next to the user's own.
+  it("has no Unsorted button, since Unsorted is a view", async () => {
+    renderWithProviders(<FilesListView spaceId="space-1" />);
+    await screen.findByText("Timetable");
+    expect(screen.queryByRole("button", { name: /^Unsorted/ })).toBeNull();
+  });
+
+  it("adds the Unsorted view to a Space once, on its first visit", async () => {
+    preferences.remove(STARTER_KEY);
+    mockCommandWith("create_view", (args) => {
+      // SAFETY: `create_view` is only ever invoked with these, as `createView` sends them.
+      const sent = args as { title: string; config: string };
+      return makeView({ id: "v1", title: sent.title }, "files", sent.config);
+    });
+    const first = renderWithProviders(<FilesListView spaceId="space-1" />);
+    await waitFor(() => expect(callsOf("create_view")).toHaveLength(1));
+    // SAFETY: as `createView` sends them.
+    const sent = callsOf("create_view")[0] as { title: string; module: string; config: string };
+    expect(sent.title).toBe("Unsorted");
+    expect(sent.module).toBe("files");
+    expect(JSON.parse(sent.config).filters).toEqual([
+      { fieldId: "filing", operator: "is", values: ["unsorted"] },
+    ]);
+    first.unmount();
+    // Deleted later, it stays gone: the Space is not offered it again.
+    renderWithProviders(<FilesListView spaceId="space-1" />);
+    await screen.findByText("Timetable");
+    expect(callsOf("create_view")).toHaveLength(1);
+  });
+
+  it("adds no second Unsorted view where one exists", async () => {
+    preferences.remove(STARTER_KEY);
+    mockCommand("list_views", [makeView({ id: "v9", title: "Unsorted" }, "files", "{}")]);
+    mockCommandWith("create_view", () => {
+      throw new Error("a second Unsorted view was made");
+    });
+    renderWithProviders(<FilesListView spaceId="space-1" />);
+    await screen.findByText("Timetable");
+    await waitFor(() => expect(preferences.get(STARTER_KEY)).not.toBeNull());
+    expect(callsOf("create_view")).toHaveLength(0);
+  });
+
+  it("keeps the search text in a View made from the page", async () => {
+    mockCommand("search", [{ entityId: "a" }]);
+    mockCommandWith("create_view", (args) => {
+      // SAFETY: `create_view` is only ever invoked with these, as `createView` sends them.
+      const sent = args as { title: string; config: string };
+      return makeView({ id: "v1", title: sent.title }, "files", sent.config);
+    });
+    const { user } = renderWithProviders(<FilesListView spaceId="space-1" />);
+    await screen.findByText("Timetable");
+    await user.type(screen.getByRole("textbox", { name: /Search files/ }), "fourier");
+    await user.click(screen.getByRole("button", { name: "New view" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: /Name/ }), "Fourier");
+    await user.click(within(dialog).getByRole("button", { name: "Create view" }));
+    await waitFor(() => expect(callsOf("create_view")).toHaveLength(1));
+    // SAFETY: the call was made with the `{ config }` that `createView` sends.
+    const sent = callsOf("create_view")[0] as { config: string };
+    expect(JSON.parse(sent.config).query).toBe("fourier");
   });
 });

@@ -32,3 +32,19 @@ describe("view config filters", () => {
     ]);
   });
 });
+
+describe("view config query", () => {
+  it("keeps the search text a View was saved with", () => {
+    const raw = serializeViewConfig([], display({}), "fourier");
+    expect(parseViewConfig(raw, display).query).toBe("fourier");
+  });
+
+  it("leaves the key out when there is no search text, so older Views read the same", () => {
+    expect(serializeViewConfig([], display({}), "")).toBe(serializeViewConfig([], display({})));
+    expect(parseViewConfig('{"filters":[]}', display).query).toBeUndefined();
+  });
+
+  it("ignores a query that is not text", () => {
+    expect(parseViewConfig('{"query":4}', display).query).toBeUndefined();
+  });
+});

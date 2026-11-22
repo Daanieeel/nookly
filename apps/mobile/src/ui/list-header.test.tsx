@@ -1,4 +1,4 @@
-import { fireEvent } from "expo-router/testing-library";
+import { fireEvent, within } from "expo-router/testing-library";
 import { useState } from "react";
 import { StyleSheet } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
@@ -21,6 +21,15 @@ describe("a list's header", () => {
     expect([filled("Filter"), filled("Display")]).toEqual([true, true]);
     await fireEvent.press(screen.getByRole("button", { name: "Filter" }));
     expect([filled("Filter"), filled("Display")]).toEqual([true, true]);
+  });
+
+  // With a long title, Display wrapped onto a line of its own below Filter. The two buttons
+  // are one group, so when they do not fit beside the title they wrap together.
+  it("keeps Filter and Display together in one group", async () => {
+    const screen = await renderScreens({ index: () => <Header /> }, testData());
+    const group = await screen.findByTestId("list-header-buttons");
+    expect(within(group).getByRole("button", { name: "Filter" })).toBeTruthy();
+    expect(within(group).getByRole("button", { name: "Display" })).toBeTruthy();
   });
 
   // A tablet's Filter and Display are the desktop's popovers, under their buttons (3.2).

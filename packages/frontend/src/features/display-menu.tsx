@@ -40,6 +40,7 @@ export function DisplayPopover({
       </PopoverTrigger>
       <PopoverContent
         align="end"
+        aria-label="Display options"
         className={wide ? "flex w-96 flex-col gap-3 p-3" : "flex w-80 flex-col gap-3 p-3"}
       >
         {children}
@@ -58,7 +59,7 @@ export function LayoutTiles<T extends string>({
   onSelect: (id: T) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className={cn("grid gap-2", tiles.length > 2 ? "grid-cols-3" : "grid-cols-2")}>
       {tiles.map((tile) => (
         <button
           key={tile.id}
@@ -67,7 +68,9 @@ export function LayoutTiles<T extends string>({
           onClick={() => onSelect(tile.id)}
           className={cn(
             "flex cursor-pointer flex-col items-center gap-1 rounded-md border border-border py-2 text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
-            value === tile.id && "border-foreground/20 bg-accent text-foreground",
+            // The chosen tile takes the accent, so it stands out at a glance.
+            value === tile.id &&
+              "border-primary/60 bg-primary/10 font-medium text-foreground [&_svg]:text-primary",
           )}
         >
           <tile.icon size={16} />
@@ -83,6 +86,49 @@ export function OptionRow({ label, children }: { label: string; children: ReactN
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="text-muted-foreground">{label}</span>
       {children}
+    </div>
+  );
+}
+
+/// "Display properties": one toggle chip per property, shown ones lit. `selected` keeps the
+/// order of `properties`.
+export function PropertyChips<T extends string>({
+  properties,
+  selected,
+  onChange,
+}: {
+  properties: { id: T; label: string }[];
+  selected: T[];
+  onChange: (selected: T[]) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-xs text-muted-foreground">Display properties</span>
+      <div className="flex flex-wrap gap-1.5">
+        {properties.map((p) => {
+          const on = selected.includes(p.id);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() =>
+                onChange(
+                  properties
+                    .filter((d) => (d.id === p.id ? !on : selected.includes(d.id)))
+                    .map((d) => d.id),
+                )
+              }
+              className={cn(
+                "h-6 cursor-pointer rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:text-foreground",
+                on && "border-foreground/20 bg-accent text-foreground",
+              )}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -112,7 +158,7 @@ export function SelectRow<T extends string>({
         value={value}
         onValueChange={(v) => onChange(options.find((o) => o.id === v)?.id ?? fallback)}
       >
-        <SelectTrigger size="sm" className={wide ? "w-44" : "w-36"}>
+        <SelectTrigger size="sm" aria-label={label} className={wide ? "w-44" : "w-36"}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

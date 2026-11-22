@@ -320,6 +320,8 @@ function standIn(file: MoodleFile, path: string, spaceId: string): FileEntity {
     blob: null,
     needsReindex: false,
     labelIds: [],
+    attachedTo: [],
+    courses: [],
     indexedContent: null,
   };
 }

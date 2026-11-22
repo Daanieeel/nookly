@@ -57,6 +57,9 @@ export function useViewPage<D>({
   const [filters, setFilters] = useState<ActiveFilter[]>(
     () => (viewId ? undefined : pendingFilters(key)) ?? plain.filters,
   );
+  // The page's search text. A View keeps it with its filters; off a View it is only what
+  // is typed right now, so it never counts as an unsaved change.
+  const [query, setQuery] = useState("");
 
   const { data: view } = useQuery({
     queryKey: qk.views.byId(viewId),
@@ -76,12 +79,14 @@ export function useViewPage<D>({
     if (saved) {
       setFilters(saved.filters);
       setDisplayState(saved.display);
+      setQuery(saved.query ?? "");
       wasView.current = true;
     } else if (!viewId && wasView.current) {
       const fresh = readPlain();
       setPlain(fresh);
       setFilters(fresh.filters);
       setDisplayState(fresh.display);
+      setQuery("");
       wasView.current = false;
     }
     // Only a different View, or a save of this one, resets what the user is editing.
@@ -96,7 +101,9 @@ export function useViewPage<D>({
 
   const baseline = saved ?? plain;
   // Until a View has loaded there is nothing to compare against.
-  const dirty = (!viewId || !!saved) && !sameViewConfig(baseline, { filters, display });
+  const dirty =
+    (!viewId || !!saved) &&
+    !sameViewConfig(baseline, { filters, display, ...(saved && { query: query || undefined }) });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -106,7 +113,7 @@ export function useViewPage<D>({
         setPlain({ filters, display });
         return null;
       }
-      return updateViewConfig(viewId, serializeViewConfig(filters, display));
+      return updateViewConfig(viewId, serializeViewConfig(filters, display, query));
     },
     onSuccess: (updated) => {
       if (!updated) return;
@@ -121,12 +128,15 @@ export function useViewPage<D>({
     setDisplay: setDisplayState,
     filters,
     setFilters,
+    query,
+    setQuery,
     view: activeView,
     dirty,
     save,
     discard: () => {
       setFilters(baseline.filters);
       setDisplayState(baseline.display);
+      setQuery(baseline.query ?? "");
     },
   };
 }

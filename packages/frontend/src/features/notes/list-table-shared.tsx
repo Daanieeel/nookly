@@ -1,4 +1,5 @@
 import { IconClock, IconSearch, IconTag } from "@tabler/icons-react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef, SortingState, Table as TanstackTable } from "@tanstack/react-table";
 import { entityTarget } from "#/components/context-menu/registry.ts";
@@ -163,7 +164,7 @@ function LabelsCell({ labels }: { labels: Label[] }) {
   );
 }
 
-function ListSearchInput({
+export function ListSearchInput({
   query,
   onQueryChange,
   placeholder,
@@ -199,10 +200,13 @@ export function PageSummaryTable<T extends { summary: PageSummary }>({
   spaceId,
   groups,
   scrollX,
+  onRowKeyDown,
 }: {
   table: TanstackTable<DataTableFeatures, T>;
   spaceId: string;
   groups?: DataTableGroup<T>[];
+  /// A key pressed on a focused row, for one key row actions.
+  onRowKeyDown?: (event: KeyboardEvent<HTMLTableRowElement>, row: T) => void;
   /// Scrolls sideways when the columns cannot fit, which is the default (see `DataTable`).
   scrollX?: boolean;
 }) {
@@ -213,6 +217,7 @@ export function PageSummaryTable<T extends { summary: PageSummary }>({
       table={table}
       groups={groups}
       scrollX={scrollX}
+      onRowKeyDown={onRowKeyDown}
       onRowClick={(row) => openEntity(row.summary.entity.id, spaceId)}
       onRowFocus={(row) => prefetchBlocks(queryClient, row.summary.entity.id)}
       rowContextTarget={(row) => entityTarget(row.summary.entity)}
@@ -250,7 +255,16 @@ export function ListFilterToolbar({
   filters,
   onFiltersChange,
   quick,
+  afterSearch,
+  display,
+  hideChips,
 }: {
+  /// The page's Display popover, after the Filter button.
+  display?: ReactNode;
+  /// Sits beside the search field, e.g. a toggle for one click views.
+  afterSearch?: ReactNode;
+  /// Keeps the chip row away while the filters are only what a one click view set.
+  hideChips?: boolean;
   query: string;
   onQueryChange: (query: string) => void;
   placeholder: string;
@@ -275,7 +289,8 @@ export function ListFilterToolbar({
           placeholder={placeholder}
           ariaLabel={ariaLabel}
         />
-        <div className="ml-auto">
+        {afterSearch}
+        <div className="ml-auto flex items-center gap-2">
           <FilterMenu
             {...filterMenuProps}
             part="button"
@@ -289,9 +304,10 @@ export function ListFilterToolbar({
               />
             }
           />
+          {display}
         </div>
       </div>
-      <FilterMenu {...filterMenuProps} part="chips" />
+      {!hideChips && <FilterMenu {...filterMenuProps} part="chips" />}
     </>
   );
 }

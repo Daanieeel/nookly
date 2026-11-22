@@ -10,7 +10,15 @@ import { RowDivider, useRowEdge } from "../ui/row-edge.tsx";
 import { useStaged } from "../ui/staged.ts";
 import { DATE_WINDOW_OPTIONS, withinWindows } from "../ui/filter-windows.ts";
 import { notePreviewText } from "@nookly/frontend/lib/note-preview";
-import { IconClock, IconLink, IconSchool, IconTag } from "@tabler/icons-react-native";
+import {
+  IconClock,
+  IconLayoutGrid,
+  IconLink,
+  IconList,
+  IconSchool,
+  IconTable,
+  IconTag,
+} from "@tabler/icons-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
@@ -18,22 +26,25 @@ import { usePageSummaries } from "../data/queries.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { EntityIcon } from "../ui/icons.tsx";
 import { ListGroup, ListItem } from "../ui/ListMotion.tsx";
-import { FilterField, Presets } from "../ui/ListBar.tsx";
+import { FilterField } from "../ui/ListBar.tsx";
+import { Button } from "../ui/Button.tsx";
 import { ListControls } from "../ui/ListControls.tsx";
 import {
   ENTITY_FILTERS_NONE,
   ENTITY_FILTER_PICKS,
   useEntityFilters,
 } from "../ui/entity-filters.tsx";
-import { DisplayGroup, SelectRow } from "../ui/sheet/DisplayParts.tsx";
+import { DisplayGroup, LayoutTiles, SelectRow, SwitchRow } from "../ui/sheet/DisplayParts.tsx";
 import { useDraftPreference } from "../data/preferences.ts";
+import { NOTE_GROUP_BYS } from "@nookly/shared/note-groups";
 import { z } from "zod";
 import { labelOption } from "./option-badges.tsx";
 import { cn } from "../ui/classes.ts";
 import { Text } from "../ui/Text.tsx";
-import { ago, localDay, addDays } from "./dates.ts";
+import { ago } from "./dates.ts";
 import { useEntityMenu } from "./entity-actions.tsx";
 import { EntitySwipe } from "./EntitySwipe.tsx";
+import { ContinueNotes, GroupedNotes } from "./NotesBrowse.tsx";
 
 /// A page's row in a list, as the desktop's table gives it: the key, the title, the start of
 /// its text and its labels, with when it was last edited at the right. A long press opens
@@ -171,8 +182,17 @@ const ORDERS: { id: NoteOrder; label: string }[] = [
   { id: "id", label: "ID" },
 ];
 
+type NoteLayout = "cards" | "list" | "table";
+type LayoutTile = { id: NoteLayout; label: string; icon: typeof IconList };
+
 const listSchema = z.object({
   ordering: z.enum(["edited", "title", "id"]),
+  /// How Notes are laid out: cards (the default), a list, or on a tablet the table. Jots
+  /// ignore it.
+  layout: z.enum(["cards", "list", "table"]).default("cards"),
+  /// What Notes are grouped by, and whether the Continue category shows above them.
+  groupBy: z.enum(["course", "label", "edited", "none"]).default("course"),
+  continue: z.boolean().default(true),
   /// Labels and Last edited windows the list is narrowed to; empty means all.
   labels: z.array(z.string()),
   edited: z.array(z.string()),
@@ -183,6 +203,9 @@ const listSchema = z.object({
 type ListDisplay = z.infer<typeof listSchema>;
 const LIST_DEFAULT: ListDisplay = {
   ordering: "edited",
+  layout: "cards",
+  groupBy: "course",
+  continue: true,
   labels: [],
   edited: [],
   courses: [],
@@ -231,7 +254,12 @@ interface PageListControls {
 /// Notes' and Jots' header, filters and display, as Tasks has them (D65): the title with
 /// Filter and Display, the filters on as chips, and the desktop's filters (labels, last
 /// edited) and order in Linear's sheets. The search field stays under it.
-function usePageListControls(key: string, title: string, pages: PageSummary[]): PageListControls {
+function usePageListControls(
+  key: string,
+  title: string,
+  pages: PageSummary[],
+  layouts?: LayoutTile[],
+): PageListControls {
   const draft = useDraftPreference<ListDisplay>(key, listSchema, LIST_DEFAULT);
   const display = draft.value;
   const setDisplay = draft.set;
@@ -278,14 +306,38 @@ function usePageListControls(key: string, title: string, pages: PageSummary[]): 
         created,
       ]}
       display={
-        <DisplayGroup>
-          <SelectRow
-            label="Ordering"
-            value={display.ordering}
-            options={ORDERS}
-            onChange={(ordering) => setDisplay({ ...display, ordering })}
-          />
-        </DisplayGroup>
+        <View className="gap-3">
+          {layouts ? (
+            <LayoutTiles
+              tiles={layouts}
+              value={layouts.some((l) => l.id === display.layout) ? display.layout : "cards"}
+              onSelect={(layout) => setDisplay({ ...display, layout })}
+            />
+          ) : null}
+          <DisplayGroup>
+            {layouts ? (
+              <>
+                <SelectRow
+                  label="Group by"
+                  value={display.groupBy}
+                  options={NOTE_GROUP_BYS}
+                  onChange={(groupBy) => setDisplay({ ...display, groupBy })}
+                />
+                <SwitchRow
+                  label={'Show category "Continue"'}
+                  value={display.continue}
+                  onChange={(next) => setDisplay({ ...display, continue: next })}
+                />
+              </>
+            ) : null}
+            <SelectRow
+              label="Ordering"
+              value={display.ordering}
+              options={ORDERS}
+              onChange={(ordering) => setDisplay({ ...display, ordering })}
+            />
+          </DisplayGroup>
+        </View>
       }
     />
   );
@@ -303,23 +355,33 @@ function usePageListControls(key: string, title: string, pages: PageSummary[]): 
   };
 }
 
-/// A Space's Notes: a table of its pages with a filter and the order of your choice.
+/// A Space's Notes, as the desktop browses them: the latest edits as Continue cards, then the
+/// notes under Pinned and each course, as cards or a list (and on a tablet the table), with
+/// a filter and the order of your choice.
 export function NoteList({ spaceId }: { spaceId: string }) {
   const { data: pages = [] } = usePageSummaries(spaceId, "note");
   const [query, setQuery] = useState("");
-  const { display, controls, keep, clear, saveBar } = usePageListControls(
+  const tablet = useIsTablet();
+  const layouts: LayoutTile[] = [
+    { id: "cards", label: "Cards", icon: IconLayoutGrid },
+    { id: "list", label: "List", icon: IconList },
+    ...(tablet ? [{ id: "table" as const, label: "Table", icon: IconTable }] : []),
+  ];
+  const { display, controls, keep, filtered, clear, saveBar } = usePageListControls(
     `notes.display.${spaceId}`,
     "Notes",
     pages,
+    layouts,
   );
   const shown = pages.filter((p) => matches(p, query) && keep(p)).sort(compare(display.ordering));
-  const staged = useStaged(shown);
-  const tablet = useIsTablet();
+  const layout = tablet || display.layout !== "table" ? display.layout : "cards";
+  const staged = useStaged(shown, layout);
+  const browsing = query.trim() === "" && !filtered;
   return (
     <View className="gap-3">
       {controls}
       <FilterField label="Filter notes" value={query} onChange={setQuery} />
-      <View>
+      <View className="gap-4">
         <ListEmpty
           glyph={MODULE_ICONS.notes}
           total={pages.length}
@@ -330,16 +392,18 @@ export function NoteList({ spaceId }: { spaceId: string }) {
             setQuery("");
           }}
         />
-        {tablet ? (
+        {layout === "table" ? (
           <PageTable pages={staged} jot={false} />
         ) : (
-          <ListGroup>
-            {staged.map((page) => (
-              <ListItem key={page.entity.id}>
-                <PageRow page={page} jot={false} />
-              </ListItem>
-            ))}
-          </ListGroup>
+          <>
+            {browsing && display.continue ? <ContinueNotes pages={shown} /> : null}
+            <GroupedNotes
+              pages={staged}
+              groupBy={display.groupBy}
+              layout={layout === "list" ? "list" : "cards"}
+              renderRow={(page) => <PageRow page={page} jot={false} />}
+            />
+          </>
         )}
       </View>
       {saveBar}
@@ -356,46 +420,47 @@ function compare(order: NoteOrder) {
         : b.entity.updatedAt.localeCompare(a.entity.updatedAt);
 }
 
-type JotPreset = "unrefined" | "refined" | "week" | "all";
-
-/// A Space's Jots, quick captures waiting to be refined into notes, with the desktop's
-/// presets: unrefined, refined, this week and all.
+/// A Space's Jots, a capture inbox: it opens on the ones still to refine into notes, and
+/// Show refined adds the refined ones under them, in a group of their own.
 export function JotList({ spaceId }: { spaceId: string }) {
   const { data: jots = [] } = usePageSummaries(spaceId, "jot");
-  const [preset, setPreset] = useState<JotPreset>("unrefined");
+  const [showRefined, setShowRefined] = useState(false);
   const [query, setQuery] = useState("");
   const { display, controls, keep, filtered, clear, saveBar } = usePageListControls(
     `jots.display.${spaceId}`,
     "Jots",
     jots,
   );
-  const weekAgo = addDays(localDay(), -7);
-  const inPreset = {
-    unrefined: (j) => j.refinedInto === null,
-    refined: (j) => j.refinedInto !== null,
-    week: (j) => j.entity.createdAt.slice(0, 10) >= weekAgo,
-    all: () => true,
-  } satisfies Record<JotPreset, (j: PageSummary) => boolean>;
-  const count = (id: JotPreset) => jots.filter(inPreset[id]).length;
-  const shown = jots
-    .filter((j) => inPreset[preset](j) && matches(j, query) && keep(j))
-    .sort(compare(display.ordering));
-  const staged = useStaged(shown);
+  const refinedCount = jots.filter((j) => j.refinedInto !== null).length;
+  const visible = jots.filter((j) => matches(j, query) && keep(j)).sort(compare(display.ordering));
+  const todo = visible.filter((j) => j.refinedInto === null);
+  const done = showRefined ? visible.filter((j) => j.refinedInto !== null) : [];
+  const shown = [...todo, ...done];
+  const stagedTodo = useStaged(todo);
+  const stagedDone = useStaged(done);
   const tablet = useIsTablet();
+  const list = (pages: readonly PageSummary[]) =>
+    tablet ? (
+      <PageTable pages={pages} jot />
+    ) : (
+      <ListGroup>
+        {pages.map((jot) => (
+          <ListItem key={jot.entity.id}>
+            <PageRow page={jot} jot />
+          </ListItem>
+        ))}
+      </ListGroup>
+    );
   return (
     <View className="gap-3">
       {controls}
       <FixedTop>
-        <Presets
-          label="Show"
-          value={preset}
-          onChange={setPreset}
-          options={[
-            { id: "unrefined", label: "Unrefined", count: count("unrefined") },
-            { id: "refined", label: "Refined", count: count("refined") },
-            { id: "week", label: "This week", count: count("week") },
-            { id: "all", label: "All", count: count("all") },
-          ]}
+        <Button
+          label={`${showRefined ? "Hide" : "Show"} refined ${refinedCount}`}
+          variant={showRefined ? "default" : "outline"}
+          className="w-full"
+          accessibilityState={{ expanded: showRefined }}
+          onPress={() => setShowRefined(!showRefined)}
         />
       </FixedTop>
       <FilterField label="Filter jots" value={query} onChange={setQuery} />
@@ -406,9 +471,13 @@ export function JotList({ spaceId }: { spaceId: string }) {
           message="Tap + to jot something down. Refine it into a note when you are ready."
         />
       ) : (
-        <View>
+        <View className="gap-3">
           {shown.length === 0 && !filtered && query.trim() === "" ? (
-            <EmptyState glyph={MODULE_ICONS.jots} title="No Jots Here" />
+            <EmptyState
+              glyph={MODULE_ICONS.jots}
+              title="Nothing Left to Refine"
+              message="Every Jot is refined into a note."
+            />
           ) : (
             <ListEmpty
               glyph={MODULE_ICONS.jots}
@@ -421,17 +490,15 @@ export function JotList({ spaceId }: { spaceId: string }) {
               }}
             />
           )}
-          {tablet ? (
-            <PageTable pages={staged} jot />
-          ) : (
-            <ListGroup>
-              {staged.map((jot) => (
-                <ListItem key={jot.entity.id}>
-                  <PageRow page={jot} jot />
-                </ListItem>
-              ))}
-            </ListGroup>
-          )}
+          {list(stagedTodo)}
+          {stagedDone.length > 0 ? (
+            <View className="gap-1">
+              <Text variant="label" tone="muted" accessibilityRole="header" className="px-1">
+                Refined
+              </Text>
+              {list(stagedDone)}
+            </View>
+          ) : null}
         </View>
       )}
       {saveBar}

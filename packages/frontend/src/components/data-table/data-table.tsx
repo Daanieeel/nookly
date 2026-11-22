@@ -59,6 +59,7 @@ export function DataTable<TData extends RowData>({
   table,
   onRowClick,
   onRowFocus,
+  onRowKeyDown,
   rowContextTarget,
   groups,
   className,
@@ -69,6 +70,8 @@ export function DataTable<TData extends RowData>({
   onRowClick?: (row: TData) => void;
   /// Fires on hover and keyboard focus, e.g. to prefetch what a click will open.
   onRowFocus?: (row: TData) => void;
+  /// A key pressed while the row itself has the focus, for one key row actions.
+  onRowKeyDown?: (event: React.KeyboardEvent<HTMLTableRowElement>, row: TData) => void;
   /// What a right-click on the row opens, from `contextTarget`/`entityTarget`.
   rowContextTarget?: (row: TData) => ContextTargetProps;
   groups?: DataTableGroup<TData>[];
@@ -139,7 +142,9 @@ export function DataTable<TData extends RowData>({
       onKeyDown={
         onRowClick
           ? (e) => {
-              if (e.key === "Enter" && e.target === e.currentTarget) onRowClick(row.original);
+              if (e.target !== e.currentTarget) return;
+              if (e.key === "Enter") onRowClick(row.original);
+              else onRowKeyDown?.(e, row.original);
             }
           : undefined
       }

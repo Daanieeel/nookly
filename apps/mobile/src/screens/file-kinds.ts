@@ -78,3 +78,26 @@ export function hasThumbnail(file: FileRecord): boolean {
   const name = nameOf(file);
   return THUMBNAIL_KINDS.has(fileKindOf(name)) && !isTextFile(name);
 }
+
+/// The colour each kind's icon is drawn in, the desktop's (`file-kind.ts`), so a page of files
+/// can be scanned by type: a PDF red, an image or a sheet green, slides yellow, a document,
+/// audio or video blue, and the rest quiet.
+export const KIND_TONES = {
+  image: "positive",
+  pdf: "destructive",
+  document: "primary",
+  sheet: "positive",
+  slides: "caution",
+  archive: "mutedForeground",
+  audio: "primary",
+  video: "primary",
+  code: "mutedForeground",
+  other: "mutedForeground",
+} as const satisfies Record<FileKindId, string>;
+
+export function kindColor(
+  kind: FileKindId,
+  colors: Record<(typeof KIND_TONES)[FileKindId], string>,
+): string {
+  return colors[KIND_TONES[kind]];
+}

@@ -10,6 +10,10 @@ A full, first-class entity that participates in the relationship system like eve
 
 Reverse lookup for attachments is automatic because the relationship graph works in both directions (see [attachments](../02-entity-model.md#attachments-work-in-both-directions)). No extra modeling is needed.
 
+## Finding and Filing Files
+
+The Files page starts with a search field over names, content and labels (the phone searches names, labels and Courses). Each Space gets an Unsorted View (`filing is unsorted`: no Course, no Label) on its first visit to Files, once per device (`@nookly/shared/file-views`); it is an ordinary View, so it can be renamed or deleted and stays deleted. A File carries read only `attachedTo` (what it is attached to) and `courses` (attached to a Course, or to something linked to one), which feed the Course and Attached to filters and groupings. A saved View keeps the search text as `query`; the CLI checks it like the rest of a View's config.
+
 ## Bookmarks
 
 A separate entity from files as links:

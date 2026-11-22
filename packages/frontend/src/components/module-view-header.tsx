@@ -24,6 +24,7 @@ export function ModuleViewHeader<D>({
   view,
   viewMenu,
   presets,
+  toolbar,
   displayMenu,
   create,
   filterFields,
@@ -35,12 +36,16 @@ export function ModuleViewHeader<D>({
   spaceId,
   module,
   display,
+  query,
 }: {
   icon: TablerIcon;
   title: string;
   view: SavedView | undefined;
   viewMenu?: boolean;
   presets: ReactNode;
+  /// A row of its own under the title row, for what does not fit beside the buttons (a
+  /// search field and its shortcuts).
+  toolbar?: ReactNode;
   displayMenu: ReactNode;
   create: { label: string; tooltip: string; onClick: () => void; disabled?: boolean };
   filterFields: FilterField[];
@@ -53,6 +58,8 @@ export function ModuleViewHeader<D>({
   spaceId: string;
   module: ViewModule;
   display: D;
+  /// The page's search text, for pages that have one.
+  query?: string;
 }) {
   return (
     <>
@@ -97,6 +104,7 @@ export function ModuleViewHeader<D>({
             </Tooltip>
           </PageHeaderActions>
         </div>
+        {toolbar ? <div className="flex flex-wrap items-center gap-2 pr-2">{toolbar}</div> : null}
         <FilterMenu
           fields={filterFields}
           filters={filters}
@@ -113,6 +121,7 @@ export function ModuleViewHeader<D>({
         module={module}
         filters={filters}
         display={display}
+        query={query}
       />
     </>
   );

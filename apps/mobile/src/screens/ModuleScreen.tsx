@@ -10,6 +10,7 @@ import { useAssignments, useCourses, useDecks, useEntities, useExams } from "../
 import { EntityIcon } from "../ui/icons.tsx";
 import { Empty, Row, Section } from "../ui/Row.tsx";
 import { MoodleModule } from "./MoodleScreens.tsx";
+import { OnPage } from "../ui/kit/on-page.ts";
 import { Screen } from "../ui/Screen.tsx";
 import { TOOLBAR_ICONS } from "../ui/toolbar-icons.ts";
 import { Text } from "../ui/Text.tsx";
@@ -186,38 +187,41 @@ function ListModule({ spaceId, module }: { spaceId: string; module: ModuleKey })
     <>
       <Stack.Screen options={{ title: MODULE_LABELS[module] }} />
       <Screen wide={GALLERIES.includes(module)}>
-        <PageActions actions={actions} />
-        {module === "courses" ? (
-          <CourseGallery spaceId={spaceId} />
-        ) : module === "exams" ? (
-          <ExamTimeline spaceId={spaceId} />
-        ) : module === "decks" ? (
-          <DeckGrid spaceId={spaceId} />
-        ) : module === "notes" ? (
-          <NoteList spaceId={spaceId} />
-        ) : module === "jots" ? (
-          <JotList spaceId={spaceId} />
-        ) : module === "bookmarks" ? (
-          <BookmarkList spaceId={spaceId} />
-        ) : module === "files" ? (
-          <>
-            {scan.error ? <Text tone="destructive">{scan.error.message}</Text> : null}
-            <FileRows spaceId={spaceId} />
-            <ScanSheet id={scanned} spaceId={spaceId} onClose={() => setScanned(null)} />
-          </>
-        ) : module === "recipes" ? (
-          <RecipeRows spaceId={spaceId} />
-        ) : module === "semesters" ? (
-          <SemesterList spaceId={spaceId} />
-        ) : module === "moodle" ? (
-          <MoodleModule spaceId={spaceId} />
-        ) : STUDY.includes(module) ? (
-          <>
-            <StudyList spaceId={spaceId} module={module} />
-          </>
-        ) : (
-          <EntityList spaceId={spaceId} module={module} />
-        )}
+        {/* A gallery's cards sit one step off the plain page, as Home's do. */}
+        <OnPage.Provider value={GALLERIES.includes(module)}>
+          <PageActions actions={actions} />
+          {module === "courses" ? (
+            <CourseGallery spaceId={spaceId} />
+          ) : module === "exams" ? (
+            <ExamTimeline spaceId={spaceId} />
+          ) : module === "decks" ? (
+            <DeckGrid spaceId={spaceId} />
+          ) : module === "notes" ? (
+            <NoteList spaceId={spaceId} />
+          ) : module === "jots" ? (
+            <JotList spaceId={spaceId} />
+          ) : module === "bookmarks" ? (
+            <BookmarkList spaceId={spaceId} />
+          ) : module === "files" ? (
+            <>
+              {scan.error ? <Text tone="destructive">{scan.error.message}</Text> : null}
+              <FileRows spaceId={spaceId} />
+              <ScanSheet id={scanned} spaceId={spaceId} onClose={() => setScanned(null)} />
+            </>
+          ) : module === "recipes" ? (
+            <RecipeRows spaceId={spaceId} />
+          ) : module === "semesters" ? (
+            <SemesterList spaceId={spaceId} />
+          ) : module === "moodle" ? (
+            <MoodleModule spaceId={spaceId} />
+          ) : STUDY.includes(module) ? (
+            <>
+              <StudyList spaceId={spaceId} module={module} />
+            </>
+          ) : (
+            <EntityList spaceId={spaceId} module={module} />
+          )}
+        </OnPage.Provider>
       </Screen>
       {module === "bookmarks" ? <BookmarkPasteBar spaceId={spaceId} /> : null}
       {module === "files" ? <FilePasteBar spaceId={spaceId} /> : null}

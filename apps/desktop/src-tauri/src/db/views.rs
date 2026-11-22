@@ -201,6 +201,8 @@ struct ConfigSpec {
     layouts: &'static [&'static str],
     /// Whether `display.shelf` holds the labels picked on the Files shelf (D74).
     shelf: bool,
+    /// Whether the page has a search field whose text a View keeps as `query`.
+    query: bool,
 }
 
 const CONFIG_SPECS: &[ConfigSpec] = &[
@@ -209,15 +211,19 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
         filters: &[
             ("kind", None),
             ("labels", None),
+            ("course", None),
+            ("attached", None),
+            ("filing", Some(&["unsorted", "sorted"])),
             ("pinned", Some(PINNED_VALUES)),
             ("created", Some(AGE_VALUES)),
             ("updated", Some(AGE_VALUES)),
         ],
-        groupings: &["none", "kind", "added", "label"],
+        groupings: &["none", "kind", "added", "label", "course", "attached"],
         orderings: &["newest", "oldest", "name"],
         properties: &[],
         layouts: &["grid", "list"],
         shelf: true,
+        query: true,
     },
     ConfigSpec {
         module: "tasks",
@@ -239,6 +245,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
         properties: &["key", "status", "labels", "due", "created"],
         layouts: LAYOUTS,
         shelf: false,
+        query: false,
     },
     ConfigSpec {
         module: "tasks-overview",
@@ -260,6 +267,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
         properties: &["key", "status", "due", "effort", "created"],
         layouts: LAYOUTS,
         shelf: false,
+        query: false,
     },
     ConfigSpec {
         module: "assignments-overview",
@@ -289,6 +297,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
         properties: &[],
         layouts: LAYOUTS,
         shelf: false,
+        query: false,
     },
     ConfigSpec {
         module: "assignments",
@@ -317,6 +326,7 @@ const CONFIG_SPECS: &[ConfigSpec] = &[
         properties: &[],
         layouts: LAYOUTS,
         shelf: false,
+        query: false,
     },
 ];
 
@@ -354,10 +364,21 @@ fn validate_config(module: &str, config: &str) -> AppResult<()> {
     let root = value
         .as_object()
         .ok_or_else(|| AppError::InvalidInput("view config must be a JSON object".into()))?;
-    if let Some(key) = root.keys().find(|k| *k != "filters" && *k != "display") {
-        return Err(bad(format!(
-            "unknown key '{key}'. Use only 'filters' and 'display'"
-        )));
+    let keys = if spec.query {
+        "'filters', 'display' and 'query'"
+    } else {
+        "'filters' and 'display'"
+    };
+    if let Some(key) = root
+        .keys()
+        .find(|k| *k != "filters" && *k != "display" && !(spec.query && *k == "query"))
+    {
+        return Err(bad(format!("unknown key '{key}'. Use only {keys}")));
+    }
+    if let Some(query) = root.get("query") {
+        if !query.is_string() {
+            return Err(bad("query must be text".into()));
+        }
     }
 
     if let Some(filters) = root.get("filters") {
@@ -462,7 +483,7 @@ const VIEW_FIELDS: &[FieldDef] = &[
         kind: FieldKind::LongText,
         required_on_create: false,
         writable_on_update: true,
-        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C); both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier), completedAt (today|week|last|earlier|none), effort (effort steps or none), pinned (pinned|unpinned); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier), pinned (pinned|unpinned); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space. files: filter fields kind (file kinds), labels (label ids), pinned (pinned|unpinned), created and updated (today|week|last|earlier); layout grid|list; grouping none|kind|added|label; ordering newest|oldest|name; display.shelf the label ids picked on the shelf, every one on a file, or none for files without a label.",
+        description: "JSON object {\"filters\":[{\"fieldId\":..,\"operator\":\"is\"|\"isNot\",\"values\":[..],\"join\":\"and\"|\"or\"}],\"display\":{\"layout\",\"grouping\",\"subGrouping\",\"ordering\",\"showEmpty\":{\"board\",\"list\"},\"hiddenColumns\":[group ids]}}, a filter's optional join says how it connects to the filter before it: \"or\" matches either, \"and\" (the default) needs both, and filters joined by \"or\" group together, so [A, B or, C] reads A and (B or C); both keys optional; '{}' opens the module with its default display. Checked on write. tasks: filter fields status and labels (ids of the Space's statuses and labels), due and start (overdue|today|week|later|none), created and updated (today|week|last|earlier), completedAt (today|week|last|earlier|none), effort (effort steps or none), pinned (pinned|unpinned); grouping status|label|start|due|created|updated|none; ordering due|start|created|updated|title|status; display.properties any of key|status|labels|due|created. assignments: filter fields course (Course ids), status (not_started|in_progress|submitted|evaluated), due (overdue|today|week|next|later|none|done), grade (graded|none|ungraded), evaluatedAt (today|week|last|earlier|none), created and updated (today|week|last|earlier), pinned (pinned|unpinned); grouping deadline|created|updated|status|grade|course|none; ordering auto|due|created|updated|title|status|grade. layout is list|board, subGrouping takes the grouping values, a board needs a grouping other than none. tasks-overview: the cross-Space Tasks page; like tasks plus a space filter (Space ids) and grouping space, without the labels filter, grouping and property. assignments-overview: the cross-Space Assignments page; like assignments plus a space filter and grouping space. files: filter fields kind (file kinds), labels (label ids), course (Course ids), attached (ids of what files are attached to), filing (unsorted: in no Course and with no label, or sorted), pinned (pinned|unpinned), created and updated (today|week|last|earlier); layout grid|list; grouping none|kind|added|label|course|attached; ordering newest|oldest|name; display.shelf the label ids picked on the shelf, every one on a file, or none for files without a label. files also takes a top level \"query\" (text), the search field's text, which finds files by name, content and labels.",
     },
     FieldDef {
         name: "position",
@@ -518,7 +539,7 @@ inventory::submit! {
     EntitySchemaDef {
         entity_type: "view",
         supports_blocks: false,
-        description: "A saved View of a module page (Tasks, Assignments or Files): a name plus the filters and display options to reopen it with. A Files View of some labels keeps their ids in display.shelf.",
+        description: "A saved View of a module page (Tasks, Assignments or Files): a name plus the filters, display options and (Files) search text to reopen it with. A Files View of some labels keeps their ids in display.shelf.",
         fields: VIEW_FIELDS,
         relationship_types: &["relates-to"],
         create: cli_create_view,
@@ -686,6 +707,13 @@ mod tests {
         assert!(validate_config("files", good).is_ok());
         assert!(validate_config("files", r#"{"display":{"layout":"board"}}"#).is_err());
         assert!(validate_config("files", r#"{"display":{"shelf":"x"}}"#).is_err());
+        // Files has a search field and groups by course; a View keeps both.
+        let searched = r#"{"query":"fourier","filters":[{"fieldId":"filing","operator":"is","values":["unsorted"]},{"fieldId":"course","operator":"is","values":["c1"]}],"display":{"grouping":"course"}}"#;
+        assert!(validate_config("files", searched).is_ok());
+        assert!(validate_config("files", r#"{"query":4}"#).is_err());
+        assert!(validate_config("files", r#"{"display":{"grouping":"attached"}}"#).is_ok());
+        // Other pages have no search field to keep.
+        assert!(validate_config("tasks", r#"{"query":"x"}"#).is_err());
         // The shelf belongs to Files only.
         assert!(validate_config("tasks", r#"{"display":{"shelf":[]}}"#).is_err());
         let conn = setup();

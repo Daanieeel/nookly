@@ -15,7 +15,7 @@ import { SPACE } from "./tokens.ts";
 const LINGER = 1200;
 
 /// The desktop's save bar (`ViewSaveBar`) on the phone: once a page's filters or display
-/// change, a bar floats at the bottom of the screen, as wide as its buttons, with Discard,
+/// change, a bar floats at the bottom of the screen, as wide as its buttons (as the paste bar on the Files page when it has three), with Discard,
 /// Save as View (only where the page has Views) and Save. Saving keeps the
 /// change as what the page opens with, or in the View it shows. It stays a moment after
 /// saving to say so. `above` lifts it over a paste bar. Put it at the end of the page: it keeps
@@ -63,12 +63,19 @@ export function SaveBar({
       {/* Room at the end of the page, so the bar never covers its last row. */}
       {shown ? <View style={{ height: PASTE_BAR_ROOM }} /> : null}
       <Floating>
-        <FloatingBar shown={shown} above={above} testID="save-bar" label="Unsaved changes">
+        <FloatingBar
+          shown={shown}
+          above={above}
+          testID="save-bar"
+          label="Unsaved changes"
+          fill={dirty && !!onSaveAsView}
+        >
           {dirty ? <Button label="Discard" variant="destructiveGhost" onPress={onDiscard} /> : null}
           {dirty && onSaveAsView ? (
             <Button
               label="Save as View"
               variant="ghost"
+              className="flex-1"
               icon={<IconStack2 size={16} color={mark.hex} />}
               onPress={() => setNaming(true)}
             />

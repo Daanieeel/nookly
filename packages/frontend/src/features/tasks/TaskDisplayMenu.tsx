@@ -1,5 +1,4 @@
 import { Separator } from "@nookly/ui/components/separator";
-import { cn } from "@nookly/ui/lib/utils";
 import {
   type BoardMenuProps,
   BoardOrderingRows,
@@ -7,6 +6,7 @@ import {
   DisplayPopover,
   LayoutTiles,
   LIST_BOARD_TILES,
+  PropertyChips,
   SelectRow,
   SubGroupingRow,
 } from "#/features/display-menu.tsx";
@@ -74,36 +74,11 @@ export function TaskDisplayMenu({
 
       <Separator />
 
-      <div className="flex flex-col gap-2">
-        <span className="text-xs text-muted-foreground">Display properties</span>
-        <div className="flex flex-wrap gap-1.5">
-          {properties.map((p) => {
-            const on = display.properties.includes(p.id);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                aria-pressed={on}
-                onClick={() =>
-                  set({
-                    properties: on
-                      ? display.properties.filter((id) => id !== p.id)
-                      : properties
-                          .filter((d) => d.id === p.id || display.properties.includes(d.id))
-                          .map((d) => d.id),
-                  })
-                }
-                className={cn(
-                  "h-6 cursor-pointer rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:text-foreground",
-                  on && "border-foreground/20 bg-accent text-foreground",
-                )}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <PropertyChips
+        properties={properties}
+        selected={display.properties}
+        onChange={(next) => set({ properties: next })}
+      />
     </DisplayPopover>
   );
 }
