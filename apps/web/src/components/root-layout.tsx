@@ -1,4 +1,5 @@
 import "@nookly/ui/fonts";
+import "@fontsource/nanum-pen-script/latin-400.css";
 import "@/app/globals.css";
 import type { ReactNode } from "react";
 import { TooltipProvider } from "@nookly/ui/components/tooltip";

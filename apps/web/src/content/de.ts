@@ -67,6 +67,7 @@ export const de: Dictionary = {
   hero: {
     title1: "Dein ganzes Leben,",
     title2: "an einem ruhigen Ort.",
+    beta: "In Beta",
     subtitle:
       "Aufgaben, Notizen, Kurse und Fristen wohnen zusammen in einer ruhigen App. Sie bleibt schnell, funktioniert offline und lässt deine KI das Aufräumen übernehmen.",
     pause: "Demo anhalten",

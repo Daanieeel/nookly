@@ -41,6 +41,22 @@
   letter-spacing: -0.035em;
 }
 
+/* Handwriting for the hero's scribbled note (`font-handwriting`, next to `font-sans` and
+   `font-heading`). Nanum Pen Script, SIL Open Font License, loaded in `root-layout.tsx`. */
+@theme inline {
+  --font-handwriting: "Nanum Pen Script", cursive;
+}
+
+/* A stroke drawn in, for paths with `pathLength="1"` and `stroke-dasharray: 1`. */
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;

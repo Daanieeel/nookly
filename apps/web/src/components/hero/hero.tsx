@@ -4,6 +4,7 @@ import { latestRelease } from "@/lib/releases";
 import { DownloadButton } from "../download-button";
 import { HeroStage } from "./stage";
 import { Flame } from "./flame";
+import { BetaNote } from "./beta-note";
 
 export async function Hero({ locale }: { locale: Locale }) {
   const t = dictionary(locale).hero;
@@ -20,8 +21,9 @@ export async function Hero({ locale }: { locale: Locale }) {
         <p className="mt-5 max-w-xl animate-[fade-up_0.7s_ease-out_0.1s_both] text-base text-pretty text-muted-foreground sm:text-lg">
           {t.subtitle}
         </p>
-        <div className="mt-8 animate-[fade-up_0.7s_ease-out_0.2s_both]">
+        <div className="relative mt-8 animate-[fade-up_0.7s_ease-out_0.2s_both]">
           <DownloadButton locale={locale} release={release} />
+          <BetaNote label={t.beta} />
         </div>
       </div>
       <div className="relative z-10 mt-16 px-6 pb-24 sm:px-12 sm:pb-32 lg:px-20 xl:px-28">

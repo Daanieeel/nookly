@@ -67,6 +67,7 @@ export const en = {
   hero: {
     title1: "Your whole life,",
     title2: "in one quiet place.",
+    beta: "In Beta",
     subtitle:
       "Tasks, notes, courses and deadlines live together in one calm app. It stays fast, works offline, and lets your AI do the tidying up.",
     pause: "Pause the demo",
