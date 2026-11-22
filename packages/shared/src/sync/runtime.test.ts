@@ -788,4 +788,47 @@ describe("syncing files", () => {
     expect(account.pulls).toBe(settled);
     sync.stop();
   });
+
+  it("doesn't count a file's new place on this device as a change waiting to be sent", async () => {
+    // Bug: a downloaded file points its row at the local copy, which marks the row as
+    // changed. Nothing is sent for it, but the count stayed until the next round.
+    const server = new MemoryServer();
+    const first = runtime(server, undefined, undefined, new QuietFiles());
+    first.driver.exec(
+      "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
+      now(),
+      now(),
+    );
+    first.driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES ('f1', 's1', 'file', 'Lecture', ?, ?, 'FIL', 1)",
+      now(),
+      now(),
+    );
+    first.driver.exec(
+      "INSERT INTO files (entity_id, local_path, original_filename) VALUES ('f1', '/files/a.pdf', 'a.pdf')",
+    );
+    await first.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await first.sync.syncNow();
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    first.sync.stop();
+
+    const driver = new NodeSqliteDriver();
+    const platform: BlobPlatform = {
+      hash: async () => null,
+      upload: async () => {},
+      download: async (_sha, target) => {
+        // Lands after the round that asked for it is over.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        driver.exec("UPDATE files SET local_path = '/here/a.pdf' WHERE entity_id = ?", target.pk);
+        return "/here/a.pdf";
+      },
+    };
+    const second = runtime(server, driver, undefined, platform);
+    await second.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await second.sync.settled();
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(driver.rows("SELECT local_path FROM files")).toEqual([{ local_path: "/here/a.pdf" }]);
+    expect(await second.sync.engine.pendingCount()).toBe(0);
+    second.sync.stop();
+  });
 });

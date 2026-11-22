@@ -1,5 +1,6 @@
 import { ApiClient, type DeviceInfo } from "@nookly/shared/api";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 import { useStore } from "zustand";
@@ -34,6 +35,16 @@ function thisDevice(): DeviceInfo {
   return { name: `Nookly on ${names[platform]}`, platform };
 }
 
+/// What this computer is called to the account: the name the person gave it, found once
+/// after launch. Until then (and where it can't be read) the generic "Nookly on Mac" stands,
+/// and the name is only read when a sign in sends it.
+const device = thisDevice();
+void invoke<string | null>("sync_computer_name")
+  .then((name) => {
+    if (name) device.name = name;
+  })
+  .catch(() => {});
+
 let refreshViews: () => void = () => {};
 
 /// This device's sync, one for the app.
@@ -41,7 +52,7 @@ export const syncRuntime = new SyncRuntime<ApiClient>({
   driver: tauriSqlDriver,
   connect: (baseUrl, onSignedOut) =>
     new ApiClient({ baseUrl, tokens: keychainTokens, onSignedOut }),
-  device: thisDevice(),
+  device,
   reindex: reindexEntities,
   onApplied: () => refreshViews(),
   backup: (keep) => preSyncBackup(keep),

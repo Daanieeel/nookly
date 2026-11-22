@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
     ".": {
-      "entry": ["tools/*.ts"]
+      "entry": ["tools/*.ts", "tools/instance-testing/*.ts"]
     },
     "apps/desktop": {},
     "packages/frontend": {

@@ -194,6 +194,26 @@ describe("file contents", () => {
     expect(progress).toMatchObject({ downloaded: 12, toDownload: 0, waiting: 0 });
   });
 
+  it("uploads three files at once, the next as soon as one is done, and never more", async () => {
+    // A first sync sent them one after the other, so the slowest link set the time for all.
+    const d = device();
+    for (let i = 0; i < 8; i++) addFile(d, `f${i}`, `/files/${i}.pdf`, `lecture ${i}`);
+    let running = 0;
+    let most = 0;
+    const upload = d.platform.upload.bind(d.platform);
+    d.platform.upload = async (sha256, path, contentType) => {
+      running += 1;
+      most = Math.max(most, running);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      running -= 1;
+      return upload(sha256, path, contentType);
+    };
+    const progress = await d.blobs.runOnce();
+    expect(most).toBe(3);
+    expect(progress).toMatchObject({ uploaded: 8, toUpload: 0, waiting: 0 });
+    for (let i = 0; i < 8; i++) expect(blobOf(d, `f${i}`)).toBe(sha(`lecture ${i}`));
+  });
+
   it("lets one failing download wait without holding up the others", async () => {
     const store = new Map<string, string>();
     const d = device(store);

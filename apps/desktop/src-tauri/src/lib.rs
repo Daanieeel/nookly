@@ -351,6 +351,7 @@ fn command_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send +
         commands::sync::sync_reindex,
         commands::sync::sync_refresh_token,
         commands::sync::sync_set_refresh_token,
+        commands::sync::sync_computer_name,
         commands::blobs::blob_hash,
         commands::blobs::blob_upload,
         commands::blobs::blob_download,

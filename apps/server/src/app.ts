@@ -24,6 +24,7 @@ import { HttpError } from "./errors.ts";
 import type { Logger } from "./log.ts";
 import type { Mailer } from "./mail/mailer.ts";
 import { invitePage, resetPasswordPage, resultPage } from "./pages.ts";
+import { clientIp } from "./security/client-ip.ts";
 import { RateLimiter } from "./security/rate-limit.ts";
 import { ShareService } from "./shares/service.ts";
 import { withoutCookies } from "./auth/cookies.ts";
@@ -63,10 +64,26 @@ const MAIL_PATHS = new Set([
   "/v1/auth/reset-password",
 ]);
 
+const signInBody = z.object({ username: z.string().optional(), email: z.string().optional() });
+
+/// Who a sign in attempt is for (username or email, lowercased), read from a copy of the
+/// request so better-auth still gets the body.
+async function signInAccount(request: Request): Promise<string | null> {
+  const body = signInBody.safeParse(
+    await request
+      .clone()
+      .json()
+      .catch(() => null),
+  );
+  if (!body.success) return null;
+  const name = body.data.username ?? body.data.email ?? "";
+  return name.trim().toLowerCase().slice(0, 320) || null;
+}
+
 export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
   const hub = new Hub();
   const auth = createAuth(db, config, mailer, log);
-  const accounts = new AccountService(db, auth, storage);
+  const accounts = new AccountService(db, auth, storage, config.SESSION_TOUCH_SECONDS * 1000);
   const providers = Object.keys(socialProviders(config));
   const sync = new SyncService(db, hub, log);
   const sharing = new ShareService(db, sync, hub, mailer, config, log);
@@ -76,6 +93,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
   const scale = config.RATE_LIMIT_SCALE;
   const limits = {
     signIn: new RateLimiter(10 * scale, 15 * MINUTE),
+    // Per account, whatever the address: guessing one password from many addresses.
+    signInAccount: new RateLimiter(20 * scale, 15 * MINUTE),
     register: new RateLimiter(10 * scale, HOUR),
     email: new RateLimiter(5 * scale, HOUR),
     refresh: new RateLimiter(60 * scale, MINUTE),
@@ -142,24 +161,27 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
       }),
     )
     .use(
-      openapi({
-        path: "/docs",
-        mapJsonSchema: { zod: z.toJSONSchema },
-        documentation: {
-          info: { title: "Nookly sync server", version: config.version },
-          components: { securitySchemes: { bearer: { type: "http", scheme: "bearer" } } },
-        },
-      }),
+      // The reference lists every route, which a production server has no need to show.
+      config.apiDocs
+        ? openapi({
+            path: "/docs",
+            mapJsonSchema: { zod: z.toJSONSchema },
+            documentation: {
+              info: { title: "Nookly sync server", version: config.version },
+              components: { securitySchemes: { bearer: { type: "http", scheme: "bearer" } } },
+            },
+          })
+        : new Elysia(),
     )
-    .derive(({ request, server }) => {
-      const forwarded = config.TRUST_PROXY
-        ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-        : undefined;
-      return {
-        ip: forwarded || server?.requestIP(request)?.address || "unknown",
-        started: performance.now(),
-      };
-    })
+    .derive(({ request, server }) => ({
+      ip: clientIp(
+        request.headers.get("x-forwarded-for"),
+        server?.requestIP(request)?.address,
+        config.TRUST_PROXY,
+        config.TRUSTED_PROXY_HOPS,
+      ),
+      started: performance.now(),
+    }))
     .onError(({ code, error, set }) => {
       if (error instanceof HttpError) {
         set.status = error.status;
@@ -275,10 +297,13 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         // email), sign out, sessions, password reset, email verification, OAuth.
         .all(
           "/auth/*",
-          ({ request, ip }) => {
+          async ({ request, ip }) => {
             const path = new URL(request.url).pathname;
-            if (request.method === "POST" && SIGN_IN_PATHS.has(path))
+            if (request.method === "POST" && SIGN_IN_PATHS.has(path)) {
               limit(limits.signIn, `login:${ip}`);
+              const account = await signInAccount(request);
+              if (account) limit(limits.signInAccount, `login-account:${account}`);
+            }
             if (request.method === "POST" && path === "/v1/auth/sign-up/email") {
               limit(limits.register, `register:${ip}`);
             }

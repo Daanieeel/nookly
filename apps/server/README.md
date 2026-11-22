@@ -13,7 +13,7 @@ docker compose up -d     # Postgres (5433) and MinIO (9000, console 9001)
 bun run stack            # applies migrations, runs the server with watch mode
 ```
 
-The server listens on `http://localhost:3000` (`PORT` in `.env`), prints emails (confirm email, password reset, invites) to its log, and serves the API docs at `/docs`. `bun run dev` starts the server, the desktop app and the mobile app together.
+The server listens on `http://localhost:3000` (`PORT` in `.env`), prints emails (confirm email, password reset, invites) to its log, and serves the API docs at `/docs` (off when `NODE_ENV=production`, or with `API_DOCS=false`). `bun run dev` starts the server, the desktop app and the mobile app together.
 
 - Desktop: `bun run tauri dev`, then the cloud button in the titlebar, Sign in or I'm new here. The server address is `http://localhost:3000`.
 - Phone or tablet: `bun run dev:expo`, press `i` for the iOS simulator. The simulator reaches `localhost`; a real device needs this computer's address in the server field on the sign in screen.

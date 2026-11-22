@@ -145,7 +145,8 @@ describe("sharing a page", () => {
     const { share } = await ada.api.share("p1", "ben@example.com", "editor");
     await ben.api.acceptShare(share.id);
     await syncOnce(benDevice);
-    const clock = "9999999999999-000001-ben";
+    // An hour ahead: newer than anything the owner wrote, and still a clock the server takes.
+    const clock = `${Date.now() + 60 * 60 * 1000}-000001-ben`;
     const dataset = `share:${share.id}`;
     const response = await ben.api.push({
       changes: [

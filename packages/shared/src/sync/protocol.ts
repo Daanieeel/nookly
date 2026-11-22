@@ -43,7 +43,16 @@ export const pushRequestSchema = z.object({
 });
 export type PushRequest = z.infer<typeof pushRequestSchema>;
 
-export const rejectionSchema = z.enum(["forbidden", "invalid", "unknown-dataset"]);
+/// Why the server refused a change. `invalid-value` (a value the database can't hold) and
+/// `clock-skew` (a clock far ahead of the server's) are about this one change: the device
+/// keeps its row and the change, and the others of the push go through.
+export const rejectionSchema = z.enum([
+  "forbidden",
+  "invalid",
+  "unknown-dataset",
+  "invalid-value",
+  "clock-skew",
+]);
 export const pushResultSchema = z.object({
   dataset: datasetSchema,
   table: name,
@@ -147,6 +156,32 @@ export function changeProblem(change: Change): string | null {
   return null;
 }
 
+/// How far ahead of the server's time a change's clock may be. A device whose date is a
+/// day off is wrong, and its clocks would beat every honest edit from then on.
+export const MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
+
+/// Whether `value` holds a NUL character, which Postgres can't store in text or JSON.
+export const hasNul = (value: string | number | null): boolean =>
+  value !== null && String(value).includes("\0");
+
+/// The clock's time of day in milliseconds, or null when it isn't one.
+const clockMillis = (clock: string): number | null => {
+  const millis = Number(clock.slice(0, 13));
+  return Number.isFinite(millis) ? millis : null;
+};
+
+/// Why one change can't be stored, apart from being malformed (`changeProblem`): a value
+/// the database refuses, or a clock too far ahead. Null when it can.
+export function changeRejection(change: Change, now: number): PushResult["reason"] | null {
+  if (hasNul(change.pk) || hasNul(change.scope)) return "invalid-value";
+  if (Object.values(change.fields).some(hasNul)) return "invalid-value";
+  const clocks = [...Object.values(change.clocks), change.deletedClock].filter(
+    (c): c is string => c !== null,
+  );
+  if (clocks.some((c) => (clockMillis(c) ?? 0) > now + MAX_CLOCK_SKEW_MS)) return "clock-skew";
+  return null;
+}
+
 /// A conflict the server recorded: the same field changed on two devices without
 /// either seeing the other. The newer value is in the record; this keeps the other.
 export const serverConflictSchema = z.object({
@@ -168,7 +203,7 @@ export const conflictReportSchema = z.object({
   table: z.string().min(1).max(64),
   pk: z.string().min(1).max(512),
   field: z.string().min(1).max(64),
-  losingValue: sqlValueSchema,
+  losingValue: sqlValueSchema.refine((v) => !hasNul(v), "NUL character"),
   losingClock: z.string().min(1).max(128),
   winningClock: z.string().max(128).nullable(),
 });

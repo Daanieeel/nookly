@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiRequestError } from "../api/client.ts";
 import { SyncClient, type LiveHandlers, type SyncStatus, type SyncTransport } from "./client.ts";
 import { SyncEngine } from "./engine.ts";
 import { MemoryServer } from "./testing/memory-server.ts";
@@ -92,6 +93,72 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.useRealTimers();
+});
+
+/// A server that fails with a 500 for any push holding the poisoned key, like a database
+/// refusing a value, and takes the rest.
+function poisoned(network: FakeNetwork, key: string): SyncTransport {
+  const base = network.transport();
+  return {
+    ...base,
+    push: async (request) => {
+      if (request.changes.some((c) => c.table === "entities" && c.pk === key))
+        throw new ApiRequestError(500, "internal", "Something went wrong on the server.");
+      return base.push(request);
+    },
+  };
+}
+
+describe("a change that makes the server fail", () => {
+  it("doesn't hold up the others, and is set aside after a few rounds", async () => {
+    const network = new FakeNetwork();
+    const driver = new NodeSqliteDriver();
+    const client = new SyncClient({
+      engine: new SyncEngine({ driver }),
+      transport: poisoned(network, "bad"),
+    });
+    await client.start();
+    addTask(driver, "ok-1", "Fine");
+    addTask(driver, "bad", "Poison");
+    addTask(driver, "ok-2", "Fine too");
+    client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(60_000);
+    const stored = [...network.server.records.values()].filter((r) => r.table === "entities");
+    expect(stored.map((r) => r.pk).sort()).toEqual(["ok-1", "ok-2"]);
+    expect(client.current()).toMatchObject({ state: "idle", pending: 0 });
+    expect(client.current().conflicts).toBe(1);
+    // The row is still there, as written.
+    expect(driver.rows("SELECT title FROM entities WHERE id = 'bad'")).toEqual([
+      { title: "Poison" },
+    ]);
+    client.stop();
+  });
+
+  it("doesn't set a change aside because the server was down", async () => {
+    const network = new FakeNetwork();
+    const driver = new NodeSqliteDriver();
+    let down = true;
+    const base = network.transport();
+    const client = new SyncClient({
+      engine: new SyncEngine({ driver }),
+      transport: {
+        ...base,
+        push: async (request) => {
+          if (down) throw new ApiRequestError(503, "unavailable", "Down.");
+          return base.push(request);
+        },
+      },
+    });
+    await client.start();
+    addTask(driver, "t1", "Waits");
+    client.notifyLocalChange();
+    await vi.advanceTimersByTimeAsync(120_000);
+    down = false;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(network.server.records.has("entities\u0000t1")).toBe(true);
+    expect(client.current().conflicts).toBe(0);
+    client.stop();
+  });
 });
 
 describe("the sync client", () => {

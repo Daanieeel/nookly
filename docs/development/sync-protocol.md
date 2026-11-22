@@ -38,10 +38,14 @@ Deleting a row that other rows point at (emptying a page from Trash) removes tho
 
 All under `/v1/sync`, authenticated with the access token.
 
-| Call         | Body                                     | Returns                                                        |
-| ------------ | ---------------------------------------- | -------------------------------------------------------------- |
-| `POST /push` | up to 500 changes                        | per change `applied` or `rejected` (`forbidden`, `invalid`)    |
-| `POST /pull` | `cursors` per dataset                    | records with a higher sequence number, per dataset, `hasMore`  |
-| `GET /ws`    | first message `{ type: "hello", token }` | `ready`, then `changes` (or `datasets`) whenever there is news |
+| Call         | Body                                     | Returns                                                                                    |
+| ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `POST /push` | up to 500 changes                        | per change `applied` or `rejected` (`forbidden`, `invalid`, `invalid-value`, `clock-skew`) |
+| `POST /pull` | `cursors` per dataset                    | records with a higher sequence number, per dataset, `hasMore`                              |
+| `GET /ws`    | first message `{ type: "hello", token }` | `ready`, then `changes` (or `datasets`) whenever there is news                             |
 
 A dataset is `own` or `share:<id>`. Pushing the same change twice is harmless, so retries are safe. The client syncs pull, push, pull; it reconnects the socket with exponential backoff and a full sync, and runs a full sync every minute in case a notice was missed.
+
+## Changes the server won't take
+
+A change is refused on its own, and the rest of the push goes through. `invalid-value` is a value the database can't hold (a NUL character); `clock-skew` is a clock more than a day ahead of the server's, which would beat every honest edit from then on. A device keeps such a row exactly as it is, drops the change from its queue and keeps the edit as a conflict (`SyncEngine.quarantine`). If the server fails a push with a 500 for a reason nobody foresaw, it retries the changes one by one, and a client that still gets a 500 splits the push to find the one change (at most 40 requests) and sets it aside after three rounds. Only a 500 is split: an outage fails every change the same way.

@@ -250,6 +250,11 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "sync_set_refresh_token",
         "sync_refresh_token_has_its_own_keychain_entry",
     ),
+    // Asks the operating system for the computer's name, which differs per machine.
+    (
+        "sync_computer_name",
+        "sync_computer_name_is_a_short_single_line",
+    ),
     // Network, or an `AppHandle` for the data folder: the part each one delegates to.
     ("blob_hash", "blob_commands_underlying_calls"),
     ("blob_upload", "blob_commands_underlying_calls"),
@@ -4597,6 +4602,16 @@ fn sync_refresh_token_has_its_own_keychain_entry() {
         "nookly-external-calendars",
         "a sync sign out must never remove calendar credentials"
     );
+}
+
+#[test]
+fn sync_computer_name_is_a_short_single_line() {
+    let name = tauri::async_runtime::block_on(crate::commands::sync::sync_computer_name());
+    // A build machine may have no name to give; when it has one, it is fit for a list.
+    if let Some(name) = name {
+        assert!(!name.is_empty() && name.chars().count() <= 60, "{name:?}");
+        assert!(!name.contains('\n'), "{name:?}");
+    }
 }
 
 #[test]

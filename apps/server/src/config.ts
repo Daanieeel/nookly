@@ -23,6 +23,12 @@ const envSchema = z.object({
     .default("tauri://localhost,http://tauri.localhost,http://localhost:1420"),
   /// Read the client address from `X-Forwarded-For`, set by the reverse proxy.
   TRUST_PROXY: z.stringbool().default(false),
+  /// How many proxies in front of the server append to `X-Forwarded-For` (Heroku's router,
+  /// or Caddy: one). The address that many entries from the right is the client's; anything
+  /// before it is the client's own claim.
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(1).max(10).default(1),
+  /// Serve the API reference at `/docs`. On while developing, off in production.
+  API_DOCS: z.stringbool().optional(),
   MAIL_FROM: z.string().default("Nookly <no-reply@localhost>"),
   /// `console` prints emails to the log (development), `smtp` sends them.
   MAILER: z.enum(["console", "smtp"]).default("console"),
@@ -61,12 +67,18 @@ const envSchema = z.object({
   /// and the longest it waits while edits keep coming.
   COLLAB_DEBOUNCE_MS: z.coerce.number().int().min(0).default(1500),
   COLLAB_MAX_DEBOUNCE_MS: z.coerce.number().int().min(0).default(10000),
+  /// How often a device in use is noted as such for "last active" (at most once this long).
+  SESSION_TOUCH_SECONDS: z.coerce.number().int().min(0).default(60),
   /// Multiplies every rate limit; tests raise it.
   RATE_LIMIT_SCALE: z.coerce.number().positive().default(1),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
-export type Config = z.infer<typeof envSchema> & { corsOrigins: string[]; version: string };
+export type Config = z.infer<typeof envSchema> & {
+  corsOrigins: string[];
+  version: string;
+  apiDocs: boolean;
+};
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   const parsed = envSchema.parse({ AUTH_SECRET: env.JWT_SECRET, ...env });
@@ -77,5 +89,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       .map((o) => o.trim())
       .filter(Boolean),
     version: pkg.version,
+    apiDocs: parsed.API_DOCS ?? parsed.NODE_ENV !== "production",
   };
 }

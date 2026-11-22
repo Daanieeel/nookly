@@ -726,12 +726,17 @@ export class SyncEngine {
     const byKey = new Map(results.map((r) => [`${r.table}\u0000${r.pk}`, r]));
     const statements: SqlStatement[] = [];
     const refused: PlannedChange[] = [];
+    const setAside: PlannedChange[] = [];
     for (const item of planned) {
       const { change } = item;
       const result = byKey.get(`${change.table}\u0000${change.pk}`);
       if (!result) continue;
       if (result.status === "rejected") {
-        refused.push(item);
+        // A change the server can't take (a value its database refuses, a clock too far
+        // ahead) is about this one row, which is fine here: it is set aside, not undone.
+        if (result.reason === "invalid-value" || result.reason === "clock-skew")
+          setAside.push(item);
+        else refused.push(item);
         continue;
       }
       const table = requireTable(change.table);
@@ -753,6 +758,29 @@ export class SyncEngine {
     }
     if (statements.length > 0) await this.batch(statements);
     for (const item of refused) await this.undo(item);
+    await this.quarantine(setAside);
+  }
+
+  /// Stops sending changes the server can't take, so they don't hold up the rest. The row
+  /// stays exactly as it is here, nothing is undone, and the edit is kept as a conflict
+  /// to look at. The row syncs again the next time it is edited.
+  async quarantine(items: PlannedChange[]): Promise<void> {
+    for (const item of items) {
+      const { change } = item;
+      const table = requireTable(change.table);
+      const state = (await this.load(table, [change.pk])).get(change.pk);
+      if (!state) continue;
+      await this.batch([
+        dirtyGuard(change.table, change.pk, item.version),
+        this.conflict(change.table, change.pk, {
+          field: null,
+          value: JSON.stringify(state.row ?? state.base?.fields ?? {}),
+          clock: change.deletedClock ?? Object.values(change.clocks)[0] ?? null,
+          winningClock: null,
+        }),
+        clearDirty(change.table, change.pk),
+      ]);
+    }
   }
 
   /// Puts a row back the way the server has it, keeping the refused edit as a conflict.

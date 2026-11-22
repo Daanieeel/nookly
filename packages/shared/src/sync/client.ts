@@ -1,5 +1,11 @@
-import type { SyncEngine } from "./engine.ts";
-import type { PullRequest, PullResponse, PushRequest, PushResponse } from "./protocol.ts";
+import type { PlannedChange, SyncEngine } from "./engine.ts";
+import type {
+  PullRequest,
+  PullResponse,
+  PushRequest,
+  PushResponse,
+  PushResult,
+} from "./protocol.ts";
 
 /// Runs sync for one device: pulls what the server has, pushes what the device
 /// changed, and does it again whenever either side changes. The same on the desktop
@@ -71,6 +77,10 @@ export interface SyncClientOptions {
   periodMs?: number;
 }
 
+/// How many rounds in a row the server may fail on the same change before it is set aside.
+const QUARANTINE_AFTER = 3;
+/// The most requests one push may spend finding the change the server fails on.
+const MAX_ISOLATION_REQUESTS = 40;
 const MAX_BACKOFF_MS = 60_000;
 const BASE_BACKOFF_MS = 1_000;
 /// The live channel is one small connection, so it knocks again soon: the longer waits
@@ -100,6 +110,8 @@ export class SyncClient {
   private closeLive: (() => void) | null = null;
   private liveAttempts = 0;
   private failures = 0;
+  /// Rounds in a row the server failed on a change, by table and key.
+  private readonly stuck = new Map<string, number>();
   private debounce: ReturnType<typeof setTimeout> | null = null;
   private retry: ReturnType<typeof setTimeout> | null = null;
   private reconnect: ReturnType<typeof setTimeout> | null = null;
@@ -273,13 +285,58 @@ export class SyncClient {
     for (let round = 0; round < 1_000; round++) {
       const planned = await this.engine.collect();
       if (planned.length === 0) return sent;
-      const response = await this.transport.push({ changes: planned.map((p) => p.change) });
+      const outcome = await this.pushIsolating(planned, { requests: 0 });
       this.assertStarted();
-      await this.engine.acknowledge(planned, response.results);
+      await this.engine.acknowledge(planned, outcome.results);
       sent = true;
       this.report({ pending: await this.engine.pendingCount() });
+      if (outcome.failed.length > 0) {
+        // The server fails on these alone. A few rounds in a row and they are set aside
+        // (kept as conflicts), so one bad row can't hold up everything behind it.
+        const aside: PlannedChange[] = [];
+        for (const { item } of outcome.failed) {
+          const key = `${item.change.table}\u0000${item.change.pk}`;
+          const times = (this.stuck.get(key) ?? 0) + 1;
+          this.stuck.set(key, times);
+          if (times >= QUARANTINE_AFTER) {
+            this.stuck.delete(key);
+            aside.push(item);
+          }
+        }
+        await this.engine.quarantine(aside);
+        if (aside.length < outcome.failed.length) throw outcome.failed[0]?.error;
+      }
     }
     return sent;
+  }
+
+  /// Pushes `planned`. When the server answers 500 for the whole push, the halves go one
+  /// after the other, down to the single change it fails on; the rest is taken. Only a
+  /// 500 is split: an outage (502, 503) or a bad token fails the same for every change.
+  private async pushIsolating(
+    planned: PlannedChange[],
+    budget: { requests: number },
+  ): Promise<{ results: PushResult[]; failed: { item: PlannedChange; error: Error }[] }> {
+    try {
+      budget.requests++;
+      const response = await this.transport.push({ changes: planned.map((p) => p.change) });
+      return { results: response.results, failed: [] };
+    } catch (cause) {
+      const error = cause instanceof Error ? cause : new Error(String(cause));
+      // An `ApiRequestError` carries the HTTP status; this file can't import it.
+      const serverFailed = "status" in error && error.status === 500;
+      if (!serverFailed || budget.requests >= MAX_ISOLATION_REQUESTS) throw error;
+      const [only] = planned;
+      if (only && planned.length === 1) return { results: [], failed: [{ item: only, error }] };
+      this.assertStarted();
+      const middle = Math.ceil(planned.length / 2);
+      const first = await this.pushIsolating(planned.slice(0, middle), budget);
+      const second = await this.pushIsolating(planned.slice(middle), budget);
+      return {
+        results: [...first.results, ...second.results],
+        failed: [...first.failed, ...second.failed],
+      };
+    }
   }
 
   /// Waits longer after each failure, up to a minute, with some spread so a server

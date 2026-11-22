@@ -649,8 +649,11 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         const { uploaded, downloaded } = this.filesCounted;
         this.filesCounted = { uploaded: progress.uploaded, downloaded: progress.downloaded };
         if (progress.downloaded > downloaded) this.deps.onApplied();
-        // A file that got its hash is a row change to send.
-        if (progress.uploaded > uploaded) this.client?.notifyLocalChange();
+        // A file that got its hash is a row change to send. A downloaded one points its row at
+        // the copy here, which marks the row but sends nothing: one more round clears the mark,
+        // so the count of changes waiting doesn't stay above zero until the next one.
+        if (progress.uploaded > uploaded || progress.downloaded > downloaded)
+          this.client?.notifyLocalChange();
         await this.updateMigration();
         if ((progress.waiting > 0 || progress.toDownload > 0) && this.client && !this.filesTimer) {
           this.filesTimer = setTimeout(() => {
