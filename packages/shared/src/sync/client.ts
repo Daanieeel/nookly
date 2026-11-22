@@ -16,6 +16,8 @@ export interface LiveHandlers {
   onOpen(): void;
   /// The server has something new.
   onChanges(): void;
+  /// The account itself changed, like its email being confirmed.
+  onAccount?(): void;
   onClose(): void;
 }
 
@@ -65,6 +67,8 @@ export interface SyncClientOptions {
   onStatus?: (status: SyncStatus) => void;
   /// Remote changes landed in the database; views should refresh.
   onApplied?: () => void;
+  /// The server says the account itself changed (its email was confirmed).
+  onAccountChanged?: () => void;
   /// Runs after every sync that reached the server, with whether remote changes
   /// landed: files, settings and the first sync's progress follow along here.
   afterCycle?: (applied: boolean) => Promise<void>;
@@ -100,6 +104,7 @@ export class SyncClient {
   private readonly transport: SyncTransport;
   private readonly onStatus?: (status: SyncStatus) => void;
   private readonly onApplied?: () => void;
+  private readonly onAccountChanged?: () => void;
   private readonly afterCycle?: (applied: boolean) => Promise<void>;
   private readonly countConflicts: () => Promise<number>;
   private readonly debounceMs: number;
@@ -132,6 +137,7 @@ export class SyncClient {
     this.transport = options.transport;
     this.onStatus = options.onStatus;
     this.onApplied = options.onApplied;
+    this.onAccountChanged = options.onAccountChanged;
     this.afterCycle = options.afterCycle;
     this.countConflicts =
       options.countConflicts ?? (async () => (await this.engine.conflicts()).length);
@@ -364,6 +370,7 @@ export class SyncClient {
         void this.syncNow();
       },
       onChanges: () => void this.syncNow(),
+      onAccount: () => this.onAccountChanged?.(),
       onClose: () => {
         this.closeLive = null;
         if (!this.started) return;

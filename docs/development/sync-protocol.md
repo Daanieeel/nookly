@@ -38,11 +38,11 @@ Deleting a row that other rows point at (emptying a page from Trash) removes tho
 
 All under `/v1/sync`, authenticated with the access token.
 
-| Call         | Body                                     | Returns                                                                                    |
-| ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `POST /push` | up to 500 changes                        | per change `applied` or `rejected` (`forbidden`, `invalid`, `invalid-value`, `clock-skew`) |
-| `POST /pull` | `cursors` per dataset                    | records with a higher sequence number, per dataset, `hasMore`                              |
-| `GET /ws`    | first message `{ type: "hello", token }` | `ready`, then `changes` (or `datasets`) whenever there is news                             |
+| Call         | Body                                     | Returns                                                                                                                                                            |
+| ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /push` | up to 500 changes                        | per change `applied` or `rejected` (`forbidden`, `invalid`, `invalid-value`, `clock-skew`)                                                                         |
+| `POST /pull` | `cursors` per dataset                    | records with a higher sequence number, per dataset, `hasMore`                                                                                                      |
+| `GET /ws`    | first message `{ type: "hello", token }` | `ready`, then `changes` (or `datasets`) whenever there is news, and `account` when the account itself changed (its email was confirmed): the device reads it again |
 
 A dataset is `own` or `share:<id>`. Pushing the same change twice is harmless, so retries are safe. The client syncs pull, push, pull; it reconnects the socket with exponential backoff and a full sync, and runs a full sync every minute in case a notice was missed.
 

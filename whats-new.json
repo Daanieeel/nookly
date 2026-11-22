@@ -100,7 +100,8 @@
           "Keeping what is on a device out of your account no longer shows the page about bringing the device into your account, and a device with nothing on it skips that page too.",
           "On your phone, the Display button no longer drops onto a line of its own next to a long page title.",
           "On your phone, the cards on the Courses page and other galleries stand out from the page.",
-          "The search field in Settings now follows the rounded corner of the window."
+          "The search field in Settings now follows the rounded corner of the window.",
+          "Confirming your email from the link in the mail now shows in Nookly on your computer and phone right away, instead of staying unconfirmed for a long time."
         ]
       }
     },

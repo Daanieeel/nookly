@@ -3,7 +3,7 @@ import { PRODUCTION_SERVER, TERMS_VERSION } from "../api/index.ts";
 import type { DeviceInfo, SignUp, User } from "../api/index.ts";
 import type { ConflictReport, ServerConflict } from "./protocol.ts";
 import type { BlobPlatform } from "./blobs.ts";
-import { NetworkError, type SyncTransport } from "./client.ts";
+import { type LiveHandlers, NetworkError, type SyncTransport } from "./client.ts";
 import { MemoryServer } from "./testing/memory-server.ts";
 import { NodeSqliteDriver } from "./testing/node-driver.ts";
 import { describe, expect, it, vi } from "vitest";
@@ -86,8 +86,17 @@ class FakeAccount implements AccountApi {
   pulls = 0;
   /// Pushes wait for this, like a slow connection.
   gate: Promise<void> | null = null;
+  /// The live channel's handlers while it is open, for a test to send the device news.
+  liveHandlers: LiveHandlers | null = null;
   syncTransport(): SyncTransport {
     return {
+      live: (handlers) => {
+        this.liveHandlers = handlers;
+        handlers.onOpen();
+        return () => {
+          this.liveHandlers = null;
+        };
+      },
       push: async (r) => {
         await this.gate;
         this.pushes += 1;
@@ -142,6 +151,45 @@ function addSpace(driver: NodeSqliteDriver, id = "s1", name = "Personal") {
     now(),
   );
 }
+
+describe("the account's email confirmation", () => {
+  const UNCONFIRMED: User = { ...ADA, emailVerified: false, termsVersion: TERMS_VERSION };
+
+  it("shows as confirmed at once when the server says the account changed", async () => {
+    const { sync, account, driver } = runtime();
+    account.user = UNCONFIRMED;
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    expect(sync.store.getState().user?.emailVerified).toBe(false);
+
+    // Bug: the device kept showing the email as unconfirmed until it was restarted.
+    account.user = { ...UNCONFIRMED, emailVerified: true };
+    account.liveHandlers?.onAccount?.();
+    await vi.waitFor(() => expect(sync.store.getState().user?.emailVerified).toBe(true));
+    const saved = driver.rows("SELECT value FROM sync_meta WHERE key = 'user'");
+    expect(JSON.parse(String(saved[0]?.value)).emailVerified).toBe(true);
+    sync.stop();
+  });
+
+  it("is checked again on every sync until it is confirmed, in case the notice was missed", async () => {
+    const { sync, account } = runtime();
+    account.user = UNCONFIRMED;
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    account.user = { ...UNCONFIRMED, emailVerified: true };
+    await sync.syncNow();
+    await vi.waitFor(() => expect(sync.store.getState().user?.emailVerified).toBe(true));
+    sync.stop();
+  });
+
+  it("is not asked about once it is confirmed", async () => {
+    const { sync, account } = runtime();
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    const me = vi.spyOn(account, "me");
+    await sync.syncNow();
+    await sync.syncNow();
+    expect(me).not.toHaveBeenCalled();
+    sync.stop();
+  });
+});
 
 describe("the terms of Nookly's own server", () => {
   it("hold sync back for an account that has not agreed to them, until it does", async () => {

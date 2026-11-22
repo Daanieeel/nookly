@@ -43,7 +43,7 @@ function liveClient(load: () => Promise<string | null> = async () => "token") {
     tokens: { load, save: async () => {} },
     webSocket: () => new FakeSocket(),
   });
-  const handlers = { onOpen: vi.fn(), onChanges: vi.fn(), onClose: vi.fn() };
+  const handlers = { onOpen: vi.fn(), onChanges: vi.fn(), onAccount: vi.fn(), onClose: vi.fn() };
   const stop = api.syncTransport().live?.(handlers);
   return { handlers, stop };
 }
@@ -58,6 +58,17 @@ describe("the live channel", () => {
     socket.emit("message", JSON.stringify({ type: "changes", dataset: "own" }));
     expect(handlers.onOpen).toHaveBeenCalledOnce();
     expect(handlers.onChanges).toHaveBeenCalledOnce();
+  });
+
+  it("hears that the account changed, like its email being confirmed", async () => {
+    const { handlers } = liveClient();
+    await vi.advanceTimersByTimeAsync(0);
+    const socket = FakeSocket.all[0];
+    socket.emit("open");
+    socket.emit("message", JSON.stringify({ type: "ready" }));
+    socket.emit("message", JSON.stringify({ type: "account" }));
+    expect(handlers.onAccount).toHaveBeenCalledOnce();
+    expect(handlers.onChanges).not.toHaveBeenCalled();
   });
 
   it("gives up on a connection that went silent, which a phone can't tell from a quiet one", async () => {

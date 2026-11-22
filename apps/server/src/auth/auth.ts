@@ -79,7 +79,14 @@ function deviceOf(headers: Headers | undefined) {
 
 /// Accounts, sign in and sessions, through better-auth. Clients send the session
 /// token as a bearer token (desktop keychain, phone secure store), never a cookie.
-export function createAuth(db: Database, config: Config, mailer: Mailer, log: Logger) {
+export function createAuth(
+  db: Database,
+  config: Config,
+  mailer: Mailer,
+  log: Logger,
+  /// Told when an account's email gets confirmed, so its devices can show it at once.
+  onVerified: (userId: string) => void = () => {},
+) {
   const publicUrl = config.PUBLIC_URL.replace(/\/$/, "");
   return betterAuth({
     appName: "Nookly",
@@ -137,6 +144,7 @@ export function createAuth(db: Database, config: Config, mailer: Mailer, log: Lo
           .where(
             and(eq(shares.recipientEmail, user.email.toLowerCase()), isNull(shares.recipientId)),
           );
+        onVerified(user.id);
       },
       sendVerificationEmail: async ({ user, url }) => {
         if (isPlaceholderEmail(user.email)) return;

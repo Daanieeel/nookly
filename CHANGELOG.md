@@ -74,6 +74,7 @@ All notable changes to Nookly are listed here.
 - Signing in closes the window straight away instead of spinning until everything has been sent.
 - Keeping what is on a device out of your account no longer shows the page about bringing the device into your account, and a device with nothing on it skips that page too.
 - The search field in Settings now follows the rounded corner of the window.
+- Confirming your email from the link in the mail now shows in Nookly on your computer and phone right away, instead of staying unconfirmed for a long time.
 
 ## 0.75.3 (2026-11-17)
 

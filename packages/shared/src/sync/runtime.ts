@@ -458,6 +458,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       transport: api.syncTransport(),
       onStatus: (status) => this.store.setState({ status }),
       onApplied: this.deps.onApplied,
+      onAccountChanged: () => void this.refreshUser(),
       afterCycle: (applied) => this.afterCycle(applied),
       countConflicts: () => this.openConflicts().then((all) => all.length),
     });
@@ -653,7 +654,28 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     })();
   }
 
+  /// Reads the account again, so what changed on the server (its email was confirmed from
+  /// the link in a mail, on any device) shows here without a restart. A failed read keeps
+  /// what the device has.
+  private async refreshUser(): Promise<void> {
+    const api = this.api;
+    if (!api) return;
+    try {
+      const user = await api.me();
+      const current = this.store.getState().user;
+      if (this.api !== api || !current || JSON.stringify(user) === JSON.stringify(current)) return;
+      this.store.setState({ user, termsPending: this.owesTerms(user) });
+      await this.rememberUser(user);
+    } catch {
+      // Offline or signed out: the next sync asks again.
+    }
+  }
+
   private async afterCycle(applied: boolean) {
+    // The server also tells a connected device when the email is confirmed; this covers a
+    // notice that was missed, and only while there is something to wait for.
+    const user = this.store.getState().user;
+    if (user && user.email !== null && !user.emailVerified) void this.refreshUser();
     if (applied && this.settings) {
       const changed = await this.settings.apply().catch(() => []);
       if (changed.length > 0) this.deps.onApplied();

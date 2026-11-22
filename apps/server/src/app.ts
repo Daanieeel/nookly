@@ -94,7 +94,9 @@ async function signInAccount(request: Request): Promise<string | null> {
 
 export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
   const hub = new Hub();
-  const auth = createAuth(db, config, mailer, log);
+  const auth = createAuth(db, config, mailer, log, (userId) =>
+    hub.notify(userId, { type: "account" }),
+  );
   const accounts = new AccountService(db, auth, storage, config.SESSION_TOUCH_SECONDS * 1000);
   const providers = Object.keys(socialProviders(config));
   const sync = new SyncService(db, hub, log);

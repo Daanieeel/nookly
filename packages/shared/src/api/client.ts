@@ -578,6 +578,7 @@ export class ApiClient {
           opening = null;
           handlers.onOpen();
         } else if (message.type === "changes" || message.type === "datasets") handlers.onChanges();
+        else if (message.type === "account") handlers.onAccount?.();
         else if (message.type === "error" && message.code === "unauthorized") {
           // The session ended on the server: this device is signed out.
           void this.ended(token);

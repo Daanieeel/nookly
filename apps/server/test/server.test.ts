@@ -82,6 +82,20 @@ describe("the live socket", () => {
     live.socket.close();
   });
 
+  it("tells the account's devices when its email gets confirmed", async () => {
+    const tokens = new MemoryTokens();
+    const api = server.client(tokens);
+    await api.signUp({ username: "ada", email: "ada@example.com", password: PASSWORD }, DESKTOP);
+    const live = await open();
+    live.socket.send(JSON.stringify({ type: "hello", token: tokens.token }));
+    await until(() => live.messages.includes(JSON.stringify({ type: "ready" })), "ready");
+    const link = server.mailer.link("ada@example.com", "/v1/auth/verify-email");
+    await fetch(link?.replace("http://nookly.test", server.baseUrl) ?? "");
+    await until(() => live.messages.includes(JSON.stringify({ type: "account" })), "the notice");
+    expect((await api.me()).emailVerified).toBe(true);
+    live.socket.close();
+  });
+
   it("refuses messages it doesn't know", async () => {
     const live = await open();
     live.socket.send("not json at all");

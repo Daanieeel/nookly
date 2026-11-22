@@ -125,6 +125,8 @@ export const serverMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ready") }),
   z.object({ type: z.literal("changes"), dataset: datasetSchema }),
   z.object({ type: z.literal("datasets") }),
+  /// The account itself changed (its email was confirmed): devices read it again.
+  z.object({ type: z.literal("account") }),
   z.object({ type: z.literal("pong") }),
   z.object({ type: z.literal("error"), code: z.string() }),
 ]);
