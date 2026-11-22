@@ -24,6 +24,8 @@ import { qk } from "#/lib/query-keys.ts";
 import { formatEditedAt } from "#/lib/relative-time.ts";
 import {
   AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -261,14 +263,18 @@ function SignOutDialog({
   });
   const changes = unsent === 1 ? "1 change has" : `${unsent.toLocaleString()} changes have`;
   return (
-    <AlertDialog open={open} onOpenChange={close}>
+    <AlertDialog
+      open={open}
+      onOpenChange={close}
+      severity={keepLocalCopy ? undefined : "destructive"}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Sign out of this computer?</AlertDialogTitle>
           <AlertDialogDescription>
             {keepLocalCopy
               ? "Everything stays in your account and on your other devices. A copy stays on this computer and keeps working on its own, but changes here no longer sync."
-              : "Everything stays in your account and on your other devices. It is removed from this computer, and comes back when you sign in again."}
+              : "Everything stays in your account and on your other devices. Your items are removed from this computer, and come back when you sign in again. Attached files stay in Nookly's folder on this computer."}
             {unsent > 0 &&
               (keepLocalCopy
                 ? ` ${changes} not reached the account yet. They stay on this computer.`
@@ -290,17 +296,22 @@ function SignOutDialog({
         </div>
         <FieldError message={errorText(signOut.error)} />
         <AlertDialogFooter>
-          <Button variant="secondary" onClick={() => close(false)}>
-            Stay Signed In
-          </Button>
-          <Button onClick={() => signOut.mutate()} disabled={signOut.isPending}>
+          <AlertDialogCancel>Stay Signed In</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={signOut.isPending}
+            onClick={(event) => {
+              // The dialog stays open until the sign out is done, or says why it failed.
+              event.preventDefault();
+              signOut.mutate();
+            }}
+          >
             <StatusButtonContent
               status={statusOf(signOut)}
               label="Sign Out"
               successLabel="Signed out"
               errorLabel="Couldn't sign out"
             />
-          </Button>
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

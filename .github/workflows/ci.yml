@@ -1,18 +1,51 @@
 name: CI
 
+# Which jobs run depends on what changed (tools/ci-changes.ts), so a documentation fix or a
+# server-only change does not run the desktop's whole test suite. A weekly run, and a run by
+# hand, check everything, which also catches new dependency advisories.
 on:
   push:
     branches: [main, master, develop]
   pull_request:
     branches: [main, master, develop]
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.plan.outputs.rust }}
+      js: ${{ steps.plan.outputs.js }}
+      filter: ${{ steps.plan.outputs.filter }}
+      lint: ${{ steps.plan.outputs.lint }}
+      format: ${{ steps.plan.outputs.format }}
+      duplication: ${{ steps.plan.outputs.duplication }}
+      audit: ${{ steps.plan.outputs.audit }}
+      whatsNew: ${{ steps.plan.outputs.whatsNew }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - run: bun test tools/ci-changes.test.ts
+      - id: plan
+        env:
+          # Empty on a scheduled or manual run, which then checks everything.
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: bun tools/ci-changes.ts
+
   version:
     name: Version is not behind latest release
+    needs: changes
+    if: needs.changes.outputs.version == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -23,6 +56,8 @@ jobs:
 
   whats-new:
     name: Validate whats-new.json
+    needs: changes
+    if: needs.changes.outputs.whatsNew == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -30,8 +65,26 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run whats-new:check
 
-  frontend:
-    name: Typecheck + lint + test + build (frontend, shared, server)
+  lint:
+    name: Lint and format (JS)
+    needs: changes
+    if: needs.changes.outputs.lint == 'true' || needs.changes.outputs.format == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - if: needs.changes.outputs.lint == 'true'
+        run: bun run lint:js
+      - if: needs.changes.outputs.lint == 'true'
+        run: bun run lint:keys
+      - if: needs.changes.outputs.format == 'true'
+        run: bun run format:check:js
+
+  js:
+    name: Typecheck, test and build (web, mobile, server, frontend, shared)
+    needs: changes
+    if: needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
     # The server's integration tests run against a real Postgres.
     services:
@@ -47,8 +100,12 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://nookly:nookly@localhost:5432/nookly_test
       TEST_S3_ENDPOINT: http://localhost:9000
+      FILTER: ${{ needs.changes.outputs.filter }}
     steps:
+      # The whole history: turbo compares against the base commit.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       # File storage for the server's tests: MinIO, as in docker-compose.yml. A step,
       # not a service, since it needs a command.
       - name: Start MinIO
@@ -58,14 +115,14 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://localhost:9000/minio/health/live && break; sleep 1; done
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bun run lint:js
-      - run: bun run format:check:js
-      - run: bun run typecheck
-      - run: bun run test
-      - run: bun run build
+      # Only the workspaces that changed and the ones that depend on them, unless the filter is
+      # empty (a scheduled run, or a file every workspace reads).
+      - run: bunx turbo run typecheck test build ${FILTER:+--filter="$FILTER"}
 
   rust:
     name: cargo check + test (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -110,6 +167,8 @@ jobs:
   # dependency can't block an unrelated change.
   audit:
     name: Dependency audit (report only)
+    needs: changes
+    if: needs.changes.outputs.audit == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -130,6 +189,8 @@ jobs:
   # they never block an unrelated change.
   code-health:
     name: Code health (report only)
+    needs: changes
+    if: needs.changes.outputs.duplication == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -153,6 +214,8 @@ jobs:
   # cleanup that removed duplicate code does not quietly come undone.
   duplication:
     name: Duplicate code (under 1%)
+    needs: changes
+    if: needs.changes.outputs.duplication == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

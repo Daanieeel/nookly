@@ -90,13 +90,18 @@ describe("the Sync settings", () => {
     const { user } = await openSync();
     await user.click(await screen.findByRole("button", { name: "Sign Out" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
-    expect(dialog).toHaveTextContent("It is removed from this computer");
+    expect(dialog).toHaveTextContent("removed from this computer");
+    // The files are not deleted from the disk, and the dialog doesn't claim they are.
+    expect(dialog).toHaveTextContent("Attached files stay in Nookly's folder on this computer");
     await waitFor(() =>
       expect(dialog).toHaveTextContent("3 changes have not reached the account yet"),
     );
     expect(signOut).not.toHaveBeenCalled();
     await expectNoA11yViolations();
-    await user.click(within(dialog).getByRole("button", { name: "Sign Out" }));
+    // Removing the data from this computer is permanent here, so the button is destructive.
+    const confirm = within(dialog).getByRole("button", { name: "Sign Out" });
+    expect(confirm.className).toContain("solid-destructive");
+    await user.click(confirm);
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 
@@ -126,7 +131,7 @@ describe("the Sync settings", () => {
     const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
     await user.click(within(dialog).getByRole("checkbox", { name: "Keep a local copy" }));
     expect(dialog).toHaveTextContent("stays on this computer");
-    expect(dialog).not.toHaveTextContent("It is removed from this computer");
+    expect(dialog).not.toHaveTextContent("removed from this computer");
     await expectNoA11yViolations();
     await user.click(within(dialog).getByRole("button", { name: "Sign Out" }));
     expect(signOut).toHaveBeenCalledWith({ keepLocalCopy: true });

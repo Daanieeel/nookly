@@ -18,6 +18,7 @@ import {
   type Role,
   type SyncRecord,
   changeProblem,
+  changeRejection,
   findPushLosses,
   mergeRecords,
   shareDataset,
@@ -148,6 +149,10 @@ export class SyncService {
     changes.forEach((change, index) => {
       const target = access.get(change.dataset);
       if (!target) return reject(index, change, "unknown-dataset");
+      // Values first: one the database can't hold must not reach it, or it fails the
+      // whole push and the device keeps resending it.
+      const refused = changeRejection(change, Date.now());
+      if (refused) return reject(index, change, refused);
       if (changeProblem(change)) return reject(index, change, "invalid");
       if (target.role === "viewer") return reject(index, change, "forbidden");
       const list = byOwner.get(target.ownerId) ?? [];
@@ -156,8 +161,9 @@ export class SyncService {
     });
 
     for (const ownerId of [...byOwner.keys()].sort()) {
-      const outcome = await this.commit(ownerId, byOwner.get(ownerId) ?? [], userId);
-      for (const { index, change } of byOwner.get(ownerId) ?? []) {
+      const items = byOwner.get(ownerId) ?? [];
+      const outcome = await this.commitIsolating(ownerId, items, userId);
+      for (const { index, change } of items) {
         const reason = outcome.rejected.get(index);
         if (reason) reject(index, change, reason);
         else
@@ -182,6 +188,42 @@ export class SyncService {
           reason: "invalid",
         },
     );
+  }
+
+  /// `commit`, and when the database refuses the batch for a reason nobody foresaw, each
+  /// change on its own: the ones that fit are stored, the one that doesn't is rejected.
+  /// Without it one bad change would fail every push of the device that holds it.
+  private async commitIsolating(
+    ownerId: string,
+    items: { index: number; change: Change; access: Access | null }[],
+    authorId: string | null,
+  ): ReturnType<SyncService["commit"]> {
+    try {
+      return await this.commit(ownerId, items, authorId);
+    } catch (error) {
+      if (items.length === 1) {
+        this.log.error("a change can't be stored", {
+          table: items[0]?.change.table,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          rejected: new Map([[items[0]?.index ?? 0, "invalid-value" as const]]),
+          blocks: [],
+        };
+      }
+      this.log.warn("a push failed as a whole, trying its changes one by one", {
+        changes: items.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      const rejected = new Map<number, NonNullable<PushResult["reason"]>>();
+      const blocks: ChangedBlock[] = [];
+      for (const item of items) {
+        const outcome = await this.commitIsolating(ownerId, [item], authorId);
+        for (const [index, reason] of outcome.rejected) rejected.set(index, reason);
+        blocks.push(...outcome.blocks);
+      }
+      return { rejected, blocks };
+    }
   }
 
   /// Writes changes into an owner's data in one transaction, merged into what is

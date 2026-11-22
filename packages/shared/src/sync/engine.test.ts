@@ -157,6 +157,42 @@ describe("pushing", () => {
   });
 });
 
+describe("a change the server won't take", () => {
+  for (const reason of ["invalid-value", "clock-skew"] as const) {
+    it(`keeps the row and the edit when refused as ${reason}`, async () => {
+      const d = device("a");
+      await d.engine.enable();
+      addSpace(d);
+      addTask(d, "t1", "A title the server refuses");
+      const planned = await d.engine.collect();
+      const results = planned.map((p) => ({
+        dataset: p.change.dataset,
+        table: p.change.table,
+        pk: p.change.pk,
+        status: "rejected" as const,
+        reason,
+      }));
+      await d.engine.acknowledge(planned, results);
+      // The row stays as the person wrote it; it is not sent again and not lost.
+      expect(title(d, "t1")).toBe("A title the server refuses");
+      expect(await d.engine.pendingCount()).toBe(0);
+      expect((await d.engine.conflicts()).length).toBeGreaterThan(0);
+    });
+  }
+
+  it("quarantines a change on request", async () => {
+    const d = device("a");
+    await d.engine.enable();
+    addSpace(d);
+    addTask(d, "t1", "Stuck");
+    const planned = await d.engine.collect();
+    const stuck = planned.filter((p) => p.change.pk === "t1" && p.change.table === "entities");
+    await d.engine.quarantine(stuck);
+    expect(title(d, "t1")).toBe("Stuck");
+    expect((await d.engine.conflicts()).map((c) => c.pk)).toEqual(["t1"]);
+  });
+});
+
 describe("two devices", () => {
   async function pair() {
     const server = new MemoryServer();

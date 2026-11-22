@@ -31,8 +31,13 @@ export class AccountService {
   private readonly db: Database;
   private readonly auth: Auth;
   private readonly storage: BlobStore | null;
+  /// When each session was last written as used, so a busy device writes once a minute.
+  private readonly touched = new Map<string, number>();
 
-  constructor(db: Database, auth: Auth, storage: BlobStore | null) {
+  private readonly touchEveryMs: number;
+
+  constructor(db: Database, auth: Auth, storage: BlobStore | null, touchEveryMs = 60_000) {
+    this.touchEveryMs = touchEveryMs;
     this.db = db;
     this.auth = auth;
     this.storage = storage;
@@ -45,7 +50,26 @@ export class AccountService {
       .getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) })
       .catch(() => null);
     if (!found) throw unauthorized();
+    await this.touch(found.session.id);
     return { userId: found.user.id, sessionId: found.session.id };
+  }
+
+  /// Notes that a session was just used, for "last active" in the devices list. Better-auth
+  /// renews a session once a day, which made a device in use show as idle for hours. Only
+  /// the time is written here; the session's expiry stays better-auth's to renew.
+  private async touch(sessionId: string) {
+    const now = Date.now();
+    if (now - (this.touched.get(sessionId) ?? 0) < this.touchEveryMs) return;
+    if (this.touched.size > 5_000) {
+      for (const [id, at] of this.touched)
+        if (now - at >= this.touchEveryMs) this.touched.delete(id);
+    }
+    this.touched.set(sessionId, now);
+    await this.db
+      .update(authSession)
+      .set({ updatedAt: new Date(now) })
+      .where(eq(authSession.id, sessionId))
+      .catch(() => {});
   }
 
   async fromHeaders(headers: Record<string, string | undefined>): Promise<AccessClaims> {
