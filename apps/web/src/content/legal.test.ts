@@ -164,6 +164,14 @@ describe.each(LOCALES)("what a lawyer's pages have that ours lacked (%s)", (loca
     expect(talk?.body.join(" ")).toMatch(locale === "de" ? /in der App/ : /in the app/);
   });
 
+  it("the privacy policy says the website's fonts come from our own servers, not from Google", () => {
+    const section = heading("privacy", /^Diese Website$/, /^This website$/);
+    const text = section?.body.join(" ") ?? "";
+    expect(text).toMatch(/Google Fonts/);
+    expect(text).toMatch(locale === "de" ? /Schriften/ : /fonts/i);
+    expect(text).toMatch(locale === "de" ? /eigenen Servern/ : /our own servers/);
+  });
+
   it("the imprint has a copyright section", () => {
     expect(heading("imprint", /^Urheberrecht$/, /^Copyright$/)).toBeDefined();
   });
