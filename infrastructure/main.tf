@@ -65,7 +65,7 @@ resource "heroku_app_config_association" "server" {
     PUBLIC_URL  = local.public_url
     TRUST_PROXY = "true"
     MAILER      = "smtp"
-    MAIL_FROM   = "Nookly <no-reply@${var.zone_name}>"
+    MAIL_FROM   = "Nookly <hello@${var.zone_name}>"
     # Heroku Postgres only takes TLS; the server's Postgres client reads PGSSL.
     PGSSL               = "require"
     S3_ENDPOINT         = local.storage_endpoint
@@ -172,12 +172,13 @@ resource "cloudflare_dns_record" "server" {
 # Resend's own records (`send` CNAME, DKIM key) are set by Resend's Cloudflare connect,
 # outside Terraform.
 
-# Reports only for now; tighten to quarantine once mail is seen to pass.
+# Monitoring only for now (`p=none`); tighten to quarantine once the reports sent to hello@
+# show mail passing. hello@ needs an Email Routing rule (Cloudflare) to receive them.
 resource "cloudflare_dns_record" "dmarc" {
   zone_id = var.cloudflare_zone_id
   name    = "_dmarc.${var.zone_name}"
   type    = "TXT"
-  content = "\"v=DMARC1; p=none;\""
+  content = "\"v=DMARC1; p=none; rua=mailto:hello@${var.zone_name}; fo=1;\""
   ttl     = 1
 }
 
