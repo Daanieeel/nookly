@@ -46,6 +46,8 @@
       "more": {
         "Improved": [
           "Creating an account on Nookly's server now asks for the beta key while Nookly is in its closed beta.",
+          "Creating an account now asks you to agree to the Terms of Service, and accounts made earlier are asked once. Sync waits on a device until you agree.",
+          "Settings has a Legal page with the terms, the privacy policy, the imprint and the license.",
           "The server you sign in to now starts as Nookly's own and can be changed under Settings, General. Sign out first to switch to another server.",
           "The sign in and create account windows are shorter and tidier, and scroll when your window is small instead of running off the screen.",
           "Settings, Account shows each signed in device by its name and when it was last used, and you can sign one out from another. A device signed out this way has everything removed from it, so a lost device holds none of your things.",

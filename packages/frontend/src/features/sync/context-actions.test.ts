@@ -16,6 +16,7 @@ const ADA = {
   email: "a@b.co",
   emailVerified: true,
   createdAt: "",
+  termsVersion: null,
 };
 
 describe("Share with People", () => {

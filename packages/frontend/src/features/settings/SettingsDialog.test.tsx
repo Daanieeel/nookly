@@ -111,6 +111,15 @@ describe("the settings dialog", () => {
     expect(screen.queryByText("Version")).toBeNull();
   });
 
+  it("lists the terms, the privacy policy, the imprint and the license under About", async () => {
+    const { user } = renderOpen();
+    await user.click(await screen.findByRole("button", { name: "About" }));
+    const legal = screen.getByRole("navigation", { name: "Legal" });
+    for (const name of ["Terms of Service", "Privacy Policy", "Imprint", "License"]) {
+      expect(within(legal).getByRole("link", { name })).toBeInTheDocument();
+    }
+  });
+
   it("shows external calendars on the Connections page, not on Calendar", async () => {
     const { user } = renderOpen();
     await user.click(await screen.findByRole("button", { name: "Calendar" }));

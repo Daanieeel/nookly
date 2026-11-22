@@ -288,7 +288,13 @@ export class ApiClient {
       headers: deviceHeaders(device),
     });
     await this.adopt(result.token);
+    if (input.termsVersion) return this.acceptTerms(input.termsVersion);
     return this.me();
+  }
+
+  /// Records that the account agreed to this version of the terms.
+  acceptTerms(version: string): Promise<User> {
+    return this.call("POST", "/v1/account/terms", userSchema, { version });
   }
 
   /// Signs this device in with a username or an email address.

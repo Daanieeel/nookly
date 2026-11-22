@@ -1,7 +1,9 @@
 import {
   ApiClient,
   BETA_KEY_MISSING,
+  TERMS_VERSION,
   asksForBetaKey,
+  requiresTerms,
   signInSchema,
   signUpFormSchema,
 } from "@nookly/shared/api";
@@ -23,7 +25,7 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
@@ -32,6 +34,7 @@ import { keys } from "../data/keys.ts";
 import { DEFAULT_SERVER } from "../data/sync.ts";
 import { Badge } from "../ui/Badge.tsx";
 import { Button, statusOf } from "../ui/Button.tsx";
+import { CheckboxRow } from "../ui/CheckboxRow.tsx";
 import { Field } from "../ui/Field.tsx";
 import { FieldIcon } from "../ui/FieldIcon.tsx";
 import { PasswordStrengthMeter } from "../ui/PasswordStrengthMeter.tsx";
@@ -47,6 +50,7 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
 import { useRejection } from "./form-block.ts";
+import { LegalFooter, LegalLink } from "./legal.tsx";
 
 const serverSchema = z
   .string()
@@ -319,6 +323,7 @@ function Page({
           {beta ? <Badge label="Closed beta" /> : null}
           <Text tone="muted">{intro}</Text>
           {children}
+          <LegalFooter />
         </Screen>
       </RouteSheet>
     );
@@ -337,6 +342,7 @@ function Page({
           <Text tone="muted">{intro}</Text>
         </View>
         {children}
+        <LegalFooter />
       </Screen>
     </KeyboardAvoidingView>
   );
@@ -568,19 +574,33 @@ export function SignUpScreen() {
           email: value.email.trim() || undefined,
           password: value.password,
           betaKey,
+          // Only Nookly's own server has terms, and the box is only there for it.
+          termsVersion: requiresTerms(url) ? TERMS_VERSION : undefined,
         },
         local.options(),
       );
     },
     onSuccess: done,
   });
+  const needsTerms = requiresTerms(server.server);
   const form = useForm({
-    defaultValues: { username: "", email: "", password: "", confirm: "", betaKey: "" },
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      confirm: "",
+      betaKey: "",
+      acceptTerms: false,
+    },
     validators: { onChange: signUpFormSchema, onSubmit: signUpFormSchema },
     onSubmit: ({ value }) => {
       if (local.answered()) signUp.mutate(value);
     },
   });
+  // A server of your own has no terms of ours: nothing to tick there.
+  useEffect(() => {
+    form.setFieldValue("acceptTerms", !needsTerms);
+  }, [form, needsTerms]);
   const attempted = useStore(form.store, (state) => state.submissionAttempts > 0);
   const valid = useStore(form.store, (state) => state.isValid);
   const email = useStore(form.store, (state) => state.values.email);
@@ -729,6 +749,24 @@ export function SignUpScreen() {
         disabled={signUp.isPending}
       />
       <LocalDataQuestion data={local} />
+      {needsTerms ? (
+        <form.Field name="acceptTerms">
+          {(field) => (
+            <CheckboxRow
+              checked={field.state.value}
+              onChange={field.handleChange}
+              disabled={signUp.isPending}
+              label="I am at least 18 and agree to the Terms of Service"
+              error={fieldError(field)}
+            >
+              <Text variant="small" tone="muted">
+                I am at least 18 and agree to the <LegalLink page="terms" />. How we handle your
+                data is in the <LegalLink page="privacy" />.
+              </Text>
+            </CheckboxRow>
+          )}
+        </form.Field>
+      ) : null}
       {signUp.error ? <Text tone="destructive">{signUp.error.message}</Text> : null}
       <Button
         label="Create Account"

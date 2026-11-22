@@ -2,7 +2,9 @@ import {
   ApiClient,
   BETA_KEY_MISSING,
   PRODUCTION_SERVER,
+  TERMS_VERSION,
   asksForBetaKey,
+  requiresTerms,
   signInSchema,
   signUpFormSchema,
 } from "@nookly/shared/api";
@@ -10,7 +12,7 @@ import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconBrandAppleFilled, IconKey, IconMail, IconServer, IconUser } from "@tabler/icons-react";
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import { z } from "zod";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
@@ -19,6 +21,7 @@ import { settings, useSetting } from "#/lib/settings/settings.ts";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
 import { CardPicker } from "@nookly/ui/components/card-picker";
+import { Checkbox } from "@nookly/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nookly/ui/components/
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { GitHubMark, GoogleMark, NotionMark } from "./provider-marks.tsx";
 import { type AccountMode, useAccountDialog } from "./account-dialog-store.ts";
+import { LegalLink, LegalLinks } from "./legal-links.tsx";
 import { syncRuntime } from "./sync-instance.ts";
 
 const errorText = (error: Error | null) => (error ? error.message : null);
@@ -324,6 +328,7 @@ function SignUpForm() {
     password: useId(),
     confirm: useId(),
     betaKey: useId(),
+    terms: useId(),
   };
   const signUp = useMutation({
     mutationFn: (value: z.infer<typeof signUpFormSchema>) => {
@@ -337,17 +342,31 @@ function SignUpForm() {
           email: value.email.trim() || undefined,
           password: value.password,
           betaKey,
+          // Only Nookly's own server has terms, and the box is only there for it.
+          termsVersion: requiresTerms(url) ? TERMS_VERSION : undefined,
         },
         local.options(),
       );
     },
     onSuccess: () => afterSignIn(queryClient),
   });
+  const needsTerms = requiresTerms(server.server);
   const form = useForm({
-    defaultValues: { username: "", email: "", password: "", confirm: "", betaKey: "" },
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      confirm: "",
+      betaKey: "",
+      acceptTerms: false,
+    },
     validators: { onChange: signUpFormSchema, onSubmit: signUpFormSchema },
     onSubmit: ({ value }) => signUp.mutate(value),
   });
+  // A server of your own has no terms of ours: nothing to tick there.
+  useEffect(() => {
+    form.setFieldValue("acceptTerms", !needsTerms);
+  }, [form, needsTerms]);
   return (
     <form
       noValidate
@@ -463,6 +482,33 @@ function SignUpForm() {
       </form.Field>
       <ServerField value={server.server} onChange={server.setServer} error={server.error} />
       <LocalDataQuestion data={local} />
+      {needsTerms && (
+        <form.Field name="acceptTerms">
+          {(field) => (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-start gap-2.5">
+                <Checkbox
+                  id={ids.terms}
+                  checked={field.state.value}
+                  aria-invalid={fieldMessage(field) !== undefined}
+                  onCheckedChange={(next) => field.handleChange(next === true)}
+                  onBlur={field.handleBlur}
+                  className="mt-0.5"
+                />
+                <label htmlFor={ids.terms} className="text-xs/relaxed text-muted-foreground">
+                  I am at least 18 and agree to the{" "}
+                  <LegalLink page="terms" className="text-foreground" />.
+                </label>
+              </div>
+              <FieldError message={fieldMessage(field)} />
+              <p className="text-xs text-muted-foreground">
+                How we handle your data is in the{" "}
+                <LegalLink page="privacy" className="text-foreground" />.
+              </p>
+            </div>
+          )}
+        </form.Field>
+      )}
       <FieldError message={errorText(signUp.error)} />
       <form.Subscribe selector={hasVisibleErrors}>
         {(blocked) => (
@@ -593,6 +639,7 @@ export function AccountDialog() {
         )}
         {mode !== "reset" && <OtherAccounts verb={mode === "signUp" ? "up" : "in"} />}
         {mode === "reset" && <ResetForm onBack={() => setMode("signIn")} />}
+        <LegalLinks className="justify-center text-muted-foreground" />
       </DialogContent>
     </Dialog>
   );

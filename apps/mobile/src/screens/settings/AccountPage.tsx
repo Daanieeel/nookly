@@ -38,6 +38,7 @@ import { Label } from "../../ui/kit/Label.tsx";
 import { ListRow } from "../../ui/kit/ListRow.tsx";
 import { Points } from "../../ui/sheet/Confirm.tsx";
 import { useOptionalSheetHost } from "../../ui/sheet/SheetHost.tsx";
+import { useTermsGate } from "../terms-gate-store.ts";
 import { useSheet } from "../../ui/sheet/Sheet.tsx";
 import { SPACE } from "../../ui/tokens.ts";
 import { useMenu } from "../../ui/menu.tsx";
@@ -160,6 +161,26 @@ function ChangesNotice() {
   );
 }
 
+/// Why sync is not running while the terms wait for an answer, and the way back to them.
+function TermsLine() {
+  const device = useDeviceWord();
+  const pending = useSyncState((s) => s.termsPending);
+  if (!pending) return null;
+  return (
+    <CardFoot>
+      <Text variant="small" tone="caution" className="flex-1" accessibilityRole="alert">
+        Sync is paused on this {device} until you agree to the terms.
+      </Text>
+      <Button
+        size="sm"
+        variant="secondary"
+        label="Review Terms"
+        onPress={() => useTermsGate.getState().reopen()}
+      />
+    </CardFoot>
+  );
+}
+
 /// Signed in: who, how sync is doing, and the way out.
 function SignedInCard() {
   const device = useDeviceWord();
@@ -250,6 +271,7 @@ function SignedInCard() {
           />
         </CardFoot>
       ) : null}
+      <TermsLine />
       <ChangesNotice />
       <FirstSyncLine />
       <FilesLine />

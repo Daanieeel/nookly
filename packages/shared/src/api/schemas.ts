@@ -50,6 +50,9 @@ export const signUpSchema = z.object({
   password: passwordSchema,
   /// The closed beta's key, for servers that ask for one.
   betaKey: z.string().max(256).optional(),
+  /// The version of the terms the person agreed to, recorded with the account once it exists
+  /// (`acceptTerms`). Only Nookly's own server has terms.
+  termsVersion: z.string().max(32).optional(),
 });
 export type SignUp = z.input<typeof signUpSchema>;
 
@@ -62,6 +65,9 @@ export const signUpFormSchema = z
     password: passwordSchema,
     confirm: z.string(),
     betaKey: z.string().max(256),
+    /// Ticked: the terms and the minimum age. A server someone runs themselves has no terms
+    /// of ours, so the apps leave the box out there and send `true`.
+    acceptTerms: z.boolean().refine((value) => value, "Agree to the terms to create an account"),
   })
   .refine((value) => value.password === value.confirm, {
     path: ["confirm"],
@@ -79,6 +85,7 @@ export const resetPasswordRequestSchema = z.object({
   token: z.string().min(10).max(512),
   password: passwordSchema,
 });
+export const acceptTermsRequestSchema = z.object({ version: z.string().trim().min(1).max(32) });
 export const deleteAccountRequestSchema = z.object({ password: z.string().min(1).max(256) });
 
 export const userSchema = z.object({
@@ -88,6 +95,9 @@ export const userSchema = z.object({
   email: z.string().nullable(),
   emailVerified: z.boolean(),
   createdAt: z.string(),
+  /// The version of the terms the account agreed to, null before it did (or on a server
+  /// that does not keep it).
+  termsVersion: z.string().nullable().default(null),
 });
 export type User = z.infer<typeof userSchema>;
 

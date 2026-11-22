@@ -33,6 +33,10 @@ export const authUser = pgTable("auth_user", {
   image: text("image"),
   username: text("username").unique(),
   displayUsername: text("display_username"),
+  /// The version of the terms of use the account agreed to (the date of the text on
+  /// nookly.work) and when. Null until it did: accounts older than the terms are asked once.
+  termsVersion: text("terms_version"),
+  termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
   createdAt: created(),
   updatedAt: updated(),
 });

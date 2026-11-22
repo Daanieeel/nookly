@@ -6,3 +6,4 @@ export {
   asksForBetaKey,
   defaultServer,
 } from "./server-address.ts";
+export { TERMS_VERSION, deviceLocale, legalUrl, requiresTerms, type LegalPage } from "./legal.ts";

@@ -16,6 +16,7 @@ const ADA = {
   email: "ada@example.com",
   emailVerified: false,
   createdAt: "",
+  termsVersion: null,
 };
 
 async function openSync() {

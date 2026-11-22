@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { PRODUCTION_SERVER, TERMS_VERSION } from "../api/index.ts";
 import type { DeviceInfo, SignUp, User } from "../api/index.ts";
 import type { ConflictReport, ServerConflict } from "./protocol.ts";
 import type { BlobPlatform } from "./blobs.ts";
@@ -14,11 +15,14 @@ const ADA: User = {
   email: "ada@example.com",
   emailVerified: true,
   createdAt: "2026-10-14T00:00:00Z",
+  termsVersion: null,
 };
 
 /// The account API against an in-memory server: what the runtime calls, nothing more.
 class FakeAccount implements AccountApi {
   signedIn = false;
+  /// Who the account is; the terms they have agreed to are part of it.
+  user: User = ADA;
   /// What the real client calls when the server ends this device's session.
   onSignedOut: () => void = () => {};
   readonly server: MemoryServer;
@@ -31,20 +35,25 @@ class FakeAccount implements AccountApi {
   async signUp(input: SignUp, device: DeviceInfo) {
     this.calls.push(`signUp ${input.username} ${device.platform}`);
     this.signedIn = true;
-    return ADA;
+    return this.user;
   }
   async signIn(identifier: string) {
     this.calls.push(`signIn ${identifier}`);
     if (identifier !== ADA.username) throw new Error("The username or the password is wrong.");
     this.signedIn = true;
-    return ADA;
+    return this.user;
   }
   async signOut() {
     this.calls.push("signOut");
     this.signedIn = false;
   }
   async me() {
-    return ADA;
+    return this.user;
+  }
+  async acceptTerms(version: string) {
+    this.calls.push(`acceptTerms ${version}`);
+    this.user = { ...this.user, termsVersion: version };
+    return this.user;
   }
   async isSignedIn() {
     return this.signedIn;
@@ -133,6 +142,61 @@ function addSpace(driver: NodeSqliteDriver, id = "s1", name = "Personal") {
     now(),
   );
 }
+
+describe("the terms of Nookly's own server", () => {
+  it("hold sync back for an account that has not agreed to them, until it does", async () => {
+    const { sync, account, driver } = runtime();
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    expect(sync.store.getState().termsPending).toBe(true);
+    expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).toEqual([]);
+    expect(account.calls).not.toContain("push");
+
+    await sync.acceptTerms();
+    expect(account.calls).toContain(`acceptTerms ${TERMS_VERSION}`);
+    expect(sync.store.getState().termsPending).toBe(false);
+    expect(sync.store.getState().user?.termsVersion).toBe(TERMS_VERSION);
+    expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).not.toEqual([]);
+    sync.stop();
+  });
+
+  it("do not stop an account that has agreed, and nothing waits", async () => {
+    const { sync, account } = runtime();
+    account.user = { ...ADA, termsVersion: TERMS_VERSION };
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    expect(sync.store.getState().termsPending).toBe(false);
+    await sync.syncNow();
+    expect(sync.store.getState().status.state).toBe("idle");
+    sync.stop();
+  });
+
+  it("ask again when the terms change, on launch too", async () => {
+    const { sync, account, driver } = runtime();
+    account.user = { ...ADA, termsVersion: "2020-01-01" };
+    account.signedIn = true;
+    await sync.restore(PRODUCTION_SERVER);
+    expect(sync.store.getState().termsPending).toBe(true);
+    expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).toEqual([]);
+  });
+
+  it("do not apply to a server someone runs themselves", async () => {
+    const { sync } = runtime();
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    expect(sync.store.getState().termsPending).toBe(false);
+    await sync.syncNow();
+    expect(sync.store.getState().status.state).toBe("idle");
+    sync.stop();
+  });
+
+  it("leave a failed agreement open, so it can be tried again", async () => {
+    const { sync, account } = runtime();
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    account.acceptTerms = async () => {
+      throw new Error("Can't reach the server.");
+    };
+    await expect(sync.acceptTerms()).rejects.toThrow("Can't reach");
+    expect(sync.store.getState().termsPending).toBe(true);
+  });
+});
 
 describe("the desktop's sync", () => {
   it("is off until someone signs in", async () => {

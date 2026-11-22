@@ -22,6 +22,7 @@ export function toUser(row: UserRow): User {
     email,
     emailVerified: email !== null && row.emailVerified,
     createdAt: row.createdAt.toISOString(),
+    termsVersion: row.termsVersion,
   };
 }
 
@@ -88,6 +89,17 @@ export class AccountService {
 
   async me(userId: string): Promise<User> {
     const [row] = await this.db.select().from(authUser).where(eq(authUser.id, userId));
+    if (!row) throw unauthorized();
+    return toUser(row);
+  }
+
+  /// Records that the account agreed to this version of the terms.
+  async acceptTerms(userId: string, version: string): Promise<User> {
+    const [row] = await this.db
+      .update(authUser)
+      .set({ termsVersion: version, termsAcceptedAt: new Date() })
+      .where(eq(authUser.id, userId))
+      .returning();
     if (!row) throw unauthorized();
     return toUser(row);
   }

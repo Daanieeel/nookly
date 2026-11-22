@@ -29,6 +29,7 @@ export function Footer({ locale }: { locale: Locale }) {
         { href: pathFor(locale, "imprint"), label: t.footer.imprint },
         { href: pathFor(locale, "privacy"), label: t.footer.privacy },
         { href: pathFor(locale, "terms"), label: t.footer.terms },
+        { href: pathFor(locale, "license"), label: t.footer.licenseLink },
       ],
     },
   ];

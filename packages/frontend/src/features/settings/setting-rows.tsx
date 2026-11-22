@@ -1,3 +1,4 @@
+import { LegalLinks } from "#/features/sync/legal-links.tsx";
 import { SYNC_ROWS, SyncServerControl } from "#/features/sync/SyncSettings.tsx";
 import { LatexMacrosPanel } from "./LatexMacrosPanel";
 import { IconRefresh, IconSparkles } from "@tabler/icons-react";
@@ -264,6 +265,27 @@ const ACTION_ROWS: RowSpec[] = [
     synonyms: ["restore", "import", "recover", "export", "save", "copy", "archive", "zip"],
     control: <RestoreFileControl />,
     footer: <BackupList />,
+  },
+  {
+    id: "general.legal",
+    category: "general",
+    section: "About",
+    title: "Legal",
+    description: "The terms, the privacy policy, the imprint and the license, on nookly.work.",
+    synonyms: [
+      "terms",
+      "tos",
+      "agb",
+      "privacy",
+      "datenschutz",
+      "gdpr",
+      "imprint",
+      "impressum",
+      "license",
+      "agpl",
+      "open source",
+    ],
+    control: <LegalLinks pages={["terms", "privacy", "imprint", "license"]} />,
   },
   {
     id: "general.version",

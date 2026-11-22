@@ -4,7 +4,7 @@ import { SITE_URL } from "./site";
 export const LOCALES = ["en", "de"] as const;
 export type Locale = (typeof LOCALES)[number];
 
-export type Page = "home" | "download" | "status" | "imprint" | "privacy" | "terms";
+export type Page = "home" | "download" | "status" | "imprint" | "privacy" | "terms" | "license";
 
 /// English sits at the root, German under `/de`, each with the page names its readers
 /// expect (Impressum, Datenschutz).
@@ -16,6 +16,7 @@ const PATHS = {
     imprint: "/imprint",
     privacy: "/privacy",
     terms: "/terms",
+    license: "/license",
   },
   de: {
     home: "/de",
@@ -24,6 +25,7 @@ const PATHS = {
     imprint: "/de/impressum",
     privacy: "/de/datenschutz",
     terms: "/de/agb",
+    license: "/de/lizenz",
   },
 } satisfies Record<Locale, Record<Page, string>>;
 
