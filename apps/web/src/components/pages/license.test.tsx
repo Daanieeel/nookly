@@ -31,6 +31,26 @@ describe("LicenseArticle", () => {
     expect(container.querySelectorAll("pre")).toHaveLength(1);
   });
 
+  it("draws its boxes with squircle corners, as Nookly's brand does", () => {
+    const { container } = render(<LicenseArticle locale="en" />);
+    const summary = container.querySelector("article > section");
+    const tile = summary?.querySelector("span[aria-hidden]");
+    const text = container.querySelector("pre");
+    for (const box of [summary, tile, text]) {
+      expect(box?.className).toContain("[corner-shape:squircle]");
+    }
+  });
+
+  it("draws the contents menu with squircle corners", async () => {
+    render(<LicenseArticle locale="en" />);
+    await userEvent.click(screen.getByRole("button", { name: "Contents" }));
+    const menu = screen.getByRole("navigation", { name: "Contents" });
+    expect(menu.className).toContain("[corner-shape:squircle]");
+    for (const link of within(menu).getAllByRole("link")) {
+      expect(link.className).toContain("[corner-shape:squircle]");
+    }
+  });
+
   it("links the web addresses in the license text", () => {
     render(<LicenseArticle locale="en" />);
     const link = screen.getAllByRole("link", { name: "https://fsf.org/" })[0];

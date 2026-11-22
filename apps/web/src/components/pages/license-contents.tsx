@@ -18,7 +18,7 @@ export function LicenseContents({
       {open && (
         <nav
           aria-label={label}
-          className="pointer-events-auto max-h-[60dvh] w-full max-w-sm overflow-y-auto rounded-2xl border border-border bg-popover p-2 text-sm shadow-lg"
+          className="pointer-events-auto max-h-[60dvh] w-full max-w-sm overflow-y-auto rounded-2xl [corner-shape:squircle] border border-border bg-popover p-2 text-sm shadow-lg"
         >
           <ul className="flex flex-col">
             {entries.map((entry) => (
@@ -26,7 +26,7 @@ export function LicenseContents({
                 <a
                   href={`#${entry.id}`}
                   onClick={() => setOpen(false)}
-                  className={`block rounded-lg px-3 py-1.5 hover:bg-muted ${
+                  className={`block rounded-lg [corner-shape:squircle] px-3 py-1.5 hover:bg-muted ${
                     entry.level === 3 ? "font-medium" : "pl-6 text-muted-foreground"
                   }`}
                 >

@@ -66,7 +66,7 @@ function Block({ block }: { block: LicenseBlock }) {
           lang="en"
           // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable text must be reachable by keyboard
           tabIndex={0}
-          className="overflow-x-auto rounded-xl border border-border bg-card p-4 font-mono text-xs/relaxed"
+          className="overflow-x-auto rounded-xl [corner-shape:squircle] border border-border bg-card p-4 font-mono text-xs/relaxed"
         >
           {block.text}
         </pre>
@@ -104,12 +104,12 @@ export function LicenseArticle({ locale }: { locale: Locale }) {
         </h1>
         <p className="text-sm/relaxed text-muted-foreground">{doc.intro}</p>
       </header>
-      <section className="overflow-hidden rounded-2xl border border-border bg-card">
+      <section className="overflow-hidden rounded-2xl [corner-shape:squircle] border border-border bg-card">
         <div className="flex flex-col gap-6 p-6 sm:p-8">
           <div className="flex items-center gap-4">
             <span
               aria-hidden
-              className="grid size-14 shrink-0 place-items-center rounded-xl border border-border bg-background text-primary"
+              className="grid size-14 shrink-0 place-items-center rounded-xl [corner-shape:squircle] border border-border bg-background text-primary"
             >
               <IconScale size={28} />
             </span>
