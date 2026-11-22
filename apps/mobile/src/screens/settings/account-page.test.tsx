@@ -40,6 +40,7 @@ function signedIn() {
       email: "a@b.co",
       emailVerified: true,
       createdAt: "",
+      termsVersion: null,
     },
     serverUrl: "https://sync.example.com",
   });

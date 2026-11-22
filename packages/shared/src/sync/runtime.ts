@@ -1,4 +1,5 @@
 import type { ApiClient, DeviceInfo, SignUp, User } from "../api/index.ts";
+import { TERMS_VERSION, requiresTerms } from "../api/legal.ts";
 import { userSchema } from "../api/schemas.ts";
 import { SYNCED_TABLES } from "../schema.ts";
 import { type BlobPlatform, type BlobProgress, BlobSync } from "./blobs.ts";
@@ -30,6 +31,7 @@ export type AccountApi = Pick<
   | "signIn"
   | "signOut"
   | "me"
+  | "acceptTerms"
   | "isSignedIn"
   | "syncTransport"
   | "missing"
@@ -85,6 +87,9 @@ export interface SyncAccountState {
   signedOutReason: string | null;
   migration: MigrationState | null;
   files: BlobProgress | null;
+  /// Nookly's own server has terms the account has not agreed to yet (or not to their
+  /// latest version): sync waits on this device until `acceptTerms`.
+  termsPending: boolean;
 }
 
 const OFF: SyncStatus = {
@@ -142,6 +147,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     signedOutReason: null,
     migration: null,
     files: null,
+    termsPending: false,
   }));
   readonly engine: SyncEngine;
   private readonly deps: SyncRuntimeDeps<A>;
@@ -203,7 +209,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     if (!(await api.isSignedIn())) return;
     try {
       const user = await api.me();
-      this.store.setState({ user });
+      this.store.setState({ user, termsPending: this.owesTerms(user) });
       await this.rememberUser(user);
     } catch {
       // The server ended this session while the device was closed: it is signed out, and
@@ -211,7 +217,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       if (!(await api.isSignedIn())) return;
       // Offline at launch: the account last seen here, so the device still says it is
       // signed in; sync starts anyway and catches up when the server is back.
-      this.store.setState({ user: await this.rememberedUser() });
+      const user = await this.rememberedUser();
+      this.store.setState({ user, termsPending: this.owesTerms(user) });
     }
     if (this.api !== api) return;
     await this.start().catch(() => {});
@@ -237,6 +244,25 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     } catch {
       return null;
     }
+  }
+
+  /// Whether the account still has to agree to the terms of Nookly's own server: not at all
+  /// on a server someone runs themselves.
+  private owesTerms(user: User | null): boolean {
+    const serverUrl = this.store.getState().serverUrl;
+    if (!user || !serverUrl || !requiresTerms(serverUrl)) return false;
+    return user.termsVersion !== TERMS_VERSION;
+  }
+
+  /// The account agrees to the current terms, and sync, which waited for it, starts.
+  async acceptTerms(): Promise<void> {
+    const api = this.api;
+    if (!api) return;
+    const user = await api.acceptTerms(TERMS_VERSION);
+    if (this.api !== api) return;
+    this.store.setState({ user, termsPending: this.owesTerms(user) });
+    await this.start(false).catch(() => {});
+    await this.rememberUser(user);
   }
 
   /// How many items are on this device and in no account: what a sign in has to ask
@@ -271,7 +297,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const api = this.connect(serverUrl);
     const user = await api.signUp(input, this.deps.device);
     if (options.localData === "setAside") await this.setLocalDataAside(api);
-    this.store.setState({ user, signedOutReason: null });
+    this.store.setState({ user, signedOutReason: null, termsPending: this.owesTerms(user) });
     await this.start(false).catch(() => {});
     await this.rememberUser(user);
     return user;
@@ -287,7 +313,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const api = this.connect(serverUrl);
     const user = await api.signIn(identifier, password, this.deps.device);
     if (options.localData === "setAside") await this.setLocalDataAside(api);
-    this.store.setState({ user, signedOutReason: null });
+    this.store.setState({ user, signedOutReason: null, termsPending: this.owesTerms(user) });
     await this.start(false).catch(() => {});
     await this.rememberUser(user);
     return user;
@@ -415,6 +441,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const serverUrl = this.store.getState().serverUrl;
     const api = this.api;
     if (!api || this.client || !serverUrl) return;
+    // Nothing is sent to a server whose terms the account has not agreed to.
+    if (this.store.getState().termsPending) return;
     if (!(await this.engine.isEnabled())) await this.prepareFirstSync(serverUrl);
     else this.store.setState({ migration: await this.loadMigration() });
     this.blobsFor(serverUrl);
@@ -837,10 +865,22 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     await this.engine.disable();
     if (keep) {
       await this.deps.driver.batch([run("DELETE FROM page_docs")]);
-      this.store.setState({ user: null, status: OFF, migration: null, files: null });
+      this.store.setState({
+        user: null,
+        status: OFF,
+        migration: null,
+        files: null,
+        termsPending: false,
+      });
     } else {
       const gone = await this.engine.wipe();
-      this.store.setState({ user: null, status: OFF, migration: null, files: null });
+      this.store.setState({
+        user: null,
+        status: OFF,
+        migration: null,
+        files: null,
+        termsPending: false,
+      });
       await this.cleared(gone);
     }
     return { unsent, backupPath };
@@ -856,7 +896,13 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     await this.api?.signOut().catch(() => {});
     await this.engine.disable();
     await this.deps.driver.batch([run("DELETE FROM page_docs")]);
-    this.store.setState({ user: null, status: OFF, migration: null, files: null });
+    this.store.setState({
+      user: null,
+      status: OFF,
+      migration: null,
+      files: null,
+      termsPending: false,
+    });
   }
 
   /// The server ended this device's session (signed out from another device, a password
@@ -878,7 +924,14 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     } catch {
       signedOutReason = SIGNED_OUT_NOT_CLEARED;
     }
-    this.store.setState({ user: null, status: OFF, migration: null, files: null, signedOutReason });
+    this.store.setState({
+      user: null,
+      status: OFF,
+      migration: null,
+      files: null,
+      termsPending: false,
+      signedOutReason,
+    });
     await this.cleared(gone);
   }
 }

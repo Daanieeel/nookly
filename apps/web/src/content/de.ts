@@ -13,6 +13,9 @@ export const de: Dictionary = {
     privacyTitle: "Datenschutzerklärung",
     termsTitle: "Nutzungsbedingungen",
     legalDescription: "Rechtliche Angaben zu Nookly: Impressum, Datenschutz und AGB.",
+    licenseTitle: "Lizenz",
+    licenseDescription:
+      "Nookly ist quelloffen unter der GNU Affero General Public License v3.0: was das bedeutet und der volle Lizenztext.",
   },
   nav: {
     features: "Funktionen",
@@ -482,6 +485,7 @@ export const de: Dictionary = {
     privacy: "Datenschutz",
     terms: "Nutzungsbedingungen",
     license: "Open Source unter der AGPL Lizenz.",
+    licenseLink: "Lizenz",
   },
   downloads: {
     title: "Nookly herunterladen",
@@ -552,8 +556,6 @@ export const de: Dictionary = {
     home: "Zur Startseite",
   },
   legal: {
-    sample:
-      "Beispieltext. Diese Seite enthält Platzhalter, bis die endgültige Fassung fertig ist. Sie ist keine Rechtsberatung.",
     updated: (date) => `Stand: ${date}`,
     germanVersion: "Maßgeblich ist die deutsche Fassung.",
   },

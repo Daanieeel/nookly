@@ -13,6 +13,9 @@ export const en = {
     privacyTitle: "Privacy policy",
     termsTitle: "Terms of service",
     legalDescription: "Legal information about Nookly: imprint, privacy and terms.",
+    licenseTitle: "License",
+    licenseDescription:
+      "Nookly is open source under the GNU Affero General Public License v3.0: what that means and the full license text.",
   },
   nav: {
     features: "Features",
@@ -483,6 +486,7 @@ export const en = {
     privacy: "Privacy",
     terms: "Terms",
     license: "Open source under the AGPL license.",
+    licenseLink: "License",
   },
   downloads: {
     title: "Download Nookly",
@@ -552,8 +556,6 @@ export const en = {
     home: "Back to the start",
   },
   legal: {
-    sample:
-      "Sample text. This page holds placeholder details until the final version is ready. It is not legal advice.",
     updated: (date: string) => `Last updated ${date}`,
     germanVersion: "The German version is the binding one.",
   },

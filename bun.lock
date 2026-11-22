@@ -184,7 +184,7 @@
     },
     "apps/web": {
       "name": "@nookly/web",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "dependencies": {
         "@blobatar/react": "2.7.0",
         "@nookly/frontend": "workspace:*",

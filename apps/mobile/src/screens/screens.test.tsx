@@ -244,6 +244,7 @@ describe("sharing from the phone", () => {
         email: "a@b.co",
         emailVerified: true,
         createdAt: "",
+        termsVersion: null,
       },
     });
     const screen = await renderScreens({ index: () => <ShareScreen entityId={page} /> }, data);

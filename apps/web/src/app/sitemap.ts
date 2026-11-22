@@ -4,7 +4,7 @@ import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-static";
 
-const PAGES: Page[] = ["home", "download", "status", "imprint", "privacy", "terms"];
+const PAGES: Page[] = ["home", "download", "status", "imprint", "privacy", "terms", "license"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return PAGES.flatMap((page) =>

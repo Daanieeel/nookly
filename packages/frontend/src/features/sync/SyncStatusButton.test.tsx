@@ -14,6 +14,7 @@ const ADA = {
   email: null,
   emailVerified: false,
   createdAt: "",
+  termsVersion: null,
 };
 
 const status = (patch: Partial<SyncStatus>): SyncStatus => ({

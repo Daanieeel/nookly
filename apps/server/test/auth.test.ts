@@ -105,6 +105,34 @@ describe("accounts", () => {
     expect(await page.text()).toContain("This link doesn't work");
   });
 
+  it("keeps the terms an account agreed to, none until it does", async () => {
+    const api = server.client();
+    const user = await api.signUp({ username: "ada", password: PASSWORD }, DESKTOP);
+    expect(user.termsVersion).toBeNull();
+    const accepted = await api.acceptTerms("2026-11-22");
+    expect(accepted.termsVersion).toBe("2026-11-22");
+    expect((await api.me()).termsVersion).toBe("2026-11-22");
+    // A later version replaces it.
+    expect((await api.acceptTerms("2027-02-01")).termsVersion).toBe("2027-02-01");
+  });
+
+  it("records the terms at sign up, when the app says they were agreed to", async () => {
+    const api = server.client();
+    const user = await api.signUp(
+      { username: "ada", password: PASSWORD, termsVersion: "2026-11-22" },
+      DESKTOP,
+    );
+    expect(user.termsVersion).toBe("2026-11-22");
+  });
+
+  it("refuses an empty or absurd terms version, and a signed out one", async () => {
+    const api = server.client();
+    await api.signUp({ username: "ada", password: PASSWORD }, DESKTOP);
+    expect(await status(api.acceptTerms(""))).toBe(422);
+    expect(await status(api.acceptTerms("x".repeat(100)))).toBe(422);
+    expect(await status(server.client().acceptTerms("2026-11-22"))).toBe(401);
+  });
+
   it("refuses a username that is taken, whatever its case", async () => {
     await server.client().signUp({ username: "ada", password: PASSWORD }, DESKTOP);
     const taken = await failure(

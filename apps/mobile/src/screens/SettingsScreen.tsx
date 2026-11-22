@@ -6,6 +6,7 @@ import {
   IconArchive,
   IconMathFunction,
   IconSearch,
+  IconFileText,
   IconInfoCircle,
   IconKeyboard,
   IconLayoutSidebar,
@@ -42,6 +43,7 @@ import { EmptyState } from "../ui/kit/States.tsx";
 import type { BadgeLook } from "../ui/kit/badges.ts";
 import { Screen } from "../ui/Screen.tsx";
 import { AccountPage } from "./settings/AccountPage.tsx";
+import { LegalPage } from "./settings/LegalPage.tsx";
 import { BackupPage } from "./settings/BackupPage.tsx";
 import { LatexPage } from "./settings/LatexPage.tsx";
 import { HapticsRow } from "./settings/HapticsRow.tsx";
@@ -75,7 +77,14 @@ interface NavLink {
 }
 
 /// What a tablet's Settings shows beside its list, as the desktop's Settings dialog.
-export type Pane = SettingsPage | "account" | "connections" | "shortcuts" | "sidebar" | "whats-new";
+export type Pane =
+  | SettingsPage
+  | "account"
+  | "connections"
+  | "shortcuts"
+  | "sidebar"
+  | "whats-new"
+  | "legal";
 
 const pageLink = (id: SettingsPage): NavLink => {
   const page = PAGES.find((p) => p.id === id);
@@ -145,6 +154,13 @@ const NAV_GROUPS: { label: string | null; links: NavLink[] }[] = [
         badge: { glyph: IconSparkles, tint: "pink" },
         href: "/settings/whats-new",
         pane: "whats-new",
+      },
+      {
+        title: "Legal",
+        subtitle: "Terms, privacy and the license",
+        badge: { glyph: IconFileText, tint: "gray" },
+        href: "/settings/legal",
+        pane: "legal",
       },
       {
         title: "About",
@@ -272,12 +288,20 @@ function PhoneSettingsHome({ groups }: { groups: typeof NAV_GROUPS }) {
         </View>
       ))}
       <View style={{ alignItems: "center", gap: SPACE.xxs }}>
-        <Button
-          variant="ghost"
-          size="sm"
-          label="What's New"
-          onPress={() => router.push("/settings/whats-new")}
-        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: SPACE.sm }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            label="What's New"
+            onPress={() => router.push("/settings/whats-new")}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            label="Legal"
+            onPress={() => router.push("/settings/legal")}
+          />
+        </View>
         <Label type="footnote" color="tertiaryLabel">
           {`Nookly ${version}`}
         </Label>
@@ -387,6 +411,7 @@ const PANES: Pane[] = [
   "shortcuts",
   "sidebar",
   "whats-new",
+  "legal",
 ];
 
 /// The pane a route names (`/settings/backup`), General for anything else.
@@ -399,6 +424,7 @@ function paneTitle(pane: Pane): string {
   if (pane === "shortcuts") return "Keyboard Shortcuts";
   if (pane === "sidebar") return "Sidebar";
   if (pane === "whats-new") return "What's New";
+  if (pane === "legal") return "Legal";
   return settingsTitle(pane);
 }
 
@@ -414,6 +440,7 @@ function PaneView({ pane }: { pane: Pane }) {
   if (pane === "shortcuts") return <ShortcutsPage />;
   if (pane === "sidebar") return <SidebarSettingsScreen />;
   if (pane === "whats-new") return <WhatsNewScreen />;
+  if (pane === "legal") return <LegalPage />;
   return <SettingsCategoryScreen page={pane} />;
 }
 

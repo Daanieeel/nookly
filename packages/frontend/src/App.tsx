@@ -23,6 +23,7 @@ import { useSyncBootstrap } from "#/features/sync/sync-instance.ts";
 import { AccountDialog } from "#/features/sync/AccountDialog.tsx";
 import { MergeEditor } from "#/features/sync/MergeEditor.tsx";
 import { FirstSyncDialog } from "#/features/sync/FirstSyncDialog.tsx";
+import { TermsGate } from "#/features/sync/TermsGate.tsx";
 import { useExternalCalendarSync } from "#/features/sessions/external-calendars/external-calendar-sync.ts";
 import { useExternalDbChanges } from "#/hooks/use-external-db-changes.ts";
 import { useExternalLinks } from "#/hooks/use-external-links.ts";
@@ -229,6 +230,7 @@ function Shell() {
       </OnFirstOpen>
       <AccountDialog />
       <FirstSyncDialog />
+      <TermsGate />
       <MergeEditor />
       <ImportDialog />
       <NewTaskDialog />

@@ -1,4 +1,5 @@
 // The language features the engine lacks, before any other module runs.
+import { TermsGate } from "../screens/TermsGate.tsx";
 import "../polyfills.ts";
 import { pageBar } from "../shell/history.ts";
 import "../global.css";
@@ -284,6 +285,10 @@ export default function RootLayout() {
         name="settings/whats-new"
         options={tablet ? SHEET_ROUTE : { title: "What's New" }}
       />
+      <Stack.Screen
+        name="settings/legal"
+        options={tablet ? SHEET_ROUTE : { title: "Legal", ...groupedHeader }}
+      />
       <Stack.Screen name="new/task" options={SHEET_ROUTE} />
       <Stack.Screen name="new/page" options={SHEET_ROUTE} />
       <Stack.Screen name="new/entry" options={SHEET_ROUTE} />
@@ -315,6 +320,7 @@ export default function RootLayout() {
               <SheetHost>
                 <StatusBar style="auto" />
                 <FirstRun />
+                <TermsGate />
                 <AppShell stack={stack} />
                 <EditorToolbar />
                 <FirstSyncPage />

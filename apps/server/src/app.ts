@@ -2,6 +2,7 @@ import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import {
   createShareRequestSchema,
+  acceptTermsRequestSchema,
   deleteAccountRequestSchema,
   resetPasswordRequestSchema,
   tokenRequestSchema,
@@ -358,6 +359,19 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             security: [{ bearer: [] }],
           },
         })
+        .post(
+          "/account/terms",
+          async ({ headers, body }) =>
+            accounts.acceptTerms((await claimsOf(headers)).userId, body.version),
+          {
+            body: acceptTermsRequestSchema,
+            detail: {
+              summary: "Record that the account agreed to a version of the terms",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
         .delete(
           "/account",
           async ({ headers, body, set }) => {

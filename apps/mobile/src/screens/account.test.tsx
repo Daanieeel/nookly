@@ -1,4 +1,4 @@
-import { PRODUCTION_SERVER } from "@nookly/shared/api";
+import { PRODUCTION_SERVER, TERMS_VERSION } from "@nookly/shared/api";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { Keyboard, TextInput } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
@@ -10,7 +10,10 @@ const ADA = {
   email: null,
   emailVerified: false,
   createdAt: "",
+  termsVersion: null,
 };
+
+const TICK = { name: /at least 18 and agree to the Terms of Service/ };
 
 describe("the welcome screen", () => {
   it("offers an account, signing in, or none, and says nothing is needed to start", async () => {
@@ -30,6 +33,18 @@ describe("the welcome screen", () => {
       await screen.findByRole("button", { name: "Continue Without an Account" }),
     );
     await waitFor(() => expect(data.onboarded.get()).toBe("1"));
+  });
+});
+
+describe("the legal links", () => {
+  it.each([
+    ["signing in", () => <SignInScreen />],
+    ["creating an account", () => <SignUpScreen />],
+  ] as const)("are at the foot of %s", async (_name, screenOf) => {
+    const screen = await renderScreens({ index: screenOf });
+    for (const name of ["Terms of Service", "Privacy Policy", "Imprint"]) {
+      expect((await screen.findAllByRole("link", { name })).length).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -192,6 +207,7 @@ describe("creating an account", () => {
     await fireEvent.changeText(screen.getByLabelText("Username"), "ada");
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
     await fireEvent.changeText(screen.getByLabelText("Repeat password"), "a long password");
+    await fireEvent.press(screen.getByRole("checkbox", TICK));
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
     // Nookly's server is a closed beta: no key, no account.
     expect(await screen.findByText("Enter the beta key to create an account.")).toBeTruthy();
@@ -201,7 +217,13 @@ describe("creating an account", () => {
     await waitFor(() =>
       expect(signUp).toHaveBeenCalledWith(
         PRODUCTION_SERVER,
-        { username: "ada", email: undefined, password: "a long password", betaKey: "the-key" },
+        {
+          username: "ada",
+          email: undefined,
+          password: "a long password",
+          betaKey: "the-key",
+          termsVersion: TERMS_VERSION,
+        },
         {},
       ),
     );
@@ -231,6 +253,37 @@ describe("creating an account", () => {
     expect(await screen.findByRole("progressbar", { name: "Password strength" })).toBeTruthy();
   });
 
+  it("will not create an account until the terms are agreed to, and links the texts", async () => {
+    const data = testData();
+    const signUp = jest.spyOn(data.sync, "signUp").mockResolvedValue(ADA);
+    data.serverUrl.set(PRODUCTION_SERVER);
+    const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
+    await fireEvent.changeText(await screen.findByLabelText("Username"), "ada");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    await fireEvent.changeText(screen.getByLabelText("Repeat password"), "a long password");
+    await fireEvent.changeText(screen.getByLabelText("Beta key"), "the-key");
+    expect(screen.getByRole("checkbox", TICK).props.accessibilityState).toMatchObject({
+      checked: false,
+    });
+    // Beside the box, and again in the legal links at the foot.
+    expect(screen.getAllByRole("link", { name: "Terms of Service" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(2);
+    await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
+    expect(await screen.findByText("Agree to the terms to create an account")).toBeTruthy();
+    expect(signUp).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole("checkbox", TICK));
+    await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
+    await waitFor(() => expect(signUp).toHaveBeenCalledTimes(1));
+  });
+
+  it("has no terms to agree to on a server of your own", async () => {
+    const data = testData();
+    data.serverUrl.set("https://sync.example.com");
+    const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
+    await screen.findByLabelText("Username");
+    expect(screen.queryByRole("checkbox", TICK)).toBeNull();
+  });
+
   it("asks for the password twice and refuses two that differ", async () => {
     const data = testData();
     const signUp = jest.spyOn(data.sync, "signUp").mockResolvedValue(ADA);
@@ -240,6 +293,7 @@ describe("creating an account", () => {
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
     await fireEvent.changeText(screen.getByLabelText("Repeat password"), "another long one");
     await fireEvent.changeText(screen.getByLabelText("Beta key"), "the-key");
+    await fireEvent.press(screen.getByRole("checkbox", TICK));
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("The passwords don't match")).toBeTruthy();
     expect(signUp).not.toHaveBeenCalled();

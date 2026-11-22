@@ -1,4 +1,4 @@
-import { ApiClient, ApiRequestError } from "@nookly/shared/api";
+import { ApiClient, ApiRequestError, TERMS_VERSION } from "@nookly/shared/api";
 import { act, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
@@ -14,7 +14,10 @@ const ADA = {
   email: null,
   emailVerified: false,
   createdAt: "",
+  termsVersion: null,
 };
+
+const TICK = { name: /at least 18 and agree to the Terms of Service/ };
 
 function open(mode: "signIn" | "signUp" = "signIn") {
   const rendered = renderWithProviders(<AccountDialog />);
@@ -97,6 +100,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
     await user.type(screen.getByLabelText(/^Beta key/), " the-key ");
+    await user.click(screen.getByRole("checkbox", TICK));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(signUp).toHaveBeenCalledWith(
       "https://sync.nookly.work",
@@ -105,6 +109,7 @@ describe("the account dialog", () => {
         email: undefined,
         password: "a long password",
         betaKey: "the-key",
+        termsVersion: TERMS_VERSION,
       },
       {},
     );
@@ -122,6 +127,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "another long one");
     await user.type(screen.getByLabelText(/^Beta key/), "the-key");
+    await user.click(screen.getByRole("checkbox", TICK));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("The passwords don't match")).toBeInTheDocument();
     expect(signUp).not.toHaveBeenCalled();
@@ -138,8 +144,41 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText("Repeat password"), weak);
     await user.type(screen.getByLabelText(/^Beta key/), "the-key");
+    await user.click(screen.getByRole("checkbox", TICK));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(signUp).toHaveBeenCalled();
+  });
+
+  it("will not create an account until the terms are agreed to", async () => {
+    const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    expect(screen.getByRole("checkbox", TICK)).not.toBeChecked();
+    // Once beside the box and once in the legal links at the foot.
+    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(2);
+    await user.type(screen.getByLabelText(/^Username/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(await screen.findByText("Agree to the terms to create an account")).toBeInTheDocument();
+    expect(signUp).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("checkbox", TICK));
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(signUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("has no terms to agree to on a server of your own", async () => {
+    const { user } = open("signUp");
+    await user.click(screen.getByRole("button", { name: "Change Server" }));
+    const server = screen.getByLabelText(/^Server/);
+    await user.clear(server);
+    await user.type(server, "https://sync.example.com");
+    expect(screen.queryByRole("checkbox", TICK)).not.toBeInTheDocument();
+  });
+
+  it("links the legal pages at the foot, signing in or creating an account", () => {
+    open();
+    expect(screen.getByRole("navigation", { name: "Legal" })).toBeInTheDocument();
   });
 
   it("keeps the beta key hidden while it is typed", () => {
@@ -153,6 +192,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.click(screen.getByRole("checkbox", TICK));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("Enter the beta key to create an account.")).toBeInTheDocument();
     expect(signUp).not.toHaveBeenCalled();
@@ -171,7 +211,13 @@ describe("the account dialog", () => {
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(signUp).toHaveBeenCalledWith(
       "https://sync.example.com",
-      { username: "ada", email: undefined, password: "a long password", betaKey: undefined },
+      {
+        username: "ada",
+        email: undefined,
+        password: "a long password",
+        betaKey: undefined,
+        termsVersion: undefined,
+      },
       {},
     );
   });
@@ -185,6 +231,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
     await user.type(screen.getByLabelText(/^Beta key/), "nope");
+    await user.click(screen.getByRole("checkbox", TICK));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("That beta key isn't right.")).toBeInTheDocument();
     expect(useAccountDialog.getState().open).toBe(true);

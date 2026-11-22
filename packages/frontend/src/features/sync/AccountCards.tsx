@@ -41,6 +41,7 @@ import { Checkbox } from "@nookly/ui/components/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { useAccountDialog } from "./account-dialog-store.ts";
+import { useTermsGate } from "./terms-gate-store.ts";
 import { syncRuntime, useSyncState } from "./sync-instance.ts";
 
 /// The Account page's cards, in the style of the Backup and Connections pages: each says
@@ -379,6 +380,23 @@ function UnconfirmedEmail({ email }: { email: string }) {
   );
 }
 
+/// Why sync is not running while the terms wait for an answer, and the way back to them.
+export function TermsLine() {
+  const pending = useSyncState((s) => s.termsPending);
+  if (!pending) return null;
+  return (
+    <CardFoot>
+      <IconAlertTriangle size={14} className="shrink-0 text-caution" />
+      <span role="status" className="min-w-0 flex-1">
+        Sync is paused on this computer until you agree to the terms.
+      </span>
+      <Button size="sm" variant="secondary" onClick={() => useTermsGate.getState().reopen()}>
+        Review Terms
+      </Button>
+    </CardFoot>
+  );
+}
+
 /// Changes two devices disagreed on: only there while some wait for a decision.
 function ChangesNotice() {
   const setMergeOpen = useAccountDialog((state) => state.setMergeOpen);
@@ -444,6 +462,7 @@ function SignedInCard() {
         }
       />
       {user.email !== null && !user.emailVerified && <UnconfirmedEmail email={user.email} />}
+      <TermsLine />
       <ChangesNotice />
       <FirstSyncLine />
       <FilesLine />
