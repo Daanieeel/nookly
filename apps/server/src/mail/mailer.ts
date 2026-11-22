@@ -5,6 +5,8 @@ export interface Mail {
   to: string;
   subject: string;
   text: string;
+  /// The styled version. Clients that can't show it use `text`.
+  html?: string;
 }
 
 /// Sends the account's emails. `console` for development, `smtp` in production, and a
@@ -43,6 +45,7 @@ export class SmtpMailer implements Mailer {
       to: mail.to,
       subject: mail.subject,
       text: mail.text,
+      html: mail.html,
     });
   }
 }

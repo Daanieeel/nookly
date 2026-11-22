@@ -35,6 +35,7 @@ All notable changes to Nookly are listed here.
 - Corners are a little rounder and softer across the app.
 - The cloud in the title bar shows how syncing is going and turns green after a sync that moved something.
 - New pages open at once.
+- The pages and emails from Nookly's server (confirm your email, reset your password, share invites) now look like Nookly and work on a phone, with links to the legal pages at the bottom. Choosing a new password asks you to repeat it and shows how strong it is.
 - Every list can be filtered by more of what its items have: pinned, created and updated everywhere, and its own details, like a recipe's kind and time, an exam's date and status, or when something went to Trash.
 - Typing an item's short code like TSK in search first shows what contains it, then lists every item with that code, newest first.
 - On your phone, a new calendar entry has a start and an end, each with its day and time, in the row of pills above the keyboard, and a longer entry is made by moving the end to a later day. The entry page works the same way.
