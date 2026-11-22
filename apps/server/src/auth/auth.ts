@@ -17,6 +17,7 @@ import {
 } from "../db/schema.ts";
 import type { Logger } from "../log.ts";
 import type { Mailer } from "../mail/mailer.ts";
+import { confirmEmailEmail, resetPasswordEmail } from "../mail/templates.ts";
 
 /// The domain of the email an account made without one gets. `.invalid` can never
 /// be delivered to, and the API shows such an address as no email at all.
@@ -121,11 +122,7 @@ export function createAuth(db: Database, config: Config, mailer: Mailer, log: Lo
       },
       sendResetPassword: async ({ user, token }) => {
         if (isPlaceholderEmail(user.email)) return;
-        await mailer.send({
-          to: user.email,
-          subject: "Reset your Nookly password",
-          text: `Choose a new password here:\n\n${publicUrl}/reset-password?token=${encodeURIComponent(token)}\n\nThe link works for one hour. If you didn't ask for this, ignore this email; your password stays as it is.`,
-        });
+        await mailer.send({ to: user.email, ...resetPasswordEmail(publicUrl, token) });
       },
     },
     emailVerification: {
@@ -144,11 +141,7 @@ export function createAuth(db: Database, config: Config, mailer: Mailer, log: Lo
       sendVerificationEmail: async ({ user, url }) => {
         if (isPlaceholderEmail(user.email)) return;
         await mailer
-          .send({
-            to: user.email,
-            subject: "Confirm your email for Nookly",
-            text: `Confirm your email address for Nookly:\n\n${url}\n\nIf you didn't sign up, ignore this email.`,
-          })
+          .send({ to: user.email, ...confirmEmailEmail(publicUrl, url) })
           .catch((error: Error) =>
             log.error("couldn't send the verification email", { error: error.message }),
           );

@@ -69,8 +69,40 @@ describe("accounts", () => {
     const page = await fetch(link?.replace("http://nookly.test", server.baseUrl) ?? "", {
       redirect: "follow",
     });
-    expect(await page.text()).toContain("Email confirmed");
+    const html = await page.text();
+    expect(html).toContain("Email confirmed");
+    expect(html).toContain('class="brand"');
+    for (const path of ["imprint", "privacy", "terms"]) {
+      expect(html).toContain(`href="https://nookly.work/${path}"`);
+    }
     expect((await api.me()).emailVerified).toBe(true);
+  });
+
+  it("sends emails dressed like Nookly, always in light mode, with a plain text twin", async () => {
+    await server
+      .client()
+      .signUp({ username: "ada", email: "ada@example.com", password: PASSWORD }, DESKTOP);
+    const mail = server.mailer.sent.find((m) => m.to === "ada@example.com");
+    expect(mail?.text).toContain("/v1/auth/verify-email");
+    expect(mail?.html).toContain('content="only light"');
+    expect(mail?.html).toContain("Confirm email");
+    expect(mail?.html).toContain("http://nookly.test/logo.png");
+    expect(mail?.html).toContain("/v1/auth/verify-email");
+    expect(mail?.html).not.toContain("prefers-color-scheme");
+    expect(mail?.html).toContain('href="https://nookly.work/privacy"');
+  });
+
+  it("serves the logo the pages and emails show", async () => {
+    const logo = await fetch(`${server.baseUrl}/logo.png`);
+    expect(logo.status).toBe(200);
+    expect(logo.headers.get("content-type")).toBe("image/png");
+    expect((await logo.arrayBuffer()).byteLength).toBeGreaterThan(1000);
+  });
+
+  it("shows a friendly page for a confirm link that no longer works", async () => {
+    const page = await fetch(`${server.baseUrl}/verified?error=INVALID_TOKEN`);
+    expect(page.status).toBe(400);
+    expect(await page.text()).toContain("This link doesn't work");
   });
 
   it("refuses a username that is taken, whatever its case", async () => {
@@ -214,6 +246,42 @@ describe("passwords", () => {
     expect(await status(server.client().signIn("ada", PASSWORD, PHONE))).toBe(401);
     await server.client().signIn("ada", "a brand new password", PHONE);
     expect(await status(server.client().resetPassword(token, "another new password"))).toBe(400);
+  });
+
+  it("shows a repeat field and a strength bar on the reset page, with a script that builds", async () => {
+    const html = await (
+      await fetch(`${server.baseUrl}/reset-password?token=${"t".repeat(12)}`)
+    ).text();
+    expect(html).toContain('name="confirm"');
+    expect(html).toContain('aria-label="Repeat new password"');
+    expect(html).toContain('role="meter"');
+    expect(html).toContain('src="/reset-password.js"');
+    const script = await fetch(`${server.baseUrl}/reset-password.js`);
+    expect(script.status).toBe(200);
+    expect(script.headers.get("content-type")).toContain("javascript");
+    expect((await script.text()).length).toBeGreaterThan(10_000);
+  });
+
+  it("refuses a reset when the two passwords differ, and keeps the old one", async () => {
+    const api = server.client();
+    await api.signUp({ username: "ada", email: "ada@example.com", password: PASSWORD }, DESKTOP);
+    await server.client().forgotPassword("ada@example.com");
+    const token =
+      new URL(server.mailer.link("ada@example.com", "/reset-password") ?? "").searchParams.get(
+        "token",
+      ) ?? "";
+    const form = (confirm: string) =>
+      fetch(`${server.baseUrl}/reset-password`, {
+        method: "POST",
+        body: new URLSearchParams({ token, password: "a brand new password", confirm }),
+      });
+    const mismatch = await form("a different password");
+    expect(mismatch.status).toBe(400);
+    expect(await mismatch.text()).toContain("The passwords don't match.");
+    await server.client().signIn("ada", PASSWORD, PHONE);
+    const ok = await form("a brand new password");
+    expect(ok.status).toBe(200);
+    expect(await ok.text()).toContain("Password changed");
   });
 
   it("changes the password when the current one is right", async () => {

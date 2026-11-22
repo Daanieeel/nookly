@@ -8,6 +8,7 @@ import { authUser, shares } from "../db/schema.ts";
 import { HttpError, badRequest, conflict, forbidden, notFound } from "../errors.ts";
 import type { Logger } from "../log.ts";
 import type { Mailer } from "../mail/mailer.ts";
+import { shareInviteEmail } from "../mail/templates.ts";
 import type { Hub } from "../sync/hub.ts";
 import type { SyncService } from "../sync/service.ts";
 
@@ -127,8 +128,13 @@ export class ShareService {
       await this.mailer
         .send({
           to: recipient,
-          subject: `${owner.username} shared "${title}" with you`,
-          text: `${owner.username} shared "${title}" with you in Nookly, to ${role === "editor" ? "edit" : "view"}.\n\nSign in to Nookly with an account that has ${recipient} as its confirmed email to accept it, or open:\n\n${inviteUrl}`,
+          ...shareInviteEmail(this.config.PUBLIC_URL.replace(/\/$/, ""), {
+            owner: owner.username,
+            title,
+            role,
+            recipient,
+            url: inviteUrl,
+          }),
         })
         .catch((error: Error) =>
           this.log.error("couldn't send the invite email", { error: error.message }),

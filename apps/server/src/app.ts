@@ -23,7 +23,14 @@ import type { Database } from "./db/client.ts";
 import { HttpError } from "./errors.ts";
 import type { Logger } from "./log.ts";
 import type { Mailer } from "./mail/mailer.ts";
-import { invitePage, resetPasswordPage, resultPage } from "./pages.ts";
+import {
+  emailConfirmedPage,
+  invitePage,
+  passwordChangedPage,
+  resetPasswordPage,
+  resetPasswordScript,
+  resultPage,
+} from "./pages.ts";
 import { clientIp } from "./security/client-ip.ts";
 import { RateLimiter } from "./security/rate-limit.ts";
 import { ShareService } from "./shares/service.ts";
@@ -55,7 +62,11 @@ const contentTypeOf = (header: string | null) =>
     ? header.split(";")[0].trim()
     : "application/octet-stream";
 const tokenQuery = z.object({ token: z.string().min(10).max(512) });
-const resetForm = z.object({ token: z.string().min(10).max(512), password: z.string().max(512) });
+const resetForm = z.object({
+  token: z.string().min(10).max(512),
+  password: z.string().max(512),
+  confirm: z.string().max(512).optional(),
+});
 /// better-auth's routes that check a password or send mail, limited per address.
 const SIGN_IN_PATHS = new Set(["/v1/auth/sign-in/email", "/v1/auth/sign-in/username"]);
 const MAIL_PATHS = new Set([
@@ -228,7 +239,16 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
       },
       { detail: { summary: "Health check", tags: ["Server"] } },
     )
-    // Pages the links in emails open.
+    // Pages the links in emails open, and the logo they and the emails show.
+    .get(
+      "/logo.png",
+      ({ set }) => {
+        set.headers["content-type"] = "image/png";
+        set.headers["cache-control"] = "public, max-age=86400";
+        return Bun.file(new URL("./assets/logo.png", import.meta.url));
+      },
+      { detail: { hide: true } },
+    )
     .get(
       "/verified",
       ({ query, set }) => {
@@ -238,11 +258,27 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           return resultPage(
             "This link doesn't work",
             "It has expired or was already used. Ask Nookly for a new one in Settings.",
+            "error",
           );
         }
-        return resultPage("Email confirmed", "You can go back to Nookly.");
+        return emailConfirmedPage();
       },
       { query: z.object({ error: z.string().max(100).optional() }), detail: { hide: true } },
+    )
+    // The reset page's script: the app's own password strength check, bundled once.
+    .get(
+      "/reset-password.js",
+      async ({ set }) => {
+        const script = await resetPasswordScript();
+        if (!script) {
+          set.status = 404;
+          return "";
+        }
+        set.headers["content-type"] = "text/javascript; charset=utf-8";
+        set.headers["cache-control"] = "public, max-age=3600";
+        return script;
+      },
+      { detail: { hide: true } },
     )
     .get(
       "/reset-password",
@@ -262,19 +298,21 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           set.status = 400;
           return resetPasswordPage(body.token, "Use at least 10 characters.");
         }
+        if (body.confirm !== undefined && body.confirm !== body.password) {
+          set.status = 400;
+          return resetPasswordPage(body.token, "The passwords don't match.");
+        }
         try {
           await auth.api.resetPassword({
             body: { token: parsed.data.token, newPassword: parsed.data.password },
           });
-          return resultPage(
-            "Password changed",
-            "Sign in to Nookly with your new password. Every device was signed out.",
-          );
+          return passwordChangedPage();
         } catch {
           set.status = 400;
           return resultPage(
             "This link doesn't work",
             "It has expired or was already used. Ask for a new one.",
+            "error",
           );
         }
       },
