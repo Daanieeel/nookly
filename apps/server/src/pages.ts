@@ -42,16 +42,18 @@ const svg = (icon: Icon, size: number) =>
 
 // The tokens of packages/ui/src/theme.css, light first and dark under the system setting.
 const STYLES = `
-:root{color-scheme:light dark;--bg:#fafafa;--fg:#0a0a0a;--card:#fff;--muted:#666;--border:rgba(0,0,0,.09);--input:rgba(0,0,0,.14);--primary:#0070f3;--green:#00873d;--red:#dc2626;--blue:#0070f3;--field:#fff;--shadow:0 0 0 1px var(--border),0 4px 8px -2px rgba(0,0,0,.06),0 16px 32px -8px rgba(0,0,0,.14),0 40px 80px -20px rgba(0,0,0,.2);--solid:#e5560a;--solid-edge:90%;--caution:#ab7a00;--track:rgba(0,0,0,.09)}
-@media (prefers-color-scheme:dark){:root{--bg:#0e0e0e;--fg:#eee;--card:#1b1b1b;--muted:#a0a0a0;--border:rgba(255,255,255,.09);--input:rgba(255,255,255,.15);--green:#00cb50;--red:#ff4040;--blue:#47a8ff;--field:#282828;--shadow:0 0 0 1px var(--border),inset 0 1px 0 0 rgba(255,255,255,.07),0 16px 32px -8px rgba(0,0,0,.6),0 40px 90px -20px rgba(0,0,0,.6);--solid:#f56a14;--solid-edge:70%;--caution:#ffcc47;--track:rgba(255,255,255,.12)}}
+:root{color-scheme:light dark;--raised:#fff;--control:0 1px 2px 0 rgba(0,0,0,.05);--elev:0 1px 2px 0 rgba(0,0,0,.04),0 4px 8px -2px rgba(0,0,0,.06);--bg:#fafafa;--fg:#0a0a0a;--card:#fff;--muted:#666;--border:rgba(0,0,0,.09);--input:rgba(0,0,0,.14);--primary:#0070f3;--green:#00873d;--red:#dc2626;--blue:#0070f3;--field:#fff;--shadow:0 0 0 1px var(--border),0 4px 8px -2px rgba(0,0,0,.06),0 16px 32px -8px rgba(0,0,0,.14),0 40px 80px -20px rgba(0,0,0,.2);--solid:#e5560a;--solid-edge:90%;--caution:#ab7a00;--track:rgba(0,0,0,.09)}
+@media (prefers-color-scheme:dark){:root{--raised:#282828;--control:inset 0 1px 0 0 rgba(255,255,255,.09),0 1px 2px 0 rgba(0,0,0,.5);--elev:inset 0 1px 0 0 rgba(255,255,255,.08),0 6px 14px -4px rgba(0,0,0,.6);--bg:#0e0e0e;--fg:#eee;--card:#1b1b1b;--muted:#a0a0a0;--border:rgba(255,255,255,.09);--input:rgba(255,255,255,.15);--green:#00cb50;--red:#ff4040;--blue:#47a8ff;--field:#282828;--shadow:0 0 0 1px var(--border),inset 0 1px 0 0 rgba(255,255,255,.07),0 16px 32px -8px rgba(0,0,0,.6),0 40px 90px -20px rgba(0,0,0,.6);--solid:#f56a14;--solid-edge:70%;--caution:#ffcc47;--track:rgba(255,255,255,.12)}}
 *{box-sizing:border-box}
 html{min-height:100%;background:var(--bg)}
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:1.5rem;padding:max(2rem,env(safe-area-inset-top)) max(1rem,env(safe-area-inset-right)) max(2rem,env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left));font:15px/1.55 "Inter Variable",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:var(--fg);background:var(--bg);-webkit-font-smoothing:antialiased}
 .brand{display:flex;align-items:center;gap:.65rem;font:650 1.15rem/1 "Inter Tight Variable","Inter Tight",Inter,system-ui,sans-serif;letter-spacing:-.02em;color:var(--fg);text-decoration:none}
 .brand img{width:36px;height:36px;border-radius:9px;display:block}
 .card{width:100%;max-width:24rem;margin:auto 0;text-align:center}
-.badge{width:60px;height:60px;margin:0 auto 1.25rem;display:grid;place-items:center;border-radius:18px;color:var(--tone);background:color-mix(in srgb,var(--tone) 12%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tone) 22%,transparent)}
-.success{--tone:var(--green)}.error{--tone:var(--red)}.info{--tone:var(--blue)}
+.badge{position:relative;width:64px;height:64px;margin:0 auto 1.5rem}
+.badge i,.badge b{position:absolute;inset:0;border-radius:14px;background:var(--raised);box-shadow:inset 0 0 0 1px var(--border),var(--control)}
+.badge i{opacity:.7}.badge i:nth-child(1){transform:translateX(-7px) rotate(-12deg)}.badge i:nth-child(2){transform:translateX(7px) rotate(12deg)}
+.badge b{display:grid;place-items:center;color:var(--fg);box-shadow:inset 0 0 0 1px var(--border),var(--elev)}
 h1{margin:0 0 .5rem;font:650 1.5rem/1.2 "Inter Tight Variable","Inter Tight",Inter,system-ui,sans-serif;letter-spacing:-.025em}
 p{margin:0;color:var(--muted)}
 form{margin-top:1.5rem;text-align:left}
@@ -86,7 +88,7 @@ button:focus-visible{outline:2px solid var(--solid);outline-offset:3px}
 `.replaceAll(/\n/g, "");
 
 function page(title: string, tone: Tone, icon: Icon, body: string, head = ""): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"><title>${escape(title)} · Nookly</title><link rel="icon" href="/logo.png"><style>${STYLES}</style>${head}</head><body><a class="brand" href="/" tabindex="-1"><img src="/logo.png" alt="" width="36" height="36">Nookly</a><main class="card ${tone}"><div class="badge">${svg(icon, 28)}</div><h1>${escape(title)}</h1>${body}</main><footer class="foot"><nav class="legal" aria-label="Legal">${LEGAL}</nav><span>Your life, organized in one calm place.</span></footer></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"><title>${escape(title)} · Nookly</title><link rel="icon" href="/logo.png"><style>${STYLES}</style>${head}</head><body><a class="brand" href="/" tabindex="-1"><img src="/logo.png" alt="" width="36" height="36">Nookly</a><main class="card ${tone}"><div class="badge" aria-hidden="true"><i></i><i></i><b>${svg(icon, 26)}</b></div><h1>${escape(title)}</h1>${body}</main><footer class="foot"><nav class="legal" aria-label="Legal">${LEGAL}</nav><span>Your life, organized in one calm place.</span></footer></body></html>`;
 }
 
 export function resultPage(
