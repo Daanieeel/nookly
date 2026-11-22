@@ -92,6 +92,15 @@ describe("accounts", () => {
     expect(mail?.html).toContain('href="https://nookly.work/privacy"');
   });
 
+  it("colours the icon of a success page green and an error page red", async () => {
+    const { emailConfirmedPage, passwordChangedPage, resultPage } = await import("../src/pages.ts");
+    for (const html of [emailConfirmedPage(), passwordChangedPage()]) {
+      expect(html).toContain('class="card success"');
+      expect(html).toContain(".success .badge b{color:var(--green)}");
+    }
+    expect(resultPage("x", "y", "error")).toContain(".error .badge b{color:var(--red)}");
+  });
+
   it("serves the logo the pages and emails show", async () => {
     const logo = await fetch(`${server.baseUrl}/logo.png`);
     expect(logo.status).toBe(200);

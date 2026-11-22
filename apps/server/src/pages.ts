@@ -52,6 +52,7 @@ body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:ce
 .card{width:100%;max-width:24rem;margin:auto 0;text-align:center}
 .badge{position:relative;width:64px;height:64px;margin:0 auto 1.5rem}
 .badge i,.badge b{position:absolute;inset:0;border-radius:14px;background:var(--raised);box-shadow:inset 0 0 0 1px var(--border),var(--control)}
+.success .badge b{color:var(--green)}.error .badge b{color:var(--red)}
 .badge i{opacity:.7}.badge i:nth-child(1){transform:translateX(-7px) rotate(-12deg)}.badge i:nth-child(2){transform:translateX(7px) rotate(12deg)}
 .badge b{display:grid;place-items:center;color:var(--fg);box-shadow:inset 0 0 0 1px var(--border),var(--elev)}
 h1{margin:0 0 .5rem;font:650 1.5rem/1.2 "Inter Tight Variable","Inter Tight",Inter,system-ui,sans-serif;letter-spacing:-.025em}
