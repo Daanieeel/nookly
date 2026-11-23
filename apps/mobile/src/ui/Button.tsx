@@ -160,6 +160,8 @@ interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
   successLabel?: string;
   errorLabel?: string;
   icon?: React.ReactNode;
+  /// Drawn after the label, while idle: an arrow for a step that is followed by another.
+  iconEnd?: React.ReactNode;
   className?: string;
 }
 
@@ -174,6 +176,7 @@ export function Button({
   successLabel,
   errorLabel,
   icon,
+  iconEnd,
   disabled,
   className,
   ...props
@@ -257,6 +260,7 @@ export function Button({
           {shown}
         </Label>
       </View>
+      {status === "idle" && !showSuccess ? withLabelColor(iconEnd, look.text) : null}
     </AnimatedPressable>
   );
 }

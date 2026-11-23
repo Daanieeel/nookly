@@ -3,6 +3,7 @@ import {
   ACCOUNT_TABS,
   ApiClient,
   BETA_KEY_MISSING,
+  ProviderNoAccountError,
   TERMS_VERSION,
   TwoFactorRequiredError,
   asksForBetaKey,
@@ -14,6 +15,9 @@ import { useIsTablet } from "../ui/pane.tsx";
 import { useDeviceWord } from "../ui/device-word.ts";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import {
+  IconArrowBackUp,
+  IconArrowLeft,
+  IconArrowRight,
   IconKey,
   IconLock,
   IconMail,
@@ -24,7 +28,7 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
@@ -137,11 +141,14 @@ export function WelcomeScreen() {
 /// The server this phone signs in to: shown as an address, changed on request.
 function ServerField({
   value,
+  original,
   onChange,
   error,
   disabled = false,
 }: {
   value: string;
+  /// The address the page opened with, which the revert button goes back to.
+  original: string;
   onChange: (next: string) => void;
   error: string | undefined;
   /// Locked while the form is being sent.
@@ -168,26 +175,45 @@ function ServerField({
     );
   }
   return (
-    <UrlField
-      label="Server"
-      icon={IconServer}
-      showName
-      required
-      editable={!disabled}
-      value={value}
-      onValueChange={onChange}
-      error={error}
-      placeholder="sync.example.com"
-    />
+    <View className="gap-1">
+      <UrlField
+        label="Server"
+        icon={IconServer}
+        showName
+        required
+        editable={!disabled}
+        value={value}
+        onValueChange={onChange}
+        error={error}
+        placeholder="sync.example.com"
+      />
+      {value !== original ? (
+        <View className="items-start">
+          <Button
+            label="Revert Server"
+            variant="ghost"
+            size="sm"
+            disabled={disabled}
+            icon={<IconArrowBackUp size={16} />}
+            onPress={() => {
+              onChange(original);
+              setEditing(false);
+            }}
+          />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 function useServer() {
   const { serverUrl } = useAppData();
-  const [server, setServer] = useState(serverUrl.get() ?? DEFAULT_SERVER);
+  const [original] = useState(serverUrl.get() ?? DEFAULT_SERVER);
+  const [server, setServer] = useState(original);
   const parsed = serverSchema.safeParse(server);
   return {
     server,
+    original,
     setServer,
     error: parsed.success ? undefined : parsed.error.issues[0]?.message,
     /// The normalized address, saved as this phone's server.
@@ -202,33 +228,55 @@ function useServer() {
 
 type LocalData = NonNullable<SignInOptions["localData"]>;
 
-/// What is already on this phone, and the question a sign in has to ask about it: nothing
-/// joins an account without a yes. A phone with nothing on it is not asked.
-function useLocalData() {
+/// What a sign in or a new account asks for before it goes through, in a step of its own.
+interface StepNeeds {
+  /// Said above the questions, when there is something to explain.
+  intro?: string;
+  /// The terms, ticked, for an account that is made.
+  terms?: boolean;
+  /// The beta key, for an account that is made without having typed it.
+  betaKey?: boolean;
+}
+
+interface Pending {
+  needs: StepNeeds;
+  run: (answers: { betaKey?: string }) => void;
+}
+
+/// The second step, as the desktop's dialog has it. Nothing joins an account without a yes, so
+/// what is already on this phone is asked about before a sign in goes through; a new account
+/// asks for its beta key and terms here too. A phone with nothing on it, signing in, has no
+/// second step.
+function useSecondStep() {
   const { sync } = useAppData();
   const { data: count = 0 } = useQuery({
     queryKey: keys.sync.localData,
     queryFn: () => sync.localDataCount(),
   });
   const [choice, setChoice] = useState<LocalData | null>(null);
-  const [missing, setMissing] = useState(false);
+  const [pending, setPending] = useState<Pending | null>(null);
   return {
     count,
     choice,
-    missing,
-    choose: (next: LocalData) => {
-      setChoice(next);
-      setMissing(false);
-    },
-    /// Whether the form may go; says so under the question when it is still open.
-    answered(): boolean {
-      const ok = count === 0 || choice !== null;
-      setMissing(!ok);
-      return ok;
-    },
+    setChoice,
+    pending,
     options: (): SignInOptions => (count > 0 && choice ? { localData: choice } : {}),
+    /// Goes on at once when there is nothing to ask, and asks first when there is.
+    request(needs: StepNeeds, run: Pending["run"]) {
+      const asks = (count > 0 && choice === null) || needs.intro || needs.terms || needs.betaKey;
+      if (asks) setPending({ needs, run });
+      else run({});
+    },
+    confirm(answers: { betaKey?: string }) {
+      const waiting = pending;
+      setPending(null);
+      waiting?.run(answers);
+    },
+    cancel: () => setPending(null),
   };
 }
+
+type SecondStep = ReturnType<typeof useSecondStep>;
 
 const LOCAL_DATA_CHOICES: {
   value: LocalData;
@@ -249,13 +297,13 @@ const LOCAL_DATA_CHOICES: {
   },
 ];
 
-function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) {
+function LocalDataQuestion({ data }: { data: SecondStep }) {
   const device = useDeviceWord();
   if (data.count === 0) return null;
   const items = data.count === 1 ? "1 item" : `${data.count.toLocaleString()} items`;
   return (
     <View className="gap-2" accessibilityRole="radiogroup">
-      <Text tone="muted">
+      <Text variant="small" tone="muted">
         This {device} already holds {items}. What should happen to{" "}
         {data.count === 1 ? "it" : "them"}?
       </Text>
@@ -267,7 +315,7 @@ function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) 
             accessibilityRole="radio"
             accessibilityState={{ selected }}
             accessibilityLabel={option.label}
-            onPress={() => data.choose(option.value)}
+            onPress={() => data.setChoice(option.value)}
             className={cn(
               "active:opacity-60",
               "min-h-11 gap-1 rounded-md border p-3",
@@ -281,7 +329,82 @@ function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) 
           </Pressable>
         );
       })}
-      {data.missing ? <Text tone="destructive">Choose one of the two first.</Text> : null}
+    </View>
+  );
+}
+
+/// The form stays mounted under the step, so what was typed (and a sign in that is under way)
+/// is still there when the person goes back.
+function Stepped({ step, children }: { step: SecondStep; children: React.ReactNode }) {
+  return (
+    <>
+      <View className="gap-4" style={step.pending ? { display: "none" } : undefined}>
+        {children}
+      </View>
+      {step.pending ? <SecondStepView step={step} pending={step.pending} /> : null}
+    </>
+  );
+}
+
+function SecondStepView({ step, pending }: { step: SecondStep; pending: Pending }) {
+  const { needs } = pending;
+  const [key, setKey] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const theme = useTheme();
+  const answered =
+    (step.count === 0 || step.choice !== null) &&
+    (!needs.terms || agreed) &&
+    (!needs.betaKey || key.trim() !== "");
+  return (
+    <View className="gap-4">
+      {needs.intro ? <Text>{needs.intro}</Text> : null}
+      {needs.betaKey ? (
+        <FormSection>
+          <Field
+            label="Beta key"
+            icon={<FieldIcon icon={IconKey} />}
+            showName
+            required
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="oneTimeCode"
+            placeholder="Beta key"
+            value={key}
+            onChangeText={setKey}
+          />
+          <Text variant="small" tone="muted" className="px-4">
+            Needed while Nookly is in its closed beta.
+          </Text>
+        </FormSection>
+      ) : null}
+      <LocalDataQuestion data={step} />
+      {needs.terms ? (
+        <CheckboxRow
+          checked={agreed}
+          onChange={setAgreed}
+          label="I am at least 18 and agree to the Terms of Service"
+        >
+          <Text variant="small" tone="muted">
+            I am at least 18 and agree to the <LegalLink page="terms" />. How we handle your data is
+            in the <LegalLink page="privacy" />.
+          </Text>
+        </CheckboxRow>
+      ) : null}
+      <View className="gap-1">
+        <Button
+          label="Continue"
+          size="lg"
+          disabled={!answered}
+          onPress={() => step.confirm({ betaKey: key.trim() || undefined })}
+        />
+        <Button
+          label="Back"
+          variant="ghost"
+          icon={<IconArrowLeft size={16} color={theme.colors.foreground} />}
+          onPress={step.cancel}
+        />
+      </View>
     </View>
   );
 }
@@ -381,15 +504,12 @@ const listed = (names: string[]) =>
 function OtherAccounts({
   verb,
   server,
-  local,
-  betaKey,
+  step,
   onDone,
 }: {
   verb: "in" | "up";
   server: ReturnType<typeof useServer>;
-  local: ReturnType<typeof useLocalData>;
-  /// What is typed in the beta key field now, for creating an account.
-  betaKey: () => string;
+  step: SecondStep;
   /// An account is in.
   onDone: () => void;
 }) {
@@ -406,22 +526,53 @@ function OtherAccounts({
     retry: false,
   });
   const signIn = useMutation({
-    mutationFn: (provider: Provider) => {
+    mutationFn: (input: { provider: Provider; create: boolean; key?: string }) => {
       const target = server.commit();
-      const key = verb === "up" ? betaKey().trim() || undefined : undefined;
-      if (verb === "up" && !key && asksForBetaKey(target)) throw new Error(BETA_KEY_MISSING);
+      if (input.create && !input.key && asksForBetaKey(target)) throw new Error(BETA_KEY_MISSING);
       return sync.signInWithProvider(
         target,
-        provider.toLowerCase(),
-        { createAccount: verb === "up", betaKey: key },
-        local.options(),
+        input.provider.toLowerCase(),
+        {
+          createAccount: input.create,
+          betaKey: input.key,
+          // Agreed to in the second step, and recorded with the account it makes.
+          termsVersion: input.create && requiresTerms(target) ? TERMS_VERSION : undefined,
+        },
+        step.options(),
       );
     },
     // Nothing comes back when the sheet was closed or the person gave up: stay here.
     onSuccess: (user) => {
       if (user) onDone();
     },
+    // No account for this one yet: not a dead end, the question is whether to make one.
+    onError: (error, input) => {
+      if (!(error instanceof ProviderNoAccountError) || input.create) return;
+      step.request(
+        {
+          intro: `There is no Nookly account for this ${input.provider} account yet. Create one?`,
+          terms: requiresTerms(server.server),
+          betaKey: asksForBetaKey(server.server),
+        },
+        (answers) =>
+          signIn.mutate({ provider: input.provider, create: true, key: answers.betaKey }),
+      );
+    },
   });
+  const begin = (provider: Provider) => {
+    if (verb === "in") {
+      step.request({}, () => signIn.mutate({ provider, create: false }));
+      return;
+    }
+    // A server that fails to parse has nothing to ask for: the error says so.
+    if (url === null) {
+      signIn.mutate({ provider, create: true });
+      return;
+    }
+    step.request({ terms: requiresTerms(url), betaKey: asksForBetaKey(url) }, (answers) =>
+      signIn.mutate({ provider, create: true, key: answers.betaKey }),
+    );
+  };
   const coming = PROVIDERS.filter((name) => !offered.includes(name.toLowerCase()));
   return (
     <View className="gap-3">
@@ -432,7 +583,7 @@ function OtherAccounts({
         </Text>
         <View style={{ flex: 1, height: 1, backgroundColor: separator }} />
       </View>
-      <View className="flex-row flex-wrap" style={{ gap: SPACE.sm }}>
+      <View className="flex-row" style={{ gap: SPACE.sm }}>
         {PROVIDERS.map((name) => {
           const available = offered.includes(name.toLowerCase());
           const disabled = !available || signIn.isPending;
@@ -443,17 +594,12 @@ function OtherAccounts({
               accessibilityLabel={`Sign ${verb} with ${name}`}
               accessibilityState={{ disabled }}
               disabled={disabled}
-              onPress={() => {
-                if (local.answered()) signIn.mutate(name);
-              }}
+              onPress={() => begin(name)}
               style={{
-                flexBasis: "47%",
-                flexGrow: 1,
+                flex: 1,
                 minHeight: 48,
-                flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: SPACE.sm,
                 borderRadius: RADIUS.control,
                 borderCurve: "continuous",
                 backgroundColor: surface,
@@ -461,7 +607,6 @@ function OtherAccounts({
               }}
             >
               <ProviderMark provider={name} color={theme.colors.foreground} />
-              <Text className="font-medium">{name}</Text>
             </Pressable>
           );
         })}
@@ -469,21 +614,17 @@ function OtherAccounts({
       {signIn.isPending ? (
         <View className="flex-row items-center justify-center gap-2">
           <Text variant="small" tone="muted">
-            Waiting for {signIn.variables} in your browser
+            Waiting for {signIn.variables?.provider} in your browser
           </Text>
           <Button variant="ghost" label="Cancel" onPress={() => sync.cancelProviderSignIn()} />
         </View>
       ) : null}
-      {signIn.error ? <Text tone="destructive">{signIn.error.message}</Text> : null}
+      {signIn.error && !(signIn.error instanceof ProviderNoAccountError) ? (
+        <Text tone="destructive">{signIn.error.message}</Text>
+      ) : null}
       {offered.length > 0 && coming.length > 0 ? (
         <Text variant="small" tone="muted" className="text-center">
           {listed(coming)} {coming.length === 1 ? "is" : "are"} coming soon
-        </Text>
-      ) : null}
-      {verb === "up" && requiresTerms(server.server) ? (
-        <Text variant="small" tone="muted" className="text-center">
-          By signing up with another account you agree to the <LegalLink page="terms" /> and have
-          read the <LegalLink page="privacy" />.
         </Text>
       ) : null}
     </View>
@@ -494,13 +635,13 @@ export function SignInScreen() {
   const router = useRouter();
   const { sync } = useAppData();
   const server = useServer();
-  const local = useLocalData();
+  const step = useSecondStep();
   const done = useAfterSignIn();
   // The password was right and the account asks for a second step before it signs in.
   const [secondStep, setSecondStep] = useState<TwoFactorRequiredError | null>(null);
   const signIn = useMutation({
     mutationFn: (value: z.infer<typeof signInSchema>) =>
-      sync.signIn(server.commit(), value.identifier, value.password, local.options()),
+      sync.signIn(server.commit(), value.identifier, value.password, step.options()),
     onSuccess: done,
     onError: (error) => {
       if (error instanceof TwoFactorRequiredError) setSecondStep(error);
@@ -509,9 +650,7 @@ export function SignInScreen() {
   const form = useForm({
     defaultValues: { identifier: "", password: "" },
     validators: { onChange: signInSchema, onSubmit: signInSchema },
-    onSubmit: ({ value }) => {
-      if (local.answered()) signIn.mutate(value);
-    },
+    onSubmit: ({ value }) => step.request({}, () => signIn.mutate(value)),
   });
   const attempted = useStore(form.store, (state) => state.submissionAttempts > 0);
   const valid = useStore(form.store, (state) => state.isValid);
@@ -523,7 +662,7 @@ export function SignInScreen() {
           serverUrl={normalizeServerUrl(server.server)}
           challenge={secondStep.challenge}
           methods={secondStep.methods}
-          options={local.options()}
+          options={step.options()}
           onDone={done}
           onBack={() => {
             setSecondStep(null);
@@ -535,93 +674,96 @@ export function SignInScreen() {
   }
   return (
     <Page mode="signIn">
-      <FormSection>
-        <form.Field name="identifier">
-          {(field) => (
-            <Field
-              editable={!signIn.isPending}
-              invalid={rejection.invalid("identifier")}
-              label="Username or email"
-              icon={<FieldIcon icon={IconUser} />}
-              showName
-              placeholder="Username or email"
-              required
-              autoCapitalize="none"
-              autoCorrect={false}
-              textContentType="username"
-              autoComplete="username"
-              value={field.state.value}
-              onChangeText={(next) => {
-                rejection.edit("identifier");
-                field.handleChange(next);
-              }}
-              onBlur={field.handleBlur}
-              error={fieldError(field)}
-            />
-          )}
-        </form.Field>
-        <form.Field name="password">
-          {(field) => (
-            <Field
-              editable={!signIn.isPending}
-              invalid={rejection.invalid("password")}
-              label="Password"
-              icon={<FieldIcon icon={IconLock} />}
-              showName
-              placeholder="Password"
-              required
-              secureTextEntry
-              textContentType="password"
-              autoComplete="current-password"
-              value={field.state.value}
-              onChangeText={(next) => {
-                rejection.edit("password");
-                field.handleChange(next);
-              }}
-              onBlur={field.handleBlur}
-              error={fieldError(field)}
-            />
-          )}
-        </form.Field>
-      </FormSection>
-      <ServerField
-        value={server.server}
-        onChange={(next) => {
-          rejection.editAll();
-          server.setServer(next);
-        }}
-        error={server.error}
-        disabled={signIn.isPending}
-      />
-      <LocalDataQuestion data={local} />
-      {signIn.error ? <Text tone="destructive">{signIn.error.message}</Text> : null}
-      <View className="gap-1">
-        <Button
-          label="Sign In"
-          disabled={rejection.waiting || (attempted && !valid)}
-          size="lg"
-          status={statusOf(signIn)}
-          errorLabel="Couldn't sign in"
-          onPress={() => void form.handleSubmit()}
+      <Stepped step={step}>
+        <FormSection>
+          <form.Field name="identifier">
+            {(field) => (
+              <Field
+                editable={!signIn.isPending}
+                invalid={rejection.invalid("identifier")}
+                label="Username or email"
+                icon={<FieldIcon icon={IconUser} />}
+                showName
+                placeholder="Username or email"
+                required
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="username"
+                autoComplete="username"
+                value={field.state.value}
+                onChangeText={(next) => {
+                  rejection.edit("identifier");
+                  field.handleChange(next);
+                }}
+                onBlur={field.handleBlur}
+                error={fieldError(field)}
+              />
+            )}
+          </form.Field>
+          <form.Field name="password">
+            {(field) => (
+              <Field
+                editable={!signIn.isPending}
+                invalid={rejection.invalid("password")}
+                label="Password"
+                icon={<FieldIcon icon={IconLock} />}
+                showName
+                placeholder="Password"
+                required
+                secureTextEntry
+                textContentType="password"
+                autoComplete="current-password"
+                value={field.state.value}
+                onChangeText={(next) => {
+                  rejection.edit("password");
+                  field.handleChange(next);
+                }}
+                onBlur={field.handleBlur}
+                error={fieldError(field)}
+              />
+            )}
+          </form.Field>
+        </FormSection>
+        <ServerField
+          value={server.server}
+          original={server.original}
+          onChange={(next) => {
+            rejection.editAll();
+            server.setServer(next);
+          }}
+          error={server.error}
+          disabled={signIn.isPending}
         />
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel="Forgot Password"
-          onPress={() => router.push("/account/forgot")}
-          className="min-h-11 items-center justify-center active:opacity-60"
-        >
-          <Text tone="muted">Forgot Password</Text>
-        </Pressable>
-      </View>
-      <OtherAccounts verb="in" server={server} local={local} betaKey={() => ""} onDone={done} />
+        {signIn.error ? <Text tone="destructive">{signIn.error.message}</Text> : null}
+        <View className="gap-1">
+          <Button
+            label="Sign In"
+            disabled={rejection.waiting || (attempted && !valid)}
+            size="lg"
+            status={statusOf(signIn)}
+            errorLabel="Couldn't sign in"
+            onPress={() => void form.handleSubmit()}
+          />
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Forgot Password"
+            onPress={() => router.push("/account/forgot")}
+            className="min-h-11 items-center justify-center active:opacity-60"
+          >
+            <Text tone="muted">Forgot Password</Text>
+          </Pressable>
+        </View>
+        <OtherAccounts verb="in" server={server} step={step} onDone={done} />
+      </Stepped>
     </Page>
   );
 }
 
 export function SignUpScreen() {
+  const theme = useTheme();
   const { sync } = useAppData();
   const server = useServer();
-  const local = useLocalData();
+  const step = useSecondStep();
   const done = useAfterSignIn();
   const signUp = useMutation({
     mutationFn: (value: z.infer<typeof signUpFormSchema>) => {
@@ -638,12 +780,11 @@ export function SignUpScreen() {
           // Only Nookly's own server has terms, and the box is only there for it.
           termsVersion: requiresTerms(url) ? TERMS_VERSION : undefined,
         },
-        local.options(),
+        step.options(),
       );
     },
     onSuccess: done,
   });
-  const needsTerms = requiresTerms(server.server);
   const form = useForm({
     defaultValues: {
       username: "",
@@ -651,195 +792,151 @@ export function SignUpScreen() {
       password: "",
       confirm: "",
       betaKey: "",
-      acceptTerms: false,
+      // Agreed to in the second step, where Nookly's own server asks for it.
+      acceptTerms: true,
     },
     validators: { onChange: signUpFormSchema, onSubmit: signUpFormSchema },
-    onSubmit: ({ value }) => {
-      if (local.answered()) signUp.mutate(value);
-    },
+    // The beta key and the terms are asked for in the next step.
+    onSubmit: ({ value }) =>
+      step.request(
+        { terms: requiresTerms(server.server), betaKey: asksForBetaKey(server.server) },
+        (answers) => signUp.mutate({ ...value, betaKey: answers.betaKey ?? "" }),
+      ),
   });
-  // A server of your own has no terms of ours: nothing to tick there.
-  useEffect(() => {
-    form.setFieldValue("acceptTerms", !needsTerms);
-  }, [form, needsTerms]);
   const attempted = useStore(form.store, (state) => state.submissionAttempts > 0);
   const valid = useStore(form.store, (state) => state.isValid);
   const email = useStore(form.store, (state) => state.values.email);
-  const rejection = useRejection(
-    signUp,
-    ["username", "password", "betaKey", ...(email.trim() ? ["email"] : [])],
-    (error) => (error.message === BETA_KEY_MISSING ? ["betaKey"] : null),
-  );
+  const rejection = useRejection(signUp, [
+    "username",
+    "password",
+    ...(email.trim() ? ["email"] : []),
+  ]);
   return (
     <Page mode="signUp">
-      <FormSection>
-        <form.Field name="username">
-          {(field) => (
-            <Field
-              editable={!signUp.isPending}
-              invalid={rejection.invalid("username")}
-              label="Username"
-              icon={<FieldIcon icon={IconUser} />}
-              showName
-              placeholder="Username"
-              required
-              autoCapitalize="none"
-              autoCorrect={false}
-              textContentType="username"
-              autoComplete="username-new"
-              value={field.state.value}
-              onChangeText={(next) => {
-                rejection.edit("username");
-                field.handleChange(next);
-              }}
-              onBlur={field.handleBlur}
-              error={fieldError(field)}
-            />
-          )}
-        </form.Field>
-        <form.Field name="email">
-          {(field) => (
-            <Field
-              editable={!signUp.isPending}
-              invalid={rejection.invalid("email")}
-              label="Email"
-              required
-              icon={<FieldIcon icon={IconMail} />}
-              showName
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              autoComplete="email"
-              placeholder="ada@example.com"
-              value={field.state.value}
-              onChangeText={(next) => {
-                rejection.edit("email");
-                field.handleChange(next);
-              }}
-              onBlur={field.handleBlur}
-              error={fieldError(field)}
-            />
-          )}
-        </form.Field>
-        <form.Field name="password">
-          {(field) => (
-            <Field
-              editable={!signUp.isPending}
-              invalid={rejection.invalid("password")}
-              label="Password"
-              icon={<FieldIcon icon={IconLock} />}
-              showName
-              placeholder="Password"
-              required
-              secureTextEntry
-              textContentType="newPassword"
-              autoComplete="password-new"
-              value={field.state.value}
-              onChangeText={(next) => {
-                rejection.edit("password");
-                field.handleChange(next);
-              }}
-              onBlur={field.handleBlur}
-              error={fieldError(field)}
-            />
-          )}
-        </form.Field>
-        <form.Field name="confirm">
-          {(field) => (
-            <Field
-              editable={!signUp.isPending}
-              label="Repeat password"
-              icon={<FieldIcon icon={IconLock} />}
-              placeholder="Repeat password"
-              required
-              secureTextEntry
-              textContentType="newPassword"
-              autoComplete="password-new"
-              value={field.state.value}
-              onChangeText={field.handleChange}
-              onBlur={field.handleBlur}
-              error={fieldError(field)}
-            />
-          )}
-        </form.Field>
-        <form.Subscribe selector={(state) => state.values}>
-          {(values) => (
-            <PasswordStrengthMeter
-              password={values.password}
-              userInputs={[values.username, values.email].filter(Boolean)}
-            />
-          )}
-        </form.Subscribe>
-        <form.Field name="betaKey">
-          {(field) => (
-            <Field
-              editable={!signUp.isPending}
-              invalid={rejection.invalid("betaKey")}
-              label="Beta key"
-              icon={<FieldIcon icon={IconKey} />}
-              showName
-              required={asksForBetaKey(server.server)}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              textContentType="oneTimeCode"
-              placeholder="Needed while Nookly is in its closed beta"
-              value={field.state.value}
-              onChangeText={(next) => {
-                rejection.edit("betaKey");
-                field.handleChange(next);
-              }}
-              onBlur={field.handleBlur}
-              error={fieldError(field)}
-            />
-          )}
-        </form.Field>
-      </FormSection>
-      <ServerField
-        value={server.server}
-        onChange={(next) => {
-          rejection.editAll();
-          server.setServer(next);
-        }}
-        error={server.error}
-        disabled={signUp.isPending}
-      />
-      <LocalDataQuestion data={local} />
-      {needsTerms ? (
-        <form.Field name="acceptTerms">
-          {(field) => (
-            <CheckboxRow
-              checked={field.state.value}
-              onChange={field.handleChange}
-              disabled={signUp.isPending}
-              label="I am at least 18 and agree to the Terms of Service"
-              error={fieldError(field)}
-            >
-              <Text variant="small" tone="muted">
-                I am at least 18 and agree to the <LegalLink page="terms" />. How we handle your
-                data is in the <LegalLink page="privacy" />.
-              </Text>
-            </CheckboxRow>
-          )}
-        </form.Field>
-      ) : null}
-      {signUp.error ? <Text tone="destructive">{signUp.error.message}</Text> : null}
-      <Button
-        label="Create Account"
-        disabled={rejection.waiting || (attempted && !valid)}
-        size="lg"
-        status={statusOf(signUp)}
-        errorLabel="Couldn't create it"
-        onPress={() => void form.handleSubmit()}
-      />
-      <OtherAccounts
-        verb="up"
-        server={server}
-        local={local}
-        betaKey={() => form.state.values.betaKey}
-        onDone={done}
-      />
+      <Stepped step={step}>
+        <FormSection>
+          <form.Field name="username">
+            {(field) => (
+              <Field
+                editable={!signUp.isPending}
+                invalid={rejection.invalid("username")}
+                label="Username"
+                icon={<FieldIcon icon={IconUser} />}
+                showName
+                placeholder="Username"
+                required
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="username"
+                autoComplete="username-new"
+                value={field.state.value}
+                onChangeText={(next) => {
+                  rejection.edit("username");
+                  field.handleChange(next);
+                }}
+                onBlur={field.handleBlur}
+                error={fieldError(field)}
+              />
+            )}
+          </form.Field>
+          <form.Field name="email">
+            {(field) => (
+              <Field
+                editable={!signUp.isPending}
+                invalid={rejection.invalid("email")}
+                label="Email"
+                required
+                icon={<FieldIcon icon={IconMail} />}
+                showName
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoComplete="email"
+                placeholder="ada@example.com"
+                value={field.state.value}
+                onChangeText={(next) => {
+                  rejection.edit("email");
+                  field.handleChange(next);
+                }}
+                onBlur={field.handleBlur}
+                error={fieldError(field)}
+              />
+            )}
+          </form.Field>
+          <form.Field name="password">
+            {(field) => (
+              <Field
+                editable={!signUp.isPending}
+                invalid={rejection.invalid("password")}
+                label="Password"
+                icon={<FieldIcon icon={IconLock} />}
+                showName
+                placeholder="Password"
+                required
+                secureTextEntry
+                textContentType="newPassword"
+                autoComplete="password-new"
+                value={field.state.value}
+                onChangeText={(next) => {
+                  rejection.edit("password");
+                  field.handleChange(next);
+                }}
+                onBlur={field.handleBlur}
+                error={fieldError(field)}
+              />
+            )}
+          </form.Field>
+          <form.Field name="confirm">
+            {(field) => (
+              <Field
+                editable={!signUp.isPending}
+                label="Repeat password"
+                icon={<FieldIcon icon={IconLock} />}
+                placeholder="Repeat password"
+                required
+                secureTextEntry
+                textContentType="newPassword"
+                autoComplete="password-new"
+                value={field.state.value}
+                onChangeText={field.handleChange}
+                onBlur={field.handleBlur}
+                error={fieldError(field)}
+              />
+            )}
+          </form.Field>
+          <form.Subscribe selector={(state) => state.values}>
+            {(values) => (
+              <PasswordStrengthMeter
+                password={values.password}
+                userInputs={[values.username, values.email].filter(Boolean)}
+              />
+            )}
+          </form.Subscribe>
+        </FormSection>
+        <ServerField
+          value={server.server}
+          original={server.original}
+          onChange={(next) => {
+            rejection.editAll();
+            server.setServer(next);
+          }}
+          error={server.error}
+          disabled={signUp.isPending}
+        />
+        {signUp.error ? <Text tone="destructive">{signUp.error.message}</Text> : null}
+        <Button
+          label="Create Account"
+          disabled={rejection.waiting || (attempted && !valid)}
+          size="lg"
+          status={statusOf(signUp)}
+          errorLabel="Couldn't create it"
+          // More follows: the beta key and the terms, and what to do with what is on this phone.
+          iconEnd={<IconArrowRight size={16} color={theme.colors.primaryForeground} />}
+          onPress={() => void form.handleSubmit()}
+        />
+        <OtherAccounts verb="up" server={server} step={step} onDone={done} />
+      </Stepped>
     </Page>
   );
 }
@@ -890,6 +987,7 @@ export function ForgotScreen() {
       </form.Field>
       <ServerField
         value={server.server}
+        original={server.original}
         onChange={(next) => {
           rejection.editAll();
           server.setServer(next);

@@ -1,6 +1,7 @@
 import {
   ApiRequestError,
   PRODUCTION_SERVER,
+  ProviderNoAccountError,
   TERMS_VERSION,
   TwoFactorRequiredError,
 } from "@nookly/shared/api";
@@ -179,30 +180,47 @@ describe("signing in", () => {
     expect(dismiss).toHaveBeenCalled();
   });
 
-  it("asks what happens to what is on this phone, and signs in with the answer", async () => {
+  it("asks what happens to what is on this phone in a second step, and signs in with the answer", async () => {
     const data = testData();
     jest.spyOn(data.sync, "localDataCount").mockResolvedValue(12);
     const signIn = jest.spyOn(data.sync, "signIn").mockResolvedValue(ADA);
     const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
-    expect(await screen.findByText(/This iPhone already holds 12 items/)).toBeTruthy();
-    await fireEvent.changeText(screen.getByLabelText("Username or email"), "ada");
+    await fireEvent.changeText(await screen.findByLabelText("Username or email"), "ada");
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
-    // Nothing joins an account, and nothing is cleared, without an answer.
+    // The question is not on the form: it comes as a step of its own.
+    expect(screen.queryByText(/This iPhone already holds 12 items/)).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
-    expect(await screen.findByText("Choose one of the two first.")).toBeTruthy();
+    expect(await screen.findByText(/This iPhone already holds 12 items/)).toBeTruthy();
+    expect(screen.queryByLabelText("Username or email")).toBeNull();
+    // Nothing joins an account, and nothing is cleared, without an answer.
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     expect(signIn).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByRole("radio", { name: "Keep out of the account" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() =>
       expect(signIn).toHaveBeenCalledWith(
         expect.stringMatching(/^http/),
         "ada",
         "a long password",
-        {
-          localData: "setAside",
-        },
+        { localData: "setAside" },
       ),
     );
+  });
+
+  it("goes back from the second step to the form, with what was typed still there", async () => {
+    const data = testData();
+    jest.spyOn(data.sync, "localDataCount").mockResolvedValue(3);
+    const signIn = jest.spyOn(data.sync, "signIn").mockResolvedValue(ADA);
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await fireEvent.changeText(await screen.findByLabelText("Username or email"), "ada");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
+    await screen.findByText(/This iPhone already holds 3 items/);
+    await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByLabelText("Username or email")).toBeTruthy();
+    expect(screen.getByLabelText("Username or email").props.value).toBe("ada");
+    expect(screen.queryByText(/already holds/)).toBeNull();
+    expect(signIn).not.toHaveBeenCalled();
   });
 
   it("keeps the server tucked away until asked for", async () => {
@@ -210,10 +228,26 @@ describe("signing in", () => {
     expect(screen.queryByLabelText("Server")).toBeNull();
     await fireEvent.press(await screen.findByRole("button", { name: "Change Server" }));
     expect(screen.getByLabelText("Server")).toBeTruthy();
+    // Nothing to revert while it is the address the page opened with.
+    expect(screen.queryByRole("button", { name: "Revert Server" })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText("Server"), "sync.example.com");
+    await fireEvent.press(screen.getByRole("button", { name: "Revert Server" }));
+    expect(screen.queryByLabelText("Server")).toBeNull();
+    expect(screen.getByRole("button", { name: "Change Server" })).toBeTruthy();
   });
 });
 
 describe("creating an account", () => {
+  async function fillIn(
+    screen: Awaited<ReturnType<typeof renderScreens>>,
+    repeat = "a long password",
+  ) {
+    await fireEvent.changeText(await screen.findByLabelText("Username"), "ada");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    await fireEvent.changeText(screen.getByLabelText("Repeat password"), repeat);
+    await fireEvent.changeText(screen.getByLabelText("Email"), "ada@example.com");
+  }
+
   it("needs a username, an email and a long enough password", async () => {
     const data = testData();
     const signUp = jest.spyOn(data.sync, "signUp").mockResolvedValue(ADA);
@@ -225,17 +259,16 @@ describe("creating an account", () => {
     expect(await screen.findByText("Use only letters, digits, dots and underscores")).toBeTruthy();
     expect(screen.getByText("Use at least 10 characters")).toBeTruthy();
     expect(signUp).not.toHaveBeenCalled();
+    await fillIn(screen);
     await fireEvent.changeText(screen.getByLabelText("Username"), "ada");
-    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
-    await fireEvent.changeText(screen.getByLabelText("Repeat password"), "a long password");
-    await fireEvent.changeText(screen.getByLabelText("Email"), "ada@example.com");
-    await fireEvent.press(screen.getByRole("checkbox", TICK));
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
-    // Nookly's server is a closed beta: no key, no account.
-    expect(await screen.findByText("Enter the beta key to create an account.")).toBeTruthy();
+    // More follows, as on the desktop: the beta key and the terms are the next step.
+    expect(await screen.findByLabelText("Beta key")).toBeTruthy();
+    expect(screen.queryByLabelText("Username")).toBeNull();
     expect(signUp).not.toHaveBeenCalled();
     await fireEvent.changeText(screen.getByLabelText("Beta key"), " the-key ");
-    await fireEvent.press(await screen.findByRole("button", { name: "Create Account" }));
+    await fireEvent.press(screen.getByRole("checkbox", TICK));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() =>
       expect(signUp).toHaveBeenCalledWith(
         PRODUCTION_SERVER,
@@ -256,13 +289,14 @@ describe("creating an account", () => {
     data.serverUrl.set(PRODUCTION_SERVER);
     const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
     await screen.findByLabelText("Username");
-    for (const name of ["Username", "Email", "Password", "Beta key"]) {
+    for (const name of ["Username", "Email", "Password"]) {
       // The drawn name, which may carry a star for a required field.
-      expect(
-        screen.getByText(new RegExp(`^${name.replace(/[()]/g, "\\$&")}( \\*)?$`)),
-      ).toBeTruthy();
+      expect(screen.getByText(new RegExp(`^${name}( \\*)?$`))).toBeTruthy();
       expect(screen.getByLabelText(name)).toBeTruthy();
     }
+    // The beta key and the terms are not on the form: they are the next step.
+    expect(screen.queryByLabelText("Beta key")).toBeNull();
+    expect(screen.queryByRole("checkbox", TICK)).toBeNull();
     // The repeat field has no name drawn, only its placeholder and a name for screen readers.
     expect(screen.queryByText(/^Repeat password/)).toBeNull();
     expect(screen.getByLabelText("Repeat password")).toBeTruthy();
@@ -275,37 +309,58 @@ describe("creating an account", () => {
     expect(await screen.findByRole("progressbar", { name: "Password strength" })).toBeTruthy();
   });
 
-  it("will not create an account until the terms are agreed to, and links the texts", async () => {
+  it("will not create an account until the key is typed and the terms agreed to, and links the texts", async () => {
     const data = testData();
     const signUp = jest.spyOn(data.sync, "signUp").mockResolvedValue(ADA);
     data.serverUrl.set(PRODUCTION_SERVER);
     const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
-    await fireEvent.changeText(await screen.findByLabelText("Username"), "ada");
-    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
-    await fireEvent.changeText(screen.getByLabelText("Repeat password"), "a long password");
-    await fireEvent.changeText(screen.getByLabelText("Email"), "ada@example.com");
-    await fireEvent.changeText(screen.getByLabelText("Beta key"), "the-key");
+    await fillIn(screen);
+    await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
+    await screen.findByLabelText("Beta key");
+    const proceed = () => screen.getByRole("button", { name: "Continue" });
     expect(screen.getByRole("checkbox", TICK).props.accessibilityState).toMatchObject({
       checked: false,
     });
     // Beside the box, and again in the legal links at the foot.
-    // Beside the box, in the note under the other accounts, and again at the foot.
-    expect(screen.getAllByRole("link", { name: "Terms of Service" })).toHaveLength(3);
-    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(3);
-    await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
-    expect(await screen.findByText("Agree to the terms to create an account")).toBeTruthy();
-    expect(signUp).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("link", { name: "Terms of Service" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(2);
+    expect(proceed()).toBeDisabled();
+    await fireEvent.changeText(screen.getByLabelText("Beta key"), "the-key");
+    // The terms are still missing.
+    expect(proceed()).toBeDisabled();
     await fireEvent.press(screen.getByRole("checkbox", TICK));
-    await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
+    expect(proceed()).toBeEnabled();
+    expect(signUp).not.toHaveBeenCalled();
+    await fireEvent.press(proceed());
     await waitFor(() => expect(signUp).toHaveBeenCalledTimes(1));
   });
 
-  it("has no terms to agree to on a server of your own", async () => {
+  it("goes back from the second step to the form, and says what the server turned down", async () => {
     const data = testData();
+    data.serverUrl.set(PRODUCTION_SERVER);
+    jest.spyOn(data.sync, "signUp").mockRejectedValue(new Error("That beta key isn't right."));
+    const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
+    await fillIn(screen);
+    await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Back" }));
+    expect((await screen.findByLabelText("Username")).props.value).toBe("ada");
+    await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
+    await fireEvent.changeText(await screen.findByLabelText("Beta key"), "wrong");
+    await fireEvent.press(screen.getByRole("checkbox", TICK));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("That beta key isn't right.")).toBeTruthy();
+    expect(screen.getByLabelText("Username")).toBeTruthy();
+  });
+
+  it("goes straight through on a server of your own: no key, no terms", async () => {
+    const data = testData();
+    const signUp = jest.spyOn(data.sync, "signUp").mockResolvedValue(ADA);
     data.serverUrl.set("https://sync.example.com");
     const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
-    await screen.findByLabelText("Username");
+    await fillIn(screen);
     expect(screen.queryByRole("checkbox", TICK)).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
+    await waitFor(() => expect(signUp).toHaveBeenCalledTimes(1));
   });
 
   it("asks for the password twice and refuses two that differ", async () => {
@@ -313,14 +368,10 @@ describe("creating an account", () => {
     const signUp = jest.spyOn(data.sync, "signUp").mockResolvedValue(ADA);
     data.serverUrl.set(PRODUCTION_SERVER);
     const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
-    await fireEvent.changeText(await screen.findByLabelText("Username"), "ada");
-    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
-    await fireEvent.changeText(screen.getByLabelText("Repeat password"), "another long one");
-    await fireEvent.changeText(screen.getByLabelText("Email"), "ada@example.com");
-    await fireEvent.changeText(screen.getByLabelText("Beta key"), "the-key");
-    await fireEvent.press(screen.getByRole("checkbox", TICK));
+    await fillIn(screen, "another long one");
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("The passwords don't match")).toBeTruthy();
+    expect(screen.queryByLabelText("Beta key")).toBeNull();
     expect(signUp).not.toHaveBeenCalled();
   });
 });
@@ -392,36 +443,80 @@ describe("signing in with another account", () => {
     expect(await screen.findByText(/no Nookly account for this GitHub/)).toBeTruthy();
   });
 
-  it("creates an account with a provider only with the beta key typed first", async () => {
+  it("creates an account with a provider only with the beta key typed and the terms agreed to", async () => {
     const data = offering();
-    data.serverUrl.set(PRODUCTION_SERVER);
     const signIn = jest.spyOn(data.sync, "signInWithProvider").mockResolvedValue(ADA);
     const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Sign up with Notion" })).toBeEnabled(),
     );
     await fireEvent.press(screen.getByRole("button", { name: "Sign up with Notion" }));
-    expect(await screen.findAllByText("Enter the beta key to create an account.")).not.toHaveLength(
-      0,
-    );
+    // Not tied to what was typed above: the beta key and the terms are the next step.
+    const proceed = () => screen.getByRole("button", { name: "Continue" });
+    await fireEvent.changeText(await screen.findByLabelText("Beta key"), " the-key ");
+    expect(proceed()).toBeDisabled();
     expect(signIn).not.toHaveBeenCalled();
-    await fireEvent.changeText(screen.getByLabelText("Beta key"), " the-key ");
-    await fireEvent.press(screen.getByRole("button", { name: "Sign up with Notion" }));
+    await fireEvent.press(screen.getByRole("checkbox", TICK));
+    await fireEvent.press(proceed());
     await waitFor(() =>
       expect(signIn).toHaveBeenCalledWith(
         PRODUCTION_SERVER,
         "notion",
-        { createAccount: true, betaKey: "the-key" },
+        { createAccount: true, betaKey: "the-key", termsVersion: TERMS_VERSION },
         {},
       ),
     );
   });
 
-  it("points at the terms next to the buttons that create an account", async () => {
+  it("turns a sign in with a provider that has no account into a sign up", async () => {
     const data = offering();
-    data.serverUrl.set(PRODUCTION_SERVER);
-    const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
-    expect(await screen.findByText(/By signing up with another account you agree/)).toBeTruthy();
+    const signIn = jest
+      .spyOn(data.sync, "signInWithProvider")
+      .mockRejectedValueOnce(new ProviderNoAccountError("notion"))
+      .mockResolvedValueOnce(ADA);
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign in with Notion" })).toBeEnabled(),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in with Notion" }));
+    expect(
+      await screen.findByText(
+        "There is no Nookly account for this Notion account yet. Create one?",
+      ),
+    ).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Beta key"), "the-key");
+    await fireEvent.press(screen.getByRole("checkbox", TICK));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() =>
+      expect(signIn).toHaveBeenLastCalledWith(
+        PRODUCTION_SERVER,
+        "notion",
+        { createAccount: true, betaKey: "the-key", termsVersion: TERMS_VERSION },
+        {},
+      ),
+    );
+  });
+
+  it("asks what happens to what is on the phone before a provider sign in", async () => {
+    const data = offering();
+    jest.spyOn(data.sync, "localDataCount").mockResolvedValue(4);
+    const signIn = jest.spyOn(data.sync, "signInWithProvider").mockResolvedValue(ADA);
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign in with GitHub" })).toBeEnabled(),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in with GitHub" }));
+    expect(await screen.findByText(/This iPhone already holds 4 items/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "Add to the account" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() =>
+      expect(signIn).toHaveBeenCalledWith(
+        PRODUCTION_SERVER,
+        "github",
+        { createAccount: false, betaKey: undefined, termsVersion: undefined },
+        { localData: "add" },
+      ),
+    );
   });
 });
 
