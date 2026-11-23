@@ -2,11 +2,11 @@
 
 All notable changes to Nookly are listed here.
 
-## 1.0.0 (2026-11-10)
+## 1.0.0 (2026-11-23)
 
 ### Added
 
-- Nookly is now on your iPhone and iPad. Sign in with the same account and your Spaces, tasks, pages, study, files and settings are there, with sheets, haptics and gestures that feel at home on iOS.
+- Nookly's iPhone and iPad app is on its way. Sign in with the same account and your Spaces, tasks, pages, study, files and settings will be there, with sheets, haptics and gestures that feel at home on iOS.
 - Changes you make on one device show up on your others as you make them, and everything keeps working offline and catches up within seconds once the server can be reached again.
 - If you change the same thing on two devices, every device offers both versions side by side, and you keep one, both or a mix. Nothing is lost.
 - When you sign in on a device that already has your things on it, Nookly asks whether to add them to the account or keep them out of it, makes a backup first, and shows how far it got on a page of its own until everything is in. Signing out removes the account's data from that device (attached files stay in Nookly's folder there) and keeps it in the account, or you can tick Keep a local copy to carry on using it on that device without an account.

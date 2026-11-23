@@ -2,15 +2,14 @@
   "versions": [
     {
       "version": "1.0.0",
-      "date": "2026-11-10",
-      "title": "Nookly on your phone, synced everywhere",
-      "summary": "An iPhone and iPad app, one account for all your devices, live sync and a calm way to settle clashes.",
+      "date": "2026-11-23",
+      "title": "One account, synced everywhere",
+      "summary": "One account for all your devices, live sync and a calm way to settle clashes, with the iPhone and iPad app on its way.",
       "highlights": [
         {
-          "title": "Nookly for iPhone and iPad",
-          "description": "Your Spaces, tasks, pages, study and files on your phone, with sheets, haptics and gestures that feel at home on iOS.",
-          "icon": "device-mobile",
-          "tag": "New"
+          "title": "iPhone and iPad app on its way",
+          "description": "Your Spaces, tasks, pages, study and files on your phone, with sheets, haptics and gestures that feel at home on iOS. It is coming soon.",
+          "icon": "device-mobile"
         },
         {
           "title": "One account, every device",
