@@ -14,6 +14,7 @@ import {
   IconLock,
   IconLogout,
   IconServer,
+  IconShieldLock,
   IconTrash,
   type Icon as TablerIcon,
 } from "@tabler/icons-react-native";
@@ -38,6 +39,7 @@ import { Label } from "../../ui/kit/Label.tsx";
 import { ListRow } from "../../ui/kit/ListRow.tsx";
 import { Points } from "../../ui/sheet/Confirm.tsx";
 import { useOptionalSheetHost } from "../../ui/sheet/SheetHost.tsx";
+import { useOpenSecurity } from "../SecurityGate.tsx";
 import { useTermsGate } from "../terms-gate-store.ts";
 import { useSheet } from "../../ui/sheet/Sheet.tsx";
 import { SPACE } from "../../ui/tokens.ts";
@@ -549,6 +551,29 @@ function PasswordRow() {
   );
 }
 
+/// The way into two-factor sign in. An account made with another provider has no password
+/// to protect, so it shows nothing.
+function SecurityRow() {
+  const { sync } = useAppData();
+  const open = useOpenSecurity();
+  const { data } = useQuery({
+    queryKey: keys.sync.security,
+    queryFn: async () => (await sync.account()?.security()) ?? null,
+  });
+  if (!data?.available) return null;
+  return (
+    <GroupedSection margin={0}>
+      <ListRow
+        badge={<IconBadge glyph={IconShieldLock} tint="green" />}
+        title="Two-factor sign in"
+        detail={data.enabled ? "On" : "Off"}
+        accessory="chevron"
+        onPress={open}
+      />
+    </GroupedSection>
+  );
+}
+
 /// The account's end: a row that opens what it takes in a sheet.
 function DeleteRow() {
   const host = useOptionalSheetHost();
@@ -590,6 +615,7 @@ export function AccountPage() {
         <>
           <Section title="Password">
             <PasswordRow />
+            <SecurityRow />
           </Section>
           <Section title="Devices">
             <DeviceCards />

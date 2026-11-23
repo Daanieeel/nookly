@@ -10,6 +10,7 @@
     "./sync": "./src/sync/index.ts",
     "./api": "./src/api/index.ts",
     "./password-strength": "./src/password-strength.ts",
+    "./qr": "./src/qr.ts",
     "./url-field": "./src/url-field.ts",
     "./testing": "./src/sync/testing/index.ts",
     "./data": "./src/data/index.ts",
@@ -46,6 +47,7 @@
     "prosemirror-model": "1.25.13",
     "prosemirror-state": "1.4.4",
     "prosemirror-view": "1.42.9",
+    "toqr": "0.1.1",
     "yjs": "13.6.33",
     "zod": "^4",
     "zustand": "^5"

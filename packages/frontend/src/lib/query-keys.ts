@@ -183,6 +183,7 @@ export const qk = {
     account: ["sync", "account"] as const,
     providers: (serverUrl: string) => ["sync", "providers", serverUrl] as const,
     sessions: ["sync", "sessions"] as const,
+    security: ["sync", "security"] as const,
     sharesByMe: ["sync", "shares", "outgoing"] as const,
     conflicts: ["sync", "conflicts"] as const,
     conflictViews: ["sync", "conflict-views"] as const,

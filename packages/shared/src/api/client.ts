@@ -20,19 +20,26 @@ import {
 import { type LiveHandlers, NetworkError, type SyncTransport } from "../sync/client.ts";
 import {
   type DeviceInfo,
+  type AuthenticatorStart,
   type ProviderBeginInput,
+  type SecuritySummary,
   type Session,
   type Share,
   type ShareRole,
   type SignUp,
+  type TwoFactorMethod,
   type User,
   authResponseSchema,
+  authenticatorStartSchema,
+  backupCodesSchema,
   createShareResponseSchema,
   healthSchema,
   providerBeginResponseSchema,
   providersResponseSchema,
+  securitySummarySchema,
   sessionsResponseSchema,
   sharesResponseSchema,
+  twoFactorChallengeSchema,
   userSchema,
 } from "./schemas.ts";
 import { z as zod } from "zod";
@@ -73,6 +80,22 @@ const FRIENDLY = new Map([
 export function deviceHeaders(device: DeviceInfo) {
   return { "x-nookly-device-name": device.name, "x-nookly-platform": device.platform };
 }
+
+/// A password sign in that is not done: the account has two-factor, so the server wants a
+/// second step before it starts a session. Carries what the second step needs.
+export class TwoFactorRequiredError extends Error {
+  readonly challenge: string;
+  readonly methods: TwoFactorMethod[];
+
+  constructor(challenge: string, methods: TwoFactorMethod[]) {
+    super("Enter the code to finish signing in.");
+    this.challenge = challenge;
+    this.methods = methods;
+  }
+}
+
+/// The header that carries a sign in's challenge to the second step.
+export const CHALLENGE_HEADER = "x-nookly-challenge";
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -224,7 +247,7 @@ export class ApiClient {
     method: string,
     path: string,
     body?: Body,
-    options?: { authed?: boolean },
+    options?: { authed?: boolean; headers?: Record<string, string> },
   ): Promise<void> {
     await this.send(method, path, null, body, options);
   }
@@ -331,19 +354,106 @@ export class ApiClient {
     return this.call("POST", "/v1/account/terms", userSchema, { version });
   }
 
-  /// Signs this device in with a username or an email address.
+  /// Signs this device in with a username or an email address. An account with two-factor
+  /// is not signed in yet: this throws `TwoFactorRequiredError` and `verifyTwoFactor` finishes.
   async signIn(identifier: string, password: string, device: DeviceInfo): Promise<User> {
     const id = identifier.trim();
     const byEmail = id.includes("@");
     const result = await this.call(
       "POST",
       byEmail ? "/v1/auth/sign-in/email" : "/v1/auth/sign-in/username",
-      authResponseSchema,
+      authResponseSchema.or(twoFactorChallengeSchema),
       byEmail ? { email: id.toLowerCase(), password } : { username: id, password },
       { authed: false, headers: deviceHeaders(device) },
     );
+    if ("twoFactorRequired" in result) {
+      throw new TwoFactorRequiredError(result.challenge, result.methods);
+    }
     await this.adopt(result.token);
     return this.me();
+  }
+
+  /// Emails the account a sign in code, for a challenge that offers `email`.
+  async sendTwoFactorEmail(challenge: string): Promise<void> {
+    await this.callVoid(
+      "POST",
+      "/v1/auth/two-factor/send-otp",
+      {},
+      {
+        authed: false,
+        headers: { [CHALLENGE_HEADER]: challenge },
+      },
+    );
+  }
+
+  /// The second step of a sign in: the code, from the method the person chose.
+  async verifyTwoFactor(
+    challenge: string,
+    method: TwoFactorMethod,
+    code: string,
+    device: DeviceInfo,
+  ): Promise<User> {
+    const path = {
+      totp: "/v1/auth/two-factor/verify-totp",
+      email: "/v1/auth/two-factor/verify-otp",
+      backup: "/v1/auth/two-factor/verify-backup-code",
+    }[method];
+    const result = await this.call(
+      "POST",
+      path,
+      authResponseSchema,
+      { code: code.trim() },
+      {
+        authed: false,
+        headers: { ...deviceHeaders(device), [CHALLENGE_HEADER]: challenge },
+      },
+    );
+    await this.adopt(result.token);
+    return this.me();
+  }
+
+  /// What this account has for two-factor.
+  security(): Promise<SecuritySummary> {
+    return this.call("GET", "/v1/account/security", securitySummarySchema);
+  }
+
+  /// Gives an account made without an email one, which is then sent a confirmation link.
+  addEmail(email: string): Promise<User> {
+    return this.call("POST", "/v1/account/email", userSchema, { email: email.trim() });
+  }
+
+  /// Turns on emailed codes. The account needs a confirmed email, and its password.
+  enableEmailTwoFactor(password: string): Promise<SecuritySummary> {
+    return this.call("POST", "/v1/account/two-factor/email", securitySummarySchema, { password });
+  }
+
+  /// Starts adding an authenticator app: nothing is on until `confirmAuthenticator`.
+  startAuthenticator(password: string): Promise<AuthenticatorStart> {
+    return this.call("POST", "/v1/account/two-factor/authenticator", authenticatorStartSchema, {
+      password,
+    });
+  }
+
+  /// A code from the new authenticator app turns it on. The recovery codes come back once.
+  confirmAuthenticator(code: string): Promise<string[]> {
+    return this.call("POST", "/v1/account/two-factor/authenticator/confirm", backupCodesSchema, {
+      code: code.trim(),
+    }).then((result) => result.backupCodes);
+  }
+
+  /// Turns a method off, with the password.
+  disableTwoFactor(method: "email" | "totp", password: string): Promise<SecuritySummary> {
+    return this.call("POST", "/v1/account/two-factor/disable", securitySummarySchema, {
+      method,
+      password,
+    });
+  }
+
+  /// Replaces the recovery codes with new ones, which come back once.
+  newBackupCodes(password: string): Promise<string[]> {
+    return this.call("POST", "/v1/account/two-factor/backup-codes", backupCodesSchema, {
+      password,
+    }).then((result) => result.backupCodes);
   }
 
   async signOut(): Promise<void> {

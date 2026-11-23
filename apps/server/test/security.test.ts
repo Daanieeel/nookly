@@ -129,7 +129,7 @@ describe("abuse", () => {
   it(
     "rate limits sign in attempts",
     async () => {
-      server = await startServer({ RATE_LIMIT_SCALE: "1" });
+      server = await startServer({ RATE_LIMIT_SCALE: "0.5" });
       await server.client().signUp({ username: "ada", password: PASSWORD }, DESKTOP);
       const statuses: number[] = [];
       // A fresh connection for each attempt: a pooled one the server had already closed
@@ -147,6 +147,30 @@ describe("abuse", () => {
       // Twelve wrong passwords, each checked against its hash (most of a second on a CI
       // runner): past bun's 5 second default, after which the server stopping under the last
       // attempt reset its connection.
+    },
+    HOOK_TIMEOUT,
+  );
+
+  it(
+    "does not count right passwords against an address: only the wrong ones",
+    async () => {
+      server = await startServer({ RATE_LIMIT_SCALE: "0.5" });
+      for (const username of ["ada", "ben"]) {
+        await server.client().signUp({ username, password: PASSWORD }, DESKTOP);
+      }
+      const fresh = () =>
+        new ApiClient({
+          baseUrl: server.baseUrl,
+          tokens: new MemoryTokens(),
+          fetch: (url, init) => fetch(url, { ...init, keepalive: false }),
+        });
+      // Twelve sign ins from one address, more than the failures it may have.
+      for (let i = 0; i < 12; i++) {
+        const user = await fresh().signIn(i % 2 === 0 ? "ada" : "ben", PASSWORD, PHONE);
+        expect(user.username).toBe(i % 2 === 0 ? "ada" : "ben");
+      }
+      // And a wrong password is still just wrong, not yet a block.
+      expect(await code(fresh().signIn("ada", "wrong password!", PHONE))).toBe(401);
     },
     HOOK_TIMEOUT,
   );

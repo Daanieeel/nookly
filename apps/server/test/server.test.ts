@@ -124,4 +124,18 @@ describe("pieces", () => {
     time = 1_000;
     expect(limiter.take("a")).toBeNull();
   });
+
+  it("can count only what went wrong, and block once that is used up", () => {
+    let time = 0;
+    const limiter = new RateLimiter(2, 1_000, () => time);
+    // Looking costs nothing.
+    for (let i = 0; i < 5; i++) expect(limiter.blocked("a")).toBeNull();
+    limiter.record("a");
+    expect(limiter.blocked("a")).toBeNull();
+    limiter.record("a");
+    expect(limiter.blocked("a")).toBe(1);
+    expect(limiter.blocked("b")).toBeNull();
+    time = 1_000;
+    expect(limiter.blocked("a")).toBeNull();
+  });
 });

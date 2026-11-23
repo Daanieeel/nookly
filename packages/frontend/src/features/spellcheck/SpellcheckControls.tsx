@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { StatusButtonContent, useActionStatus } from "#/components/action-feedback.tsx";
 import { revealDictionaryFile } from "#/lib/api/spell.ts";
 import { Button } from "@nookly/ui/components/button";
-import { Checkbox } from "@nookly/ui/components/checkbox";
+import { CheckboxGroup } from "@nookly/ui/components/checkbox-group";
 import { SPELL_LANGUAGES } from "#/lib/spell-languages.ts";
 import { useSetting } from "#/lib/settings/settings.ts";
 
@@ -20,22 +20,21 @@ export function LanguageChecklist({
   return (
     <div role="group" aria-label="Languages" className="grid grid-cols-2 gap-x-6 gap-y-2">
       {SPELL_LANGUAGES.map((language) => {
-        const id = `spell-language-${language.code}`;
         return (
-          <label key={language.code} htmlFor={id} className="flex items-center gap-2 text-sm">
-            <Checkbox
-              id={id}
-              checked={value.includes(language.code)}
-              onCheckedChange={(checked) =>
-                onChange(
-                  SPELL_LANGUAGES.map((l) => l.code).filter((code) =>
-                    code === language.code ? checked === true : value.includes(code),
-                  ),
-                )
-              }
-            />
+          <CheckboxGroup
+            key={language.code}
+            className="text-sm"
+            checked={value.includes(language.code)}
+            onCheckedChange={(checked) =>
+              onChange(
+                SPELL_LANGUAGES.map((l) => l.code).filter((code) =>
+                  code === language.code ? checked === true : value.includes(code),
+                ),
+              )
+            }
+          >
             {language.label}
-          </label>
+          </CheckboxGroup>
         );
       })}
     </div>

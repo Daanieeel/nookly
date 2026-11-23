@@ -1,4 +1,4 @@
-import { PRODUCTION_SERVER, TERMS_VERSION } from "@nookly/shared/api";
+import { PRODUCTION_SERVER, TERMS_VERSION, TwoFactorRequiredError } from "@nookly/shared/api";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { Keyboard, TextInput } from "react-native";
 import { renderScreens, testData } from "../test/render.tsx";
@@ -399,5 +399,61 @@ describe("signing in with another account", () => {
     data.serverUrl.set(PRODUCTION_SERVER);
     const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
     expect(await screen.findByText(/By signing up with another account you agree/)).toBeTruthy();
+  });
+});
+
+describe("the second step of signing in", () => {
+  async function toSecondStep(methods: ("totp" | "email" | "backup")[]) {
+    const data = testData();
+    jest
+      .spyOn(data.sync, "signIn")
+      .mockRejectedValue(new TwoFactorRequiredError("challenge-1", methods));
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await fireEvent.changeText(await screen.findByLabelText("Username or email"), "ada");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
+    await fireEvent.press(screen.getByRole("button", { name: "Sign In" }));
+    return { data, screen };
+  }
+
+  it("asks for the code of the authenticator app, and signs in with it", async () => {
+    const { data, screen } = await toSecondStep(["totp", "email", "backup"]);
+    const complete = jest.spyOn(data.sync, "completeTwoFactor").mockResolvedValue(ADA);
+    await fireEvent.changeText(await screen.findByLabelText("Authenticator code"), "123 456");
+    await fireEvent.press(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() =>
+      expect(complete).toHaveBeenCalledWith(
+        "http://localhost:3000",
+        "challenge-1",
+        "totp",
+        "123456",
+        {},
+      ),
+    );
+  });
+
+  it("shows why the code was refused, and stays", async () => {
+    const { data, screen } = await toSecondStep(["totp"]);
+    jest
+      .spyOn(data.sync, "completeTwoFactor")
+      .mockRejectedValue(new Error("That code isn't right."));
+    await fireEvent.changeText(await screen.findByLabelText("Authenticator code"), "000000");
+    await fireEvent.press(screen.getByRole("button", { name: "Verify" }));
+    expect(await screen.findByText("That code isn't right.")).toBeTruthy();
+    expect(screen.getByLabelText("Authenticator code")).toBeTruthy();
+  });
+
+  it("emails a code when that is the choice, and takes a recovery code too", async () => {
+    const { data, screen } = await toSecondStep(["email", "backup"]);
+    const send = jest.spyOn(data.sync, "sendTwoFactorEmail").mockResolvedValue();
+    expect(await screen.findByLabelText("Emailed code")).toBeTruthy();
+    await waitFor(() => expect(send).toHaveBeenCalledWith("http://localhost:3000", "challenge-1"));
+    await fireEvent.press(screen.getByRole("button", { name: "Use a recovery code" }));
+    expect(await screen.findByLabelText("Recovery code")).toBeTruthy();
+  });
+
+  it("goes back to the password", async () => {
+    const { screen } = await toSecondStep(["totp"]);
+    await fireEvent.press(await screen.findByRole("button", { name: "Back" }));
+    expect(await screen.findByLabelText("Password")).toBeTruthy();
   });
 });

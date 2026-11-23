@@ -137,7 +137,7 @@ describe("sign in limits", () => {
       server = await startServer({ RATE_LIMIT_SCALE: "0.3", TRUST_PROXY: "true" });
       await server.client().signUp({ username: "ada", password: PASSWORD }, DESKTOP);
       const statuses: number[] = [];
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 8; i++) {
         const response = await fetch(`${server.baseUrl}/v1/auth/sign-in/username`, {
           method: "POST",
           // Fake address first, as a client sends; the proxy appended the real one last.

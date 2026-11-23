@@ -1,6 +1,13 @@
-import type { ApiClient, DeviceInfo, ProviderBeginInput, SignUp, User } from "../api/index.ts";
+import type {
+  ApiClient,
+  DeviceInfo,
+  ProviderBeginInput,
+  SignUp,
+  TwoFactorMethod,
+  User,
+} from "../api/index.ts";
 import { TERMS_VERSION, requiresTerms } from "../api/legal.ts";
-import { providerErrorMessage } from "../api/provider-sign-in.ts";
+import { ProviderNoAccountError, providerErrorMessage } from "../api/provider-sign-in.ts";
 import { userSchema } from "../api/schemas.ts";
 import { SYNCED_TABLES } from "../schema.ts";
 import { type BlobPlatform, type BlobProgress, BlobSync } from "./blobs.ts";
@@ -30,6 +37,8 @@ export type AccountApi = Pick<
   ApiClient,
   | "signUp"
   | "signIn"
+  | "verifyTwoFactor"
+  | "sendTwoFactorEmail"
   | "providers"
   | "beginProviderSignIn"
   | "finishProviderSignIn"
@@ -107,6 +116,9 @@ export interface SyncAccountState {
   /// Nookly's own server has terms the account has not agreed to yet (or not to their
   /// latest version): sync waits on this device until `acceptTerms`.
   termsPending: boolean;
+  /// The server requires two-factor of this account and it is not set up yet: sync waits
+  /// on this device until it is (`twoFactorChanged`).
+  twoFactorPending: boolean;
 }
 
 const OFF: SyncStatus = {
@@ -165,6 +177,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     migration: null,
     files: null,
     termsPending: false,
+    twoFactorPending: false,
   }));
   readonly engine: SyncEngine;
   private readonly deps: SyncRuntimeDeps<A>;
@@ -226,7 +239,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     if (!(await api.isSignedIn())) return;
     try {
       const user = await api.me();
-      this.store.setState({ user, termsPending: this.owesTerms(user) });
+      this.store.setState({ user, ...this.gates(user) });
       await this.rememberUser(user);
     } catch {
       // The server ended this session while the device was closed: it is signed out, and
@@ -235,7 +248,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       // Offline at launch: the account last seen here, so the device still says it is
       // signed in; sync starts anyway and catches up when the server is back.
       const user = await this.rememberedUser();
-      this.store.setState({ user, termsPending: this.owesTerms(user) });
+      this.store.setState({ user, ...this.gates(user) });
     }
     if (this.api !== api) return;
     await this.start().catch(() => {});
@@ -271,13 +284,33 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     return user.termsVersion !== TERMS_VERSION;
   }
 
+  /// What holds sync back for this account: terms it has not agreed to, two-factor it owes.
+  private gates(user: User | null) {
+    return {
+      termsPending: this.owesTerms(user),
+      twoFactorPending: user?.twoFactorRequired === true,
+    };
+  }
+
+  /// The account's two-factor changed (a method was added or removed): the device asks the
+  /// server what is owed now, and sync, which waited for the setup, starts.
+  async twoFactorChanged(): Promise<void> {
+    const api = this.api;
+    if (!api) return;
+    const user = await api.me();
+    if (this.api !== api) return;
+    this.store.setState({ user, ...this.gates(user) });
+    await this.start(false).catch(() => {});
+    await this.rememberUser(user);
+  }
+
   /// The account agrees to the current terms, and sync, which waited for it, starts.
   async acceptTerms(): Promise<void> {
     const api = this.api;
     if (!api) return;
     const user = await api.acceptTerms(TERMS_VERSION);
     if (this.api !== api) return;
-    this.store.setState({ user, termsPending: this.owesTerms(user) });
+    this.store.setState({ user, ...this.gates(user) });
     await this.start(false).catch(() => {});
     await this.rememberUser(user);
   }
@@ -313,7 +346,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   /// A device that has just signed in: what is on it is dealt with, then sync starts.
   private async enter(api: A, user: User, options: SignInOptions): Promise<User> {
     if (options.localData === "setAside") await this.setLocalDataAside(api);
-    this.store.setState({ user, signedOutReason: null, termsPending: this.owesTerms(user) });
+    this.store.setState({ user, signedOutReason: null, ...this.gates(user) });
     await this.start(false).catch(() => {});
     await this.rememberUser(user);
     return user;
@@ -330,7 +363,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   async signInWithProvider(
     serverUrl: string,
     provider: string,
-    input: { createAccount?: boolean; betaKey?: string } = {},
+    input: { createAccount?: boolean; betaKey?: string; termsVersion?: string } = {},
     options: SignInOptions = {},
   ): Promise<User | null> {
     const browser = this.deps.providerBrowser;
@@ -339,7 +372,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const api = this.connect(serverUrl);
     let secret = "";
     const returned = await browser(async (port) => {
-      const request: ProviderBeginInput = { provider, ...input };
+      const { termsVersion: _terms, ...asked } = input;
+      const request: ProviderBeginInput = { provider, ...asked };
       if (port !== null) request.port = port;
       const begun = await api.beginProviderSignIn(request);
       secret = begun.secret;
@@ -348,12 +382,15 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     if (returned === null) return null;
     const error = /[?&]error=([^&#]+)/.exec(returned)?.[1];
     const code = /[?&]code=([^&#]+)/.exec(returned)?.[1];
+    if (error === "signup_disabled") throw new ProviderNoAccountError(provider);
     if (error || !code) {
       throw new Error(
         providerErrorMessage(error ? decodeURIComponent(error) : "unknown", provider),
       );
     }
-    const user = await api.finishProviderSignIn(decodeURIComponent(code), secret, this.deps.device);
+    let user = await api.finishProviderSignIn(decodeURIComponent(code), secret, this.deps.device);
+    // The terms were agreed to before the account was made: they are recorded with it.
+    if (input.createAccount && input.termsVersion) user = await api.acceptTerms(input.termsVersion);
     return this.enter(api, user, options);
   }
 
@@ -387,6 +424,26 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   ): Promise<User> {
     const api = this.connect(serverUrl);
     return this.enter(api, await api.signIn(identifier, password, this.deps.device), options);
+  }
+
+  /// The second step of a sign in that threw `TwoFactorRequiredError`: the code from the
+  /// authenticator app, the emailed one or a recovery code.
+  async completeTwoFactor(
+    serverUrl: string,
+    challenge: string,
+    method: TwoFactorMethod,
+    code: string,
+    options: SignInOptions = {},
+  ): Promise<User> {
+    const api = this.connect(serverUrl);
+    const user = await api.verifyTwoFactor(challenge, method, code, this.deps.device);
+    return this.enter(api, user, options);
+  }
+
+  /// Emails the sign in code of a challenge. Asked of a client of its own: nothing about
+  /// this device's account changes.
+  sendTwoFactorEmail(serverUrl: string, challenge: string): Promise<void> {
+    return this.deps.connect(normalizeServerUrl(serverUrl), () => {}).sendTwoFactorEmail(challenge);
   }
 
   /// Tries a first sync again after its backup failed.
@@ -512,7 +569,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const api = this.api;
     if (!api || this.client || !serverUrl) return;
     // Nothing is sent to a server whose terms the account has not agreed to.
-    if (this.store.getState().termsPending) return;
+    const gated = this.store.getState();
+    if (gated.termsPending || gated.twoFactorPending) return;
     if (!(await this.engine.isEnabled())) await this.prepareFirstSync(serverUrl);
     else this.store.setState({ migration: await this.loadMigration() });
     this.blobsFor(serverUrl);
@@ -734,7 +792,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       const user = await api.me();
       const current = this.store.getState().user;
       if (this.api !== api || !current || JSON.stringify(user) === JSON.stringify(current)) return;
-      this.store.setState({ user, termsPending: this.owesTerms(user) });
+      this.store.setState({ user, ...this.gates(user) });
       await this.rememberUser(user);
     } catch {
       // Offline or signed out: the next sync asks again.
@@ -963,6 +1021,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         migration: null,
         files: null,
         termsPending: false,
+        twoFactorPending: false,
       });
     } else {
       const gone = await this.engine.wipe();
@@ -972,6 +1031,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         migration: null,
         files: null,
         termsPending: false,
+        twoFactorPending: false,
       });
       await this.cleared(gone);
     }
@@ -994,6 +1054,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       migration: null,
       files: null,
       termsPending: false,
+      twoFactorPending: false,
     });
   }
 
@@ -1022,6 +1083,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       migration: null,
       files: null,
       termsPending: false,
+      twoFactorPending: false,
       signedOutReason,
     });
     await this.cleared(gone);

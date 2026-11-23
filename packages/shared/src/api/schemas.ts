@@ -101,8 +101,59 @@ export const userSchema = z.object({
   /// An account made with another provider has no username until it picks one. Missing
   /// from a server that does not know providers.
   needsUsername: z.boolean().optional(),
+  /// The server requires two-factor and this account, which signs in with a password, has
+  /// not set it up yet: everything but setting it up is refused until it has.
+  twoFactorRequired: z.boolean().optional(),
 });
 export type User = z.infer<typeof userSchema>;
+
+/// What can be sent as the second step of a sign in: a code from the authenticator app, a
+/// code emailed to the account, or one of the single use recovery codes.
+export type TwoFactorMethod = "totp" | "email" | "backup";
+
+/// The server's answer to a password sign in that needs a second step: no session yet, a
+/// challenge that stays valid for ten minutes, and what the account can answer it with.
+export const twoFactorChallengeSchema = z.object({
+  twoFactorRequired: z.literal(true),
+  challenge: z.string().min(1),
+  methods: z.array(z.enum(["totp", "email", "backup"])),
+});
+
+/// What an account has for two-factor, for Settings and the setup screen.
+export const securitySummarySchema = z.object({
+  /// False for an account that signs in with another provider: it has no password to protect.
+  available: z.boolean(),
+  /// The server requires two-factor of this account.
+  required: z.boolean(),
+  /// At least one method is on.
+  enabled: z.boolean(),
+  email: z.object({
+    enabled: z.boolean(),
+    /// The account has a confirmed email address to send codes to.
+    possible: z.boolean(),
+    /// The address, null when the account has none.
+    address: z.string().nullable(),
+    confirmed: z.boolean(),
+  }),
+  authenticator: z.object({ enabled: z.boolean() }),
+  backupCodesLeft: z.number().int().min(0),
+});
+export type SecuritySummary = z.infer<typeof securitySummarySchema>;
+
+/// Starting to add an authenticator app: the address a QR code shows, and the same secret to
+/// type by hand.
+export const authenticatorStartSchema = z.object({ uri: z.string(), key: z.string() });
+export type AuthenticatorStart = z.infer<typeof authenticatorStartSchema>;
+
+export const backupCodesSchema = z.object({ backupCodes: z.array(z.string()) });
+
+export const passwordRequestSchema = z.object({ password: z.string().min(1).max(256) });
+export const twoFactorCodeSchema = z.object({ code: z.string().trim().min(4).max(32) });
+export const addEmailRequestSchema = z.object({ email: emailSchema });
+export const disableTwoFactorRequestSchema = z.object({
+  method: z.enum(["email", "totp"]),
+  password: z.string().min(1).max(256),
+});
 
 /// better-auth's answer to a sign up or sign in: the session token to send as the
 /// bearer token from now on.

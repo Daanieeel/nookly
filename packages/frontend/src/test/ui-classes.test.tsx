@@ -16,6 +16,7 @@ import {
 import { Card, CardDescription, CardTitle } from "@nookly/ui/components/card";
 import { FieldLabel } from "@nookly/ui/components/field-label";
 import { Input } from "@nookly/ui/components/input";
+import { Checkbox } from "@nookly/ui/components/checkbox";
 import { Label } from "@nookly/ui/components/label";
 import { Separator } from "@nookly/ui/components/separator";
 import {
@@ -45,6 +46,18 @@ describe("the primitives' classes the phone uses", () => {
   it.each(cases)("%s renders its shared classes", (_, element, classes) => {
     const { container } = render(element);
     expect(container.firstElementChild?.className).toBe(cn(classes));
+  });
+
+  it("a Label next to a checkbox or switch shows the pointer, like the control it activates", () => {
+    const { getByText, getByRole } = render(
+      <>
+        <Checkbox id="agree" />
+        <Label htmlFor="agree">Agree</Label>
+      </>,
+    );
+    // Radix's checkbox is a peer button: the label after it follows its state.
+    expect(getByRole("checkbox")).toHaveClass("peer");
+    expect(getByText("Agree")).toHaveClass("peer-enabled:cursor-pointer");
   });
 
   it("SidebarMenuButton and SidebarGroupLabel render theirs", () => {

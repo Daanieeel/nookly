@@ -31,6 +31,14 @@ function signedIn() {
   const revoke = jest.spyOn(api, "revokeSession").mockResolvedValue();
   const change = jest.spyOn(api, "changePassword").mockResolvedValue();
   const deleteAccount = jest.spyOn(api, "deleteAccount").mockResolvedValue();
+  jest.spyOn(api, "security").mockResolvedValue({
+    available: true,
+    required: false,
+    enabled: true,
+    email: { enabled: true, possible: true, address: "a@b.co", confirmed: true },
+    authenticator: { enabled: false },
+    backupCodesLeft: 10,
+  });
   const detach = jest.spyOn(data.sync, "detach").mockResolvedValue();
   jest.spyOn(data.sync, "account").mockReturnValue(api);
   data.sync.store.setState({
@@ -85,6 +93,14 @@ describe("the Account page", () => {
     expect(at("Change Password")).toBeGreaterThan(-1);
     expect(at("Change Password")).toBeLessThan(at("Devices"));
     expect(at("Devices")).toBeLessThan(at("Delete Account"));
+  });
+
+  it("shows whether two-factor sign in is on, and opens its sheet", async () => {
+    const { data } = signedIn();
+    const screen = await renderScreens({ index: () => <AccountPage /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Two-factor sign in" }));
+    expect(await screen.findByRole("button", { name: "Turn Off Emailed Codes" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Set Up Authenticator App" })).toBeTruthy();
   });
 
   it("asks for the new password twice and rates it, but never refuses a weak one", async () => {
