@@ -1,4 +1,6 @@
 import {
+  ACCOUNT_COPY,
+  ACCOUNT_TABS,
   ApiClient,
   BETA_KEY_MISSING,
   PRODUCTION_SERVER,
@@ -48,7 +50,7 @@ import { Label } from "@nookly/ui/components/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { GitHubMark, GoogleMark, NotionMark } from "./provider-marks.tsx";
-import { type AccountMode, useAccountDialog } from "./account-dialog-store.ts";
+import { useAccountDialog } from "./account-dialog-store.ts";
 import { LegalLink, LegalLinks } from "./legal-links.tsx";
 import { syncRuntime } from "./sync-instance.ts";
 import { TwoFactorStep } from "./TwoFactorStep.tsx";
@@ -64,21 +66,6 @@ const serverSchema = z
   );
 
 const resetForm = z.object({ email: z.email("Enter the email address of your account") });
-
-const TITLES = {
-  signIn: {
-    title: "Sign in to Nookly",
-    description: "Pick up where you left off, the same on every device.",
-  },
-  signUp: {
-    title: "Create your account",
-    description: "One account for your computer, phone and tablet, free during the closed beta.",
-  },
-  reset: {
-    title: "Reset your password",
-    description: "We'll email a link to choose a new one, if the address belongs to an account.",
-  },
-} satisfies Record<AccountMode, { title: string; description: string }>;
 
 type Mark = (props: { className?: string }) => ReactNode;
 
@@ -865,7 +852,7 @@ export function AccountDialog() {
   const mode = useAccountDialog((s) => s.mode);
   const setMode = useAccountDialog((s) => s.setMode);
   const close = useAccountDialog((s) => s.close);
-  const { title, description } = TITLES[mode];
+  const { title, description } = ACCOUNT_COPY[mode];
   return (
     <Dialog open={open} onOpenChange={(next) => !next && close()}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-md grid-cols-1 gap-3 overflow-y-auto">
@@ -885,8 +872,11 @@ export function AccountDialog() {
             className="gap-3"
           >
             <TabsList aria-label="Account" className="w-full">
-              <TabsTrigger value="signIn">I have an account</TabsTrigger>
-              <TabsTrigger value="signUp">I'm new here</TabsTrigger>
+              {ACCOUNT_TABS.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
             <TabsContent value="signIn">
               <SignInForm onForgot={() => setMode("reset")} />

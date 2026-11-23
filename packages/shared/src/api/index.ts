@@ -1,4 +1,5 @@
 export * from "./client.ts";
+export { ACCOUNT_COPY, ACCOUNT_TABS } from "./account-copy.ts";
 export * from "./schemas.ts";
 export {
   APP_OUTDATED,

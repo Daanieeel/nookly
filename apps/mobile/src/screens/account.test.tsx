@@ -56,17 +56,31 @@ describe("the legal links", () => {
 });
 
 describe("signing in", () => {
-  it("leads with signing in, keeps a forgotten password quiet, and invites someone new", async () => {
-    const screen = await renderScreens({ index: () => <SignInScreen /> });
-    expect(await screen.findByRole("header", { name: "Welcome back" })).toBeTruthy();
+  it("reads like the desktop's dialog: a short title and line, the two tabs, and a quiet forgotten password", async () => {
+    const screen = await renderScreens({
+      index: () => <SignInScreen />,
+      "account/sign-up": () => <SignUpScreen />,
+    });
+    expect(await screen.findByRole("header", { name: "Sign in to Nookly" })).toBeTruthy();
+    expect(screen.getByText("Pick up where you left off, the same on every device.")).toBeTruthy();
+    expect(screen.getByText("Closed beta")).toBeTruthy();
+    // The same two tabs; the one for signing in is chosen.
+    expect(screen.getByRole("radio", { name: "I have an account", checked: true })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "I'm new here", checked: false })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Forgot Password" })).toBeTruthy();
-    expect(screen.getByText("New to Nookly?")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Create Account" })).toBeTruthy();
-    expect(screen.queryByText("Create an Account Instead")).toBeNull();
+    // No long welcome, and no separate invitation under the form: the tab is the way across.
+    expect(screen.queryByText(/Your Spaces, pages and files/)).toBeNull();
+    expect(screen.queryByText("New to Nookly?")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create Account" })).toBeNull();
     // The test server has no providers: all four are there, none works.
     for (const provider of ["Google", "Apple", "GitHub", "Notion"]) {
       expect(screen.getByRole("button", { name: `Sign in with ${provider}` })).toBeDisabled();
     }
+    await fireEvent.press(screen.getByRole("radio", { name: "I'm new here" }));
+    expect(await screen.findByRole("header", { name: "Create your account" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "I'm new here", checked: true })).toBeTruthy();
+    // Nothing listing what an account gives: that is for the welcome page's own words.
+    expect(screen.queryByText("Live on your computer, phone and tablet")).toBeNull();
   });
 
   it("shows what is missing instead of doing nothing", async () => {

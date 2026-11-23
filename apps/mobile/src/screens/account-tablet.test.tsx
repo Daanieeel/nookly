@@ -25,7 +25,7 @@ describe("signing in on a tablet", () => {
 
   it("signs in, signs up and resets a password in a dialog titled for it", async () => {
     for (const [Page, title] of [
-      [SignInScreen, "Welcome back"],
+      [SignInScreen, "Sign in to Nookly"],
       [SignUpScreen, "Create your account"],
       [ForgotScreen, "Reset your password"],
     ] as const) {
@@ -57,7 +57,7 @@ describe("signing in on a tablet", () => {
 
   it("keeps the phone's pages on a phone", async () => {
     const screen = await renderScreens({ index: () => <SignInScreen /> });
-    expect(await screen.findByText("Welcome back")).toBeTruthy();
+    expect(await screen.findByText("Sign in to Nookly")).toBeTruthy();
     expect(screen.queryByTestId("sheet-dialog")).toBeNull();
     screen.unmount();
     const welcome = await renderScreens({ index: () => <WelcomeScreen /> });

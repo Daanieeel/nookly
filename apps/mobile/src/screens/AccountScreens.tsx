@@ -1,4 +1,6 @@
 import {
+  ACCOUNT_COPY,
+  ACCOUNT_TABS,
   ApiClient,
   BETA_KEY_MISSING,
   TERMS_VERSION,
@@ -12,16 +14,12 @@ import { useIsTablet } from "../ui/pane.tsx";
 import { useDeviceWord } from "../ui/device-word.ts";
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import {
-  IconCloudOff,
-  IconDevices,
   IconKey,
   IconLock,
   IconMail,
   IconNotebook,
   IconServer,
   IconUser,
-  IconUsers,
-  type Icon,
 } from "@tabler/icons-react-native";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -46,6 +44,7 @@ import { RADIUS, SPACE } from "../ui/tokens.ts";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
 import { type Provider, ProviderMark } from "../ui/ProviderMark.tsx";
 import { Screen } from "../ui/Screen.tsx";
+import { Segmented } from "../ui/Segmented.tsx";
 import { RouteSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
@@ -303,27 +302,52 @@ function useAfterSignIn() {
   };
 }
 
+/// The account window's page, as the desktop's dialog: its title with the closed beta badge, a
+/// line under it, and for signing in and creating an account the two tabs.
 function Page({
-  title,
-  intro,
-  beta = false,
+  mode,
   children,
 }: {
-  title: string;
-  intro: string;
-  /// Says the account is part of the closed beta.
-  beta?: boolean;
+  mode: "signIn" | "signUp" | "reset";
   children: React.ReactNode;
 }) {
   const tablet = useIsTablet();
   const router = useRouter();
+  const { title, description } = ACCOUNT_COPY[mode];
+  const header = (
+    <View className="gap-1.5">
+      {tablet ? null : (
+        <View className="flex-row items-center gap-2">
+          <Text variant="heading" accessibilityRole="header">
+            {title}
+          </Text>
+          {mode === "reset" ? null : <Badge label="Closed beta" />}
+        </View>
+      )}
+      {tablet && mode !== "reset" ? <Badge label="Closed beta" /> : null}
+      <Text variant="small" tone="muted">
+        {description}
+      </Text>
+    </View>
+  );
+  const tabs =
+    mode === "reset" ? null : (
+      <Segmented
+        label="Account"
+        value={mode}
+        options={[...ACCOUNT_TABS]}
+        onChange={(next) =>
+          router.replace(next === "signIn" ? "/account/sign-in" : "/account/sign-up")
+        }
+      />
+    );
   // A tablet's is the desktop's account dialog, titled for what it does.
   if (tablet) {
     return (
       <RouteSheet title={title} kind="form" onClosed={() => router.canGoBack() && router.back()}>
         <Screen>
-          {beta ? <Badge label="Closed beta" /> : null}
-          <Text tone="muted">{intro}</Text>
+          {header}
+          {tabs}
           {children}
           <LegalFooter />
         </Screen>
@@ -336,13 +360,8 @@ function Page({
       className="flex-1"
     >
       <Screen>
-        <View className="gap-2 pt-2">
-          {beta ? <Badge label="Closed beta" /> : null}
-          <Text variant="title" className="text-3xl" accessibilityRole="header">
-            {title}
-          </Text>
-          <Text tone="muted">{intro}</Text>
-        </View>
+        {header}
+        {tabs}
         {children}
         <LegalFooter />
       </Screen>
@@ -471,47 +490,6 @@ function OtherAccounts({
   );
 }
 
-/// What an account gives, said to someone about to make one.
-const BENEFITS: { icon: Icon; text: string }[] = [
-  { icon: IconDevices, text: "Live on your computer, phone and tablet" },
-  { icon: IconUsers, text: "Share a Space with the people you work with" },
-  { icon: IconCloudOff, text: "Keeps working offline and catches up later" },
-];
-
-function Benefits() {
-  const theme = useTheme();
-  return (
-    <View className="gap-3">
-      {BENEFITS.map(({ icon: BenefitIcon, text }) => (
-        <View key={text} className="flex-row items-center gap-3">
-          <BenefitIcon size={22} color={theme.colors.primary} />
-          <Text className="flex-1">{text}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/// The other way in, at the foot of the page: a question and its answer.
-function SwitchAccount({
-  question,
-  label,
-  onPress,
-}: {
-  question: string;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <View className="gap-2 pt-2">
-      <Text tone="muted" className="text-center">
-        {question}
-      </Text>
-      <Button label={label} variant="secondary" size="lg" onPress={onPress} />
-    </View>
-  );
-}
-
 export function SignInScreen() {
   const router = useRouter();
   const { sync } = useAppData();
@@ -540,11 +518,7 @@ export function SignInScreen() {
   const rejection = useRejection(signIn, ["identifier", "password"]);
   if (secondStep) {
     return (
-      <Page
-        title="One more step"
-        intro="Enter the code that finishes signing in to your account."
-        beta
-      >
+      <Page mode="signIn">
         <TwoFactorStep
           serverUrl={normalizeServerUrl(server.server)}
           challenge={secondStep.challenge}
@@ -560,11 +534,7 @@ export function SignInScreen() {
     );
   }
   return (
-    <Page
-      title="Welcome back"
-      intro="Pick up where you left off. Your Spaces, pages and files, the same on every device."
-      beta
-    >
+    <Page mode="signIn">
       <FormSection>
         <form.Field name="identifier">
           {(field) => (
@@ -644,17 +614,11 @@ export function SignInScreen() {
         </Pressable>
       </View>
       <OtherAccounts verb="in" server={server} local={local} betaKey={() => ""} onDone={done} />
-      <SwitchAccount
-        question="New to Nookly?"
-        label="Create Account"
-        onPress={() => router.replace("/account/sign-up")}
-      />
     </Page>
   );
 }
 
 export function SignUpScreen() {
-  const router = useRouter();
   const { sync } = useAppData();
   const server = useServer();
   const local = useLocalData();
@@ -707,12 +671,7 @@ export function SignUpScreen() {
     (error) => (error.message === BETA_KEY_MISSING ? ["betaKey"] : null),
   );
   return (
-    <Page
-      title="Create your account"
-      intro="One account for your phone, tablet and computer, free during the closed beta."
-      beta
-    >
-      <Benefits />
+    <Page mode="signUp">
       <FormSection>
         <form.Field name="username">
           {(field) => (
@@ -881,11 +840,6 @@ export function SignUpScreen() {
         betaKey={() => form.state.values.betaKey}
         onDone={done}
       />
-      <SwitchAccount
-        question="Already have an account?"
-        label="Sign In"
-        onPress={() => router.replace("/account/sign-in")}
-      />
     </Page>
   );
 }
@@ -910,10 +864,7 @@ export function ForgotScreen() {
   const valid = useStore(form.store, (state) => state.isValid);
   const rejection = useRejection(send, ["email"]);
   return (
-    <Page
-      title="Reset your password"
-      intro="We'll email a link to choose a new one, if the address belongs to an account."
-    >
+    <Page mode="reset">
       <form.Field name="email">
         {(field) => (
           <Field
