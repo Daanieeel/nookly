@@ -1,5 +1,14 @@
-import type { ApiClient } from "./client.ts";
+import { ApiRequestError, type ApiClient } from "./client.ts";
 import type { TwoFactorMethod } from "./schemas.ts";
+
+/// A code that was typed wrong, as the server says it (ours, and better-auth's for a sign in).
+/// The boxes turn red for it, so nothing more needs to be written.
+export function isWrongCode(error: Error | null): boolean {
+  return (
+    error instanceof ApiRequestError &&
+    (error.code === "invalid_code" || error.code === "invalid_backup_code")
+  );
+}
 
 const ORDER: TwoFactorMethod[] = ["totp", "email", "backup"];
 

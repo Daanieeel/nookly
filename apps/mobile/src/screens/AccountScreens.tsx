@@ -668,7 +668,7 @@ export function SignUpScreen() {
         url,
         {
           username: value.username.trim(),
-          email: value.email.trim() || undefined,
+          email: value.email.trim(),
           password: value.password,
           betaKey,
           // Only Nookly's own server has terms, and the box is only there for it.
@@ -743,7 +743,8 @@ export function SignUpScreen() {
             <Field
               editable={!signUp.isPending}
               invalid={rejection.invalid("email")}
-              label="Email (optional)"
+              label="Email"
+              required
               icon={<FieldIcon icon={IconMail} />}
               showName
               autoCapitalize="none"
@@ -751,7 +752,7 @@ export function SignUpScreen() {
               keyboardType="email-address"
               textContentType="emailAddress"
               autoComplete="email"
-              placeholder="For a forgotten password and invites"
+              placeholder="ada@example.com"
               value={field.state.value}
               onChangeText={(next) => {
                 rejection.edit("email");

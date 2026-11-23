@@ -159,6 +159,7 @@
   --radius-md: 10px;
   --radius-lg: 12px;
   --radius-xl: 16px;
+  --animate-caret-blink: caret-blink 1.25s ease-out infinite;
   /* A control sitting inside a field, like the toggles of the find bar. */
   --radius-inset: 0.375rem;
   --color-sidebar-ring: var(--sidebar-ring);

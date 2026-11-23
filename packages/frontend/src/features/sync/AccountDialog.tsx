@@ -14,6 +14,7 @@ import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  IconArrowBackUp,
   IconArrowLeft,
   IconArrowRight,
   IconBrandAppleFilled,
@@ -221,10 +222,13 @@ function OtherAccounts({
 /// Which server: shown as an address, changed on request.
 function ServerField({
   value,
+  original,
   onChange,
   error,
 }: {
   value: string;
+  /// The address the dialog opened with, which the revert button goes back to.
+  original: string;
   onChange: (next: string) => void;
   error: string | undefined;
 }) {
@@ -256,6 +260,27 @@ function ServerField({
         placeholder="sync.example.com"
         autoComplete="url"
         onValueChange={onChange}
+        trailing={
+          value !== original ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="iconSm"
+                  variant="ghost"
+                  aria-label="Revert Server"
+                  onClick={() => {
+                    onChange(original);
+                    setEditing(false);
+                  }}
+                >
+                  <IconArrowBackUp size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Back to {original}</TooltipContent>
+            </Tooltip>
+          ) : undefined
+        }
       />
     </FormField>
   );
@@ -263,10 +288,12 @@ function ServerField({
 
 function useServer() {
   const [saved] = useSetting("sync.serverUrl");
-  const [server, setServer] = useState(saved || PRODUCTION_SERVER);
+  const [original] = useState(saved || PRODUCTION_SERVER);
+  const [server, setServer] = useState(original);
   const parsed = serverSchema.safeParse(server);
   return {
     server,
+    original,
     setServer,
     error: parsed.success ? undefined : parsed.error.issues[0]?.message,
     /// The normalized address, saved as this device's server, or an error.
@@ -547,7 +574,12 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
             </FormField>
           )}
         </form.Field>
-        <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+        <ServerField
+          value={server.server}
+          original={server.original}
+          onChange={server.setServer}
+          error={server.error}
+        />
         <FieldError message={errorText(signIn.error)} />
         <form.Subscribe selector={hasVisibleErrors}>
           {(blocked) => (
@@ -597,7 +629,7 @@ function SignUpForm() {
         url,
         {
           username: value.username.trim(),
-          email: value.email.trim() || undefined,
+          email: value.email.trim(),
           password: value.password,
           betaKey,
           // Only Nookly's own server has terms, and the box is only there for it.
@@ -660,12 +692,7 @@ function SignUpForm() {
           </form.Field>
           <form.Field name="email">
             {(field) => (
-              <FormField
-                label="Email"
-                htmlFor={ids.email}
-                hint="Optional, for password resets."
-                error={fieldMessage(field)}
-              >
+              <FormField label="Email" htmlFor={ids.email} required error={fieldMessage(field)}>
                 <IconInput
                   icon={IconMail}
                   id={ids.email}
@@ -725,7 +752,12 @@ function SignUpForm() {
             </div>
           )}
         </form.Field>
-        <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+        <ServerField
+          value={server.server}
+          original={server.original}
+          onChange={server.setServer}
+          error={server.error}
+        />
         <FieldError message={errorText(signUp.error)} />
         <form.Subscribe selector={hasVisibleErrors}>
           {(blocked) => (
@@ -792,7 +824,12 @@ function ResetForm({ onBack }: { onBack: () => void }) {
           </FormField>
         )}
       </form.Field>
-      <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+      <ServerField
+        value={server.server}
+        original={server.original}
+        onChange={server.setServer}
+        error={server.error}
+      />
       {send.isSuccess ? (
         <p role="status" className="text-xs text-positive">
           Check your email. The link works for one hour.

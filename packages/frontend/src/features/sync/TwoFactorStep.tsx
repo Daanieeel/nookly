@@ -2,6 +2,7 @@ import {
   type TwoFactorMethod,
   cleanTwoFactorCode,
   firstTwoFactorMethod,
+  isWrongCode,
   twoFactorMethodLabels,
 } from "@nookly/shared/api";
 import { IconShieldLock } from "@tabler/icons-react";
@@ -11,7 +12,10 @@ import { FieldError, StatusButtonContent, statusOf } from "#/components/action-f
 import { FormField } from "#/components/form-field.tsx";
 import { Button } from "@nookly/ui/components/button";
 import { IconInput } from "@nookly/ui/components/icon-input";
+import { OtpCodeInput } from "@nookly/ui/components/input-otp";
 import { syncRuntime } from "./sync-instance.ts";
+
+const CODE_LENGTH = 6;
 
 /// The second step of signing in with a password: a code from the authenticator app, one
 /// emailed to the account, or a recovery code. The password was right; the challenge
@@ -47,43 +51,75 @@ export function TwoFactorStep({
     send.mutate();
   }, [method, send]);
   const verify = useMutation({
-    mutationFn: () =>
+    mutationFn: (typed: string) =>
       syncRuntime.completeTwoFactor(
         serverUrl,
         challenge,
         method,
-        cleanTwoFactorCode(method, code),
+        cleanTwoFactorCode(method, typed),
         options,
       ),
     onSuccess: onDone,
+    // A wrong code is cleared so the next one starts from the first box.
+    onError: () => setCode(""),
   });
   const labels = twoFactorMethodLabels[method];
   const others = methods.filter((other) => other !== method);
+  // A recovery code is letters and a dash; the other two are six digits, one box each.
+  const boxes = method !== "backup";
+  const ready = boxes ? code.length === CODE_LENGTH : cleanTwoFactorCode(method, code) !== "";
   return (
     <form
       noValidate
       className="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
-        if (cleanTwoFactorCode(method, code)) verify.mutate();
+        if (ready) verify.mutate(code);
       }}
     >
-      <FormField label={labels.code} htmlFor={id} required hint={labels.hint}>
-        <IconInput
-          icon={IconShieldLock}
-          id={id}
-          placeholder={labels.code}
-          autoFocus
-          autoComplete="one-time-code"
-          autoCapitalize="none"
-          inputMode={method === "backup" ? "text" : "numeric"}
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-        />
-      </FormField>
-      <FieldError message={verify.error?.message ?? (send.error ? send.error.message : null)} />
+      {boxes ? (
+        // The boxes say what they are for; only the hint is written, centered under them.
+        <div className="flex flex-col items-center gap-2">
+          <OtpCodeInput
+            id={id}
+            aria-label={labels.code}
+            length={CODE_LENGTH}
+            autoFocus
+            value={code}
+            onChange={(next) => {
+              setCode(next);
+              if (verify.isError) verify.reset();
+            }}
+            onComplete={(digits) => verify.mutate(digits)}
+            disabled={verify.isPending}
+            invalid={verify.isError}
+          />
+          <p className="text-center text-xs text-muted-foreground">{labels.hint}</p>
+        </div>
+      ) : (
+        <FormField label={labels.code} htmlFor={id} required hint={labels.hint}>
+          <IconInput
+            icon={IconShieldLock}
+            id={id}
+            placeholder={labels.code}
+            autoFocus
+            autoComplete="one-time-code"
+            autoCapitalize="none"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+          />
+        </FormField>
+      )}
+      {/* A wrong code in the boxes is shown by their red edge; a recovery code, and anything
+          else, is said. */}
+      <FieldError
+        message={
+          (verify.error && !(boxes && isWrongCode(verify.error)) ? verify.error.message : null) ??
+          (send.error ? send.error.message : null)
+        }
+      />
       <div className="flex flex-col gap-2 pt-1">
-        <Button type="submit" className="w-full" disabled={verify.isPending || !code.trim()}>
+        <Button type="submit" className="w-full" disabled={verify.isPending || !ready}>
           <StatusButtonContent
             status={statusOf(verify)}
             label="Verify"

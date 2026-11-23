@@ -76,6 +76,32 @@ describe("the sync status", () => {
     );
   });
 
+  it("draws the state in the icon: crossed out cloud without an account, a loading cloud, a storm offline, a check when synced", () => {
+    const iconOf = (name: string) => screen.getByRole("button", { name }).querySelector("svg");
+    const { unmount } = renderWithProviders(<SyncStatusButton />);
+    // Gray, not an alarm: nothing is connected, and that is allowed.
+    expect(iconOf("Not syncing. Sign in to sync.")).toHaveClass("tabler-icon-cloud-off");
+    expect(iconOf("Not syncing. Sign in to sync.")).toHaveClass("text-muted-foreground");
+    unmount();
+
+    act(() => syncRuntime.store.setState({ user: ADA, status: status({ state: "syncing" }) }));
+    const syncing = renderWithProviders(<SyncStatusButton />);
+    const loading = screen.getByRole("button", { name: "Syncing" });
+    expect(loading.querySelector("svg")).toHaveClass("tabler-icon-cloud");
+    // A spinner turns inside the cloud while it works.
+    expect(loading.querySelector(".animate-spin")).not.toBeNull();
+    syncing.unmount();
+
+    act(() => syncRuntime.store.setState({ status: status({ state: "offline", pending: 1 }) }));
+    const offline = renderWithProviders(<SyncStatusButton />);
+    expect(iconOf("Offline. 1 change waits to sync.")).toHaveClass("tabler-icon-cloud-storm");
+    offline.unmount();
+
+    act(() => syncRuntime.store.setState({ status: status({ state: "idle" }) }));
+    renderWithProviders(<SyncStatusButton />);
+    expect(iconOf("Synced")).toHaveClass("tabler-icon-cloud-check");
+  });
+
   it("opens Account in Settings once signed in", async () => {
     act(() => syncRuntime.store.setState({ user: ADA, status: status({ state: "idle" }) }));
     const { user } = renderWithProviders(<SyncStatusButton />);

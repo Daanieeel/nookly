@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { ApiRequestError } from "./client.ts";
 import {
   cleanTwoFactorCode,
   firstTwoFactorMethod,
+  isWrongCode,
   runSecurityAction,
   twoFactorMethodLabels,
 } from "./two-factor.ts";
@@ -77,5 +79,21 @@ describe("what a password unlocks in an account's security", () => {
       name: "codes",
       codes: ["aaaaa-bbbbb"],
     });
+  });
+});
+
+describe("telling a wrong code from another failure", () => {
+  it("knows a code that was wrong, which the boxes show by turning red", () => {
+    expect(isWrongCode(new ApiRequestError(400, "invalid_code", "That code isn't right."))).toBe(
+      true,
+    );
+    expect(isWrongCode(new ApiRequestError(401, "invalid_backup_code", "Invalid"))).toBe(true);
+  });
+
+  it("leaves everything else to be said in words", () => {
+    expect(isWrongCode(new ApiRequestError(429, "rate_limited", "Too many requests."))).toBe(false);
+    expect(isWrongCode(new ApiRequestError(401, "otp_has_expired", "Expired"))).toBe(false);
+    expect(isWrongCode(new Error("Can't reach the server."))).toBe(false);
+    expect(isWrongCode(null)).toBe(false);
   });
 });

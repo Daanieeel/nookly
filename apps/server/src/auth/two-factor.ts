@@ -8,6 +8,7 @@ import type { Config } from "../config.ts";
 import type { Database } from "../db/client.ts";
 import { authAccount, authTwoFactor, authUser, authVerification, users } from "../db/schema.ts";
 import { HttpError, badRequest, conflict, forbidden, unauthorized } from "../errors.ts";
+import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "../security/disposable-email.ts";
 import { type Auth, isPlaceholderEmail } from "./auth.ts";
 
 /// The second step of signing in with a password, for the accounts that have one: a code
@@ -36,11 +37,13 @@ export class TwoFactorService {
   private readonly db: Database;
   private readonly auth: Auth;
   private readonly required: boolean;
+  private readonly blockDisposable: boolean;
 
   constructor(db: Database, auth: Auth, config: Config) {
     this.db = db;
     this.auth = auth;
     this.required = config.REQUIRE_TWO_FACTOR;
+    this.blockDisposable = config.BLOCK_DISPOSABLE_EMAIL;
   }
 
   private async key() {
@@ -147,6 +150,9 @@ export class TwoFactorService {
   /// mail it is sent is opened, and codes are only ever emailed to a confirmed address.
   async addEmail(userId: string, address: string): Promise<void> {
     const email = address.trim().toLowerCase();
+    if (this.blockDisposable && isDisposableEmail(email)) {
+      throw badRequest("email_disposable", DISPOSABLE_EMAIL_MESSAGE);
+    }
     const row = await this.userRow(userId);
     if (!isPlaceholderEmail(row.email)) {
       throw conflict("email_set", "This account already has an email address.");

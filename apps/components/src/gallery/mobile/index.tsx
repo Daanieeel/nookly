@@ -23,6 +23,8 @@ import { Pill } from "@mobile/ui/sheet/Compose.tsx";
 import { RoundButton } from "@mobile/ui/sheet/Floating.tsx";
 import { Field } from "@mobile/ui/Field.tsx";
 import { NumberInput } from "@mobile/ui/NumberInput.tsx";
+import { OtpField } from "@mobile/ui/OtpField.tsx";
+import { BlurredSecret as PhoneBlurredSecret } from "@mobile/ui/BlurredSecret.tsx";
 import { PageTabs } from "@mobile/ui/PageTabs.tsx";
 import { ProgressRing } from "@mobile/ui/ProgressRing.tsx";
 import { Property, PropertyList } from "@mobile/ui/Property.tsx";
@@ -413,6 +415,20 @@ export const MOBILE_GALLERY: GalleryEntry[] = [
         <Field label="Email" defaultValue="not an email" error="Enter a valid email." />
       </>
     ),
+  },
+  {
+    id: "m-otp-field",
+    name: "OtpField",
+    group: "Inputs",
+    source: ui("OtpField.tsx"),
+    render: () => <OtpField label="Code" value="12" onChange={() => {}} />,
+  },
+  {
+    id: "m-blurred-secret",
+    name: "BlurredSecret",
+    group: "Inputs",
+    source: ui("BlurredSecret.tsx"),
+    render: () => <PhoneBlurredSecret value="GBTX GMSJ MR2W 6789" label="key" />,
   },
   {
     id: "m-number-input",

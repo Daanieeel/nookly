@@ -3,6 +3,7 @@ import {
   type SecurityAction,
   type SecurityOutcome,
   type SecuritySummary,
+  isWrongCode,
   runSecurityAction,
 } from "@nookly/shared/api";
 import { IconDeviceMobile, IconKey, IconMail, IconShieldLock } from "@tabler/icons-react-native";
@@ -12,12 +13,14 @@ import { View } from "react-native";
 import { useAppData, useSyncState } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
 import { Button, statusOf } from "../ui/Button.tsx";
+import { BlurredSecret } from "../ui/BlurredSecret.tsx";
 import { useClipboard } from "../ui/clipboard.tsx";
 import { Field } from "../ui/Field.tsx";
 import { FieldIcon } from "../ui/FieldIcon.tsx";
 import { GroupedSection } from "../ui/kit/GroupedSection.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { ListRow } from "../ui/kit/ListRow.tsx";
+import { OtpField } from "../ui/OtpField.tsx";
 import { QrImage } from "../ui/QrImage.tsx";
 import { useOptionalSheetHost } from "../ui/sheet/SheetHost.tsx";
 import { useSheet } from "../ui/sheet/Sheet.tsx";
@@ -117,48 +120,50 @@ function ScanStep({ uri, keyText }: { uri: string; keyText: string }) {
   const sheet = useSheet();
   const account = useAccount();
   const changed = useChanged();
-  const clipboard = useClipboard();
   const [code, setCode] = useState("");
   const confirm = useMutation({
-    mutationFn: () => account().confirmAuthenticator(code.replace(/\D/g, "")),
+    mutationFn: (digits: string) => account().confirmAuthenticator(digits),
     onSuccess: (codes) => showOutcome(sheet, { name: "codes", codes }, changed),
+    // A wrong code is cleared so the next one starts from the first box.
+    onError: () => setCode(""),
   });
   return (
-    <View className="gap-3">
-      <Text tone="muted">
-        Open your authenticator app and add an account with this code. If you can't scan it, type
-        the key instead.
-      </Text>
-      <View className="items-center gap-2">
-        <QrImage text={uri} label="QR code for your authenticator app" />
-        <Text selectable>{keyText}</Text>
-        <Button
-          variant="ghost"
-          label="Copy Key"
-          onPress={() => void clipboard.copy(keyText.replace(/\s/g, ""))}
-        />
+    <View className="gap-4">
+      <View className="items-center gap-3">
+        <Text tone="muted">Scan it with your authenticator app.</Text>
+        <QrImage text={uri} label="QR code for your authenticator app" size={232} />
       </View>
-      <Field
+      <View className="flex-row items-center gap-3">
+        <View className="h-px flex-1 bg-border" />
+        <Text tone="muted" variant="small">
+          or set up manually
+        </Text>
+        <View className="h-px flex-1 bg-border" />
+      </View>
+      <BlurredSecret value={keyText.replace(/\s/g, " ")} label="key" />
+      <OtpField
         label="Code from the app"
-        icon={<FieldIcon icon={IconShieldLock} />}
-        showName
-        placeholder="6 digit code"
-        required
-        keyboardType="number-pad"
-        textContentType="oneTimeCode"
-        editable={!confirm.isPending}
         value={code}
-        onChangeText={setCode}
+        editable={!confirm.isPending}
+        invalid={confirm.isError}
+        onChange={(next) => {
+          setCode(next);
+          if (confirm.isError) confirm.reset();
+        }}
+        onComplete={(digits) => confirm.mutate(digits)}
       />
-      {confirm.error ? <Text tone="destructive">{confirm.error.message}</Text> : null}
+      {/* A wrong code is shown by the red boxes; anything else is said. */}
+      {confirm.error && !isWrongCode(confirm.error) ? (
+        <Text tone="destructive">{confirm.error.message}</Text>
+      ) : null}
       <Button
         size="lg"
         label="Turn On"
-        disabled={!code.trim()}
+        disabled={code.length !== 6}
         status={statusOf(confirm)}
         successLabel="Turned on"
         errorLabel="Wrong code"
-        onPress={() => confirm.mutate()}
+        onPress={() => confirm.mutate(code)}
       />
     </View>
   );
@@ -265,20 +270,6 @@ function MethodRows({ summary }: { summary: SecuritySummary }) {
     <>
       <GroupedSection margin={0}>
         <ListRow
-          badge={<IconBadge glyph={IconDeviceMobile} tint="green" />}
-          title="Authenticator app"
-          subtitle="A code from an app on your phone."
-          detail={summary.authenticator.enabled ? "On" : undefined}
-          accessibilityLabel={
-            summary.authenticator.enabled ? "Remove Authenticator App" : "Set Up Authenticator App"
-          }
-          onPress={() =>
-            ask(summary.authenticator.enabled ? "authenticatorOff" : "authenticatorOn")
-          }
-        />
-      </GroupedSection>
-      <GroupedSection margin={0}>
-        <ListRow
           badge={<IconBadge glyph={IconMail} tint="blue" />}
           title="Emailed codes"
           subtitle={
@@ -286,7 +277,7 @@ function MethodRows({ summary }: { summary: SecuritySummary }) {
               ? email.confirmed
                 ? `A code sent to ${email.address}.`
                 : `Confirm ${email.address} first.`
-              : "Needs an email address."
+              : undefined
           }
           detail={email.enabled ? "On" : undefined}
           accessibilityLabel={
@@ -304,6 +295,19 @@ function MethodRows({ summary }: { summary: SecuritySummary }) {
             else if (email.address) resend.mutate();
             else sheet?.push({ title: "Add an email address", content: <AddEmailStep /> });
           }}
+        />
+      </GroupedSection>
+      <GroupedSection margin={0}>
+        <ListRow
+          badge={<IconBadge glyph={IconDeviceMobile} tint="green" />}
+          title="Authenticator app"
+          detail={summary.authenticator.enabled ? "On" : undefined}
+          accessibilityLabel={
+            summary.authenticator.enabled ? "Remove Authenticator App" : "Set Up Authenticator App"
+          }
+          onPress={() =>
+            ask(summary.authenticator.enabled ? "authenticatorOff" : "authenticatorOn")
+          }
         />
       </GroupedSection>
       {summary.enabled ? (
@@ -347,14 +351,20 @@ function SecuritySheet({ required }: { required: boolean }) {
     <View className="gap-4">
       <Text tone="muted">
         {required
-          ? "Nookly asks for a second step when you sign in with a password. Choose how you want to get it. Sync starts as soon as it is set up."
+          ? "Sign in needs a second step. Sync starts once it is set up."
           : "A second step after your password keeps your account safe even if the password leaks."}
       </Text>
       {error ? <Text tone="destructive">{error.message}</Text> : null}
       {rows}
       <Button
         variant="ghost"
-        label={required ? "Later" : "Done"}
+        label={
+          required
+            ? summary?.enabled && !summary.authenticator.enabled
+              ? "Proceed Without Authenticator"
+              : "Later"
+            : "Done"
+        }
         onPress={() => {
           if (required) useSecurityGate.getState().dismiss();
           sheet?.close();

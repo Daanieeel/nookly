@@ -15,6 +15,8 @@ deployed = true
 # asks /health from the browser.
 extra_config_vars = {
   CORS_ORIGINS = "tauri://localhost,http://tauri.localhost,http://localhost:1420,https://nookly.work,https://www.nookly.work"
-  # An account that signs in with a password needs a second step (D102).
+  # An account that signs in with a password needs an email address and a second step (D102).
   REQUIRE_TWO_FACTOR = "true"
+  # No accounts or emails from throwaway mail services.
+  BLOCK_DISPOSABLE_EMAIL = "true"
 }

@@ -140,13 +140,14 @@ describe("the account dialog", () => {
     expect(useAccountDialog.getState().open).toBe(true);
   });
 
-  it("creates an account with a username, the email being optional, and the beta key in the next step", async () => {
+  it("creates an account with a username and an email, and the beta key in the next step", async () => {
     const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
     const { user } = open("signUp");
     expect(screen.getByRole("dialog", { name: "Create your account" })).toBeInTheDocument();
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.type(screen.getByLabelText(/^Email/), "ada@example.com");
     expect(screen.queryByLabelText(/^Beta key/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     await agree(user, " the-key ");
@@ -154,13 +155,25 @@ describe("the account dialog", () => {
       "https://sync.nookly.work",
       {
         username: "ada",
-        email: undefined,
+        email: "ada@example.com",
         password: "a long password",
         betaKey: "the-key",
         termsVersion: TERMS_VERSION,
       },
       {},
     );
+  });
+
+  it("will not create an account without an email address, which is how a code reaches you", async () => {
+    const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    expect(screen.queryByText(/Optional/)).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/^Username/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(await screen.findByText("Enter your email address")).toBeInTheDocument();
+    expect(signUp).not.toHaveBeenCalled();
   });
 
   it("asks for the password twice, with placeholders, and refuses two that differ", async () => {
@@ -174,6 +187,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "another long one");
+    await user.type(screen.getByLabelText(/^Email/), "ada@example.com");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("The passwords don't match")).toBeInTheDocument();
     expect(signUp).not.toHaveBeenCalled();
@@ -189,6 +203,7 @@ describe("the account dialog", () => {
     expect(screen.getByRole("meter")).toHaveAttribute("aria-valuenow", "0");
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText("Repeat password"), weak);
+    await user.type(screen.getByLabelText(/^Email/), "ada@example.com");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     await agree(user);
     expect(signUp).toHaveBeenCalled();
@@ -202,6 +217,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.type(screen.getByLabelText(/^Email/), "ada@example.com");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByRole("checkbox", TICK)).not.toBeChecked();
     expect(signUp).not.toHaveBeenCalled();
@@ -223,11 +239,27 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.type(screen.getByLabelText(/^Email/), "ada@example.com");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     await screen.findByRole("checkbox", TICK);
     await user.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByLabelText(/^Username/)).toHaveValue("ada");
     expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("reverts a changed server to the one the dialog opened with, even when it was emptied", async () => {
+    const { user } = open("signUp");
+    expect(screen.queryByRole("button", { name: "Revert Server" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Change Server" }));
+    // Nothing to revert yet: it is still the server it opened with.
+    expect(screen.queryByRole("button", { name: "Revert Server" })).not.toBeInTheDocument();
+    await user.clear(screen.getByLabelText(/^Server/));
+    expect(await screen.findByText("Enter the server's address")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revert Server" }));
+    // Back to the address shown at first, and the field folds away again.
+    expect(screen.getByText("https://sync.nookly.work")).toBeInTheDocument();
+    expect(screen.queryByText("Enter the server's address")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change Server" })).toBeInTheDocument();
   });
 
   it("has no terms to agree to on a server of your own", async () => {
@@ -249,6 +281,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.type(screen.getByLabelText(/^Email/), "ada@example.com");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByLabelText(/^Beta key/)).toHaveAttribute("type", "password");
   });
@@ -259,6 +292,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.type(screen.getByLabelText(/^Email/), "ada@example.com");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByLabelText(/^Beta key/)).toBeVisible();
     expect(screen.queryByText("Enter the beta key to create an account.")).not.toBeInTheDocument();
@@ -277,12 +311,13 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.type(screen.getByLabelText(/^Email/), "ada@example.com");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(signUp).toHaveBeenCalledWith(
       "https://sync.example.com",
       {
         username: "ada",
-        email: undefined,
+        email: "ada@example.com",
         password: "a long password",
         betaKey: undefined,
         termsVersion: undefined,
@@ -299,6 +334,7 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.type(screen.getByLabelText(/^Email/), "ada@example.com");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     await agree(user, "nope");
     expect(await screen.findByText("That beta key isn't right.")).toBeInTheDocument();
@@ -586,8 +622,11 @@ describe("the second step of signing in", () => {
     const { user } = await toSecondStep(["totp", "email", "backup"]);
     expect(await screen.findByLabelText(/^Authenticator code/)).toBeInTheDocument();
     await expectNoA11yViolations();
+    // Six boxes; the last digit signs in, with no button to find.
+    expect(document.querySelectorAll('[data-slot="input-otp-slot"]')).toHaveLength(6);
+    expect(screen.getByRole("button", { name: "Verify" })).toBeDisabled();
     await user.type(screen.getByLabelText(/^Authenticator code/), "123 456");
-    await user.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() => expect(complete).toHaveBeenCalled());
     expect(complete).toHaveBeenCalledWith(
       "https://sync.nookly.work",
       "challenge-1",
@@ -604,8 +643,14 @@ describe("the second step of signing in", () => {
     );
     const { user } = await toSecondStep(["totp"]);
     await user.type(await screen.findByLabelText(/^Authenticator code/), "000000");
-    await user.click(screen.getByRole("button", { name: "Verify" }));
-    expect(await screen.findByText("That code isn't right.")).toBeInTheDocument();
+    const slots = () => [...document.querySelectorAll('[data-slot="input-otp-slot"]')];
+    // The boxes turn red instead of a sentence, and calm again once another digit is typed.
+    await waitFor(() =>
+      expect(slots().every((slot) => slot.getAttribute("aria-invalid") === "true")).toBe(true),
+    );
+    expect(screen.queryByText("That code isn't right.")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/^Authenticator code/), "1");
+    expect(slots().some((slot) => slot.hasAttribute("aria-invalid"))).toBe(false);
     expect(useAccountDialog.getState().open).toBe(true);
   });
 
@@ -619,6 +664,8 @@ describe("the second step of signing in", () => {
     expect(screen.getByText(/We emailed a code/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Use a recovery code" }));
+    // A recovery code is letters and a dash: one plain field, not boxes.
+    expect(document.querySelectorAll('[data-slot="input-otp-slot"]')).toHaveLength(0);
     await user.type(screen.getByLabelText(/^Recovery code/), "abcde-fghij");
     await user.click(screen.getByRole("button", { name: "Verify" }));
     expect(complete).toHaveBeenCalledWith(

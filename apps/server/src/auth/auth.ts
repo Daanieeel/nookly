@@ -19,6 +19,7 @@ import {
 import type { Logger } from "../log.ts";
 import type { Mailer } from "../mail/mailer.ts";
 import { confirmEmailEmail, resetPasswordEmail, twoFactorCodeEmail } from "../mail/templates.ts";
+import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "../security/disposable-email.ts";
 
 /// The domain of the email an account made without one gets. `.invalid` can never
 /// be delivered to, and the API shows such an address as no email at all.
@@ -196,7 +197,7 @@ export function createAuth(
       }),
     ],
     hooks: {
-      // An account made without an email gets a placeholder better-auth needs.
+      // An account made without an email gets a placeholder better-auth needs, unless an email is required.
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path !== "/sign-up/email") return;
         const parsed = signUpBody.safeParse(ctx.body ?? {});
@@ -218,6 +219,14 @@ export function createAuth(
         const email = body.email?.trim() ?? "";
         if (email.toLowerCase().endsWith(`@${PLACEHOLDER_EMAIL_DOMAIN}`)) {
           throw new APIError("BAD_REQUEST", { message: "Use your own email address." });
+        }
+        // Where two-factor is required, an email address is too: its emailed codes are the
+        // standard second step, and the way back into an account.
+        if (!email && config.REQUIRE_TWO_FACTOR) {
+          throw new APIError("BAD_REQUEST", { message: "Enter your email address." });
+        }
+        if (email && config.BLOCK_DISPOSABLE_EMAIL && isDisposableEmail(email)) {
+          throw new APIError("BAD_REQUEST", { message: DISPOSABLE_EMAIL_MESSAGE });
         }
         // The key goes no further than here.
         if (email) return { context: { ...ctx, body } };
