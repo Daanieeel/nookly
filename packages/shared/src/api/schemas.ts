@@ -91,7 +91,11 @@ export const resetPasswordRequestSchema = z.object({
   password: passwordSchema,
 });
 export const acceptTermsRequestSchema = z.object({ version: z.string().trim().min(1).max(32) });
-export const deleteAccountRequestSchema = z.object({ password: z.string().min(1).max(256) });
+/// The password, for an account that has one. An account made with another provider has none;
+/// the apps ask it to type a phrase instead.
+export const deleteAccountRequestSchema = z.object({
+  password: z.string().min(1).max(256).optional(),
+});
 
 export const userSchema = z.object({
   id: z.uuid(),

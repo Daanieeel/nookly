@@ -3,7 +3,7 @@ import {
   changePasswordSchema,
 } from "@nookly/shared/api";
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { z } from "zod";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
@@ -120,6 +120,7 @@ function ChangePassword() {
                 >
                   <PasswordInput
                     id={ids.current}
+                    placeholder="Current password"
                     autoComplete="current-password"
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
@@ -133,6 +134,7 @@ function ChangePassword() {
                 <FormField label="New password" htmlFor={ids.next} error={fieldMessage(field)}>
                   <PasswordInput
                     id={ids.next}
+                    placeholder="New password"
                     autoComplete="new-password"
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
@@ -188,17 +190,24 @@ function ChangePassword() {
 }
 
 /// Deleting the account removes it and everything on the server. This device keeps its data.
-/// A button opens the dialog that asks for the password and a typed phrase.
+/// A button opens the dialog that asks for the password (when the account has one) and a
+/// typed phrase.
 function DeleteAccount() {
   const [password, setPassword] = useState("");
   const [confirming, setConfirming] = useState(false);
   const inputId = useId();
   const queryClient = useQueryClient();
+  // An account made with another provider has no password; the typed phrase is its confirmation.
+  const { data: security } = useQuery({
+    queryKey: qk.sync.security,
+    queryFn: async () => syncRuntime.account()?.security() ?? null,
+  });
+  const hasPassword = security?.available !== false;
   const remove = useMutation({
     mutationFn: async () => {
       const api = syncRuntime.account();
       if (!api) throw new Error("Sign in first.");
-      await api.deleteAccount(password);
+      await api.deleteAccount(hasPassword ? password : undefined);
       // The account is gone: what is on this device is the only copy, and stays.
       await syncRuntime.detach();
     },
@@ -236,17 +245,20 @@ function DeleteAccount() {
         errorLabel="Couldn't delete it"
         status={statusOf(remove)}
         error={errorText(remove.error) ?? false}
-        disabled={!password}
+        disabled={hasPassword && !password}
         onConfirm={() => remove.mutate()}
       >
-        <FormField label="Your password" htmlFor={inputId}>
-          <PasswordInput
-            id={inputId}
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </FormField>
+        {hasPassword ? (
+          <FormField label="Your password" htmlFor={inputId}>
+            <PasswordInput
+              id={inputId}
+              placeholder="Your password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </FormField>
+        ) : null}
       </ConfirmPermanentDialog>
     </>
   );

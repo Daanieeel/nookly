@@ -4,7 +4,7 @@ import { renderScreens, testData } from "../../test/render.tsx";
 import type { MenuPresenter } from "../../ui/menu.tsx";
 import { AccountPage } from "./AccountPage.tsx";
 
-function signedIn() {
+function signedIn(available = true) {
   const data = testData();
   const api = new ApiClient({
     baseUrl: "https://sync.example.com",
@@ -32,7 +32,7 @@ function signedIn() {
   const change = jest.spyOn(api, "changePassword").mockResolvedValue();
   const deleteAccount = jest.spyOn(api, "deleteAccount").mockResolvedValue();
   jest.spyOn(api, "security").mockResolvedValue({
-    available: true,
+    available,
     required: false,
     enabled: true,
     email: { enabled: true, possible: true, address: "a@b.co", confirmed: true },
@@ -154,6 +154,22 @@ describe("the Account page", () => {
     await fireEvent.changeText(await screen.findByLabelText("Your password"), "a long password");
     await fireEvent.press(screen.getAllByRole("button", { name: "Delete Account" }).at(-1)!);
     await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith("a long password"));
+    await waitFor(() => expect(detach).toHaveBeenCalled());
+  });
+
+  it("asks an account without a password to type a phrase instead", async () => {
+    const { data, deleteAccount, detach } = signedIn(false);
+    const screen = await renderScreens({ index: () => <AccountPage /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Delete Account" }));
+    expect(await screen.findByText("Removed from the server for good")).toBeTruthy();
+    expect(screen.queryByLabelText("Your password")).toBeNull();
+    const phrase = await screen.findByLabelText("Type delete my account");
+    // Nothing happens until the phrase is typed.
+    await fireEvent.press(screen.getAllByRole("button", { name: "Delete Account" }).at(-1)!);
+    expect(deleteAccount).not.toHaveBeenCalled();
+    await fireEvent.changeText(phrase, "delete my account");
+    await fireEvent.press(screen.getAllByRole("button", { name: "Delete Account" }).at(-1)!);
+    await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith(undefined));
     await waitFor(() => expect(detach).toHaveBeenCalled());
   });
 

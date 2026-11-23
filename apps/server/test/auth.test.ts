@@ -6,6 +6,7 @@ import {
   PASSWORD,
   PHONE,
   type TestServer,
+  account,
   startServer,
   verifiedAccount,
   HOOK_TIMEOUT,
@@ -355,5 +356,26 @@ describe("deleting an account", () => {
       const [row] = await server.sql`SELECT COUNT(*)::int AS n FROM ${server.sql(table)}`;
       expect(row.n, table).toBe(0);
     }
+  });
+  it("deletes an account made with a provider, which has no password to ask for", async () => {
+    const id = crypto.randomUUID();
+    await server.sql`INSERT INTO auth_user (id, name, email, email_verified) VALUES (${id}, 'Notion Ada', 'notion-ada@example.com', true)`;
+    await server.sql`INSERT INTO users (id, email) VALUES (${id}, 'notion-ada@example.com') ON CONFLICT DO NOTHING`;
+    await server.sql`INSERT INTO auth_account (id, account_id, provider_id, user_id) VALUES (${crypto.randomUUID()}, ${"p-" + id}, 'notion', ${id})`;
+    const token = `session-${id}`;
+    await server.sql`INSERT INTO auth_session (id, user_id, token, expires_at) VALUES (${crypto.randomUUID()}, ${id}, ${token}, now() + interval '1 day')`;
+    const tokens = new MemoryTokens();
+    tokens.token = token;
+    const api = server.client(tokens);
+    await api.deleteAccount();
+    const [row] = await server.sql`SELECT COUNT(*)::int AS n FROM auth_user WHERE id = ${id}`;
+    expect(row.n).toBe(0);
+  });
+
+  it("still asks an account with a password for it", async () => {
+    const { api } = await account(server, "needspw", DESKTOP);
+    expect(await status(api.deleteAccount())).toBe(403);
+    expect(await api.isSignedIn()).toBe(true);
+    await api.deleteAccount(PASSWORD);
   });
 });
