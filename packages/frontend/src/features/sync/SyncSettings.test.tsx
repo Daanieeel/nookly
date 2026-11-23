@@ -339,6 +339,8 @@ describe("the Sync settings", () => {
     const { user } = await openSync();
     await user.click(screen.getByRole("button", { name: "Change Password" }));
     const dialog = await screen.findByRole("dialog", { name: "Change Password" });
+    expect(within(dialog).getByPlaceholderText("Current password")).toBeInTheDocument();
+    expect(within(dialog).getByPlaceholderText("New password")).toBeInTheDocument();
     await user.type(
       within(dialog).getByLabelText("New password"),
       "violet lantern kettle orbit ferment",
@@ -367,6 +369,31 @@ describe("the Sync settings", () => {
     expect(confirm).toBeEnabled();
     await user.click(confirm);
     await waitFor(() => expect(remove).toHaveBeenCalledWith("a long password"));
+  });
+
+  it("asks only for the typed phrase when the account has no password", async () => {
+    signedIn();
+    const api = syncRuntime.account()!;
+    vi.spyOn(api, "security").mockResolvedValue({
+      available: false,
+      required: false,
+      enabled: false,
+      email: { enabled: false, possible: true, address: "ada@example.com", confirmed: true },
+      authenticator: { enabled: false },
+      backupCodesLeft: 0,
+    });
+    const remove = vi.spyOn(api, "deleteAccount").mockResolvedValue();
+    vi.spyOn(syncRuntime, "detach").mockResolvedValue();
+    const { user } = await openSync();
+    await user.click(screen.getByRole("button", { name: "Delete Account" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await waitFor(() => expect(within(dialog).queryByLabelText(/Your password/)).toBeNull());
+    const confirm = within(dialog).getByRole("button", { name: "Delete Account" });
+    expect(confirm).toBeDisabled();
+    await user.type(within(dialog).getByLabelText(/Type delete my account/), "delete my account");
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(undefined));
   });
 });
 

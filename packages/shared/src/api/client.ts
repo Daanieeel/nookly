@@ -472,8 +472,8 @@ export class ApiClient {
     return this.call("GET", "/v1/account", userSchema);
   }
 
-  async deleteAccount(password: string): Promise<void> {
-    await this.callVoid("DELETE", "/v1/account", { password });
+  async deleteAccount(password?: string): Promise<void> {
+    await this.callVoid("DELETE", "/v1/account", password === undefined ? {} : { password });
     await this.forget();
   }
 

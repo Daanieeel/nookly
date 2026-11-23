@@ -485,16 +485,25 @@ function ChangePasswordSheet() {
 }
 
 /// Deleting the account removes it and everything on the server. This phone keeps its data.
-/// The sheet says so, and asks for the password: that is the confirmation.
+/// The sheet says so, and asks for the password: that is the confirmation. An account made
+/// with another provider has none, and types a phrase instead.
+const DELETE_PHRASE = "delete my account";
+
 function DeleteAccountSheet() {
   const sheet = useSheet();
   const device = useDeviceWord();
   const { sync } = useAppData();
   const queryClient = useQueryClient();
   const [password, setPassword] = useState("");
+  const [phrase, setPhrase] = useState("");
+  const { data: security } = useQuery({
+    queryKey: keys.sync.security,
+    queryFn: async () => (await sync.account()?.security()) ?? null,
+  });
+  const hasPassword = security?.available !== false;
   const remove = useMutation({
     mutationFn: async () => {
-      await sync.account()?.deleteAccount(password);
+      await sync.account()?.deleteAccount(hasPassword ? password : undefined);
       // The account is gone: what is on this phone is the only copy, and stays.
       await sync.detach();
     },
@@ -511,20 +520,32 @@ function DeleteAccountSheet() {
           { icon: IconDeviceMobile, text: `This ${device} keeps its data` },
         ]}
       />
-      <Field
-        label="Your password"
-        icon={<FieldIcon icon={IconLock} />}
-        placeholder="Your password"
-        secureTextEntry
-        autoComplete="current-password"
-        value={password}
-        onChangeText={setPassword}
-      />
+      {hasPassword ? (
+        <Field
+          label="Your password"
+          icon={<FieldIcon icon={IconLock} />}
+          placeholder="Your password"
+          secureTextEntry
+          autoComplete="current-password"
+          value={password}
+          onChangeText={setPassword}
+        />
+      ) : (
+        <Field
+          label="Type delete my account"
+          icon={<FieldIcon icon={IconTrash} />}
+          placeholder={DELETE_PHRASE}
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={phrase}
+          onChangeText={setPhrase}
+        />
+      )}
       <Button
         size="lg"
         variant="destructive"
         label="Delete Account"
-        disabled={!password}
+        disabled={hasPassword ? !password : phrase.trim().toLowerCase() !== DELETE_PHRASE}
         status={statusOf(remove)}
         errorLabel="Couldn't delete it"
         onPress={() => remove.mutate()}

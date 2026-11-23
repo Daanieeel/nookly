@@ -232,15 +232,18 @@ export class AccountService {
   /// Removes the account and everything the server holds for it: sessions, sign in
   /// methods, synced data, files' records, conflicts and shares, both ways. The
   /// devices keep their own data.
-  async deleteAccount(claims: AccessClaims, password: string) {
+  async deleteAccount(claims: AccessClaims, password?: string) {
     const [credential] = await this.db
       .select({ password: authAccount.password })
       .from(authAccount)
       .where(and(eq(authAccount.userId, claims.userId), eq(authAccount.providerId, "credential")));
-    const ok =
-      credential?.password != null && (await Bun.password.verify(password, credential.password));
-    // Not 401: that would read as "signed out" to the client.
-    if (!ok) throw new HttpError(403, "wrong_password", "The password is wrong.");
+    // An account made with another provider has no password to ask for; the apps ask it for
+    // a typed phrase instead.
+    if (credential?.password != null) {
+      const ok = password != null && (await Bun.password.verify(password, credential.password));
+      // Not 401: that would read as "signed out" to the client.
+      if (!ok) throw new HttpError(403, "wrong_password", "The password is wrong.");
+    }
     const [user] = await this.db.select().from(authUser).where(eq(authUser.id, claims.userId));
     // Files first: if storage fails the account stays, and deleting can be tried again.
     await this.storage?.deleteOwner(claims.userId);
