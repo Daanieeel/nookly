@@ -16,7 +16,9 @@ use std::time::{Duration, Instant};
 /// How long a sign in can take: a person finding their password, a second factor.
 pub const WAIT: Duration = Duration::from_secs(5 * 60);
 
-const PAGE: &str = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"color-scheme\" content=\"light dark\"><meta name=\"referrer\" content=\"no-referrer\"><title>Nookly</title><style>body{font:16px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:1rem}h1{font-size:1.25rem;margin:0 0 .25rem}p{margin:0;opacity:.7}</style></head><body><main><h1>You're back in Nookly</h1><p>You can close this tab.</p></main></body></html>";
+/// What the browser shows once it is back: the look of the pages the server shows for an
+/// email link (`apps/server/src/pages.ts`), kept in a file of its own.
+const PAGE: &str = include_str!("return-page.html");
 
 /// One sign in waiting for its browser.
 pub struct Listener {
@@ -187,6 +189,9 @@ mod tests {
         let reply = get(port, "/auth?code=abc123", &format!("127.0.0.1:{port}"));
         assert!(reply.starts_with("HTTP/1.1 200"), "{reply}");
         assert!(reply.contains("You're back in Nookly"));
+        // Dressed like the server's pages: the brand, the badge and the legal links.
+        assert!(reply.contains("class=\"brand\"") && reply.contains("class=\"badge\""));
+        assert!(reply.contains("https://nookly.work/terms"));
         assert_eq!(
             listener.wait().as_deref(),
             Some(format!("http://127.0.0.1:{port}/auth?code=abc123").as_str())

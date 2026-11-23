@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { PRODUCTION_SERVER, TERMS_VERSION } from "../api/index.ts";
-import type { DeviceInfo, SignUp, User } from "../api/index.ts";
+import { ProviderNoAccountError, TwoFactorRequiredError } from "../api/index.ts";
+import type { DeviceInfo, SignUp, TwoFactorMethod, User } from "../api/index.ts";
 import type { ConflictReport, ServerConflict } from "./protocol.ts";
 import type { BlobPlatform } from "./blobs.ts";
 import { type LiveHandlers, NetworkError, type SyncTransport } from "./client.ts";
@@ -41,6 +42,23 @@ class FakeAccount implements AccountApi {
   async signIn(identifier: string) {
     this.calls.push(`signIn ${identifier}`);
     if (identifier !== ADA.username) throw new Error("The username or the password is wrong.");
+    if (this.secondStep) throw new TwoFactorRequiredError("challenge-1", this.secondStep);
+    this.signedIn = true;
+    return this.user;
+  }
+  /// The methods an account with two-factor answers a password sign in with.
+  secondStep: TwoFactorMethod[] | null = null;
+  async sendTwoFactorEmail(challenge: string) {
+    this.calls.push(`sendTwoFactorEmail ${challenge}`);
+  }
+  async verifyTwoFactor(
+    challenge: string,
+    method: TwoFactorMethod,
+    code: string,
+    device: DeviceInfo,
+  ) {
+    this.calls.push(`verify ${challenge} ${method} ${code} ${device.platform}`);
+    if (code !== "123456") throw new Error("That code isn't right.");
     this.signedIn = true;
     return this.user;
   }
@@ -972,6 +990,66 @@ describe("syncing files", () => {
   });
 });
 
+describe("two-factor", () => {
+  it("is asked for after the password, and the sign in finishes with the code", async () => {
+    const { sync, account } = runtime();
+    account.secondStep = ["totp", "email", "backup"];
+    const attempt = await sync.signIn(PRODUCTION_SERVER, "ada", "a long password").catch((e) => e);
+    expect(attempt).toBeInstanceOf(TwoFactorRequiredError);
+    expect(attempt.challenge).toBe("challenge-1");
+    expect(sync.store.getState().user).toBeNull();
+    expect(account.signedIn).toBe(false);
+
+    const user = await sync.completeTwoFactor(PRODUCTION_SERVER, "challenge-1", "totp", "123456");
+    expect(user.username).toBe("ada");
+    expect(account.calls).toContain("verify challenge-1 totp 123456 macos");
+    expect(sync.store.getState().user?.username).toBe("ada");
+    sync.stop();
+  });
+
+  it("leaves the device signed out when the code is wrong, so it can be tried again", async () => {
+    const { sync, account } = runtime();
+    account.secondStep = ["totp"];
+    await sync.signIn(PRODUCTION_SERVER, "ada", "pw").catch(() => {});
+    await expect(
+      sync.completeTwoFactor(PRODUCTION_SERVER, "challenge-1", "totp", "000000"),
+    ).rejects.toThrow("That code isn't right.");
+    expect(sync.store.getState().user).toBeNull();
+    await sync.completeTwoFactor(PRODUCTION_SERVER, "challenge-1", "totp", "123456");
+    expect(sync.store.getState().user?.username).toBe("ada");
+    sync.stop();
+  });
+
+  it("emails a code for a challenge on the server it came from", async () => {
+    const { sync, account } = runtime();
+    await sync.sendTwoFactorEmail(PRODUCTION_SERVER, "challenge-1");
+    expect(account.calls).toContain("sendTwoFactorEmail challenge-1");
+  });
+
+  it("holds sync back for an account that owes it, until it is set up", async () => {
+    const { sync, account, driver } = runtime();
+    account.user = { ...ADA, termsVersion: TERMS_VERSION, twoFactorRequired: true };
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    expect(sync.store.getState().twoFactorPending).toBe(true);
+    expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).toEqual([]);
+    expect(account.calls).not.toContain("push");
+
+    account.user = { ...account.user, twoFactorRequired: false };
+    await sync.twoFactorChanged();
+    expect(sync.store.getState().twoFactorPending).toBe(false);
+    expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).not.toEqual([]);
+    sync.stop();
+  });
+
+  it("does not hold back an account that does not owe it", async () => {
+    const { sync, account } = runtime();
+    account.user = { ...ADA, termsVersion: TERMS_VERSION };
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    expect(sync.store.getState().twoFactorPending).toBe(false);
+    sync.stop();
+  });
+});
+
 describe("signing in with another account", () => {
   /// A browser that signs in and goes back to the app with this address.
   function withBrowser(returned: string | null, port: number | null = null) {
@@ -1033,6 +1111,25 @@ describe("signing in with another account", () => {
     await expect(garbled.sync.signInWithProvider(PRODUCTION_SERVER, "notion")).rejects.toThrow(
       "Signing in with Notion didn't work",
     );
+  });
+
+  it("tells apart a sign in that found no account, so the app can offer to make one", async () => {
+    const { sync } = withBrowser("nookly://auth?error=signup_disabled");
+    await expect(sync.signInWithProvider(PRODUCTION_SERVER, "google")).rejects.toBeInstanceOf(
+      ProviderNoAccountError,
+    );
+  });
+
+  it("records the terms the person agreed to with a new account, without telling the server's begin call", async () => {
+    const { sync, account } = withBrowser("nookly://auth?code=abc");
+    await sync.signInWithProvider(PRODUCTION_SERVER, "google", {
+      createAccount: true,
+      betaKey: "key",
+      termsVersion: TERMS_VERSION,
+    });
+    expect(account.calls).toContain(`acceptTerms ${TERMS_VERSION}`);
+    expect(account.begun).toEqual([{ provider: "google", betaKey: "key", createAccount: true }]);
+    sync.stop();
   });
 
   it("passes on a code the server no longer takes", async () => {

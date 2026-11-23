@@ -1,10 +1,15 @@
 import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import {
+  CHALLENGE_HEADER,
+  addEmailRequestSchema,
   createShareRequestSchema,
   acceptTermsRequestSchema,
   deleteAccountRequestSchema,
+  disableTwoFactorRequestSchema,
+  passwordRequestSchema,
   resetPasswordRequestSchema,
+  twoFactorCodeSchema,
   tokenRequestSchema,
   updateShareRequestSchema,
 } from "@nookly/shared/api";
@@ -19,6 +24,7 @@ import { Elysia } from "elysia";
 import { z } from "zod";
 import { AccountService } from "./auth/accounts.ts";
 import { AppSignIn } from "./auth/app-sign-in.ts";
+import { TwoFactorService } from "./auth/two-factor.ts";
 import { createAuth, socialProviders } from "./auth/auth.ts";
 import type { Config } from "./config.ts";
 import type { Database } from "./db/client.ts";
@@ -71,6 +77,14 @@ const resetForm = z.object({
 });
 /// better-auth's routes that check a password or send mail, limited per address.
 const SIGN_IN_PATHS = new Set(["/v1/auth/sign-in/email", "/v1/auth/sign-in/username"]);
+/// The steps of a half finished sign in that better-auth's two-factor plugin answers. Its own
+/// setup routes stay shut: they swap the session, and the apps keep one token.
+const TWO_FACTOR_STEPS = new Set([
+  "/v1/auth/two-factor/verify-totp",
+  "/v1/auth/two-factor/verify-otp",
+  "/v1/auth/two-factor/send-otp",
+  "/v1/auth/two-factor/verify-backup-code",
+]);
 const MAIL_PATHS = new Set([
   "/v1/auth/request-password-reset",
   "/v1/auth/send-verification-email",
@@ -98,7 +112,14 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
   const auth = createAuth(db, config, mailer, log, (userId) =>
     hub.notify(userId, { type: "account" }),
   );
-  const accounts = new AccountService(db, auth, storage, config.SESSION_TOUCH_SECONDS * 1000);
+  const accounts = new AccountService(
+    db,
+    auth,
+    storage,
+    config.SESSION_TOUCH_SECONDS * 1000,
+    config.REQUIRE_TWO_FACTOR,
+  );
+  const twoFactor = new TwoFactorService(db, auth, config);
   const appSignIn = new AppSignIn(db, auth, config);
   const providers = Object.keys(socialProviders(config));
   const sync = new SyncService(db, hub, log);
@@ -108,9 +129,13 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
 
   const scale = config.RATE_LIMIT_SCALE;
   const limits = {
-    signIn: new RateLimiter(10 * scale, 15 * MINUTE),
+    // Wrong passwords and wrong codes from one address. Only the failures count: someone
+    // signing in to a few accounts, or a few times, is not guessing.
+    signInFailures: new RateLimiter(20 * scale, 15 * MINUTE),
     // Per account, whatever the address: guessing one password from many addresses.
     signInAccount: new RateLimiter(20 * scale, 15 * MINUTE),
+    // Starting and finishing a sign in with another account: nothing there to guess.
+    appSignIn: new RateLimiter(60 * scale, 15 * MINUTE),
     register: new RateLimiter(10 * scale, HOUR),
     email: new RateLimiter(5 * scale, HOUR),
     refresh: new RateLimiter(60 * scale, MINUTE),
@@ -119,14 +144,54 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
     socket: new RateLimiter(60 * scale, MINUTE),
   };
 
+  function tooMany(wait: number) {
+    return new HttpError(429, "rate_limited", `Too many requests. Try again in ${wait} seconds.`);
+  }
+
   function limit(limiter: RateLimiter, key: string) {
     const wait = limiter.take(key);
-    if (wait !== null) {
-      throw new HttpError(429, "rate_limited", `Too many requests. Try again in ${wait} seconds.`);
-    }
+    if (wait !== null) throw tooMany(wait);
+  }
+
+  /// Runs a sign in step that can be guessed at: refused once too many from this address
+  /// went wrong, and a wrong one (any error) counts.
+  async function guessable(ip: string, run: () => Promise<Response>): Promise<Response> {
+    const key = `login:${ip}`;
+    const wait = limits.signInFailures.blocked(key);
+    if (wait !== null) throw tooMany(wait);
+    const response = await run();
+    if (response.status >= 400) limits.signInFailures.record(key);
+    return response;
   }
 
   const claimsOf = (headers: Record<string, string | undefined>) => accounts.fromHeaders(headers);
+  /// The cookie better-auth keeps a half finished sign in in.
+  const challengeCookie = async () => (await auth.$context).createAuthCookie("two_factor").name;
+
+  /// A password sign in that needs a second step answers with the challenge in its body, not
+  /// in a cookie, and says what can answer it. Anything else passes through.
+  async function challengeFromCookie(response: Response): Promise<Response> {
+    if (response.status !== 200 || !response.headers.get("content-type")?.includes("json")) {
+      return response;
+    }
+    const body = z.object({ twoFactorRedirect: z.literal(true) }).safeParse(
+      await response
+        .clone()
+        .json()
+        .catch(() => null),
+    );
+    if (!body.success) return response;
+    const name = await challengeCookie();
+    const cookie = response.headers.getSetCookie().find((line) => line.startsWith(`${name}=`));
+    const challenge = cookie?.slice(name.length + 1).split(";")[0] ?? "";
+    if (!challenge) return response;
+    const methods = await twoFactor.methodsFor(challenge);
+    return Response.json({ twoFactorRequired: true, challenge, methods });
+  }
+
+  /// For what an account that still owes two-factor may do: see itself, set it up, leave.
+  const claimsForSetup = (headers: Record<string, string | undefined>) =>
+    accounts.fromHeaders(headers, true);
 
   const sockets = new Map<
     string,
@@ -364,7 +429,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         .post(
           "/auth/app/begin",
           ({ body, request, ip }) => {
-            limit(limits.signIn, `login:${ip}`);
+            limit(limits.appSignIn, `app-sign-in:${ip}`);
             return appSignIn.begin(body, request.headers);
           },
           {
@@ -380,7 +445,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         .post(
           "/auth/app/redeem",
           ({ body, request, ip }) => {
-            limit(limits.signIn, `login:${ip}`);
+            limit(limits.appSignIn, `app-sign-in:${ip}`);
             return appSignIn.redeem(body.code, body.secret, request.headers);
           },
           {
@@ -397,10 +462,31 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             // Only the apps' own begin starts a sign in with a provider: it is where the
             // beta key is asked for before a new account is made.
             if (path === "/v1/auth/sign-in/social") throw notFound();
+            const cookieless = withoutCookies(request);
+            if (path.startsWith("/v1/auth/two-factor/")) {
+              if (!TWO_FACTOR_STEPS.has(path)) throw notFound();
+              // The apps send no cookies: the half finished sign in comes in a header, and
+              // goes to better-auth as the cookie it keeps it in.
+              const step = async () => {
+                const challenge = request.headers.get(CHALLENGE_HEADER);
+                if (!challenge) return auth.handler(cookieless);
+                const headers = new Headers(cookieless.headers);
+                headers.set("cookie", `${await challengeCookie()}=${challenge}`);
+                return auth.handler(new Request(cookieless, { headers }));
+              };
+              // Asking for a code costs an email; answering one is what gets guessed.
+              if (path.endsWith("/send-otp")) {
+                limit(limits.email, `otp:${ip}`);
+                return step();
+              }
+              return guessable(ip, step);
+            }
             if (request.method === "POST" && SIGN_IN_PATHS.has(path)) {
-              limit(limits.signIn, `login:${ip}`);
-              const account = await signInAccount(request);
-              if (account) limit(limits.signInAccount, `login-account:${account}`);
+              return guessable(ip, async () => {
+                const account = await signInAccount(request);
+                if (account) limit(limits.signInAccount, `login-account:${account}`);
+                return challengeFromCookie(await auth.handler(cookieless));
+              });
             }
             if (request.method === "POST" && path === "/v1/auth/sign-up/email") {
               limit(limits.register, `register:${ip}`);
@@ -411,17 +497,21 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           },
           { parse: "none", detail: { hide: true } },
         )
-        .get("/account", async ({ headers }) => accounts.me((await claimsOf(headers)).userId), {
-          detail: {
-            summary: "The signed in account",
-            tags: ["Account"],
-            security: [{ bearer: [] }],
+        .get(
+          "/account",
+          async ({ headers }) => accounts.me((await claimsForSetup(headers)).userId),
+          {
+            detail: {
+              summary: "The signed in account",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
           },
-        })
+        )
         .post(
           "/account/username",
           async ({ headers, body }) =>
-            accounts.setUsername((await claimsOf(headers)).userId, body.username),
+            accounts.setUsername((await claimsForSetup(headers)).userId, body.username),
           {
             body: z.object({ username: z.string().max(100) }),
             detail: {
@@ -431,10 +521,118 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             },
           },
         )
+        .get(
+          "/account/security",
+          async ({ headers }) => twoFactor.summary((await claimsForSetup(headers)).userId),
+          {
+            detail: {
+              summary: "What the account has for two-factor",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/email",
+          async ({ headers, body, ip }) => {
+            const claims = await claimsForSetup(headers);
+            limit(limits.email, `mail:${ip}`);
+            await twoFactor.addEmail(claims.userId, body.email);
+            return accounts.me(claims.userId);
+          },
+          {
+            body: addEmailRequestSchema,
+            detail: {
+              summary: "Give an account made without an email one, and send it a confirmation",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/two-factor/email",
+          async ({ headers, body }) => {
+            const claims = await claimsForSetup(headers);
+            limit(limits.signInAccount, `password:${claims.userId}`);
+            return twoFactor.enableEmail(claims.userId, body.password);
+          },
+          {
+            body: passwordRequestSchema,
+            detail: {
+              summary: "Turn on emailed sign in codes",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/two-factor/authenticator",
+          async ({ headers, body }) => {
+            const claims = await claimsForSetup(headers);
+            limit(limits.signInAccount, `password:${claims.userId}`);
+            return twoFactor.startAuthenticator(claims.userId, body.password);
+          },
+          {
+            body: passwordRequestSchema,
+            detail: {
+              summary: "Start adding an authenticator app",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/two-factor/authenticator/confirm",
+          async ({ headers, body }) => {
+            const claims = await claimsForSetup(headers);
+            limit(limits.signInAccount, `code:${claims.userId}`);
+            return { backupCodes: await twoFactor.confirmAuthenticator(claims.userId, body.code) };
+          },
+          {
+            body: twoFactorCodeSchema,
+            detail: {
+              summary: "Switch the authenticator app on with a code from it",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/two-factor/disable",
+          async ({ headers, body }) => {
+            const claims = await claimsForSetup(headers);
+            limit(limits.signInAccount, `password:${claims.userId}`);
+            return twoFactor.disable(claims.userId, body.method, body.password);
+          },
+          {
+            body: disableTwoFactorRequestSchema,
+            detail: {
+              summary: "Turn a two-factor method off",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/two-factor/backup-codes",
+          async ({ headers, body }) => {
+            const claims = await claimsForSetup(headers);
+            limit(limits.signInAccount, `password:${claims.userId}`);
+            return { backupCodes: await twoFactor.newBackupCodes(claims.userId, body.password) };
+          },
+          {
+            body: passwordRequestSchema,
+            detail: {
+              summary: "Replace the recovery codes",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
         .post(
           "/account/terms",
           async ({ headers, body }) =>
-            accounts.acceptTerms((await claimsOf(headers)).userId, body.version),
+            accounts.acceptTerms((await claimsForSetup(headers)).userId, body.version),
           {
             body: acceptTermsRequestSchema,
             detail: {
@@ -447,7 +645,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         .delete(
           "/account",
           async ({ headers, body, set }) => {
-            await accounts.deleteAccount(await claimsOf(headers), body.password);
+            await accounts.deleteAccount(await claimsForSetup(headers), body.password);
             set.status = 204;
           },
           {

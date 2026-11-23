@@ -31,3 +31,12 @@ export function providerErrorMessage(code: string, provider: string): string {
       return `Signing in with ${name} didn't work. Try again.`;
   }
 }
+
+/// A sign in with a provider that found no Nookly account for it: the app can offer to make
+/// one instead of only showing the message.
+export class ProviderNoAccountError extends Error {
+  constructor(provider: string) {
+    super(providerErrorMessage("signup_disabled", provider));
+    this.name = "ProviderNoAccountError";
+  }
+}

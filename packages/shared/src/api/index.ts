@@ -1,7 +1,12 @@
 export * from "./client.ts";
 export * from "./schemas.ts";
 export { USERNAME_PATTERN, USERNAME_RULE, suggestUsername } from "./username.ts";
-export { PROVIDER_NAMES, providerErrorMessage, providerName } from "./provider-sign-in.ts";
+export {
+  PROVIDER_NAMES,
+  ProviderNoAccountError,
+  providerErrorMessage,
+  providerName,
+} from "./provider-sign-in.ts";
 export {
   BETA_KEY_MISSING,
   PRODUCTION_SERVER,
@@ -9,3 +14,12 @@ export {
   defaultServer,
 } from "./server-address.ts";
 export { TERMS_VERSION, deviceLocale, legalUrl, requiresTerms, type LegalPage } from "./legal.ts";
+export {
+  SECURITY_STEPS,
+  cleanTwoFactorCode,
+  firstTwoFactorMethod,
+  runSecurityAction,
+  twoFactorMethodLabels,
+  type SecurityAction,
+  type SecurityOutcome,
+} from "./two-factor.ts";

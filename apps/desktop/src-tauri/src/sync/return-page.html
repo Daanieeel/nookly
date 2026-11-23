@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Nookly</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --raised: #fff;
+        --control: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --elev: 0 1px 2px 0 rgba(0, 0, 0, 0.04), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
+        --bg: #fafafa;
+        --fg: #0a0a0a;
+        --card: #fff;
+        --muted: #666;
+        --border: rgba(0, 0, 0, 0.09);
+        --input: rgba(0, 0, 0, 0.14);
+        --primary: #0070f3;
+        --green: #00873d;
+        --red: #dc2626;
+        --blue: #0070f3;
+        --field: #fff;
+        --shadow:
+          0 0 0 1px var(--border), 0 4px 8px -2px rgba(0, 0, 0, 0.06),
+          0 16px 32px -8px rgba(0, 0, 0, 0.14), 0 40px 80px -20px rgba(0, 0, 0, 0.2);
+        --solid: #e5560a;
+        --solid-edge: 90%;
+        --caution: #ab7a00;
+        --track: rgba(0, 0, 0, 0.09);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --raised: #282828;
+          --control: inset 0 1px 0 0 rgba(255, 255, 255, 0.09), 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+          --elev: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 6px 14px -4px rgba(0, 0, 0, 0.6);
+          --bg: #0e0e0e;
+          --fg: #eee;
+          --card: #1b1b1b;
+          --muted: #a0a0a0;
+          --border: rgba(255, 255, 255, 0.09);
+          --input: rgba(255, 255, 255, 0.15);
+          --green: #00cb50;
+          --red: #ff4040;
+          --blue: #47a8ff;
+          --field: #282828;
+          --shadow:
+            0 0 0 1px var(--border), inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+            0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 40px 90px -20px rgba(0, 0, 0, 0.6);
+          --solid: #f56a14;
+          --solid-edge: 70%;
+          --caution: #ffcc47;
+          --track: rgba(255, 255, 255, 0.12);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        min-height: 100%;
+        background: var(--bg);
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        padding: max(2rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+          max(2rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+        font:
+          15px/1.55 "Inter Variable",
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          system-ui,
+          sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        font:
+          650 1.15rem/1 "Inter Tight Variable",
+          "Inter Tight",
+          Inter,
+          system-ui,
+          sans-serif;
+        letter-spacing: -0.02em;
+        color: var(--fg);
+        text-decoration: none;
+      }
+      .brand img {
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
+        display: block;
+      }
+      .card {
+        width: 100%;
+        max-width: 24rem;
+        margin: auto 0;
+        text-align: center;
+      }
+      .badge {
+        position: relative;
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1.5rem;
+      }
+      .badge i,
+      .badge b {
+        position: absolute;
+        inset: 0;
+        border-radius: 14px;
+        background: var(--raised);
+        box-shadow:
+          inset 0 0 0 1px var(--border),
+          var(--control);
+      }
+      .success .badge b {
+        color: var(--green);
+      }
+      .error .badge b {
+        color: var(--red);
+      }
+      .badge i {
+        opacity: 0.7;
+      }
+      .badge i:nth-child(1) {
+        transform: translateX(-7px) rotate(-12deg);
+      }
+      .badge i:nth-child(2) {
+        transform: translateX(7px) rotate(12deg);
+      }
+      .badge b {
+        display: grid;
+        place-items: center;
+        color: var(--fg);
+        box-shadow:
+          inset 0 0 0 1px var(--border),
+          var(--elev);
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font:
+          650 1.5rem/1.2 "Inter Tight Variable",
+          "Inter Tight",
+          Inter,
+          system-ui,
+          sans-serif;
+        letter-spacing: -0.025em;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .note {
+        margin-top: 1.25rem;
+        font-size: 0.8125rem;
+      }
+      .foot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+      .legal {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.25rem 1.25rem;
+      }
+      .legal a {
+        color: var(--muted);
+        text-decoration: none;
+        padding: 0.25rem 0;
+      }
+      .legal a:hover {
+        color: var(--fg);
+        text-decoration: underline;
+      }
+      @media (max-width: 30rem) {
+        body {
+          gap: 1.25rem;
+          padding-top: max(2.5rem, env(safe-area-inset-top));
+        }
+        .card {
+          max-width: none;
+        }
+        h1 {
+          font-size: 1.35rem;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="brand" href="https://nookly.work" tabindex="-1"
+      ><img
+        src="https://sync.nookly.work/logo.png"
+        alt=""
+        width="36"
+        height="36"
+        onerror="this.remove()"
+      />Nookly</a
+    >
+    <main class="card success">
+      <div class="badge" aria-hidden="true">
+        <i></i><i></i
+        ><b
+          ><svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M5 12l5 5l10 -10" /></svg
+        ></b>
+      </div>
+      <h1>You're back in Nookly</h1>
+      <p>You can close this tab.</p>
+    </main>
+    <footer class="foot">
+      <nav class="legal" aria-label="Legal">
+        <a href="https://nookly.work/imprint">Imprint</a
+        ><a href="https://nookly.work/privacy">Privacy</a
+        ><a href="https://nookly.work/terms">Terms</a>
+      </nav>
+      <span>Your life, organized in one calm place.</span>
+    </footer>
+  </body>
+</html>

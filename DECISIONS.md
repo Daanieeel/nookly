@@ -571,3 +571,12 @@ The apps hold bearer tokens, never cookies, so the browser leg of Google, GitHub
 - **Username:** an account made with a provider has none and the apps ask once (`needsUsername`, `POST /v1/account/username`); until then it shows the provider's name. Only a username that is unset can be set.
 - **Linking:** better-auth's defaults stay: a provider only links to an account whose email is confirmed. Notion does not confirm emails, so it never links.
 - **Apple:** not offered until the Apple Developer account is sorted out; setting `APPLE_CLIENT_ID` and `APPLE_CLIENT_SECRET` (a signed token that expires within 6 months) turns it on.
+
+## D102. A password account signs in with a second step
+
+An account that signs in with a password needs two-factor; an account made with Google, GitHub or Notion never does, since the provider already holds that step. The server flag `REQUIRE_TWO_FACTOR` (on in production, off by default so a server someone runs themselves is not forced) refuses everything but setting it up (`two_factor_required`, 403) until the account has a method, and `twoFactorRequired` on the account tells the apps, which hold sync back and ask (a dialog on the desktop that cannot be closed, a sheet on the phone). Nothing changes for existing data: the migration only adds columns and a table.
+
+- **Methods:** an authenticator app (a 6 digit code, 30 seconds, any app that reads an `otpauth` link or QR code), a code emailed to a confirmed address (5 minutes), and ten single use recovery codes made when the first method turns on. An account made without an email must add and confirm one, or use the authenticator app.
+- **Sign in:** the password step answers `twoFactorRequired` with a `challenge` and the methods the account has instead of a session. The challenge rides in `x-nookly-challenge` (the apps hold no cookies) and is bridged to better-auth's own cookie; it lives ten minutes and each code works once. A wrong code never reveals which methods exist beyond those offered.
+- **Setup:** changes ask for the password again; turning a method on, off or making new recovery codes never rotates the session. The last method cannot be removed while the server requires it.
+- **Passkeys:** a second factor and a sign in method, desktop first. They cannot run in the desktop's web view (its origin is not the server's), so the ceremony happens in the system browser on the server's own page and comes back through the same code handoff as D101. The phone waits for the Apple Developer account.

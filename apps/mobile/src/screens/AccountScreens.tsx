@@ -2,6 +2,7 @@ import {
   ApiClient,
   BETA_KEY_MISSING,
   TERMS_VERSION,
+  TwoFactorRequiredError,
   asksForBetaKey,
   requiresTerms,
   signInSchema,
@@ -51,6 +52,7 @@ import { useTheme } from "../ui/theme.ts";
 import { fieldError } from "./forms.ts";
 import { useRejection } from "./form-block.ts";
 import { LegalFooter, LegalLink } from "./legal.tsx";
+import { TwoFactorStep } from "./TwoFactorStep.tsx";
 
 const serverSchema = z
   .string()
@@ -516,10 +518,15 @@ export function SignInScreen() {
   const server = useServer();
   const local = useLocalData();
   const done = useAfterSignIn();
+  // The password was right and the account asks for a second step before it signs in.
+  const [secondStep, setSecondStep] = useState<TwoFactorRequiredError | null>(null);
   const signIn = useMutation({
     mutationFn: (value: z.infer<typeof signInSchema>) =>
       sync.signIn(server.commit(), value.identifier, value.password, local.options()),
     onSuccess: done,
+    onError: (error) => {
+      if (error instanceof TwoFactorRequiredError) setSecondStep(error);
+    },
   });
   const form = useForm({
     defaultValues: { identifier: "", password: "" },
@@ -531,6 +538,27 @@ export function SignInScreen() {
   const attempted = useStore(form.store, (state) => state.submissionAttempts > 0);
   const valid = useStore(form.store, (state) => state.isValid);
   const rejection = useRejection(signIn, ["identifier", "password"]);
+  if (secondStep) {
+    return (
+      <Page
+        title="One more step"
+        intro="Enter the code that finishes signing in to your account."
+        beta
+      >
+        <TwoFactorStep
+          serverUrl={normalizeServerUrl(server.server)}
+          challenge={secondStep.challenge}
+          methods={secondStep.methods}
+          options={local.options()}
+          onDone={done}
+          onBack={() => {
+            setSecondStep(null);
+            signIn.reset();
+          }}
+        />
+      </Page>
+    );
+  }
   return (
     <Page
       title="Welcome back"

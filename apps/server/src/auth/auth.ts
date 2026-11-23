@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { bearer, username } from "better-auth/plugins";
+import { bearer, twoFactor, username } from "better-auth/plugins";
 import { timingSafeEqual } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import type { Database } from "../db/client.ts";
 import {
   authAccount,
   authSession,
+  authTwoFactor,
   authUser,
   authVerification,
   shares,
@@ -17,7 +18,7 @@ import {
 } from "../db/schema.ts";
 import type { Logger } from "../log.ts";
 import type { Mailer } from "../mail/mailer.ts";
-import { confirmEmailEmail, resetPasswordEmail } from "../mail/templates.ts";
+import { confirmEmailEmail, resetPasswordEmail, twoFactorCodeEmail } from "../mail/templates.ts";
 
 /// The domain of the email an account made without one gets. `.invalid` can never
 /// be delivered to, and the API shows such an address as no email at all.
@@ -25,6 +26,9 @@ export const PLACEHOLDER_EMAIL_DOMAIN = "users.nookly.invalid";
 export const isPlaceholderEmail = (email: string) => email.endsWith(`@${PLACEHOLDER_EMAIL_DOMAIN}`);
 
 export const MIN_PASSWORD_LENGTH = 10;
+/// How long a half finished sign in waits for its second step, and an emailed code works.
+export const TWO_FACTOR_SECONDS = 600;
+export const EMAIL_CODE_MINUTES = 5;
 const DAY_SECONDS = 86_400;
 
 /// The parts of a sign up body the placeholder email needs; the rest passes through.
@@ -102,6 +106,7 @@ export function createAuth(
         session: authSession,
         account: authAccount,
         verification: authVerification,
+        twoFactor: authTwoFactor,
       },
     }),
     // The browser that signs in at a provider is not the app that began it, so it brings
@@ -162,7 +167,34 @@ export function createAuth(
       },
     },
     socialProviders: socialProviders(config),
-    plugins: [username({ minUsernameLength: 3, maxUsernameLength: 30 }), bearer()],
+    plugins: [
+      username({ minUsernameLength: 3, maxUsernameLength: 30 }),
+      bearer(),
+      // The sign in half of two-factor: the plugin holds the half finished sign in and checks
+      // the second step. Setting it up is `TwoFactorService`.
+      twoFactor({
+        issuer: "Nookly",
+        // How long a half finished sign in waits for its code.
+        twoFactorCookieMaxAge: TWO_FACTOR_SECONDS,
+        otpOptions: {
+          period: EMAIL_CODE_MINUTES,
+          digits: 6,
+          storeOTP: "hashed",
+          sendOTP: async ({ user, otp }) => {
+            // Only a confirmed address that turned this on ever gets a code.
+            const [row] = await db
+              .select({ on: authUser.twoFactorEmail })
+              .from(authUser)
+              .where(eq(authUser.id, user.id));
+            if (!row?.on || !user.emailVerified || isPlaceholderEmail(user.email)) return;
+            await mailer.send({
+              to: user.email,
+              ...twoFactorCodeEmail(publicUrl, otp, EMAIL_CODE_MINUTES),
+            });
+          },
+        },
+      }),
+    ],
     hooks: {
       // An account made without an email gets a placeholder better-auth needs.
       before: createAuthMiddleware(async (ctx) => {

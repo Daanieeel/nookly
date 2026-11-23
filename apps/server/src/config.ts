@@ -23,6 +23,9 @@ const envSchema = z.object({
     .default("tauri://localhost,http://tauri.localhost,http://localhost:1420"),
   /// Read the client address from `X-Forwarded-For`, set by the reverse proxy.
   TRUST_PROXY: z.stringbool().default(false),
+  /// Accounts that sign in with a password must set up a second step before anything but
+  /// setting it up works. Nookly's own server turns it on; a server of your own may too.
+  REQUIRE_TWO_FACTOR: z.stringbool().default(false),
   /// How many proxies in front of the server append to `X-Forwarded-For` (Heroku's router,
   /// or Caddy: one). The address that many entries from the right is the client's; anything
   /// before it is the client's own claim.

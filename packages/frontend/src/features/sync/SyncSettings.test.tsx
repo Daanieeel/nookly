@@ -9,6 +9,7 @@ import { renderWithProviders } from "#/test/render.tsx";
 import { mockCommand } from "#/test/tauri.ts";
 import { syncRuntime } from "./sync-instance.ts";
 import { useAccountDialog } from "./account-dialog-store.ts";
+import { useSecurityDialog } from "./security-dialog-store.ts";
 
 const ADA = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -41,6 +42,14 @@ function signedIn(sessions: Session[] = []) {
   });
   vi.spyOn(api, "sessions").mockResolvedValue(sessions);
   vi.spyOn(api, "sharesWithMe").mockResolvedValue([]);
+  vi.spyOn(api, "security").mockResolvedValue({
+    available: true,
+    required: false,
+    enabled: false,
+    email: { enabled: false, possible: true, address: "ada@example.com", confirmed: true },
+    authenticator: { enabled: false },
+    backupCodesLeft: 0,
+  });
   vi.spyOn(syncRuntime, "account").mockReturnValue(api);
   act(() =>
     syncRuntime.store.setState({
@@ -103,6 +112,15 @@ describe("the Sync settings", () => {
     expect(confirm.className).not.toContain("solid-destructive");
     await user.click(confirm);
     expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows whether two-factor sign in is on, and opens its dialog", async () => {
+    signedIn();
+    const { user } = await openSync();
+    expect(await screen.findByText("Two-factor sign in is off")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Manage" }));
+    expect(useSecurityDialog.getState().open).toBe(true);
+    act(() => useSecurityDialog.getState().close());
   });
 
   it("has no Shared with me section, as sharing is not possible yet", async () => {

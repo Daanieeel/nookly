@@ -4,6 +4,7 @@ import {
   boolean,
   customType,
   index,
+  integer,
   jsonb,
   pgTable,
   primaryKey,
@@ -37,6 +38,10 @@ export const authUser = pgTable("auth_user", {
   /// nookly.work) and when. Null until it did: accounts older than the terms are asked once.
   termsVersion: text("terms_version"),
   termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+  /// Signing in with a password asks for a second step (better-auth's two-factor plugin).
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
+  /// The second step may be a code emailed to the account.
+  twoFactorEmail: boolean("two_factor_email").notNull().default(false),
   createdAt: created(),
   updatedAt: updated(),
 });
@@ -84,6 +89,27 @@ export const authAccount = pgTable(
     updatedAt: updated(),
   },
   (t) => [index("auth_account_user").on(t.userId)],
+);
+
+/// An authenticator app and the recovery codes of an account (better-auth's two-factor
+/// plugin reads and writes it at sign in). The secret and the codes are encrypted.
+export const authTwoFactor = pgTable(
+  "auth_two_factor",
+  {
+    id: uuid("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => authUser.id, { onDelete: "cascade" }),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    /// False until a code from the app has proved it works.
+    verified: boolean("verified").notNull().default(true),
+    failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    createdAt: created(),
+    updatedAt: updated(),
+  },
+  (t) => [uniqueIndex("auth_two_factor_user").on(t.userId)],
 );
 
 export const authVerification = pgTable(

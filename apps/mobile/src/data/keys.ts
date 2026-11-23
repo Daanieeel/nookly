@@ -63,6 +63,7 @@ export const keys = {
   sync: {
     root: ["sync"] as const,
     sessions: ["sync", "sessions"] as const,
+    security: ["sync", "security"] as const,
     conflicts: ["sync", "conflicts"] as const,
     conflictItems: ["sync", "conflicts", "items"] as const,
     localData: ["sync", "local-data"] as const,

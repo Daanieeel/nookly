@@ -2,7 +2,9 @@ import {
   ApiClient,
   BETA_KEY_MISSING,
   PRODUCTION_SERVER,
+  ProviderNoAccountError,
   TERMS_VERSION,
+  TwoFactorRequiredError,
   asksForBetaKey,
   requiresTerms,
   signInSchema,
@@ -11,8 +13,16 @@ import {
 import { type SignInOptions, normalizeServerUrl } from "@nookly/shared/sync";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconBrandAppleFilled, IconKey, IconMail, IconServer, IconUser } from "@tabler/icons-react";
-import { type ReactNode, useEffect, useId, useState } from "react";
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconBrandAppleFilled,
+  IconKey,
+  IconMail,
+  IconServer,
+  IconUser,
+} from "@tabler/icons-react";
+import { type ReactNode, useId, useState } from "react";
 import { z } from "zod";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { FormField, fieldMessage, hasVisibleErrors } from "#/components/form-field.tsx";
@@ -33,12 +43,14 @@ import { UrlInput } from "#/components/url-input.tsx";
 import { PasswordInput } from "#/components/password-input.tsx";
 import { PasswordStrengthMeter } from "#/components/password-strength-meter.tsx";
 import { IconInput } from "@nookly/ui/components/icon-input";
+import { Label } from "@nookly/ui/components/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nookly/ui/components/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { GitHubMark, GoogleMark, NotionMark } from "./provider-marks.tsx";
 import { type AccountMode, useAccountDialog } from "./account-dialog-store.ts";
 import { LegalLink, LegalLinks } from "./legal-links.tsx";
 import { syncRuntime } from "./sync-instance.ts";
+import { TwoFactorStep } from "./TwoFactorStep.tsx";
 
 const errorText = (error: Error | null) => (error ? error.message : null);
 const serverSchema = z
@@ -83,14 +95,11 @@ const PROVIDERS: { id: string; name: string; icon: Mark }[] = [
 function OtherAccounts({
   verb,
   server,
-  local,
-  betaKey,
+  step,
 }: {
   verb: "in" | "up";
   server: ReturnType<typeof useServer>;
-  local: ReturnType<typeof useLocalData>;
-  /// What is typed in the beta key field now, for creating an account.
-  betaKey: () => string;
+  step: ReturnType<typeof useSecondStep>;
 }) {
   const queryClient = useQueryClient();
   const url = server.error ? null : normalizeServerUrl(server.server);
@@ -102,24 +111,56 @@ function OtherAccounts({
     retry: false,
   });
   const signIn = useMutation({
-    mutationFn: (provider: string) => {
+    mutationFn: (input: { provider: string; create: boolean; key?: string }) => {
       const target = server.commit();
-      const key = verb === "up" ? betaKey().trim() || undefined : undefined;
-      if (verb === "up" && !key && asksForBetaKey(target)) throw new Error(BETA_KEY_MISSING);
+      if (input.create && !input.key && asksForBetaKey(target)) throw new Error(BETA_KEY_MISSING);
       return syncRuntime.signInWithProvider(
         target,
-        provider,
-        { createAccount: verb === "up", betaKey: key },
-        local.options(),
+        input.provider,
+        {
+          createAccount: input.create,
+          betaKey: input.key,
+          // Agreed to in the second step, and recorded with the account it makes.
+          termsVersion: input.create && requiresTerms(target) ? TERMS_VERSION : undefined,
+        },
+        step.options(),
       );
     },
     // Nothing comes back when the browser was closed or the person gave up: stay here.
     onSuccess: (user) => {
       if (user) afterSignIn(queryClient);
     },
+    // No account for this one yet: not a dead end, the question is whether to make one.
+    onError: (error, input) => {
+      if (!(error instanceof ProviderNoAccountError) || input.create) return;
+      const name = PROVIDERS.find((provider) => provider.id === input.provider)?.name;
+      step.request(
+        {
+          intro: `There is no Nookly account for this ${name} account yet. Create one?`,
+          terms: requiresTerms(server.server),
+          betaKey: asksForBetaKey(server.server),
+        },
+        (answers) =>
+          signIn.mutate({ provider: input.provider, create: true, key: answers.betaKey }),
+      );
+    },
   });
+  const begin = (provider: string) => {
+    if (verb === "in") {
+      step.request({}, () => signIn.mutate({ provider, create: false }));
+      return;
+    }
+    // A server that fails to parse has nothing to ask for: the error says so.
+    if (url === null) {
+      signIn.mutate({ provider, create: true });
+      return;
+    }
+    step.request({ terms: requiresTerms(url), betaKey: asksForBetaKey(url) }, (answers) =>
+      signIn.mutate({ provider, create: true, key: answers.betaKey }),
+    );
+  };
   const waiting = signIn.isPending
-    ? PROVIDERS.find((provider) => provider.id === signIn.variables)
+    ? PROVIDERS.find((provider) => provider.id === signIn.variables?.provider)
     : undefined;
   return (
     <div className="flex flex-col gap-2.5">
@@ -135,10 +176,10 @@ function OtherAccounts({
             <Button
               type="button"
               variant="secondary"
-              disabled={!available || signIn.isPending || local.open}
+              disabled={!available || signIn.isPending}
               aria-label={`Sign ${verb} with ${name}`}
               className="h-10 flex-1"
-              onClick={() => signIn.mutate(id)}
+              onClick={() => begin(id)}
             >
               <ProviderIcon className="size-5" />
             </Button>
@@ -170,14 +211,9 @@ function OtherAccounts({
           </Button>
         </div>
       )}
-      <FieldError message={errorText(signIn.error)} />
-      {verb === "up" && requiresTerms(server.server) && (
-        <p className="text-xs text-muted-foreground">
-          By signing up with another account you agree to the{" "}
-          <LegalLink page="terms" className="text-foreground" /> and have read the{" "}
-          <LegalLink page="privacy" className="text-foreground" />.
-        </p>
-      )}
+      <FieldError
+        message={signIn.error instanceof ProviderNoAccountError ? null : errorText(signIn.error)}
+      />
     </div>
   );
 }
@@ -245,25 +281,155 @@ function useServer() {
 
 type LocalData = NonNullable<SignInOptions["localData"]>;
 
-/// What is already on this device, and the question a sign in has to ask about it: nothing
-/// joins an account without a yes. A device with nothing on it is not asked.
-function useLocalData() {
+/// What a sign in or a new account asks for before it goes through, in a step of its own.
+interface StepNeeds {
+  /// Said above the questions, when there is something to explain.
+  intro?: string;
+  /// The terms, ticked, for an account that is made.
+  terms?: boolean;
+  /// The beta key, for an account that is made without having typed it.
+  betaKey?: boolean;
+}
+
+interface Pending {
+  needs: StepNeeds;
+  run: (answers: { betaKey?: string }) => void;
+}
+
+/// The second step of the dialog. Nothing joins an account without a yes, so what is already
+/// on this device is asked about before a sign in goes through; a new account asks for its
+/// terms here too. A device with nothing on it, signing in, has no second step.
+function useSecondStep() {
   const { data: count = 0 } = useQuery({
     queryKey: qk.sync.localData(),
     queryFn: () => syncRuntime.localDataCount(),
   });
   const [choice, setChoice] = useState<LocalData | null>(null);
+  const [pending, setPending] = useState<Pending | null>(null);
   return {
     count,
     choice,
     setChoice,
-    /// The form can't be sent while the question is open.
-    open: count > 0 && choice === null,
+    pending,
     options: (): SignInOptions => (count > 0 && choice ? { localData: choice } : {}),
+    /// Goes on at once when there is nothing to ask, and asks first when there is.
+    request(needs: StepNeeds, run: Pending["run"]) {
+      const asks = (count > 0 && choice === null) || needs.intro || needs.terms || needs.betaKey;
+      if (asks) setPending({ needs, run });
+      else run({});
+    },
+    confirm(answers: { betaKey?: string }) {
+      const waiting = pending;
+      setPending(null);
+      waiting?.run(answers);
+    },
+    cancel: () => setPending(null),
   };
 }
 
-function LocalDataQuestion({ data }: { data: ReturnType<typeof useLocalData> }) {
+/// The form stays mounted under the step, so a sign in that is under way and what was typed
+/// are still there when the person goes back.
+function Stepped({
+  step,
+  className,
+  children,
+}: {
+  step: ReturnType<typeof useSecondStep>;
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <div className={step.pending ? "hidden" : className}>{children}</div>
+      {step.pending && <SecondStep step={step} pending={step.pending} />}
+    </>
+  );
+}
+
+function SecondStep({
+  step,
+  pending,
+}: {
+  step: ReturnType<typeof useSecondStep>;
+  pending: Pending;
+}) {
+  const { needs } = pending;
+  const [key, setKey] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const keyId = useId();
+  const termsId = useId();
+  const answered =
+    (step.count === 0 || step.choice !== null) &&
+    (!needs.terms || agreed) &&
+    (!needs.betaKey || key.trim() !== "");
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (answered) step.confirm({ betaKey: key.trim() || undefined });
+      }}
+    >
+      {needs.intro && <p className="text-sm">{needs.intro}</p>}
+      {needs.betaKey && (
+        <FormField
+          label="Beta key"
+          htmlFor={keyId}
+          required
+          hint="Needed while Nookly is in its closed beta."
+        >
+          <PasswordInput
+            icon={IconKey}
+            id={keyId}
+            placeholder="Beta key"
+            autoComplete="off"
+            autoFocus
+            value={key}
+            onChange={(event) => setKey(event.target.value)}
+          />
+        </FormField>
+      )}
+      <LocalDataQuestion data={step} />
+      {needs.terms && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-start gap-2.5">
+            <Checkbox
+              id={termsId}
+              checked={agreed}
+              onCheckedChange={(next) => setAgreed(next === true)}
+              className="mt-0.5"
+            />
+            <Label htmlFor={termsId} className="block text-xs/relaxed font-normal">
+              I am at least 18 and agree to the{" "}
+              <LegalLink page="terms" className="text-foreground" />.
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            How we handle your data is in the{" "}
+            <LegalLink page="privacy" className="text-foreground" />.
+          </p>
+        </div>
+      )}
+      <div className="flex flex-col gap-2 pt-1">
+        <Button type="submit" className="w-full" disabled={!answered}>
+          Continue
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="linkMuted"
+          className="self-center"
+          onClick={step.cancel}
+        >
+          <IconArrowLeft size={14} />
+          Back
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function LocalDataQuestion({ data }: { data: ReturnType<typeof useSecondStep> }) {
   if (data.count === 0) return null;
   const items = data.count === 1 ? "1 item" : `${data.count.toLocaleString()} items`;
   return (
@@ -303,21 +469,41 @@ function afterSignIn(queryClient: ReturnType<typeof useQueryClient>) {
 function SignInForm({ onForgot }: { onForgot: () => void }) {
   const queryClient = useQueryClient();
   const server = useServer();
-  const local = useLocalData();
+  const step = useSecondStep();
   const identifierId = useId();
   const passwordId = useId();
+  // The password was right and the account asks for a second step before it signs in.
+  const [secondStep, setSecondStep] = useState<TwoFactorRequiredError | null>(null);
   const signIn = useMutation({
     mutationFn: (value: z.infer<typeof signInSchema>) =>
-      syncRuntime.signIn(server.commit(), value.identifier, value.password, local.options()),
+      syncRuntime.signIn(server.commit(), value.identifier, value.password, step.options()),
     onSuccess: () => afterSignIn(queryClient),
+    onError: (error) => {
+      if (error instanceof TwoFactorRequiredError) setSecondStep(error);
+    },
   });
   const form = useForm({
     defaultValues: { identifier: "", password: "" },
     validators: { onChange: signInSchema, onSubmit: signInSchema },
-    onSubmit: ({ value }) => signIn.mutate(value),
+    onSubmit: ({ value }) => step.request({}, () => signIn.mutate(value)),
   });
+  if (secondStep) {
+    return (
+      <TwoFactorStep
+        serverUrl={normalizeServerUrl(server.server)}
+        challenge={secondStep.challenge}
+        methods={secondStep.methods}
+        options={step.options()}
+        onDone={() => afterSignIn(queryClient)}
+        onBack={() => {
+          setSecondStep(null);
+          signIn.reset();
+        }}
+      />
+    );
+  }
   return (
-    <div className="flex flex-col gap-3">
+    <Stepped step={step} className="flex flex-col gap-3">
       <form
         noValidate
         className="flex flex-col gap-3"
@@ -337,6 +523,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
               <IconInput
                 icon={IconUser}
                 id={identifierId}
+                placeholder="Username or email"
                 autoComplete="username"
                 autoFocus
                 value={field.state.value}
@@ -351,6 +538,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
             <FormField label="Password" htmlFor={passwordId} required error={fieldMessage(field)}>
               <PasswordInput
                 id={passwordId}
+                placeholder="Password"
                 autoComplete="current-password"
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
@@ -360,12 +548,11 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
           )}
         </form.Field>
         <ServerField value={server.server} onChange={server.setServer} error={server.error} />
-        <LocalDataQuestion data={local} />
         <FieldError message={errorText(signIn.error)} />
         <form.Subscribe selector={hasVisibleErrors}>
           {(blocked) => (
             <div className="flex flex-col gap-2 pt-1">
-              <Button type="submit" className="w-full" disabled={blocked || local.open}>
+              <Button type="submit" className="w-full" disabled={blocked}>
                 <StatusButtonContent
                   status={statusOf(signIn)}
                   label="Sign In"
@@ -386,22 +573,20 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
           )}
         </form.Subscribe>
       </form>
-      <OtherAccounts verb="in" server={server} local={local} betaKey={() => ""} />
-    </div>
+      <OtherAccounts verb="in" server={server} step={step} />
+    </Stepped>
   );
 }
 
 function SignUpForm() {
   const queryClient = useQueryClient();
   const server = useServer();
-  const local = useLocalData();
+  const step = useSecondStep();
   const ids = {
     username: useId(),
     email: useId(),
     password: useId(),
     confirm: useId(),
-    betaKey: useId(),
-    terms: useId(),
   };
   const signUp = useMutation({
     mutationFn: (value: z.infer<typeof signUpFormSchema>) => {
@@ -418,12 +603,11 @@ function SignUpForm() {
           // Only Nookly's own server has terms, and the box is only there for it.
           termsVersion: requiresTerms(url) ? TERMS_VERSION : undefined,
         },
-        local.options(),
+        step.options(),
       );
     },
     onSuccess: () => afterSignIn(queryClient),
   });
-  const needsTerms = requiresTerms(server.server);
   const form = useForm({
     defaultValues: {
       username: "",
@@ -431,17 +615,19 @@ function SignUpForm() {
       password: "",
       confirm: "",
       betaKey: "",
-      acceptTerms: false,
+      // Agreed to in the second step, where Nookly's own server asks for it.
+      acceptTerms: true,
     },
     validators: { onChange: signUpFormSchema, onSubmit: signUpFormSchema },
-    onSubmit: ({ value }) => signUp.mutate(value),
+    // The beta key and the terms are asked for in the next step.
+    onSubmit: ({ value }) =>
+      step.request(
+        { terms: requiresTerms(server.server), betaKey: asksForBetaKey(server.server) },
+        (answers) => signUp.mutate({ ...value, betaKey: answers.betaKey ?? "" }),
+      ),
   });
-  // A server of your own has no terms of ours: nothing to tick there.
-  useEffect(() => {
-    form.setFieldValue("acceptTerms", !needsTerms);
-  }, [form, needsTerms]);
   return (
-    <div className="flex flex-col gap-3">
+    <Stepped step={step} className="flex flex-col gap-3">
       <form
         noValidate
         className="flex flex-col gap-3"
@@ -539,78 +725,27 @@ function SignUpForm() {
             </div>
           )}
         </form.Field>
-        <form.Field name="betaKey">
-          {(field) => (
-            <FormField
-              label="Beta key"
-              htmlFor={ids.betaKey}
-              required={asksForBetaKey(server.server)}
-              hint="Needed while Nookly is in its closed beta."
-              error={fieldMessage(field)}
-            >
-              <PasswordInput
-                icon={IconKey}
-                id={ids.betaKey}
-                autoComplete="off"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-            </FormField>
-          )}
-        </form.Field>
         <ServerField value={server.server} onChange={server.setServer} error={server.error} />
-        <LocalDataQuestion data={local} />
-        {needsTerms && (
-          <form.Field name="acceptTerms">
-            {(field) => (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-start gap-2.5">
-                  <Checkbox
-                    id={ids.terms}
-                    checked={field.state.value}
-                    aria-invalid={fieldMessage(field) !== undefined}
-                    onCheckedChange={(next) => field.handleChange(next === true)}
-                    onBlur={field.handleBlur}
-                    className="mt-0.5"
-                  />
-                  <label htmlFor={ids.terms} className="text-xs/relaxed text-muted-foreground">
-                    I am at least 18 and agree to the{" "}
-                    <LegalLink page="terms" className="text-foreground" />.
-                  </label>
-                </div>
-                <FieldError message={fieldMessage(field)} />
-                <p className="text-xs text-muted-foreground">
-                  How we handle your data is in the{" "}
-                  <LegalLink page="privacy" className="text-foreground" />.
-                </p>
-              </div>
-            )}
-          </form.Field>
-        )}
         <FieldError message={errorText(signUp.error)} />
         <form.Subscribe selector={hasVisibleErrors}>
           {(blocked) => (
             <div className="flex pt-1">
-              <Button type="submit" className="w-full" disabled={blocked || local.open}>
+              <Button type="submit" className="w-full" disabled={blocked}>
                 <StatusButtonContent
                   status={statusOf(signUp)}
                   label="Create Account"
                   successLabel="Account created"
                   errorLabel="Couldn't create it"
                 />
+                {/* More follows: the terms, and what to do with what is on this device. */}
+                {statusOf(signUp) === "idle" && <IconArrowRight size={14} />}
               </Button>
             </div>
           )}
         </form.Subscribe>
       </form>
-      <OtherAccounts
-        verb="up"
-        server={server}
-        local={local}
-        betaKey={() => form.state.values.betaKey}
-      />
-    </div>
+      <OtherAccounts verb="up" server={server} step={step} />
+    </Stepped>
   );
 }
 
@@ -646,6 +781,7 @@ function ResetForm({ onBack }: { onBack: () => void }) {
             <IconInput
               icon={IconMail}
               id={emailId}
+              placeholder="ada@example.com"
               type="email"
               autoComplete="email"
               autoFocus

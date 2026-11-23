@@ -1,5 +1,12 @@
-import { ApiClient, ApiRequestError, TERMS_VERSION } from "@nookly/shared/api";
+import {
+  ApiClient,
+  ApiRequestError,
+  ProviderNoAccountError,
+  TERMS_VERSION,
+  TwoFactorRequiredError,
+} from "@nookly/shared/api";
 import { act, screen, waitFor } from "@testing-library/react";
+import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
@@ -19,6 +26,13 @@ const ADA = {
 };
 
 const TICK = { name: /at least 18 and agree to the Terms of Service/ };
+
+/// The second step of creating an account on Nookly's server: the beta key, the terms.
+async function agree(user: UserEvent, key = "the-key") {
+  await user.click(await screen.findByRole("checkbox", TICK));
+  await user.type(screen.getByLabelText(/^Beta key/), key);
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+}
 
 /// A provider's button, once the server has said it has the provider.
 async function offered(name: string) {
@@ -72,21 +86,42 @@ describe("the account dialog", () => {
     expect(useAccountDialog.getState().open).toBe(false);
   });
 
-  it("asks what happens to what is on this device, and signs in with the answer", async () => {
+  it("asks what happens to what is on this device in a second step, then signs in", async () => {
     vi.spyOn(syncRuntime, "localDataCount").mockResolvedValue(120);
     const signIn = vi.spyOn(syncRuntime, "signIn").mockResolvedValue(ADA);
     const { user } = open();
-    expect(await screen.findByText(/This device already holds 120 items/)).toBeInTheDocument();
     await user.type(screen.getByLabelText(/Username or email/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
+    // The form does not carry the question: it is asked once a sign in is asked for.
+    expect(screen.queryByText(/This device already holds/)).not.toBeInTheDocument();
+    await waitFor(() => expect(syncRuntime.localDataCount).toHaveBeenCalled());
+    await act(async () => {});
+    await user.click(screen.getByRole("button", { name: "Sign In" }));
+    expect(await screen.findByText(/This device already holds 120 items/)).toBeInTheDocument();
     // Nothing joins an account, and nothing is cleared, without an answer.
-    expect(screen.getByRole("button", { name: "Sign In" })).toBeDisabled();
+    expect(signIn).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     await expectNoA11yViolations();
     await user.click(screen.getByRole("button", { name: "Keep out of the account" }));
-    await user.click(screen.getByRole("button", { name: "Sign In" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(signIn).toHaveBeenCalledWith("https://sync.nookly.work", "ada", "a long password", {
       localData: "setAside",
     });
+  });
+
+  it("goes back from the question to the form with nothing sent", async () => {
+    vi.spyOn(syncRuntime, "localDataCount").mockResolvedValue(120);
+    const signIn = vi.spyOn(syncRuntime, "signIn").mockResolvedValue(ADA);
+    const { user } = open();
+    await user.type(screen.getByLabelText(/Username or email/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await waitFor(() => expect(syncRuntime.localDataCount).toHaveBeenCalled());
+    await act(async () => {});
+    await user.click(screen.getByRole("button", { name: "Sign In" }));
+    await screen.findByText(/This device already holds 120 items/);
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByLabelText(/Username or email/)).toHaveValue("ada");
+    expect(signIn).not.toHaveBeenCalled();
   });
 
   it("keeps the dialog open with the reason when signing in fails", async () => {
@@ -105,16 +140,16 @@ describe("the account dialog", () => {
     expect(useAccountDialog.getState().open).toBe(true);
   });
 
-  it("creates an account with a username and the beta key, the email being optional", async () => {
+  it("creates an account with a username, the email being optional, and the beta key in the next step", async () => {
     const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
     const { user } = open("signUp");
     expect(screen.getByRole("dialog", { name: "Create your account" })).toBeInTheDocument();
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
-    await user.type(screen.getByLabelText(/^Beta key/), " the-key ");
-    await user.click(screen.getByRole("checkbox", TICK));
+    expect(screen.queryByLabelText(/^Beta key/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create Account" }));
+    await agree(user, " the-key ");
     expect(signUp).toHaveBeenCalledWith(
       "https://sync.nookly.work",
       {
@@ -139,8 +174,6 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "another long one");
-    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
-    await user.click(screen.getByRole("checkbox", TICK));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("The passwords don't match")).toBeInTheDocument();
     expect(signUp).not.toHaveBeenCalled();
@@ -156,28 +189,45 @@ describe("the account dialog", () => {
     expect(screen.getByRole("meter")).toHaveAttribute("aria-valuenow", "0");
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText("Repeat password"), weak);
-    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
-    await user.click(screen.getByRole("checkbox", TICK));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
+    await agree(user);
     expect(signUp).toHaveBeenCalled();
   });
 
-  it("will not create an account until the terms are agreed to", async () => {
+  it("asks for the terms in a second step, and will not create an account without them", async () => {
     const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
     const { user } = open("signUp");
-    expect(screen.getByRole("checkbox", TICK)).not.toBeChecked();
-    // Beside the box, in the note under the other accounts, and in the legal links at the foot.
-    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(3);
+    // The form itself has no box to tick.
+    expect(screen.queryByRole("checkbox", TICK)).not.toBeInTheDocument();
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
-    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
     await user.click(screen.getByRole("button", { name: "Create Account" }));
-    expect(await screen.findByText("Agree to the terms to create an account")).toBeInTheDocument();
+    expect(await screen.findByRole("checkbox", TICK)).not.toBeChecked();
     expect(signUp).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    // Beside the box and in the legal links at the foot.
+    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(2);
+    await expectNoA11yViolations();
     await user.click(screen.getByRole("checkbox", TICK));
-    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    // The terms alone are not enough: the beta key is asked for here too.
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(signUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("goes back from the terms to the form with what was typed", async () => {
+    const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    await user.type(screen.getByLabelText(/^Username/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    await screen.findByRole("checkbox", TICK);
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByLabelText(/^Username/)).toHaveValue("ada");
+    expect(signUp).not.toHaveBeenCalled();
   });
 
   it("has no terms to agree to on a server of your own", async () => {
@@ -194,20 +244,26 @@ describe("the account dialog", () => {
     expect(screen.getByRole("navigation", { name: "Legal" })).toBeInTheDocument();
   });
 
-  it("keeps the beta key hidden while it is typed", () => {
-    open("signUp");
-    expect(screen.getByLabelText(/^Beta key/)).toHaveAttribute("type", "password");
+  it("keeps the beta key hidden while it is typed, in the second step", async () => {
+    const { user } = open("signUp");
+    await user.type(screen.getByLabelText(/^Username/), "ada");
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.type(screen.getByLabelText("Repeat password"), "a long password");
+    await user.click(screen.getByRole("button", { name: "Create Account" }));
+    expect(await screen.findByLabelText(/^Beta key/)).toHaveAttribute("type", "password");
   });
 
-  it("asks for the beta key before creating an account on Nookly's server", async () => {
+  it("asks for the beta key in the next step, not as a mistake on the form", async () => {
     const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
     const { user } = open("signUp");
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
-    await user.click(screen.getByRole("checkbox", TICK));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
-    expect(await screen.findByText("Enter the beta key to create an account.")).toBeInTheDocument();
+    expect(await screen.findByLabelText(/^Beta key/)).toBeVisible();
+    expect(screen.queryByText("Enter the beta key to create an account.")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", TICK));
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     expect(signUp).not.toHaveBeenCalled();
   });
 
@@ -243,9 +299,8 @@ describe("the account dialog", () => {
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
-    await user.type(screen.getByLabelText(/^Beta key/), "nope");
-    await user.click(screen.getByRole("checkbox", TICK));
     await user.click(screen.getByRole("button", { name: "Create Account" }));
+    await agree(user, "nope");
     expect(await screen.findByText("That beta key isn't right.")).toBeInTheDocument();
     expect(useAccountDialog.getState().open).toBe(true);
   });
@@ -358,18 +413,19 @@ describe("the account dialog", () => {
     expect(useAccountDialog.getState().open).toBe(true);
   });
 
-  it("creates an account with a provider only with the beta key typed first", async () => {
+  it("asks for the beta key and the terms in a second step before creating an account with a provider", async () => {
     const signIn = vi.spyOn(syncRuntime, "signInWithProvider").mockResolvedValue(ADA);
     const { user } = open("signUp");
+    expect(screen.queryByLabelText(/^Beta key/)).not.toBeInTheDocument();
     await user.click(await offered("Sign up with Notion"));
-    expect(await screen.findByText("Enter the beta key to create an account.")).toBeInTheDocument();
+    expect(await screen.findByLabelText(/^Beta key/)).toBeVisible();
+    expect(screen.queryByText("Enter the beta key to create an account.")).not.toBeInTheDocument();
     expect(signIn).not.toHaveBeenCalled();
-    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
-    await user.click(screen.getByRole("button", { name: "Sign up with Notion" }));
+    await agree(user);
     expect(signIn).toHaveBeenCalledWith(
       "https://sync.nookly.work",
       "notion",
-      { createAccount: true, betaKey: "the-key" },
+      { createAccount: true, betaKey: "the-key", termsVersion: TERMS_VERSION },
       {},
     );
   });
@@ -391,30 +447,71 @@ describe("the account dialog", () => {
     );
   });
 
-  it("points at the terms next to the buttons that create an account", async () => {
-    open("signUp");
-    await offered("Sign up with Google");
-    expect(screen.getByText(/By signing up with another account you agree/)).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Terms of Service" }).length).toBeGreaterThan(1);
+  it("asks for the terms in a second step before creating an account with a provider", async () => {
+    const signIn = vi.spyOn(syncRuntime, "signInWithProvider").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    expect(screen.queryByText(/By signing up with another account/)).not.toBeInTheDocument();
+    await user.click(await offered("Sign up with Google"));
+    expect(await screen.findByRole("checkbox", TICK)).not.toBeChecked();
+    expect(signIn).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(signIn).not.toHaveBeenCalled();
   });
 
-  it("holds the buttons back while the question about what is on this device is open", async () => {
+  it("offers to create the account when a sign in finds none", async () => {
+    const signIn = vi
+      .spyOn(syncRuntime, "signInWithProvider")
+      .mockRejectedValueOnce(new ProviderNoAccountError("github"))
+      .mockResolvedValueOnce(ADA);
+    const { user } = open();
+    await user.click(await offered("Sign in with GitHub"));
+    // Not a dead end: the question is whether to make one.
+    expect(await screen.findByText(/no Nookly account for this GitHub account yet/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
+    await user.click(screen.getByRole("checkbox", TICK));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(signIn).toHaveBeenLastCalledWith(
+      "https://sync.nookly.work",
+      "github",
+      { createAccount: true, betaKey: "the-key", termsVersion: TERMS_VERSION },
+      {},
+    );
+    expect(signIn).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(useAccountDialog.getState().open).toBe(false));
+  });
+
+  it("keeps the buttons on when the device holds data, and asks in a second step", async () => {
     vi.spyOn(syncRuntime, "localDataCount").mockResolvedValue(3);
     const signIn = vi.spyOn(syncRuntime, "signInWithProvider").mockResolvedValue(ADA);
     const { user } = open();
-    await screen.findByText(/This device already holds 3 items/);
-    // The server has answered, and still nothing can be sent before the question is.
     await waitFor(() => expect(syncRuntime.providersOf).toHaveBeenCalled());
+    await waitFor(() => expect(syncRuntime.localDataCount).toHaveBeenCalled());
     await act(async () => {});
-    expect(screen.getByRole("button", { name: "Sign in with Google" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Add to the account" }));
+    expect(screen.getByRole("button", { name: "Sign in with Google" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Sign in with Google" }));
+    await screen.findByText(/This device already holds 3 items/);
+    expect(signIn).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Add to the account" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(signIn).toHaveBeenCalledWith(
       "https://sync.nookly.work",
       "google",
       { createAccount: false, betaKey: undefined },
       { localData: "add" },
     );
+  });
+
+  it("shows a placeholder in every field", async () => {
+    const { user } = open();
+    expect(screen.getByLabelText(/Username or email/)).toHaveAttribute(
+      "placeholder",
+      "Username or email",
+    );
+    expect(screen.getByLabelText(/^Password/)).toHaveAttribute("placeholder", "Password");
+    await user.click(screen.getByRole("tab", { name: "I'm new here" }));
+    expect(screen.getByLabelText(/^Username/)).toHaveAttribute("placeholder", "ada");
   });
 
   it("scrolls inside the window instead of running off it, in every mode", async () => {
@@ -469,5 +566,73 @@ describe("the account dialog", () => {
     expect(screen.getByRole("dialog", { name: "Create your account" })).toBeInTheDocument();
     expect(screen.getByText(/free during the closed beta/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create Account" })).toBeInTheDocument();
+  });
+});
+
+describe("the second step of signing in", () => {
+  async function toSecondStep(methods: ("totp" | "email" | "backup")[]) {
+    vi.spyOn(syncRuntime, "signIn").mockRejectedValue(
+      new TwoFactorRequiredError("challenge-1", methods),
+    );
+    const rendered = open();
+    await rendered.user.type(screen.getByLabelText(/Username or email/), "ada");
+    await rendered.user.type(screen.getByLabelText(/^Password/), "a long password");
+    await rendered.user.click(screen.getByRole("button", { name: "Sign In" }));
+    return rendered;
+  }
+
+  it("asks for the code of the authenticator app, and signs in with it", async () => {
+    const complete = vi.spyOn(syncRuntime, "completeTwoFactor").mockResolvedValue(ADA);
+    const { user } = await toSecondStep(["totp", "email", "backup"]);
+    expect(await screen.findByLabelText(/^Authenticator code/)).toBeInTheDocument();
+    await expectNoA11yViolations();
+    await user.type(screen.getByLabelText(/^Authenticator code/), "123 456");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(complete).toHaveBeenCalledWith(
+      "https://sync.nookly.work",
+      "challenge-1",
+      "totp",
+      "123456",
+      {},
+    );
+    expect(useAccountDialog.getState().open).toBe(false);
+  });
+
+  it("keeps the step open with the reason when the code is wrong", async () => {
+    vi.spyOn(syncRuntime, "completeTwoFactor").mockRejectedValue(
+      new ApiRequestError(401, "invalid_code", "That code isn't right."),
+    );
+    const { user } = await toSecondStep(["totp"]);
+    await user.type(await screen.findByLabelText(/^Authenticator code/), "000000");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(await screen.findByText("That code isn't right.")).toBeInTheDocument();
+    expect(useAccountDialog.getState().open).toBe(true);
+  });
+
+  it("emails a code when that is the choice, and takes a recovery code too", async () => {
+    const send = vi.spyOn(syncRuntime, "sendTwoFactorEmail").mockResolvedValue();
+    const complete = vi.spyOn(syncRuntime, "completeTwoFactor").mockResolvedValue(ADA);
+    const { user } = await toSecondStep(["email", "backup"]);
+    // Only email and a recovery code: the email goes at once, with nothing to choose first.
+    expect(await screen.findByLabelText(/^Emailed code/)).toBeInTheDocument();
+    expect(send).toHaveBeenCalledWith("https://sync.nookly.work", "challenge-1");
+    expect(screen.getByText(/We emailed a code/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Use a recovery code" }));
+    await user.type(screen.getByLabelText(/^Recovery code/), "abcde-fghij");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(complete).toHaveBeenCalledWith(
+      "https://sync.nookly.work",
+      "challenge-1",
+      "backup",
+      "abcde-fghij",
+      {},
+    );
+  });
+
+  it("goes back to the password", async () => {
+    const { user } = await toSecondStep(["totp"]);
+    await user.click(await screen.findByRole("button", { name: "Back" }));
+    expect(screen.getByLabelText(/^Password/)).toBeInTheDocument();
   });
 });

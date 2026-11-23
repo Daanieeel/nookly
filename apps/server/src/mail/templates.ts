@@ -23,8 +23,11 @@ interface Layout {
   title: string;
   /// Paragraphs above the button, already escaped.
   intro: string[];
-  /// `warning` (orange) for actions that change the account, like a password reset.
-  button: { label: string; url: string; severity?: "warning" };
+  /// `warning` (orange) for actions that change the account, like a password reset. Without
+  /// one the email carries a `code` instead.
+  button?: { label: string; url: string; severity?: "warning" };
+  /// A short code to type into the app, drawn large.
+  code?: string;
   /// Small print under the button.
   note: string;
   publicUrl: string;
@@ -51,9 +54,17 @@ function buttonLook(severity?: "warning") {
   };
 }
 
-function layout({ preview, title, intro, button, note, publicUrl }: Layout): string {
-  const { fill, shadow } = buttonLook(button.severity);
-  const url = escape(button.url);
+function layout({ preview, title, intro, button, code, note, publicUrl }: Layout): string {
+  const { fill, shadow } = buttonLook(button?.severity);
+  const url = escape(button?.url ?? "");
+  const action = button
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;"><tr><td align="center" bgcolor="${fill}" style="border-radius:12px;background-color:${fill};"><a href="${url}" style="display:block;padding:14px 26px;font:500 15px/1 ${FONT};color:#ffffff;text-decoration:none;text-align:center;border-radius:12px;background-color:${fill};background-image:linear-gradient(to bottom,rgba(255,255,255,0.15),rgba(255,255,255,0));box-shadow:${shadow};">${escape(button.label)}</a></td></tr></table>`
+    : code
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;"><tr><td align="center" style="padding:16px;border-radius:12px;background:#f4f4f5;font:600 32px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0.3em;color:#0a0a0a;">${escape(code)}</td></tr></table>`
+      : "";
+  const fallback = button
+    ? `<p style="margin:18px 0 0;padding-top:16px;border-top:1px solid #eeeeee;font:400 12px/1.55 ${FONT};color:#a1a1aa;word-break:break-all;">Button not working? Copy this link into your browser:<br><a href="${url}" style="color:#0070f3;">${url}</a></p>`
+    : "";
   const paragraphs = intro
     .map((p) => `<p style="margin:0 0 14px;font:400 15px/1.6 ${FONT};color:#52525b;">${p}</p>`)
     .join("");
@@ -67,12 +78,28 @@ function layout({ preview, title, intro, button, note, publicUrl }: Layout): str
 <tr><td style="padding:8px 8px 0;">
 <h1 style="margin:0 0 14px;font:700 24px/1.25 ${FONT};letter-spacing:-0.025em;color:#0a0a0a;">${escape(title)}</h1>
 ${paragraphs}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;"><tr><td align="center" bgcolor="${fill}" style="border-radius:12px;background-color:${fill};"><a href="${url}" style="display:block;padding:14px 26px;font:500 15px/1 ${FONT};color:#ffffff;text-decoration:none;text-align:center;border-radius:12px;background-color:${fill};background-image:linear-gradient(to bottom,rgba(255,255,255,0.15),rgba(255,255,255,0));box-shadow:${shadow};">${escape(button.label)}</a></td></tr></table>
+${action}
 <p style="margin:20px 0 0;font:400 13px/1.55 ${FONT};color:#71717a;">${note}</p>
-<p style="margin:18px 0 0;padding-top:16px;border-top:1px solid #eeeeee;font:400 12px/1.55 ${FONT};color:#a1a1aa;word-break:break-all;">Button not working? Copy this link into your browser:<br><a href="${url}" style="color:#0070f3;">${url}</a></p>
+${fallback}
 </td></tr>
 <tr><td align="center" style="padding:20px 0 0;font:400 12px/1.8 ${FONT};color:#a1a1aa;"><a href="https://nookly.work/imprint" style="color:#71717a;text-decoration:none;">Imprint</a> &nbsp;&nbsp; <a href="https://nookly.work/privacy" style="color:#71717a;text-decoration:none;">Privacy</a> &nbsp;&nbsp; <a href="https://nookly.work/terms" style="color:#71717a;text-decoration:none;">Terms</a><br>Nookly, your life organized in one calm place.</td></tr>
 </table></td></tr></table></body></html>`;
+}
+
+/// The code that finishes a sign in to an account with emailed two-factor codes.
+export function twoFactorCodeEmail(publicUrl: string, code: string, minutes: number): Email {
+  return {
+    subject: `${code} is your Nookly sign in code`,
+    text: `Your Nookly sign in code is ${code}\n\nIt works for ${minutes} minutes. If you didn't try to sign in, someone has your password: change it and ignore this email.`,
+    html: layout({
+      preview: `Your sign in code is ${code}.`,
+      title: "Your sign in code",
+      intro: ["Enter this code in Nookly to finish signing in."],
+      code,
+      note: `The code works for ${minutes} minutes. If you didn't try to sign in, someone knows your password: change it and ignore this email.`,
+      publicUrl,
+    }),
+  };
 }
 
 export function resetPasswordEmail(publicUrl: string, token: string): Email {

@@ -11,7 +11,7 @@ export const TEXTAREA_CLASSES =
   "flex w-full min-w-0 resize-none rounded-md border border-input bg-raised px-3 py-2 text-ui shadow-control transition-colors outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus-ring aria-invalid:border-destructive aria-invalid:[--ring:var(--destructive)] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const LABEL_CLASSES =
-  "flex items-center gap-2 text-sm font-medium leading-none select-none group-data-[disabled=true]:cursor-not-allowed group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50";
+  "flex items-center gap-2 text-sm font-medium leading-none select-none group-data-[disabled=true]:cursor-not-allowed group-data-[disabled=true]:opacity-50 peer-enabled:cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-50";
 
 export const FIELD_LABEL_CLASSES =
   "flex items-center gap-1 text-xs leading-none text-muted-foreground select-none peer-disabled:cursor-not-allowed peer-disabled:opacity-50";

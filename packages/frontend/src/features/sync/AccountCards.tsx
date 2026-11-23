@@ -18,6 +18,7 @@ import {
   IconMailExclamation,
   IconRefresh,
   IconServer,
+  IconShieldLock,
   type Icon as TablerIcon,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +42,7 @@ import { Checkbox } from "@nookly/ui/components/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
 import { cn } from "@nookly/ui/lib/utils";
 import { useAccountDialog } from "./account-dialog-store.ts";
+import { useSecurityDialog } from "./security-dialog-store.ts";
 import { useTermsGate } from "./terms-gate-store.ts";
 import { syncRuntime, useSyncState } from "./sync-instance.ts";
 
@@ -397,6 +399,25 @@ export function TermsLine() {
   );
 }
 
+/// Whether the account signs in with a second step, and the way to change it. An account
+/// made with another provider has no password to protect, so it shows nothing.
+function SecurityLine() {
+  const { data } = useQuery({
+    queryKey: qk.sync.security,
+    queryFn: async () => syncRuntime.account()?.security() ?? null,
+  });
+  if (!data?.available) return null;
+  return (
+    <CardFoot>
+      <IconShieldLock size={14} className="shrink-0" />
+      <span className="min-w-0 flex-1">Two-factor sign in is {data.enabled ? "on" : "off"}</span>
+      <Button size="sm" variant="secondary" onClick={() => useSecurityDialog.getState().show()}>
+        Manage
+      </Button>
+    </CardFoot>
+  );
+}
+
 /// Changes two devices disagreed on: only there while some wait for a decision.
 function ChangesNotice() {
   const setMergeOpen = useAccountDialog((state) => state.setMergeOpen);
@@ -463,6 +484,7 @@ function SignedInCard() {
       />
       {user.email !== null && !user.emailVerified && <UnconfirmedEmail email={user.email} />}
       <TermsLine />
+      <SecurityLine />
       <ChangesNotice />
       <FirstSyncLine />
       <FilesLine />

@@ -1,5 +1,5 @@
 import type { Session, User } from "@nookly/shared/api";
-import { and, desc, eq, gt, ne } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../db/client.ts";
 import { authAccount, authSession, authUser, shares } from "../db/schema.ts";
@@ -15,7 +15,10 @@ export interface AccessClaims {
 
 type UserRow = typeof authUser.$inferSelect;
 
-export function toUser(row: UserRow, needsUsername = false): User {
+export function toUser(
+  row: UserRow,
+  extra: { needsUsername?: boolean; twoFactorRequired?: boolean } = {},
+): User {
   const email = isPlaceholderEmail(row.email) ? null : row.email;
   return {
     id: row.id,
@@ -24,7 +27,8 @@ export function toUser(row: UserRow, needsUsername = false): User {
     emailVerified: email !== null && row.emailVerified,
     createdAt: row.createdAt.toISOString(),
     termsVersion: row.termsVersion,
-    needsUsername,
+    needsUsername: extra.needsUsername ?? false,
+    twoFactorRequired: extra.twoFactorRequired ?? false,
   };
 }
 
@@ -48,20 +52,47 @@ export class AccountService {
 
   private readonly touchEveryMs: number;
 
-  constructor(db: Database, auth: Auth, storage: BlobStore | null, touchEveryMs = 60_000) {
+  /// Accounts with a password must have two-factor before anything else works.
+  private readonly requireTwoFactor: boolean;
+
+  constructor(
+    db: Database,
+    auth: Auth,
+    storage: BlobStore | null,
+    touchEveryMs = 60_000,
+    requireTwoFactor = false,
+  ) {
     this.touchEveryMs = touchEveryMs;
+    this.requireTwoFactor = requireTwoFactor;
     this.db = db;
     this.auth = auth;
     this.storage = storage;
   }
 
-  /// The account behind a bearer token, while its session is open.
-  async authenticate(token: string): Promise<AccessClaims> {
+  /// The account behind a bearer token, while its session is open. Where two-factor is
+  /// required, an account with a password that has not set it up gets in only for what
+  /// `setup` allows: seeing itself and setting it up, or leaving.
+  async authenticate(token: string, setup = false): Promise<AccessClaims> {
     if (!token) throw unauthorized();
     const found = await this.auth.api
       .getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) })
       .catch(() => null);
     if (!found) throw unauthorized();
+    if (this.requireTwoFactor && !setup && !found.user.twoFactorEnabled) {
+      const [credential] = await this.db
+        .select({ password: authAccount.password })
+        .from(authAccount)
+        .where(
+          and(eq(authAccount.userId, found.user.id), eq(authAccount.providerId, "credential")),
+        );
+      if (credential?.password != null) {
+        throw new HttpError(
+          403,
+          "two_factor_required",
+          "Set up two-factor authentication to continue.",
+        );
+      }
+    }
     await this.touch(found.session.id);
     return { userId: found.user.id, sessionId: found.session.id };
   }
@@ -84,9 +115,12 @@ export class AccountService {
       .catch(() => {});
   }
 
-  async fromHeaders(headers: Record<string, string | undefined>): Promise<AccessClaims> {
+  async fromHeaders(
+    headers: Record<string, string | undefined>,
+    setup = false,
+  ): Promise<AccessClaims> {
     const header = headers.authorization ?? "";
-    return this.authenticate(header.startsWith("Bearer ") ? header.slice(7) : "");
+    return this.authenticate(header.startsWith("Bearer ") ? header.slice(7) : "", setup);
   }
 
   /// What a session's device calls itself.
@@ -98,15 +132,22 @@ export class AccountService {
     return { name: row?.name ?? "Unnamed device", platform: row?.platform ?? "other" };
   }
 
-  /// An account made with another provider has no username until it picks one.
+  /// What an account needs from its person next: a username (made with another provider), or
+  /// two-factor (a password, on a server that requires it).
   private async userOf(row: UserRow): Promise<User> {
-    if (row.username !== null) return toUser(row);
-    const [provider] = await this.db
-      .select({ id: authAccount.id })
+    const accounts = await this.db
+      .select({ providerId: authAccount.providerId, password: authAccount.password })
       .from(authAccount)
-      .where(and(eq(authAccount.userId, row.id), ne(authAccount.providerId, "credential")))
-      .limit(1);
-    return toUser(row, provider !== undefined);
+      .where(eq(authAccount.userId, row.id));
+    const needsUsername =
+      row.username === null && accounts.some((account) => account.providerId !== "credential");
+    const hasPassword = accounts.some(
+      (account) => account.providerId === "credential" && account.password != null,
+    );
+    return toUser(row, {
+      needsUsername,
+      twoFactorRequired: this.requireTwoFactor && hasPassword && !row.twoFactorEnabled,
+    });
   }
 
   async me(userId: string): Promise<User> {
