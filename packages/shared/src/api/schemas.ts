@@ -98,6 +98,9 @@ export const userSchema = z.object({
   /// The version of the terms the account agreed to, null before it did (or on a server
   /// that does not keep it).
   termsVersion: z.string().nullable().default(null),
+  /// An account made with another provider has no username until it picks one. Missing
+  /// from a server that does not know providers.
+  needsUsername: z.boolean().optional(),
 });
 export type User = z.infer<typeof userSchema>;
 
@@ -106,6 +109,21 @@ export type User = z.infer<typeof userSchema>;
 export const authResponseSchema = z.object({ token: z.string().nullable() });
 
 export const providersResponseSchema = z.object({ providers: z.array(z.string()) });
+
+/// Beginning a sign in with a provider: where the browser goes, and the secret only this
+/// app holds, which the code coming back needs.
+export const providerBeginResponseSchema = z.object({ url: z.string(), secret: z.string() });
+export type ProviderBegin = z.infer<typeof providerBeginResponseSchema>;
+
+/// What a sign in with a provider begins with. `port` is the loopback port a desktop listens
+/// on, which a phone has none of; a new account needs `createAccount`, and the beta key
+/// while the server is closed.
+export type ProviderBeginInput = {
+  provider: string;
+  port?: number;
+  betaKey?: string;
+  createAccount?: boolean;
+};
 
 export const sessionSchema = z.object({
   id: z.uuid(),

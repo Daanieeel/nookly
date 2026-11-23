@@ -1,5 +1,7 @@
 export * from "./client.ts";
 export * from "./schemas.ts";
+export { USERNAME_PATTERN, USERNAME_RULE, suggestUsername } from "./username.ts";
+export { PROVIDER_NAMES, providerErrorMessage, providerName } from "./provider-sign-in.ts";
 export {
   BETA_KEY_MISSING,
   PRODUCTION_SERVER,

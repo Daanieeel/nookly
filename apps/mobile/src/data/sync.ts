@@ -8,6 +8,7 @@ import { SyncRuntime } from "@nookly/shared/sync";
 import { randomUUID } from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import Storage from "expo-sqlite/kv-store";
+import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 
 const SESSION_TOKEN = "nookly.sync.sessionToken";
@@ -69,6 +70,9 @@ export function deviceName(): string {
 
 export type MobileSync = SyncRuntime<ApiClient>;
 
+/// Where the server sends the browser back to after signing in with another account.
+const PROVIDER_RETURN = "nookly://auth";
+
 /// The phone's sync: the same runtime and engine as the desktop's.
 export function createSync(db: PhoneDb, onApplied: () => void): MobileSync {
   return new SyncRuntime<ApiClient>({
@@ -82,6 +86,13 @@ export function createSync(db: PhoneDb, onApplied: () => void): MobileSync {
       name: deviceName(),
       platform: Platform.OS === "ios" ? "ios" : "android",
     },
+    // The system's own sign in sheet: it shares the browser's saved passwords and hands back
+    // the address of the redirect, which no other app can see.
+    providerBrowser: async (begin) => {
+      const result = await WebBrowser.openAuthSessionAsync(await begin(null), PROVIDER_RETURN);
+      return result.type === "success" ? result.url : null;
+    },
+    cancelProviderBrowser: () => WebBrowser.dismissAuthSession(),
     newId: randomUUID,
     onApplied,
   });

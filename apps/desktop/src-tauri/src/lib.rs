@@ -352,6 +352,9 @@ fn command_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send +
         commands::sync::sync_refresh_token,
         commands::sync::sync_set_refresh_token,
         commands::sync::sync_computer_name,
+        commands::sync::oauth_loopback_start,
+        commands::sync::oauth_loopback_wait,
+        commands::sync::oauth_loopback_cancel,
         commands::blobs::blob_hash,
         commands::blobs::blob_upload,
         commands::blobs::blob_download,
@@ -400,6 +403,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .manage(spelling::SpellState::default())
+        .manage(sync::loopback::LoopbackState::default())
         .setup(|app| setup_app(app))
         .invoke_handler(command_handler())
         .build(context);

@@ -255,6 +255,20 @@ const NOT_INVOKED: &[(&str, &str)] = &[
         "sync_computer_name",
         "sync_computer_name_is_a_short_single_line",
     ),
+    // Needs the running app's state and a browser to come back; the listener they drive is
+    // tested on its own in `sync::loopback`.
+    (
+        "oauth_loopback_start",
+        "oauth_loopback_listens_until_the_browser_returns",
+    ),
+    (
+        "oauth_loopback_wait",
+        "oauth_loopback_listens_until_the_browser_returns",
+    ),
+    (
+        "oauth_loopback_cancel",
+        "oauth_loopback_listens_until_the_browser_returns",
+    ),
     // Network, or an `AppHandle` for the data folder: the part each one delegates to.
     ("blob_hash", "blob_commands_underlying_calls"),
     ("blob_upload", "blob_commands_underlying_calls"),
@@ -4602,6 +4616,28 @@ fn sync_refresh_token_has_its_own_keychain_entry() {
         "nookly-external-calendars",
         "a sync sign out must never remove calendar credentials"
     );
+}
+
+#[test]
+fn oauth_loopback_listens_until_the_browser_returns() {
+    use std::io::{Read, Write};
+    let state = crate::sync::loopback::LoopbackState::default();
+    let port = state.start(std::time::Duration::from_secs(5)).unwrap();
+    let listener = state.current().unwrap();
+    let mut browser = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+    write!(
+        browser,
+        "GET /auth?code=abc HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n"
+    )
+    .unwrap();
+    let mut reply = String::new();
+    browser.read_to_string(&mut reply).unwrap();
+    assert!(reply.starts_with("HTTP/1.1 200"));
+    assert_eq!(
+        listener.wait().as_deref(),
+        Some(format!("http://127.0.0.1:{port}/auth?code=abc").as_str())
+    );
+    state.cancel();
 }
 
 #[test]

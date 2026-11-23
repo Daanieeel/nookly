@@ -12,6 +12,7 @@
 pub mod batch;
 #[cfg(test)]
 mod export_tests;
+pub mod loopback;
 // The registry is what `export_tests` writes to `packages/shared`, which is where
 // the engine reads it; the app itself never needs it at runtime.
 #[cfg(test)]

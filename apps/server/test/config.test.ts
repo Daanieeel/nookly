@@ -25,10 +25,12 @@ describe("the beta key", () => {
   it("keeps its value, trimmed", () => {
     expect(loadConfig({ ...base, BETA_KEY: " abc " }).BETA_KEY).toBe("abc");
   });
-  it("shuts providers out of sign up while it is set", () => {
+  it("keeps a provider from making accounts by itself while it is set", () => {
     const env = { ...base, GITHUB_CLIENT_ID: "id", GITHUB_CLIENT_SECRET: "secret" };
-    expect(socialProviders(loadConfig(env)).github?.disableSignUp).toBe(false);
-    expect(socialProviders(loadConfig({ ...env, BETA_KEY: "k" })).github?.disableSignUp).toBe(true);
+    expect(socialProviders(loadConfig(env)).github?.disableImplicitSignUp).toBe(false);
+    expect(
+      socialProviders(loadConfig({ ...env, BETA_KEY: "k" })).github?.disableImplicitSignUp,
+    ).toBe(true);
   });
 });
 
@@ -55,9 +57,11 @@ describe("the sign in providers", () => {
       "notion",
     ]);
   });
-  it("shuts Notion out of sign up while the beta key is set", () => {
+  it("keeps Notion from making accounts by itself while the beta key is set", () => {
     const env = { ...base, NOTION_CLIENT_ID: "id", NOTION_CLIENT_SECRET: "secret" };
-    expect(socialProviders(loadConfig(env)).notion?.disableSignUp).toBe(false);
-    expect(socialProviders(loadConfig({ ...env, BETA_KEY: "k" })).notion?.disableSignUp).toBe(true);
+    expect(socialProviders(loadConfig(env)).notion?.disableImplicitSignUp).toBe(false);
+    expect(
+      socialProviders(loadConfig({ ...env, BETA_KEY: "k" })).notion?.disableImplicitSignUp,
+    ).toBe(true);
   });
 });

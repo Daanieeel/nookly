@@ -1,5 +1,6 @@
-import type { ApiClient, DeviceInfo, SignUp, User } from "../api/index.ts";
+import type { ApiClient, DeviceInfo, ProviderBeginInput, SignUp, User } from "../api/index.ts";
 import { TERMS_VERSION, requiresTerms } from "../api/legal.ts";
+import { providerErrorMessage } from "../api/provider-sign-in.ts";
 import { userSchema } from "../api/schemas.ts";
 import { SYNCED_TABLES } from "../schema.ts";
 import { type BlobPlatform, type BlobProgress, BlobSync } from "./blobs.ts";
@@ -29,6 +30,10 @@ export type AccountApi = Pick<
   ApiClient,
   | "signUp"
   | "signIn"
+  | "providers"
+  | "beginProviderSignIn"
+  | "finishProviderSignIn"
+  | "setUsername"
   | "signOut"
   | "me"
   | "acceptTerms"
@@ -42,11 +47,23 @@ export type AccountApi = Pick<
   | "devices"
 >;
 
+/// Opens the system browser for a sign in with another account and waits for it to come
+/// back. `begin` gets the loopback port this device listens on (a desktop; a phone passes
+/// null) and gives the address to open. Resolves with the address the browser went back
+/// to, or null when it was closed without finishing.
+export type ProviderBrowser = (
+  begin: (loopbackPort: number | null) => Promise<string>,
+) => Promise<string | null>;
+
 export interface SyncRuntimeDeps<A extends AccountApi> {
   driver: SqlDriver;
   /// An API client for a server, told when the server signs this device out.
   connect: (serverUrl: string, onSignedOut: () => void) => A;
   device: DeviceInfo;
+  /// Signing in with Google, GitHub or Notion, where the device can open a browser.
+  providerBrowser?: ProviderBrowser;
+  /// Stops waiting for the browser of a sign in with another account.
+  cancelProviderBrowser?: () => void;
   /// Rebuilds what the device derives from synced rows (the desktop's search index).
   reindex?: (entityIds: string[]) => Promise<void>;
   newId?: () => string;
@@ -293,12 +310,70 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     this.deps.onApplied();
   }
 
-  async signUp(serverUrl: string, input: SignUp, options: SignInOptions = {}): Promise<User> {
-    const api = this.connect(serverUrl);
-    const user = await api.signUp(input, this.deps.device);
+  /// A device that has just signed in: what is on it is dealt with, then sync starts.
+  private async enter(api: A, user: User, options: SignInOptions): Promise<User> {
     if (options.localData === "setAside") await this.setLocalDataAside(api);
     this.store.setState({ user, signedOutReason: null, termsPending: this.owesTerms(user) });
     await this.start(false).catch(() => {});
+    await this.rememberUser(user);
+    return user;
+  }
+
+  async signUp(serverUrl: string, input: SignUp, options: SignInOptions = {}): Promise<User> {
+    const api = this.connect(serverUrl);
+    return this.enter(api, await api.signUp(input, this.deps.device), options);
+  }
+
+  /// Signs in with another account (`google`, `github`, `notion`) through the browser.
+  /// `createAccount` is for someone who is new here; null comes back when the browser was
+  /// closed without finishing, which is not an error.
+  async signInWithProvider(
+    serverUrl: string,
+    provider: string,
+    input: { createAccount?: boolean; betaKey?: string } = {},
+    options: SignInOptions = {},
+  ): Promise<User | null> {
+    const browser = this.deps.providerBrowser;
+    if (!browser)
+      throw new Error("Signing in with another account isn't available on this device.");
+    const api = this.connect(serverUrl);
+    let secret = "";
+    const returned = await browser(async (port) => {
+      const request: ProviderBeginInput = { provider, ...input };
+      if (port !== null) request.port = port;
+      const begun = await api.beginProviderSignIn(request);
+      secret = begun.secret;
+      return begun.url;
+    });
+    if (returned === null) return null;
+    const error = /[?&]error=([^&#]+)/.exec(returned)?.[1];
+    const code = /[?&]code=([^&#]+)/.exec(returned)?.[1];
+    if (error || !code) {
+      throw new Error(
+        providerErrorMessage(error ? decodeURIComponent(error) : "unknown", provider),
+      );
+    }
+    const user = await api.finishProviderSignIn(decodeURIComponent(code), secret, this.deps.device);
+    return this.enter(api, user, options);
+  }
+
+  /// Which providers a server signs in with. Asked of a client of its own: nothing about
+  /// this device's account changes.
+  providersOf(serverUrl: string): Promise<string[]> {
+    return this.deps.connect(normalizeServerUrl(serverUrl), () => {}).providers();
+  }
+
+  /// The person gave up on a sign in with another account while the browser was open.
+  cancelProviderSignIn(): void {
+    this.deps.cancelProviderBrowser?.();
+  }
+
+  /// The person picks the username of an account made with another provider, once.
+  async chooseUsername(username: string): Promise<User> {
+    const api = this.api;
+    if (!api) throw new Error("Sign in first.");
+    const user = await api.setUsername(username);
+    if (this.api === api) this.store.setState({ user });
     await this.rememberUser(user);
     return user;
   }
@@ -311,12 +386,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     options: SignInOptions = {},
   ): Promise<User> {
     const api = this.connect(serverUrl);
-    const user = await api.signIn(identifier, password, this.deps.device);
-    if (options.localData === "setAside") await this.setLocalDataAside(api);
-    this.store.setState({ user, signedOutReason: null, termsPending: this.owesTerms(user) });
-    await this.start(false).catch(() => {});
-    await this.rememberUser(user);
-    return user;
+    return this.enter(api, await api.signIn(identifier, password, this.deps.device), options);
   }
 
   /// Tries a first sync again after its backup failed.

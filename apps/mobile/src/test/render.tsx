@@ -47,7 +47,12 @@ export function testData(): TestData {
   const sync: MobileSync = new SyncRuntime<ApiClient>({
     driver,
     connect: (baseUrl) =>
-      new ApiClient({ baseUrl, tokens: { load: async () => null, save: async () => {} } }),
+      new ApiClient({
+        baseUrl,
+        tokens: { load: async () => null, save: async () => {} },
+        // A server with no providers: nothing here reaches for the network.
+        fetch: async () => new Response(JSON.stringify({ providers: [] })),
+      }),
     device: { name: "Test phone", platform: "ios" },
     onApplied: () => {},
   });

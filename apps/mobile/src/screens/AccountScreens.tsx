@@ -348,14 +348,60 @@ function Page({
   );
 }
 
-/// Other accounts to sign in with, shown before they work so people know they are coming.
+/// Other accounts to sign in with.
 const PROVIDERS: Provider[] = ["Google", "Apple", "GitHub", "Notion"];
 
-/// Signing in with another account: there, but not working yet, and said so under them.
-function OtherAccounts({ verb }: { verb: "in" | "up" }) {
+/// "Apple", "Apple and Notion", "A, B and C".
+const listed = (names: string[]) =>
+  names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+
+/// Signing in, or creating an account, with another account: the system's sign in sheet opens
+/// at the provider and comes back here. A provider the server does not have is said to be coming.
+function OtherAccounts({
+  verb,
+  server,
+  local,
+  betaKey,
+  onDone,
+}: {
+  verb: "in" | "up";
+  server: ReturnType<typeof useServer>;
+  local: ReturnType<typeof useLocalData>;
+  /// What is typed in the beta key field now, for creating an account.
+  betaKey: () => string;
+  /// An account is in.
+  onDone: () => void;
+}) {
+  const { sync } = useAppData();
   const theme = useTheme();
   const separator = useSemantic("separator");
   const surface = useSemantic("surface");
+  const url = server.error ? null : normalizeServerUrl(server.server);
+  const { data: offered = [] } = useQuery({
+    queryKey: keys.sync.providers(url ?? ""),
+    queryFn: () => sync.providersOf(url ?? ""),
+    enabled: url !== null,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const signIn = useMutation({
+    mutationFn: (provider: Provider) => {
+      const target = server.commit();
+      const key = verb === "up" ? betaKey().trim() || undefined : undefined;
+      if (verb === "up" && !key && asksForBetaKey(target)) throw new Error(BETA_KEY_MISSING);
+      return sync.signInWithProvider(
+        target,
+        provider.toLowerCase(),
+        { createAccount: verb === "up", betaKey: key },
+        local.options(),
+      );
+    },
+    // Nothing comes back when the sheet was closed or the person gave up: stay here.
+    onSuccess: (user) => {
+      if (user) onDone();
+    },
+  });
+  const coming = PROVIDERS.filter((name) => !offered.includes(name.toLowerCase()));
   return (
     <View className="gap-3">
       <View className="flex-row items-center gap-3">
@@ -366,36 +412,59 @@ function OtherAccounts({ verb }: { verb: "in" | "up" }) {
         <View style={{ flex: 1, height: 1, backgroundColor: separator }} />
       </View>
       <View className="flex-row flex-wrap" style={{ gap: SPACE.sm }}>
-        {PROVIDERS.map((name) => (
-          <View
-            key={name}
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel={`Sign ${verb} with ${name}`}
-            accessibilityHint="Coming soon"
-            accessibilityState={{ disabled: true }}
-            style={{
-              flexBasis: "47%",
-              flexGrow: 1,
-              minHeight: 48,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: SPACE.sm,
-              borderRadius: RADIUS.control,
-              borderCurve: "continuous",
-              backgroundColor: surface,
-              opacity: 0.55,
-            }}
-          >
-            <ProviderMark provider={name} color={theme.colors.foreground} />
-            <Text className="font-medium">{name}</Text>
-          </View>
-        ))}
+        {PROVIDERS.map((name) => {
+          const available = offered.includes(name.toLowerCase());
+          const disabled = !available || signIn.isPending;
+          return (
+            <Pressable
+              key={name}
+              accessibilityRole="button"
+              accessibilityLabel={`Sign ${verb} with ${name}`}
+              accessibilityState={{ disabled }}
+              disabled={disabled}
+              onPress={() => {
+                if (local.answered()) signIn.mutate(name);
+              }}
+              style={{
+                flexBasis: "47%",
+                flexGrow: 1,
+                minHeight: 48,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: SPACE.sm,
+                borderRadius: RADIUS.control,
+                borderCurve: "continuous",
+                backgroundColor: surface,
+                opacity: disabled ? 0.55 : 1,
+              }}
+            >
+              <ProviderMark provider={name} color={theme.colors.foreground} />
+              <Text className="font-medium">{name}</Text>
+            </Pressable>
+          );
+        })}
       </View>
-      <Text variant="small" tone="muted" className="text-center">
-        Coming soon
-      </Text>
+      {signIn.isPending ? (
+        <View className="flex-row items-center justify-center gap-2">
+          <Text variant="small" tone="muted">
+            Waiting for {signIn.variables} in your browser
+          </Text>
+          <Button variant="ghost" label="Cancel" onPress={() => sync.cancelProviderSignIn()} />
+        </View>
+      ) : null}
+      {signIn.error ? <Text tone="destructive">{signIn.error.message}</Text> : null}
+      {offered.length > 0 && coming.length > 0 ? (
+        <Text variant="small" tone="muted" className="text-center">
+          {listed(coming)} {coming.length === 1 ? "is" : "are"} coming soon
+        </Text>
+      ) : null}
+      {verb === "up" && requiresTerms(server.server) ? (
+        <Text variant="small" tone="muted" className="text-center">
+          By signing up with another account you agree to the <LegalLink page="terms" /> and have
+          read the <LegalLink page="privacy" />.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -546,7 +615,7 @@ export function SignInScreen() {
           <Text tone="muted">Forgot Password</Text>
         </Pressable>
       </View>
-      <OtherAccounts verb="in" />
+      <OtherAccounts verb="in" server={server} local={local} betaKey={() => ""} onDone={done} />
       <SwitchAccount
         question="New to Nookly?"
         label="Create Account"
@@ -776,7 +845,13 @@ export function SignUpScreen() {
         errorLabel="Couldn't create it"
         onPress={() => void form.handleSubmit()}
       />
-      <OtherAccounts verb="up" />
+      <OtherAccounts
+        verb="up"
+        server={server}
+        local={local}
+        betaKey={() => form.state.values.betaKey}
+        onDone={done}
+      />
       <SwitchAccount
         question="Already have an account?"
         label="Sign In"

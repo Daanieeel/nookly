@@ -181,6 +181,7 @@ export const qk = {
   sync: {
     root: ["sync"] as const,
     account: ["sync", "account"] as const,
+    providers: (serverUrl: string) => ["sync", "providers", serverUrl] as const,
     sessions: ["sync", "sessions"] as const,
     sharesByMe: ["sync", "shares", "outgoing"] as const,
     conflicts: ["sync", "conflicts"] as const,

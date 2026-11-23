@@ -14,7 +14,7 @@
         },
         {
           "title": "One account, every device",
-          "description": "Sign in on your computer, phone and tablet, and choose whether what is already on a device joins your account.",
+          "description": "Sign in on your computer, phone and tablet with a password or with Google, GitHub or Notion, and choose whether what is already on a device joins your account.",
           "icon": "user-circle",
           "tag": "New"
         },

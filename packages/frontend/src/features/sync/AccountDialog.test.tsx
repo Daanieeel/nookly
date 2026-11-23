@@ -1,6 +1,6 @@
 import { ApiClient, ApiRequestError, TERMS_VERSION } from "@nookly/shared/api";
-import { act, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { settings } from "#/lib/settings/settings.ts";
@@ -15,15 +15,28 @@ const ADA = {
   emailVerified: false,
   createdAt: "",
   termsVersion: null,
+  needsUsername: false,
 };
 
 const TICK = { name: /at least 18 and agree to the Terms of Service/ };
+
+/// A provider's button, once the server has said it has the provider.
+async function offered(name: string) {
+  const button = await screen.findByRole("button", { name });
+  await waitFor(() => expect(button).toBeEnabled());
+  return button;
+}
 
 function open(mode: "signIn" | "signUp" = "signIn") {
   const rendered = renderWithProviders(<AccountDialog />);
   act(() => useAccountDialog.getState().show(mode));
   return rendered;
 }
+
+/// A server with Google, GitHub and Notion, like Nookly's own: Apple is still to come.
+beforeEach(() => {
+  vi.spyOn(syncRuntime, "providersOf").mockResolvedValue(["google", "github", "notion"]);
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -153,8 +166,8 @@ describe("the account dialog", () => {
     const signUp = vi.spyOn(syncRuntime, "signUp").mockResolvedValue(ADA);
     const { user } = open("signUp");
     expect(screen.getByRole("checkbox", TICK)).not.toBeChecked();
-    // Once beside the box and once in the legal links at the foot.
-    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(2);
+    // Beside the box, in the note under the other accounts, and in the legal links at the foot.
+    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(3);
     await user.type(screen.getByLabelText(/^Username/), "ada");
     await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.type(screen.getByLabelText("Repeat password"), "a long password");
@@ -275,15 +288,133 @@ describe("the account dialog", () => {
     expect(signIn).toHaveBeenCalledWith("https://sync.example.com", "ada", "a long password", {});
   });
 
-  it("offers signing in with other accounts as coming soon, without doing anything yet", async () => {
+  it("offers the providers the server has, and Apple as coming soon", async () => {
     const { user } = open();
-    for (const provider of ["Google", "Apple", "GitHub", "Notion"]) {
-      const button = screen.getByRole("button", { name: `Sign in with ${provider}` });
-      expect(button).toBeDisabled();
+    for (const provider of ["Google", "GitHub", "Notion"]) {
+      await offered(`Sign in with ${provider}`);
     }
-    await user.hover(screen.getByRole("button", { name: "Sign in with Google" }).parentElement!);
-    expect(await screen.findAllByText("Signing in with Google is coming soon")).not.toHaveLength(0);
+    const apple = screen.getByRole("button", { name: "Sign in with Apple" });
+    expect(apple).toBeDisabled();
+    await user.hover(apple.parentElement!);
+    expect(await screen.findAllByText("Signing in with Apple is coming soon")).not.toHaveLength(0);
     await expectNoA11yViolations();
+  });
+
+  it("offers none of them on a server that has none, like one of your own", async () => {
+    vi.spyOn(syncRuntime, "providersOf").mockResolvedValue([]);
+    open();
+    await screen.findByRole("button", { name: "Sign in with Google" });
+    await waitFor(() => expect(syncRuntime.providersOf).toHaveBeenCalled());
+    await act(async () => {});
+    for (const provider of ["Google", "Apple", "GitHub", "Notion"]) {
+      expect(screen.getByRole("button", { name: `Sign in with ${provider}` })).toBeDisabled();
+    }
+  });
+
+  it("signs in with a provider through the browser, then closes", async () => {
+    const signIn = vi.spyOn(syncRuntime, "signInWithProvider").mockResolvedValue(ADA);
+    const { user } = open();
+    await user.click(await offered("Sign in with GitHub"));
+    expect(signIn).toHaveBeenCalledWith(
+      "https://sync.nookly.work",
+      "github",
+      { createAccount: false, betaKey: undefined },
+      {},
+    );
+    expect(useAccountDialog.getState().open).toBe(false);
+  });
+
+  it("waits for the browser, and the person can give up", async () => {
+    let finish: (user: typeof ADA | null) => void = () => {};
+    vi.spyOn(syncRuntime, "signInWithProvider").mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const cancel = vi.spyOn(syncRuntime, "cancelProviderSignIn").mockImplementation(() => {
+      finish(null);
+    });
+    const { user } = open();
+    await user.click(await offered("Sign in with Google"));
+    expect(await screen.findByText("Waiting for Google in your browser")).toBeInTheDocument();
+    // One sign in at a time.
+    expect(screen.getByRole("button", { name: "Sign in with GitHub" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(cancel).toHaveBeenCalledOnce();
+    await offered("Sign in with GitHub");
+    expect(screen.queryByText(/Waiting for/)).not.toBeInTheDocument();
+    // Giving up is not an error, and the dialog stays for another try.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(useAccountDialog.getState().open).toBe(true);
+  });
+
+  it("says why a sign in with a provider did not work", async () => {
+    vi.spyOn(syncRuntime, "signInWithProvider").mockRejectedValue(
+      new Error("There is no Nookly account for this GitHub account yet."),
+    );
+    const { user } = open();
+    await user.click(await offered("Sign in with GitHub"));
+    expect(await screen.findByText(/no Nookly account for this GitHub/)).toBeInTheDocument();
+    expect(useAccountDialog.getState().open).toBe(true);
+  });
+
+  it("creates an account with a provider only with the beta key typed first", async () => {
+    const signIn = vi.spyOn(syncRuntime, "signInWithProvider").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    await user.click(await offered("Sign up with Notion"));
+    expect(await screen.findByText("Enter the beta key to create an account.")).toBeInTheDocument();
+    expect(signIn).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText(/^Beta key/), "the-key");
+    await user.click(screen.getByRole("button", { name: "Sign up with Notion" }));
+    expect(signIn).toHaveBeenCalledWith(
+      "https://sync.nookly.work",
+      "notion",
+      { createAccount: true, betaKey: "the-key" },
+      {},
+    );
+  });
+
+  it("does not ask for a beta key on a server of your own", async () => {
+    vi.spyOn(syncRuntime, "providersOf").mockResolvedValue(["github"]);
+    const signIn = vi.spyOn(syncRuntime, "signInWithProvider").mockResolvedValue(ADA);
+    const { user } = open("signUp");
+    await user.click(screen.getByRole("button", { name: "Change Server" }));
+    const server = screen.getByLabelText(/^Server/);
+    await user.clear(server);
+    await user.type(server, "https://sync.example.com");
+    await user.click(await offered("Sign up with GitHub"));
+    expect(signIn).toHaveBeenCalledWith(
+      "https://sync.example.com",
+      "github",
+      { createAccount: true, betaKey: undefined },
+      {},
+    );
+  });
+
+  it("points at the terms next to the buttons that create an account", async () => {
+    open("signUp");
+    await offered("Sign up with Google");
+    expect(screen.getByText(/By signing up with another account you agree/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Terms of Service" }).length).toBeGreaterThan(1);
+  });
+
+  it("holds the buttons back while the question about what is on this device is open", async () => {
+    vi.spyOn(syncRuntime, "localDataCount").mockResolvedValue(3);
+    const signIn = vi.spyOn(syncRuntime, "signInWithProvider").mockResolvedValue(ADA);
+    const { user } = open();
+    await screen.findByText(/This device already holds 3 items/);
+    // The server has answered, and still nothing can be sent before the question is.
+    await waitFor(() => expect(syncRuntime.providersOf).toHaveBeenCalled());
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: "Sign in with Google" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Add to the account" }));
+    await user.click(screen.getByRole("button", { name: "Sign in with Google" }));
+    expect(signIn).toHaveBeenCalledWith(
+      "https://sync.nookly.work",
+      "google",
+      { createAccount: false, betaKey: undefined },
+      { localData: "add" },
+    );
   });
 
   it("scrolls inside the window instead of running off it, in every mode", async () => {
