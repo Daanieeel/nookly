@@ -62,6 +62,7 @@ export const keys = {
   entityLabels: (id: string) => ["local", "entity-labels", id] as const,
   sync: {
     root: ["sync"] as const,
+    account: ["sync", "account"] as const,
     sessions: ["sync", "sessions"] as const,
     security: ["sync", "security"] as const,
     conflicts: ["sync", "conflicts"] as const,

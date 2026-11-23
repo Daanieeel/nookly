@@ -313,6 +313,18 @@ export class ApiClient {
     });
   }
 
+  /// Begins confirming with the provider the account signs in with, before something that
+  /// cannot be undone. `port` is the desktop's loopback port, as when signing in.
+  beginConfirmation(input: { provider: string; port?: number }) {
+    return this.call("POST", "/v1/account/confirm/begin", providerBeginResponseSchema, input);
+  }
+
+  /// Swaps the code the browser brought back for the confirmation, which the next deletion
+  /// of the account uses up.
+  finishConfirmation(code: string, secret: string): Promise<void> {
+    return this.callVoid("POST", "/v1/account/confirm/redeem", { code, secret });
+  }
+
   /// Swaps the code the browser brought back for this device's session.
   async finishProviderSignIn(code: string, secret: string, device: DeviceInfo): Promise<User> {
     const result = await this.call(

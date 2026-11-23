@@ -83,6 +83,16 @@ class FakeAccount implements AccountApi {
     this.signedIn = true;
     return this.user;
   }
+  /// What the server hands out when a confirmation with the provider begins.
+  confirmations: { provider: string; port?: number }[] = [];
+  async beginConfirmation(input: { provider: string; port?: number }) {
+    this.confirmations.push(input);
+    return { url: `https://accounts.example/confirm/${input.provider}`, secret: "confirm-secret" };
+  }
+  async finishConfirmation(code: string, secret: string) {
+    this.calls.push(`confirm ${code} ${secret}`);
+    if (code === "stale") throw new Error("The confirmation expired. Try again.");
+  }
   async setUsername(username: string) {
     this.calls.push(`setUsername ${username}`);
     this.user = { ...this.user, username, needsUsername: false };
@@ -1091,6 +1101,39 @@ describe("signing in with another account", () => {
     expect(account.begun).toEqual([
       { provider: "google", port: 51423, betaKey: "key", createAccount: true },
     ]);
+    sync.stop();
+  });
+
+  it("confirms with the provider the account signs in with, through the same browser", async () => {
+    const { sync, account, opened } = withBrowser("http://127.0.0.1:51423/auth?code=abc", 51423);
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    expect(await sync.confirmWithProvider("notion")).toBe(true);
+    expect(opened).toEqual(["https://accounts.example/confirm/notion"]);
+    expect(account.confirmations).toEqual([{ provider: "notion", port: 51423 }]);
+    expect(account.calls).toContain("confirm abc confirm-secret");
+    // Nothing about who is signed in changes.
+    expect(sync.store.getState().user?.username).toBe("ada");
+    sync.stop();
+  });
+
+  it("is not a confirmation when the browser is closed without finishing", async () => {
+    const { sync, account } = withBrowser(null);
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    expect(await sync.confirmWithProvider("notion")).toBe(false);
+    expect(account.calls.some((call) => call.startsWith("confirm "))).toBe(false);
+    sync.stop();
+  });
+
+  it("says why the provider turned the confirmation down", async () => {
+    const { sync } = withBrowser("nookly://auth?error=access_denied");
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    await expect(sync.confirmWithProvider("notion")).rejects.toThrow("Notion didn't allow");
+    sync.stop();
+  });
+
+  it("needs a signed in account", async () => {
+    const { sync } = withBrowser("nookly://auth?code=abc");
+    await expect(sync.confirmWithProvider("notion")).rejects.toThrow("Sign in first");
     sync.stop();
   });
 

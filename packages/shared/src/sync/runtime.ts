@@ -42,6 +42,8 @@ export type AccountApi = Pick<
   | "providers"
   | "beginProviderSignIn"
   | "finishProviderSignIn"
+  | "beginConfirmation"
+  | "finishConfirmation"
   | "setUsername"
   | "signOut"
   | "me"
@@ -392,6 +394,34 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     // The terms were agreed to before the account was made: they are recorded with it.
     if (input.createAccount && input.termsVersion) user = await api.acceptTerms(input.termsVersion);
     return this.enter(api, user, options);
+  }
+
+  /// Shows the account's provider that the person at this device is the account's, before
+  /// something that cannot be undone (deleting the account): the same browser leg as signing
+  /// in, with nothing about who is signed in changed. False when the browser was closed
+  /// without finishing, which is not an error.
+  async confirmWithProvider(provider: string): Promise<boolean> {
+    const browser = this.deps.providerBrowser;
+    if (!browser)
+      throw new Error("Signing in with another account isn't available on this device.");
+    const api = this.api;
+    if (!api) throw new Error("Sign in first.");
+    let secret = "";
+    const returned = await browser(async (port) => {
+      const begun = await api.beginConfirmation(port === null ? { provider } : { provider, port });
+      secret = begun.secret;
+      return begun.url;
+    });
+    if (returned === null) return false;
+    const error = /[?&]error=([^&#]+)/.exec(returned)?.[1];
+    const code = /[?&]code=([^&#]+)/.exec(returned)?.[1];
+    if (error || !code) {
+      throw new Error(
+        providerErrorMessage(error ? decodeURIComponent(error) : "unknown", provider),
+      );
+    }
+    await api.finishConfirmation(decodeURIComponent(code), secret);
+    return true;
   }
 
   /// Which providers a server signs in with. Asked of a client of its own: nothing about

@@ -357,7 +357,7 @@ describe("deleting an account", () => {
       expect(row.n, table).toBe(0);
     }
   });
-  it("deletes an account made with a provider, which has no password to ask for", async () => {
+  it("asks an account made with a provider to confirm with that provider instead of a password", async () => {
     const id = crypto.randomUUID();
     await server.sql`INSERT INTO auth_user (id, name, email, email_verified) VALUES (${id}, 'Notion Ada', 'notion-ada@example.com', true)`;
     await server.sql`INSERT INTO users (id, email) VALUES (${id}, 'notion-ada@example.com') ON CONFLICT DO NOTHING`;
@@ -367,9 +367,11 @@ describe("deleting an account", () => {
     const tokens = new MemoryTokens();
     tokens.token = token;
     const api = server.client(tokens);
-    await api.deleteAccount();
+    // A typed phrase in the app is not enough: the server wants the provider to vouch for it.
+    expect(await status(api.deleteAccount())).toBe(403);
+    expect(await api.isSignedIn()).toBe(true);
     const [row] = await server.sql`SELECT COUNT(*)::int AS n FROM auth_user WHERE id = ${id}`;
-    expect(row.n).toBe(0);
+    expect(row.n).toBe(1);
   });
 
   it("still asks an account with a password for it", async () => {
