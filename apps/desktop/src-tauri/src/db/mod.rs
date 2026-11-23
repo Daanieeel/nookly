@@ -346,6 +346,7 @@ pub fn connect(app_data_dir: &std::path::Path) -> Result<Connection, Box<dyn std
         // An existing database with migrations to run: they run on a copy that has
         // to pass its checks before it replaces the original (see `upgrade`).
         tracing::info!(from = current, to = latest, "upgrading the database");
+        crate::backup::pre_upgrade_backup(&conn, app_data_dir);
         drop(conn);
         let started = std::time::Instant::now();
         if let Err(e) = upgrade::run(&db_path) {

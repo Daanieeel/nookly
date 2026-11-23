@@ -58,6 +58,7 @@
           "Every list can be filtered by more of what its items have, like a recipe's time or an exam's date.",
           "Typing an item's short code like TSK in search lists every item with that code, after what contains it.",
           "A backup is made before a device first sends its things to your account.",
+          "Before an update changes your data, Nookly saves a full backup you can bring back from Settings, Backup, Restore.",
           "On your phone, scan paper documents straight into a Space's files and name, label and link them while they upload.",
           "Moodle works on your phone just like on your computer: read your courses, pages, assignments, grades and forums, open and import files, read them offline, and see Moodle's deadlines on your calendar.",
           "Your coding agent can read and change Nookly's settings, make backups, check how syncing is going and see your connected calendars through the command line, and the open app shows a changed setting within a few seconds.",

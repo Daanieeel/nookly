@@ -198,3 +198,72 @@ fn reopening_a_current_database_changes_nothing_on_disk() {
     assert_eq!(std::fs::read(&db_path).unwrap(), db_before);
     std::fs::remove_dir_all(dir).ok();
 }
+
+/// Besides the raw snapshot, an upgrade leaves a full zip backup (database at its old
+/// schema plus the stored files) that Settings, Backup, Restore accepts, in a folder
+/// no other backup or restore touches.
+#[test]
+fn an_upgrade_leaves_a_zip_backup_at_the_old_schema() {
+    let latest = *migrations::MIGRATION_COUNT;
+    let version = latest - 1;
+    let dir = temp_dir();
+    {
+        let mut conn = Connection::open(dir.join("nookly.db")).unwrap();
+        migrations::MIGRATIONS.to_version(&mut conn, 1).unwrap();
+        seed_version_1(&conn);
+        migrations::MIGRATIONS
+            .to_version(&mut conn, version)
+            .unwrap();
+    }
+    std::fs::create_dir_all(dir.join("files")).unwrap();
+    std::fs::write(dir.join("files").join("lecture.txt"), b"lecture one").unwrap();
+
+    drop(connect(&dir).unwrap());
+
+    let zips: Vec<PathBuf> = std::fs::read_dir(dir.join(crate::backup::PRE_UPGRADE_DIR))
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .collect();
+    assert_eq!(zips.len(), 1, "{zips:?}");
+    let manifest = crate::backup::inspect_backup(&zips[0]).unwrap();
+    assert_eq!(manifest.schema_version, version);
+    assert_eq!(manifest.file_count, 1, "the stored file is in it");
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// A new database has nothing to protect, and one already at the latest schema has
+/// nothing pending, so neither makes a zip.
+#[test]
+fn no_zip_backup_without_a_pending_upgrade() {
+    let dir = temp_dir();
+    drop(connect(&dir).unwrap());
+    drop(connect(&dir).unwrap());
+    assert!(!dir.join(crate::backup::PRE_UPGRADE_DIR).exists());
+    std::fs::remove_dir_all(dir).ok();
+}
+
+/// The zip is an extra safety net. When it cannot be written (here the folder's name
+/// is taken by a file) the upgrade still runs, protected by the snapshot and the
+/// checked copy, and nothing is lost.
+#[test]
+fn an_upgrade_still_runs_when_the_zip_backup_cannot_be_written() {
+    let latest = *migrations::MIGRATION_COUNT;
+    let version = latest - 1;
+    let dir = temp_dir();
+    {
+        let mut conn = Connection::open(dir.join("nookly.db")).unwrap();
+        migrations::MIGRATIONS.to_version(&mut conn, 1).unwrap();
+        seed_version_1(&conn);
+        migrations::MIGRATIONS
+            .to_version(&mut conn, version)
+            .unwrap();
+    }
+    std::fs::write(dir.join(crate::backup::PRE_UPGRADE_DIR), b"in the way").unwrap();
+
+    let upgraded = connect(&dir).unwrap();
+    assert_eq!(schema_version(&upgraded).unwrap(), latest);
+    assert_eq!(count(&upgraded, "entities"), 1);
+    assert_eq!(backups(&dir), vec![format!("nookly.db.bak-v{version}")]);
+    std::fs::remove_dir_all(dir).ok();
+}

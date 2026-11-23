@@ -49,6 +49,10 @@ const RESTORE_ERROR_LOG: &str = "restore-error.log";
 /// The backups made before a first sign in (`commands::backup::create_pre_sync_backup`),
 /// inside the app data folder. Left out of every other backup.
 pub const PRE_SYNC_DIR: &str = "pre-sync-backups";
+/// The full backup made right before an app update migrates the database (`pre_upgrade_backup`),
+/// inside the app data folder. The two newest are kept. Left out of every other backup.
+pub const PRE_UPGRADE_DIR: &str = "pre-upgrade-backups";
+const PRE_UPGRADE_KEEP: usize = 2;
 /// Backups that hold the only copy of something (data kept out of an account, changes that
 /// never reached it before a sign out), inside the app data folder. Never pruned, and left
 /// out of every other backup.
@@ -108,6 +112,7 @@ fn is_excluded(name: &str) -> bool {
             | PENDING_DIR
             | SAFETY_DIR
             | PRE_SYNC_DIR
+            | PRE_UPGRADE_DIR
             | KEPT_DIR
     ) || name.ends_with(".tmp")
         || name.ends_with(".partial")
@@ -148,6 +153,31 @@ pub fn snapshot(conn: &Connection) -> AppResult<Snapshot> {
         schema_version: crate::db::schema_version(conn)?,
         referenced_files,
     })
+}
+
+/// A full zip backup of the database as it is now, in `pre-upgrade-backups`, taken before a
+/// migration changes it. Restorable from Settings, Backup, Restore by a build that knows
+/// its schema. Never stops the upgrade: the snapshot and the checked copy still guard it,
+/// so a failure here is logged and the upgrade goes on.
+pub fn pre_upgrade_backup(conn: &Connection, data_dir: &Path) -> Option<BackupInfo> {
+    let made = snapshot(conn).and_then(|snap| {
+        create_backup(
+            snap,
+            data_dir,
+            &data_dir.join(PRE_UPGRADE_DIR),
+            PRE_UPGRADE_KEEP,
+        )
+    });
+    match made {
+        Ok(info) => {
+            tracing::info!(backup = %info.name, "made a zip backup before upgrading");
+            Some(info)
+        }
+        Err(error) => {
+            tracing::warn!(%error, "could not make a zip backup before upgrading, carrying on");
+            None
+        }
+    }
 }
 
 /// Formats and audio already compress, so storing them beats spending CPU.

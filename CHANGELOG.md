@@ -24,6 +24,7 @@ All notable changes to Nookly are listed here.
 - On your phone, calendar pages show a Back to Today button once today has scrolled out of view.
 - Password fields on your phone have an eye to show or hide what you typed.
 - Creating an account on Nookly's server now asks you to agree to the Terms of Service, with a link to the Privacy Policy. Accounts made earlier are asked once, and sync waits on that device until you agree.
+- Before an update changes your data, Nookly now saves a full backup you can bring back from Settings, Backup, Restore. The last two are kept.
 - Settings has a Legal page with the terms, the privacy policy, the imprint and the license, and the sign in and create account pages link to them.
 
 ### Changed
