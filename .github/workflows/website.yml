@@ -1,8 +1,9 @@
 name: Website
 
 # nookly.work, the static site in apps/web. Built on every pull request that touches it;
-# built and uploaded to Cloudflare Pages on a merge to main, when a desktop release is
-# published (new download links) and once a day (fresh star count and links). The Pages
+# built and uploaded to Cloudflare Pages on a merge to main and once a day (fresh star
+# count). The download version and links are never built in: the browser reads the latest
+# release from GitHub, so a new desktop release shows with no rebuild. The Pages
 # project and its domains are Terraform's (infrastructure/). Nothing is uploaded until
 # the repository variable DEPLOY_ENABLED is "true".
 
@@ -22,8 +23,6 @@ on:
       - "packages/frontend/src/classes.ts"
       - "bun.lock"
       - ".github/workflows/website.yml"
-  release:
-    types: [published]
   schedule:
     - cron: "17 4 * * *"
   workflow_dispatch:
@@ -41,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      # Read only, for the latest release and the star count without the anonymous limit.
+      # Read only, for the star count without the anonymous limit.
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7

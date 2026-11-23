@@ -1,14 +1,12 @@
 import { dictionary } from "@/content";
 import type { Locale } from "@/lib/i18n";
-import { latestRelease } from "@/lib/releases";
 import { DownloadButton } from "../download-button";
 import { HeroStage } from "./stage";
 import { Flame } from "./flame";
 import { BetaNote } from "./beta-note";
 
-export async function Hero({ locale }: { locale: Locale }) {
+export function Hero({ locale }: { locale: Locale }) {
   const t = dictionary(locale).hero;
-  const release = await latestRelease();
   return (
     <section className="relative overflow-hidden bg-background">
       <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center px-4 pt-32 text-center sm:pt-40">
@@ -22,7 +20,7 @@ export async function Hero({ locale }: { locale: Locale }) {
           {t.subtitle}
         </p>
         <div className="relative mt-8 animate-[fade-up_0.7s_ease-out_0.2s_both]">
-          <DownloadButton locale={locale} release={release} />
+          <DownloadButton locale={locale} />
           <BetaNote label={t.beta} />
         </div>
       </div>
