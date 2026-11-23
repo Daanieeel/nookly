@@ -251,3 +251,112 @@ describe("the username of an account made with a provider", () => {
     await expect(api.setUsername("changed_mind")).rejects.toThrow();
   });
 });
+
+describe("confirming with the provider before deleting an account", () => {
+  /// An account made with Google, with the browser still signed in to it: its app token, and
+  /// the cookie a browser holds after the provider signed it in.
+  async function googleAccount(username: string) {
+    const response = await post("/v1/auth/sign-up/email", {
+      username,
+      name: username,
+      password: "correct horse battery",
+      betaKey: BETA,
+    });
+    // The browser's session is its own: the provider's sign in makes one, apart from the app's.
+    const browser = await post("/v1/auth/sign-in/username", {
+      username,
+      password: "correct horse battery",
+    });
+    const cookie = browser.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0])
+      .find((c) => c.includes("session_token"));
+    // SAFETY: the sign up answers with JSON holding the session token; the test reads only that.
+    const { token } = (await response.json()) as { token: string };
+    const [{ id }] = await server.sql<{ id: string }[]>`
+      SELECT id FROM auth_user WHERE username = ${username}`;
+    // What a provider account looks like: a Google sign in and no password.
+    await server.sql`DELETE FROM auth_account WHERE user_id = ${id} AND provider_id = 'credential'`;
+    await server.sql`INSERT INTO auth_account (id, account_id, provider_id, user_id) VALUES (${crypto.randomUUID()}, ${"g-" + id}, 'google', ${id})`;
+    const tokens = new MemoryTokens();
+    tokens.token = token;
+    return { id, cookie: cookie ?? "", api: server.client(tokens) };
+  }
+  const exists = async (id: string) =>
+    (await server.sql`SELECT 1 FROM auth_user WHERE id = ${id}`).length === 1;
+
+  it("will not delete a provider account on its word alone", async () => {
+    const { id, api } = await googleAccount("noconfirm");
+    await expect(api.deleteAccount()).rejects.toThrow(/confirm/i);
+    expect(await exists(id)).toBe(true);
+  });
+
+  it("deletes it once the browser has signed in to the same account again", async () => {
+    const { id, cookie, api } = await googleAccount("confirmed");
+    const { url, secret } = await api.beginConfirmation({ provider: "google" });
+    expect(new URL(url).origin).toBe("https://accounts.google.com");
+    const ticket = await lastTicket();
+    const done = await fetch(`${server.baseUrl}/oauth/done?t=${ticket}`, { headers: { cookie } });
+    expect(done.status).toBe(200);
+    expect(await done.text()).toContain(`nookly://auth?code=${ticket}`);
+    // The browser's own session goes: the account's devices stay as they were.
+    expect((await api.sessions()).length).toBe(1);
+    await api.finishConfirmation(ticket, secret);
+    await api.deleteAccount();
+    expect(await exists(id)).toBe(false);
+  });
+
+  it("works once", async () => {
+    const { id, cookie, api } = await googleAccount("onceonly");
+    const { secret } = await api.beginConfirmation({ provider: "google" });
+    const ticket = await lastTicket();
+    await fetch(`${server.baseUrl}/oauth/done?t=${ticket}`, { headers: { cookie } });
+    await api.finishConfirmation(ticket, secret);
+    await expect(api.finishConfirmation(ticket, secret)).rejects.toThrow();
+    await api.deleteAccount();
+    expect(await exists(id)).toBe(false);
+  });
+
+  it("is refused when the browser signed in to another account", async () => {
+    const mine = await googleAccount("mineone");
+    const other = await googleAccount("otherone");
+    const { secret } = await mine.api.beginConfirmation({ provider: "google" });
+    const ticket = await lastTicket();
+    const done = await fetch(`${server.baseUrl}/oauth/done?t=${ticket}`, {
+      headers: { cookie: other.cookie },
+    });
+    expect(done.status).toBe(400);
+    expect(await done.text()).not.toContain("code=");
+    await expect(mine.api.finishConfirmation(ticket, secret)).rejects.toThrow();
+    await expect(mine.api.deleteAccount()).rejects.toThrow(/confirm/i);
+    expect(await exists(mine.id)).toBe(true);
+    expect(await exists(other.id)).toBe(true);
+  });
+
+  it("cannot be used by another account", async () => {
+    const mine = await googleAccount("owneronly");
+    const thief = await googleAccount("thiefone");
+    const { secret } = await mine.api.beginConfirmation({ provider: "google" });
+    const ticket = await lastTicket();
+    await fetch(`${server.baseUrl}/oauth/done?t=${ticket}`, { headers: { cookie: mine.cookie } });
+    await expect(thief.api.finishConfirmation(ticket, secret)).rejects.toThrow();
+    await expect(thief.api.deleteAccount()).rejects.toThrow(/confirm/i);
+    expect(await exists(thief.id)).toBe(true);
+  });
+
+  it("only offers the providers the account signs in with", async () => {
+    const { api } = await googleAccount("wrongprovider");
+    await expect(api.beginConfirmation({ provider: "github" })).rejects.toThrow();
+  });
+
+  it("is not a way to sign in", async () => {
+    const { cookie, api } = await googleAccount("notasignin");
+    const { secret } = await api.beginConfirmation({ provider: "google" });
+    const ticket = await lastTicket();
+    await fetch(`${server.baseUrl}/oauth/done?t=${ticket}`, { headers: { cookie } });
+    // The sign in's own redeem gives no session for a flow that only confirms.
+    await expect(
+      server.client(new MemoryTokens()).finishProviderSignIn(ticket, secret, DESKTOP),
+    ).rejects.toThrow();
+  });
+});

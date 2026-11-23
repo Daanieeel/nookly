@@ -3,7 +3,7 @@ import { and, eq, like, lt } from "drizzle-orm";
 import { z } from "zod";
 import type { Config } from "../config.ts";
 import type { Database } from "../db/client.ts";
-import { authSession, authVerification } from "../db/schema.ts";
+import { authAccount, authSession, authVerification } from "../db/schema.ts";
 import { badRequest, forbidden } from "../errors.ts";
 import { appReturnPage } from "../pages.ts";
 import { type Auth, deviceOf, isBetaKey, socialProviders } from "./auth.ts";
@@ -21,6 +21,10 @@ import { type Auth, deviceOf, isBetaKey, socialProviders } from "./auth.ts";
 /// A code seen by anything else (another app on a custom scheme, a browser history) opens
 /// nothing without the secret, which never travelled through the browser.
 const FLOW = "app-flow:";
+/// A confirmation a person has made with their provider, kept for the one thing it was for.
+export const CONFIRMED = "confirmed:";
+/// How long a confirmation waits to be used.
+export const CONFIRMED_MS = 5 * 60_000;
 /// Long enough for a person to find their password at the provider.
 const WAITING_MS = 10 * 60_000;
 /// Once the browser has signed in, the app has this long to collect.
@@ -40,6 +44,11 @@ const flowSchema = z.object({
   secret: z.string(),
   /// The session, once the browser has signed in.
   token: z.string().nullable(),
+  /// The account a flow that only confirms is for: no session is handed over, the person
+  /// signs in at the provider again to show it is them.
+  confirm: z.string().nullable().default(null),
+  /// The browser has signed in to that account.
+  confirmed: z.boolean().default(false),
 });
 type Flow = z.infer<typeof flowSchema>;
 
@@ -90,23 +99,63 @@ export class AppSignIn {
       if (!given) throw forbidden("Enter the beta key to create an account.");
       if (!isBetaKey(this.config.BETA_KEY, given)) throw forbidden("That beta key isn't right.");
     }
+    return this.start(
+      input.provider,
+      input.port,
+      { token: null, confirm: null, confirmed: false },
+      input.createAccount === true,
+      headers,
+    );
+  }
+
+  /// Starts a sign in at the provider that only confirms the signed in account is its
+  /// person's, before something that cannot be undone. The provider must be one the account
+  /// signs in with.
+  async beginConfirmation(
+    userId: string,
+    input: { provider: string; port?: number },
+    headers: Headers,
+  ): Promise<{ url: string; secret: string }> {
+    if (!(input.provider in socialProviders(this.config))) {
+      throw badRequest("unknown_provider", "That way of signing in isn't offered here.");
+    }
+    const [linked] = await this.db
+      .select({ id: authAccount.id })
+      .from(authAccount)
+      .where(and(eq(authAccount.userId, userId), eq(authAccount.providerId, input.provider)));
+    if (!linked) throw badRequest("unknown_provider", "This account doesn't sign in that way.");
+    return this.start(
+      input.provider,
+      input.port,
+      { token: null, confirm: userId, confirmed: false },
+      false,
+      headers,
+    );
+  }
+
+  private async start(
+    provider: string,
+    port: number | undefined,
+    flow: Omit<Flow, "secret">,
+    createAccount: boolean,
+    headers: Headers,
+  ): Promise<{ url: string; secret: string }> {
     const ticket = randomSecret();
     const secret = randomSecret();
-    const flow: Flow = { secret: digest(secret).toString("hex"), token: null };
     await this.db.insert(authVerification).values({
       id: crypto.randomUUID(),
       identifier: FLOW + ticket,
-      value: JSON.stringify(flow),
+      value: JSON.stringify({ ...flow, secret: digest(secret).toString("hex") }),
       expiresAt: new Date(Date.now() + WAITING_MS),
     });
-    const back = `/oauth/done?t=${ticket}${input.port ? `&p=${input.port}` : ""}`;
+    const back = `/oauth/done?t=${ticket}${port ? `&p=${port}` : ""}`;
     const started = await this.auth.api.signInSocial({
       body: {
-        provider: input.provider,
+        provider,
         callbackURL: back,
         newUserCallbackURL: back,
         errorCallbackURL: back,
-        requestSignUp: input.createAccount ? true : undefined,
+        requestSignUp: createAccount ? true : undefined,
         disableRedirect: true,
       },
       headers,
@@ -154,6 +203,34 @@ export class AppSignIn {
     if (!session) return broken("The browser isn't signed in. Go back to Nookly and try again.");
     const flow = readFlow(row.value);
     if (!flow) return broken("This link doesn't work. Go back to Nookly and try again.");
+    if (flow.confirm !== null) {
+      // The browser's own session was only the provider's proof: it is not kept.
+      await this.db.delete(authSession).where(eq(authSession.token, session.session.token));
+      if (session.user.id !== flow.confirm) {
+        await this.db.delete(authVerification).where(eq(authVerification.id, row.id));
+        return {
+          status: 400,
+          html: appReturnPage(
+            "That's a different account",
+            "Go back to Nookly and sign in with the account you are using there.",
+            null,
+          ),
+          clearCookies: true,
+        };
+      }
+      await this.db
+        .update(authVerification)
+        .set({
+          value: JSON.stringify({ ...flow, confirmed: true }),
+          expiresAt: new Date(Date.now() + READY_MS),
+        })
+        .where(eq(authVerification.id, row.id));
+      return {
+        status: 200,
+        html: appReturnPage("You're confirmed", "Going back to Nookly.", `${base}?code=${ticket}`),
+        clearCookies: true,
+      };
+    }
     await this.db
       .update(authVerification)
       .set({
@@ -186,7 +263,7 @@ export class AppSignIn {
       .where(eq(authVerification.identifier, FLOW + code));
     if (!row || row.expiresAt.getTime() < Date.now()) throw refused();
     const flow = readFlow(row.value);
-    if (!flow?.token) throw refused();
+    if (!flow?.token || flow.confirm !== null) throw refused();
     const given = digest(secret);
     const stored = Buffer.from(flow.secret, "hex");
     if (given.length !== stored.length || !timingSafeEqual(given, stored)) throw refused();
@@ -201,6 +278,37 @@ export class AppSignIn {
       .set(deviceOf(headers))
       .where(eq(authSession.token, flow.token));
     return { token: flow.token };
+  }
+
+  /// Swaps a code and its secret for the confirmation of the account that began it. Works once,
+  /// and only for that account; what it allows is taken by `AccountService.deleteAccount`.
+  async redeemConfirmation(userId: string, code: string, secret: string): Promise<void> {
+    const refused = () => badRequest("invalid_code", "The confirmation expired. Try again.");
+    if (!TICKET.test(code)) throw refused();
+    const [row] = await this.db
+      .select()
+      .from(authVerification)
+      .where(eq(authVerification.identifier, FLOW + code));
+    if (!row || row.expiresAt.getTime() < Date.now()) throw refused();
+    const flow = readFlow(row.value);
+    if (!flow?.confirmed || flow.confirm !== userId) throw refused();
+    const given = digest(secret);
+    const stored = Buffer.from(flow.secret, "hex");
+    if (given.length !== stored.length || !timingSafeEqual(given, stored)) throw refused();
+    const taken = await this.db
+      .delete(authVerification)
+      .where(eq(authVerification.id, row.id))
+      .returning({ id: authVerification.id });
+    if (taken.length === 0) throw refused();
+    await this.db
+      .delete(authVerification)
+      .where(eq(authVerification.identifier, CONFIRMED + userId));
+    await this.db.insert(authVerification).values({
+      id: crypto.randomUUID(),
+      identifier: CONFIRMED + userId,
+      value: "1",
+      expiresAt: new Date(Date.now() + CONFIRMED_MS),
+    });
   }
 
   /// Headers that remove the browser's own copy of the session.

@@ -371,29 +371,59 @@ describe("the Sync settings", () => {
     await waitFor(() => expect(remove).toHaveBeenCalledWith("a long password"));
   });
 
-  it("asks only for the typed phrase when the account has no password", async () => {
+  /// An account made with Notion: no password, and the provider is what vouches for it.
+  function withProvider() {
     signedIn();
     const api = syncRuntime.account()!;
-    vi.spyOn(api, "security").mockResolvedValue({
-      available: false,
-      required: false,
-      enabled: false,
-      email: { enabled: false, possible: true, address: "ada@example.com", confirmed: true },
-      authenticator: { enabled: false },
-      backupCodesLeft: 0,
-    });
+    vi.spyOn(api, "me").mockResolvedValue({ ...ADA, hasPassword: false, providers: ["notion"] });
     const remove = vi.spyOn(api, "deleteAccount").mockResolvedValue();
     vi.spyOn(syncRuntime, "detach").mockResolvedValue();
+    return { remove };
+  }
+
+  it("asks an account without a password to sign in with its provider again", async () => {
+    const { remove } = withProvider();
+    const confirm = vi.spyOn(syncRuntime, "confirmWithProvider").mockResolvedValue(true);
     const { user } = await openSync();
     await user.click(screen.getByRole("button", { name: "Delete Account" }));
     const dialog = await screen.findByRole("alertdialog");
-    await waitFor(() => expect(within(dialog).queryByLabelText(/Your password/)).toBeNull());
-    const confirm = within(dialog).getByRole("button", { name: "Delete Account" });
-    expect(confirm).toBeDisabled();
+    expect(await within(dialog).findByText(/sign in with Notion once more/i)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Your password/)).toBeNull();
+    const button = within(dialog).getByRole("button", { name: "Delete Account" });
+    expect(button).toBeDisabled();
     await user.type(within(dialog).getByLabelText(/Type delete my account/), "delete my account");
-    expect(confirm).toBeEnabled();
-    await user.click(confirm);
+    await user.click(button);
     await waitFor(() => expect(remove).toHaveBeenCalledWith(undefined));
+    expect(confirm).toHaveBeenCalledWith("notion");
+    expect(confirm.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
+  });
+
+  it("deletes nothing when the provider's browser is closed without confirming", async () => {
+    const { remove } = withProvider();
+    const confirm = vi.spyOn(syncRuntime, "confirmWithProvider").mockResolvedValue(false);
+    const { user } = await openSync();
+    await user.click(screen.getByRole("button", { name: "Delete Account" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await within(dialog).findByText(/sign in with Notion once more/i);
+    await user.type(within(dialog).getByLabelText(/Type delete my account/), "delete my account");
+    await user.click(within(dialog).getByRole("button", { name: "Delete Account" }));
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("shows why the provider turned the confirmation down", async () => {
+    const { remove } = withProvider();
+    vi.spyOn(syncRuntime, "confirmWithProvider").mockRejectedValue(
+      new Error("Notion didn't allow the sign in."),
+    );
+    const { user } = await openSync();
+    await user.click(screen.getByRole("button", { name: "Delete Account" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await within(dialog).findByText(/sign in with Notion once more/i);
+    await user.type(within(dialog).getByLabelText(/Type delete my account/), "delete my account");
+    await user.click(within(dialog).getByRole("button", { name: "Delete Account" }));
+    expect(await within(dialog).findByText("Notion didn't allow the sign in.")).toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
   });
 });
 

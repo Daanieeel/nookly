@@ -113,6 +113,10 @@ export const userSchema = z.object({
   /// The server requires two-factor and this account, which signs in with a password, has
   /// not set it up yet: everything but setting it up is refused until it has.
   twoFactorRequired: z.boolean().optional(),
+  /// Whether the account signs in with a password, and the providers (`google`, `github`,
+  /// `notion`) it signs in with. Missing from a server that does not say.
+  hasPassword: z.boolean().optional(),
+  providers: z.array(z.string()).optional(),
 });
 export type User = z.infer<typeof userSchema>;
 

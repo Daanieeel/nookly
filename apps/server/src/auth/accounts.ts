@@ -2,9 +2,10 @@ import type { Session, User } from "@nookly/shared/api";
 import { and, desc, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../db/client.ts";
-import { authAccount, authSession, authUser, shares } from "../db/schema.ts";
+import { authAccount, authSession, authUser, authVerification, shares } from "../db/schema.ts";
 import { HttpError, badRequest, conflict, forbidden, notFound, unauthorized } from "../errors.ts";
 import type { BlobStore } from "../storage/blobs.ts";
+import { CONFIRMED } from "./app-sign-in.ts";
 import { type Auth, isPlaceholderEmail } from "./auth.ts";
 
 /// Who a request is: the account and the session (one per signed in device).
@@ -17,7 +18,12 @@ type UserRow = typeof authUser.$inferSelect;
 
 export function toUser(
   row: UserRow,
-  extra: { needsUsername?: boolean; twoFactorRequired?: boolean } = {},
+  extra: {
+    needsUsername?: boolean;
+    twoFactorRequired?: boolean;
+    hasPassword?: boolean;
+    providers?: string[];
+  } = {},
 ): User {
   const email = isPlaceholderEmail(row.email) ? null : row.email;
   return {
@@ -29,6 +35,8 @@ export function toUser(
     termsVersion: row.termsVersion,
     needsUsername: extra.needsUsername ?? false,
     twoFactorRequired: extra.twoFactorRequired ?? false,
+    hasPassword: extra.hasPassword,
+    providers: extra.providers,
   };
 }
 
@@ -147,6 +155,8 @@ export class AccountService {
     return toUser(row, {
       needsUsername,
       twoFactorRequired: this.requireTwoFactor && hasPassword && !row.twoFactorEnabled,
+      hasPassword,
+      providers: accounts.map((a) => a.providerId).filter((id) => id !== "credential"),
     });
   }
 
@@ -229,6 +239,21 @@ export class AccountService {
     await this.db.delete(authSession).where(eq(authSession.id, claims.sessionId));
   }
 
+  /// Uses up the confirmation an account made with its provider, when it has one that is
+  /// still good.
+  private async takeConfirmation(userId: string): Promise<boolean> {
+    const taken = await this.db
+      .delete(authVerification)
+      .where(
+        and(
+          eq(authVerification.identifier, CONFIRMED + userId),
+          gt(authVerification.expiresAt, new Date()),
+        ),
+      )
+      .returning({ id: authVerification.id });
+    return taken.length > 0;
+  }
+
   /// Removes the account and everything the server holds for it: sessions, sign in
   /// methods, synced data, files' records, conflicts and shares, both ways. The
   /// devices keep their own data.
@@ -237,12 +262,18 @@ export class AccountService {
       .select({ password: authAccount.password })
       .from(authAccount)
       .where(and(eq(authAccount.userId, claims.userId), eq(authAccount.providerId, "credential")));
-    // An account made with another provider has no password to ask for; the apps ask it for
-    // a typed phrase instead.
     if (credential?.password != null) {
       const ok = password != null && (await Bun.password.verify(password, credential.password));
       // Not 401: that would read as "signed out" to the client.
       if (!ok) throw new HttpError(403, "wrong_password", "The password is wrong.");
+    } else if (!(await this.takeConfirmation(claims.userId))) {
+      // An account made with another provider has no password: its provider has to vouch that
+      // the person deleting it is the one who signs in with it, shortly before.
+      throw new HttpError(
+        403,
+        "confirmation_required",
+        "Confirm with your sign in provider before deleting the account.",
+      );
     }
     const [user] = await this.db.select().from(authUser).where(eq(authUser.id, claims.userId));
     // Files first: if storage fails the account stays, and deleting can be tried again.

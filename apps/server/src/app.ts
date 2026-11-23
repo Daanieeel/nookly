@@ -443,6 +443,48 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           },
         )
         .post(
+          "/account/confirm/begin",
+          async ({ headers, body, request, ip }) => {
+            limit(limits.appSignIn, `app-sign-in:${ip}`);
+            return appSignIn.beginConfirmation(
+              (await claimsForSetup(headers)).userId,
+              body,
+              request.headers,
+            );
+          },
+          {
+            body: z.object({
+              provider: z.string().max(30),
+              port: z.number().int().min(1024).max(65_535).optional(),
+            }),
+            detail: {
+              summary: "Begin confirming with the provider an account signs in with",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/confirm/redeem",
+          async ({ headers, body, set, ip }) => {
+            limit(limits.appSignIn, `app-sign-in:${ip}`);
+            await appSignIn.redeemConfirmation(
+              (await claimsForSetup(headers)).userId,
+              body.code,
+              body.secret,
+            );
+            set.status = 204;
+          },
+          {
+            body: z.object({ code: z.string().max(100), secret: z.string().max(200) }),
+            detail: {
+              summary: "Finish confirming with the provider",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
           "/auth/app/redeem",
           ({ body, request, ip }) => {
             limit(limits.appSignIn, `app-sign-in:${ip}`);

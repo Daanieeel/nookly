@@ -4,7 +4,7 @@ import { renderScreens, testData } from "../../test/render.tsx";
 import type { MenuPresenter } from "../../ui/menu.tsx";
 import { AccountPage } from "./AccountPage.tsx";
 
-function signedIn(available = true) {
+function signedIn(provider: string | null = null) {
   const data = testData();
   const api = new ApiClient({
     baseUrl: "https://sync.example.com",
@@ -32,7 +32,7 @@ function signedIn(available = true) {
   const change = jest.spyOn(api, "changePassword").mockResolvedValue();
   const deleteAccount = jest.spyOn(api, "deleteAccount").mockResolvedValue();
   jest.spyOn(api, "security").mockResolvedValue({
-    available,
+    available: provider === null,
     required: false,
     enabled: true,
     email: { enabled: true, possible: true, address: "a@b.co", confirmed: true },
@@ -40,6 +40,7 @@ function signedIn(available = true) {
     backupCodesLeft: 10,
   });
   const detach = jest.spyOn(data.sync, "detach").mockResolvedValue();
+  const confirm = jest.spyOn(data.sync, "confirmWithProvider").mockResolvedValue(true);
   jest.spyOn(data.sync, "account").mockReturnValue(api);
   data.sync.store.setState({
     user: {
@@ -52,7 +53,17 @@ function signedIn(available = true) {
     },
     serverUrl: "https://sync.example.com",
   });
-  return { data, revoke, change, deleteAccount, detach };
+  jest.spyOn(api, "me").mockResolvedValue({
+    id: "00000000-0000-4000-8000-0000000000bb",
+    username: "ada",
+    email: "a@b.co",
+    emailVerified: true,
+    createdAt: "",
+    termsVersion: null,
+    hasPassword: provider === null,
+    providers: provider ? [provider] : [],
+  });
+  return { data, revoke, change, deleteAccount, detach, confirm };
 }
 
 describe("the Account page", () => {
@@ -157,20 +168,36 @@ describe("the Account page", () => {
     await waitFor(() => expect(detach).toHaveBeenCalled());
   });
 
-  it("asks an account without a password to type a phrase instead", async () => {
-    const { data, deleteAccount, detach } = signedIn(false);
+  it("asks an account without a password to type a phrase, then sign in with its provider again", async () => {
+    const { data, deleteAccount, detach, confirm } = signedIn("notion");
     const screen = await renderScreens({ index: () => <AccountPage /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Delete Account" }));
     expect(await screen.findByText("Removed from the server for good")).toBeTruthy();
+    expect(await screen.findByText("You sign in with Notion once more")).toBeTruthy();
     expect(screen.queryByLabelText("Your password")).toBeNull();
     const phrase = await screen.findByLabelText("Type delete my account");
     // Nothing happens until the phrase is typed.
     await fireEvent.press(screen.getAllByRole("button", { name: "Delete Account" }).at(-1)!);
-    expect(deleteAccount).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
     await fireEvent.changeText(phrase, "delete my account");
     await fireEvent.press(screen.getAllByRole("button", { name: "Delete Account" }).at(-1)!);
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith("notion"));
     await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith(undefined));
     await waitFor(() => expect(detach).toHaveBeenCalled());
+  });
+
+  it("deletes nothing when the provider's browser is closed without confirming", async () => {
+    const { data, deleteAccount, confirm } = signedIn("notion");
+    confirm.mockResolvedValue(false);
+    const screen = await renderScreens({ index: () => <AccountPage /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Delete Account" }));
+    await fireEvent.changeText(
+      await screen.findByLabelText("Type delete my account"),
+      "delete my account",
+    );
+    await fireEvent.press(screen.getAllByRole("button", { name: "Delete Account" }).at(-1)!);
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(deleteAccount).not.toHaveBeenCalled();
   });
 
   it("asks before signing out, as a warning and not as a deletion", async () => {

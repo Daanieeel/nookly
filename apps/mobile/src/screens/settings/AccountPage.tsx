@@ -1,4 +1,9 @@
-import { type ChangePassword, type Session, changePasswordSchema } from "@nookly/shared/api";
+import {
+  type ChangePassword,
+  type Session,
+  changePasswordSchema,
+  providerName,
+} from "@nookly/shared/api";
 import type { SyncStatus } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
@@ -486,7 +491,7 @@ function ChangePasswordSheet() {
 
 /// Deleting the account removes it and everything on the server. This phone keeps its data.
 /// The sheet says so, and asks for the password: that is the confirmation. An account made
-/// with another provider has none, and types a phrase instead.
+/// with another provider has none: it types a phrase, then signs in with that provider again.
 const DELETE_PHRASE = "delete my account";
 
 function DeleteAccountSheet() {
@@ -496,18 +501,27 @@ function DeleteAccountSheet() {
   const queryClient = useQueryClient();
   const [password, setPassword] = useState("");
   const [phrase, setPhrase] = useState("");
-  const { data: security } = useQuery({
-    queryKey: keys.sync.security,
-    queryFn: async () => (await sync.account()?.security()) ?? null,
+  const { data: account } = useQuery({
+    queryKey: keys.sync.account,
+    queryFn: async () => (await sync.account()?.me()) ?? null,
   });
-  const hasPassword = security?.available !== false;
+  const hasPassword = account?.hasPassword !== false;
+  const provider = hasPassword ? null : (account?.providers?.[0] ?? null);
   const remove = useMutation({
     mutationFn: async () => {
+      // The provider vouches for the person before the account goes. Closing its browser is a
+      // change of mind, not an error.
+      if (provider && !(await sync.confirmWithProvider(provider))) return false;
       await sync.account()?.deleteAccount(hasPassword ? password : undefined);
       // The account is gone: what is on this phone is the only copy, and stays.
       await sync.detach();
+      return true;
     },
-    onSuccess: () => {
+    onSuccess: (deleted) => {
+      if (!deleted) {
+        remove.reset();
+        return;
+      }
       queryClient.removeQueries({ queryKey: keys.sync.root });
       sheet?.close();
     },
@@ -518,6 +532,14 @@ function DeleteAccountSheet() {
         points={[
           { icon: IconCloudX, text: "Removed from the server for good" },
           { icon: IconDeviceMobile, text: `This ${device} keeps its data` },
+          ...(provider
+            ? [
+                {
+                  icon: IconShieldLock,
+                  text: `You sign in with ${providerName(provider)} once more`,
+                },
+              ]
+            : []),
         ]}
       />
       {hasPassword ? (
