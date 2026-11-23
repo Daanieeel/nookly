@@ -44,6 +44,8 @@ A merge to `main` that changes `infrastructure/` applies it (`infrastructure.yml
 | `TF_STATE_BUCKET`          | variable | `nookly-terraform-state` (made by hand, versioned, `fr-par`) |
 | `DEPLOY_ENABLED`           | variable | `true` to let the workflows deploy                           |
 
+Sign in with Google, GitHub, Notion or Apple: a secret pair `OAUTH_<PROVIDER>_CLIENT_ID` and `OAUTH_<PROVIDER>_CLIENT_SECRET` (`GOOGLE`, `GITHUB`, `NOTION`, `APPLE`). The workflow passes each complete pair to the server as `<PROVIDER>_CLIENT_ID` and `<PROVIDER>_CLIENT_SECRET`, which turns that provider on.
+
 ## First deploy
 
 1. Scaleway: in the project, make the bucket `nookly-terraform-state` in `fr-par` with versioning on. Make an IAM application `terraform` with `ObjectStorageFullAccess` on the project and `IAMManager` on the organization (it creates the server's key), and an API key for it into `SCW_ACCESS_KEY` and `SCW_SECRET_KEY`.

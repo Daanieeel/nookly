@@ -57,6 +57,7 @@ export function socialProviders(config: Config) {
     ["google", config.GOOGLE_CLIENT_ID, config.GOOGLE_CLIENT_SECRET],
     ["github", config.GITHUB_CLIENT_ID, config.GITHUB_CLIENT_SECRET],
     ["apple", config.APPLE_CLIENT_ID, config.APPLE_CLIENT_SECRET],
+    ["notion", config.NOTION_CLIENT_ID, config.NOTION_CLIENT_SECRET],
   ] as const;
   for (const [name, clientId, clientSecret] of pairs) {
     // During the closed beta only a sign up with the key makes accounts, never a provider.
