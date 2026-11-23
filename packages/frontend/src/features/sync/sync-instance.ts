@@ -2,6 +2,8 @@ import { ApiClient, type DeviceInfo } from "@nookly/shared/api";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect } from "react";
 import { useStore } from "zustand";
 import {
@@ -53,6 +55,23 @@ export const syncRuntime = new SyncRuntime<ApiClient>({
   connect: (baseUrl, onSignedOut) =>
     new ApiClient({ baseUrl, tokens: keychainTokens, onSignedOut }),
   device,
+  // The browser goes back to a port on this computer (`src-tauri/src/sync/loopback.rs`).
+  providerBrowser: async (begin) => {
+    const port = await invoke<number>("oauth_loopback_start");
+    try {
+      await openUrl(await begin(port));
+    } catch (error) {
+      await invoke("oauth_loopback_cancel").catch(() => {});
+      throw error;
+    }
+    const returned = await invoke<string | null>("oauth_loopback_wait");
+    if (returned)
+      void getCurrentWindow()
+        .setFocus()
+        .catch(() => {});
+    return returned;
+  },
+  cancelProviderBrowser: () => void invoke("oauth_loopback_cancel").catch(() => {}),
   reindex: reindexEntities,
   onApplied: () => refreshViews(),
   backup: (keep) => preSyncBackup(keep),

@@ -143,7 +143,7 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 
 - **Decision:** a phone's networking layer attaches the cookie of an earlier sign in and sends no Origin, which better-auth refuses ("Missing or null Origin"); the client sends `credentials: "omit"` and the server removes cookies from auth requests except for provider sign in. A live socket pings every 15 s and is reopened after 40 s of silence, and reconnects wait at most 10 s. A sync that is stopped (sign out) drops what it received instead of writing it; sign out waits for the one in flight; turning sync on starts from the beginning of the new server (never from a cursor the last account left).
 - **Why:** each was a real failure found by running two accounts on an iPad and a desktop: sign up refused, a second account never seeing its own data, and changes arriving a minute late.
-- **To double check:** the cookie removal list in `apps/server/src/auth/cookies.ts` once OAuth providers are enabled.
+- **Checked with providers on (D101):** the cookie list in `apps/server/src/auth/cookies.ts` keeps the cookies the provider round trip needs; `/oauth/done` is outside `/v1/auth`.
 
 ## D25. Local changes go out after 400 ms
 
@@ -361,9 +361,9 @@ The user asked for the backmost background to be a deep charcoal instead of blac
 
 The desktop draws the flags of the date and time formats and of each time zone from `react-flagpack` images, a 3.6 MB web only set the phone cannot load without an SVG file loader. The phone shows the same flags as the system's emoji flags (US, EU, and each zone's country from the desktop's own zone table), which iOS draws natively. Hermes also lacks `Intl.supportedValuesOf` and `Intl.DisplayNames`: the zone list falls back to the desktop's table, and a minimal `Intl.DisplayNames` in `polyfills.ts` names nothing, so a zone shows no country name on the phone. The code language marks come from the desktop's components, written out as SVG text (`packages/frontend/src/lib/code-language-marks.ts`, checked by a desktop test).
 
-## D62. Sign in with other accounts shows before it works
+## D62. Sign in with other accounts shows what the server has
 
-The sign in and sign up screens on both apps show Google, Apple, GitHub and Notion under "or sign in using", disabled, with "coming soon" (a tooltip on the desktop, a line under them on the phone). The marks are Tabler's brand icons, so the phone keeps to the desktop's icons. Nothing is wired to a provider yet: the buttons do nothing until the server supports it. Both screens say the account is part of the free closed beta.
+The sign in and sign up screens on both apps show Google, Apple, GitHub and Notion under "or sign in using". A provider is enabled when the server lists it (`/v1/auth/providers`) and says "coming soon" otherwise (a tooltip on the desktop, a line under them on the phone). The marks are Tabler's brand icons, so the phone keeps to the desktop's icons. Both screens say the account is part of the free closed beta. How it works is D101.
 
 ## D63. A scan is one PDF, kept before it is named
 
@@ -563,3 +563,11 @@ The editor's block handles stay a pointer feature. Touch keeps the editor as it 
 ## D100. Native pointer interactions on a tablet
 
 With a trackpad or mouse, round buttons take iPadOS's own effect under the pointer (a lift or a highlight, by the button's size) and the split divider turns the pointer into a bar with arrows to either side, so the pointer behaves as in iPadOS's own apps. An older build without the native view keeps the plain pointer.
+
+## D101. A provider sign in hands the session to the app with a code only it can use
+
+The apps hold bearer tokens, never cookies, so the browser leg of Google, GitHub and Notion is a handoff. The app asks the server to begin (`POST /v1/auth/app/begin`), gets the provider's address and a secret that never goes through the browser, and opens the address (the desktop in the default browser, with the return going to a one shot listener on `127.0.0.1`; the phone in the system's sign in sheet, with the return going to `nookly://auth`). The browser lands on `/oauth/done`, which puts the session on the flow and sends the browser back with a one time code. The app swaps the code and its secret for the session token (`POST /v1/auth/app/redeem`) and names its device then. A code seen by anything else opens nothing. The raw `/v1/auth/sign-in/social` route is shut so the beta key cannot be skipped: a new account needs `createAccount` and the key, a plain sign in never makes one. The state cookie check is skipped because the browser is not the app that began the flow; the code and secret stand in for it.
+
+- **Username:** an account made with a provider has none and the apps ask once (`needsUsername`, `POST /v1/account/username`); until then it shows the provider's name. Only a username that is unset can be set.
+- **Linking:** better-auth's defaults stay: a provider only links to an account whose email is confirmed. Notion does not confirm emails, so it never links.
+- **Apple:** not offered until the Apple Developer account is sorted out; setting `APPLE_CLIENT_ID` and `APPLE_CLIENT_SECRET` (a signed token that expires within 6 months) turns it on.

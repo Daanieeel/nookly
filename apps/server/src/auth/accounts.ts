@@ -1,8 +1,9 @@
 import type { Session, User } from "@nookly/shared/api";
-import { and, desc, eq, gt } from "drizzle-orm";
+import { and, desc, eq, gt, ne } from "drizzle-orm";
+import { z } from "zod";
 import type { Database } from "../db/client.ts";
 import { authAccount, authSession, authUser, shares } from "../db/schema.ts";
-import { HttpError, notFound, unauthorized } from "../errors.ts";
+import { HttpError, badRequest, conflict, forbidden, notFound, unauthorized } from "../errors.ts";
 import type { BlobStore } from "../storage/blobs.ts";
 import { type Auth, isPlaceholderEmail } from "./auth.ts";
 
@@ -14,7 +15,7 @@ export interface AccessClaims {
 
 type UserRow = typeof authUser.$inferSelect;
 
-export function toUser(row: UserRow): User {
+export function toUser(row: UserRow, needsUsername = false): User {
   const email = isPlaceholderEmail(row.email) ? null : row.email;
   return {
     id: row.id,
@@ -23,8 +24,18 @@ export function toUser(row: UserRow): User {
     emailVerified: email !== null && row.emailVerified,
     createdAt: row.createdAt.toISOString(),
     termsVersion: row.termsVersion,
+    needsUsername,
   };
 }
+
+/// What a failed query reports: the driver's error, which may be wrapped once.
+const driverError = z.object({
+  code: z.string().optional(),
+  cause: z.object({ code: z.string().optional() }).optional(),
+});
+
+/// What a username may be: the same as the sign up form takes.
+const USERNAME = /^[A-Za-z0-9_.]{3,30}$/;
 
 /// What the API does with accounts beyond better-auth's own routes: who a token
 /// belongs to, the account, its devices and deleting it.
@@ -87,10 +98,55 @@ export class AccountService {
     return { name: row?.name ?? "Unnamed device", platform: row?.platform ?? "other" };
   }
 
+  /// An account made with another provider has no username until it picks one.
+  private async userOf(row: UserRow): Promise<User> {
+    if (row.username !== null) return toUser(row);
+    const [provider] = await this.db
+      .select({ id: authAccount.id })
+      .from(authAccount)
+      .where(and(eq(authAccount.userId, row.id), ne(authAccount.providerId, "credential")))
+      .limit(1);
+    return toUser(row, provider !== undefined);
+  }
+
   async me(userId: string): Promise<User> {
     const [row] = await this.db.select().from(authUser).where(eq(authUser.id, userId));
     if (!row) throw unauthorized();
-    return toUser(row);
+    return this.userOf(row);
+  }
+
+  /// The username of an account made with a provider, picked once.
+  async setUsername(userId: string, username: string): Promise<User> {
+    const name = username.trim();
+    if (!USERNAME.test(name)) {
+      throw badRequest("invalid_username", "Use 3 to 30 letters, numbers, dots or underscores.");
+    }
+    const [row] = await this.db.select().from(authUser).where(eq(authUser.id, userId));
+    if (!row) throw unauthorized();
+    if (!(await this.userOf(row)).needsUsername) {
+      throw forbidden("Your username is already set.");
+    }
+    const taken = () => conflict("username_taken", "That username is taken. Try another one.");
+    const [other] = await this.db
+      .select({ id: authUser.id })
+      .from(authUser)
+      .where(eq(authUser.username, name.toLowerCase()));
+    if (other) throw taken();
+    try {
+      const [updated] = await this.db
+        .update(authUser)
+        .set({ username: name.toLowerCase(), displayUsername: name })
+        .where(eq(authUser.id, userId))
+        .returning();
+      if (!updated) throw unauthorized();
+      return toUser(updated);
+    } catch (error) {
+      // Two accounts picking the same name at once: the second one loses.
+      const failure = driverError.safeParse(error);
+      const code = failure.success ? (failure.data.cause?.code ?? failure.data.code) : undefined;
+      if (code === "23505") throw taken();
+      throw error;
+    }
   }
 
   /// Records that the account agreed to this version of the terms.
@@ -101,7 +157,7 @@ export class AccountService {
       .where(eq(authUser.id, userId))
       .returning();
     if (!row) throw unauthorized();
-    return toUser(row);
+    return this.userOf(row);
   }
 
   async sessions(claims: AccessClaims): Promise<Session[]> {

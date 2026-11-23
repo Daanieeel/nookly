@@ -1,5 +1,6 @@
 // The language features the engine lacks, before any other module runs.
 import { TermsGate } from "../screens/TermsGate.tsx";
+import { UsernameGate } from "../screens/UsernameGate.tsx";
 import "../polyfills.ts";
 import { pageBar } from "../shell/history.ts";
 import "../global.css";
@@ -321,6 +322,7 @@ export default function RootLayout() {
                 <StatusBar style="auto" />
                 <FirstRun />
                 <TermsGate />
+                <UsernameGate />
                 <AppShell stack={stack} />
                 <EditorToolbar />
                 <FirstSyncPage />

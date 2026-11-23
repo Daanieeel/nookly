@@ -18,10 +18,11 @@ import {
 import { Elysia } from "elysia";
 import { z } from "zod";
 import { AccountService } from "./auth/accounts.ts";
+import { AppSignIn } from "./auth/app-sign-in.ts";
 import { createAuth, socialProviders } from "./auth/auth.ts";
 import type { Config } from "./config.ts";
 import type { Database } from "./db/client.ts";
-import { HttpError } from "./errors.ts";
+import { HttpError, notFound } from "./errors.ts";
 import type { Logger } from "./log.ts";
 import type { Mailer } from "./mail/mailer.ts";
 import {
@@ -98,6 +99,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
     hub.notify(userId, { type: "account" }),
   );
   const accounts = new AccountService(db, auth, storage, config.SESSION_TOUCH_SECONDS * 1000);
+  const appSignIn = new AppSignIn(db, auth, config);
   const providers = Object.keys(socialProviders(config));
   const sync = new SyncService(db, hub, log);
   const sharing = new ShareService(db, sync, hub, mailer, config, log);
@@ -252,6 +254,30 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
       },
       { detail: { hide: true } },
     )
+    // Where a browser lands after signing in with another account; it hands the app a code.
+    .get(
+      "/oauth/done",
+      async ({ query, request }) => {
+        const result = await appSignIn.complete(query, request.headers);
+        const headers = new Headers({
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "no-store",
+        });
+        if (result.clearCookies) {
+          const secure = config.PUBLIC_URL.startsWith("https:");
+          for (const cookie of AppSignIn.clearCookies(secure)) headers.append("set-cookie", cookie);
+        }
+        return new Response(result.html, { status: result.status, headers });
+      },
+      {
+        query: z.object({
+          t: z.string().max(100).optional(),
+          p: z.string().max(100).optional(),
+          error: z.string().max(100).optional(),
+        }),
+        detail: { hide: true },
+      },
+    )
     .get(
       "/verified",
       ({ query, set }) => {
@@ -334,12 +360,43 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         .get("/auth/providers", () => ({ providers }), {
           detail: { summary: "Sign in providers besides username and password", tags: ["Auth"] },
         })
+        // Signing in with another account, from the apps (see AppSignIn).
+        .post(
+          "/auth/app/begin",
+          ({ body, request, ip }) => {
+            limit(limits.signIn, `login:${ip}`);
+            return appSignIn.begin(body, request.headers);
+          },
+          {
+            body: z.object({
+              provider: z.string().max(30),
+              port: z.number().int().min(1024).max(65_535).optional(),
+              betaKey: z.string().max(200).optional(),
+              createAccount: z.boolean().optional(),
+            }),
+            detail: { hide: true },
+          },
+        )
+        .post(
+          "/auth/app/redeem",
+          ({ body, request, ip }) => {
+            limit(limits.signIn, `login:${ip}`);
+            return appSignIn.redeem(body.code, body.secret, request.headers);
+          },
+          {
+            body: z.object({ code: z.string().max(100), secret: z.string().max(200) }),
+            detail: { hide: true },
+          },
+        )
         // Everything else under /v1/auth is better-auth: sign up and in (username or
         // email), sign out, sessions, password reset, email verification, OAuth.
         .all(
           "/auth/*",
           async ({ request, ip }) => {
             const path = new URL(request.url).pathname;
+            // Only the apps' own begin starts a sign in with a provider: it is where the
+            // beta key is asked for before a new account is made.
+            if (path === "/v1/auth/sign-in/social") throw notFound();
             if (request.method === "POST" && SIGN_IN_PATHS.has(path)) {
               limit(limits.signIn, `login:${ip}`);
               const account = await signInAccount(request);
@@ -361,6 +418,19 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             security: [{ bearer: [] }],
           },
         })
+        .post(
+          "/account/username",
+          async ({ headers, body }) =>
+            accounts.setUsername((await claimsOf(headers)).userId, body.username),
+          {
+            body: z.object({ username: z.string().max(100) }),
+            detail: {
+              summary: "Pick the username of an account made with another provider",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
         .post(
           "/account/terms",
           async ({ headers, body }) =>

@@ -66,5 +66,6 @@ export const keys = {
     conflicts: ["sync", "conflicts"] as const,
     conflictItems: ["sync", "conflicts", "items"] as const,
     localData: ["sync", "local-data"] as const,
+    providers: (serverUrl: string) => ["sync", "providers", serverUrl] as const,
   },
 };

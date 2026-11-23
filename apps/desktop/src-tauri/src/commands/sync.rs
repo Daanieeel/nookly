@@ -1,8 +1,10 @@
 //! The commands the shared sync engine runs on the desktop (see `crate::sync`).
 
 use crate::db::DbState;
+use crate::error::AppError;
 use crate::error::AppResult;
 use crate::sync::batch::{self, BatchOutcome, Statement};
+use crate::sync::loopback::{self, LoopbackState};
 use serde_json::Value;
 use tauri::State;
 
@@ -22,6 +24,36 @@ pub fn sync_batch(state: State<DbState>, statements: Vec<Statement>) -> AppResul
 pub fn sync_reindex(state: State<DbState>, entity_ids: Vec<String>) -> AppResult<()> {
     let conn = state.conn()?;
     crate::sync::reindex(&conn, &entity_ids)
+}
+
+/// Starts listening for the browser's return from signing in with another account, and says
+/// on which port. The server sends the browser back to it (`sync::loopback`).
+#[tauri::command]
+pub fn oauth_loopback_start(state: State<LoopbackState>) -> AppResult<u16> {
+    state
+        .start(loopback::WAIT)
+        .map_err(|e| AppError::Io(format!("couldn't listen for the browser: {e}")))
+}
+
+/// Waits for the browser to come back: the address it went to, or `None` when the sign in
+/// was cancelled or took too long.
+#[tauri::command]
+pub async fn oauth_loopback_wait(state: State<'_, LoopbackState>) -> AppResult<Option<String>> {
+    let Some(listener) = state.current() else {
+        return Ok(None);
+    };
+    Ok(
+        tauri::async_runtime::spawn_blocking(move || listener.wait())
+            .await
+            .ok()
+            .flatten(),
+    )
+}
+
+/// The person gave up on a sign in with another account.
+#[tauri::command]
+pub fn oauth_loopback_cancel(state: State<LoopbackState>) {
+    state.cancel();
 }
 
 #[tauri::command]

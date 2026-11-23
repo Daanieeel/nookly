@@ -20,6 +20,7 @@ import {
 import { type LiveHandlers, NetworkError, type SyncTransport } from "../sync/client.ts";
 import {
   type DeviceInfo,
+  type ProviderBeginInput,
   type Session,
   type Share,
   type ShareRole,
@@ -28,6 +29,7 @@ import {
   authResponseSchema,
   createShareResponseSchema,
   healthSchema,
+  providerBeginResponseSchema,
   providersResponseSchema,
   sessionsResponseSchema,
   sharesResponseSchema,
@@ -272,6 +274,38 @@ export class ApiClient {
       },
     );
     return result.providers;
+  }
+
+  /// Starts a sign in with a provider (`google`, `github`, `notion`): the address to open in
+  /// the browser, and the secret that makes the code coming back usable by this app only.
+  /// `port` is the loopback port a desktop listens on; a phone has none. A new account needs
+  /// `createAccount`, and the beta key while the server is closed.
+  beginProviderSignIn(input: ProviderBeginInput) {
+    const { betaKey, ...rest } = input;
+    const body: ProviderBeginInput = { ...rest };
+    const key = betaKey?.trim();
+    if (key) body.betaKey = key;
+    return this.call("POST", "/v1/auth/app/begin", providerBeginResponseSchema, body, {
+      authed: false,
+    });
+  }
+
+  /// Swaps the code the browser brought back for this device's session.
+  async finishProviderSignIn(code: string, secret: string, device: DeviceInfo): Promise<User> {
+    const result = await this.call(
+      "POST",
+      "/v1/auth/app/redeem",
+      authResponseSchema,
+      { code, secret },
+      { authed: false, headers: deviceHeaders(device) },
+    );
+    await this.adopt(result.token);
+    return this.me();
+  }
+
+  /// Picks the username of an account made with a provider. It can only be done once.
+  setUsername(username: string): Promise<User> {
+    return this.call("POST", "/v1/account/username", userSchema, { username: username.trim() });
   }
 
   /// Creates an account and signs this device in.

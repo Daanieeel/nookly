@@ -16,6 +16,7 @@ const ADA: User = {
   emailVerified: true,
   createdAt: "2026-10-14T00:00:00Z",
   termsVersion: null,
+  needsUsername: false,
 };
 
 /// The account API against an in-memory server: what the runtime calls, nothing more.
@@ -41,6 +42,32 @@ class FakeAccount implements AccountApi {
     this.calls.push(`signIn ${identifier}`);
     if (identifier !== ADA.username) throw new Error("The username or the password is wrong.");
     this.signedIn = true;
+    return this.user;
+  }
+  offered = ["google", "github", "notion"];
+  async providers() {
+    return this.offered;
+  }
+  /// What the server hands out when a sign in with a provider begins.
+  begun: { provider: string; port?: number; betaKey?: string; createAccount?: boolean }[] = [];
+  async beginProviderSignIn(input: {
+    provider: string;
+    port?: number;
+    betaKey?: string;
+    createAccount?: boolean;
+  }) {
+    this.begun.push(input);
+    return { url: `https://accounts.example/${input.provider}`, secret: "the-apps-secret" };
+  }
+  async finishProviderSignIn(code: string, secret: string, device: DeviceInfo) {
+    this.calls.push(`finish ${code} ${secret} ${device.platform}`);
+    if (code === "stale") throw new Error("The sign in expired. Try again.");
+    this.signedIn = true;
+    return this.user;
+  }
+  async setUsername(username: string) {
+    this.calls.push(`setUsername ${username}`);
+    this.user = { ...this.user, username, needsUsername: false };
     return this.user;
   }
   async signOut() {
@@ -942,5 +969,128 @@ describe("syncing files", () => {
     expect(driver.rows("SELECT local_path FROM files")).toEqual([{ local_path: "/here/a.pdf" }]);
     expect(await second.sync.engine.pendingCount()).toBe(0);
     second.sync.stop();
+  });
+});
+
+describe("signing in with another account", () => {
+  /// A browser that signs in and goes back to the app with this address.
+  function withBrowser(returned: string | null, port: number | null = null) {
+    const opened: string[] = [];
+    const made = runtime();
+    const sync = new SyncRuntime({
+      driver: made.driver,
+      connect: (_url, onSignedOut) => {
+        made.account.onSignedOut = onSignedOut;
+        return made.account;
+      },
+      device: { name: "iPhone", platform: "ios" },
+      onApplied: made.onApplied,
+      providerBrowser: async (begin) => {
+        opened.push(await begin(port));
+        return returned;
+      },
+    });
+    return { ...made, sync, opened };
+  }
+
+  it("opens the provider's address in the browser and swaps the code it brings back", async () => {
+    const { sync, account, opened } = withBrowser("nookly://auth?code=abc123");
+    const user = await sync.signInWithProvider(PRODUCTION_SERVER, "github");
+    expect(user?.username).toBe("ada");
+    expect(opened).toEqual(["https://accounts.example/github"]);
+    // The secret the server handed out goes back with the code, from this device.
+    expect(account.calls).toContain("finish abc123 the-apps-secret ios");
+    expect(sync.store.getState().user?.username).toBe("ada");
+    sync.stop();
+  });
+
+  it("tells the server which loopback port a desktop listens on, and asks for an account only when told to", async () => {
+    const { sync, account } = withBrowser("http://127.0.0.1:51423/auth?code=abc", 51423);
+    await sync.signInWithProvider(PRODUCTION_SERVER, "google", {
+      createAccount: true,
+      betaKey: "key",
+    });
+    expect(account.begun).toEqual([
+      { provider: "google", port: 51423, betaKey: "key", createAccount: true },
+    ]);
+    sync.stop();
+  });
+
+  it("does nothing when the browser is closed without finishing", async () => {
+    const { sync, account } = withBrowser(null);
+    expect(await sync.signInWithProvider(PRODUCTION_SERVER, "google")).toBeNull();
+    expect(account.signedIn).toBe(false);
+    expect(sync.store.getState().user).toBeNull();
+  });
+
+  it("says why when the provider or the server turned the sign in down", async () => {
+    const { sync, account } = withBrowser("nookly://auth?error=signup_disabled");
+    await expect(sync.signInWithProvider(PRODUCTION_SERVER, "github")).rejects.toThrow(
+      "no Nookly account for this GitHub account yet",
+    );
+    expect(account.signedIn).toBe(false);
+    const garbled = withBrowser("nookly://auth");
+    await expect(garbled.sync.signInWithProvider(PRODUCTION_SERVER, "notion")).rejects.toThrow(
+      "Signing in with Notion didn't work",
+    );
+  });
+
+  it("passes on a code the server no longer takes", async () => {
+    const { sync, account } = withBrowser("nookly://auth?code=stale");
+    await expect(sync.signInWithProvider(PRODUCTION_SERVER, "google")).rejects.toThrow("expired");
+    expect(account.signedIn).toBe(false);
+  });
+
+  it("is not offered on a device that cannot open a browser", async () => {
+    const { sync } = runtime();
+    await expect(sync.signInWithProvider(PRODUCTION_SERVER, "google")).rejects.toThrow(
+      "isn't available",
+    );
+  });
+
+  it("starts sync like any sign in, and asks for the terms of Nookly's own server", async () => {
+    const { sync } = withBrowser("nookly://auth?code=abc");
+    await sync.signInWithProvider(PRODUCTION_SERVER, "google");
+    expect(sync.store.getState().termsPending).toBe(true);
+    sync.stop();
+  });
+
+  it("keeps the username the person picks afterwards", async () => {
+    const { sync, account, driver } = withBrowser("nookly://auth?code=abc");
+    account.user = { ...ADA, username: "Ada Lovelace", needsUsername: true };
+    await sync.signInWithProvider(PRODUCTION_SERVER, "github");
+    expect(sync.store.getState().user?.needsUsername).toBe(true);
+    await sync.chooseUsername("ada_l");
+    expect(sync.store.getState().user).toMatchObject({ username: "ada_l", needsUsername: false });
+    const saved = driver.rows("SELECT value FROM sync_meta WHERE key = 'user'");
+    expect(JSON.parse(String(saved[0]?.value)).username).toBe("ada_l");
+    sync.stop();
+  });
+
+  it("asks a server which providers it has without touching the account", async () => {
+    const { sync, account } = runtime();
+    expect(await sync.providersOf("https://sync.example.com")).toEqual([
+      "google",
+      "github",
+      "notion",
+    ]);
+    account.offered = [];
+    expect(await sync.providersOf("sync.example.com")).toEqual([]);
+    expect(sync.store.getState().serverUrl).toBeNull();
+  });
+
+  it("gives up waiting for the browser when the person cancels", async () => {
+    const cancelled = vi.fn();
+    const made = runtime();
+    const sync = new SyncRuntime({
+      driver: made.driver,
+      connect: () => made.account,
+      device: { name: "Mac", platform: "macos" },
+      onApplied: made.onApplied,
+      providerBrowser: async () => null,
+      cancelProviderBrowser: cancelled,
+    });
+    sync.cancelProviderSignIn();
+    expect(cancelled).toHaveBeenCalledOnce();
   });
 });

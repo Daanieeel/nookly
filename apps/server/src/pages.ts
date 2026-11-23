@@ -101,6 +101,23 @@ export function resultPage(
   return page(title, tone, icon, `<p>${escape(message)}</p>`);
 }
 
+/// The page a browser lands on at the end of signing in with another account. It sends the
+/// browser back to the app (`target`, a loopback or `nookly://` address); the link is for
+/// when a browser won't do it by itself. With no target it only says what went wrong.
+export function appReturnPage(title: string, message: string, target: string | null): string {
+  if (!target) return page(title, "error", "linkOff", `<p>${escape(message)}</p>`);
+  const failed = target.includes("?error=");
+  const script = `<script>location.replace(${JSON.stringify(target).replaceAll("<", "\\u003c")})</script>`;
+  const refresh = `<meta http-equiv="refresh" content="0;url=${escape(target)}">`;
+  return page(
+    title,
+    failed ? "error" : "success",
+    failed ? "alert" : "check",
+    `<p>${escape(message)}</p><p class="note"><a href="${escape(target)}">Open Nookly</a></p>`,
+    refresh + script,
+  );
+}
+
 export function emailConfirmedPage(): string {
   return page(
     "Email confirmed",

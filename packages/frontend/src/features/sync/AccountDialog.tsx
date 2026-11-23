@@ -69,17 +69,58 @@ const TITLES = {
 
 type Mark = (props: { className?: string }) => ReactNode;
 
-/// Other accounts to sign in with, shown before they work so people know they are coming.
-/// Google's mark keeps its colours; the others are single colour marks that follow the text.
-const PROVIDERS: { name: string; icon: Mark }[] = [
-  { name: "Google", icon: GoogleMark },
-  { name: "Apple", icon: IconBrandAppleFilled },
-  { name: "GitHub", icon: GitHubMark },
-  { name: "Notion", icon: NotionMark },
+/// Other accounts to sign in with. Google's mark keeps its colours; the others are single
+/// colour marks that follow the text.
+const PROVIDERS: { id: string; name: string; icon: Mark }[] = [
+  { id: "google", name: "Google", icon: GoogleMark },
+  { id: "apple", name: "Apple", icon: IconBrandAppleFilled },
+  { id: "github", name: "GitHub", icon: GitHubMark },
+  { id: "notion", name: "Notion", icon: NotionMark },
 ];
 
-/// Signing in with another account: not there yet, each button says so when pointed at.
-function OtherAccounts({ verb }: { verb: "in" | "up" }) {
+/// Signing in, or creating an account, with another account: the browser opens at the
+/// provider and comes back here. A provider the server does not have is shown as coming.
+function OtherAccounts({
+  verb,
+  server,
+  local,
+  betaKey,
+}: {
+  verb: "in" | "up";
+  server: ReturnType<typeof useServer>;
+  local: ReturnType<typeof useLocalData>;
+  /// What is typed in the beta key field now, for creating an account.
+  betaKey: () => string;
+}) {
+  const queryClient = useQueryClient();
+  const url = server.error ? null : normalizeServerUrl(server.server);
+  const { data: offered = [] } = useQuery({
+    queryKey: qk.sync.providers(url ?? ""),
+    queryFn: () => syncRuntime.providersOf(url ?? ""),
+    enabled: url !== null,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const signIn = useMutation({
+    mutationFn: (provider: string) => {
+      const target = server.commit();
+      const key = verb === "up" ? betaKey().trim() || undefined : undefined;
+      if (verb === "up" && !key && asksForBetaKey(target)) throw new Error(BETA_KEY_MISSING);
+      return syncRuntime.signInWithProvider(
+        target,
+        provider,
+        { createAccount: verb === "up", betaKey: key },
+        local.options(),
+      );
+    },
+    // Nothing comes back when the browser was closed or the person gave up: stay here.
+    onSuccess: (user) => {
+      if (user) afterSignIn(queryClient);
+    },
+  });
+  const waiting = signIn.isPending
+    ? PROVIDERS.find((provider) => provider.id === signIn.variables)
+    : undefined;
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -88,26 +129,55 @@ function OtherAccounts({ verb }: { verb: "in" | "up" }) {
         <span aria-hidden className="h-px flex-1 bg-border" />
       </div>
       <div className="grid grid-cols-4 gap-2">
-        {PROVIDERS.map(({ name, icon: ProviderIcon }) => (
-          <Tooltip key={name}>
-            <TooltipTrigger asChild>
-              {/* A disabled button gets no pointer events, so the tooltip hangs on its frame. */}
-              <span className="flex">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled
-                  aria-label={`Sign ${verb} with ${name}`}
-                  className="h-10 flex-1"
-                >
-                  <ProviderIcon className="size-5" />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>Signing in with {name} is coming soon</TooltipContent>
-          </Tooltip>
-        ))}
+        {PROVIDERS.map(({ id, name, icon: ProviderIcon }) => {
+          const available = offered.includes(id);
+          const button = (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!available || signIn.isPending || local.open}
+              aria-label={`Sign ${verb} with ${name}`}
+              className="h-10 flex-1"
+              onClick={() => signIn.mutate(id)}
+            >
+              <ProviderIcon className="size-5" />
+            </Button>
+          );
+          // The same elements either way, so a button does not remount when its provider
+          // turns out to be available.
+          return (
+            <Tooltip key={id}>
+              <TooltipTrigger asChild>
+                {/* A disabled button gets no pointer events, so the tooltip hangs on its frame. */}
+                <span className="flex">{button}</span>
+              </TooltipTrigger>
+              {!available && <TooltipContent>Signing in with {name} is coming soon</TooltipContent>}
+            </Tooltip>
+          );
+        })}
       </div>
+      {waiting && (
+        <div role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Waiting for {waiting.name} in your browser</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="ml-auto"
+            onClick={() => syncRuntime.cancelProviderSignIn()}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+      <FieldError message={errorText(signIn.error)} />
+      {verb === "up" && requiresTerms(server.server) && (
+        <p className="text-xs text-muted-foreground">
+          By signing up with another account you agree to the{" "}
+          <LegalLink page="terms" className="text-foreground" /> and have read the{" "}
+          <LegalLink page="privacy" className="text-foreground" />.
+        </p>
+      )}
     </div>
   );
 }
@@ -247,74 +317,77 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
     onSubmit: ({ value }) => signIn.mutate(value),
   });
   return (
-    <form
-      noValidate
-      className="flex flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void form.handleSubmit();
-      }}
-    >
-      <form.Field name="identifier">
-        {(field) => (
-          <FormField
-            label="Username or email"
-            htmlFor={identifierId}
-            required
-            error={fieldMessage(field)}
-          >
-            <IconInput
-              icon={IconUser}
-              id={identifierId}
-              autoComplete="username"
-              autoFocus
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-            />
-          </FormField>
-        )}
-      </form.Field>
-      <form.Field name="password">
-        {(field) => (
-          <FormField label="Password" htmlFor={passwordId} required error={fieldMessage(field)}>
-            <PasswordInput
-              id={passwordId}
-              autoComplete="current-password"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-            />
-          </FormField>
-        )}
-      </form.Field>
-      <ServerField value={server.server} onChange={server.setServer} error={server.error} />
-      <LocalDataQuestion data={local} />
-      <FieldError message={errorText(signIn.error)} />
-      <form.Subscribe selector={hasVisibleErrors}>
-        {(blocked) => (
-          <div className="flex flex-col gap-2 pt-1">
-            <Button type="submit" className="w-full" disabled={blocked || local.open}>
-              <StatusButtonContent
-                status={statusOf(signIn)}
-                label="Sign In"
-                successLabel="Signed in"
-                errorLabel="Couldn't sign in"
-              />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="linkMuted"
-              className="self-center"
-              onClick={onForgot}
+    <div className="flex flex-col gap-3">
+      <form
+        noValidate
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void form.handleSubmit();
+        }}
+      >
+        <form.Field name="identifier">
+          {(field) => (
+            <FormField
+              label="Username or email"
+              htmlFor={identifierId}
+              required
+              error={fieldMessage(field)}
             >
-              Forgot Password
-            </Button>
-          </div>
-        )}
-      </form.Subscribe>
-    </form>
+              <IconInput
+                icon={IconUser}
+                id={identifierId}
+                autoComplete="username"
+                autoFocus
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+              />
+            </FormField>
+          )}
+        </form.Field>
+        <form.Field name="password">
+          {(field) => (
+            <FormField label="Password" htmlFor={passwordId} required error={fieldMessage(field)}>
+              <PasswordInput
+                id={passwordId}
+                autoComplete="current-password"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+              />
+            </FormField>
+          )}
+        </form.Field>
+        <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+        <LocalDataQuestion data={local} />
+        <FieldError message={errorText(signIn.error)} />
+        <form.Subscribe selector={hasVisibleErrors}>
+          {(blocked) => (
+            <div className="flex flex-col gap-2 pt-1">
+              <Button type="submit" className="w-full" disabled={blocked || local.open}>
+                <StatusButtonContent
+                  status={statusOf(signIn)}
+                  label="Sign In"
+                  successLabel="Signed in"
+                  errorLabel="Couldn't sign in"
+                />
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="linkMuted"
+                className="self-center"
+                onClick={onForgot}
+              >
+                Forgot Password
+              </Button>
+            </div>
+          )}
+        </form.Subscribe>
+      </form>
+      <OtherAccounts verb="in" server={server} local={local} betaKey={() => ""} />
+    </div>
   );
 }
 
@@ -368,45 +441,72 @@ function SignUpForm() {
     form.setFieldValue("acceptTerms", !needsTerms);
   }, [form, needsTerms]);
   return (
-    <form
-      noValidate
-      className="flex flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void form.handleSubmit();
-      }}
-    >
-      <div className="grid grid-cols-2 gap-3">
-        <form.Field name="username">
-          {(field) => (
-            <FormField label="Username" htmlFor={ids.username} required error={fieldMessage(field)}>
-              <IconInput
-                icon={IconUser}
-                id={ids.username}
-                autoComplete="username"
-                autoFocus
-                placeholder="ada"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-              />
-            </FormField>
-          )}
-        </form.Field>
-        <form.Field name="email">
+    <div className="flex flex-col gap-3">
+      <form
+        noValidate
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void form.handleSubmit();
+        }}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <form.Field name="username">
+            {(field) => (
+              <FormField
+                label="Username"
+                htmlFor={ids.username}
+                required
+                error={fieldMessage(field)}
+              >
+                <IconInput
+                  icon={IconUser}
+                  id={ids.username}
+                  autoComplete="username"
+                  autoFocus
+                  placeholder="ada"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                />
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="email">
+            {(field) => (
+              <FormField
+                label="Email"
+                htmlFor={ids.email}
+                hint="Optional, for password resets."
+                error={fieldMessage(field)}
+              >
+                <IconInput
+                  icon={IconMail}
+                  id={ids.email}
+                  type="email"
+                  autoComplete="email"
+                  placeholder="ada@example.com"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                />
+              </FormField>
+            )}
+          </form.Field>
+        </div>
+        <form.Field name="password">
           {(field) => (
             <FormField
-              label="Email"
-              htmlFor={ids.email}
-              hint="Optional, for password resets."
+              label="Password"
+              htmlFor={ids.password}
+              required
+              hint="At least 10 characters."
               error={fieldMessage(field)}
             >
-              <IconInput
-                icon={IconMail}
-                id={ids.email}
-                type="email"
-                autoComplete="email"
-                placeholder="ada@example.com"
+              <PasswordInput
+                id={ids.password}
+                placeholder="Password"
+                autoComplete="new-password"
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
@@ -414,117 +514,103 @@ function SignUpForm() {
             </FormField>
           )}
         </form.Field>
-      </div>
-      <form.Field name="password">
-        {(field) => (
-          <FormField
-            label="Password"
-            htmlFor={ids.password}
-            required
-            hint="At least 10 characters."
-            error={fieldMessage(field)}
-          >
-            <PasswordInput
-              id={ids.password}
-              placeholder="Password"
-              autoComplete="new-password"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-            />
-          </FormField>
-        )}
-      </form.Field>
-      <form.Field name="confirm">
-        {(field) => (
-          <div className="flex flex-col gap-1.5">
-            <PasswordInput
-              id={ids.confirm}
-              aria-label="Repeat password"
-              placeholder="Repeat password"
-              aria-invalid={fieldMessage(field) !== undefined}
-              autoComplete="new-password"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-            />
-            <FieldError message={fieldMessage(field)} />
-            <form.Subscribe selector={(state) => state.values}>
-              {(values) => (
-                <PasswordStrengthMeter
-                  password={values.password}
-                  userInputs={[values.username, values.email].filter(Boolean)}
-                />
-              )}
-            </form.Subscribe>
-          </div>
-        )}
-      </form.Field>
-      <form.Field name="betaKey">
-        {(field) => (
-          <FormField
-            label="Beta key"
-            htmlFor={ids.betaKey}
-            required={asksForBetaKey(server.server)}
-            hint="Needed while Nookly is in its closed beta."
-            error={fieldMessage(field)}
-          >
-            <PasswordInput
-              icon={IconKey}
-              id={ids.betaKey}
-              autoComplete="off"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              onBlur={field.handleBlur}
-            />
-          </FormField>
-        )}
-      </form.Field>
-      <ServerField value={server.server} onChange={server.setServer} error={server.error} />
-      <LocalDataQuestion data={local} />
-      {needsTerms && (
-        <form.Field name="acceptTerms">
+        <form.Field name="confirm">
           {(field) => (
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-start gap-2.5">
-                <Checkbox
-                  id={ids.terms}
-                  checked={field.state.value}
-                  aria-invalid={fieldMessage(field) !== undefined}
-                  onCheckedChange={(next) => field.handleChange(next === true)}
-                  onBlur={field.handleBlur}
-                  className="mt-0.5"
-                />
-                <label htmlFor={ids.terms} className="text-xs/relaxed text-muted-foreground">
-                  I am at least 18 and agree to the{" "}
-                  <LegalLink page="terms" className="text-foreground" />.
-                </label>
-              </div>
+              <PasswordInput
+                id={ids.confirm}
+                aria-label="Repeat password"
+                placeholder="Repeat password"
+                aria-invalid={fieldMessage(field) !== undefined}
+                autoComplete="new-password"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+              />
               <FieldError message={fieldMessage(field)} />
-              <p className="text-xs text-muted-foreground">
-                How we handle your data is in the{" "}
-                <LegalLink page="privacy" className="text-foreground" />.
-              </p>
+              <form.Subscribe selector={(state) => state.values}>
+                {(values) => (
+                  <PasswordStrengthMeter
+                    password={values.password}
+                    userInputs={[values.username, values.email].filter(Boolean)}
+                  />
+                )}
+              </form.Subscribe>
             </div>
           )}
         </form.Field>
-      )}
-      <FieldError message={errorText(signUp.error)} />
-      <form.Subscribe selector={hasVisibleErrors}>
-        {(blocked) => (
-          <div className="flex pt-1">
-            <Button type="submit" className="w-full" disabled={blocked || local.open}>
-              <StatusButtonContent
-                status={statusOf(signUp)}
-                label="Create Account"
-                successLabel="Account created"
-                errorLabel="Couldn't create it"
+        <form.Field name="betaKey">
+          {(field) => (
+            <FormField
+              label="Beta key"
+              htmlFor={ids.betaKey}
+              required={asksForBetaKey(server.server)}
+              hint="Needed while Nookly is in its closed beta."
+              error={fieldMessage(field)}
+            >
+              <PasswordInput
+                icon={IconKey}
+                id={ids.betaKey}
+                autoComplete="off"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
               />
-            </Button>
-          </div>
+            </FormField>
+          )}
+        </form.Field>
+        <ServerField value={server.server} onChange={server.setServer} error={server.error} />
+        <LocalDataQuestion data={local} />
+        {needsTerms && (
+          <form.Field name="acceptTerms">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-start gap-2.5">
+                  <Checkbox
+                    id={ids.terms}
+                    checked={field.state.value}
+                    aria-invalid={fieldMessage(field) !== undefined}
+                    onCheckedChange={(next) => field.handleChange(next === true)}
+                    onBlur={field.handleBlur}
+                    className="mt-0.5"
+                  />
+                  <label htmlFor={ids.terms} className="text-xs/relaxed text-muted-foreground">
+                    I am at least 18 and agree to the{" "}
+                    <LegalLink page="terms" className="text-foreground" />.
+                  </label>
+                </div>
+                <FieldError message={fieldMessage(field)} />
+                <p className="text-xs text-muted-foreground">
+                  How we handle your data is in the{" "}
+                  <LegalLink page="privacy" className="text-foreground" />.
+                </p>
+              </div>
+            )}
+          </form.Field>
         )}
-      </form.Subscribe>
-    </form>
+        <FieldError message={errorText(signUp.error)} />
+        <form.Subscribe selector={hasVisibleErrors}>
+          {(blocked) => (
+            <div className="flex pt-1">
+              <Button type="submit" className="w-full" disabled={blocked || local.open}>
+                <StatusButtonContent
+                  status={statusOf(signUp)}
+                  label="Create Account"
+                  successLabel="Account created"
+                  errorLabel="Couldn't create it"
+                />
+              </Button>
+            </div>
+          )}
+        </form.Subscribe>
+      </form>
+      <OtherAccounts
+        verb="up"
+        server={server}
+        local={local}
+        betaKey={() => form.state.values.betaKey}
+      />
+    </div>
   );
 }
 
@@ -637,7 +723,6 @@ export function AccountDialog() {
             </TabsContent>
           </Tabs>
         )}
-        {mode !== "reset" && <OtherAccounts verb={mode === "signUp" ? "up" : "in"} />}
         {mode === "reset" && <ResetForm onBack={() => setMode("signIn")} />}
         <LegalLinks className="justify-center text-muted-foreground" />
       </DialogContent>

@@ -51,7 +51,7 @@ const PLATFORMS = new Set(["macos", "windows", "linux", "ios", "android", "web",
 export function socialProviders(config: Config) {
   const providers: Record<
     string,
-    { clientId: string; clientSecret: string; disableSignUp: boolean }
+    { clientId: string; clientSecret: string; disableImplicitSignUp: boolean }
   > = {};
   const pairs = [
     ["google", config.GOOGLE_CLIENT_ID, config.GOOGLE_CLIENT_SECRET],
@@ -60,19 +60,20 @@ export function socialProviders(config: Config) {
     ["notion", config.NOTION_CLIENT_ID, config.NOTION_CLIENT_SECRET],
   ] as const;
   for (const [name, clientId, clientSecret] of pairs) {
-    // During the closed beta only a sign up with the key makes accounts, never a provider.
+    // During the closed beta a provider only makes an account when the app asked for one with
+    // the beta key (`AppSignIn.begin`); a plain sign in never does.
     if (clientId && clientSecret) {
       providers[name] = {
         clientId,
         clientSecret,
-        disableSignUp: Boolean(config.BETA_KEY),
+        disableImplicitSignUp: Boolean(config.BETA_KEY),
       };
     }
   }
   return providers;
 }
 
-function deviceOf(headers: Headers | undefined) {
+export function deviceOf(headers: Headers | undefined) {
   const name = headers?.get(DEVICE_NAME_HEADER)?.trim().slice(0, 80) || null;
   const platform = headers?.get(PLATFORM_HEADER)?.trim() ?? "";
   return { deviceName: name, platform: PLATFORMS.has(platform) ? platform : null };
@@ -103,6 +104,10 @@ export function createAuth(
         verification: authVerification,
       },
     }),
+    // The browser that signs in at a provider is not the app that began it, so it brings
+    // no state cookie. What stands in for it: the state is kept in the database, and what
+    // the browser ends with is a one time code only the app's secret redeems (`AppSignIn`).
+    account: { skipStateCookieCheck: true },
     // Our own limiter (app.ts) covers sign in; better-auth's would count every
     // test and every device behind one address as one.
     rateLimit: { enabled: false },

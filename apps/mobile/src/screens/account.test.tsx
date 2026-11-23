@@ -11,6 +11,7 @@ const ADA = {
   emailVerified: false,
   createdAt: "",
   termsVersion: null,
+  needsUsername: false,
 };
 
 const TICK = { name: /at least 18 and agree to the Terms of Service/ };
@@ -56,10 +57,10 @@ describe("signing in", () => {
     expect(screen.getByText("New to Nookly?")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Create Account" })).toBeTruthy();
     expect(screen.queryByText("Create an Account Instead")).toBeNull();
+    // The test server has no providers: all four are there, none works.
     for (const provider of ["Google", "Apple", "GitHub", "Notion"]) {
       expect(screen.getByRole("button", { name: `Sign in with ${provider}` })).toBeDisabled();
     }
-    expect(screen.getByText("Coming soon")).toBeTruthy();
   });
 
   it("shows what is missing instead of doing nothing", async () => {
@@ -266,8 +267,9 @@ describe("creating an account", () => {
       checked: false,
     });
     // Beside the box, and again in the legal links at the foot.
-    expect(screen.getAllByRole("link", { name: "Terms of Service" })).toHaveLength(2);
-    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(2);
+    // Beside the box, in the note under the other accounts, and again at the foot.
+    expect(screen.getAllByRole("link", { name: "Terms of Service" })).toHaveLength(3);
+    expect(screen.getAllByRole("link", { name: "Privacy Policy" })).toHaveLength(3);
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("Agree to the terms to create an account")).toBeTruthy();
     expect(signUp).not.toHaveBeenCalled();
@@ -297,5 +299,105 @@ describe("creating an account", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
     expect(await screen.findByText("The passwords don't match")).toBeTruthy();
     expect(signUp).not.toHaveBeenCalled();
+  });
+});
+
+describe("signing in with another account", () => {
+  /// A server like Nookly's own: Google, GitHub and Notion, not yet Apple.
+  function offering(data = testData()) {
+    data.serverUrl.set(PRODUCTION_SERVER);
+    jest.spyOn(data.sync, "providersOf").mockResolvedValue(["google", "github", "notion"]);
+    return data;
+  }
+
+  it("offers the providers the server has, and says Apple is coming", async () => {
+    const data = offering();
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign in with Google" })).toBeEnabled(),
+    );
+    expect(screen.getByRole("button", { name: "Sign in with GitHub" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Sign in with Notion" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Sign in with Apple" })).toBeDisabled();
+    expect(screen.getByText("Apple is coming soon")).toBeTruthy();
+  });
+
+  it("opens the provider's sign in and carries on once the account is in", async () => {
+    const data = offering();
+    const signIn = jest.spyOn(data.sync, "signInWithProvider").mockResolvedValue(ADA);
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign in with GitHub" })).toBeEnabled(),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in with GitHub" }));
+    await waitFor(() =>
+      expect(signIn).toHaveBeenCalledWith(
+        PRODUCTION_SERVER,
+        "github",
+        { createAccount: false, betaKey: undefined },
+        {},
+      ),
+    );
+    expect(data.onboarded.get()).toBe("1");
+  });
+
+  it("stays put when the sign in was closed without finishing", async () => {
+    const data = offering();
+    data.onboarded.set("");
+    jest.spyOn(data.sync, "signInWithProvider").mockResolvedValue(null);
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign in with Google" })).toBeEnabled(),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in with Google" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign in with Google" })).toBeEnabled(),
+    );
+    expect(data.onboarded.get()).toBe("");
+  });
+
+  it("says why it did not work", async () => {
+    const data = offering();
+    jest
+      .spyOn(data.sync, "signInWithProvider")
+      .mockRejectedValue(new Error("There is no Nookly account for this GitHub account yet."));
+    const screen = await renderScreens({ index: () => <SignInScreen /> }, data);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign in with GitHub" })).toBeEnabled(),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in with GitHub" }));
+    expect(await screen.findByText(/no Nookly account for this GitHub/)).toBeTruthy();
+  });
+
+  it("creates an account with a provider only with the beta key typed first", async () => {
+    const data = offering();
+    data.serverUrl.set(PRODUCTION_SERVER);
+    const signIn = jest.spyOn(data.sync, "signInWithProvider").mockResolvedValue(ADA);
+    const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign up with Notion" })).toBeEnabled(),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Sign up with Notion" }));
+    expect(await screen.findAllByText("Enter the beta key to create an account.")).not.toHaveLength(
+      0,
+    );
+    expect(signIn).not.toHaveBeenCalled();
+    await fireEvent.changeText(screen.getByLabelText("Beta key"), " the-key ");
+    await fireEvent.press(screen.getByRole("button", { name: "Sign up with Notion" }));
+    await waitFor(() =>
+      expect(signIn).toHaveBeenCalledWith(
+        PRODUCTION_SERVER,
+        "notion",
+        { createAccount: true, betaKey: "the-key" },
+        {},
+      ),
+    );
+  });
+
+  it("points at the terms next to the buttons that create an account", async () => {
+    const data = offering();
+    data.serverUrl.set(PRODUCTION_SERVER);
+    const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
+    expect(await screen.findByText(/By signing up with another account you agree/)).toBeTruthy();
   });
 });
