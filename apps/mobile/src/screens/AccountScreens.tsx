@@ -44,7 +44,7 @@ import { PasswordStrengthMeter } from "../ui/PasswordStrengthMeter.tsx";
 import { UrlField } from "../ui/UrlField.tsx";
 import { FormSection } from "../ui/kit/Form.tsx";
 import { useSemantic } from "../ui/kit/scheme.ts";
-import { RADIUS, SPACE } from "../ui/tokens.ts";
+import { SPACE } from "../ui/tokens.ts";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
 import { type Provider, ProviderMark } from "../ui/ProviderMark.tsx";
 import { Screen } from "../ui/Screen.tsx";
@@ -429,9 +429,12 @@ function useAfterSignIn() {
 /// line under it, and for signing in and creating an account the two tabs.
 function Page({
   mode,
+  onMode,
   children,
 }: {
   mode: "signIn" | "signUp" | "reset";
+  /// Picks the other tab: the page stays, its content changes.
+  onMode?: (next: "signIn" | "signUp") => void;
   children: React.ReactNode;
 }) {
   const tablet = useIsTablet();
@@ -459,9 +462,7 @@ function Page({
         label="Account"
         value={mode}
         options={[...ACCOUNT_TABS]}
-        onChange={(next) =>
-          router.replace(next === "signIn" ? "/account/sign-in" : "/account/sign-up")
-        }
+        onChange={(next) => onMode?.(next)}
       />
     );
   // A tablet's is the desktop's account dialog, titled for what it does.
@@ -516,7 +517,6 @@ function OtherAccounts({
   const { sync } = useAppData();
   const theme = useTheme();
   const separator = useSemantic("separator");
-  const surface = useSemantic("surface");
   const url = server.error ? null : normalizeServerUrl(server.server);
   const { data: offered = [] } = useQuery({
     queryKey: keys.sync.providers(url ?? ""),
@@ -584,32 +584,19 @@ function OtherAccounts({
         <View style={{ flex: 1, height: 1, backgroundColor: separator }} />
       </View>
       <View className="flex-row" style={{ gap: SPACE.sm }}>
-        {PROVIDERS.map((name) => {
-          const available = offered.includes(name.toLowerCase());
-          const disabled = !available || signIn.isPending;
-          return (
-            <Pressable
-              key={name}
-              accessibilityRole="button"
-              accessibilityLabel={`Sign ${verb} with ${name}`}
-              accessibilityState={{ disabled }}
-              disabled={disabled}
+        {PROVIDERS.map((name) => (
+          // The desktop's secondary button with only the provider's mark in it.
+          <View key={name} className="flex-1">
+            <Button
+              variant="secondary"
+              hideLabel
+              label={`Sign ${verb} with ${name}`}
+              disabled={!offered.includes(name.toLowerCase()) || signIn.isPending}
+              icon={<ProviderMark provider={name} color={theme.colors.foreground} />}
               onPress={() => begin(name)}
-              style={{
-                flex: 1,
-                minHeight: 48,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: RADIUS.control,
-                borderCurve: "continuous",
-                backgroundColor: surface,
-                opacity: disabled ? 0.55 : 1,
-              }}
-            >
-              <ProviderMark provider={name} color={theme.colors.foreground} />
-            </Pressable>
-          );
-        })}
+            />
+          </View>
+        ))}
       </View>
       {signIn.isPending ? (
         <View className="flex-row items-center justify-center gap-2">
@@ -631,7 +618,7 @@ function OtherAccounts({
   );
 }
 
-export function SignInScreen() {
+function SignInForm() {
   const router = useRouter();
   const { sync } = useAppData();
   const server = useServer();
@@ -657,7 +644,7 @@ export function SignInScreen() {
   const rejection = useRejection(signIn, ["identifier", "password"]);
   if (secondStep) {
     return (
-      <Page mode="signIn">
+      <>
         <TwoFactorStep
           serverUrl={normalizeServerUrl(server.server)}
           challenge={secondStep.challenge}
@@ -669,11 +656,11 @@ export function SignInScreen() {
             signIn.reset();
           }}
         />
-      </Page>
+      </>
     );
   }
   return (
-    <Page mode="signIn">
+    <>
       <Stepped step={step}>
         <FormSection>
           <form.Field name="identifier">
@@ -755,11 +742,11 @@ export function SignInScreen() {
         </View>
         <OtherAccounts verb="in" server={server} step={step} onDone={done} />
       </Stepped>
-    </Page>
+    </>
   );
 }
 
-export function SignUpScreen() {
+function SignUpForm() {
   const theme = useTheme();
   const { sync } = useAppData();
   const server = useServer();
@@ -812,7 +799,7 @@ export function SignUpScreen() {
     ...(email.trim() ? ["email"] : []),
   ]);
   return (
-    <Page mode="signUp">
+    <>
       <Stepped step={step}>
         <FormSection>
           <form.Field name="username">
@@ -937,8 +924,27 @@ export function SignUpScreen() {
         />
         <OtherAccounts verb="up" server={server} step={step} onDone={done} />
       </Stepped>
+    </>
+  );
+}
+
+/// Signing in and creating an account are one page with two tabs, as the desktop's dialog: the
+/// tab picks which form is shown, and nothing is navigated to.
+function AccountPage({ initial }: { initial: "signIn" | "signUp" }) {
+  const [mode, setMode] = useState(initial);
+  return (
+    <Page mode={mode} onMode={setMode}>
+      {mode === "signIn" ? <SignInForm /> : <SignUpForm />}
     </Page>
   );
+}
+
+export function SignInScreen() {
+  return <AccountPage initial="signIn" />;
+}
+
+export function SignUpScreen() {
+  return <AccountPage initial="signUp" />;
 }
 
 export function ForgotScreen() {

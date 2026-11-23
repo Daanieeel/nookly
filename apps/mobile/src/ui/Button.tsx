@@ -162,6 +162,8 @@ interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
   icon?: React.ReactNode;
   /// Drawn after the label, while idle: an arrow for a step that is followed by another.
   iconEnd?: React.ReactNode;
+  /// Only the icon is drawn; the label is still what a screen reader says.
+  hideLabel?: boolean;
   className?: string;
 }
 
@@ -177,6 +179,7 @@ export function Button({
   errorLabel,
   icon,
   iconEnd,
+  hideLabel = false,
   disabled,
   className,
   ...props
@@ -250,16 +253,18 @@ export function Button({
         withLabelColor(icon, look.text)
       )}
       {/* The words never take the touch, so a press on them reaches the button. */}
-      <View pointerEvents="none">
-        <Label
-          type={small ? "subheadline" : "body"}
-          weight={look.weight}
-          tint={status === "error" && !look.filled ? red : look.text}
-          numberOfLines={1}
-        >
-          {shown}
-        </Label>
-      </View>
+      {hideLabel ? null : (
+        <View pointerEvents="none">
+          <Label
+            type={small ? "subheadline" : "body"}
+            weight={look.weight}
+            tint={status === "error" && !look.filled ? red : look.text}
+            numberOfLines={1}
+          >
+            {shown}
+          </Label>
+        </View>
+      )}
       {status === "idle" && !showSuccess ? withLabelColor(iconEnd, look.text) : null}
     </AnimatedPressable>
   );

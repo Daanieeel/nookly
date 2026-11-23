@@ -58,10 +58,8 @@ describe("the legal links", () => {
 
 describe("signing in", () => {
   it("reads like the desktop's dialog: a short title and line, the two tabs, and a quiet forgotten password", async () => {
-    const screen = await renderScreens({
-      index: () => <SignInScreen />,
-      "account/sign-up": () => <SignUpScreen />,
-    });
+    // One page: there is no other route to go to, the tab changes what the page shows.
+    const screen = await renderScreens({ index: () => <SignInScreen /> });
     expect(await screen.findByRole("header", { name: "Sign in to Nookly" })).toBeTruthy();
     expect(screen.getByText("Pick up where you left off, the same on every device.")).toBeTruthy();
     expect(screen.getByText("Closed beta")).toBeTruthy();
@@ -394,6 +392,9 @@ describe("signing in with another account", () => {
     expect(screen.getByRole("button", { name: "Sign in with Notion" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Sign in with Apple" })).toBeDisabled();
     expect(screen.getByText("Apple is coming soon")).toBeTruthy();
+    // Like the desktop's row: only the marks, drawn as the app's secondary buttons, named for
+    // a screen reader.
+    for (const name of ["Google", "GitHub", "Notion"]) expect(screen.queryByText(name)).toBeNull();
   });
 
   it("opens the provider's sign in and carries on once the account is in", async () => {
