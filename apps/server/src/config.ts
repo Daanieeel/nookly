@@ -26,6 +26,9 @@ const envSchema = z.object({
   /// Accounts that sign in with a password must set up a second step before anything but
   /// setting it up works. Nookly's own server turns it on; a server of your own may too.
   REQUIRE_TWO_FACTOR: z.stringbool().default(false),
+  /// Refuse an email address from a throwaway mail service (Mailinator, 10 Minute Mail) when
+  /// an account is made or gets its email.
+  BLOCK_DISPOSABLE_EMAIL: z.stringbool().default(false),
   /// How many proxies in front of the server append to `X-Forwarded-For` (Heroku's router,
   /// or Caddy: one). The address that many entries from the right is the client's; anything
   /// before it is the client's own claim.

@@ -5,9 +5,10 @@ import {
   IconCloud,
   IconCloudCheck,
   IconCloudOff,
+  IconCloudStorm,
   IconCloudUp,
   IconCloudX,
-  IconRefresh,
+  IconLoader2,
 } from "@tabler/icons-react";
 import { Button } from "@nookly/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@nookly/ui/components/tooltip";
@@ -21,7 +22,8 @@ type Summary = {
   label: string;
   icon: typeof IconCloud;
   tone: string;
-  spin?: boolean;
+  /// A spinner turns inside the cloud while it works.
+  loading?: boolean;
   /// What a click opens.
   opens: "account" | "settings" | "firstSync" | "conflicts";
 };
@@ -37,7 +39,7 @@ export function syncSummary(
   if (!user) {
     return {
       label: "Not syncing. Sign in to sync.",
-      icon: IconCloud,
+      icon: IconCloudOff,
       tone: "text-muted-foreground",
       opens: "account",
     };
@@ -73,9 +75,9 @@ export function syncSummary(
     case "syncing":
       return {
         label: "Syncing",
-        icon: IconRefresh,
+        icon: IconCloud,
         tone: "text-muted-foreground",
-        spin: true,
+        loading: true,
         opens: "settings",
       };
     case "offline":
@@ -84,7 +86,7 @@ export function syncSummary(
           status.pending > 0
             ? `Offline. ${plural(status.pending, "change waits", "changes wait")} to sync.`
             : "Offline. Changes sync when you're back.",
-        icon: IconCloudOff,
+        icon: IconCloudStorm,
         tone: "text-caution",
         opens: "settings",
       };
@@ -165,13 +167,19 @@ export function SyncStatusButton() {
     <Tooltip>
       <TooltipTrigger asChild>
         <Button variant="ghost" size="iconSm" aria-label={summary.label} onClick={open}>
-          <Icon
-            size={14}
-            className={cn(
-              justSynced ? "text-positive" : summary.tone,
-              summary.spin && "animate-spin",
+          <span className="relative flex">
+            <Icon size={14} className={justSynced ? "text-positive" : summary.tone} />
+            {summary.loading && (
+              <IconLoader2
+                size={5}
+                stroke={3}
+                className={cn(
+                  "absolute top-[4.75px] left-[4.25px] animate-spin motion-reduce:animate-none",
+                  summary.tone,
+                )}
+              />
             )}
-          />
+          </span>
         </Button>
       </TooltipTrigger>
       <TooltipContent>

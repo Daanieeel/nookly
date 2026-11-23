@@ -57,7 +57,7 @@ describe("the security sheet", () => {
     const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
     expect(await screen.findByRole("button", { name: "Set Up Authenticator App" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Turn On Emailed Codes" })).toBeTruthy();
-    expect(screen.getByText(/asks for a second step/)).toBeTruthy();
+    expect(screen.getByText(/Sign in needs a second step/)).toBeTruthy();
   });
 
   it("stays away from an account that owes nothing", async () => {
@@ -99,13 +99,39 @@ describe("the security sheet", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByLabelText("QR code for your authenticator app")).toBeTruthy();
+    // The key is for typing by hand: blurred, not on the screen, until tapped.
+    expect(screen.queryByText("ABCD EFGH IJKL")).toBeNull();
+    expect(screen.getByText("or set up manually")).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText("Show key"));
     expect(screen.getByText("ABCD EFGH IJKL")).toBeTruthy();
+    // Six boxes; the last digit turns it on.
+    expect(screen.getAllByTestId(/^otp-box-/)).toHaveLength(6);
     await fireEvent.changeText(screen.getByLabelText("Code from the app"), "123 456");
-    await fireEvent.press(screen.getByRole("button", { name: "Turn On" }));
     await waitFor(() => expect(confirm).toHaveBeenCalledWith("123456"));
 
     expect(await screen.findByText("aaaaa-bbbbb")).toBeTruthy();
     expect(screen.getByText("ccccc-ddddd")).toBeTruthy();
+  });
+
+  it("lists emailed codes first, with no sentence explaining the obvious", async () => {
+    const { data } = owing();
+    const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
+    const email = await screen.findByText("Emailed codes");
+    const app = screen.getByText("Authenticator app");
+    const titles = screen.getAllByText(/^(Emailed codes|Authenticator app)$/);
+    expect(titles.indexOf(email)).toBeLessThan(titles.indexOf(app));
+    expect(screen.queryByText("A code from an app on your phone.")).toBeNull();
+    expect(screen.queryByText("Needs an email address.")).toBeNull();
+  });
+
+  it("offers to go on without an authenticator app once emailed codes are on", async () => {
+    const { data, set } = owing();
+    set({ ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } });
+    const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
+    expect(
+      await screen.findByRole("button", { name: "Proceed Without Authenticator" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Later" })).toBeNull();
   });
 
   it("asks an account with no email for one", async () => {

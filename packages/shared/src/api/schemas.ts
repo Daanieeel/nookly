@@ -61,7 +61,12 @@ export type SignUp = z.input<typeof signUpSchema>;
 export const signUpFormSchema = z
   .object({
     username: usernameSchema,
-    email: z.union([emailSchema, z.literal("")]),
+    // Needed: emailed codes are the standard second step, and a password reset comes by email.
+    email: z
+      .string()
+      .trim()
+      .min(1, "Enter your email address")
+      .pipe(z.email("Enter a valid email address").max(254)),
     password: passwordSchema,
     confirm: z.string(),
     betaKey: z.string().max(256),

@@ -1,6 +1,12 @@
-import { PRODUCTION_SERVER, TERMS_VERSION, TwoFactorRequiredError } from "@nookly/shared/api";
+import {
+  ApiRequestError,
+  PRODUCTION_SERVER,
+  TERMS_VERSION,
+  TwoFactorRequiredError,
+} from "@nookly/shared/api";
 import { fireEvent, waitFor } from "expo-router/testing-library";
-import { Keyboard, TextInput } from "react-native";
+import { Keyboard, StyleSheet, TextInput } from "react-native";
+import { TINT } from "../ui/tokens.ts";
 import { renderScreens, testData } from "../test/render.tsx";
 import { SignInScreen, SignUpScreen, WelcomeScreen } from "./AccountScreens.tsx";
 
@@ -194,7 +200,7 @@ describe("signing in", () => {
 });
 
 describe("creating an account", () => {
-  it("needs a username and a long enough password, the email being optional", async () => {
+  it("needs a username, an email and a long enough password", async () => {
     const data = testData();
     const signUp = jest.spyOn(data.sync, "signUp").mockResolvedValue(ADA);
     data.serverUrl.set(PRODUCTION_SERVER);
@@ -208,6 +214,7 @@ describe("creating an account", () => {
     await fireEvent.changeText(screen.getByLabelText("Username"), "ada");
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
     await fireEvent.changeText(screen.getByLabelText("Repeat password"), "a long password");
+    await fireEvent.changeText(screen.getByLabelText("Email"), "ada@example.com");
     await fireEvent.press(screen.getByRole("checkbox", TICK));
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
     // Nookly's server is a closed beta: no key, no account.
@@ -220,7 +227,7 @@ describe("creating an account", () => {
         PRODUCTION_SERVER,
         {
           username: "ada",
-          email: undefined,
+          email: "ada@example.com",
           password: "a long password",
           betaKey: "the-key",
           termsVersion: TERMS_VERSION,
@@ -235,7 +242,7 @@ describe("creating an account", () => {
     data.serverUrl.set(PRODUCTION_SERVER);
     const screen = await renderScreens({ index: () => <SignUpScreen /> }, data);
     await screen.findByLabelText("Username");
-    for (const name of ["Username", "Email (optional)", "Password", "Beta key"]) {
+    for (const name of ["Username", "Email", "Password", "Beta key"]) {
       // The drawn name, which may carry a star for a required field.
       expect(
         screen.getByText(new RegExp(`^${name.replace(/[()]/g, "\\$&")}( \\*)?$`)),
@@ -262,6 +269,7 @@ describe("creating an account", () => {
     await fireEvent.changeText(await screen.findByLabelText("Username"), "ada");
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
     await fireEvent.changeText(screen.getByLabelText("Repeat password"), "a long password");
+    await fireEvent.changeText(screen.getByLabelText("Email"), "ada@example.com");
     await fireEvent.changeText(screen.getByLabelText("Beta key"), "the-key");
     expect(screen.getByRole("checkbox", TICK).props.accessibilityState).toMatchObject({
       checked: false,
@@ -294,6 +302,7 @@ describe("creating an account", () => {
     await fireEvent.changeText(await screen.findByLabelText("Username"), "ada");
     await fireEvent.changeText(screen.getByLabelText("Password"), "a long password");
     await fireEvent.changeText(screen.getByLabelText("Repeat password"), "another long one");
+    await fireEvent.changeText(screen.getByLabelText("Email"), "ada@example.com");
     await fireEvent.changeText(screen.getByLabelText("Beta key"), "the-key");
     await fireEvent.press(screen.getByRole("checkbox", TICK));
     await fireEvent.press(screen.getByRole("button", { name: "Create Account" }));
@@ -418,8 +427,10 @@ describe("the second step of signing in", () => {
   it("asks for the code of the authenticator app, and signs in with it", async () => {
     const { data, screen } = await toSecondStep(["totp", "email", "backup"]);
     const complete = jest.spyOn(data.sync, "completeTwoFactor").mockResolvedValue(ADA);
-    await fireEvent.changeText(await screen.findByLabelText("Authenticator code"), "123 456");
-    await fireEvent.press(screen.getByRole("button", { name: "Verify" }));
+    // Six boxes; the last digit signs in.
+    await screen.findByLabelText("Authenticator code");
+    expect(screen.getAllByTestId(/^otp-box-/)).toHaveLength(6);
+    await fireEvent.changeText(screen.getByLabelText("Authenticator code"), "123 456");
     await waitFor(() =>
       expect(complete).toHaveBeenCalledWith(
         "http://localhost:3000",
@@ -431,15 +442,36 @@ describe("the second step of signing in", () => {
     );
   });
 
-  it("shows why the code was refused, and stays", async () => {
+  it("turns the boxes red and empties them when the code is wrong, with no sentence", async () => {
     const { data, screen } = await toSecondStep(["totp"]);
     jest
       .spyOn(data.sync, "completeTwoFactor")
-      .mockRejectedValue(new Error("That code isn't right."));
+      .mockRejectedValue(new ApiRequestError(401, "invalid_code", "That code isn't right."));
     await fireEvent.changeText(await screen.findByLabelText("Authenticator code"), "000000");
-    await fireEvent.press(screen.getByRole("button", { name: "Verify" }));
-    expect(await screen.findByText("That code isn't right.")).toBeTruthy();
-    expect(screen.getByLabelText("Authenticator code")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("otp-box-0").props.style).toBeTruthy());
+    await waitFor(() =>
+      expect(StyleSheet.flatten(screen.getByTestId("otp-box-0").props.style).borderColor).toBe(
+        TINT.red.light,
+      ),
+    );
+    expect(screen.queryByText("That code isn't right.")).toBeNull();
+    expect(screen.getByTestId("otp-box-0")).toHaveTextContent("");
+    // Typing again calms them.
+    await fireEvent.changeText(screen.getByLabelText("Authenticator code"), "1");
+    await waitFor(() =>
+      expect(StyleSheet.flatten(screen.getByTestId("otp-box-0").props.style).borderColor).not.toBe(
+        TINT.red.light,
+      ),
+    );
+  });
+
+  it("says why anything else went wrong, and stays", async () => {
+    const { data, screen } = await toSecondStep(["totp"]);
+    jest
+      .spyOn(data.sync, "completeTwoFactor")
+      .mockRejectedValue(new ApiRequestError(429, "rate_limited", "Too many requests."));
+    await fireEvent.changeText(await screen.findByLabelText("Authenticator code"), "000000");
+    expect(await screen.findByText("Too many requests.")).toBeTruthy();
   });
 
   it("emails a code when that is the choice, and takes a recovery code too", async () => {

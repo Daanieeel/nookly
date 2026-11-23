@@ -18,6 +18,7 @@ export {
   SECURITY_STEPS,
   cleanTwoFactorCode,
   firstTwoFactorMethod,
+  isWrongCode,
   runSecurityAction,
   twoFactorMethodLabels,
   type SecurityAction,

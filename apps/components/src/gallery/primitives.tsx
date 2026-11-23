@@ -35,6 +35,7 @@ import {
 } from "@nookly/ui/components/card";
 import { CardPicker } from "@nookly/ui/components/card-picker";
 import { Checkbox } from "@nookly/ui/components/checkbox";
+import { BlurredSecret } from "@nookly/ui/components/blurred-secret";
 import { CheckboxGroup } from "@nookly/ui/components/checkbox-group";
 import {
   Collapsible,
@@ -84,6 +85,7 @@ import {
   GalleryCardBody,
 } from "@nookly/ui/components/gallery-card";
 import { Input } from "@nookly/ui/components/input";
+import { OtpCodeInput } from "@nookly/ui/components/input-otp";
 import { InteractiveCard } from "@nookly/ui/components/interactive-card";
 import { Kbd, KbdGroup } from "@nookly/ui/components/kbd";
 import { Label } from "@nookly/ui/components/label";
@@ -183,6 +185,17 @@ function CheckboxDemo() {
         <Checkbox aria-label="Bare checkbox" />
         <span className="text-xs text-muted-foreground">Bare Checkbox</span>
       </Row>
+    </Stack>
+  );
+}
+
+function OtpDemo() {
+  const [code, setCode] = useState("");
+  return (
+    <Stack>
+      <OtpCodeInput aria-label="Code" value={code} onChange={setCode} />
+      <OtpCodeInput aria-label="Wrong code" value="123456" onChange={() => {}} invalid />
+      <OtpCodeInput aria-label="Disabled code" value="12" onChange={() => {}} disabled />
     </Stack>
   );
 }
@@ -523,6 +536,22 @@ export const PRIMITIVES: GalleryEntry[] = [
     group: "Primitives",
     source: "packages/ui/src/components/radio-group.tsx",
     render: () => <RadioDemo />,
+  },
+  {
+    id: "input-otp",
+    name: "OtpCodeInput",
+    group: "Primitives",
+    source: "packages/ui/src/components/input-otp.tsx",
+    note: "A one time code, a box per digit.",
+    render: () => <OtpDemo />,
+  },
+  {
+    id: "blurred-secret",
+    name: "BlurredSecret",
+    group: "Primitives",
+    source: "packages/ui/src/components/blurred-secret.tsx",
+    note: "A key kept blurred, made of random characters until it is clicked, with a copy button.",
+    render: () => <BlurredSecret value="GBTX GMSJ MR2W G5KU 6789" label="key" />,
   },
   {
     id: "switch",

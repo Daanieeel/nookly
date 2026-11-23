@@ -28,6 +28,31 @@
   }
 }
 
+/* The same, for one box of a code field that the cursor is in (`data-active`). */
+@utility focus-ring-active {
+  &[data-active="true"] {
+    border-color: var(--ring);
+    --tw-ring-shadow:
+      0 0 0 1px var(--ring), 0 0 0 4px color-mix(in oklab, var(--ring) 25%, transparent);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+      var(--tw-ring-shadow), var(--tw-shadow);
+  }
+}
+
+/* The blinking caret of a code box that is empty and active. */
+@keyframes caret-blink {
+  0%,
+  70%,
+  100% {
+    opacity: 1;
+  }
+  20%,
+  50% {
+    opacity: 0;
+  }
+}
+
 /* The same, for a box that holds the focused thing (a field inside a framed row). */
 @utility focus-ring-within {
   &:focus-within {

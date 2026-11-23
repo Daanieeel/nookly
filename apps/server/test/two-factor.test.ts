@@ -283,9 +283,24 @@ describe("a server that requires two-factor", () => {
   }, HOOK_TIMEOUT);
   afterAll(() => required.stop(), HOOK_TIMEOUT);
 
+  it("will not make a password account without an email address", async () => {
+    await expect(
+      required.client().signUp({ username: "nomail", password: PASSWORD }, DESKTOP),
+    ).rejects.toThrow(/email address/i);
+    const api = required.client();
+    const user = await api.signUp(
+      { username: "withmail", email: "withmail@example.com", password: PASSWORD },
+      DESKTOP,
+    );
+    expect(user.email).toBe("withmail@example.com");
+  });
+
   it("lets a new account in only to set it up, and everything else waits", async () => {
     const api = required.client();
-    const user = await api.signUp({ username: "newbie", password: PASSWORD }, DESKTOP);
+    const user = await api.signUp(
+      { username: "newbie", email: "newbie@example.com", password: PASSWORD },
+      DESKTOP,
+    );
     expect(user.twoFactorRequired).toBe(true);
     expect(await api.security()).toMatchObject({ required: true, enabled: false });
     await expect(api.sessions()).rejects.toThrow(/two-factor/i);
@@ -300,7 +315,10 @@ describe("a server that requires two-factor", () => {
 
   it("will not let the last method go", async () => {
     const api = required.client();
-    await api.signUp({ username: "keeper", password: PASSWORD }, DESKTOP);
+    await api.signUp(
+      { username: "keeper", email: "keeper@example.com", password: PASSWORD },
+      DESKTOP,
+    );
     const start = await api.startAuthenticator(PASSWORD);
     await api.confirmAuthenticator(await appCode(start.uri));
     await expect(api.disableTwoFactor("totp", PASSWORD)).rejects.toThrow(/required/i);
@@ -320,6 +338,54 @@ describe("a server that requires two-factor", () => {
     expect((await api.me()).twoFactorRequired).toBeFalsy();
     expect(await api.sessions()).toBeArray();
   });
+
+  it("asks a provider account for two-factor once it signs in with its email and a password", async () => {
+    const id = crypto.randomUUID();
+    const email = "prov3@example.com";
+    await required.sql`INSERT INTO auth_user (id, name, email, email_verified, username) VALUES (${id}, 'Prov3', ${email}, true, 'prov3')`;
+    await required.sql`INSERT INTO users (id, email) VALUES (${id}, ${email}) ON CONFLICT DO NOTHING`;
+    await required.sql`INSERT INTO auth_account (id, account_id, provider_id, user_id) VALUES (${crypto.randomUUID()}, ${"p-" + id}, 'google', ${id})`;
+    // The provider's own sign in is not asked. Choosing a password through the emailed link
+    // gives the account the second way in, and that one is.
+    await required.client().forgotPassword(email);
+    const link = required.mailer.link(email, "/reset-password");
+    const token = new URL(link ?? "").searchParams.get("token") ?? "";
+    await required.client().resetPassword(token, PASSWORD);
+    const api = required.client();
+    const user = await api.signIn(email, PASSWORD, DESKTOP);
+    expect(user.twoFactorRequired).toBe(true);
+    await expect(api.sessions()).rejects.toThrow(/two-factor/i);
+    expect(await api.security()).toMatchObject({ required: true, enabled: false });
+  });
 });
 
 void usernameOf;
+
+describe("a server that blocks disposable email addresses", () => {
+  let blocking: TestServer;
+  beforeAll(async () => {
+    blocking = await startServer({ BLOCK_DISPOSABLE_EMAIL: "true" });
+  }, HOOK_TIMEOUT);
+  afterAll(() => blocking.stop(), HOOK_TIMEOUT);
+
+  it("will not make an account with a throwaway address", async () => {
+    await expect(
+      blocking
+        .client()
+        .signUp(
+          { username: "burner", email: "burner@mailinator.com", password: PASSWORD },
+          DESKTOP,
+        ),
+    ).rejects.toThrow(/permanent email/i);
+    const user = await blocking
+      .client()
+      .signUp({ username: "keeper", email: "keeper@example.com", password: PASSWORD }, DESKTOP);
+    expect(user.email).toBe("keeper@example.com");
+  });
+
+  it("will not add a throwaway address to an account without one", async () => {
+    const api = blocking.client();
+    await api.signUp({ username: "nomail2", password: PASSWORD }, DESKTOP);
+    await expect(api.addEmail("later@guerrillamail.com")).rejects.toThrow(/permanent email/i);
+  });
+});
