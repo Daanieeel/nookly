@@ -31,3 +31,33 @@ describe("the beta key", () => {
     expect(socialProviders(loadConfig({ ...env, BETA_KEY: "k" })).github?.disableSignUp).toBe(true);
   });
 });
+
+describe("the sign in providers", () => {
+  const base = {
+    DATABASE_URL: "postgres://nookly:nookly@127.0.0.1:5433/nookly",
+    AUTH_SECRET: "x".repeat(32),
+  };
+  it("turns each on when both its id and secret are set, and not before", () => {
+    expect(Object.keys(socialProviders(loadConfig(base)))).toEqual([]);
+    const env = {
+      ...base,
+      GOOGLE_CLIENT_ID: "id",
+      GOOGLE_CLIENT_SECRET: "secret",
+      GITHUB_CLIENT_ID: "id",
+      GITHUB_CLIENT_SECRET: "secret",
+      NOTION_CLIENT_ID: "id",
+      NOTION_CLIENT_SECRET: "secret",
+      APPLE_CLIENT_ID: "id",
+    };
+    expect(Object.keys(socialProviders(loadConfig(env))).sort()).toEqual([
+      "github",
+      "google",
+      "notion",
+    ]);
+  });
+  it("shuts Notion out of sign up while the beta key is set", () => {
+    const env = { ...base, NOTION_CLIENT_ID: "id", NOTION_CLIENT_SECRET: "secret" };
+    expect(socialProviders(loadConfig(env)).notion?.disableSignUp).toBe(false);
+    expect(socialProviders(loadConfig({ ...env, BETA_KEY: "k" })).notion?.disableSignUp).toBe(true);
+  });
+});

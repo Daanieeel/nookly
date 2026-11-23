@@ -58,6 +58,27 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
+      # Only providers with both an id and a secret reach the server; the rest stay off.
+      - name: Collect the OAuth provider settings
+        env:
+          GOOGLE_ID: ${{ secrets.OAUTH_GOOGLE_CLIENT_ID }}
+          GOOGLE_SECRET: ${{ secrets.OAUTH_GOOGLE_CLIENT_SECRET }}
+          GITHUB_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          GITHUB_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          NOTION_ID: ${{ secrets.OAUTH_NOTION_CLIENT_ID }}
+          NOTION_SECRET: ${{ secrets.OAUTH_NOTION_CLIENT_SECRET }}
+          APPLE_ID: ${{ secrets.OAUTH_APPLE_CLIENT_ID }}
+          APPLE_SECRET: ${{ secrets.OAUTH_APPLE_CLIENT_SECRET }}
+        run: |
+          vars=$(jq -nc '
+            [ ["GOOGLE", $ENV.GOOGLE_ID, $ENV.GOOGLE_SECRET],
+              ["GITHUB", $ENV.GITHUB_ID, $ENV.GITHUB_SECRET],
+              ["NOTION", $ENV.NOTION_ID, $ENV.NOTION_SECRET],
+              ["APPLE", $ENV.APPLE_ID, $ENV.APPLE_SECRET] ]
+            | map(select((.[1] // "") != "" and (.[2] // "") != ""))
+            | map({("\(.[0])_CLIENT_ID"): .[1], ("\(.[0])_CLIENT_SECRET"): .[2]})
+            | add // {}')
+          echo "TF_VAR_extra_sensitive_config_vars=$vars" >> "$GITHUB_ENV"
       - name: Init with the production state
         run: terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
       - run: terraform plan -input=false -var-file=production.tfvars -out=production.plan
