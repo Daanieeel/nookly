@@ -31,6 +31,7 @@ All notable changes to Nookly are listed here.
 
 ### Changed
 
+- Settings, Connections now shows how you sign in: the accounts you signed in with, like Google, GitHub or Notion, and your password.
 - Creating an account on Nookly's server now asks for the beta key while Nookly is in its closed beta.
 - The server you sign in to now starts as Nookly's own and can be changed under Settings, General. Sign out first to switch to another server.
 - The sign in and create account windows are shorter and tidier, and scroll when your window is small instead of running off the screen.
@@ -63,6 +64,7 @@ All notable changes to Nookly are listed here.
 
 ### Fixed
 
+- When Nookly and its server are on different versions, a request that fails now says which one needs updating instead of a message about the request being missing or invalid.
 - On your phone, the Display button no longer drops onto a line of its own next to a long page title.
 - On your phone, the cards on the Courses and Notes pages and other galleries stand out from the page, a note card with more labels than fit shows a ... badge, and file icons are coloured by type like on your computer.
 - **The hidden sidebar is readable when it slides in.** Resting the pointer on the left edge shows it on a solid background with a clear shadow, no longer see through over the page.

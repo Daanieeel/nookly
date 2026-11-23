@@ -43,6 +43,14 @@ import {
   userSchema,
 } from "./schemas.ts";
 import { z as zod } from "zod";
+import {
+  APP_OUTDATED,
+  APP_OUTDATED_MESSAGE,
+  SERVER_OUTDATED,
+  SERVER_OUTDATED_MESSAGE,
+  SERVER_VERSION_HEADER,
+  versionProblem,
+} from "./server-version.ts";
 
 /// Where a client keeps its session token: the desktop's keychain, the phone's
 /// secure store. It is what keeps a device signed in across restarts.
@@ -57,6 +65,8 @@ const errorBodySchema = zod.object({
   error: zod.string().optional(),
   code: zod.string().optional(),
   message: zod.string().optional(),
+  /// The server's version, which our own routes put in every error.
+  serverVersion: zod.string().optional(),
 });
 
 /// What people read for better-auth's error codes: short, and saying what to do.
@@ -100,12 +110,54 @@ export const CHALLENGE_HEADER = "x-nookly-challenge";
 export class ApiRequestError extends Error {
   readonly status: number;
   readonly code: string;
+  /// The version the server said it is, when the answer carried one.
+  readonly serverVersion?: string;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, serverVersion?: string) {
     super(message);
     this.status = status;
     this.code = code;
+    this.serverVersion = serverVersion;
   }
+}
+
+/// The error codes of a request the server could not read: a body that failed its checks.
+const UNREADABLE = new Set(["invalid_request", "invalid_body"]);
+
+/// The error that says which side is out of date, or null when neither is.
+function outdatedError(status: number, serverVersion: string | undefined): ApiRequestError | null {
+  const problem = versionProblem(serverVersion);
+  if (problem === "server") {
+    return new ApiRequestError(status, SERVER_OUTDATED, SERVER_OUTDATED_MESSAGE, serverVersion);
+  }
+  if (problem === "app") {
+    return new ApiRequestError(status, APP_OUTDATED, APP_OUTDATED_MESSAGE, serverVersion);
+  }
+  return null;
+}
+
+/// An error response as an `ApiRequestError`. A request the server could not read, from an app
+/// and a server of different versions, says which of the two is out of date instead of what
+/// was wrong with the request, which nobody can do anything about.
+async function requestError(
+  response: Response,
+  friendly: ReadonlyMap<string, string> | null,
+): Promise<ApiRequestError> {
+  const parsed = errorBodySchema.safeParse(await response.json().catch(() => null));
+  const data = parsed.success ? parsed.data : {};
+  const code = (data.error ?? data.code ?? "http_error").toLowerCase();
+  const serverVersion =
+    data.serverVersion ?? response.headers.get(SERVER_VERSION_HEADER) ?? undefined;
+  if (UNREADABLE.has(code)) {
+    const outdated = outdatedError(response.status, serverVersion);
+    if (outdated) return outdated;
+  }
+  return new ApiRequestError(
+    response.status,
+    code,
+    friendly?.get(code) ?? data.message ?? `Request failed (${response.status})`,
+    serverVersion,
+  );
 }
 
 /// `fetch`, as far as the client uses it.
@@ -209,14 +261,7 @@ export class ApiClient {
       }
       if (authed && response.status === 401 && token) await this.ended(token);
       if (!response.ok) {
-        const parsed = errorBodySchema.safeParse(await response.json().catch(() => null));
-        const data = parsed.success ? parsed.data : {};
-        const code = (data.error ?? data.code ?? "http_error").toLowerCase();
-        throw new ApiRequestError(
-          response.status,
-          code,
-          FRIENDLY.get(code) ?? data.message ?? `Request failed (${response.status})`,
-        );
+        throw await requestError(response, FRIENDLY);
       }
       if (!schema) return null;
       try {
@@ -224,6 +269,15 @@ export class ApiClient {
       } catch (error) {
         // The body stopped coming: the connection went while it was read.
         if (abort.signal.aborted) throw NetworkError.unreachable(error);
+        // An answer that is not the shape this app reads: the two are not the same version.
+        if (error instanceof zod.ZodError) {
+          throw (
+            outdatedError(
+              response.status,
+              response.headers.get(SERVER_VERSION_HEADER) ?? undefined,
+            ) ?? error
+          );
+        }
         throw error;
       }
     } finally {
@@ -593,14 +647,7 @@ export class ApiClient {
   }
 
   private async failed(response: Response): Promise<never> {
-    const parsed = errorBodySchema.safeParse(await response.json().catch(() => null));
-    const data = parsed.success ? parsed.data : {};
-    const code = (data.error ?? data.code ?? "http_error").toLowerCase();
-    throw new ApiRequestError(
-      response.status,
-      code,
-      data.message ?? `Request failed (${response.status})`,
-    );
+    throw await requestError(response, null);
   }
 
   /// Whether the server already holds this file's contents.

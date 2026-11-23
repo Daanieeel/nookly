@@ -6,6 +6,7 @@ import {
   MemoryTokens,
   PASSWORD,
   type TestServer,
+  account,
   startServer,
   until,
   HOOK_TIMEOUT,
@@ -46,6 +47,51 @@ describe("the server", () => {
     const response = await fetch(`${server.baseUrl}/v1/nothing`);
     expect(response.status).toBe(404);
     expect((await response.json()).error).toBe("not_found");
+  });
+});
+
+describe("the server's version on its answers", () => {
+  const version = () => server.config.version;
+  const post = (
+    path: string,
+    body: Record<string, string | number | boolean>,
+    headers: Record<string, string> = {},
+  ) =>
+    fetch(`${server.baseUrl}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    });
+
+  it("is in every error, so a client can tell which side is out of date", async () => {
+    const invalid = await post("/v1/auth/sign-in/username", { nope: true });
+    expect(invalid.status).toBeGreaterThanOrEqual(400);
+    const unknown = await fetch(`${server.baseUrl}/v1/nothing-here`);
+    expect(unknown.status).toBe(404);
+    expect(await unknown.json()).toMatchObject({ error: "not_found", serverVersion: version() });
+    const signedOut = await fetch(`${server.baseUrl}/v1/sessions`);
+    expect(signedOut.status).toBe(401);
+    expect(await signedOut.json()).toMatchObject({
+      error: "unauthorized",
+      serverVersion: version(),
+    });
+    // A body that fails validation: the answer clients most often misread.
+    const { api } = await account(server, "versioned", DESKTOP);
+    const token = await api.sessionToken();
+    const bad = await post("/v1/sync/push", { wrong: 1 }, { authorization: `Bearer ${token}` });
+    expect(bad.status).toBe(422);
+    expect(await bad.json()).toMatchObject({ error: "invalid_request", serverVersion: version() });
+  });
+
+  it("is also a header on every answer, better-auth's errors included", async () => {
+    const ok = await fetch(`${server.baseUrl}/health`);
+    expect(ok.headers.get("x-nookly-server-version")).toBe(version());
+    const authError = await post("/v1/auth/sign-in/username", {
+      username: "nobody",
+      password: "wrong password!",
+    });
+    expect(authError.status).toBeGreaterThanOrEqual(400);
+    expect(authError.headers.get("x-nookly-server-version")).toBe(version());
   });
 });
 

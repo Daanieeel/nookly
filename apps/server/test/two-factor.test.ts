@@ -205,6 +205,65 @@ describe("an authenticator app", () => {
   });
 });
 
+describe("recovery codes without an authenticator app", () => {
+  it("are made for an account with emailed codes, and each opens it once", async () => {
+    const { api } = await verifiedAccount(server, "rec1@example.com");
+    // Nothing to recover with while no method is on.
+    await expect(api.newBackupCodes(PASSWORD)).rejects.toThrow();
+    await api.enableEmailTwoFactor(PASSWORD);
+    expect((await api.security()).backupCodesLeft).toBe(0);
+    await expect(api.newBackupCodes("nope")).rejects.toThrow();
+    const codes = await api.newBackupCodes(PASSWORD);
+    expect(codes).toHaveLength(10);
+    expect(await api.security()).toMatchObject({
+      enabled: true,
+      authenticator: { enabled: false },
+      backupCodesLeft: 10,
+    });
+
+    const first = await challengeFor(server, "rec1");
+    expect(first.challenge.methods).toEqual(["email", "backup"]);
+    const user = await first.api.verifyTwoFactor(
+      first.challenge.challenge,
+      "backup",
+      codes[0] ?? "",
+      DESKTOP,
+    );
+    expect(user.username).toBe("rec1");
+    const again = await challengeFor(server, "rec1");
+    await expect(
+      again.api.verifyTwoFactor(again.challenge.challenge, "backup", codes[0] ?? "", DESKTOP),
+    ).rejects.toThrow();
+    expect((await api.security()).backupCodesLeft).toBe(9);
+  });
+
+  it("are kept when an authenticator app is added or removed later", async () => {
+    const { api } = await verifiedAccount(server, "rec2@example.com");
+    await api.enableEmailTwoFactor(PASSWORD);
+    const codes = await api.newBackupCodes(PASSWORD);
+    const start = await api.startAuthenticator(PASSWORD);
+    // The codes already given stay good: the app does not hand out others.
+    expect(await api.confirmAuthenticator(await appCode(start.uri))).toEqual([]);
+    expect((await api.security()).backupCodesLeft).toBe(10);
+    await api.disableTwoFactor("totp", PASSWORD);
+    expect(await api.security()).toMatchObject({
+      authenticator: { enabled: false },
+      backupCodesLeft: 10,
+    });
+    const next = await challengeFor(server, "rec2");
+    expect(next.challenge.methods).toEqual(["email", "backup"]);
+    await next.api.verifyTwoFactor(next.challenge.challenge, "backup", codes[0] ?? "", DESKTOP);
+  });
+
+  it("go with the last method", async () => {
+    const { api } = await verifiedAccount(server, "rec3@example.com");
+    await api.enableEmailTwoFactor(PASSWORD);
+    await api.newBackupCodes(PASSWORD);
+    await api.disableTwoFactor("email", PASSWORD);
+    expect(await api.security()).toMatchObject({ enabled: false, backupCodesLeft: 0 });
+  });
+});
+
 describe("both together, and turning them off", () => {
   it("offers both at sign in, and a recovery code opens a locked out account", async () => {
     const { api } = await verifiedAccount(server, "both@example.com");

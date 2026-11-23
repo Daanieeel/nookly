@@ -2,6 +2,7 @@ import { cors } from "@elysiajs/cors";
 import { openapi } from "@elysiajs/openapi";
 import {
   CHALLENGE_HEADER,
+  SERVER_VERSION_HEADER,
   addEmailRequestSchema,
   createShareRequestSchema,
   acceptTermsRequestSchema,
@@ -209,17 +210,27 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
     return storage;
   }
 
+  /// An error's body. It carries the server's version, so an app can tell whether it or the
+  /// server is the one out of date.
+  const failure = (error: string, message: string) => ({
+    error,
+    message,
+    serverVersion: config.version,
+  });
+
   const app = new Elysia({
     // File uploads stream up to MAX_BLOB_BYTES; everything else is held to
     // MAX_BODY_BYTES by `onRequest` below.
     serve: { maxRequestBodySize: Math.max(config.MAX_BODY_BYTES, config.MAX_BLOB_BYTES) + 1024 },
   })
     .onRequest(({ request, set }) => {
+      // Every answer says which version of the server it came from.
+      set.headers[SERVER_VERSION_HEADER] = config.version;
       if (new URL(request.url).pathname.startsWith("/v1/blobs/")) return;
       const length = Number(request.headers.get("content-length") ?? 0);
       if (length > config.MAX_BODY_BYTES) {
         set.status = 413;
-        return { error: "too_large", message: "The request is too large." };
+        return failure("too_large", "The request is too large.");
       }
     })
     .use(
@@ -236,7 +247,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           "x-nookly-platform",
         ],
         methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
-        exposeHeaders: ["set-auth-token"],
+        exposeHeaders: ["set-auth-token", SERVER_VERSION_HEADER],
         credentials: false,
         maxAge: 600,
       }),
@@ -266,26 +277,26 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
     .onError(({ code, error, set }) => {
       if (error instanceof HttpError) {
         set.status = error.status;
-        return { error: error.code, message: error.message };
+        return failure(error.code, error.message);
       }
       if (code === "VALIDATION") {
         set.status = 422;
-        return { error: "invalid_request", message: "Some of the request is missing or invalid." };
+        return failure("invalid_request", "Some of the request is missing or invalid.");
       }
       if (code === "NOT_FOUND") {
         set.status = 404;
-        return { error: "not_found", message: "Not found." };
+        return failure("not_found", "Not found.");
       }
       if (code === "PARSE") {
         set.status = 400;
-        return { error: "invalid_body", message: "The request body couldn't be read." };
+        return failure("invalid_body", "The request body couldn't be read.");
       }
       log.error("unhandled error", {
         code: String(code),
         error: error instanceof Error ? error.message : String(error),
       });
       set.status = 500;
-      return { error: "internal", message: "Something went wrong on the server." };
+      return failure("internal", "Something went wrong on the server.");
     })
     .onAfterResponse(({ request, set, started }) => {
       // The path only: query strings can hold tokens (email links).
@@ -304,7 +315,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           return { status: "ok" as const, version: config.version };
         } catch {
           set.status = 503;
-          return { error: "unavailable", message: "The database can't be reached." };
+          return failure("unavailable", "The database can't be reached.");
         }
       },
       { detail: { summary: "Health check", tags: ["Server"] } },

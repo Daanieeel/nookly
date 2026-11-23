@@ -29,7 +29,7 @@ function BlurredSecret({
         aria-label={shown ? `Hide ${label}` : `Show ${label}`}
         aria-pressed={shown}
         onClick={() => setShown(!shown)}
-        className="group flex min-w-0 cursor-pointer items-center gap-2 rounded-md bg-muted px-2 py-1 text-left outline-none focus-ring"
+        className="group flex min-w-0 cursor-pointer items-center gap-2 rounded-md text-left outline-none focus-ring"
       >
         <code
           aria-hidden={!shown}
