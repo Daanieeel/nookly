@@ -11,6 +11,7 @@ import { dictionary } from "@/content";
 import { type Locale, pathFor } from "@/lib/i18n";
 import { browserHints, type Detected, detectPlatform } from "@/lib/platform";
 import { type Download, type DownloadId, formatSize, type Release } from "@/lib/releases";
+import { useRelease } from "./use-release";
 import { BrandIcon } from "./brand-icon";
 import { BRAND_OF, OS_ORDER } from "./download-meta";
 
@@ -34,16 +35,15 @@ export function useDetectedPlatform(): Detected {
 /// the menu behind the chevron.
 export function DownloadButton({
   locale,
-  release,
   size = "lg",
   className,
 }: {
   locale: Locale;
-  release: Release;
   size?: "sm" | "lg";
   className?: string;
 }) {
   const t = dictionary(locale).download;
+  const release = useRelease();
   const detected = useDetectedPlatform();
   const [open, setOpen] = useState(false);
   const downloadsPage = pathFor(locale, "download");

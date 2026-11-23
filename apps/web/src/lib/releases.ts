@@ -17,12 +17,12 @@ export type Download = {
   os: Os;
   file: string;
   url: string;
-  /// Bytes, or null when the release could not be read at build time.
+  /// Bytes, or null until the release has been read from GitHub.
   size: number | null;
 };
 
 export type Release = {
-  /// `0.75.3`, or null when GitHub could not be reached at build time.
+  /// `1.0.0`, or null until the browser has read it from GitHub (the static page has none).
   version: string | null;
   publishedAt: string | null;
   url: string;
@@ -85,8 +85,9 @@ export function parseRelease(release: GithubRelease): Release {
   };
 }
 
-/// Every installer pointing at the releases page, for a build without network access.
-const FALLBACK_RELEASE: Release = {
+/// What the static page shows, and what stays when GitHub cannot be reached: no version and
+/// every installer pointing at the releases page. The site never carries a version itself.
+export const FALLBACK_RELEASE: Release = {
   version: null,
   publishedAt: null,
   url: `${RELEASES_URL}/latest`,
@@ -110,23 +111,45 @@ function githubHeaders(): Headers {
   return headers;
 }
 
-let cached: Promise<Release> | null = null;
+const cachedReleaseSchema = z.object({ at: z.number(), release: githubReleaseSchema });
+const RELEASE_CACHE_KEY = "nookly.release";
+/// GitHub allows a browser 60 requests an hour; a visitor asks at most once in this time.
+const RELEASE_CACHE_MS = 10 * 60 * 1000;
+
+function readCachedRelease(): Release | null {
+  try {
+    const raw = sessionStorage.getItem(RELEASE_CACHE_KEY);
+    if (raw === null) return null;
+    const { at, release } = cachedReleaseSchema.parse(JSON.parse(raw));
+    if (Date.now() - at > RELEASE_CACHE_MS) return null;
+    return parseRelease(release);
+  } catch {
+    return null;
+  }
+}
 
 /// The latest desktop release (`v*` tags; server and mobile tags make no GitHub Release),
-/// read once per build.
-export function latestRelease(): Promise<Release> {
-  cached ??= fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-    headers: githubHeaders(),
-  })
-    .then(async (response) => {
-      if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
-      return parseRelease(githubReleaseSchema.parse(await response.json()));
-    })
-    .catch((error: Error) => {
-      console.warn(`Latest release unavailable, linking the releases page: ${String(error)}`);
-      return FALLBACK_RELEASE;
+/// read from GitHub in the visitor's browser so a new release shows at once, with no rebuild.
+/// Answers the releases page fallback when GitHub does not.
+export async function fetchLatestRelease(signal?: AbortSignal): Promise<Release> {
+  const cached = readCachedRelease();
+  if (cached) return cached;
+  try {
+    const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+      headers: { Accept: "application/vnd.github+json" },
+      signal,
     });
-  return cached;
+    if (!response.ok) return FALLBACK_RELEASE;
+    const release = githubReleaseSchema.parse(await response.json());
+    try {
+      sessionStorage.setItem(RELEASE_CACHE_KEY, JSON.stringify({ at: Date.now(), release }));
+    } catch {
+      // Private windows may refuse storage; the release still shows.
+    }
+    return parseRelease(release);
+  } catch {
+    return FALLBACK_RELEASE;
+  }
 }
 
 let stars: Promise<number | null> | null = null;

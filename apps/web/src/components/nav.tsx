@@ -1,7 +1,7 @@
 import { IconMenu2 } from "@tabler/icons-react";
 import { dictionary } from "@/content";
 import { type Locale, type Page, pathFor } from "@/lib/i18n";
-import { latestRelease, starCount } from "@/lib/releases";
+import { starCount } from "@/lib/releases";
 import { DownloadButton } from "./download-button";
 import { GithubStars } from "./github-stars";
 import { HomeLink } from "./home-link";
@@ -13,7 +13,7 @@ import { NavShell, ScrolledOnly } from "./nav-shell";
 /// The bar at the top of every page. `page` keeps the language link on the same page.
 export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
   const t = dictionary(locale).nav;
-  const [release, stars] = await Promise.all([latestRelease(), starCount()]);
+  const stars = await starCount();
   const home = pathFor(locale, "home");
   const links = [
     { href: `${home === "/" ? "" : home}/#features`, label: t.features },
@@ -52,7 +52,7 @@ export async function Nav({ locale, page }: { locale: Locale; page: Page }) {
           </span>
           <GithubStars locale={locale} initial={stars} />
           <ScrolledOnly>
-            <DownloadButton locale={locale} release={release} size="sm" />
+            <DownloadButton locale={locale} size="sm" />
           </ScrolledOnly>
           <details className="group relative md:hidden">
             <summary

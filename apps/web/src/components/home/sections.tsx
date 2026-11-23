@@ -15,7 +15,6 @@ import {
 import { cn } from "@nookly/ui/lib/utils";
 import { dictionary } from "@/content";
 import type { Locale } from "@/lib/i18n";
-import { latestRelease } from "@/lib/releases";
 import { AppFrame } from "../app/frame";
 import { DevicesMock } from "../app/devices";
 import { MoodleMock } from "../app/moodle";
@@ -266,9 +265,8 @@ export function Faq({ locale }: { locale: Locale }) {
   );
 }
 
-export async function Closing({ locale }: { locale: Locale }) {
+export function Closing({ locale }: { locale: Locale }) {
   const t = dictionary(locale).closing;
-  const release = await latestRelease();
   return (
     <section className="relative overflow-hidden bg-background pt-24 sm:pt-32">
       <div className="relative z-10 mx-auto flex max-w-2xl flex-col items-center px-4 text-center">
@@ -277,7 +275,7 @@ export async function Closing({ locale }: { locale: Locale }) {
         </h2>
         <p className="mt-4 text-base text-muted-foreground sm:text-lg">{t.body}</p>
         <div className="mt-8">
-          <DownloadButton locale={locale} release={release} />
+          <DownloadButton locale={locale} />
         </div>
       </div>
       <Hearth scene="closing" className="mt-6 h-[320px]" />

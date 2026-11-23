@@ -1,6 +1,5 @@
 import type { Locale } from "@/lib/i18n";
 import { dictionary } from "@/content";
-import { latestRelease } from "@/lib/releases";
 import { GITHUB_URL, SITE_URL } from "@/lib/site";
 import { Hero } from "../hero/hero";
 import {
@@ -16,8 +15,7 @@ import {
 } from "../home/sections";
 import { SiteShell } from "../site-shell";
 
-export async function HomePage({ locale }: { locale: Locale }) {
-  const release = await latestRelease();
+export function HomePage({ locale }: { locale: Locale }) {
   const app = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -27,8 +25,6 @@ export async function HomePage({ locale }: { locale: Locale }) {
     description: dictionary(locale).meta.homeDescription,
     url: SITE_URL,
     downloadUrl: `${SITE_URL}/download`,
-    // JSON.stringify leaves the version out when the build could not read it.
-    softwareVersion: release.version ?? undefined,
     license: "https://www.gnu.org/licenses/agpl-3.0.html",
     sameAs: GITHUB_URL,
     offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },

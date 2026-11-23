@@ -4,16 +4,18 @@ import { IconDownload } from "@tabler/icons-react";
 import { Button } from "@nookly/ui/components/button";
 import { dictionary } from "@/content";
 import type { Locale } from "@/lib/i18n";
-import { formatSize, type Release } from "@/lib/releases";
+import { formatSize } from "@/lib/releases";
 import { BrandIcon } from "../brand-icon";
 import { useDetectedPlatform } from "../download-button";
 import { BRAND_OF } from "../download-meta";
+import { useRelease } from "../use-release";
 
 /// The warm card beside the downloads page's title: the installer for the visitor's
 /// computer once the browser says which one that is, and until then the app's icon with a
 /// pointer to the systems below.
-export function Recommended({ locale, release }: { locale: Locale; release: Release }) {
+export function Recommended({ locale }: { locale: Locale }) {
   const t = dictionary(locale);
+  const release = useRelease();
   const detected = useDetectedPlatform();
   const match =
     detected.kind === "desktop" ? release.downloads.find((d) => d.id === detected.id) : undefined;
