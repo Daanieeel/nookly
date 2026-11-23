@@ -1,7 +1,17 @@
-import { IconLink, IconLogout, IconRefresh, IconSchool } from "@tabler/icons-react-native";
-import { useMutation } from "@tanstack/react-query";
+import { providerName } from "@nookly/shared/api";
+import {
+  IconLink,
+  IconLock,
+  IconLogout,
+  IconPlugConnected,
+  IconRefresh,
+  IconSchool,
+} from "@tabler/icons-react-native";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { View } from "react-native";
+import { useAppData, useSyncState } from "../../data/context.tsx";
+import { keys } from "../../data/keys.ts";
 import { useMoodleCalendar, useSetMoodleCalendar } from "../../moodle/queries.ts";
 import { useMoodleService } from "../../moodle/service.tsx";
 import { Button, statusOf } from "../../ui/Button.tsx";
@@ -10,6 +20,7 @@ import { FormSection } from "../../ui/kit/Form.tsx";
 import { GroupedSection } from "../../ui/kit/GroupedSection.tsx";
 import { IconBadge } from "../../ui/kit/IconBadge.tsx";
 import { ListRow } from "../../ui/kit/ListRow.tsx";
+import { type Provider, ProviderMark } from "../../ui/ProviderMark.tsx";
 import { Text } from "../../ui/Text.tsx";
 import { useTheme } from "../../ui/theme.ts";
 import { ago } from "../dates.ts";
@@ -60,6 +71,67 @@ function ConnectMoodleCalendar() {
   );
 }
 
+const MARKS = new Map<string, Provider>([
+  ["google", "Google"],
+  ["apple", "Apple"],
+  ["github", "GitHub"],
+  ["notion", "Notion"],
+]);
+
+/// How the signed in account signs in (the desktop's Sign in connections): a row for each
+/// provider it was made with or later linked, and one for its password. Nothing here changes it.
+function SignInConnections() {
+  const theme = useTheme();
+  const { sync } = useAppData();
+  const signedIn = useSyncState((state) => state.user !== null);
+  const { data: account } = useQuery({
+    queryKey: keys.sync.account,
+    queryFn: async () => (await sync.account()?.me()) ?? null,
+    enabled: signedIn,
+  });
+  if (!signedIn) {
+    return (
+      <Text variant="small" tone="muted" className="px-4">
+        Sign in to Nookly to see how you sign in.
+      </Text>
+    );
+  }
+  if (!account) return null;
+  const subtitle = "Signs you in to Nookly";
+  return (
+    <GroupedSection title="Sign in" margin={0}>
+      {(account.providers ?? []).map((provider) => {
+        const name = providerName(provider);
+        const mark = MARKS.get(provider);
+        return (
+          <ListRow
+            key={provider}
+            badge={
+              mark ? (
+                <IconBadge
+                  tint="gray"
+                  icon={<ProviderMark provider={mark} size={18} color={theme.colors.foreground} />}
+                />
+              ) : (
+                <IconBadge glyph={IconPlugConnected} tint="gray" />
+              )
+            }
+            title={name}
+            subtitle={subtitle}
+          />
+        );
+      })}
+      {account.hasPassword ? (
+        <ListRow
+          badge={<IconBadge glyph={IconLock} tint="gray" />}
+          title="Email and password"
+          subtitle={subtitle}
+        />
+      ) : null}
+    </GroupedSection>
+  );
+}
+
 export function CalendarConnectionsPage() {
   const theme = useTheme();
   const { calendar } = useMoodleService();
@@ -74,6 +146,7 @@ export function CalendarConnectionsPage() {
   const count = feed?.events.length ?? 0;
   return (
     <View className="gap-5">
+      <SignInConnections />
       <Text variant="small" tone="muted" className="px-4">
         Show events from your own calendars next to your sessions. Nookly only reads them and never
         changes anything in your calendars.

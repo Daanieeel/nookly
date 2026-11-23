@@ -52,6 +52,20 @@ function signedIn(extra: { twoFactorRequired?: boolean } = {}) {
   act(() => syncRuntime.store.setState({ user: { ...ADA, ...extra } }));
 }
 
+/// Turns on emailed codes through the dialog, as a person does, and leaves the account no
+/// longer owing two-factor (the dialog stays, being set up).
+async function turnOnEmail(user: ReturnType<typeof renderWithProviders>["user"]) {
+  vi.spyOn(api, "enableEmailTwoFactor").mockImplementation(async () => {
+    summary = { ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } };
+    return summary;
+  });
+  await user.click(await screen.findByRole("button", { name: "Turn On Emailed Codes" }));
+  await user.type(screen.getByLabelText(/^Password/), "a long password");
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  signedIn({ twoFactorRequired: false });
+  await screen.findByRole("button", { name: "Turn Off Emailed Codes" });
+}
+
 function openFromSettings() {
   const rendered = renderWithProviders(<SecurityDialog />);
   signedIn();
@@ -106,18 +120,15 @@ describe("the security dialog", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByRole("img", { name: /QR code/ })).toBeVisible();
-    // The key is for typing by hand when scanning can't: kept blurred (and not in the page) until
-    // it is clicked, above the boxes under its separator.
-    expect(screen.queryByText("ABCD EFGH IJKL")).not.toBeInTheDocument();
+    // The key is for typing by hand when scanning can't: shown as it is, above the boxes under
+    // its separator, with a button to copy it.
     const separator = screen.getByText("or set up manually");
-    const reveal = screen.getByRole("button", { name: "Show key" });
+    const key = screen.getByText("ABCD EFGH IJKL");
     const boxes = screen.getByLabelText("Code from the app");
-    expect(
-      separator.compareDocumentPosition(reveal) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(reveal.compareDocumentPosition(boxes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    await user.click(reveal);
-    expect(screen.getByText("ABCD EFGH IJKL")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Show key" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy key" })).toBeInTheDocument();
+    expect(separator.compareDocumentPosition(key) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(key.compareDocumentPosition(boxes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await expectNoA11yViolations();
     // Six boxes, not one field; the last digit turns it on.
     expect(document.querySelectorAll('[data-slot="input-otp-slot"]')).toHaveLength(6);
@@ -188,9 +199,9 @@ describe("the security dialog", () => {
     const { user } = renderWithProviders(<SecurityDialog />);
     signedIn({ twoFactorRequired: true });
     expect(await screen.findByRole("dialog", { name: "Set up two-factor sign in" })).toBeVisible();
-    // Neither Escape nor the close button gets out of it.
+    // There is no close button, and Escape does not get out of it either.
+    expect(screen.getByRole("dialog")).toHaveClass("[&>button]:hidden");
     await user.keyboard("{Escape}");
-    await user.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.getByRole("dialog")).toBeVisible();
     // Leaving is the destructive way out: the solid red button.
     expect(screen.getByRole("button", { name: "Sign Out" })).toHaveClass(
@@ -200,6 +211,16 @@ describe("the security dialog", () => {
     await waitFor(() => expect(signOut).toHaveBeenCalled());
   });
 
+  it("keeps its close button when it was opened from Settings", async () => {
+    renderWithProviders(<SecurityDialog />);
+    signedIn({ twoFactorRequired: false });
+    act(() => useSecurityDialog.getState().show());
+    expect(await screen.findByRole("dialog", { name: "Two-factor sign in" })).not.toHaveClass(
+      "[&>button]:hidden",
+    );
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+  });
+
   it("lists emailed codes first, the standard way, and the authenticator app after it", async () => {
     openFromSettings();
     const email = await screen.findByText("Emailed codes");
@@ -207,21 +228,77 @@ describe("the security dialog", () => {
     expect(email.compareDocumentPosition(app) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("stays open once emailed codes are on, to offer an authenticator app, until proceeding without", async () => {
+  it("returns to the list after a method is set up, and goes on to the recovery codes from Continue", async () => {
     summary = { ...NOTHING, required: true };
     const { user } = renderWithProviders(<SecurityDialog />);
     signedIn({ twoFactorRequired: true });
     expect(await screen.findByRole("dialog", { name: "Set up two-factor sign in" })).toBeVisible();
-    // Nothing to proceed with yet: the emailed codes are not on.
-    expect(
-      screen.queryByRole("button", { name: "Proceed Without Authenticator" }),
-    ).not.toBeInTheDocument();
+    // Nothing to continue with yet: no method is on.
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
 
-    summary = { ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } };
+    vi.spyOn(api, "startAuthenticator").mockResolvedValue({
+      uri: "otpauth://totp/Nookly:ada?secret=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567&issuer=Nookly",
+      key: "ABCD EFGH IJKL",
+    });
+    vi.spyOn(api, "confirmAuthenticator").mockImplementation(async () => {
+      summary = { ...NOTHING, enabled: true, authenticator: { enabled: true }, backupCodesLeft: 2 };
+      return ["aaaaa-bbbbb", "ccccc-ddddd"];
+    });
+    await user.click(await screen.findByRole("button", { name: "Set Up Authenticator App" }));
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.type(await screen.findByLabelText("Code from the app"), "123456");
+
+    // Back on the list, where another way can be added, with Continue at the bottom right.
     signedIn({ twoFactorRequired: false });
-    expect(await screen.findByRole("button", { name: "Set Up Authenticator App" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Proceed Without Authenticator" }));
+    expect(await screen.findByRole("button", { name: "Turn On Emailed Codes" })).toBeVisible();
+    expect(screen.queryByText("aaaaa-bbbbb")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recovery codes")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Set up two-factor sign in" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("aaaaa-bbbbb")).toBeVisible();
+    expect(screen.getByText("ccccc-ddddd")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "I Saved Them" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("makes recovery codes with the password when only emailed codes are on", async () => {
+    summary = { ...NOTHING, required: true };
+    const { user } = renderWithProviders(<SecurityDialog />);
+    signedIn({ twoFactorRequired: true });
+    await screen.findByRole("dialog", { name: "Set up two-factor sign in" });
+    const codes = vi.spyOn(api, "newBackupCodes").mockResolvedValue(["eeeee-fffff"]);
+    await turnOnEmail(user);
+    await user.click(await screen.findByRole("button", { name: "Continue" }));
+    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(codes).toHaveBeenCalledWith("a long password");
+    expect(await screen.findByText("eeeee-fffff")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "I Saved Them" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("cannot be closed while it is being set up, even once a method is on", async () => {
+    summary = { ...NOTHING, required: true };
+    const { user } = renderWithProviders(<SecurityDialog />);
+    signedIn({ twoFactorRequired: true });
+    await screen.findByRole("dialog", { name: "Set up two-factor sign in" });
+    await turnOnEmail(user);
+    await screen.findByRole("button", { name: "Continue" });
+    expect(screen.getByRole("dialog")).toHaveClass("[&>button]:hidden");
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeVisible();
+  });
+
+  it("does not tell an unconfirmed address to be confirmed first", async () => {
+    summary = {
+      ...NOTHING,
+      email: { enabled: false, possible: false, address: "ada@example.com", confirmed: false },
+    };
+    openFromSettings();
+    expect(await screen.findByRole("button", { name: "Send Confirmation Link" })).toBeVisible();
+    expect(screen.queryByText(/Confirm ada@example.com first/)).not.toBeInTheDocument();
   });
 
   it("keeps every button in the footer, with Sign Out at its left, while two-factor is required", async () => {

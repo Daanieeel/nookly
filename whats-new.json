@@ -86,7 +86,8 @@
           "Address fields show https:// for you, so you never have to type it, and a pasted one is not doubled.",
           "On your phone, buttons, chips and the eye on password fields now give a haptic feedback that fits what they do: a firm one for Sign Out and Delete, a soft tick for quiet buttons, a warning when a confirmation opens, and an error buzz when a field turns out wrong.",
           "Creating an account asks for the password twice, with a bar under it that shows how strong it is, and on your phone every field has its name above it and a red asterisk when it is required.",
-          "Moodle has the same look as the rest of Nookly on your computer and phone: raised cards, calmer course headers, and the shared empty and error states."
+          "Moodle has the same look as the rest of Nookly on your computer and phone: raised cards, calmer course headers, and the shared empty and error states.",
+          "Settings, Connections now shows how you sign in: the accounts you signed in with, like Google, GitHub or Notion, and your password."
         ],
         "Fixed": [
           "The hidden sidebar slides in on a solid background with a clear shadow when you rest the pointer on the left edge.",
@@ -103,7 +104,8 @@
           "On your phone, the Display button no longer drops onto a line of its own next to a long page title.",
           "On your phone, the cards on the Courses page and other galleries stand out from the page.",
           "The search field in Settings now follows the rounded corner of the window.",
-          "Confirming your email from the link in the mail now shows in Nookly on your computer and phone right away, instead of staying unconfirmed for a long time."
+          "Confirming your email from the link in the mail now shows in Nookly on your computer and phone right away, instead of staying unconfirmed for a long time.",
+          "When Nookly and its server are on different versions, a failed request now says which one needs updating."
         ]
       }
     },

@@ -27,6 +27,12 @@ describe("a blurred secret", () => {
     expect(shown()).not.toBe(KEY);
   });
 
+  it("has no box behind the key", () => {
+    render(<BlurredSecret value={KEY} label="key" />);
+    const button = screen.getByRole("button", { name: "Show key" });
+    expect(button.className).not.toMatch(/\bbg-|\bborder\b|\bpx-|\bpy-/);
+  });
+
   it("copies the real secret even while it is blurred", async () => {
     const user = userEvent.setup();
     const write = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();

@@ -84,33 +84,41 @@ describe("the security sheet", () => {
     expect(data.sync.twoFactorChanged).toHaveBeenCalled();
   });
 
-  it("adds an authenticator app: the key to scan, a code to prove it, recovery codes once", async () => {
-    const { data, api } = owing();
+  it("adds an authenticator app, goes back to the list, and shows the recovery codes from Continue", async () => {
+    const { data, api, set } = owing();
     jest.spyOn(api, "startAuthenticator").mockResolvedValue({
       uri: "otpauth://totp/Nookly:ada?secret=ABCDEFGHIJKLMNOPQRSTUVWXYZ234567&issuer=Nookly",
       key: "ABCD EFGH IJKL",
     });
-    const confirm = jest
-      .spyOn(api, "confirmAuthenticator")
-      .mockResolvedValue(["aaaaa-bbbbb", "ccccc-ddddd"]);
+    const confirm = jest.spyOn(api, "confirmAuthenticator").mockImplementation(async () => {
+      set({ ...NOTHING, enabled: true, authenticator: { enabled: true }, backupCodesLeft: 2 });
+      return ["aaaaa-bbbbb", "ccccc-ddddd"];
+    });
     const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Set Up Authenticator App" }));
     await fireEvent.changeText(await screen.findByLabelText("Password"), "a long password");
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByLabelText("QR code for your authenticator app")).toBeTruthy();
-    // The key is for typing by hand: blurred, not on the screen, until tapped.
-    expect(screen.queryByText("ABCD EFGH IJKL")).toBeNull();
-    expect(screen.getByText("or set up manually")).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText("Show key"));
+    // The key is for typing by hand: shown as it is, with a button to copy it.
     expect(screen.getByText("ABCD EFGH IJKL")).toBeTruthy();
+    expect(screen.getByText("or set up manually")).toBeTruthy();
+    expect(screen.queryByLabelText("Show key")).toBeNull();
+    expect(screen.getByLabelText("Copy key")).toBeTruthy();
     // Six boxes; the last digit turns it on.
     expect(screen.getAllByTestId(/^otp-box-/)).toHaveLength(6);
     await fireEvent.changeText(screen.getByLabelText("Code from the app"), "123 456");
     await waitFor(() => expect(confirm).toHaveBeenCalledWith("123456"));
 
+    // Back on the list, where another way can be added, with Continue to go on.
+    expect(await screen.findByRole("button", { name: "Turn On Emailed Codes" })).toBeTruthy();
+    expect(screen.queryByText("aaaaa-bbbbb")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Get New Codes" })).toBeNull();
+    await fireEvent.press(await screen.findByRole("button", { name: "Continue" }));
     expect(await screen.findByText("aaaaa-bbbbb")).toBeTruthy();
     expect(screen.getByText("ccccc-ddddd")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "I Saved Them" }));
+    await waitFor(() => expect(screen.queryByText("aaaaa-bbbbb")).toBeNull());
   });
 
   it("lists emailed codes first, with no sentence explaining the obvious", async () => {
@@ -124,14 +132,38 @@ describe("the security sheet", () => {
     expect(screen.queryByText("Needs an email address.")).toBeNull();
   });
 
-  it("offers to go on without an authenticator app once emailed codes are on", async () => {
+  it("offers Continue once a method is on, and Later before", async () => {
     const { data, set } = owing();
-    set({ ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } });
     const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
-    expect(
-      await screen.findByRole("button", { name: "Proceed Without Authenticator" }),
-    ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Later" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Later" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    set({ ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } });
+    const again = await renderScreens({ index: () => <SecurityGate /> }, data);
+    expect(await again.findByRole("button", { name: "Continue" })).toBeTruthy();
+    expect(again.queryByRole("button", { name: "Proceed Without Authenticator" })).toBeNull();
+  });
+
+  it("makes recovery codes with the password when only emailed codes are on", async () => {
+    const { data, api, set } = owing();
+    set({ ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } });
+    const codes = jest.spyOn(api, "newBackupCodes").mockResolvedValue(["eeeee-fffff"]);
+    const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Continue" }));
+    await fireEvent.changeText(await screen.findByLabelText("Password"), "a long password");
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(codes).toHaveBeenCalledWith("a long password"));
+    expect(await screen.findByText("eeeee-fffff")).toBeTruthy();
+  });
+
+  it("does not tell an unconfirmed address to be confirmed first", async () => {
+    const { data, set } = owing();
+    set({
+      ...NOTHING,
+      email: { enabled: false, possible: false, address: "ada@example.com", confirmed: false },
+    });
+    const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
+    expect(await screen.findByRole("button", { name: "Send Confirmation Link" })).toBeTruthy();
+    expect(screen.queryByText(/Confirm ada@example.com first/)).toBeNull();
   });
 
   it("asks an account with no email for one", async () => {

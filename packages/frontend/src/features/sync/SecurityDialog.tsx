@@ -17,7 +17,7 @@ import { QrImage } from "#/components/qr-image.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import { Badge } from "@nookly/ui/components/badge";
 import { Button } from "@nookly/ui/components/button";
-import { CopyButton } from "@nookly/ui/components/copy-button";
+import { cn } from "@nookly/ui/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from "@nookly/ui/components/dialog";
 import { IconInput } from "@nookly/ui/components/icon-input";
-import { BlurredSecret } from "@nookly/ui/components/blurred-secret";
+import { CopyButton } from "@nookly/ui/components/copy-button";
 import { OtpCodeInput } from "@nookly/ui/components/input-otp";
 import { useSecurityDialog } from "./security-dialog-store.ts";
 import { syncRuntime, useSyncState } from "./sync-instance.ts";
@@ -161,7 +161,16 @@ function ScanStep({
         or set up manually
         <span aria-hidden className="h-px flex-1 bg-border" />
       </div>
-      <BlurredSecret value={keyText} label="key" />
+      <div className="flex max-w-full items-center justify-center gap-1">
+        <code className="min-w-0 font-mono text-xs tracking-wider break-all select-all">
+          {keyText}
+        </code>
+        <CopyButton
+          value={keyText}
+          aria-label="Copy key"
+          className="rounded-md p-1.5 text-muted-foreground hover:text-foreground"
+        />
+      </div>
       <div className="flex flex-col items-center gap-2">
         <OtpCodeInput
           id={id}
@@ -208,7 +217,7 @@ function CodesStep({ codes, slot, onDone }: { codes: string[]; slot: Slot; onDon
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
         Save these recovery codes somewhere safe, like a password manager. Each one signs you in
-        once if you lose your authenticator app. They are not shown again.
+        once if you can't use your other ways to sign in. They are not shown again.
       </p>
       <ul
         aria-label="Recovery codes"
@@ -328,7 +337,15 @@ function MethodRow({
   );
 }
 
-function Overview({ summary, go }: { summary: SecuritySummary; go: (view: View) => void }) {
+function Overview({
+  summary,
+  setup,
+  go,
+}: {
+  summary: SecuritySummary;
+  setup: boolean;
+  go: (view: View) => void;
+}) {
   const email = summary.email;
   const resend = useMutation({
     mutationFn: async () => {
@@ -343,13 +360,7 @@ function Overview({ summary, go }: { summary: SecuritySummary; go: (view: View) 
       <MethodRow
         icon={<IconMail size={18} />}
         title="Emailed codes"
-        detail={
-          email.address
-            ? email.confirmed
-              ? `A code sent to ${email.address}.`
-              : `Confirm ${email.address} first.`
-            : null
-        }
+        detail={email.address && email.confirmed ? `A code sent to ${email.address}.` : null}
         on={email.enabled}
       >
         {email.enabled ? (
@@ -406,7 +417,7 @@ function Overview({ summary, go }: { summary: SecuritySummary; go: (view: View) 
           </Button>
         )}
       </MethodRow>
-      {summary.enabled ? (
+      {summary.enabled && !setup ? (
         <MethodRow
           icon={<IconKey size={18} />}
           title="Recovery codes"
@@ -443,7 +454,12 @@ export function SecurityDialog() {
   useEffect(() => {
     if (required) setHeld(true);
   }, [required]);
+  // While it is being set up (owed, or just done and not yet confirmed with the recovery codes)
+  // there is no way past it but going on, or signing out.
+  const setup = required || held;
   const open = user !== null && (requested || required || held);
+  // Recovery codes an authenticator app made, kept until Continue shows them.
+  const [pendingCodes, setPendingCodes] = useState<string[] | null>(null);
   const [view, setView] = useState<View>({ name: "overview" });
   const { data: summary, error } = useQuery({
     queryKey: qk.sync.security,
@@ -457,20 +473,25 @@ export function SecurityDialog() {
   const close = () => {
     overview();
     setHeld(false);
+    setPendingCodes(null);
     useSecurityDialog.getState().close();
   };
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && !required && close()}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-md grid-cols-1 gap-4 overflow-y-auto">
+    <Dialog open={open} onOpenChange={(next) => !next && !setup && close()}>
+      <DialogContent
+        className={cn(
+          "max-h-[calc(100dvh-2rem)] max-w-md grid-cols-1 gap-4 overflow-y-auto",
+          // No way past it but going on or signing out: the close button goes.
+          setup && "[&>button]:hidden",
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>
-            {required || held ? "Set up two-factor sign in" : "Two-factor sign in"}
-          </DialogTitle>
+          <DialogTitle>{setup ? "Set up two-factor sign in" : "Two-factor sign in"}</DialogTitle>
           <DialogDescription>
             {required
               ? "Sign in needs a second step. Sync starts once it is set up."
               : held
-                ? "Codes are emailed to you. An authenticator app is safer."
+                ? "Add another way to sign in, or continue."
                 : "A second step after your password keeps your account safe even if the password leaks."}
           </DialogDescription>
         </DialogHeader>
@@ -482,14 +503,17 @@ export function SecurityDialog() {
           </p>
         ) : null}
         {summary?.available && view.name === "overview" ? (
-          <Overview summary={summary} go={setView} />
+          <Overview summary={summary} setup={setup} go={setView} />
         ) : null}
         {view.name === "password" ? (
           <PasswordStep
             action={view.action}
             slot={slot}
             onBack={overview}
-            onDone={(next) => setView(next)}
+            onDone={(next) => {
+              if (next.name === "codes") setPendingCodes(null);
+              setView(next);
+            }}
           />
         ) : null}
         {view.name === "scan" ? (
@@ -498,7 +522,14 @@ export function SecurityDialog() {
             keyText={view.key}
             slot={slot}
             onBack={overview}
-            onDone={(codes) => setView({ name: "codes", codes })}
+            onDone={(codes) => {
+              if (!setup)
+                return setView(codes.length > 0 ? { name: "codes", codes } : { name: "overview" });
+              // Back to the list: another way can be added, and Continue shows the codes.
+              if (codes.length > 0) setPendingCodes(codes);
+              overview();
+              void syncRuntime.twoFactorChanged().catch(() => {});
+            }}
           />
         ) : null}
         {view.name === "codes" ? (
@@ -506,7 +537,8 @@ export function SecurityDialog() {
             codes={view.codes}
             slot={slot}
             onDone={() => {
-              overview();
+              if (setup) close();
+              else overview();
               void syncRuntime.twoFactorChanged().catch(() => {});
             }}
           />
@@ -526,11 +558,23 @@ export function SecurityDialog() {
             </Button>
           ) : null}
           <div ref={setSlot} className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row">
-            {view.name === "overview" && !required ? (
+            {view.name === "overview" && setup && summary?.enabled ? (
+              <Button
+                type="button"
+                onClick={() =>
+                  setView(
+                    pendingCodes
+                      ? { name: "codes", codes: pendingCodes }
+                      : { name: "password", action: "newCodes" },
+                  )
+                }
+              >
+                Continue
+              </Button>
+            ) : null}
+            {view.name === "overview" && !setup ? (
               <Button type="button" variant="secondary" onClick={close}>
-                {held && summary?.authenticator.enabled === false
-                  ? "Proceed Without Authenticator"
-                  : "Done"}
+                Done
               </Button>
             ) : null}
           </div>

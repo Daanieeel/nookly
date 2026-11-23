@@ -121,10 +121,9 @@ export class TwoFactorService {
         confirmed: address !== null && row.emailVerified,
       },
       authenticator: { enabled: authenticatorOn },
-      backupCodesLeft:
-        authenticator && authenticatorOn
-          ? (await this.unsealCodes(authenticator.backupCodes)).length
-          : 0,
+      backupCodesLeft: authenticator
+        ? (await this.unsealCodes(authenticator.backupCodes)).length
+        : 0,
     };
   }
 
@@ -142,7 +141,7 @@ export class TwoFactorService {
     const methods: TwoFactorMethod[] = [];
     if (summary.authenticator.enabled) methods.push("totp");
     if (summary.email.enabled && summary.email.possible) methods.push("email");
-    if (summary.authenticator.enabled) methods.push("backup");
+    if (summary.backupCodesLeft > 0) methods.push("backup");
     return methods;
   }
 
@@ -193,15 +192,17 @@ export class TwoFactorService {
     }
     const row = await this.userRow(userId);
     const secret = randomText(32);
-    const values = {
-      secret: await this.seal(secret),
-      backupCodes: await this.seal("[]"),
-      verified: false,
-    };
+    const values = { secret: await this.seal(secret), verified: false };
     if (existing) {
+      // Recovery codes made before the app stay as they are.
       await this.db.update(authTwoFactor).set(values).where(eq(authTwoFactor.id, existing.id));
     } else {
-      await this.db.insert(authTwoFactor).values({ id: crypto.randomUUID(), userId, ...values });
+      await this.db.insert(authTwoFactor).values({
+        id: crypto.randomUUID(),
+        userId,
+        ...values,
+        backupCodes: await this.seal("[]"),
+      });
     }
     const label = isPlaceholderEmail(row.email) ? (row.username ?? row.name) : row.email;
     const uri = createOTP(secret, { digits: 6, period: 30 }).url(ISSUER, label);
@@ -224,8 +225,10 @@ export class TwoFactorService {
         "That code isn't right. Check the time on your phone and try again.",
       );
     }
-    const codes = newCodes();
-    const sealed = await this.seal(JSON.stringify(codes));
+    // Recovery codes already given stay good; only an account with none gets them now.
+    const kept = await this.unsealCodes(row.backupCodes);
+    const codes = kept.length > 0 ? [] : newCodes();
+    const sealed = codes.length > 0 ? await this.seal(JSON.stringify(codes)) : row.backupCodes;
     await this.db.transaction(async (tx) => {
       await tx
         .update(authTwoFactor)
@@ -236,18 +239,31 @@ export class TwoFactorService {
     return codes;
   }
 
-  /// Replaces the recovery codes; the old ones stop working.
+  /// Makes recovery codes, replacing any; the old ones stop working. For an account with any
+  /// method on: they open it when that method is lost.
   async newBackupCodes(userId: string, password: string): Promise<string[]> {
     await this.checkPassword(userId, password);
-    const row = await this.authenticatorRow(userId);
-    if (!row?.verified) {
-      throw badRequest("no_authenticator", "Recovery codes come with an authenticator app.");
+    if (!(await this.userRow(userId)).twoFactorEnabled) {
+      throw badRequest("no_method", "Recovery codes need a second step turned on first.");
     }
+    const row = await this.authenticatorRow(userId);
     const codes = newCodes();
-    await this.db
-      .update(authTwoFactor)
-      .set({ backupCodes: await this.seal(JSON.stringify(codes)) })
-      .where(eq(authTwoFactor.id, row.id));
+    const sealed = await this.seal(JSON.stringify(codes));
+    if (row) {
+      await this.db
+        .update(authTwoFactor)
+        .set({ backupCodes: sealed })
+        .where(eq(authTwoFactor.id, row.id));
+    } else {
+      // No authenticator app: the row only holds the codes, with a secret nobody knows.
+      await this.db.insert(authTwoFactor).values({
+        id: crypto.randomUUID(),
+        userId,
+        secret: await this.seal(randomText(32)),
+        backupCodes: sealed,
+        verified: false,
+      });
+    }
     return codes;
   }
 
@@ -269,8 +285,15 @@ export class TwoFactorService {
       );
     }
     await this.db.transaction(async (tx) => {
-      if (method === "totp") {
+      if (!emailLeft && !appLeft) {
+        // Nothing left to recover: the recovery codes go too.
         await tx.delete(authTwoFactor).where(eq(authTwoFactor.userId, userId));
+      } else if (method === "totp") {
+        // The app goes, the recovery codes stay: its secret is replaced by one nobody knows.
+        await tx
+          .update(authTwoFactor)
+          .set({ verified: false, secret: await this.seal(randomText(32)) })
+          .where(eq(authTwoFactor.userId, userId));
       }
       await tx
         .update(authUser)

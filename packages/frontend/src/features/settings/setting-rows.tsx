@@ -23,6 +23,7 @@ import { Button } from "@nookly/ui/components/button";
 import { useNavStore } from "#/lib/store/nav.ts";
 import { AgentFilesTab } from "./AgentFilesTab.tsx";
 import { ConnectionCards } from "./ConnectionCards.tsx";
+import { SignInConnections } from "./SignInConnections.tsx";
 import { ShortcutControl } from "./ShortcutControl.tsx";
 import { FileViewerThemeCards, ThemeCards } from "./theme-cards.tsx";
 import {
@@ -233,6 +234,16 @@ const ACTION_ROWS: RowSpec[] = [
     ],
     control: null,
     footer: <AgentFilesTab />,
+  },
+  {
+    id: "calendar.sign-in-connections",
+    category: "calendar",
+    section: "Connections",
+    title: "Sign in",
+    description: "The accounts you sign in to Nookly with.",
+    synonyms: ["google", "github", "notion", "apple", "provider", "login", "password", "account"],
+    control: null,
+    footer: <SignInConnections />,
   },
   {
     id: "calendar.connections",

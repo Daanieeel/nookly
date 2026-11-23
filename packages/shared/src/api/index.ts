@@ -1,5 +1,12 @@
 export * from "./client.ts";
 export * from "./schemas.ts";
+export {
+  APP_OUTDATED,
+  EXPECTED_SERVER_VERSION,
+  SERVER_OUTDATED,
+  SERVER_VERSION_HEADER,
+  versionProblem,
+} from "./server-version.ts";
 export { USERNAME_PATTERN, USERNAME_RULE, suggestUsername } from "./username.ts";
 export {
   PROVIDER_NAMES,

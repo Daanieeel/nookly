@@ -6,14 +6,19 @@ import {
   isWrongCode,
   runSecurityAction,
 } from "@nookly/shared/api";
-import { IconDeviceMobile, IconKey, IconMail, IconShieldLock } from "@tabler/icons-react-native";
+import {
+  IconCopy,
+  IconDeviceMobile,
+  IconKey,
+  IconMail,
+  IconShieldLock,
+} from "@tabler/icons-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useAppData, useSyncState } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
-import { Button, statusOf } from "../ui/Button.tsx";
-import { BlurredSecret } from "../ui/BlurredSecret.tsx";
+import { Button, IconButton, statusOf } from "../ui/Button.tsx";
 import { useClipboard } from "../ui/clipboard.tsx";
 import { Field } from "../ui/Field.tsx";
 import { FieldIcon } from "../ui/FieldIcon.tsx";
@@ -25,6 +30,7 @@ import { QrImage } from "../ui/QrImage.tsx";
 import { useOptionalSheetHost } from "../ui/sheet/SheetHost.tsx";
 import { useSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
+import { useTheme } from "../ui/theme.ts";
 import { useSecurityGate } from "./security-gate-store.ts";
 
 /// Two-factor sign in, in a sheet: what the account has, and a step for each change. The
@@ -50,7 +56,7 @@ function useChanged() {
   };
 }
 
-function PasswordStep({ action }: { action: SecurityAction }) {
+function PasswordStep({ action, setup }: { action: SecurityAction; setup: boolean }) {
   const sheet = useSheet();
   const account = useAccount();
   const changed = useChanged();
@@ -61,7 +67,10 @@ function PasswordStep({ action }: { action: SecurityAction }) {
       if (next.name === "overview") {
         await changed();
         sheet?.back();
-      } else showOutcome(sheet, next, changed);
+      } else {
+        if (next.name === "codes") useSecurityGate.getState().holdCodes(null);
+        showOutcome(sheet, next, changed, setup);
+      }
     },
   });
   return (
@@ -101,12 +110,13 @@ function showOutcome(
   sheet: Sheet | null,
   outcome: Exclude<SecurityOutcome, { name: "overview" }>,
   changed: () => Promise<void>,
+  setup: boolean,
 ) {
   if (!sheet) return;
   if (outcome.name === "scan") {
     sheet.push({
       title: "Add an authenticator app",
-      content: <ScanStep uri={outcome.uri} keyText={outcome.key} />,
+      content: <ScanStep uri={outcome.uri} keyText={outcome.key} setup={setup} />,
     });
   } else {
     sheet.push({
@@ -116,14 +126,25 @@ function showOutcome(
   }
 }
 
-function ScanStep({ uri, keyText }: { uri: string; keyText: string }) {
+function ScanStep({ uri, keyText, setup }: { uri: string; keyText: string; setup: boolean }) {
+  const theme = useTheme();
+  const clipboard = useClipboard();
   const sheet = useSheet();
   const account = useAccount();
   const changed = useChanged();
   const [code, setCode] = useState("");
   const confirm = useMutation({
     mutationFn: (digits: string) => account().confirmAuthenticator(digits),
-    onSuccess: (codes) => showOutcome(sheet, { name: "codes", codes }, changed),
+    onSuccess: async (codes) => {
+      // While it is being set up the list comes back, to add another way or go on; the codes
+      // wait for Continue. From Settings they are shown at once.
+      if (!setup && codes.length > 0)
+        return showOutcome(sheet, { name: "codes", codes }, changed, setup);
+      if (codes.length > 0) useSecurityGate.getState().holdCodes(codes);
+      await changed();
+      sheet?.back();
+      sheet?.back();
+    },
     // A wrong code is cleared so the next one starts from the first box.
     onError: () => setCode(""),
   });
@@ -140,7 +161,17 @@ function ScanStep({ uri, keyText }: { uri: string; keyText: string }) {
         </Text>
         <View className="h-px flex-1 bg-border" />
       </View>
-      <BlurredSecret value={keyText.replace(/\s/g, " ")} label="key" />
+      <View className="flex-row items-center justify-center gap-1">
+        <Text selectable className="shrink font-mono tracking-wider">
+          {keyText.replace(/\s/g, " ")}
+        </Text>
+        <IconButton
+          label="Copy key"
+          size="iconSm"
+          icon={<IconCopy size={18} color={theme.colors.mutedForeground} />}
+          onPress={() => void clipboard.copy(keyText)}
+        />
+      </View>
       <OtpField
         label="Code from the app"
         value={code}
@@ -177,7 +208,7 @@ function CodesStep({ codes, onDone }: { codes: string[]; onDone: () => Promise<v
     <View className="gap-3">
       <Text tone="muted">
         Save these recovery codes somewhere safe, like a password manager. Each one signs you in
-        once if you lose your authenticator app. They are not shown again.
+        once if you can't use your other ways to sign in. They are not shown again.
       </Text>
       <View accessibilityLabel="Recovery codes" className="gap-1">
         {codes.map((code) => (
@@ -250,15 +281,18 @@ function AddEmailStep() {
   );
 }
 
-function usePasswordStep() {
+function usePasswordStep(setup: boolean) {
   const sheet = useSheet();
   return (action: SecurityAction) =>
-    sheet?.push({ title: SECURITY_STEPS[action].title, content: <PasswordStep action={action} /> });
+    sheet?.push({
+      title: SECURITY_STEPS[action].title,
+      content: <PasswordStep action={action} setup={setup} />,
+    });
 }
 
-function MethodRows({ summary }: { summary: SecuritySummary }) {
+function MethodRows({ summary, setup }: { summary: SecuritySummary; setup: boolean }) {
   const sheet = useSheet();
-  const ask = usePasswordStep();
+  const ask = usePasswordStep(setup);
   const account = useAccount();
   const resend = useMutation({
     mutationFn: async () => {
@@ -273,11 +307,7 @@ function MethodRows({ summary }: { summary: SecuritySummary }) {
           badge={<IconBadge glyph={IconMail} tint="blue" />}
           title="Emailed codes"
           subtitle={
-            email.address
-              ? email.confirmed
-                ? `A code sent to ${email.address}.`
-                : `Confirm ${email.address} first.`
-              : undefined
+            email.address && email.confirmed ? `A code sent to ${email.address}.` : undefined
           }
           detail={email.enabled ? "On" : undefined}
           accessibilityLabel={
@@ -310,7 +340,7 @@ function MethodRows({ summary }: { summary: SecuritySummary }) {
           }
         />
       </GroupedSection>
-      {summary.enabled ? (
+      {summary.enabled && !setup ? (
         <GroupedSection margin={0}>
           <ListRow
             badge={<IconBadge glyph={IconKey} tint="orange" />}
@@ -334,6 +364,7 @@ function MethodRows({ summary }: { summary: SecuritySummary }) {
 function SecuritySheet({ required }: { required: boolean }) {
   const sheet = useSheet();
   const account = useAccount();
+  const changed = useChanged();
   const { data: summary, error } = useQuery({
     queryKey: keys.sync.security,
     queryFn: () => account().security(),
@@ -345,7 +376,7 @@ function SecuritySheet({ required }: { required: boolean }) {
         up here.
       </Text>
     ) : summary ? (
-      <MethodRows summary={summary} />
+      <MethodRows summary={summary} setup={required} />
     ) : null;
   return (
     <View className="gap-4">
@@ -356,20 +387,35 @@ function SecuritySheet({ required }: { required: boolean }) {
       </Text>
       {error ? <Text tone="destructive">{error.message}</Text> : null}
       {rows}
-      <Button
-        variant="ghost"
-        label={
-          required
-            ? summary?.enabled && !summary.authenticator.enabled
-              ? "Proceed Without Authenticator"
-              : "Later"
-            : "Done"
-        }
-        onPress={() => {
-          if (required) useSecurityGate.getState().dismiss();
-          sheet?.close();
-        }}
-      />
+      {required && summary?.enabled ? (
+        <Button
+          size="lg"
+          label="Continue"
+          onPress={() => {
+            const pending = useSecurityGate.getState().pendingCodes;
+            if (pending) {
+              sheet?.push({
+                title: "Recovery codes",
+                content: <CodesStep codes={pending} onDone={changed} />,
+              });
+            } else {
+              sheet?.push({
+                title: SECURITY_STEPS.newCodes.title,
+                content: <PasswordStep action="newCodes" setup />,
+              });
+            }
+          }}
+        />
+      ) : (
+        <Button
+          variant="ghost"
+          label={required ? "Later" : "Done"}
+          onPress={() => {
+            if (required) useSecurityGate.getState().dismiss();
+            sheet?.close();
+          }}
+        />
+      )}
     </View>
   );
 }
