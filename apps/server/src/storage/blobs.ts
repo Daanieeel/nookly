@@ -113,7 +113,12 @@ export class BlobStore {
     contentType: string,
   ): Promise<"created" | "existing"> {
     if (await this.exists(owner, sha256)) {
-      await body.cancel().catch(() => {});
+      // Read the body to the end and drop it. Answering while the sender is still
+      // sending cuts its upload off, and the device then counts a file the server
+      // already holds as failed, forever.
+      for await (const _chunk of body) {
+        // discarded
+      }
       return "existing";
     }
     const dir = await mkdtemp(join(tmpdir(), "nookly-upload-"));

@@ -27,6 +27,26 @@ async function tokenOf(username: string) {
 }
 
 describe("file contents", () => {
+  it("reads the whole body of a file it already holds, so the sender is not cut off mid upload", async () => {
+    const { api } = await account(server, "bob");
+    const body = bytesOf("the same lecture slides");
+    const hash = sha256(body);
+    await api.uploadBlob(hash, body, "text/plain");
+    const owner = (await api.me()).id;
+    let sent = 0;
+    const chunks = 8;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent === chunks) return controller.close();
+        sent += 1;
+        controller.enqueue(body);
+      },
+    });
+    const outcome = await server.storage?.put(owner, hash, stream, "text/plain");
+    expect(outcome).toBe("existing");
+    expect(sent).toBe(chunks);
+  });
+
   it("stores a file under its SHA-256 and gives it back unchanged", async () => {
     const { api } = await account(server, "ada");
     const body = bytesOf("lecture notes, page one");
