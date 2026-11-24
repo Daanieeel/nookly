@@ -16,6 +16,7 @@ export function OtpField({
   value,
   invalid = false,
   editable = true,
+  autoFocus = false,
   onChange,
   onComplete,
 }: {
@@ -24,6 +25,8 @@ export function OtpField({
   value: string;
   invalid?: boolean;
   editable?: boolean;
+  /// Opens the keyboard on the field, which is when iOS offers the code it has for it.
+  autoFocus?: boolean;
   onChange: (next: string) => void;
   onComplete?: (code: string) => void;
 }) {
@@ -97,6 +100,7 @@ export function OtpField({
         aria-invalid={invalid}
         value={value}
         editable={editable}
+        autoFocus={autoFocus}
         maxLength={length}
         keyboardType="number-pad"
         textContentType="oneTimeCode"

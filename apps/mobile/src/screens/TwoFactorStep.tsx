@@ -72,6 +72,8 @@ export function TwoFactorStep({
     <View className="gap-3">
       {boxes ? (
         <OtpField
+          key={method}
+          autoFocus
           label={labels.code}
           value={code}
           editable={!verify.isPending}
@@ -93,6 +95,7 @@ export function TwoFactorStep({
           autoCorrect={false}
           textContentType="oneTimeCode"
           autoComplete="one-time-code"
+          autoFocus
           editable={!verify.isPending}
           value={code}
           onChangeText={setCode}

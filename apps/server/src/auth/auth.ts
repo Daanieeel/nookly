@@ -119,6 +119,9 @@ export function createAuth(
     rateLimit: { enabled: false },
     trustedOrigins: config.corsOrigins,
     advanced: {
+      // Better-auth skips the origin check in tests unless told otherwise; the tests should
+      // face the same check as a real server.
+      disableOriginCheck: false,
       database: { generateId: () => crypto.randomUUID() },
     },
     session: {

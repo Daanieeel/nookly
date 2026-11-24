@@ -552,6 +552,16 @@ describe("the second step of signing in", () => {
     );
   });
 
+  it("opens the keyboard on the code and marks it a one time code, so iOS suggests it", async () => {
+    const { screen } = await toSecondStep(["totp", "backup"]);
+    const input = await screen.findByLabelText("Authenticator code");
+    expect(input.props.autoFocus).toBe(true);
+    expect(input.props.textContentType).toBe("oneTimeCode");
+    expect(input.props.autoComplete).toBe("one-time-code");
+    await fireEvent.press(screen.getByRole("button", { name: "Use a recovery code" }));
+    expect((await screen.findByLabelText("Recovery code")).props.autoFocus).toBe(true);
+  });
+
   it("turns the boxes red and empties them when the code is wrong, with no sentence", async () => {
     const { data, screen } = await toSecondStep(["totp"]);
     jest

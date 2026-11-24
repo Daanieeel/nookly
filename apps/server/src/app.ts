@@ -526,6 +526,11 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
                 if (!challenge) return auth.handler(cookieless);
                 const headers = new Headers(cookieless.headers);
                 headers.set("cookie", `${await challengeCookie()}=${challenge}`);
+                // Better-auth refuses a request with a cookie and no Origin as a possible
+                // forgery. A phone sends none; this cookie is ours, so the server stands in
+                // as the origin. A browser's own (checked against the trusted ones) stays.
+                if (!headers.get("origin"))
+                  headers.set("origin", new URL(config.PUBLIC_URL).origin);
                 return auth.handler(new Request(cookieless, { headers }));
               };
               // Asking for a code costs an email; answering one is what gets guessed.
