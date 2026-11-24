@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { base32 } from "@better-auth/utils/base32";
 import { createOTP } from "@better-auth/utils/otp";
-import { TwoFactorRequiredError } from "@nookly/shared/api";
+import { ApiClient, TwoFactorRequiredError } from "@nookly/shared/api";
 import {
   DESKTOP,
   HOOK_TIMEOUT,
@@ -69,6 +69,25 @@ describe("emailed codes", () => {
     expect((await second.sessions()).some((s) => s.current && s.deviceName === "MacBook")).toBe(
       true,
     );
+  });
+
+  it("finish from an app that sends a null Origin and a stale cookie, as a phone does", async () => {
+    const { api: owner } = await verifiedAccount(server, "phone@example.com");
+    await owner.enableEmailTwoFactor(PASSWORD);
+    // Some phone networking layers send the text "null" as the Origin, or an empty one.
+    for (const origin of ["null", ""]) {
+      const { api, challenge } = await challengeFor(server, "phone");
+      await api.sendTwoFactorEmail(challenge.challenge);
+      const code = emailedCode(server, "phone@example.com");
+      const fetch = (url: string, init: RequestInit) =>
+        globalThis.fetch(url, {
+          ...init,
+          headers: { ...Object.fromEntries(new Headers(init.headers)), origin, cookie: "stale=1" },
+        });
+      const app = new ApiClient({ baseUrl: server.baseUrl, tokens: new MemoryTokens(), fetch });
+      const user = await app.verifyTwoFactor(challenge.challenge, "email", code, DESKTOP);
+      expect(user.username).toBe("phone");
+    }
   });
 
   it("refuse a wrong code, and a challenge works once", async () => {
