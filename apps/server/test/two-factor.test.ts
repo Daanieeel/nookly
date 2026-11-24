@@ -90,6 +90,34 @@ describe("emailed codes", () => {
     }
   });
 
+  it("answer the same code sent twice at once with one sign in, as a paste on a phone does", async () => {
+    const { api: owner } = await verifiedAccount(server, "twice@example.com");
+    await owner.enableEmailTwoFactor(PASSWORD);
+    const { api, challenge } = await challengeFor(server, "twice");
+    await api.sendTwoFactorEmail(challenge.challenge);
+    const code = emailedCode(server, "twice@example.com");
+    const [first, second] = await Promise.all([
+      api.verifyTwoFactor(challenge.challenge, "email", code, DESKTOP),
+      api.verifyTwoFactor(challenge.challenge, "email", code, DESKTOP),
+    ]);
+    expect(first.username).toBe("twice");
+    expect(second.username).toBe("twice");
+  });
+
+  it("answer an app code sent twice at once with one sign in too", async () => {
+    const { api: owner } = await verifiedAccount(server, "twiceapp@example.com");
+    const start = await owner.startAuthenticator(PASSWORD);
+    await owner.confirmAuthenticator(await appCode(start.uri));
+    const { api, challenge } = await challengeFor(server, "twiceapp");
+    const code = await appCode(start.uri);
+    const [first, second] = await Promise.all([
+      api.verifyTwoFactor(challenge.challenge, "totp", code, DESKTOP),
+      api.verifyTwoFactor(challenge.challenge, "totp", code, DESKTOP),
+    ]);
+    expect(first.username).toBe("twiceapp");
+    expect(second.username).toBe("twiceapp");
+  });
+
   it("refuse a wrong code, and a challenge works once", async () => {
     const { challenge, api } = await challengeFor(server, "ada");
     await api.sendTwoFactorEmail(challenge.challenge);

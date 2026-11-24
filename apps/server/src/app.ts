@@ -166,6 +166,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
   }
 
   const claimsOf = (headers: Record<string, string | undefined>) => accounts.fromHeaders(headers);
+  /// The answers to two-factor codes being checked right now, by what was asked.
+  const answering = new Map<string, Promise<Response>>();
   /// The cookie better-auth keeps a half finished sign in in.
   const challengeCookie = async () => (await auth.$context).createAuthCookie("two_factor").name;
 
@@ -541,7 +543,20 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
                 limit(limits.email, `otp:${ip}`);
                 return step();
               }
-              return guessable(ip, step);
+              // A code pasted into a phone can arrive twice at once. Better-auth spends the
+              // challenge's attempt on the first and answers the second "Invalid two factor
+              // cookie", so identical requests in flight share the one answer.
+              const challenge = request.headers.get(CHALLENGE_HEADER);
+              const key = challenge ? `${path}\n${challenge}\n${await request.clone().text()}` : "";
+              const running = key ? answering.get(key) : undefined;
+              if (running) return (await running).clone();
+              const answer = guessable(ip, step);
+              if (key) {
+                answering.set(key, answer);
+                const done = () => answering.delete(key);
+                answer.then(done, done);
+              }
+              return (await answer).clone();
             }
             if (request.method === "POST" && SIGN_IN_PATHS.has(path)) {
               return guessable(ip, async () => {
