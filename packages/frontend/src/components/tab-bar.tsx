@@ -118,6 +118,8 @@ function TabItem({
     const state = useNavStore.getState();
     const dragged = state.draggingTabId;
     if (!dragged) return;
+    // The dragged tab may leave its bar with the move, and then its `dragend` never comes.
+    state.setDraggingTabId(null);
     const from = tabGroups(state).find((g) => g.tabs.some((t) => t.id === dragged));
     if (from?.id === groupId) state.reorderTab(dragged, index);
     else state.moveTabToGroup(dragged, { groupId }, index);

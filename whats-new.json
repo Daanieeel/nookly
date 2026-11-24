@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "1.0.2",
+      "date": "2026-11-24",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Fixed one side of a split becoming unclickable after dragging a tab from one group to the other."
+        ]
+      }
+    },
+    {
       "version": "1.0.1",
       "date": "2026-11-24",
       "highlights": [],

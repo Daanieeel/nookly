@@ -186,7 +186,7 @@ function GroupPane({
       onPointerDownCapture={focus}
       onFocusCapture={focus}
       className={cn(
-        "flex min-h-0 min-w-0 flex-col",
+        "relative flex min-h-0 min-w-0 flex-col",
         // Half the divider's `w-3` comes off the left group's share.
         position === "left" ? "w-[calc(var(--group-share)-6px)] shrink-0" : "flex-1",
       )}

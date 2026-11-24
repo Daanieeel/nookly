@@ -265,3 +265,48 @@ describe("the tab menu", () => {
     await expectNoA11yViolations();
   });
 });
+
+describe("dropping a dragged tab on a tab bar", () => {
+  const dataTransfer = () => ({ setData: () => {}, effectAllowed: "move", dropEffect: "move" });
+
+  function dragOnto(from: HTMLElement, to: HTMLElement) {
+    const source = from.closest("[data-tab]");
+    const target = to.closest("[data-tab]");
+    if (!source || !target) throw new Error("tab not found");
+    fireEvent.dragStart(source, { dataTransfer: dataTransfer() });
+    fireEvent.dragOver(target, { dataTransfer: dataTransfer() });
+    fireEvent.drop(target, { dataTransfer: dataTransfer() });
+    // The dragged tab left its bar, so the browser never reports the end of the drag to it.
+  }
+
+  it("ends the drag, so no group is left under an invisible drop zone", () => {
+    act(() => {
+      useNavStore.getState().openInNewTab({ kind: "trash" });
+      useNavStore.getState().openInNewTab({ kind: "calendar" });
+      useNavStore.getState().splitRight();
+    });
+    renderWithProviders(<Harness />);
+    const left = screen.getByRole("region", { name: "Left Group" });
+    const right = screen.getByRole("region", { name: "Right Group" });
+    // Moving the right group's tab to the left group dropped on a tab, as when dragged there.
+    dragOnto(within(right).getByRole("tab"), within(left).getAllByRole("tab")[0]);
+    expect(groups()).toHaveLength(1);
+    expect(useNavStore.getState().draggingTabId).toBeNull();
+    expect(document.querySelector(".border-dashed")).toBeNull();
+  });
+
+  it("keeps a group's drop zone inside that group", () => {
+    act(() => {
+      useNavStore.getState().openInNewTab({ kind: "trash" });
+      useNavStore.getState().splitRight();
+    });
+    renderWithProviders(<Harness />);
+    const left = screen.getByRole("region", { name: "Left Group" });
+    const right = screen.getByRole("region", { name: "Right Group" });
+    act(() => useNavStore.getState().setDraggingTabId(groups()[1].tabs[0].id));
+    // The zone is positioned against its group, never the whole split.
+    expect(left).toHaveClass("relative");
+    expect(left.querySelector(".border-dashed")).not.toBeNull();
+    expect(right.querySelector(".border-dashed")).toBeNull();
+  });
+});

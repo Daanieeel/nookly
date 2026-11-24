@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.0.2 (2026-11-24)
+
+### Fixed
+
+- Fixed one side of a split becoming unclickable after dragging a tab from one group to the other.
+
 ## 1.0.1 (2026-11-24)
 
 ### Fixed
