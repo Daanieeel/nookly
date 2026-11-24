@@ -42,11 +42,11 @@ function RowLabels({ row }: { row: NoteRow }) {
   const extra = row.labels.length - shown.length;
   if (shown.length === 0) return null;
   return (
-    <span className="flex items-center gap-1">
+    <span className="flex min-w-0 items-center gap-1">
       {shown.map((label) => (
         <LabelChip key={label.id} label={label} />
       ))}
-      {extra > 0 && <span className="text-xs text-muted-foreground">+{extra}</span>}
+      {extra > 0 && <span className="shrink-0 text-xs text-muted-foreground">+{extra}</span>}
     </span>
   );
 }
@@ -86,7 +86,7 @@ function NoteCard({
           {row.preview || "Nothing written yet"}
         </span>
       )}
-      <span className="mt-auto flex items-center gap-2">
+      <span className="mt-auto flex min-w-0 items-center gap-2">
         {shows("key", hidden) && (
           <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{entity.key}</span>
         )}

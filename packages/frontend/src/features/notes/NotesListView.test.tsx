@@ -122,6 +122,25 @@ describe("the default Notes layout", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 
+  it("lets a card's footer shrink so long labels never push the edit time out of the card", async () => {
+    mockCommand("list_labels", [
+      makeLabel({ id: "l1", name: "A very long label name" }),
+      makeLabel({ id: "l2", name: "Another long label" }),
+      makeLabel({ id: "l3", name: "Third" }),
+    ]);
+    mockCommand("list_note_summaries", [
+      { ...note("n1", "Sorting lecture", [algorithms]), labelIds: ["l1", "l2", "l3"] },
+    ]);
+    renderWithProviders(<NotesListView spaceId="space-1" />);
+    const title = await screen.findByText("Sorting lecture");
+    const card = title.closest("button");
+    const footer = card?.lastElementChild;
+    expect(footer).toHaveClass("min-w-0");
+    const labels = (await screen.findByText("A very long label name")).closest("span.flex");
+    expect(labels).toHaveClass("min-w-0");
+    expect(screen.getByText("+1")).toHaveClass("shrink-0");
+  });
+
   it("folds a course away on its header", async () => {
     const { user } = renderWithProviders(<NotesListView spaceId="space-1" />);
     await screen.findByText("Sorting lecture");
