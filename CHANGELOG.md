@@ -2,6 +2,13 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.0.1 (2026-11-24)
+
+### Fixed
+
+- Fixed long labels pushing the edit time out of a note card on the Notes page.
+- Fixed the list of headings on a page showing the text behind it. It now has a solid background.
+
 ## 1.0.0 (2026-11-23)
 
 ### Added

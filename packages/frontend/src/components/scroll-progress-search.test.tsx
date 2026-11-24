@@ -187,6 +187,15 @@ describe("ScrollProgressSearch", () => {
     }
   });
 
+  it("has a solid surface, so the page behind it never shows through", async () => {
+    const { view } = await open();
+    const surface = view.container.querySelector<HTMLElement>(
+      "[data-slot=scroll-progress-surface]",
+    );
+    expect(surface?.className).toContain("bg-popover");
+    expect(surface?.className).not.toMatch(/bg-popover\/|backdrop-blur/);
+  });
+
   it("has no accessibility violations", async () => {
     const { user, view } = await open();
     await expectNoA11yViolations(view.container);

@@ -293,7 +293,7 @@ const ScrollProgressSearch = ({
         <motion.div
           data-slot="scroll-progress-surface"
           className={cn(
-            "absolute bottom-0 left-1/2 -translate-x-1/2 overflow-hidden border border-border bg-popover/75 text-popover-foreground shadow-lg backdrop-blur-md",
+            "absolute bottom-0 left-1/2 -translate-x-1/2 overflow-hidden border border-border bg-popover text-popover-foreground shadow-lg",
             squircle,
           )}
           initial={false}

@@ -1,6 +1,17 @@
 {
   "versions": [
     {
+      "version": "1.0.1",
+      "date": "2026-11-24",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Fixed long labels pushing the edit time out of a note card on the Notes page.",
+          "Fixed the list of headings on a page showing the text behind it."
+        ]
+      }
+    },
+    {
       "version": "1.0.0",
       "date": "2026-11-23",
       "title": "One account, synced everywhere",
