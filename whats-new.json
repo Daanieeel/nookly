@@ -6,7 +6,8 @@
       "highlights": [],
       "more": {
         "Fixed": [
-          "Fixed one side of a split becoming unclickable after dragging a tab from one group to the other."
+          "Fixed one side of a split becoming unclickable after dragging a tab from one group to the other.",
+          "Fixed a group in a split turning black after hiding or showing the sidebar."
         ]
       }
     },

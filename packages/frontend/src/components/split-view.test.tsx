@@ -266,6 +266,24 @@ describe("the tab menu", () => {
   });
 });
 
+describe("the page cards", () => {
+  // A card shadow side by side left WebKit painting the right group blank after a layout shift
+  // such as hiding the sidebar, and again blank after the next one.
+  it("draw no shadow while two groups sit side by side", () => {
+    const card = (root: ParentNode) => root.querySelector<HTMLElement>(".bg-card");
+    const { unmount } = renderWithProviders(<Harness />);
+    expect(card(document)).toHaveClass("shadow-md");
+    unmount();
+    splitWithTrashOnTheRight();
+    renderWithProviders(<Harness />);
+    for (const name of ["Left Group", "Right Group"]) {
+      const pane = card(screen.getByRole("region", { name }));
+      expect(pane).toHaveClass("shadow-none");
+      expect(pane).not.toHaveClass("shadow-md");
+    }
+  });
+});
+
 describe("dropping a dragged tab on a tab bar", () => {
   const dataTransfer = () => ({ setData: () => {}, effectAllowed: "move", dropEffect: "move" });
 

@@ -204,7 +204,12 @@ function GroupPane({
         />
       )}
       <TabGroupContext.Provider value={scope}>
-        <PaneBody scope={scope} highlighted={focused && split} renderGroup={renderGroup} />
+        <PaneBody
+          scope={scope}
+          split={split}
+          highlighted={focused && split}
+          renderGroup={renderGroup}
+        />
       </TabGroupContext.Provider>
       {acceptsDrop && <GroupDropZone groupId={group.id} />}
     </div>
@@ -215,10 +220,12 @@ function GroupPane({
 /// remembers is this group's tab's.
 function PaneBody({
   scope,
+  split,
   highlighted,
   renderGroup,
 }: {
   scope: TabGroupScope;
+  split: boolean;
   /// The focused group of a split shows a subtly tinted border.
   highlighted: boolean;
   renderGroup: (scope: TabGroupScope) => ReactNode;
@@ -230,7 +237,11 @@ function PaneBody({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* `isolate` keeps the page's own z-indexes (a calendar's sticky header and now line) below the corner slot. */}
-      <div data-focused-group={highlighted || undefined} className={PAGE_PANE_CLASSES}>
+      {/* Side by side, a card's shadow made WebKit leave the right group blank after the sidebar or another layout shift. */}
+      <div
+        data-focused-group={highlighted || undefined}
+        className={cn(PAGE_PANE_CLASSES, split && "shadow-none")}
+      >
         <div className={PAGE_PANE_CLIP_CLASSES}>
           <div
             ref={pageRef}

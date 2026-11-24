@@ -7,6 +7,7 @@ All notable changes to Nookly are listed here.
 ### Fixed
 
 - Fixed one side of a split becoming unclickable after dragging a tab from one group to the other.
+- Fixed a group in a split turning black after hiding or showing the sidebar.
 
 ## 1.0.1 (2026-11-24)
 
