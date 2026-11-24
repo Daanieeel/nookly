@@ -245,6 +245,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           "authorization",
           "x-nookly-device-name",
           "x-nookly-platform",
+          CHALLENGE_HEADER,
         ],
         methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
         exposeHeaders: ["set-auth-token", SERVER_VERSION_HEADER],

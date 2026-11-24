@@ -1,4 +1,4 @@
-import { ApiClient, ApiRequestError } from "@nookly/shared/api";
+import { ApiClient, ApiRequestError, CHALLENGE_HEADER } from "@nookly/shared/api";
 import { afterEach, describe, expect, it } from "bun:test";
 import {
   DESKTOP,
@@ -265,6 +265,23 @@ describe("browsers", () => {
       headers: { origin: "https://evil.example" },
     });
     expect(other.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("lets the desktop app send the headers of the two-factor step", async () => {
+    server = await startServer();
+    // The Windows webview asks first; a header missing from the answer makes it drop the request.
+    const preflight = await fetch(`${server.baseUrl}/v1/auth/two-factor/verify-totp`, {
+      method: "OPTIONS",
+      headers: {
+        origin: "http://tauri.localhost",
+        "access-control-request-method": "POST",
+        "access-control-request-headers": `content-type,${CHALLENGE_HEADER},x-nookly-device-name,x-nookly-platform`,
+      },
+    });
+    const allowed = (preflight.headers.get("access-control-allow-headers") ?? "")
+      .split(",")
+      .map((header) => header.trim());
+    expect(allowed).toContain(CHALLENGE_HEADER);
   });
 });
 
