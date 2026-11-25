@@ -1,9 +1,13 @@
 import {
   NOOKLY_SIGN_IN,
+  SIGN_IN_METHODS_NOTE,
+  type SignInActionId,
   type SignInMethod,
-  type SignInSummary,
   errorToShow,
   providerName,
+  signInActions,
+  signInDetail,
+  signInProviders,
 } from "@nookly/shared/api";
 import { IconDots } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -37,27 +41,13 @@ import { useAccountChange } from "./useAccountChange.ts";
 
 type EmailRequest = { provider: string; add: boolean };
 
-/// Every way to sign in a person can see: Nookly Signin first, then the providers the server
-/// offers, then any the account still has that it doesn't.
-function listed(summary: SignInSummary): string[] {
-  const connected = summary.methods.map((method) => method.provider);
-  return [...new Set([NOOKLY_SIGN_IN, ...summary.offered, ...connected])];
-}
-
 function MethodMenu({
   method,
-  onPrimary,
-  onEmail,
-  onPassword,
-  onDisconnect,
+  run,
 }: {
   method: SignInMethod;
-  onPrimary: () => void;
-  onEmail: () => void;
-  onPassword: () => void;
-  onDisconnect: () => void;
+  run: Record<SignInActionId, () => void>;
 }) {
-  const own = method.provider === NOOKLY_SIGN_IN;
   return (
     <DropdownMenu>
       <Tooltip>
@@ -71,16 +61,11 @@ function MethodMenu({
         <TooltipContent>Sign In Options</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end">
-        {method.canBePrimary ? (
-          <DropdownMenuItem onSelect={onPrimary}>Make Primary</DropdownMenuItem>
-        ) : null}
-        {own || method.primary ? (
-          <DropdownMenuItem onSelect={onEmail}>Change Email</DropdownMenuItem>
-        ) : null}
-        {own ? <DropdownMenuItem onSelect={onPassword}>Change Password</DropdownMenuItem> : null}
-        {method.primary ? null : (
-          <DropdownMenuItem onSelect={onDisconnect}>Disconnect</DropdownMenuItem>
-        )}
+        {signInActions(method).map(({ id, label }) => (
+          <DropdownMenuItem key={id} onSelect={run[id]}>
+            {label}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -155,7 +140,7 @@ function MethodList() {
         aria-label="Sign in methods"
         className="flex flex-col divide-y divide-border/60 rounded-lg border border-border bg-card"
       >
-        {listed(summary).map((provider) => {
+        {signInProviders(summary).map((provider) => {
           const method = summary.methods.find((m) => m.provider === provider);
           return (
             <li key={provider} className="flex items-center gap-3 px-4 py-3">
@@ -168,17 +153,18 @@ function MethodList() {
                   {method?.primary ? <Badge variant="secondary">Primary</Badge> : null}
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {method ? (method.email ?? "No email shared") : "Not connected"}
-                  {method?.email && !method.emailVerified ? ", not confirmed" : null}
+                  {signInDetail(method)}
                 </span>
               </div>
               {method ? (
                 <MethodMenu
                   method={method}
-                  onPrimary={() => primary.mutate(provider)}
-                  onEmail={() => setEmail({ provider, add: false })}
-                  onPassword={() => setPassword(true)}
-                  onDisconnect={() => setDropping(provider)}
+                  run={{
+                    primary: () => primary.mutate(provider),
+                    email: () => setEmail({ provider, add: false }),
+                    password: () => setPassword(true),
+                    disconnect: () => setDropping(provider),
+                  }}
                 />
               ) : (
                 <Button
@@ -198,9 +184,7 @@ function MethodList() {
           );
         })}
       </ul>
-      <p className="text-xs text-muted-foreground">
-        Any of them signs you in. Notices and sign in codes go to the primary one's email.
-      </p>
+      <p className="text-xs text-muted-foreground">{SIGN_IN_METHODS_NOTE}</p>
       <BrowserWait provider={connect.isPending ? (connect.variables ?? null) : null} />
       <FieldError message={errorToShow(primary.error) ?? errorToShow(connect.error)} />
       <EmailDialog request={email} onClose={() => setEmail(null)} />

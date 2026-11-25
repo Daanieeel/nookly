@@ -1,4 +1,10 @@
-import { NOOKLY_SIGN_IN, errorToShow, providerName, submitRecheck } from "@nookly/shared/api";
+import {
+  RECHECK_COPY,
+  errorToShow,
+  providerName,
+  recheckWays,
+  submitRecheck,
+} from "@nookly/shared/api";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { useStore } from "zustand";
@@ -60,14 +66,12 @@ function RecheckForm() {
       />
     );
   }
-  const methods = summary?.methods ?? [];
-  const hasPassword = methods.some((method) => method.provider === NOOKLY_SIGN_IN);
-  const providers = methods.filter((method) => method.provider !== NOOKLY_SIGN_IN);
+  const ways = summary ? recheckWays(summary) : { password: false, providers: [] };
   const provider =
     first.variables && "provider" in first.variables ? first.variables.provider : null;
   return (
     <div className="flex flex-col gap-3">
-      {hasPassword ? (
+      {ways.password ? (
         <form
           id={formId}
           noValidate
@@ -89,7 +93,7 @@ function RecheckForm() {
         </form>
       ) : null}
       <FieldError message={errorToShow(error) ?? errorToShow(first.error)} />
-      {hasPassword ? (
+      {ways.password ? (
         <Button type="submit" form={formId} disabled={first.isPending || !password}>
           <StatusButtonContent
             // The password's own button says nothing about a provider's attempt.
@@ -100,7 +104,7 @@ function RecheckForm() {
           />
         </Button>
       ) : null}
-      {providers.map(({ provider }) => (
+      {ways.providers.map((provider) => (
         <Button
           key={provider}
           type="button"
@@ -128,8 +132,8 @@ export function RecheckDialog() {
     <Dialog open={asking} onOpenChange={(open) => !open && recheck.finish(false)}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Confirm it's you</DialogTitle>
-          <DialogDescription>Changing how you sign in needs this.</DialogDescription>
+          <DialogTitle>{RECHECK_COPY.title}</DialogTitle>
+          <DialogDescription>{RECHECK_COPY.text}</DialogDescription>
         </DialogHeader>
         <RecheckForm />
       </DialogContent>

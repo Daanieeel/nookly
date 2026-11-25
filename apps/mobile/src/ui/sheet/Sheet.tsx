@@ -30,7 +30,7 @@ import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { IconButton } from "../Button.tsx";
 import { Text } from "../Text.tsx";
 import { useTheme } from "../theme.ts";
-import { FADE, SPRING, dragFrom, settleDetent, settleSheet } from "../motion.ts";
+import { FADE, SPRING, dragFrom, rubberBand, settleDetent, settleSheet } from "../motion.ts";
 import { useReduceMotion } from "../reduce-motion.ts";
 import { MIN_TOUCH } from "../touch.ts";
 import { haptic } from "../haptics.ts";
@@ -197,11 +197,15 @@ function SheetFrame({
   anchor,
   touched,
   wide,
+  locked = false,
   onRequestClose,
   onClosed,
   children,
 }: {
   open: boolean;
+  /// It has to be answered: no swipe, tap outside, Close or Escape takes it away. Only what
+  /// it holds closes it.
+  locked?: boolean;
   title?: string;
   size?: SheetSize;
   presentation?: SheetPresentation;
@@ -262,6 +266,12 @@ function SheetFrame({
       setPages((now) => now.slice(0, -1));
       return;
     }
+    if (locked) {
+      // A step can still be left for the one before it.
+      pagesNow.current.at(-1)?.onPop?.();
+      setPages((now) => now.slice(0, -1));
+      return;
+    }
     const step = guard.current?.();
     if (!step) return onRequestClose();
     asking.current = true;
@@ -275,7 +285,7 @@ function SheetFrame({
         },
       },
     ]);
-  }, [onRequestClose, title]);
+  }, [locked, onRequestClose, title]);
 
   // Opened again, it starts at its first step, even if it was still on its way down.
   useEffect(() => {
@@ -367,26 +377,29 @@ function SheetFrame({
     })
     .onUpdate((event) => {
       // Only a list scrolled to its top lets the sheet follow the finger down.
-      if (scrollY.value <= 0) offset.value = dragFrom(start.value, height)(event.translationY);
+      if (scrollY.value > 0) return;
+      const to = dragFrom(start.value, height)(event.translationY);
+      // One that has to be answered gives a little and no more.
+      offset.value = locked && to > 0 ? rubberBand(to, height) : to;
     })
     .onEnd((event) => {
       const velocity = scrollY.value <= 0 ? event.velocityY : 0;
       if (large) {
         // A tall sheet rests fully up or at its medium stop, as iOS's detents.
         const stop = settleDetent({ offset: offset.value, velocity, medium });
-        if (stop.to === "closed") {
+        if (stop.to === "closed" && !locked) {
           release.value = stop.velocity;
           runOnJS(onRequestClose)();
           return;
         }
-        const to = stop.to === "medium" ? medium : 0;
+        const to = stop.to === "closed" ? target.value : stop.to === "medium" ? medium : 0;
         if (to !== target.value) runOnJS(haptic)("detent");
         target.value = to;
         offset.value = withSpring(to, { ...SPRING.sheet, velocity: stop.velocity });
         return;
       }
       const settled = settleSheet({ offset: offset.value, velocity });
-      if (settled.to === "closed") {
+      if (settled.to === "closed" && !locked) {
         release.value = settled.velocity;
         runOnJS(onRequestClose)();
       } else {
@@ -429,7 +442,7 @@ function SheetFrame({
       title: shownTitle,
       stepped: pages.length > 0,
       onBack: handle.back,
-      onClose: requestClose,
+      onClose: locked ? undefined : requestClose,
       pin,
       footer,
       onScroll,
@@ -451,6 +464,7 @@ function SheetFrame({
           width={DIALOG_WIDTH[resolved.dialog]}
           title={shownTitle}
           shown={shown}
+          locked={locked}
           onRequestClose={requestClose}
         >
           <CardPanel {...parts} header={header} />
@@ -461,12 +475,7 @@ function SheetFrame({
           className="flex-1 justify-center px-3"
         >
           <Animated.View style={cardBackdrop} className="absolute inset-0 bg-black/60">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              onPress={onRequestClose}
-              className="flex-1"
-            />
+            {locked ? null : <Backdrop onPress={onRequestClose} />}
           </Animated.View>
           <Animated.View
             accessibilityViewIsModal
@@ -505,12 +514,7 @@ function SheetFrame({
               <InCard.Provider value={false}>
                 <View className="flex-1 justify-end">
                   <Animated.View style={backdrop} className="absolute inset-0 bg-black/50">
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Close"
-                      onPress={onRequestClose}
-                      className="flex-1"
-                    />
+                    {locked ? null : <Backdrop onPress={onRequestClose} />}
                   </Animated.View>
                   <GestureDetector gesture={pan}>
                     <Animated.View
@@ -598,6 +602,18 @@ function SheetFrame({
   );
 }
 
+/// The dimmed page behind a sheet: a tap on it takes the sheet away.
+function Backdrop({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Close"
+      onPress={onPress}
+      className="flex-1"
+    />
+  );
+}
+
 /// A value that changes on every render of its owner, read by a step shown elsewhere
 /// (in the sheet's own tree), which then follows it without its owner rendering again.
 function useLive(value: ReactNode) {
@@ -652,6 +668,8 @@ export function Sheet({
   kind,
   anchor,
   wide,
+  locked,
+  stacked = false,
   children,
 }: {
   open: boolean;
@@ -664,6 +682,11 @@ export function Sheet({
   anchor?: Anchor;
   /// On a tablet, a wider popover (filters, display options).
   wide?: boolean;
+  /// It has to be answered: only what it holds closes it.
+  locked?: boolean;
+  /// A question that must not take away what is under it: opened from inside a sheet, it
+  /// floats over it in a window of its own instead of being a step of it.
+  stacked?: boolean;
   children: ReactNode;
 }) {
   // A card floats over the sheet it is opened from, in a window of its own; on a tablet a
@@ -677,7 +700,8 @@ export function Sheet({
     requested: presentation,
     large: size === "large",
   }).presentation;
-  const floats = shownAs === "card" || (shownAs === "popover" && outer?.presentation !== "popover");
+  const floats =
+    stacked || shownAs === "card" || (shownAs === "popover" && outer?.presentation !== "popover");
   const parent = floats ? null : outer;
   const live = useLive(children);
   const opened = useRef(false);
@@ -709,6 +733,7 @@ export function Sheet({
       anchor={anchor ?? touch}
       touched={!anchor && touch !== undefined}
       wide={wide}
+      locked={locked}
     >
       {children}
     </WindowSheet>
@@ -726,6 +751,7 @@ function WindowSheet({
   anchor,
   touched,
   wide,
+  locked = false,
   children,
 }: {
   open: boolean;
@@ -737,6 +763,7 @@ function WindowSheet({
   anchor?: Anchor;
   touched?: boolean;
   wide?: boolean;
+  locked?: boolean;
   children: ReactNode;
 }) {
   // Stays up after `open` turns false, until it has gone down.
@@ -754,7 +781,8 @@ function WindowSheet({
       supportedOrientations={ANY_ORIENTATION}
       statusBarTranslucent
       navigationBarTranslucent
-      onRequestClose={requestClose}
+      // The system's back leaves one that has to be answered where it is.
+      onRequestClose={locked ? () => {} : requestClose}
     >
       <GestureHandlerRootView className="flex-1">
         <WindowFrame clear>
@@ -767,6 +795,7 @@ function WindowSheet({
             anchor={anchor}
             touched={touched}
             wide={wide}
+            locked={locked}
             onRequestClose={requestClose}
             onClosed={() => setMounted(false)}
           >

@@ -2,6 +2,7 @@ export * from "./client.ts";
 export { ACCOUNT_COPY, ACCOUNT_TABS } from "./account-copy.ts";
 export * from "./recheck.ts";
 export * from "./schemas.ts";
+export * from "./sign-in.ts";
 export {
   APP_OUTDATED,
   EXPECTED_SERVER_VERSION,

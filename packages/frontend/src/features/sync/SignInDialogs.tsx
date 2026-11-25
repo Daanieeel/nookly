@@ -1,4 +1,4 @@
-import { NOOKLY_SIGN_IN, emailSchema, errorToShow, providerName } from "@nookly/shared/api";
+import { EMAIL_CHANGE_COPY, codeSentText, emailSchema, errorToShow } from "@nookly/shared/api";
 import { IconMail } from "@tabler/icons-react";
 import { useId, useState } from "react";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
@@ -49,7 +49,7 @@ function EmailForm({
         : signedInAccount().addPassword(input.email, code, input.password),
     onDone,
   );
-  const label = add ? `Add ${providerName(NOOKLY_SIGN_IN)}` : "Change Email";
+  const label = EMAIL_CHANGE_COPY[add ? "add" : "change"].title;
   return (
     <form
       noValidate
@@ -93,9 +93,7 @@ function EmailForm({
               }}
               invalid={save.isError}
             />
-            <p className="text-center text-xs text-muted-foreground">
-              We sent a code to {sentTo}. It works for 10 minutes.
-            </p>
+            <p className="text-center text-xs text-muted-foreground">{codeSentText(sentTo)}</p>
           </div>
           {add ? <NewPasswordFields password={password} /> : null}
         </>
@@ -147,17 +145,13 @@ export function EmailDialog({
   request: { provider: string; add: boolean } | null;
   onClose: () => void;
 }) {
-  const add = request?.add === true;
+  const copy = EMAIL_CHANGE_COPY[request?.add === true ? "add" : "change"];
   return (
     <Dialog open={request !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{add ? "Add Nookly Signin" : "Change Email"}</DialogTitle>
-          <DialogDescription>
-            {add
-              ? "An email and a password that sign you in to this account."
-              : "The new address is confirmed with a code we send to it."}
-          </DialogDescription>
+          <DialogTitle>{copy.title}</DialogTitle>
+          <DialogDescription>{copy.text}</DialogDescription>
         </DialogHeader>
         {request ? <EmailForm {...request} onDone={onClose} /> : null}
       </DialogContent>

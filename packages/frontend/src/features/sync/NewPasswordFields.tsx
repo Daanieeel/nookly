@@ -1,4 +1,4 @@
-import { newPasswordSchema } from "@nookly/shared/api";
+import { checkNewPassword } from "@nookly/shared/api";
 import { useId, useState } from "react";
 import { FieldError } from "#/components/action-feedback.tsx";
 import { FormField } from "#/components/form-field.tsx";
@@ -11,19 +11,17 @@ export function useNewPassword() {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [sent, setSent] = useState(false);
-  const parsed = newPasswordSchema.safeParse({ next, confirm });
-  const problem = (field: "next" | "confirm") =>
-    sent ? parsed.error?.issues.find((issue) => issue.path[0] === field)?.message : undefined;
+  const { password, problems } = checkNewPassword(next, confirm);
   return {
     next,
     confirm,
     setNext,
     setConfirm,
-    problem,
+    problem: (field: "next" | "confirm") => (sent ? problems[field] : undefined),
     /// The password when both entries are right, and null after saying what is not.
     submit(): string | null {
       setSent(true);
-      return parsed.success ? parsed.data.next : null;
+      return password;
     },
   };
 }
