@@ -39,7 +39,28 @@ Read `AGENTS.md` and `docs/00-index.md` first.
 
 Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at the repo root; read it, do not edit or delete it), its TODO section included. Do after A to M.
 
-- [ ] N. Explore current auth, break the strategy into tasks here.
+- [x] N. Explore current auth, break the strategy into tasks here.
+- [ ] N1. Server migration 0007 (additive, with backfill) and its test.
+- [ ] N2. Server: no implicit linking, provider emails stored, `session.provider`, primary set for the first provider.
+- [ ] N3. Server: second step for every account and provider (challenge at provider redeem), old apps answered `update_required`.
+- [ ] N4. Server: re check within 10 minutes; two factor management needs it instead of a password.
+- [ ] N5. Server: list, link, unlink, set primary; add, change, remove Nookly Signin; change emails with a code; sign in and reset by login email.
+- [ ] N6. Shared API client, schemas, runtime gate.
+- [ ] N7. Desktop UI.
+- [ ] N8. Phone and tablet UI.
+- [ ] N9. TODO tests: `/reset-password.js` 500, flaky `apps/web/src/components/hero/stage.test.tsx`.
+- [ ] N10. Docs, DECISIONS, changelog, whats-new (highlight card), then L and M again for everything.
+
+### Design (decided while exploring)
+
+- Columns: `auth_account.email`, `email_verified`, `email_chosen` (person changed it, a provider sign in must not overwrite it); `auth_user.primary_provider`; `auth_session.provider`, `reauthed_at`. Unique `lower(email)` among `credential` rows. Backfill: account email = user email unless placeholder, primary = earliest account, session provider = primary where the account has one provider.
+- `auth_user.email` stays the primary's email (and `users.email` changes with it in one transaction).
+- better-auth: `accountLinking: { disableImplicitLinking: true, allowDifferentEmails: true, trustedProviders: all }`; linking goes through our app flow with `linkSocialAccount`. A new provider account whose email is any account's email is refused as `account_not_linked`.
+- Second step after a provider: delete the session, make a challenge in better-auth's own format (verification `2fa-<random>` plus `2fa-attempts-...`, HMAC signed like its cookie), so `/auth/two-factor/*` finishes it.
+- New apps send `x-nookly-auth: 2`. Without it, an account lacking two factor gets 403 `update_required` "Update Nookly to continue." on sign in and sync.
+- Required only where `REQUIRE_TWO_FACTOR` is on (production), now for every account.
+- Re check: password or provider confirmation, plus a second step code when two factor is on; a session younger than 10 minutes counts.
+- A major version bump is **not** done; tell the user the old app lockout is a breaking change.
 
 ## Notes
 
