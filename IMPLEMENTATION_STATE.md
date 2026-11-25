@@ -32,7 +32,7 @@ Read `AGENTS.md` and `docs/00-index.md` first.
 - [x] I. Sign out deletes confirmed files (shared, Rust, phone) and the copy says so.
 - [x] J. Byte progress (shared, Rust, desktop UI, phone UI).
 - [x] K. Docs, decisions log, versions, CHANGELOG, whats-new.
-- [ ] L. Lint, format, typecheck, tests, `cargo test`, duplication.
+- [x] L. Lint, format, typecheck, tests, `cargo test`, duplication.
 - [ ] M. Live check, push, open PR.
 
 ## Second part: authentication strategy (asked 2026-11-25, mid work)
@@ -49,7 +49,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 - [x] N7. Desktop UI.
 - [x] N8. Phone and tablet UI.
 - [x] N9. TODO tests: `/reset-password.js` 500, flaky `apps/web/src/components/hero/stage.test.tsx` (passes in 0.3 s alone; the two whole tour tests now get 30 s, since they time out only on a loaded machine).
-- [ ] N10. Docs, DECISIONS, changelog, whats-new (highlight card), then L and M again for everything.
+- [x] N10. Docs, DECISIONS (D107 to D109), changelog, whats-new (highlight cards), then L and M again for everything.
 
 ### Design (decided while exploring)
 
@@ -66,6 +66,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 
 ## Notes
 
+- Checks 2026-11-25: lint, format, typecheck, duplication (0.18%), whats-new, version, `bun run test` (all 6 packages) pass. `cargo test`: 1585 pass; `search_stays_within_its_budget_on_20000_entities` misses its time budget only while every test runs at once (passes alone, search code untouched).
 - N8: phone `screens/{RecheckPrompt,SecondStepForm,SignOutSheet,NewPasswordFields,BrowserWait,account-change,recheck}`, `screens/settings/{SignInMethods,SignInSheets}`; shared wording in `packages/shared/src/api/sign-in.ts` (desktop uses it too). `Sheet` got `locked` (required two factor, no way out but setup or Sign Out) and `stacked` (the confirm question floats over the sheet it came from). Phone sign out now offers "Keep a local copy" like the desktop. Phone tests 1103 pass. Not tried in the simulator yet.
 - N7: `features/sync/{RecheckDialog,SecondStepForm,SignInMethods,SignInDialogs,SignOutDialog,NewPasswordFields,useAccountChange,recheck-gate}`; sign in methods moved from the calendar Connections page to the account page (replaces the Change password row). Frontend tests all pass (3765).
 - N6: `SyncRuntime.linkProvider`, `disconnectProvider` (keeps local data when it signs this device out), gate refresh on `two_factor_required`. UI calls: `api.signInMethods/recheck/sendRecheckCode/setPrimary/sendEmailCode/changeEmail/addPassword/setPassword`, `needsRecheck(error)`, provider sign in may throw `TwoFactorRequiredError`.

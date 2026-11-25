@@ -14,7 +14,7 @@ import type { TwoFactorService } from "./two-factor.ts";
 /// Changing how an account signs in takes more than a signed in device: the person confirms
 /// it is them, with a way they sign in and the second step when the account has one. That
 /// lasts ten minutes, and a sign in that just happened counts.
-export const FRESH_MS = 10 * 60_000;
+const FRESH_MS = 10 * 60_000;
 
 export class RecheckService {
   private readonly db: Database;
