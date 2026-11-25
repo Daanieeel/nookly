@@ -2,7 +2,7 @@ import { Text as NativeText, type TextProps } from "react-native";
 import { cn } from "./classes.ts";
 
 type Variant = "body" | "small" | "label" | "heading" | "title";
-type Tone = "default" | "muted" | "primary" | "destructive" | "positive" | "caution";
+type Tone = "default" | "muted" | "primary" | "destructive" | "positive" | "caution" | "warning";
 
 /// The desktop's type scale: body text `text-sm`, small `text-xs`, labels medium,
 /// headings in Inter Tight.
@@ -21,6 +21,7 @@ const TONES = {
   destructive: "text-destructive",
   positive: "text-positive",
   caution: "text-caution",
+  warning: "text-warning",
 } satisfies Record<Tone, string>;
 
 /// Text in the app's type scale. It follows the system's text size (Dynamic Type).

@@ -184,8 +184,10 @@ describe("the Account page", () => {
     const keep = screen.getByRole("checkbox", { name: "Keep a local copy" });
     expect(keep.props.accessibilityState.checked).toBe(false);
     expect(signOut).not.toHaveBeenCalled();
+    expect(screen.getByText("Keep a local copy").props.className).not.toContain("text-warning");
     // Keeping a copy changes what happens, and says what the copy will miss.
     await fireEvent.press(keep);
+    expect(screen.getByText("Keep a local copy").props.className).toContain("text-warning");
     expect(screen.getByText(/^A copy stays on this .+ and works alone$/)).toBeTruthy();
     expect(screen.getByText("2 changes not sent yet, kept here")).toBeTruthy();
     expect(

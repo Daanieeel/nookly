@@ -12,6 +12,7 @@ interface CheckboxGroupProps extends React.ComponentProps<typeof Checkbox> {
  * renders as), so no manual click/toggle wiring is needed here. */
 function CheckboxGroup({ className, children, ...checkboxProps }: CheckboxGroupProps) {
   const isDestructiveChecked = checkboxProps.variant === "destructive" && !!checkboxProps.checked;
+  const isWarningChecked = checkboxProps.variant === "warning" && !!checkboxProps.checked;
   return (
     <label
       className={cn(
@@ -19,6 +20,7 @@ function CheckboxGroup({ className, children, ...checkboxProps }: CheckboxGroupP
         checkboxProps.disabled && "cursor-not-allowed",
         className,
         isDestructiveChecked && "text-destructive",
+        isWarningChecked && "text-warning",
       )}
     >
       <Checkbox {...checkboxProps} />

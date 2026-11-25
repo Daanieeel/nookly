@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@nookly/ui/components/alert-dialog";
-import { Checkbox } from "@nookly/ui/components/checkbox";
+import { CheckboxGroup } from "@nookly/ui/components/checkbox-group";
 import { cn } from "@nookly/ui/lib/utils";
 import { syncRuntime } from "./sync-instance.ts";
 
@@ -130,16 +130,14 @@ export function SignOutDialog({
             </ul>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="sign-out-keep-local-copy"
-            checked={keepLocalCopy}
-            onCheckedChange={(checked) => setKeepLocalCopy(checked === true)}
-          />
-          <label htmlFor="sign-out-keep-local-copy" className="text-sm">
-            Keep a local copy
-          </label>
-        </div>
+        <CheckboxGroup
+          variant="warning"
+          className="self-start text-sm"
+          checked={keepLocalCopy}
+          onCheckedChange={(checked) => setKeepLocalCopy(checked === true)}
+        >
+          Keep a local copy
+        </CheckboxGroup>
         <FieldError message={signOut.error?.message ?? null} />
         <AlertDialogFooter>
           <AlertDialogCancel>Stay Signed In</AlertDialogCancel>

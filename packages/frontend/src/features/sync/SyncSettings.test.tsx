@@ -179,6 +179,23 @@ describe("the Sync settings", () => {
     expect(signOut).toHaveBeenCalledWith({ keepLocalCopy: false });
   });
 
+  it("ticks the local copy from anywhere on its row, in the colour of a warning", async () => {
+    signedIn();
+    vi.spyOn(syncRuntime, "unsentCount").mockResolvedValue(0);
+    const { user } = await openSync();
+    await user.click(await screen.findByRole("button", { name: "Sign Out" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
+    const keep = within(dialog).getByRole("checkbox", { name: "Keep a local copy" });
+    const row = keep.closest("label");
+    expect(row).toHaveTextContent("Keep a local copy");
+    expect(row).toHaveClass("cursor-pointer");
+    expect(keep).toHaveClass("data-[state=checked]:bg-warning");
+    await user.click(within(dialog).getByText("Keep a local copy"));
+    expect(keep).toBeChecked();
+    expect(row).toHaveClass("text-warning");
+    await expectNoA11yViolations();
+  });
+
   it("keeps a local copy after signing out when asked to", async () => {
     signedIn();
     vi.spyOn(syncRuntime, "unsentCount").mockResolvedValue(0);

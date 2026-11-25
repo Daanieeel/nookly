@@ -88,8 +88,8 @@ export function SignOutSheet({
   return (
     <View className="gap-5">
       <Points points={points} />
-      <CheckboxRow checked={keep} onChange={setKeep} label="Keep a local copy">
-        <Text>Keep a local copy</Text>
+      <CheckboxRow severity="warning" checked={keep} onChange={setKeep} label="Keep a local copy">
+        <Text tone={keep ? "warning" : "default"}>Keep a local copy</Text>
       </CheckboxRow>
       {signOut.error ? <Text tone="destructive">{signOut.error.message}</Text> : null}
       <ConfirmButtons cancel="Stay Signed In">
