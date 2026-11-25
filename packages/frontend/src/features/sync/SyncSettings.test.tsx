@@ -134,14 +134,14 @@ describe("the Sync settings", () => {
     expect(screen.queryByText(/Nothing is shared with you/)).toBeNull();
   });
 
-  it("puts Change password above the devices, and Delete account last", async () => {
+  it("puts the sign in methods above the devices, and Delete account last", async () => {
     signedIn();
     await openSync();
-    const password = await screen.findByRole("heading", { name: "Password" });
+    const methods = await screen.findByRole("heading", { name: "Sign in methods" });
     const devices = screen.getByRole("heading", { name: "Devices" });
     const remove = screen.getByRole("heading", { name: "Delete account" });
     expect(
-      password.compareDocumentPosition(devices) & Node.DOCUMENT_POSITION_FOLLOWING,
+      methods.compareDocumentPosition(devices) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(devices.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -281,77 +281,28 @@ describe("the Sync settings", () => {
     await expectNoA11yViolations();
   });
 
-  it("keeps both password forms off the page and opens each in a dialog", async () => {
+  it("shows how the account signs in, and keeps the deletion form off the page", async () => {
     signedIn();
+    vi.spyOn(syncRuntime.account()!, "signInMethods").mockResolvedValue({
+      methods: [
+        {
+          provider: "credential",
+          email: "ada@example.com",
+          emailVerified: true,
+          primary: true,
+          canBePrimary: false,
+        },
+      ],
+      current: "credential",
+      fresh: true,
+      secondStep: [],
+      offered: ["github"],
+    });
     await openSync();
-    expect(screen.queryByLabelText("Current password")).toBeNull();
+    const list = await screen.findByRole("list", { name: "Sign in methods" });
+    expect(within(list).getByText("Nookly Signin")).toBeInTheDocument();
     expect(screen.queryByLabelText(/Your password/)).toBeNull();
-    expect(screen.getByRole("button", { name: "Change Password" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete Account" })).toBeInTheDocument();
-  });
-
-  it("changes the password from a dialog, which closes when it is done", async () => {
-    signedIn();
-    const change = vi.spyOn(syncRuntime.account()!, "changePassword").mockResolvedValue();
-    const { user } = await openSync();
-    await user.click(screen.getByRole("button", { name: "Change Password" }));
-    const dialog = await screen.findByRole("dialog", { name: "Change Password" });
-    await user.type(within(dialog).getByLabelText("Current password"), "old password");
-    await user.type(within(dialog).getByLabelText("New password"), "a much newer password");
-    await user.type(within(dialog).getByLabelText("Repeat new password"), "a much newer password");
-    await expectNoA11yViolations();
-    await user.click(within(dialog).getByRole("button", { name: "Change Password" }));
-    await waitFor(() =>
-      expect(change).toHaveBeenCalledWith("old password", "a much newer password"),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "Change Password" })).toBeNull(),
-    );
-  });
-
-  it("asks for the new password twice and rates it, but never refuses a weak one", async () => {
-    signedIn();
-    const change = vi.spyOn(syncRuntime.account()!, "changePassword").mockResolvedValue();
-    const { user } = await openSync();
-    await user.click(screen.getByRole("button", { name: "Change Password" }));
-    const dialog = await screen.findByRole("dialog", { name: "Change Password" });
-    // Nothing to rate before there is a new password.
-    expect(within(dialog).queryByRole("meter")).toBeNull();
-    await user.type(within(dialog).getByLabelText("Current password"), "old password");
-    await user.type(within(dialog).getByLabelText("New password"), "password1234");
-    const confirm = within(dialog).getByLabelText("Repeat new password");
-    // The bar sits under the second field.
-    const meter = within(dialog).getByRole("meter", { name: "Password strength" });
-    expect(confirm.compareDocumentPosition(meter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(meter).toHaveAttribute("aria-valuetext", expect.stringMatching(/weak/i));
-    // Two different entries are caught.
-    await user.type(confirm, "password12345");
-    await user.click(within(dialog).getByRole("button", { name: "Change Password" }));
-    expect(await within(dialog).findByText("The passwords don't match")).toBeInTheDocument();
-    expect(change).not.toHaveBeenCalled();
-    // A weak password goes through once it is typed twice: the bar only advises.
-    await user.clear(confirm);
-    await user.type(confirm, "password1234");
-    await user.click(within(dialog).getByRole("button", { name: "Change Password" }));
-    await waitFor(() => expect(change).toHaveBeenCalledWith("old password", "password1234"));
-    await expectNoA11yViolations();
-  });
-
-  it("rates a strong password strong", async () => {
-    signedIn();
-    const { user } = await openSync();
-    await user.click(screen.getByRole("button", { name: "Change Password" }));
-    const dialog = await screen.findByRole("dialog", { name: "Change Password" });
-    expect(within(dialog).getByPlaceholderText("Current password")).toBeInTheDocument();
-    expect(within(dialog).getByPlaceholderText("New password")).toBeInTheDocument();
-    await user.type(
-      within(dialog).getByLabelText("New password"),
-      "violet lantern kettle orbit ferment",
-    );
-    expect(within(dialog).getByRole("meter", { name: "Password strength" })).toHaveAttribute(
-      "aria-valuetext",
-      "Strong",
-    );
   });
 
   it("asks for the password and a typed phrase in a dialog before deleting the account", async () => {

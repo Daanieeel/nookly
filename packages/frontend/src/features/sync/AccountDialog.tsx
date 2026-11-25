@@ -84,10 +84,13 @@ function OtherAccounts({
   verb,
   server,
   step,
+  onSecondStep,
 }: {
   verb: "in" | "up";
   server: ReturnType<typeof useServer>;
   step: ReturnType<typeof useSecondStep>;
+  /// The account has two-factor: the form hands over to the code.
+  onSecondStep: (asked: TwoFactorRequiredError) => void;
 }) {
   const queryClient = useQueryClient();
   const url = server.error ? null : normalizeServerUrl(server.server);
@@ -120,6 +123,7 @@ function OtherAccounts({
     },
     // No account for this one yet: not a dead end, the question is whether to make one.
     onError: (error, input) => {
+      if (error instanceof TwoFactorRequiredError) onSecondStep(error);
       if (!(error instanceof ProviderNoAccountError) || input.create) return;
       const name = PROVIDERS.find((provider) => provider.id === input.provider)?.name;
       step.request(
@@ -592,7 +596,7 @@ function SignInForm({ onForgot }: { onForgot: () => void }) {
           )}
         </form.Subscribe>
       </form>
-      <OtherAccounts verb="in" server={server} step={step} />
+      <OtherAccounts verb="in" server={server} step={step} onSecondStep={setSecondStep} />
     </Stepped>
   );
 }
@@ -601,6 +605,8 @@ function SignUpForm() {
   const queryClient = useQueryClient();
   const server = useServer();
   const step = useSecondStep();
+  // The provider's account already exists here and asks for its second step.
+  const [secondStep, setSecondStep] = useState<TwoFactorRequiredError | null>(null);
   const ids = {
     username: useId(),
     email: useId(),
@@ -645,6 +651,18 @@ function SignUpForm() {
         (answers) => signUp.mutate({ ...value, betaKey: answers.betaKey ?? "" }),
       ),
   });
+  if (secondStep) {
+    return (
+      <TwoFactorStep
+        serverUrl={normalizeServerUrl(server.server)}
+        challenge={secondStep.challenge}
+        methods={secondStep.methods}
+        options={step.options()}
+        onDone={() => afterSignIn(queryClient)}
+        onBack={() => setSecondStep(null)}
+      />
+    );
+  }
   return (
     <Stepped step={step} className="flex flex-col gap-3">
       <form
@@ -763,7 +781,7 @@ function SignUpForm() {
           )}
         </form.Subscribe>
       </form>
-      <OtherAccounts verb="up" server={server} step={step} />
+      <OtherAccounts verb="up" server={server} step={step} onSecondStep={setSecondStep} />
     </Stepped>
   );
 }

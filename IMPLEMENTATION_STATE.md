@@ -46,7 +46,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 - [x] N4. Server: re check within 10 minutes; two factor management needs it instead of a password.
 - [x] N5. Server: list, link, unlink, set primary; add, change, remove Nookly Signin; change emails with a code; sign in and reset by login email.
 - [x] N6. Shared API client, schemas, runtime gate.
-- [ ] N7. Desktop UI.
+- [x] N7. Desktop UI.
 - [ ] N8. Phone and tablet UI.
 - [ ] N9. TODO tests: `/reset-password.js` 500, flaky `apps/web/src/components/hero/stage.test.tsx`.
 - [ ] N10. Docs, DECISIONS, changelog, whats-new (highlight card), then L and M again for everything.
@@ -66,6 +66,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 
 ## Notes
 
+- N7: `features/sync/{RecheckDialog,SecondStepForm,SignInMethods,SignInDialogs,SignOutDialog,NewPasswordFields,useAccountChange,recheck-gate}`; sign in methods moved from the calendar Connections page to the account page (replaces the Change password row). Frontend tests all pass (3765).
 - N6: `SyncRuntime.linkProvider`, `disconnectProvider` (keeps local data when it signs this device out), gate refresh on `two_factor_required`. UI calls: `api.signInMethods/recheck/sendRecheckCode/setPrimary/sendEmailCode/changeEmail/addPassword/setPassword`, `needsRecheck(error)`, provider sign in may throw `TwoFactorRequiredError`.
 - N1 to N5: server done, 245 server tests pass. New files `apps/server/src/auth/{emails,codes,challenge,recheck,sign-in-methods}.ts`, `test/{sign-in-methods,sign-in-migration}.test.ts`, `test/fake-providers.ts`. Shared client already has the new calls; `runSecurityAction` no longer takes a password. N9 first half fixed: the reset page script failed on folder names with spaces.
 - Live check 2026-11-25: `/health` 1.5.6, `/docs` 404, Heroku app `nookly-sync` has `TRUST_PROXY=true`, `TRUSTED_PROXY_HOPS` unset (default 1).

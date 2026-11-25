@@ -3,6 +3,7 @@ import {
   type SecurityAction,
   type SecurityOutcome,
   type SecuritySummary,
+  errorToShow,
   isWrongCode,
   runSecurityAction,
 } from "@nookly/shared/api";
@@ -12,7 +13,6 @@ import { type ReactNode, useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
 import { FormField } from "#/components/form-field.tsx";
-import { PasswordInput } from "#/components/password-input.tsx";
 import { QrImage } from "#/components/qr-image.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import { Badge } from "@nookly/ui/components/badge";
@@ -29,18 +29,14 @@ import {
 import { IconInput } from "@nookly/ui/components/icon-input";
 import { CopyButton } from "@nookly/ui/components/copy-button";
 import { OtpCodeInput } from "@nookly/ui/components/input-otp";
+import { recheck } from "./recheck-gate.ts";
 import { useSecurityDialog } from "./security-dialog-store.ts";
-import { syncRuntime, useSyncState } from "./sync-instance.ts";
+import { SignOutDialog } from "./SignOutDialog.tsx";
+import { signedInAccount, syncRuntime, useSyncState } from "./sync-instance.ts";
 
 const CODE_LENGTH = 6;
 
-type View = SecurityOutcome | { name: "password"; action: SecurityAction } | { name: "addEmail" };
-
-function account() {
-  const api = syncRuntime.account();
-  if (!api) throw new Error("Sign in first.");
-  return api;
-}
+type View = SecurityOutcome | { name: "confirm"; action: SecurityAction } | { name: "addEmail" };
 
 /// Where a step puts its buttons: the dialog's footer. A step's form is above it, so its
 /// submit button names the form with `form`.
@@ -50,8 +46,9 @@ function FooterActions({ slot, children }: { slot: Slot; children: ReactNode }) 
   return slot ? createPortal(children, slot) : null;
 }
 
-/// A password, then what it unlocks.
-function PasswordStep({
+/// What a change does, then the change. Whether the person has to confirm it is them is
+/// the server's to say.
+function ConfirmStep({
   action,
   slot,
   onBack,
@@ -62,12 +59,9 @@ function PasswordStep({
   onBack: () => void;
   onDone: (next: SecurityOutcome) => void;
 }) {
-  const id = useId();
-  const formId = useId();
-  const [password, setPassword] = useState("");
   const queryClient = useQueryClient();
   const run = useMutation({
-    mutationFn: () => runSecurityAction(account(), action, password),
+    mutationFn: () => recheck.run(() => runSecurityAction(signedInAccount(), action)),
     onSuccess: async (next) => {
       await queryClient.invalidateQueries({ queryKey: qk.sync.security });
       if (next.name === "overview") await syncRuntime.twoFactorChanged().catch(() => {});
@@ -76,33 +70,15 @@ function PasswordStep({
   });
   const step = SECURITY_STEPS[action];
   return (
-    <form
-      id={formId}
-      noValidate
-      className="flex flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (password) run.mutate();
-      }}
-    >
+    <div className="flex flex-col gap-3">
       <p className="text-sm font-medium">{step.title}</p>
       <p className="text-sm text-muted-foreground">{step.text}</p>
-      <FormField label="Password" htmlFor={id} required>
-        <PasswordInput
-          id={id}
-          placeholder="Password"
-          autoFocus
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </FormField>
-      <FieldError message={run.error ? run.error.message : null} />
+      <FieldError message={errorToShow(run.error)} />
       <FooterActions slot={slot}>
         <Button type="button" variant="ghost" onClick={onBack}>
           Back
         </Button>
-        <Button type="submit" form={formId} disabled={run.isPending || !password}>
+        <Button type="button" disabled={run.isPending} onClick={() => run.mutate()}>
           <StatusButtonContent
             status={statusOf(run)}
             label="Continue"
@@ -111,7 +87,7 @@ function PasswordStep({
           />
         </Button>
       </FooterActions>
-    </form>
+    </div>
   );
 }
 
@@ -134,7 +110,7 @@ function ScanStep({
   const [code, setCode] = useState("");
   const queryClient = useQueryClient();
   const confirm = useMutation({
-    mutationFn: (digits: string) => account().confirmAuthenticator(digits),
+    mutationFn: (digits: string) => signedInAccount().confirmAuthenticator(digits),
     onSuccess: async (codes) => {
       await queryClient.invalidateQueries({ queryKey: qk.sync.security });
       onDone(codes);
@@ -259,7 +235,7 @@ function AddEmailStep({
   const [email, setEmail] = useState("");
   const queryClient = useQueryClient();
   const add = useMutation({
-    mutationFn: () => account().addEmail(email),
+    mutationFn: () => recheck.run(() => signedInAccount().addEmail(email)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.sync.security });
       await syncRuntime.twoFactorChanged().catch(() => {});
@@ -291,7 +267,7 @@ function AddEmailStep({
           onChange={(event) => setEmail(event.target.value)}
         />
       </FormField>
-      <FieldError message={add.error ? add.error.message : null} />
+      <FieldError message={errorToShow(add.error)} />
       <FooterActions slot={slot}>
         <Button type="button" variant="ghost" onClick={onBack}>
           Back
@@ -349,7 +325,7 @@ function Overview({
   const email = summary.email;
   const resend = useMutation({
     mutationFn: async () => {
-      if (email.address) await account().resendVerification(email.address);
+      if (email.address) await signedInAccount().resendVerification(email.address);
     },
   });
   return (
@@ -367,7 +343,7 @@ function Overview({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => go({ name: "password", action: "emailOff" })}
+            onClick={() => go({ name: "confirm", action: "emailOff" })}
           >
             Turn Off Emailed Codes
           </Button>
@@ -375,7 +351,7 @@ function Overview({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => go({ name: "password", action: "emailOn" })}
+            onClick={() => go({ name: "confirm", action: "emailOn" })}
           >
             Turn On Emailed Codes
           </Button>
@@ -403,7 +379,7 @@ function Overview({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => go({ name: "password", action: "authenticatorOff" })}
+            onClick={() => go({ name: "confirm", action: "authenticatorOff" })}
           >
             Remove Authenticator App
           </Button>
@@ -411,7 +387,7 @@ function Overview({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => go({ name: "password", action: "authenticatorOn" })}
+            onClick={() => go({ name: "confirm", action: "authenticatorOn" })}
           >
             Set Up Authenticator App
           </Button>
@@ -431,7 +407,7 @@ function Overview({
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => go({ name: "password", action: "newCodes" })}
+            onClick={() => go({ name: "confirm", action: "newCodes" })}
           >
             Get New Codes
           </Button>
@@ -463,10 +439,10 @@ export function SecurityDialog() {
   const [view, setView] = useState<View>({ name: "overview" });
   const { data: summary, error } = useQuery({
     queryKey: qk.sync.security,
-    queryFn: () => account().security(),
+    queryFn: () => signedInAccount().security(),
     enabled: open,
   });
-  const signOut = useMutation({ mutationFn: () => syncRuntime.signOut() });
+  const [signingOut, setSigningOut] = useState(false);
   // The footer's right side, where the step on show puts its buttons.
   const [slot, setSlot] = useState<Slot>(null);
   const overview = () => setView({ name: "overview" });
@@ -492,21 +468,20 @@ export function SecurityDialog() {
               ? "Sign in needs a second step. Sync starts once it is set up."
               : held
                 ? "Add another way to sign in, or continue."
-                : "A second step after your password keeps your account safe even if the password leaks."}
+                : "A second step when you sign in keeps your account safe even if a password leaks."}
           </DialogDescription>
         </DialogHeader>
         <FieldError message={error ? error.message : null} />
         {summary && !summary.available ? (
           <p className="text-sm text-muted-foreground">
-            Your account signs in with another account, so it has no password to protect. Nothing to
-            set up here.
+            Your server offers two-factor sign in only for accounts with a password.
           </p>
         ) : null}
         {summary?.available && view.name === "overview" ? (
           <Overview summary={summary} setup={setup} go={setView} />
         ) : null}
-        {view.name === "password" ? (
-          <PasswordStep
+        {view.name === "confirm" ? (
+          <ConfirmStep
             action={view.action}
             slot={slot}
             onBack={overview}
@@ -548,12 +523,7 @@ export function SecurityDialog() {
         ) : null}
         <DialogFooter className="sm:justify-between">
           {required ? (
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={signOut.isPending}
-              onClick={() => signOut.mutate()}
-            >
+            <Button type="button" variant="destructive" onClick={() => setSigningOut(true)}>
               Sign Out
             </Button>
           ) : null}
@@ -565,7 +535,7 @@ export function SecurityDialog() {
                   setView(
                     pendingCodes
                       ? { name: "codes", codes: pendingCodes }
-                      : { name: "password", action: "newCodes" },
+                      : { name: "confirm", action: "newCodes" },
                   )
                 }
               >
@@ -579,6 +549,7 @@ export function SecurityDialog() {
             ) : null}
           </div>
         </DialogFooter>
+        <SignOutDialog open={signingOut} onOpenChange={setSigningOut} keepByDefault />
       </DialogContent>
     </Dialog>
   );

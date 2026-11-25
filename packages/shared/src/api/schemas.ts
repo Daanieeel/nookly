@@ -24,6 +24,14 @@ export const changePasswordSchema = z
   });
 export type ChangePassword = z.infer<typeof changePasswordSchema>;
 
+/// A new password, typed twice. Only the length is demanded of it.
+export const newPasswordSchema = z
+  .object({ next: passwordSchema, confirm: z.string() })
+  .refine((value) => value.next === value.confirm, {
+    path: ["confirm"],
+    message: "The passwords don't match",
+  });
+
 export const deviceSchema = z.object({
   name: z.string().trim().min(1).max(80),
   platform: z.enum(["macos", "windows", "linux", "ios", "android", "web", "other"]),

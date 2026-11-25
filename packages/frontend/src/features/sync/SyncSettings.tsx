@@ -1,34 +1,21 @@
-import {
-  type ChangePassword as ChangePasswordValues,
-  changePasswordSchema,
-  providerName,
-} from "@nookly/shared/api";
-import { useForm } from "@tanstack/react-form";
+import { providerName } from "@nookly/shared/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { z } from "zod";
-import { FieldError, StatusButtonContent, statusOf } from "#/components/action-feedback.tsx";
+import { FieldError, statusOf } from "#/components/action-feedback.tsx";
 import { ConfirmPermanentDialog } from "#/components/confirm-permanent-dialog.tsx";
-import { FormField, fieldMessage } from "#/components/form-field.tsx";
-import { PasswordStrengthMeter } from "#/components/password-strength-meter.tsx";
+import { FormField } from "#/components/form-field.tsx";
 import type { RowSpec } from "#/features/settings/setting-rows.tsx";
 import { qk } from "#/lib/query-keys.ts";
 import { useSetting } from "#/lib/settings/settings.ts";
-import { IconLock, IconServer, IconTrash } from "@tabler/icons-react";
+import { IconServer, IconTrash } from "@tabler/icons-react";
 import { Button } from "@nookly/ui/components/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@nookly/ui/components/dialog";
 import { UrlInput } from "#/components/url-input.tsx";
 import { PasswordInput } from "#/components/password-input.tsx";
 import { normalizeServerUrl } from "@nookly/shared/sync";
 import { syncRuntime, useSyncState } from "./sync-instance.ts";
 import { AccountCard, DeviceCards, SignedInOnly } from "./AccountCards.tsx";
+import { SignInMethods } from "./SignInMethods.tsx";
 
 const errorText = (error: Error | null) => (error ? error.message : null);
 
@@ -60,133 +47,6 @@ export function SyncServerControl() {
       />
       <FieldError message={!valid && "Enter an address like sync.example.com"} />
     </div>
-  );
-}
-
-/// The button that opens the change password form in a dialog, which closes when it is done.
-function ChangePassword() {
-  const [open, setOpen] = useState(false);
-  const ids = { current: useId(), next: useId(), confirm: useId() };
-  const user = useSyncState((s) => s.user);
-  const change = useMutation({
-    mutationFn: async (value: ChangePasswordValues) => {
-      const api = syncRuntime.account();
-      if (!api) throw new Error("Sign in first.");
-      await api.changePassword(value.current, value.next);
-    },
-    onSuccess: () => setOpen(false),
-  });
-  const form = useForm({
-    defaultValues: { current: "", next: "", confirm: "" },
-    validators: { onSubmit: changePasswordSchema },
-    onSubmit: ({ value }) => change.mutate(value),
-  });
-  // A form left half done never carries over to the next time.
-  useEffect(() => {
-    if (!open) {
-      form.reset();
-      change.reset();
-    }
-  }, [open]);
-  return (
-    <>
-      <div>
-        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-          <IconLock size={14} />
-          Change Password
-        </Button>
-      </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription className="sr-only">
-              Enter your current password and a new one.
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            noValidate
-            className="flex flex-col gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void form.handleSubmit();
-            }}
-          >
-            <form.Field name="current">
-              {(field) => (
-                <FormField
-                  label="Current password"
-                  htmlFor={ids.current}
-                  error={fieldMessage(field)}
-                >
-                  <PasswordInput
-                    id={ids.current}
-                    placeholder="Current password"
-                    autoComplete="current-password"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                  />
-                </FormField>
-              )}
-            </form.Field>
-            <form.Field name="next">
-              {(field) => (
-                <FormField label="New password" htmlFor={ids.next} error={fieldMessage(field)}>
-                  <PasswordInput
-                    id={ids.next}
-                    placeholder="New password"
-                    autoComplete="new-password"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                  />
-                </FormField>
-              )}
-            </form.Field>
-            <form.Field name="confirm">
-              {(field) => (
-                <div className="flex flex-col gap-1.5">
-                  <PasswordInput
-                    id={ids.confirm}
-                    aria-label="Repeat new password"
-                    placeholder="Repeat new password"
-                    aria-invalid={fieldMessage(field) !== undefined}
-                    autoComplete="new-password"
-                    value={field.state.value}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    onBlur={field.handleBlur}
-                  />
-                  <FieldError message={fieldMessage(field)} />
-                </div>
-              )}
-            </form.Field>
-            <form.Subscribe selector={(state) => state.values.next}>
-              {(next) => (
-                <PasswordStrengthMeter
-                  password={next}
-                  userInputs={[user?.username, user?.email].filter((v): v is string => !!v)}
-                />
-              )}
-            </form.Subscribe>
-            <FieldError message={errorText(change.error)} />
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">
-                <StatusButtonContent
-                  status={statusOf(change)}
-                  label="Change Password"
-                  successLabel="Changed"
-                  errorLabel="Couldn't change it"
-                />
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }
 
@@ -312,17 +172,28 @@ export const SYNC_ROWS: RowSpec[] = [
     footer: <AccountCard />,
   },
   {
-    id: "sync.password",
+    id: "sync.signin",
     category: "sync",
-    section: "Password",
-    title: "Change password",
+    section: "Sign in methods",
+    title: "Sign in methods",
     hideTitle: true,
     description: "",
-    synonyms: ["password", "security", "change password"],
+    synonyms: [
+      "password",
+      "change password",
+      "security",
+      "email",
+      "google",
+      "github",
+      "notion",
+      "apple",
+      "provider",
+      "connect",
+    ],
     control: null,
     footer: (
-      <SignedInOnly what="your password">
-        <ChangePassword />
+      <SignedInOnly what="how you sign in">
+        <SignInMethods />
       </SignedInOnly>
     ),
   },

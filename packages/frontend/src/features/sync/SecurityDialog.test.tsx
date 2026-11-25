@@ -5,6 +5,7 @@ import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { SecurityDialog } from "./SecurityDialog.tsx";
 import { useSecurityDialog } from "./security-dialog-store.ts";
+import { recheck } from "./recheck-gate.ts";
 import { syncRuntime } from "./sync-instance.ts";
 
 const ADA = {
@@ -41,6 +42,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => recheck.finish(false));
   vi.restoreAllMocks();
   act(() => {
     useSecurityDialog.getState().close();
@@ -60,7 +62,6 @@ async function turnOnEmail(user: ReturnType<typeof renderWithProviders>["user"])
     return summary;
   });
   await user.click(await screen.findByRole("button", { name: "Turn On Emailed Codes" }));
-  await user.type(screen.getByLabelText(/^Password/), "a long password");
   await user.click(screen.getByRole("button", { name: "Continue" }));
   signedIn({ twoFactorRequired: false });
   await screen.findByRole("button", { name: "Turn Off Emailed Codes" });
@@ -92,18 +93,50 @@ describe("the security dialog", () => {
     expect(dialog).toHaveClass("grid-cols-1", "overflow-y-auto", "max-h-[calc(100dvh-2rem)]");
   });
 
-  it("turns on emailed codes with the password", async () => {
+  it("turns on emailed codes", async () => {
     const enable = vi.spyOn(api, "enableEmailTwoFactor").mockImplementation(async () => {
       summary = { ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } };
       return summary;
     });
     const { user } = openFromSettings();
     await user.click(await screen.findByRole("button", { name: "Turn On Emailed Codes" }));
-    await user.type(screen.getByLabelText(/^Password/), "a long password");
+    // The step says what happens; no password is asked here.
+    expect(screen.queryByLabelText(/^Password/)).not.toBeInTheDocument();
+    await expectNoA11yViolations();
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(enable).toHaveBeenCalledWith("a long password");
+    expect(enable).toHaveBeenCalled();
     expect(await screen.findByRole("button", { name: "Turn Off Emailed Codes" })).toBeVisible();
     expect(syncRuntime.twoFactorChanged).toHaveBeenCalled();
+  });
+
+  it("asks to confirm it is you when the server wants that, then goes on", async () => {
+    const enable = vi
+      .spyOn(api, "enableEmailTwoFactor")
+      .mockRejectedValueOnce(new ApiRequestError(403, "recheck_required", "Confirm it's you."))
+      .mockImplementation(async () => {
+        summary = { ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } };
+        return summary;
+      });
+    const { user } = openFromSettings();
+    await user.click(await screen.findByRole("button", { name: "Turn On Emailed Codes" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(recheck.store.getState().asking).toBe(true));
+    act(() => recheck.finish(true));
+    expect(await screen.findByRole("button", { name: "Turn Off Emailed Codes" })).toBeVisible();
+    expect(enable).toHaveBeenCalledTimes(2);
+  });
+
+  it("says nothing went wrong when the person closes that question", async () => {
+    vi.spyOn(api, "enableEmailTwoFactor").mockRejectedValue(
+      new ApiRequestError(403, "recheck_required", "Confirm it's you."),
+    );
+    const { user } = openFromSettings();
+    await user.click(await screen.findByRole("button", { name: "Turn On Emailed Codes" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(recheck.store.getState().asking).toBe(true));
+    act(() => recheck.finish(false));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Back" })).toBeVisible();
   });
 
   it("adds an authenticator app: the key to scan, a code to prove it, and recovery codes shown once", async () => {
@@ -116,7 +149,6 @@ describe("the security dialog", () => {
       .mockResolvedValue(["aaaaa-bbbbb", "ccccc-ddddd"]);
     const { user } = openFromSettings();
     await user.click(await screen.findByRole("button", { name: "Set Up Authenticator App" }));
-    await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByRole("img", { name: /QR code/ })).toBeVisible();
@@ -160,7 +192,6 @@ describe("the security dialog", () => {
     );
     const { user } = openFromSettings();
     await user.click(await screen.findByRole("button", { name: "Set Up Authenticator App" }));
-    await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.type(await screen.findByLabelText("Code from the app"), "000000");
     await waitFor(() =>
@@ -208,7 +239,13 @@ describe("the security dialog", () => {
       "[--solid:var(--color-solid-destructive)]",
     );
     await user.click(screen.getByRole("button", { name: "Sign Out" }));
-    await waitFor(() => expect(signOut).toHaveBeenCalled());
+    // The usual question, with the copy kept: nothing leaves this computer by accident.
+    const leaving = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
+    expect(within(leaving).getByRole("checkbox", { name: "Keep a local copy" })).toBeChecked();
+    expect(signOut).not.toHaveBeenCalled();
+    await expectNoA11yViolations();
+    await user.click(within(leaving).getByRole("button", { name: "Sign Out" }));
+    await waitFor(() => expect(signOut).toHaveBeenCalledWith({ keepLocalCopy: true }));
   });
 
   it("keeps its close button when it was opened from Settings", async () => {
@@ -245,7 +282,6 @@ describe("the security dialog", () => {
       return ["aaaaa-bbbbb", "ccccc-ddddd"];
     });
     await user.click(await screen.findByRole("button", { name: "Set Up Authenticator App" }));
-    await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.type(await screen.findByLabelText("Code from the app"), "123456");
 
@@ -263,7 +299,7 @@ describe("the security dialog", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
-  it("makes recovery codes with the password when only emailed codes are on", async () => {
+  it("makes recovery codes when only emailed codes are on", async () => {
     summary = { ...NOTHING, required: true };
     const { user } = renderWithProviders(<SecurityDialog />);
     signedIn({ twoFactorRequired: true });
@@ -271,9 +307,8 @@ describe("the security dialog", () => {
     const codes = vi.spyOn(api, "newBackupCodes").mockResolvedValue(["eeeee-fffff"]);
     await turnOnEmail(user);
     await user.click(await screen.findByRole("button", { name: "Continue" }));
-    await user.type(screen.getByLabelText(/^Password/), "a long password");
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(codes).toHaveBeenCalledWith("a long password");
+    expect(codes).toHaveBeenCalled();
     expect(await screen.findByText("eeeee-fffff")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "I Saved Them" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -311,16 +346,15 @@ describe("the security dialog", () => {
     expect(footer.firstElementChild).toBe(screen.getByRole("button", { name: "Sign Out" }));
     // The step's own buttons are down here too, not above the footer.
     expect(within(footer).getByRole("button", { name: "Back" })).toBeVisible();
-    await user.type(screen.getByLabelText(/^Password/), "a long password");
     // The footer's button sends the form that sits above it.
     expect(within(footer).getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 
-  it("stays away from an account that signs in with another provider", async () => {
+  it("says so when an older server has none for an account without a password", async () => {
     summary = { ...NOTHING, available: false };
     openFromSettings();
     await waitFor(() => expect(api.security).toHaveBeenCalled());
-    expect(await screen.findByText(/signs in with another account/)).toBeVisible();
+    expect(await screen.findByText(/only for accounts with a password/)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Set Up Authenticator App" })).toBeNull();
   });
 });
