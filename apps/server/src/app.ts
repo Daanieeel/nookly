@@ -21,6 +21,7 @@ import {
   setPasswordRequestSchema,
   tokenRequestSchema,
   updateShareRequestSchema,
+  tooManyRequests,
 } from "@nookly/shared/api";
 import {
   clientMessageSchema,
@@ -185,6 +186,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
     email: new RateLimiter(5 * scale, HOUR),
     refresh: new RateLimiter(60 * scale, MINUTE),
     sync: new RateLimiter(600 * scale, MINUTE),
+    // A file is a request of its own, and a first sync moves hundreds of them.
+    files: new RateLimiter(3000 * scale, MINUTE),
     share: new RateLimiter(60 * scale, HOUR),
     socket: new RateLimiter(60 * scale, MINUTE),
   };
@@ -197,7 +200,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
   }
 
   function tooMany(wait: number) {
-    return new HttpError(429, "rate_limited", `Too many requests. Try again in ${wait} seconds.`);
+    return new HttpError(429, "rate_limited", tooManyRequests(wait));
   }
 
   function limit(limiter: RateLimiter, key: string) {
@@ -1061,7 +1064,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           "/blobs/:sha256",
           async ({ request, params, set }) => {
             const claims = await claimsOf(request);
-            limit(limits.sync, `sync:${claims.userId}`);
+            limit(limits.files, `files:${claims.userId}`);
             const store = files();
             const length = Number(request.headers.get("content-length") ?? 0);
             if (length > config.MAX_BLOB_BYTES) {
@@ -1100,7 +1103,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           "/blobs/:sha256",
           async ({ request, params }) => {
             const claims = await claimsOf(request);
-            limit(limits.sync, `sync:${claims.userId}`);
+            limit(limits.files, `files:${claims.userId}`);
             const blob = await files().get(claims.userId, params.sha256);
             if (!blob) throw new HttpError(404, "not_found", "This file isn't on the server.");
             return new Response(blob.body, {

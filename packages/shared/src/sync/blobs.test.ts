@@ -5,9 +5,11 @@ import {
   type BlobProgress,
   type BlobTarget,
   BlobSync,
+  DOWNLOADS_AT_ONCE,
   backoffMs,
   contentTypeFor,
 } from "./blobs.ts";
+import { tooManyRequests } from "../api/rate-limit.ts";
 import { NodeSqliteDriver } from "./testing/node-driver.ts";
 
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -74,7 +76,8 @@ function device(
 ) {
   const driver = new NodeSqliteDriver();
   const platform = new FakePlatform(driver, store);
-  const blobs = new BlobSync({ driver, platform, now: () => clock.t, onProgress });
+  const holds = async (sha256: string) => store.has(sha256);
+  const blobs = new BlobSync({ driver, platform, holds, now: () => clock.t, onProgress });
   driver.exec(
     "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
     now(),
@@ -326,6 +329,59 @@ describe("file contents", () => {
     await d.blobs.runOnce();
     expect(d.platform.calls).toEqual([]);
     expect(blobOf(d, "f1")).toBeNull();
+  });
+
+  it("doesn't send contents again to an account that still has them", async () => {
+    const d = device();
+    addFile(d, "f1", "/files/a.pdf", "lecture one");
+    await d.blobs.runOnce();
+    // The device left the account, and now joins one again.
+    d.driver.exec("UPDATE blob_files SET path = '', sha256 = ''");
+    d.platform.calls.length = 0;
+    const progress = await d.blobs.runOnce();
+    expect(d.platform.calls).toEqual([]);
+    expect(progress).toMatchObject({ toUpload: 0, waiting: 0 });
+    expect(d.driver.rows("SELECT path, sha256 FROM blob_files")).toEqual([
+      { path: "/files/a.pdf", sha256: sha("lecture one") },
+    ]);
+    // An account without them gets them.
+    d.driver.exec("UPDATE blob_files SET path = '', sha256 = ''");
+    d.store.clear();
+    await d.blobs.runOnce();
+    expect(d.store.get(sha("lecture one"))).toBe("lecture one");
+  });
+
+  it("waits as long as the server asks before moving any more files", async () => {
+    const d = device();
+    for (let i = 0; i < 12; i++) {
+      const body = `lecture ${i}`;
+      d.store.set(sha(body), body);
+      addFile(d, `f${i}`, null);
+      d.driver.exec("UPDATE files SET blob = ? WHERE entity_id = ?", sha(body), `f${i}`);
+    }
+    const download = d.platform.download.bind(d.platform);
+    let asked = 0;
+    d.platform.download = async () => {
+      asked += 1;
+      throw new Error(tooManyRequests(30));
+    };
+    const refused = await d.blobs.runOnce();
+    // Only those already on their way met the limit.
+    expect(asked).toBe(DOWNLOADS_AT_ONCE);
+    expect(refused).toMatchObject({ toDownload: 12, lastError: tooManyRequests(30) });
+    expect(refused.waiting).toBeGreaterThan(0);
+
+    d.platform.download = download;
+    d.clock.t += 29_000;
+    const early = await d.blobs.runOnce();
+    expect(d.platform.calls).toEqual([]);
+    expect(early).toMatchObject({ toDownload: 12, lastError: tooManyRequests(30) });
+    expect(early.waiting).toBeGreaterThan(0);
+
+    // Then all of them at once: a file that met the limit did nothing wrong.
+    d.clock.t += 1_000;
+    const done = await d.blobs.runOnce();
+    expect(done).toMatchObject({ toDownload: 0, waiting: 0, lastError: null });
   });
 
   it("uploads a replacement this device made", async () => {

@@ -1,5 +1,6 @@
 export * from "./client.ts";
 export { ACCOUNT_COPY, ACCOUNT_TABS } from "./account-copy.ts";
+export * from "./rate-limit.ts";
 export * from "./recheck.ts";
 export * from "./schemas.ts";
 export * from "./sign-in.ts";

@@ -1,3 +1,4 @@
+import { retryAfterSeconds } from "../api/rate-limit.ts";
 import type { SqlValue } from "../schema.ts";
 import { type SqlDriver, guard, ident, run } from "./sql.ts";
 
@@ -164,6 +165,7 @@ export const UPLOADS_AT_ONCE = 3;
 export class BlobSync {
   private readonly driver: SqlDriver;
   private readonly platform: BlobPlatform;
+  private readonly holds: (sha256: string) => Promise<boolean>;
   private readonly now: () => number;
   private readonly failures = new Map<string, { count: number; until: number }>();
   private progress: BlobProgress = { ...NO_BLOB_PROGRESS };
@@ -175,10 +177,14 @@ export class BlobSync {
   private readonly downloadsAtOnce: number;
   private readonly uploadsAtOnce: number;
   private cancelled = false;
+  /// No file moves before this: the server asked for a break.
+  private pausedUntil = 0;
 
   constructor(options: {
     driver: SqlDriver;
     platform: BlobPlatform;
+    /// Whether the account has these contents already.
+    holds: (sha256: string) => Promise<boolean>;
     now?: () => number;
     downloadsAtOnce?: number;
     uploadsAtOnce?: number;
@@ -190,6 +196,7 @@ export class BlobSync {
     this.uploadsAtOnce = Math.max(1, options.uploadsAtOnce ?? UPLOADS_AT_ONCE);
     this.driver = options.driver;
     this.platform = options.platform;
+    this.holds = options.holds;
     this.now = options.now ?? Date.now;
   }
 
@@ -272,11 +279,22 @@ export class BlobSync {
     return failure !== undefined && failure.until > this.now();
   }
 
+  private paused(): boolean {
+    return this.now() < this.pausedUntil;
+  }
+
   private failed(item: Pending, error: Error) {
+    const wait = retryAfterSeconds(error.message);
+    this.progress.lastError = error.message;
+    // Too many requests is about this device, not the file: all of them wait that long,
+    // and none of them longer for it.
+    if (wait !== null) {
+      this.pausedUntil = this.now() + wait * 1000;
+      return;
+    }
     const key = this.key(item);
     const count = (this.failures.get(key)?.count ?? 0) + 1;
     this.failures.set(key, { count, until: this.now() + backoffMs(count) });
-    this.progress.lastError = error.message;
   }
 
   /// Records which contents a local path holds, and (when it is this device's own
@@ -319,9 +337,11 @@ export class BlobSync {
     const hashed = await this.platform.hash(item.path);
     // A file that is gone from disk can't be sent; nothing is changed.
     if (!hashed) return false;
-    // A row that carries the hash already was synced with the account, unless the
-    // device has changed accounts since.
-    if (item.blob !== hashed.sha256 || item.knownPath === "") {
+    // A row that carries the hash already was synced with the account. A device that left
+    // it since asks the account it is in now, which may be another one.
+    const sent =
+      item.blob === hashed.sha256 && (item.knownPath !== "" || (await this.holds(hashed.sha256)));
+    if (!sent) {
       const name = item.name ?? basename(item.path);
       const key = this.key(item);
       await this.platform.upload(hashed.sha256, item.path, contentTypeFor(name), (bytes) =>
@@ -389,7 +409,8 @@ export class BlobSync {
 
   /// One pass: the uploads `uploadsAtOnce` at a time, then the downloads `downloadsAtOnce` at
   /// a time, so one slow file does not hold up the rest. A file that fails waits (`backoffMs`) and is
-  /// tried again on a later pass.
+  /// tried again on a later pass. Once the server says there were too many requests, no
+  /// further file starts until the time it named has passed.
   async runOnce(): Promise<BlobProgress> {
     const { uploads, downloads } = await this.plan();
     this.progress.toUpload = uploads.length;
@@ -439,7 +460,8 @@ export class BlobSync {
     ) => {
       const queue = [...items];
       const worker = async () => {
-        for (let item = queue.shift(); item && !this.cancelled; item = queue.shift()) {
+        for (let item = queue.shift(); item; item = queue.shift()) {
+          if (this.cancelled || this.paused()) return;
           await handle(item, work, counter);
         }
       };
@@ -452,6 +474,7 @@ export class BlobSync {
       "uploaded",
     );
     await pool(downloads, this.downloadsAtOnce, (i) => this.download(i), "downloaded");
+    if (this.paused()) waiting = this.progress.toUpload + this.progress.toDownload;
     this.progress.waiting = waiting;
     if (waiting === 0) this.progress.lastError = null;
     return this.current();

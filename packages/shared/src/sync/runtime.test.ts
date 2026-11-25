@@ -214,6 +214,8 @@ class FakeAccount implements AccountApi {
   async missing(table: string, pks: string[]) {
     return pks.filter((pk) => !this.server.records.has(`${table}\u0000${pk}`));
   }
+  /// Which file contents the account holds.
+  hasBlob = async (_sha256: string) => false;
 }
 
 function runtime(
@@ -1534,6 +1536,19 @@ describe("files and signing out", () => {
     made.files.store.clear();
     await signedIn(made);
     expect(made.files.store.get(sha("lecture"))).toBe("lecture");
+    made.sync.stop();
+  });
+
+  it("doesn't send files again to the account that still has them", async () => {
+    const made = withFiles();
+    made.account.hasBlob = async (sha256) => made.files.store.has(sha256);
+    const sent = vi.spyOn(made.files, "upload");
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    await made.sync.signOut({ keepLocalCopy: true });
+    sent.mockClear();
+    await signedIn(made);
+    expect(sent).not.toHaveBeenCalled();
     made.sync.stop();
   });
 

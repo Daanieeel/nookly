@@ -56,6 +56,7 @@ export type AccountApi = Pick<
   | "isSignedIn"
   | "syncTransport"
   | "missing"
+  | "hasBlob"
   | "sessionToken"
   | "conflicts"
   | "reportConflict"
@@ -624,10 +625,12 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   }
 
   private blobsFor(serverUrl: string): BlobSync | null {
-    if (!this.deps.blobs || !this.api) return null;
+    const api = this.api;
+    if (!this.deps.blobs || !api) return null;
     this.blobs ??= new BlobSync({
       driver: this.deps.driver,
-      platform: this.deps.blobs(serverUrl, this.api),
+      platform: this.deps.blobs(serverUrl, api),
+      holds: (sha256) => api.hasBlob(sha256),
       now: this.now,
       onProgress: (progress) => this.showUpload(progress),
     });

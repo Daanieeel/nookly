@@ -130,6 +130,9 @@ export class ApiRequestError extends Error {
 
 /// The error codes of a request the server could not read: a body that failed its checks.
 const UNREADABLE = new Set(["invalid_request", "invalid_body"]);
+/// What the server says about an address it has nothing at. Its other "not found" answers
+/// name what is missing.
+const NO_SUCH_ADDRESS = "Not found.";
 
 /// The error that says which side is out of date, or null when neither is.
 function outdatedError(status: number, serverVersion: string | undefined): ApiRequestError | null {
@@ -145,7 +148,8 @@ function outdatedError(status: number, serverVersion: string | undefined): ApiRe
 
 /// An error response as an `ApiRequestError`. A request the server could not read, from an app
 /// and a server of different versions, says which of the two is out of date instead of what
-/// was wrong with the request, which nobody can do anything about.
+/// was wrong with the request, which nobody can do anything about. So does one for something
+/// the server doesn't have yet.
 async function requestError(
   response: Response,
   friendly: ReadonlyMap<string, string> | null,
@@ -155,7 +159,8 @@ async function requestError(
   const code = (data.error ?? data.code ?? "http_error").toLowerCase();
   const serverVersion =
     data.serverVersion ?? response.headers.get(SERVER_VERSION_HEADER) ?? undefined;
-  if (UNREADABLE.has(code)) {
+  const noSuchAddress = code === "not_found" && data.message === NO_SUCH_ADDRESS;
+  if (UNREADABLE.has(code) || noSuchAddress) {
     const outdated = outdatedError(response.status, serverVersion);
     if (outdated) return outdated;
   }
