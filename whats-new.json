@@ -1,6 +1,25 @@
 {
   "versions": [
     {
+      "version": "1.1.0",
+      "date": "2026-11-26",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "Signing out now also removes your account's files from that device. A file your account doesn't have yet stays on it.",
+          "While your first sync sends files, you can see how much of them has gone.",
+          "A change that can't sync yet stays on your device, and Nookly keeps trying without asking you anything."
+        ],
+        "Fixed": [
+          "Fixed changes not syncing from a device whose clock is set wrong.",
+          "Fixed some text pasted from other apps not syncing.",
+          "Fixed a change that couldn't sync showing up as a removed item.",
+          "Fixed files not coming back after signing out and in again on the same device.",
+          "Fixed files not being sent after moving a device to another account."
+        ]
+      }
+    },
+    {
       "version": "1.0.3",
       "date": "2026-11-25",
       "highlights": [],

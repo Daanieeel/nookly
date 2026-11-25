@@ -8,7 +8,7 @@ Read `AGENTS.md` and `docs/00-index.md` first.
 
 - Branch `feat/linked-sign-in-and-sync-hardening`, based on `origin/main`. Commit and push regularly. Open a PR, **do not merge, do not tag, do not deploy**.
 - Local `main` has one unpushed commit (`72fc4e5b`, server 1.5.7, web 0.3.5). It is the user's and stays out of this PR.
-- Versions: desktop 1.0.4, mobile 1.0.3, server 1.5.8.
+- Versions: desktop 1.1.0, mobile 1.1.0, server 1.6.0 (minor, covers both parts; one bump per branch).
 - Test first for every change, watch it fail. Copy never uses em or en dashes.
 
 ## Decisions (answered by the user)
@@ -31,7 +31,7 @@ Read `AGENTS.md` and `docs/00-index.md` first.
 - [x] H. Files download again after sign out and sign in on the same device.
 - [x] I. Sign out deletes confirmed files (shared, Rust, phone) and the copy says so.
 - [x] J. Byte progress (shared, Rust, desktop UI, phone UI).
-- [ ] K. Docs, decisions log, versions, CHANGELOG, whats-new.
+- [x] K. Docs, decisions log, versions, CHANGELOG, whats-new.
 - [ ] L. Lint, format, typecheck, tests, `cargo test`, duplication.
 - [ ] M. Live check, push, open PR.
 

@@ -2,6 +2,22 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.1.0 (2026-11-26)
+
+### Changed
+
+- Signing out now also removes your account's files from that device. A file your account doesn't have yet stays on it, so nothing is lost.
+- While your first sync sends files, you can see how much of them has gone, even for one big file.
+- A change that can't sync yet no longer asks you to decide anything. It stays on your device, Nookly keeps trying and tells you it is waiting.
+
+### Fixed
+
+- Fixed changes not syncing from a device whose clock is set wrong.
+- Fixed some text pasted from other apps not syncing.
+- Fixed a change that couldn't sync showing up as a removed item.
+- Fixed files not coming back after signing out and in again on the same device.
+- Fixed files not being sent after moving a device to another account.
+
 ## 1.0.3 (2026-11-25)
 
 ### Fixed

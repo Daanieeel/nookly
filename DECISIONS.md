@@ -592,3 +592,15 @@ An account with a password deletes itself with the password. One made with Googl
 ## D104. An app and a server of different versions say which one is out of date
 
 Every answer of the server carries its version in `x-nookly-server-version`, and every error repeats it as `serverVersion` in its body. Each build of the apps embeds the server version it was made for (`EXPECTED_SERVER_VERSION`, read from `apps/server/package.json` at build time, so it follows on its own). When the server cannot read a request (`invalid_request`, `invalid_body`) or the app cannot read an answer, the shared client compares the two: a server older than expected, or one that reports nothing (older than this decision), is `server_outdated`; one a major or minor version ahead is `app_outdated`; a newer patch or the same version leaves the server's own message. Both the apps show the message of the error, so nothing else changes in them. Other errors are never replaced: a wrong password stays a wrong password.
+
+## D105. A change the server refuses waits, and nobody is asked about it
+
+- **Decision:** a refused change (a wrong clock, a value the server can't store) stays marked as not sent and is retried; a wrong clock is corrected with the server's time and NUL characters are left out of what is sent, both without a word. The only thing said is how many changes wait and that they are safe. This replaces setting them aside as conflicts.
+- **Why:** the old entry read as "removed on another device" and bringing it back could write an old copy over newer edits. Someone who knows nothing of the server can't act on any of it.
+- **Alternatives:** ask the person to fix their clock (still the outcome on a server that sends no time); a retry button (nothing it would change).
+
+## D106. Signing out removes the files the account holds
+
+- **Decision:** a sign out that clears the device, from the device or from the server, deletes the local files the account is confirmed to hold. Anything else stays, and so do backups. Closes the follow up noted in D43.
+- **Why:** a lost device should not hold the account's files, and a file that never reached the account may be the only copy.
+- **Limit:** older copies of replaced files are not tracked and stay, and backups made on the device keep what was in them.
