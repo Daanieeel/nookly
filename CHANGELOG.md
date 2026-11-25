@@ -17,6 +17,7 @@ All notable changes to Nookly are listed here.
 - How you sign in moved from the calendar connections to the Account page.
 - Signing out now also removes your account's files from that device. A file your account doesn't have yet stays on it, so nothing is lost.
 - While your first sync sends files, you can see how much of them has gone, even for one big file.
+- "Keep a local copy", when signing out, can be ticked from anywhere on its row and is shown as a warning.
 - A change that can't sync yet no longer asks you to decide anything. It stays on your device, Nookly keeps trying and tells you it is waiting.
 
 ### Fixed
@@ -26,6 +27,9 @@ All notable changes to Nookly are listed here.
 - Fixed a change that couldn't sync showing up as a removed item.
 - Fixed files not coming back after signing out and in again on the same device.
 - Fixed files not being sent after moving a device to another account.
+- Fixed the app freezing for seconds while files download from your account.
+- Fixed a first sync with many files stalling on "Too many requests".
+- Fixed file sync problems showing "[object Object]" instead of what went wrong.
 
 ## 1.0.3 (2026-11-25)
 

@@ -64,6 +64,16 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 - Re check: password or provider confirmation, plus a second step code when two factor is on; a session younger than 10 minutes counts.
 - A major version bump is **not** done; tell the user the old app lockout is a breaking change.
 
+## Third part: fixes from trying it (2026-11-26)
+
+- [x] O. App froze during a first sync: downloaded files were read (OCR) while holding the database lock, and the sync commands ran on the window's thread.
+- [x] P. File failures showed "[object Object]"; an older server showed "Not found." for sign in methods.
+- [x] Q. "Keep a local copy" is a `CheckboxGroup` with a new `warning` variant, phone too.
+- [x] R. Files get their own server limit (3000 a minute); the apps wait as long as a refusal says.
+- [x] S. Signing in again no longer re sends files the account still holds (came with H).
+- Local checks before the full Rust run: lint, format, typecheck, duplication, server tests pass; `bun run test` had two `ShortcutsTab` timeouts on a loaded machine (pass alone). Full `cargo test` and clippy left to CI.
+- Adding a provider needs a 1.6.0 server with provider keys. Production is 1.5.6; the local `.env` has no keys and `PUBLIC_URL` names another port than `PORT`.
+
 ## Notes
 
 - Checks 2026-11-25: lint, format, typecheck, duplication (0.18%), whats-new, version, `bun run test` (all 6 packages) pass. `cargo test`: 1585 pass; `search_stays_within_its_budget_on_20000_entities` misses its time budget only while every test runs at once (passes alone, search code untouched).
