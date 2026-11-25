@@ -4,6 +4,7 @@ import {
   PAGE_FRAGMENT,
   applyBlock,
   nodeToBlockInput,
+  orderBlocks,
   pageBlocks,
   readNodes,
   seedPage,
@@ -167,5 +168,37 @@ describe("a page document", () => {
     const ids = inputs(editorNodes(editor)).map((i) => i?.blockId);
     expect(ids).toEqual(["b1", "new", "b2", "b3", "b4", "b5", "b6", "b7", "b9"]);
     expect(inputs(editorNodes(editor))[5]?.content).toBe("A changed quote");
+  });
+
+  it("takes an order set outside the editor into an open editor, moving little", () => {
+    const doc = new Y.Doc();
+    seedPage(doc, BLOCKS);
+    const editor = bound(doc);
+    const fragment = doc.getXmlFragment(PAGE_FRAGMENT);
+    const before = new Map(inputs(editorNodes(editor)).map((i) => [i?.blockId, i]));
+    const untouched = fragment.get(1);
+    // The first block goes to the end; the others keep their order.
+    const order = ["b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "b1"];
+    orderBlocks(doc, new Map(order.map((id, position) => [id, position])));
+    const after = inputs(editorNodes(editor)).filter((i) => i && before.has(i.blockId));
+    expect(after.map((i) => i?.blockId)).toEqual(order);
+    expect(after).toEqual(order.map((id) => before.get(id)));
+    expect(fragment.get(0)).toBe(untouched);
+  });
+
+  it("keeps a block without a position behind the one before it", () => {
+    const doc = new Y.Doc();
+    seedPage(doc, BLOCKS.slice(0, 3));
+    // Typed after b1 in an editor, with no row yet.
+    applyBlock(doc, "typed", makeBlock({ id: "typed", position: 1, content: "Typed" }));
+    orderBlocks(
+      doc,
+      new Map([
+        ["b3", 0],
+        ["b2", 1],
+        ["b1", 2],
+      ]),
+    );
+    expect(pageBlocks(doc).map((b) => b.blockId)).toEqual(["b3", "b2", "b1", "typed"]);
   });
 });

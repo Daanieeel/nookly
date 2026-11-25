@@ -4,7 +4,14 @@ import {
   WebSocketStatus,
 } from "@hocuspocus/provider";
 import * as Y from "yjs";
-import { PAGE_SCHEMA_VERSION, attrsKey, pageBlocks, pageSchemaVersion } from "../blocks/index.ts";
+import {
+  BLOCK_FIELDS,
+  type BlockFields,
+  PAGE_FRAGMENT,
+  PAGE_SCHEMA_VERSION,
+  pageSchemaVersion,
+  rowFields,
+} from "../blocks/index.ts";
 import { type SqlDriver, type SqlStatement, run } from "./sql.ts";
 
 /// Page bodies as live Yjs documents on a device (DECISIONS.md D6). Each page this
@@ -58,6 +65,8 @@ interface Entry {
   users: number;
   timer: ReturnType<typeof setTimeout> | null;
   synced: Promise<void>;
+  /// The document's blocks as the rows last took them in; null when they never did.
+  written: Map<string, BlockFields> | null;
 }
 
 export class PageDocs {
@@ -119,7 +128,7 @@ export class PageDocs {
         new Date(this.options.now?.() ?? Date.now()).toISOString(),
       ),
     ]);
-    await this.materialize(entityId, doc);
+    entry.written = await this.materialize(entityId, doc, entry.written);
   }
 
   private schedule(entry: Entry) {
@@ -153,6 +162,8 @@ export class PageDocs {
       users: 0,
       timer: null,
       synced,
+      // A saved copy's blocks reached the rows when it was saved; they may be newer now.
+      written: doc.getXmlFragment(PAGE_FRAGMENT).length > 0 ? rowFields(doc) : null,
     };
     doc.on("update", () => this.schedule(entry));
     // Confirmed by the server: the copy is no longer pending.
@@ -278,19 +289,25 @@ export class PageDocs {
     return waiting;
   }
 
-  /// Writes the document's blocks into this device's rows without marking them as
-  /// edits: the server writes the same rows. A row with an edit of its own not yet
-  /// sent (the CLI, an import) is left alone; that edit reaches the document
-  /// through the server instead.
-  async materialize(entityId: string, doc: Y.Doc) {
-    const blocks = pageBlocks(doc);
-    if (blocks.length === 0) return;
+  /// Writes what the document changed since `written` into this device's rows, without
+  /// marking it as edits: the server writes the same rows. Anything the document did not
+  /// change stays as the rows have it, since they may be ahead of this copy (the CLI
+  /// reordered the page while the app was quit). A row with an edit of its own not yet
+  /// sent is left alone; that edit reaches the document through the server instead.
+  /// Returns what the rows have now taken in, for the next call.
+  async materialize(
+    entityId: string,
+    doc: Y.Doc,
+    written: Map<string, BlockFields> | null,
+  ): Promise<Map<string, BlockFields> | null> {
+    const blocks = rowFields(doc);
+    if (blocks.size === 0) return written;
     const { driver } = this.options;
     // The page's own row hasn't synced here yet; its rows follow once it has.
     if ((await driver.query("SELECT 1 AS x FROM entities WHERE id = ?", [entityId])).length === 0)
-      return;
+      return written;
     const current = await driver.query(
-      "SELECT id, position, block_type, content, language, filename, attrs, created_at FROM blocks WHERE entity_id = ?",
+      "SELECT id, position, block_type, content, language, filename, attrs FROM blocks WHERE entity_id = ?",
       [entityId],
     );
     const dirty = new Map(
@@ -307,54 +324,47 @@ export class PageDocs {
     const now = new Date(this.options.now?.() ?? Date.now()).toISOString();
     const statements: SqlStatement[] = [];
     const touched: string[] = [];
-    const seen = new Set<string>();
-    for (const block of blocks) {
-      if (seen.has(block.blockId) || dirty.has(block.blockId)) continue;
-      seen.add(block.blockId);
-      const row = byId.get(block.blockId);
-      const isCode = block.blockType === "code";
-      const attrs =
-        attrsKey(block.attrs) === "[]"
-          ? null
-          : JSON.stringify(
-              Object.fromEntries(
-                Object.entries(block.attrs ?? {})
-                  .filter(([, v]) => v !== "")
-                  .sort(([a], [b]) => a.localeCompare(b)),
-              ),
-            );
-      const next = {
-        position: block.position,
-        block_type: block.blockType,
-        content: block.content,
-        language: isCode ? (block.language ?? null) : null,
-        filename: isCode ? (block.filename ?? null) : null,
-        attrs,
-      };
-      if (row && Object.entries(next).every(([k, v]) => (row[k] ?? null) === v)) continue;
-      statements.push(
-        run(
-          "INSERT INTO blocks (id, entity_id, position, block_type, content, language, filename, attrs, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET position = excluded.position, block_type = excluded.block_type, content = excluded.content, language = excluded.language, filename = excluded.filename, attrs = excluded.attrs, updated_at = excluded.updated_at",
-          block.blockId,
-          entityId,
-          next.position,
-          next.block_type,
-          next.content,
-          next.language,
-          next.filename,
-          next.attrs,
-          row ? String(row.created_at) : now,
-          now,
-        ),
+    for (const [id, next] of blocks) {
+      if (dirty.has(id)) continue;
+      const row = byId.get(id);
+      const before = written?.get(id);
+      // A block the rows had and no longer do was removed there, unless it changed here.
+      const changed = BLOCK_FIELDS.filter(
+        (name) =>
+          (!before || before[name] !== next[name]) && (!row || (row[name] ?? null) !== next[name]),
       );
-      touched.push(block.blockId);
+      if (changed.length === 0) continue;
+      if (row) {
+        statements.push(
+          run(
+            `UPDATE blocks SET ${changed.map((name) => `${name} = ?`).join(", ")}, updated_at = ? WHERE id = ?`,
+            ...changed.map((name) => next[name]),
+            now,
+            id,
+          ),
+        );
+      } else {
+        statements.push(
+          run(
+            "INSERT INTO blocks (id, entity_id, position, block_type, content, language, filename, attrs, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING",
+            id,
+            entityId,
+            ...BLOCK_FIELDS.map((name) => next[name]),
+            now,
+            now,
+          ),
+        );
+      }
+      touched.push(id);
     }
-    for (const [id] of byId) {
-      if (seen.has(id) || dirty.has(id)) continue;
+    for (const id of byId.keys()) {
+      // Without an earlier copy the document is the server's: what it lacks is gone.
+      const removed = !blocks.has(id) && (!written || written.has(id));
+      if (!removed || dirty.has(id)) continue;
       statements.push(run("DELETE FROM blocks WHERE id = ?", id));
       touched.push(id);
     }
-    if (statements.length === 0) return;
+    if (statements.length === 0) return blocks;
     // The triggers marked each written row once; those marks are not edits.
     if (enabled) {
       for (const id of touched) {
@@ -365,6 +375,7 @@ export class PageDocs {
     }
     await driver.batch(statements);
     this.options.onRows?.(entityId);
+    return blocks;
   }
 
   /// Signing out: every document closes and the device's copies go, as they belong

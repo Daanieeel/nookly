@@ -21,7 +21,7 @@ Two states of a record merge field by field: the newer clock wins. This is commu
 
 An edit that loses to a concurrent one (made without seeing it) is written to `sync_conflicts` on the device, and to `conflicts` on the server, never dropped. A change carries `baseClocks`, the clock each field had when it was edited, which tells a concurrent edit from one that saw the value it replaced.
 
-Page bodies merge per block: blocks are rows, so edits to different blocks of a page merge, and two edits of one block keep the newer, the other going to conflicts. A reorder rewrites block positions, so concurrent reorders keep the newer positions.
+Page bodies merge per block: blocks are rows, so edits to different blocks of a page merge, and two edits of one block keep the newer, the other going to conflicts. A reorder rewrites block positions, so concurrent reorders keep the newer positions. A page open in an editor follows an order set outside it: the server moves the blocks of the live document to match the pushed positions (`orderBlocks`), and an editor on rows places only what it added or moved itself. A device likewise writes into its rows only what its copy of a page document changed, so a copy saved earlier never undoes newer rows.
 
 Deleting a row that other rows point at (emptying a page from Trash) removes those rows on every device too, each kept as a conflict first.
 

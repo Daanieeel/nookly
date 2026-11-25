@@ -4,9 +4,11 @@ import type { SqlValue } from "../schema.ts";
 import {
   type Block,
   type BlockType,
+  BLOCK_FIELDS,
+  type BlockFields,
   applyBlock,
-  attrsKey,
-  pageBlocks,
+  orderBlocks,
+  rowFields,
   seedPage,
 } from "../blocks/index.ts";
 import type { SqlStatement } from "../sync/sql.ts";
@@ -22,48 +24,6 @@ import { type LocalDb, iso, rows, write } from "./db.ts";
 
 /// What each block was when last read or written, by block id: the fields as rows hold them.
 export type PageSnapshot = Map<string, BlockFields>;
-
-interface BlockFields {
-  position: number;
-  block_type: string;
-  content: string;
-  language: string | null;
-  filename: string | null;
-  attrs: string | null;
-}
-
-const FIELDS = ["position", "block_type", "content", "language", "filename", "attrs"] as const;
-
-function attrsText(attrs: Record<string, string> | undefined): string | null {
-  if (attrsKey(attrs) === "[]") return null;
-  return JSON.stringify(
-    Object.fromEntries(
-      Object.entries(attrs ?? {})
-        .filter(([, value]) => value !== "")
-        .sort(([a], [b]) => a.localeCompare(b)),
-    ),
-  );
-}
-
-/// The document's blocks as rows hold them.
-export function snapshotOf(doc: Y.Doc): PageSnapshot {
-  return new Map(
-    pageBlocks(doc).map((block) => {
-      const code = block.blockType === "code";
-      return [
-        block.blockId,
-        {
-          position: block.position,
-          block_type: block.blockType,
-          content: block.content,
-          language: code ? (block.language ?? null) : null,
-          filename: code ? (block.filename ?? null) : null,
-          attrs: attrsText(block.attrs),
-        },
-      ];
-    }),
-  );
-}
 
 async function blockRows(db: LocalDb, entityId: string): Promise<Block[]> {
   const found = await rows(
@@ -109,23 +69,57 @@ export async function openRowsPage(
   // An empty page stays empty: the editor makes its own first line, and a second one here
   // would show as a stray empty line.
   if (blocks.length > 0) seedPage(doc, blocks);
-  return { doc, snapshot: snapshotOf(doc) };
+  return { doc, snapshot: rowFields(doc) };
+}
+
+/// Whether `positions` puts the blocks it shares with `snapshot` in another order.
+function movedSince(snapshot: PageSnapshot, positions: ReadonlyMap<string, number>): boolean {
+  const now = [...snapshot]
+    .sort(([, a], [, b]) => a.position - b.position)
+    .flatMap(([id]) => positions.get(id) ?? []);
+  return now.some((position, i) => i > 0 && position < (now[i - 1] ?? 0));
+}
+
+const positionsOf = (blocks: Iterable<[string, { position: number }]>) =>
+  new Map([...blocks].map(([id, block]) => [id, block.position]));
+
+const rowPositions = (blocks: Block[]) =>
+  new Map(blocks.map((block) => [block.id, block.position]));
+
+/// Moves the document's blocks into the order the rows were given elsewhere. Returns the
+/// snapshot numbered to match, so that order is not written back as an edit of this one.
+function followRowOrder(current: Block[], doc: Y.Doc, snapshot: PageSnapshot): PageSnapshot {
+  orderBlocks(doc, rowPositions(current));
+  const followed = new Map(snapshot);
+  let position = 0;
+  for (const id of rowFields(doc).keys()) {
+    const fields = snapshot.get(id);
+    if (fields) followed.set(id, { ...fields, position: position++ });
+  }
+  return followed;
 }
 
 /// Writes what the editor changed since `snapshot` as row edits: a new block is added, a
-/// removed one deleted, and of a changed one only the fields that changed. Returns what the
-/// rows hold now.
+/// removed one deleted, and of a changed one only the fields that changed. An order the rows
+/// were given elsewhere meanwhile is kept, unless this editor moved blocks itself. Returns
+/// what the rows hold now.
 export async function saveRowsPage(
   db: LocalDb,
   entityId: string,
   doc: Y.Doc,
   snapshot: PageSnapshot,
 ): Promise<PageSnapshot> {
-  const next = snapshotOf(doc);
+  const current = await blockRows(db, entityId);
+  const base =
+    movedSince(snapshot, rowPositions(current)) &&
+    !movedSince(snapshot, positionsOf(rowFields(doc)))
+      ? followRowOrder(current, doc, snapshot)
+      : snapshot;
+  const next = rowFields(doc);
   const now = iso(db);
   const statements: SqlStatement[] = [];
   for (const [id, fields] of next) {
-    const before = snapshot.get(id);
+    const before = base.get(id);
     if (!before) {
       statements.push({
         sql: "INSERT INTO blocks (id, entity_id, position, block_type, content, language, filename, attrs, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING",
@@ -144,14 +138,14 @@ export async function saveRowsPage(
       });
       continue;
     }
-    const changed = FIELDS.filter((name) => before[name] !== fields[name]);
+    const changed = BLOCK_FIELDS.filter((name) => before[name] !== fields[name]);
     if (changed.length === 0) continue;
     statements.push({
       sql: `UPDATE blocks SET ${changed.map((name) => `${name} = ?`).join(", ")}, updated_at = ? WHERE id = ?`,
       params: [...changed.map((name) => fields[name]), now, id],
     });
   }
-  for (const id of snapshot.keys()) {
+  for (const id of base.keys()) {
     if (!next.has(id)) statements.push({ sql: "DELETE FROM blocks WHERE id = ?", params: [id] });
   }
   if (statements.length === 0) return next;
@@ -173,13 +167,13 @@ export async function takeRowChanges(
   snapshot: PageSnapshot,
 ): Promise<PageSnapshot> {
   const current = await blockRows(db, entityId);
-  const mine = snapshotOf(doc);
+  const mine = rowFields(doc);
   const taken = new Map(snapshot);
   const fromRows = new Map(
     current.map((block) => {
       const scratch = new Y.Doc();
       seedPage(scratch, [block]);
-      return [block.id, { block, fields: snapshotOf(scratch).get(block.id) }];
+      return [block.id, { block, fields: rowFields(scratch).get(block.id) }];
     }),
   );
   for (const [id, { block, fields }] of fromRows) {
@@ -188,7 +182,7 @@ export async function takeRowChanges(
     const editedHere = before && JSON.stringify(before) !== JSON.stringify(mine.get(id));
     if (editedHere) continue;
     const same =
-      before && FIELDS.every((name) => name === "position" || before[name] === fields[name]);
+      before && BLOCK_FIELDS.every((name) => name === "position" || before[name] === fields[name]);
     if (same) continue;
     applyBlock(doc, id, block);
     taken.set(id, { ...fields, position: block.position });
@@ -200,5 +194,7 @@ export async function takeRowChanges(
     applyBlock(doc, id, null);
     taken.delete(id);
   }
-  return taken;
+  return movedSince(snapshot, rowPositions(current)) && !movedSince(snapshot, positionsOf(mine))
+    ? followRowOrder(current, doc, taken)
+    : taken;
 }

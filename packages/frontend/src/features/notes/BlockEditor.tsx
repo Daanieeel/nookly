@@ -14,6 +14,7 @@ import {
   createBlock,
   deleteBlock,
   getNoteCodeLanguage,
+  listBlocks,
   reorderBlocks,
   updateBlock,
 } from "#/lib/api/notes.ts";
@@ -51,7 +52,7 @@ import { TableRowHandles } from "./TableRowHandles";
 import { blocksQueryOptions, saveBlocksKey } from "./blocks-query";
 import { usePageEditLock } from "./page-edit-lock.ts";
 import { type PageSession, caretColor, presenceName } from "@nookly/shared/sync";
-import { PAGE_FRAGMENT } from "@nookly/shared/blocks";
+import { PAGE_FRAGMENT, mergeOrder } from "@nookly/shared/blocks";
 import Collaboration from "@tiptap/extension-collaboration";
 import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { useViewOnly } from "#/features/sync/view-only.ts";
@@ -349,7 +350,10 @@ export function HydratedBlockEditor({
         orderedServerIds.length === order.length &&
         orderedServerIds.every((id, index) => id === order[index]);
       if (orderedServerIds.length > 0 && !unchanged) {
-        await reorderBlocks(entityId, orderedServerIds);
+        // The page may have been reordered elsewhere (the CLI) since this editor
+        // last saved: only what was added or moved here is placed from here.
+        const stored = (await listBlocks(entityId)).map((block) => block.id);
+        await reorderBlocks(entityId, mergeOrder(order, orderedServerIds, stored));
         orderRef.current = orderedServerIds;
       }
     },

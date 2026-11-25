@@ -6,8 +6,10 @@ import {
   type JSONNode,
   blockToNode,
   nodeToBlockInput,
+  attrsKey,
   type BlockInput,
 } from "./markdown.ts";
+import { longestIncreasing } from "./order.ts";
 
 /// A page body as a Yjs document, the way TipTap's Collaboration extension (through
 /// y-tiptap) stores it: an XML fragment named `default` with one element per node,
@@ -150,9 +152,103 @@ export function pageBlocks(doc: Y.Doc): (BlockInput & { position: number })[] {
     .map((input, position) => ({ ...input, position }));
 }
 
+/// The columns of a block row that follow from its page document.
+export interface BlockFields {
+  position: number;
+  block_type: string;
+  content: string;
+  language: string | null;
+  filename: string | null;
+  attrs: string | null;
+}
+
+export const BLOCK_FIELDS = [
+  "position",
+  "block_type",
+  "content",
+  "language",
+  "filename",
+  "attrs",
+] as const;
+
+/// Stored form of a block's attrs: set ones only, keys in order, null when none.
+function attrsText(attrs: Record<string, string> | undefined): string | null {
+  if (attrsKey(attrs) === "[]") return null;
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(attrs ?? {})
+        .filter(([, value]) => value !== "")
+        .sort(([a], [b]) => a.localeCompare(b)),
+    ),
+  );
+}
+
+/// The document's blocks as rows hold them, by block id, in order. A repeated id counts
+/// where it comes first.
+export function rowFields(doc: Y.Doc): Map<string, BlockFields> {
+  const fields = new Map<string, BlockFields>();
+  for (const block of pageBlocks(doc)) {
+    if (fields.has(block.blockId)) continue;
+    const code = block.blockType === "code";
+    fields.set(block.blockId, {
+      position: block.position,
+      block_type: block.blockType,
+      content: block.content,
+      language: code ? (block.language ?? null) : null,
+      filename: code ? (block.filename ?? null) : null,
+      attrs: attrsText(block.attrs),
+    });
+  }
+  return fields;
+}
+
+/// Puts the document's blocks in the order of `positions` (block id to row position),
+/// for rows reordered outside this editor. A block without a position (typed here and
+/// not saved yet) stays behind the block before it. As few blocks as possible move,
+/// since moving one replaces it, which cuts into anyone typing in it.
+export function orderBlocks(doc: Y.Doc, positions: ReadonlyMap<string, number>) {
+  doc.transact(() => {
+    const fragment = doc.getXmlFragment(PAGE_FRAGMENT);
+    const lead: Y.XmlElement[] = [];
+    const groups: { position: number; items: Y.XmlElement[] }[] = [];
+    for (const item of fragment.toArray()) {
+      // SAFETY: the top level of a page holds one element per node.
+      const element = item as Y.XmlElement;
+      const position = positions.get(String(element.getAttribute("blockId")));
+      if (position !== undefined) groups.push({ position, items: [element] });
+      else (groups.at(-1)?.items ?? lead).push(element);
+    }
+    // The current index of each group, in the order wanted. The sort is stable.
+    const wanted = groups
+      .map((_, index) => index)
+      .sort((a, b) => groups[a].position - groups[b].position);
+    const staying = longestIncreasing(wanted);
+    if (staying.size === groups.length) return;
+    // Copied before they are removed, while their content can still be read.
+    const copies = new Map(
+      wanted
+        .filter((index) => !staying.has(index))
+        .map((index) => [index, groups[index].items.map((item) => item.clone())]),
+    );
+    let end = fragment.length;
+    for (let index = groups.length - 1; index >= 0; index--) {
+      const { length } = groups[index].items;
+      end -= length;
+      if (!staying.has(index)) fragment.delete(end, length);
+    }
+    let at = lead.length;
+    for (const index of wanted) {
+      const copy = copies.get(index);
+      if (copy) fragment.insert(at, copy);
+      at += groups[index].items.length;
+    }
+  });
+}
+
 /// Replaces, inserts or removes one block of a page document, for a block row
 /// changed outside an editor (the CLI, an import, an older device). `block` null
-/// removes it. Text inside other blocks is untouched.
+/// removes it. Text inside other blocks is untouched. A block that only moved is
+/// left where it is: `orderBlocks` moves it.
 export function applyBlock(doc: Y.Doc, blockId: string, block: Block | null) {
   doc.transact(() => {
     const fragment = doc.getXmlFragment(PAGE_FRAGMENT);

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.0.3 (2026-11-25)
+
+### Fixed
+
+- Fixed a new block order set with the command line or on another device sometimes changing back to the old order.
+
 ## 1.0.2 (2026-11-24)
 
 ### Fixed

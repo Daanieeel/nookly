@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "1.0.3",
+      "date": "2026-11-25",
+      "highlights": [],
+      "more": {
+        "Fixed": [
+          "Fixed a new block order set with the command line or on another device sometimes changing back to the old order."
+        ]
+      }
+    },
+    {
       "version": "1.0.2",
       "date": "2026-11-24",
       "highlights": [],

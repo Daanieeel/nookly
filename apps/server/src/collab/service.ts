@@ -3,6 +3,7 @@ import {
   type Block,
   type BlockType,
   applyBlock,
+  orderBlocks,
   pageBlocks,
   seedPage,
 } from "@nookly/shared/blocks";
@@ -308,10 +309,19 @@ export class CollabService {
       byPage.set(block.scope, [...(byPage.get(block.scope) ?? []), block]);
     }
     for (const [entityId, changed] of byPage) {
+      // A reorder reaches the document as the order of all the page's rows.
+      const positions = changed.some((block) => block.moved)
+        ? await this.positionsOf(ownerId, entityId, changed)
+        : null;
       const apply = (doc: Y.Doc) => {
-        for (const { pk, state } of changed) {
-          applyBlock(doc, pk, isAlive(state) ? rowOf(state.fields, pk) : null);
-        }
+        const incoming = changed.map(({ pk, state }) => ({
+          pk,
+          block: isAlive(state) ? rowOf(state.fields, pk) : null,
+        }));
+        // Top to bottom, so each new block finds the ones above it in place.
+        incoming.sort((a, b) => (a.block?.position ?? -1) - (b.block?.position ?? -1));
+        for (const { pk, block } of incoming) applyBlock(doc, pk, block);
+        if (positions) orderBlocks(doc, positions);
       };
       const name = documentName(ownerId, entityId);
       if (this.hocuspocus.documents.has(name)) {
@@ -333,6 +343,17 @@ export class CollabService {
         .set({ state: Y.encodeStateAsUpdate(doc), updatedAt: new Date() })
         .where(and(eq(documents.ownerId, ownerId), eq(documents.entityId, entityId)));
     }
+  }
+
+  /// Where each block of a page belongs by its rows. The pushed blocks count as
+  /// pushed, even if a save of the open document has written over their rows since.
+  private async positionsOf(ownerId: string, entityId: string, changed: ChangedBlock[]) {
+    const positions = new Map<string, number>();
+    for (const row of await this.blockRows(ownerId, entityId)) {
+      positions.set(row.pk, Number(row.fields.position ?? 0));
+    }
+    for (const { pk, state } of changed) positions.set(pk, Number(state.fields.position ?? 0));
+    return positions;
   }
 
   /// Saves every document with edits still waiting, for a clean shutdown and tests.
