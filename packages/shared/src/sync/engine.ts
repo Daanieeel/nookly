@@ -379,6 +379,8 @@ export class SyncEngine {
       run("DELETE FROM sync_meta WHERE key <> ?", META.deviceId),
       run("DELETE FROM sync_dirty"),
       run("DELETE FROM sync_rows"),
+      // What each local file holds stays known, but not as sent to any account.
+      run("UPDATE blob_files SET path = '', sha256 = ''"),
     ]);
     this.clock = null;
   }
@@ -403,6 +405,7 @@ export class SyncEngine {
       run("DELETE FROM sync_rows"),
       run("DELETE FROM sync_conflicts"),
       run("DELETE FROM page_docs"),
+      run("DELETE FROM blob_files"),
       ...seedStatements(),
     ]);
     if (result.outcome !== "done") throw new Error("Couldn't clear this device.");

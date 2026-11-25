@@ -159,7 +159,7 @@ export interface SignOutResult {
 /// How long a sign out waits for the last changes to go out.
 const LAST_SYNC_MS = 10_000;
 const SIGNED_OUT_CLEARED =
-  "This device was signed out of your account, and your data was removed from this device. Sign in again to get it back.";
+  "This device was signed out of your account, and your data was removed from this device. Files your account doesn't have yet stay on it. Sign in again to get your data back.";
 const SIGNED_OUT_NOT_CLEARED =
   "This device was signed out of your account, but its data could not be removed. Sign in again to keep syncing.";
 
@@ -1043,11 +1043,14 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     let backupPath: string | null = null;
     if (!keep && unsent > 0 && this.deps.backup) backupPath = (await this.deps.backup(true)).path;
     const client = this.client;
+    const blobs = keep ? null : await this.stopFiles();
     this.stop();
     // A sync still on its way must not write after the wipe below.
     await client?.finished();
     // Open pages write their last words into the rows before their copies go.
     await this.closingDocs;
+    // Asked while sync still knows what the account holds.
+    const files = (await blobs?.confirmed()) ?? [];
     try {
       await this.api?.signOut();
     } catch {
@@ -1075,8 +1078,24 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         twoFactorPending: false,
       });
       await this.cleared(gone);
+      await blobs?.remove(files);
     }
     return { unsent, backupPath };
+  }
+
+  /// Starts no further file and gives the ones on their way a moment to finish, before a
+  /// device is cleared.
+  private async stopFiles(): Promise<BlobSync | null> {
+    const serverUrl = this.store.getState().serverUrl;
+    const blobs = serverUrl ? this.blobsFor(serverUrl) : null;
+    blobs?.cancel();
+    if (this.filesRunning) {
+      await Promise.race([
+        this.filesRunning,
+        new Promise((resolve) => setTimeout(resolve, LAST_SYNC_MS)),
+      ]);
+    }
+    return blobs;
   }
 
   /// The account is gone from the server (deleted from this device): the device lets go of
@@ -1100,21 +1119,25 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   }
 
   /// The server ended this device's session (signed out from another device, a password
-  /// reset, an account that is gone). Nothing stays: whoever holds a device the account
-  /// lost access to, a lost or stolen one, must find none of its data on it, and not even
-  /// a backup. The data is in the account and on the other devices, so signing in again
-  /// brings it back. Edits that never reached the account are lost with it: the session
-  /// is gone, so they can't be sent any more.
+  /// reset, an account that is gone). The account's data goes, and no backup is made:
+  /// whoever holds a device the account lost access to, a lost or stolen one, should not
+  /// find it there. The data is in the account and on the other devices, so signing in
+  /// again brings it back. Edits that never reached the account are lost with it: the
+  /// session is gone, so they can't be sent any more. A file the account doesn't have
+  /// stays on disk, as it may be the only copy.
   private async signedOutByServer() {
     const client = this.client;
+    const blobs = await this.stopFiles();
     this.stop();
     await client?.finished();
     await this.closingDocs;
+    const files = (await blobs?.confirmed().catch(() => [])) ?? [];
     await this.engine.disable();
     let signedOutReason = SIGNED_OUT_CLEARED;
     let gone: string[] = [];
     try {
       gone = await this.engine.wipe();
+      await blobs?.remove(files);
     } catch {
       signedOutReason = SIGNED_OUT_NOT_CLEARED;
     }

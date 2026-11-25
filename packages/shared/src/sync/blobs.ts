@@ -9,11 +9,13 @@ import { type SqlDriver, guard, ident, run } from "./sql.ts";
 /// - a local path this device hasn't recorded is a file it added or replaced: it is
 ///   hashed, uploaded, and only then does the row get its hash (an edit, synced);
 /// - a row whose hash differs from what its recorded local file holds was changed
-///   elsewhere: the contents are downloaded, checked against the hash, stored next
-///   to the old copy (which stays on disk) and recorded.
+///   elsewhere, and one without a local path has no copy here: the contents are
+///   downloaded, checked against the hash, stored next to any old copy (which stays
+///   on disk) and recorded.
 ///
-/// A local file is never deleted, and a row only ever points at contents the server
-/// confirmed. Everything is derived from the database, so a crash or a lost
+/// Syncing never deletes a local file; only a sign out that clears the device removes
+/// the ones the account holds (`confirmed`). A row only ever points at contents the
+/// server confirmed. Everything is derived from the database, so a crash or a lost
 /// connection loses nothing: the next run picks up where this one stopped.
 
 export interface BlobColumn {
@@ -49,6 +51,15 @@ export interface BlobPlatform {
   /// Downloads the contents, checks them against `sha256`, stores them where this
   /// device keeps files and points the row's path at them. Returns that path.
   download(sha256: string, target: BlobTarget): Promise<string>;
+  /// Deletes a local file, only when it lies in the folders Nookly keeps files in and
+  /// still holds exactly `sha256`. Whether it was deleted.
+  remove(path: string, sha256: string): Promise<boolean>;
+}
+
+/// A local file whose contents the account holds.
+export interface StoredFile {
+  path: string;
+  sha256: string;
 }
 
 export interface BlobProgress {
@@ -68,6 +79,9 @@ interface Pending {
   path: string | null;
   blob: string | null;
   name: string | null;
+  /// The local path recorded for this row; empty once the device left the account it
+  /// was recorded for (`SyncEngine.disable`).
+  knownPath: string | null;
 }
 
 const TYPES = new Map([
@@ -132,6 +146,7 @@ export class BlobSync {
 
   private readonly downloadsAtOnce: number;
   private readonly uploadsAtOnce: number;
+  private cancelled = false;
 
   constructor(options: {
     driver: SqlDriver;
@@ -151,9 +166,7 @@ export class BlobSync {
     return { ...this.progress };
   }
 
-  private async rows(
-    column: BlobColumn,
-  ): Promise<(Pending & { known: string | null; knownPath: string | null })[]> {
+  private async rows(column: BlobColumn): Promise<(Pending & { known: string | null })[]> {
     const t = ident(column.table);
     const name = column.name ? `t.${ident(column.name)}` : "NULL";
     const rows = await this.driver.query(
@@ -180,7 +193,8 @@ export class BlobSync {
     for (const column of BLOB_COLUMNS) {
       for (const row of await this.rows(column)) {
         if (row.path !== null && row.path !== row.knownPath) uploads.push(row);
-        else if (row.blob !== null && row.blob !== row.known) downloads.push(row);
+        else if (row.blob !== null && (row.blob !== row.known || row.path === null))
+          downloads.push(row);
       }
     }
     return { uploads, downloads };
@@ -242,7 +256,9 @@ export class BlobSync {
     const hashed = await this.platform.hash(item.path);
     // A file that is gone from disk can't be sent; nothing is changed.
     if (!hashed) return false;
-    if (item.blob !== hashed.sha256) {
+    // A row that carries the hash already was synced with the account, unless the
+    // device has changed accounts since.
+    if (item.blob !== hashed.sha256 || item.knownPath === "") {
       const name = item.name ?? basename(item.path);
       await this.platform.upload(hashed.sha256, item.path, contentTypeFor(name));
     }
@@ -259,7 +275,50 @@ export class BlobSync {
       filename,
     });
     const result = await this.record(item, path, item.blob, false);
+    // The device was cleared while this came in: the account holds it, so it goes too.
+    if (result.outcome !== "done" && this.cancelled) await this.platform.remove(path, item.blob);
     return result.outcome === "done";
+  }
+
+  /// No further file is started; what is on its way finishes.
+  cancel() {
+    this.cancelled = true;
+  }
+
+  /// The local files the account holds: the row points at the file, the record of what
+  /// the file holds matches it, and the account's row (as the server last had it) names
+  /// the same contents. A path any other row still needs here is left out.
+  async confirmed(): Promise<StoredFile[]> {
+    const stored = new Map<string, string>();
+    const needed = new Set<string>();
+    for (const column of BLOB_COLUMNS) {
+      const key = `t.${ident(column.key)}`;
+      const path = `t.${ident(column.path)}`;
+      const blob = `t.${ident(column.blob)}`;
+      const rows = await this.driver.query(
+        `SELECT ${path} AS path, ${blob} AS blob,
+           (b.path = ${path} AND b.sha256 = ${blob} AND json_extract(r.fields, ?) = ${blob}) AS held
+         FROM ${ident(column.table)} t
+         LEFT JOIN blob_files b ON b.tbl = ? AND b.pk = ${key}
+         LEFT JOIN sync_rows r ON r.tbl = ? AND r.pk = ${key}
+         WHERE ${path} IS NOT NULL`,
+        [`$.${column.blob}`, column.table, column.table],
+      );
+      for (const row of rows) {
+        if (row.held === 1) stored.set(String(row.path), String(row.blob));
+        else needed.add(String(row.path));
+      }
+    }
+    return [...stored]
+      .filter(([path]) => !needed.has(path))
+      .map(([path, sha256]) => ({ path, sha256 }));
+  }
+
+  /// Deletes local files the account holds. One that can't be deleted stays.
+  async remove(files: StoredFile[]): Promise<void> {
+    for (const file of files) {
+      await this.platform.remove(file.path, file.sha256).catch(() => false);
+    }
   }
 
   /// One pass: the uploads `uploadsAtOnce` at a time, then the downloads `downloadsAtOnce` at
@@ -300,7 +359,7 @@ export class BlobSync {
     ) => {
       const queue = [...items];
       const worker = async () => {
-        for (let item = queue.shift(); item; item = queue.shift()) {
+        for (let item = queue.shift(); item && !this.cancelled; item = queue.shift()) {
           await handle(item, work, counter);
         }
       };

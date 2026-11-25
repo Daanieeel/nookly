@@ -37,6 +37,12 @@ class FakePlatform implements BlobPlatform {
     this.store.set(sha256, body);
   }
 
+  async remove(path: string, sha256: string) {
+    const body = this.disk.get(path);
+    if (body === undefined || sha(body) !== sha256) return false;
+    return this.disk.delete(path);
+  }
+
   async download(sha256: string, target: BlobTarget) {
     this.calls.push(`download ${sha256.slice(0, 6)} ${target.filename}`);
     if (this.offline) throw new Error("offline");

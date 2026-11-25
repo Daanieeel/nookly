@@ -219,6 +219,7 @@ describe("the Account page", () => {
       expect.arrayContaining([
         "Stays in your account and on your other devices",
         expect.stringMatching(/^Removed from this .+, back when you sign in$/),
+        "Files go too, except ones your account doesn't have yet",
       ]),
     );
     for (const line of lines) expect(line.length).toBeLessThan(70);

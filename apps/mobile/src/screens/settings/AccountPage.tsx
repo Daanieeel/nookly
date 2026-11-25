@@ -22,6 +22,7 @@ import {
   IconShieldLock,
   IconTrash,
   type Icon as TablerIcon,
+  IconFolder,
 } from "@tabler/icons-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -226,6 +227,7 @@ function SignedInCard() {
       points: [
         { icon: IconCloudCheck, text: "Stays in your account and on your other devices" },
         { icon: IconDeviceMobile, text: `Removed from this ${device}, back when you sign in` },
+        { icon: IconFolder, text: "Files go too, except ones your account doesn't have yet" },
         ...(unsent > 0
           ? [
               {

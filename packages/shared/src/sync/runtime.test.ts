@@ -3,7 +3,7 @@ import { PRODUCTION_SERVER, TERMS_VERSION } from "../api/index.ts";
 import { ProviderNoAccountError, TwoFactorRequiredError } from "../api/index.ts";
 import type { DeviceInfo, SignUp, TwoFactorMethod, User } from "../api/index.ts";
 import type { ConflictReport, ServerConflict } from "./protocol.ts";
-import type { BlobPlatform } from "./blobs.ts";
+import type { BlobPlatform, BlobTarget } from "./blobs.ts";
 import { type LiveHandlers, NetworkError, type SyncTransport } from "./client.ts";
 import { MemoryServer } from "./testing/memory-server.ts";
 import { NodeSqliteDriver } from "./testing/node-driver.ts";
@@ -196,6 +196,8 @@ function runtime(
 }
 
 const now = () => new Date().toISOString();
+
+const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 
 function addSpace(driver: NodeSqliteDriver, id = "s1", name = "Personal") {
   driver.exec(
@@ -945,6 +947,9 @@ class QuietFiles implements BlobPlatform {
   async download(): Promise<string> {
     throw new Error("nothing to download");
   }
+  async remove() {
+    return false;
+  }
 }
 
 describe("syncing files", () => {
@@ -1006,6 +1011,7 @@ describe("syncing files", () => {
         driver.exec("UPDATE files SET local_path = '/here/a.pdf' WHERE entity_id = ?", target.pk);
         return "/here/a.pdf";
       },
+      remove: async () => false,
     };
     const second = runtime(server, driver, undefined, platform);
     await second.sync.signIn("https://sync.example.com", "ada", "a long password");
@@ -1249,5 +1255,151 @@ describe("signing in with another account", () => {
     });
     sync.cancelProviderSignIn();
     expect(cancelled).toHaveBeenCalledOnce();
+  });
+});
+
+/// A disk and the account's storage, for files that come and go with a sign in.
+class DiskFiles implements BlobPlatform {
+  readonly disk = new Map<string, string>();
+  readonly store = new Map<string, string>();
+  /// Paths whose upload never gets through.
+  readonly stuck = new Set<string>();
+  driver = new NodeSqliteDriver();
+
+  async hash(path: string) {
+    const body = this.disk.get(path);
+    return body === undefined ? null : { sha256: sha(body), size: body.length };
+  }
+  async upload(sha256: string, path: string) {
+    if (this.stuck.has(path)) throw new Error("offline");
+    this.store.set(sha256, this.disk.get(path) ?? "");
+  }
+  async download(sha256: string, target: BlobTarget) {
+    const body = this.store.get(sha256);
+    if (body === undefined) throw new Error("missing");
+    const path = `/nookly/files/${target.pk}`;
+    this.disk.set(path, body);
+    this.driver.exec("UPDATE files SET local_path = ? WHERE entity_id = ?", path, target.pk);
+    return path;
+  }
+  async remove(path: string, sha256: string) {
+    const body = this.disk.get(path);
+    if (body === undefined || sha(body) !== sha256) return false;
+    return this.disk.delete(path);
+  }
+}
+
+describe("files and signing out", () => {
+  function withFiles() {
+    const files = new DiskFiles();
+    const made = runtime(undefined, files.driver, async () => ({ path: "/b" }), files);
+    addSpace(files.driver);
+    return { ...made, files };
+  }
+
+  function addFile(files: DiskFiles, id: string, path: string, body: string, key: number) {
+    files.disk.set(path, body);
+    files.driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES (?, 's1', 'file', ?, ?, ?, 'FIL', ?)",
+      id,
+      id,
+      now(),
+      now(),
+      key,
+    );
+    files.driver.exec(
+      "INSERT INTO files (entity_id, local_path, original_filename) VALUES (?, ?, 'a.pdf')",
+      id,
+      path,
+    );
+  }
+
+  async function signedIn(made: ReturnType<typeof withFiles>) {
+    await made.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await settle(made.sync);
+  }
+
+  /// Files go in the background after a round, and their hashes in the round after it.
+  async function settle(sync: SyncRuntime<FakeAccount>) {
+    await sync.settled();
+    await sync.settled();
+  }
+
+  it("brings the files back after signing out and in again", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    await made.sync.signOut();
+    await signedIn(made);
+    expect(made.files.disk.get("/nookly/files/f1")).toBe("lecture");
+    made.sync.stop();
+  });
+
+  it("brings back a file an earlier version left a stale record of", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    made.files.driver.exec("UPDATE files SET local_path = NULL");
+    await made.sync.syncNow();
+    await settle(made.sync);
+    expect(made.files.disk.get("/nookly/files/f1")).toBe("lecture");
+    made.sync.stop();
+  });
+
+  it("sends the files of a local copy to the account it joins next", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    await made.sync.signOut({ keepLocalCopy: true });
+    // Another account: nothing of this device's is there.
+    made.server.records.clear();
+    made.files.store.clear();
+    await signedIn(made);
+    expect(made.files.store.get(sha("lecture"))).toBe("lecture");
+    made.sync.stop();
+  });
+
+  it("removes the files the account has, and keeps the ones it doesn't", async () => {
+    const made = withFiles();
+    const { files } = made;
+    files.stuck.add("/nookly/files/unsent");
+    addFile(files, "sent", "/nookly/files/sent", "in the account", 1);
+    addFile(files, "edited", "/nookly/files/edited", "as uploaded", 2);
+    addFile(files, "unsent", "/nookly/files/unsent", "only here", 3);
+    await signedIn(made);
+    files.disk.set("/nookly/files/edited", "changed on disk since");
+    await made.sync.signOut();
+    expect([...files.disk.keys()].sort()).toEqual(["/nookly/files/edited", "/nookly/files/unsent"]);
+  });
+
+  it("keeps a file another item still needs here", async () => {
+    const made = withFiles();
+    const { files } = made;
+    addFile(files, "f1", "/nookly/files/shared", "same", 1);
+    await signedIn(made);
+    files.stuck.add("/nookly/files/shared");
+    addFile(files, "f2", "/nookly/files/shared", "same", 2);
+    await made.sync.signOut();
+    expect(files.disk.has("/nookly/files/shared")).toBe(true);
+  });
+
+  it("removes nothing when a local copy is kept", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    await made.sync.signOut({ keepLocalCopy: true });
+    expect(made.files.disk.get("/nookly/files/a")).toBe("lecture");
+  });
+
+  it("removes the files the account has when the server signs the device out", async () => {
+    const made = withFiles();
+    const { files } = made;
+    files.stuck.add("/nookly/files/unsent");
+    addFile(files, "sent", "/nookly/files/sent", "in the account", 1);
+    addFile(files, "unsent", "/nookly/files/unsent", "only here", 2);
+    await signedIn(made);
+    made.account.onSignedOut();
+    await vi.waitFor(() => expect(files.disk.has("/nookly/files/sent")).toBe(false));
+    expect(files.disk.has("/nookly/files/unsent")).toBe(true);
   });
 });

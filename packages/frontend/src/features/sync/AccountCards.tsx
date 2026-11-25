@@ -316,7 +316,9 @@ function SignOutDialog({
                   <Point icon={IconDeviceLaptopOff}>
                     Removed from this computer, back when you sign in
                   </Point>
-                  <Point icon={IconFolder}>Attached files stay in Nookly's folder</Point>
+                  <Point icon={IconFolder}>
+                    Files go too, except ones your account doesn't have yet
+                  </Point>
                 </>
               )}
               {unsent > 0 && (

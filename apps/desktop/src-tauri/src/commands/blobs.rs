@@ -129,6 +129,29 @@ pub fn upload_file(
     }
 }
 
+/// Where Nookly keeps the files it owns, under the data folder.
+const STORED_FOLDERS: [&str; 3] = ["files", "recipe-banners", "bookmark-previews"];
+
+/// Deletes a stored file the account holds, when the device signs out. Only a plain
+/// file inside Nookly's own folders (never one a File merely points at elsewhere, nor a
+/// link) that still holds exactly `sha256` goes. Whether it was deleted.
+pub fn remove_stored(data_dir: &Path, path: &Path, sha256: &str) -> AppResult<bool> {
+    valid_sha(sha256)?;
+    let plain = fs::symlink_metadata(path).is_ok_and(|m| m.is_file());
+    if !plain {
+        return Ok(false);
+    }
+    let resolved = fs::canonicalize(path).map_err(io_err)?;
+    let owned = STORED_FOLDERS.iter().any(|folder| {
+        fs::canonicalize(data_dir.join(folder)).is_ok_and(|dir| resolved.starts_with(dir))
+    });
+    if !owned || hash_file(&resolved)?.is_none_or(|h| h.sha256 != sha256) {
+        return Ok(false);
+    }
+    fs::remove_file(&resolved).map_err(io_err)?;
+    Ok(true)
+}
+
 /// A file name safe to store: its last part, without separators or a leading dot.
 fn safe_name(filename: &str) -> String {
     let base = filename.rsplit(['/', '\\']).next().unwrap_or("file");
@@ -205,6 +228,12 @@ pub async fn blob_upload(
     content_type: String,
 ) -> AppResult<()> {
     blocking(move || upload_file(&server_url, &sha256, Path::new(&path), &content_type)).await
+}
+
+#[tauri::command]
+pub async fn blob_remove(app: AppHandle, path: String, sha256: String) -> AppResult<bool> {
+    let dir = data_dir(&app)?;
+    blocking(move || remove_stored(&dir, Path::new(&path), &sha256)).await
 }
 
 /// Downloads contents synced from another device and points the row at them:
@@ -288,6 +317,51 @@ mod tests {
         assert_eq!(hash.sha256, hex(&Sha256::digest(b"lecture one")));
         assert!(hash_file(&dir.join("missing")).unwrap().is_none());
         fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn removes_only_its_own_unchanged_files() {
+        let root = std::env::temp_dir().join(format!("nookly-remove-{}", crate::db::new_id()));
+        let data = root.join("data");
+        let files = data.join("files");
+        fs::create_dir_all(&files).unwrap();
+        let sha = hex(&Sha256::digest(b"lecture"));
+
+        let stored = files.join("a.pdf");
+        fs::write(&stored, b"lecture").unwrap();
+        assert!(remove_stored(&data, &stored, &sha).unwrap());
+        assert!(!stored.exists());
+        assert!(
+            !remove_stored(&data, &stored, &sha).unwrap(),
+            "already gone"
+        );
+
+        let edited = files.join("b.pdf");
+        fs::write(&edited, b"edited since").unwrap();
+        assert!(!remove_stored(&data, &edited, &sha).unwrap());
+        assert!(edited.exists());
+
+        // A File that only points at the person's own copy, directly or through `..`.
+        let outside = root.join("mine.pdf");
+        fs::write(&outside, b"lecture").unwrap();
+        assert!(!remove_stored(&data, &outside, &sha).unwrap());
+        assert!(!remove_stored(&data, &files.join("../../mine.pdf"), &sha).unwrap());
+        assert!(outside.exists());
+
+        #[cfg(unix)]
+        {
+            let link = files.join("link.pdf");
+            std::os::unix::fs::symlink(&outside, &link).unwrap();
+            assert!(!remove_stored(&data, &link, &sha).unwrap());
+            assert!(outside.exists());
+        }
+
+        // The database is not a stored file.
+        let database = data.join("nookly.db");
+        fs::write(&database, b"lecture").unwrap();
+        assert!(!remove_stored(&data, &database, &sha).unwrap());
+        assert!(database.exists());
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

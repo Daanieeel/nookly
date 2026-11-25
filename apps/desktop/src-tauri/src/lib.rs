@@ -357,6 +357,7 @@ fn command_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send +
         commands::sync::oauth_loopback_cancel,
         commands::blobs::blob_hash,
         commands::blobs::blob_upload,
+        commands::blobs::blob_remove,
         commands::blobs::blob_download,
         commands::blobs::create_pre_sync_backup,
         automation::automation_result,

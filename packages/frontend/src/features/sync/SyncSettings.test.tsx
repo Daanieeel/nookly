@@ -104,8 +104,8 @@ describe("the Sync settings", () => {
     await user.click(await screen.findByRole("button", { name: "Sign Out" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Sign out of this computer?" });
     expect(dialog).toHaveTextContent("Removed from this computer");
-    // The files are not deleted from the disk, and the dialog doesn't claim they are.
-    expect(dialog).toHaveTextContent("Attached files stay in Nookly's folder");
+    // Files go with the rest, unless this computer holds the only copy.
+    expect(dialog).toHaveTextContent("Files go too, except ones your account doesn't have yet");
     await waitFor(() => expect(dialog).toHaveTextContent("3 changes not sent yet"));
     expect(signOut).not.toHaveBeenCalled();
     await expectNoA11yViolations();

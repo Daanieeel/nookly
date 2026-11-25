@@ -27,6 +27,7 @@ export function tauriBlobs(serverUrl: string): BlobPlatform {
     hash: (path) => invoke<{ sha256: string; size: number } | null>("blob_hash", { path }),
     upload: (sha256, path, contentType) =>
       invoke("blob_upload", { serverUrl, sha256, path, contentType }),
+    remove: (path, sha256) => invoke<boolean>("blob_remove", { path, sha256 }),
     download: (sha256, target) =>
       invoke<string>("blob_download", {
         serverUrl,
