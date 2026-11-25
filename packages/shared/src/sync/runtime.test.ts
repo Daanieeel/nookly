@@ -943,6 +943,9 @@ class QuietFiles implements BlobPlatform {
   async hash(_path: string) {
     return { sha256: createHash("sha256").update("lecture").digest("hex"), size: 7 };
   }
+  async size() {
+    return 7;
+  }
   async upload() {}
   async download(): Promise<string> {
     throw new Error("nothing to download");
@@ -1004,6 +1007,7 @@ describe("syncing files", () => {
     const driver = new NodeSqliteDriver();
     const platform: BlobPlatform = {
       hash: async () => null,
+      size: async () => null,
       upload: async () => {},
       download: async (_sha, target) => {
         // Lands after the round that asked for it is over.
@@ -1264,14 +1268,25 @@ class DiskFiles implements BlobPlatform {
   readonly store = new Map<string, string>();
   /// Paths whose upload never gets through.
   readonly stuck = new Set<string>();
+  /// What an upload of a path waits for, to look at it while it is on its way.
+  readonly gates = new Map<string, (onSent?: (bytes: number) => void) => Promise<void>>();
   driver = new NodeSqliteDriver();
 
   async hash(path: string) {
     const body = this.disk.get(path);
     return body === undefined ? null : { sha256: sha(body), size: body.length };
   }
-  async upload(sha256: string, path: string) {
+  async size(path: string) {
+    return this.disk.get(path)?.length ?? null;
+  }
+  async upload(
+    sha256: string,
+    path: string,
+    _contentType?: string,
+    onSent?: (bytes: number) => void,
+  ) {
     if (this.stuck.has(path)) throw new Error("offline");
+    await this.gates.get(path)?.(onSent);
     this.store.set(sha256, this.disk.get(path) ?? "");
   }
   async download(sha256: string, target: BlobTarget) {
@@ -1324,6 +1339,48 @@ describe("files and signing out", () => {
     await sync.settled();
     await sync.settled();
   }
+
+  it("shows how far a big file of the first sync has got", async () => {
+    const made = withFiles();
+    addFile(made.files, "small", "/nookly/files/small", "12345", 1);
+    addFile(made.files, "big", "/nookly/files/big", "x".repeat(100), 2);
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    made.files.gates.set("/nookly/files/big", async (onSent) => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      onSent?.(40);
+      await held;
+    });
+    await made.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await vi.waitFor(() =>
+      expect(made.sync.store.getState().migration).toMatchObject({
+        phase: "sending",
+        files: 2,
+        fileBytes: 105,
+        filesSent: 1,
+        fileBytesSent: 45,
+      }),
+    );
+    release();
+    await settle(made.sync);
+    expect(made.sync.store.getState().migration).toMatchObject({
+      phase: "done",
+      filesSent: 2,
+      fileBytesSent: 105,
+    });
+    made.sync.stop();
+  });
+
+  it("finishes the first sync when a file is gone from disk", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    made.files.disk.clear();
+    await signedIn(made);
+    expect(made.sync.store.getState().migration).toMatchObject({ phase: "done", files: 0 });
+    made.sync.stop();
+  });
 
   it("brings the files back after signing out and in again", async () => {
     const made = withFiles();

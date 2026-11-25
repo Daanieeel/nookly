@@ -30,7 +30,7 @@ Read `AGENTS.md` and `docs/00-index.md` first.
 - [x] G. UI (desktop and phone): plain words for changes that couldn't sync.
 - [x] H. Files download again after sign out and sign in on the same device.
 - [x] I. Sign out deletes confirmed files (shared, Rust, phone) and the copy says so.
-- [ ] J. Byte progress (shared, Rust, desktop UI, phone UI).
+- [x] J. Byte progress (shared, Rust, desktop UI, phone UI).
 - [ ] K. Docs, decisions log, versions, CHANGELOG, whats-new.
 - [ ] L. Lint, format, typecheck, tests, `cargo test`, duplication.
 - [ ] M. Live check, push, open PR.
@@ -47,3 +47,4 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 - B to F: `SyncStatus.held`, `MigrationState.heldItems`, `pushResponse.serverTime`; held changes stay in `sync_dirty` (in memory skip list in `SyncClient`, retried after 1 h, on edit, on app start). `SyncEngine.requeueSetAside` only re-sends rows still exactly like the stored copy; a set aside row edited since keeps its old conflict entry (cannot be told apart from an undone edit).
 - G: wording lives in `packages/shared/src/sync/copy.ts`.
 - H, I: `BlobSync.confirmed()` / `remove()`, `BlobPlatform.remove` (Rust `blob_remove`, phone `data/remove-stored.ts`); `engine.disable` blanks `blob_files` so a new account gets the files, a row without a local path always downloads. Old copies of replaced files are not tracked, so they stay on disk. Backups (`pre-sync-backups`, `kept-backups`) stay too: tell the user.
+- J: `BlobPlatform.size` and `upload(..., onSent)`, `BlobProgress.pass*`, `MigrationState.fileBytes(Sent)`, wording in `copy.ts`. A file gone from disk no longer keeps the first sync open.

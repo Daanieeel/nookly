@@ -12,6 +12,8 @@ use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Serialize)]
@@ -104,13 +106,42 @@ fn client() -> AppResult<reqwest::blocking::Client> {
         .map_err(io_err)
 }
 
-/// Sends a file's contents, streamed from disk. The server checks them against
-/// `sha256` and keeps nothing that doesn't match, so a retry is always safe.
+/// The least time between two reports of an upload on its way.
+const REPORT_EVERY: Duration = Duration::from_millis(100);
+
+/// A file as it is read for sending, telling how far that has got: at most every
+/// `every`, and always at its end.
+struct Counted<R, F> {
+    inner: R,
+    size: u64,
+    sent: u64,
+    every: Duration,
+    reported: Option<Instant>,
+    report: F,
+}
+
+impl<R: Read, F: FnMut(u64)> Read for Counted<R, F> {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        let read = self.inner.read(buffer)?;
+        self.sent += read as u64;
+        let due = self.reported.is_none_or(|at| at.elapsed() >= self.every);
+        if read > 0 && (due || self.sent >= self.size) {
+            self.reported = Some(Instant::now());
+            (self.report)(self.sent);
+        }
+        Ok(read)
+    }
+}
+
+/// Sends a file's contents, streamed from disk, telling `report` how many bytes have
+/// gone. The server checks them against `sha256` and keeps nothing that doesn't match,
+/// so a retry is always safe.
 pub fn upload_file(
     server_url: &str,
     sha256: &str,
     path: &Path,
     content_type: &str,
+    report: impl FnMut(u64) + Send + 'static,
 ) -> AppResult<()> {
     valid_sha(sha256)?;
     let file = File::open(path).map_err(io_err)?;
@@ -119,7 +150,17 @@ pub fn upload_file(
         .put(blob_url(server_url, sha256))
         .bearer_auth(token()?)
         .header("content-type", content_type)
-        .body(reqwest::blocking::Body::sized(file, size))
+        .body(reqwest::blocking::Body::sized(
+            Counted {
+                inner: file,
+                size,
+                sent: 0,
+                every: REPORT_EVERY,
+                reported: None,
+                report,
+            },
+            size,
+        ))
         .send()
         .map_err(|e| AppError::Remote(format!("Couldn't reach the server: {e}")))?;
     if response.status().is_success() {
@@ -220,14 +261,39 @@ pub async fn blob_hash(path: String) -> AppResult<Option<BlobHash>> {
     blocking(move || hash_file(Path::new(&path))).await
 }
 
+/// The size of a file in bytes. `None` when it is missing.
+#[tauri::command]
+pub async fn blob_size(path: String) -> AppResult<Option<u64>> {
+    blocking(move || match fs::metadata(&path) {
+        Ok(meta) => Ok(meta.is_file().then_some(meta.len())),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(io_err(e)),
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn blob_upload(
     server_url: String,
     sha256: String,
     path: String,
     content_type: String,
+    on_progress: Channel<u64>,
 ) -> AppResult<()> {
-    blocking(move || upload_file(&server_url, &sha256, Path::new(&path), &content_type)).await
+    blocking(move || {
+        // A report nobody listens to any more changes nothing about the upload.
+        let report = move |sent| {
+            on_progress.send(sent).ok();
+        };
+        upload_file(
+            &server_url,
+            &sha256,
+            Path::new(&path),
+            &content_type,
+            report,
+        )
+    })
+    .await
 }
 
 #[tauri::command]
@@ -317,6 +383,27 @@ mod tests {
         assert_eq!(hash.sha256, hex(&Sha256::digest(b"lecture one")));
         assert!(hash_file(&dir.join("missing")).unwrap().is_none());
         fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn tells_how_far_a_file_has_been_read() {
+        let read_in = |every: Duration| {
+            let mut seen = Vec::new();
+            let mut counted = Counted {
+                inner: &b"0123456789"[..],
+                size: 10,
+                sent: 0,
+                every,
+                reported: None,
+                report: |sent| seen.push(sent),
+            };
+            let mut chunk = [0u8; 4];
+            while counted.read(&mut chunk).unwrap() > 0 {}
+            seen
+        };
+        assert_eq!(read_in(Duration::ZERO), [4, 8, 10]);
+        // Not every chunk of a fast one, but always the first and the last.
+        assert_eq!(read_in(Duration::from_secs(60)), [4, 10]);
     }
 
     #[test]

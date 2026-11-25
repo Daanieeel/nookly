@@ -1,7 +1,7 @@
 import type { TokenStore } from "@nookly/shared/api";
 import type { Row } from "@nookly/shared/schema";
 import type { BatchResult, BlobPlatform, SqlDriver } from "@nookly/shared/sync";
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 
 /// The shared sync engine's way into this device's database (`src-tauri/src/sync`).
 export const tauriSqlDriver: SqlDriver = {
@@ -25,8 +25,12 @@ export function reindexEntities(entityIds: string[]): Promise<void> {
 export function tauriBlobs(serverUrl: string): BlobPlatform {
   return {
     hash: (path) => invoke<{ sha256: string; size: number } | null>("blob_hash", { path }),
-    upload: (sha256, path, contentType) =>
-      invoke("blob_upload", { serverUrl, sha256, path, contentType }),
+    size: (path) => invoke<number | null>("blob_size", { path }),
+    upload: (sha256, path, contentType, onSent) => {
+      const onProgress = new Channel<number>();
+      if (onSent) onProgress.onmessage = onSent;
+      return invoke("blob_upload", { serverUrl, sha256, path, contentType, onProgress });
+    },
     remove: (path, sha256) => invoke<boolean>("blob_remove", { path, sha256 }),
     download: (sha256, target) =>
       invoke<string>("blob_download", {

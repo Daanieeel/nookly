@@ -1,4 +1,9 @@
-import { type MigrationState, migrationSummary } from "@nookly/shared/sync";
+import {
+  type MigrationState,
+  filesDetail,
+  filesProgress,
+  migrationSummary,
+} from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
@@ -147,12 +152,8 @@ export function FirstSyncDialog() {
             <ProgressBar value={migration.itemsSent} max={migration.items} label="Items sent" />
           </Step>
           {migration.files > 0 && (
-            <Step
-              state={state.sending}
-              title="Sending your files"
-              detail={`${count(migration.filesSent)} of ${plural(migration.files, "file", "files")}`}
-            >
-              <ProgressBar value={migration.filesSent} max={migration.files} label="Files sent" />
+            <Step state={state.sending} title="Sending your files" detail={filesDetail(migration)}>
+              <ProgressBar {...filesProgress(migration)} label="Files sent" />
             </Step>
           )}
           <Step state={state.checking} title="Checking with the server" />

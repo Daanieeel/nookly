@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   type BlobPlatform,
+  type BlobProgress,
   type BlobTarget,
   BlobSync,
   backoffMs,
@@ -29,7 +30,16 @@ class FakePlatform implements BlobPlatform {
     return body === undefined ? null : { sha256: sha(body), size: body.length };
   }
 
-  async upload(sha256: string, path: string, contentType: string) {
+  async size(path: string) {
+    return this.disk.get(path)?.length ?? null;
+  }
+
+  async upload(
+    sha256: string,
+    path: string,
+    contentType: string,
+    _onSent?: (bytes: number) => void,
+  ) {
     this.calls.push(`upload ${path} ${contentType}`);
     if (this.offline) throw new Error("offline");
     const body = this.disk.get(path) ?? "";
@@ -57,10 +67,14 @@ class FakePlatform implements BlobPlatform {
 
 const now = () => new Date().toISOString();
 
-function device(store = new Map<string, string>(), clock = { t: 1_000_000 }) {
+function device(
+  store = new Map<string, string>(),
+  clock = { t: 1_000_000 },
+  onProgress?: (progress: BlobProgress) => void,
+) {
   const driver = new NodeSqliteDriver();
   const platform = new FakePlatform(driver, store);
-  const blobs = new BlobSync({ driver, platform, now: () => clock.t });
+  const blobs = new BlobSync({ driver, platform, now: () => clock.t, onProgress });
   driver.exec(
     "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
     now(),
@@ -218,6 +232,52 @@ describe("file contents", () => {
     expect(most).toBe(3);
     expect(progress).toMatchObject({ uploaded: 8, toUpload: 0, waiting: 0 });
     for (let i = 0; i < 8; i++) expect(blobOf(d, `f${i}`)).toBe(sha(`lecture ${i}`));
+  });
+
+  it("says how many bytes went up, while one file is still on its way", async () => {
+    const seen: [number, number, number][] = [];
+    const clock = { t: 1_000_000 };
+    const d = device(undefined, clock, (p) =>
+      seen.push([p.passBytesSent, p.passBytes, p.passFilesSent]),
+    );
+    addFile(d, "f1", "/files/a.pdf", "0123456789");
+    const upload = d.platform.upload.bind(d.platform);
+    d.platform.upload = async (sha256, path, contentType, onSent) => {
+      for (const sent of [4, 8]) {
+        clock.t += 500;
+        onSent?.(sent);
+      }
+      return upload(sha256, path, contentType);
+    };
+    await d.blobs.runOnce();
+    expect(seen).toEqual([
+      [0, 10, 0],
+      [4, 10, 0],
+      [8, 10, 0],
+      [10, 10, 1],
+    ]);
+  });
+
+  it("doesn't report every chunk of a fast upload", async () => {
+    const seen: number[] = [];
+    const d = device(undefined, undefined, (p) => seen.push(p.passBytesSent));
+    addFile(d, "f1", "/files/a.pdf", "0123456789");
+    const upload = d.platform.upload.bind(d.platform);
+    d.platform.upload = async (sha256, path, contentType, onSent) => {
+      for (let sent = 1; sent <= 10; sent++) onSent?.(sent);
+      return upload(sha256, path, contentType);
+    };
+    await d.blobs.runOnce();
+    expect(seen).toEqual([0, 10]);
+  });
+
+  it("counts what still has to go up, without a file that is gone from disk", async () => {
+    const d = device();
+    addFile(d, "f1", "/files/a.pdf", "0123456789");
+    addFile(d, "f2", "/files/gone.pdf");
+    await expect(d.blobs.waitingUploads()).resolves.toEqual({ files: 1, bytes: 10 });
+    await d.blobs.runOnce();
+    await expect(d.blobs.waitingUploads()).resolves.toEqual({ files: 0, bytes: 0 });
   });
 
   it("lets one failing download wait without holding up the others", async () => {

@@ -1,5 +1,5 @@
 import type { Session } from "@nookly/shared/api";
-import { type SyncStatus, heldLine } from "@nookly/shared/sync";
+import { type SyncStatus, filesDetail, heldLine } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
@@ -204,7 +204,7 @@ function FirstSyncLine() {
   const text =
     migration.phase === "failed"
       ? (migration.error ?? "The first sync stopped.")
-      : `Bringing this device into your account: ${migration.itemsSent} of ${migration.items} items, ${migration.filesSent} of ${migration.files} files.`;
+      : `Bringing this device into your account: ${migration.itemsSent} of ${migration.items} items, ${filesDetail(migration)}.`;
   return (
     <CardFoot>
       <IconDevices size={14} className="shrink-0" />

@@ -47,7 +47,15 @@ export interface BlobTarget {
 export interface BlobPlatform {
   /// The SHA-256 and size of a local file; null when it is missing.
   hash(path: string): Promise<{ sha256: string; size: number } | null>;
-  upload(sha256: string, path: string, contentType: string): Promise<void>;
+  /// The size of a local file in bytes; null when it is missing.
+  size(path: string): Promise<number | null>;
+  /// Sends a file, telling `onSent` how many bytes have gone so far.
+  upload(
+    sha256: string,
+    path: string,
+    contentType: string,
+    onSent?: (bytes: number) => void,
+  ): Promise<void>;
   /// Downloads the contents, checks them against `sha256`, stores them where this
   /// device keeps files and points the row's path at them. Returns that path.
   download(sha256: string, target: BlobTarget): Promise<string>;
@@ -71,7 +79,30 @@ export interface BlobProgress {
   /// Files that failed and wait for a retry.
   waiting: number;
   lastError: string | null;
+  /// The uploads of the pass running now, or of the last one: how many files and bytes it
+  /// set out with, and how much of that has gone, the files on their way included.
+  passFiles: number;
+  passFilesSent: number;
+  passBytes: number;
+  passBytesSent: number;
 }
+
+/// No progress yet.
+export const NO_BLOB_PROGRESS: BlobProgress = {
+  toUpload: 0,
+  uploaded: 0,
+  toDownload: 0,
+  downloaded: 0,
+  waiting: 0,
+  lastError: null,
+  passFiles: 0,
+  passFilesSent: 0,
+  passBytes: 0,
+  passBytesSent: 0,
+};
+
+/// The least time between two reports of an upload on its way.
+const REPORT_MS = 100;
 
 interface Pending {
   column: BlobColumn;
@@ -135,14 +166,11 @@ export class BlobSync {
   private readonly platform: BlobPlatform;
   private readonly now: () => number;
   private readonly failures = new Map<string, { count: number; until: number }>();
-  private progress: BlobProgress = {
-    toUpload: 0,
-    uploaded: 0,
-    toDownload: 0,
-    downloaded: 0,
-    waiting: 0,
-    lastError: null,
-  };
+  private progress: BlobProgress = { ...NO_BLOB_PROGRESS };
+  private readonly onProgress?: (progress: BlobProgress) => void;
+  private reportedAt = 0;
+  /// Bytes gone per file of this pass: all of a sent one, so far of one on its way.
+  private readonly sent = new Map<string, number>();
 
   private readonly downloadsAtOnce: number;
   private readonly uploadsAtOnce: number;
@@ -154,7 +182,10 @@ export class BlobSync {
     now?: () => number;
     downloadsAtOnce?: number;
     uploadsAtOnce?: number;
+    /// Told as uploads move, at most every `REPORT_MS` while a file is on its way.
+    onProgress?: (progress: BlobProgress) => void;
   }) {
+    this.onProgress = options.onProgress;
     this.downloadsAtOnce = Math.max(1, options.downloadsAtOnce ?? DOWNLOADS_AT_ONCE);
     this.uploadsAtOnce = Math.max(1, options.uploadsAtOnce ?? UPLOADS_AT_ONCE);
     this.driver = options.driver;
@@ -198,6 +229,38 @@ export class BlobSync {
       }
     }
     return { uploads, downloads };
+  }
+
+  /// The files still to go up and their bytes. One gone from disk can't be sent, so it
+  /// isn't counted.
+  async waitingUploads(): Promise<{ files: number; bytes: number }> {
+    const { uploads } = await this.plan();
+    const sizes = await this.sizes(uploads);
+    return {
+      files: sizes.size,
+      bytes: [...sizes.values()].reduce((sum, size) => sum + size, 0),
+    };
+  }
+
+  /// The size of each upload whose file is on disk, by its key.
+  private async sizes(uploads: Pending[]): Promise<Map<string, number>> {
+    const sizes = new Map<string, number>();
+    for (const item of uploads) {
+      const size = item.path ? await this.platform.size(item.path) : null;
+      if (size !== null) sizes.set(this.key(item), size);
+    }
+    return sizes;
+  }
+
+  private moved(key: string, bytes: number, always = false) {
+    this.sent.set(key, bytes);
+    this.progress.passBytesSent = [...this.sent.values()].reduce((sum, n) => sum + n, 0);
+    if (always || this.now() - this.reportedAt >= REPORT_MS) this.report();
+  }
+
+  private report() {
+    this.reportedAt = this.now();
+    this.onProgress?.(this.current());
   }
 
   private key(item: Pending) {
@@ -251,7 +314,7 @@ export class BlobSync {
     return this.driver.batch(statements);
   }
 
-  private async upload(item: Pending): Promise<boolean> {
+  private async upload(item: Pending, size: number): Promise<boolean> {
     if (!item.path) return false;
     const hashed = await this.platform.hash(item.path);
     // A file that is gone from disk can't be sent; nothing is changed.
@@ -260,7 +323,10 @@ export class BlobSync {
     // device has changed accounts since.
     if (item.blob !== hashed.sha256 || item.knownPath === "") {
       const name = item.name ?? basename(item.path);
-      await this.platform.upload(hashed.sha256, item.path, contentTypeFor(name));
+      const key = this.key(item);
+      await this.platform.upload(hashed.sha256, item.path, contentTypeFor(name), (bytes) =>
+        this.moved(key, Math.min(size, bytes)),
+      );
     }
     const result = await this.record(item, item.path, hashed.sha256, true);
     return result.outcome === "done";
@@ -328,6 +394,13 @@ export class BlobSync {
     const { uploads, downloads } = await this.plan();
     this.progress.toUpload = uploads.length;
     this.progress.toDownload = downloads.length;
+    const sizes = await this.sizes(uploads);
+    this.sent.clear();
+    this.progress.passFiles = sizes.size;
+    this.progress.passFilesSent = 0;
+    this.progress.passBytes = [...sizes.values()].reduce((sum, size) => sum + size, 0);
+    this.progress.passBytesSent = 0;
+    if (sizes.size > 0) this.report();
     let waiting = 0;
     const handle = async (
       item: Pending,
@@ -342,10 +415,17 @@ export class BlobSync {
         if (await work(item)) {
           this.failures.delete(this.key(item));
           this.progress[counter] += 1;
-          if (counter === "uploaded") this.progress.toUpload -= 1;
-          else this.progress.toDownload -= 1;
+          if (counter === "uploaded") {
+            this.progress.toUpload -= 1;
+            const size = sizes.get(this.key(item));
+            if (size !== undefined) {
+              this.progress.passFilesSent += 1;
+              this.moved(this.key(item), size, true);
+            }
+          } else this.progress.toDownload -= 1;
         }
       } catch (error) {
+        if (counter === "uploaded") this.moved(this.key(item), 0, true);
         this.failed(item, error instanceof Error ? error : new Error(String(error)));
         waiting += 1;
       }
@@ -365,7 +445,12 @@ export class BlobSync {
       };
       await Promise.all(Array.from({ length: Math.min(size, queue.length) }, worker));
     };
-    await pool(uploads, this.uploadsAtOnce, (i) => this.upload(i), "uploaded");
+    await pool(
+      uploads,
+      this.uploadsAtOnce,
+      (i) => this.upload(i, sizes.get(this.key(i)) ?? 0),
+      "uploaded",
+    );
     await pool(downloads, this.downloadsAtOnce, (i) => this.download(i), "downloaded");
     this.progress.waiting = waiting;
     if (waiting === 0) this.progress.lastError = null;

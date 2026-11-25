@@ -40,13 +40,18 @@ export function phoneBlobs(serverUrl: string, api: ApiClient, driver: SqlDriver)
       if (!file.exists) return null;
       return { sha256: await sha256Of(file), size: file.size ?? 0 };
     },
-    async upload(sha256, path, contentType) {
+    async size(path) {
+      const file = new File(livePath(path));
+      return file.exists ? (file.size ?? 0) : null;
+    },
+    async upload(sha256, path, contentType, onSent) {
       const token = await api.sessionToken();
       if (!token) throw new Error("Sign in first.");
       const result = await new File(livePath(path)).upload(`${base}/v1/blobs/${sha256}`, {
         httpMethod: "PUT",
         uploadType: UploadType.BINARY_CONTENT,
         headers: { authorization: `Bearer ${token}`, "content-type": contentType },
+        onProgress: ({ bytesSent }) => onSent?.(bytesSent),
       });
       if (result.status < 200 || result.status >= 300) {
         throw new Error(`The server answered ${result.status}.`);

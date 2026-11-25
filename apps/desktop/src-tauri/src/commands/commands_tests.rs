@@ -4302,7 +4302,14 @@ fn blob_commands_underlying_calls() {
     assert!(blobs::hash_file(&h.dir.path().join("missing"))
         .unwrap()
         .is_none());
-    assert!(blobs::upload_file("http://127.0.0.1:1", "not-a-hash", &path, "text/plain").is_err());
+    assert!(blobs::upload_file(
+        "http://127.0.0.1:1",
+        "not-a-hash",
+        &path,
+        "text/plain",
+        |_| {}
+    )
+    .is_err());
     let into = h.dir.path().join("downloads");
     assert!(blobs::download_to("http://127.0.0.1:1", "not-a-hash", &into, "a.txt").is_err());
     assert!(std::fs::read_dir(&into).map_or(true, |mut d| d.next().is_none()));

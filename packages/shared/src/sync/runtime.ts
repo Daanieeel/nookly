@@ -10,7 +10,7 @@ import { TERMS_VERSION, requiresTerms } from "../api/legal.ts";
 import { ProviderNoAccountError, providerErrorMessage } from "../api/provider-sign-in.ts";
 import { userSchema } from "../api/schemas.ts";
 import { SYNCED_TABLES } from "../schema.ts";
-import { type BlobPlatform, type BlobProgress, BlobSync } from "./blobs.ts";
+import { type BlobPlatform, type BlobProgress, BlobSync, NO_BLOB_PROGRESS } from "./blobs.ts";
 import {
   type AnyConflict,
   type ConflictView,
@@ -100,6 +100,10 @@ export interface MigrationState {
   itemsSent: number;
   files: number;
   filesSent: number;
+  /// The bytes of those files, and how many have gone. Missing in a state saved by an
+  /// earlier version.
+  fileBytes?: number;
+  fileBytesSent?: number;
   /// Items the server refused by the time it was done; they go on waiting. Missing in a
   /// state saved by an earlier version.
   heldItems?: number;
@@ -558,12 +562,14 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     await this.engine.enable();
     if (!hasData) return;
     const blobs = this.blobsFor(serverUrl);
-    const files = blobs ? (await blobs.plan()).uploads.length : 0;
+    const { files, bytes } = (await blobs?.waitingUploads()) ?? { files: 0, bytes: 0 };
     await this.saveMigration({
       ...base,
       phase: "sending",
       items: await this.engine.pendingCount(),
       files,
+      fileBytes: bytes,
+      fileBytesSent: 0,
       backupPath,
     });
   }
@@ -574,8 +580,25 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       driver: this.deps.driver,
       platform: this.deps.blobs(serverUrl, this.api),
       now: this.now,
+      onProgress: (progress) => this.showUpload(progress),
     });
     return this.blobs;
+  }
+
+  /// Moves the first sync's file counts along while a pass is still running. Only shown:
+  /// what is saved is counted again once the pass is over.
+  private showUpload(progress: BlobProgress) {
+    const migration = this.store.getState().migration;
+    if (migration?.phase !== "sending" || migration.fileBytes === undefined) return;
+    const along = (total: number, pass: number, done: number) =>
+      Math.max(0, Math.min(total, total - pass + done));
+    this.store.setState({
+      migration: {
+        ...migration,
+        filesSent: along(migration.files, progress.passFiles, progress.passFilesSent),
+        fileBytesSent: along(migration.fileBytes, progress.passBytes, progress.passBytesSent),
+      },
+    });
   }
 
   /// One start at a time: two that overlap (a launch that restores twice) would each make
@@ -877,17 +900,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         const lastError = error instanceof Error ? error.message : String(error);
         const files = this.store.getState().files;
         this.store.setState({
-          files: {
-            ...(files ?? {
-              toUpload: 0,
-              uploaded: 0,
-              toDownload: 0,
-              downloaded: 0,
-              waiting: 0,
-              lastError: null,
-            }),
-            lastError,
-          },
+          files: { ...(files ?? NO_BLOB_PROGRESS), lastError },
         });
       } finally {
         this.filesRunning = null;
@@ -906,11 +919,21 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const migration = this.store.getState().migration;
     if (!migration || (migration.phase !== "sending" && migration.phase !== "checking")) return;
     const pending = await this.engine.pendingCount();
-    const filesLeft = this.blobs ? (await this.blobs.plan()).uploads.length : 0;
+    const left = (await this.blobs?.waitingUploads()) ?? { files: 0, bytes: 0 };
+    const filesLeft = left.files;
+    // Read again: uploads on their way moved the counts while this one was counting.
+    const latest = this.store.getState().migration ?? migration;
     const next: MigrationState = {
-      ...migration,
+      ...latest,
       itemsSent: Math.max(0, Math.min(migration.items, migration.items - pending)),
-      filesSent: Math.max(0, Math.min(migration.files, migration.files - filesLeft)),
+      filesSent: Math.max(latest.filesSent, Math.min(migration.files, migration.files - filesLeft)),
+      // A file on its way counts as left here, so what is shown never goes back.
+      ...(latest.fileBytes !== undefined && {
+        fileBytesSent: Math.max(
+          latest.fileBytesSent ?? 0,
+          Math.min(latest.fileBytes, latest.fileBytes - left.bytes),
+        ),
+      }),
     };
     // A change the server refuses must not keep the first sync from ending.
     const held = this.client?.heldKeys().size ?? 0;
@@ -930,6 +953,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       itemsSent: Math.max(0, next.items - held),
       heldItems: held,
       filesSent: next.files,
+      ...(next.fileBytes !== undefined && { fileBytesSent: next.fileBytes }),
       phase: "done",
       finishedAt: new Date(this.now()).toISOString(),
     });
