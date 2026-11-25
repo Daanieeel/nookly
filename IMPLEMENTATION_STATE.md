@@ -33,7 +33,7 @@ Read `AGENTS.md` and `docs/00-index.md` first.
 - [x] J. Byte progress (shared, Rust, desktop UI, phone UI).
 - [x] K. Docs, decisions log, versions, CHANGELOG, whats-new.
 - [x] L. Lint, format, typecheck, tests, `cargo test`, duplication.
-- [ ] M. Live check, push, open PR.
+- [x] M. Live check, push, open PR (https://github.com/Daanieeel/nookly/pull/333, not merged).
 
 ## Second part: authentication strategy (asked 2026-11-25, mid work)
 
