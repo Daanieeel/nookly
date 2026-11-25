@@ -1,3 +1,4 @@
+import { configure } from "@testing-library/react-native";
 import { ApiClient, ApiRequestError, type SecuritySummary } from "@nookly/shared/api";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
@@ -7,6 +8,10 @@ import { SecurityGate, useOpenSecurity } from "./SecurityGate.tsx";
 import { UsernameGate } from "./UsernameGate.tsx";
 import { useSecurityGate } from "./security-gate-store.ts";
 import { useUsernameGate } from "./username-gate-store.ts";
+
+// Sheets go away on timers before what was chosen in them runs, which takes longer than the
+// usual second when every suite runs at once.
+configure({ asyncUtilTimeout: 10_000 });
 
 const ADA = {
   id: "00000000-0000-4000-8000-0000000000aa",
@@ -184,6 +189,7 @@ describe("the security sheet", () => {
     expect(await screen.findByRole("button", { name: "Save Username" })).toBeTruthy();
     expect(screen.queryByText("Authenticator app")).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Not Now" }));
+    // It takes its turn once the other sheet has had time to go.
     expect(await screen.findByText("Authenticator app")).toBeTruthy();
   });
 

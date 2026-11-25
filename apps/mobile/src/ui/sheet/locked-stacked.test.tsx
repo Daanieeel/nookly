@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, configure, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { useState } from "react";
 import { Modal, Text, TextInput } from "react-native";
 import { WindowSizeProvider } from "../pane.tsx";
@@ -7,6 +7,7 @@ import { Sheet, useSheet } from "./Sheet.tsx";
 
 // The sheet animates in and out on timers, which take longer when every suite runs at once.
 jest.setTimeout(20_000);
+configure({ asyncUtilTimeout: 10_000 });
 
 const TABLET = { width: 1376, height: 1032 };
 

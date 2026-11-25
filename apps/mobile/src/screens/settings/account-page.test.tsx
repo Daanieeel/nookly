@@ -1,7 +1,12 @@
+import { configure } from "@testing-library/react-native";
 import { ApiClient } from "@nookly/shared/api";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../../test/render.tsx";
 import { AccountPage } from "./AccountPage.tsx";
+
+// Sheets go away on timers before what was chosen in them runs, which takes longer than the
+// usual second when every suite runs at once.
+configure({ asyncUtilTimeout: 10_000 });
 
 function signedIn(provider: string | null = null) {
   const data = testData();

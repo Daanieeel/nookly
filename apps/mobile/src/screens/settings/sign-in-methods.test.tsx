@@ -1,3 +1,4 @@
+import { configure } from "@testing-library/react-native";
 import { ApiClient, ApiRequestError, type SignInSummary } from "@nookly/shared/api";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../../test/render.tsx";
@@ -5,6 +6,10 @@ import { fakeMoodle } from "../../test/fake-moodle.tsx";
 import { recheck } from "../recheck.ts";
 import { AccountPage } from "./AccountPage.tsx";
 import { CalendarConnectionsPage } from "./CalendarConnectionsPage.tsx";
+
+// Sheets go away on timers before what was chosen in them runs, which takes longer than the
+// usual second when every suite runs at once.
+configure({ asyncUtilTimeout: 10_000 });
 
 const ADA = {
   id: "00000000-0000-4000-8000-0000000000bb",
