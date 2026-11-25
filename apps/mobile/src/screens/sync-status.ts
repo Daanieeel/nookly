@@ -1,7 +1,7 @@
-import type { SyncStatus } from "@nookly/shared/sync";
+import { type SyncStatus, heldLine } from "@nookly/shared/sync";
 
 /// Sync's state in one short line, for Settings and the sidebar.
-export function statusText(status: SyncStatus): string {
+export function statusText(status: SyncStatus, place = "this device"): string {
   const { state, pending, error, lastSyncedAt } = status;
   if (state === "syncing") return "Syncing";
   if (state === "offline")
@@ -10,6 +10,7 @@ export function statusText(status: SyncStatus): string {
       : "Offline.";
   if (state === "error") return error ?? "Sync failed.";
   if (state === "off") return "Sync is off.";
+  if (status.held > 0) return heldLine(status.held, place);
   if (!status.live)
     return "Synced, but not live. Changes from your other devices may take a minute.";
   return lastSyncedAt
@@ -22,6 +23,10 @@ export function syncLine(signedIn: boolean, status: SyncStatus): string {
   if (!signedIn) return "Sync is off";
   if (status.conflicts > 0) {
     return `${status.conflicts} ${status.conflicts === 1 ? "change needs" : "changes need"} a look`;
+  }
+  // The sidebar has room for the first half of it only.
+  if (status.state === "idle" && status.held > 0) {
+    return `${status.held} ${status.held === 1 ? "change" : "changes"} couldn't sync yet`;
   }
   return statusText(status);
 }

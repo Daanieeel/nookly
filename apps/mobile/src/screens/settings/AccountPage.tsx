@@ -4,7 +4,7 @@ import {
   changePasswordSchema,
   providerName,
 } from "@nookly/shared/api";
-import type { SyncStatus } from "@nookly/shared/sync";
+import { type SyncStatus, heldLine } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
@@ -72,7 +72,7 @@ interface StatusLine {
 }
 
 /// How sync is doing, in one line a person reads (the desktop's `statusLine`).
-function statusLine(status: SyncStatus): StatusLine {
+function statusLine(status: SyncStatus, place: string): StatusLine {
   switch (status.state) {
     case "syncing":
       return { icon: IconLoader2, text: "Syncing", tone: "busy" };
@@ -90,6 +90,13 @@ function statusLine(status: SyncStatus): StatusLine {
     case "off":
       return { icon: IconCloudOff, text: "Sync is off", tone: "idle" };
     case "idle":
+      if (status.held > 0) {
+        return {
+          icon: IconAlertTriangle,
+          text: heldLine(status.held, place),
+          tone: "caution",
+        };
+      }
       if (!status.live) {
         return {
           icon: IconAlertTriangle,
@@ -233,7 +240,7 @@ function SignedInCard() {
     });
   };
   if (!user) return null;
-  const line = statusLine(status);
+  const line = statusLine(status, `this ${device}`);
   return (
     <SettingsCard tone={line.tone}>
       <CardHead icon={line.icon} tone={line.tone} title={user.username} detail={line.text} />

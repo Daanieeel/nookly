@@ -1,4 +1,4 @@
-import type { MigrationState } from "@nookly/shared/sync";
+import { type MigrationState, migrationSummary } from "@nookly/shared/sync";
 import { IconAlertTriangle, IconCircleCheck, IconCircleDashed } from "@tabler/icons-react-native";
 import { useMutation } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
@@ -119,7 +119,6 @@ export function FirstSyncPage() {
   const state = steps(migration);
   const done = migration.phase === "done";
   const failed = migration.phase === "failed";
-  const files = migration.files > 0 ? ` and ${plural(migration.files, "file", "files")}` : "";
   return (
     <View
       accessibilityViewIsModal
@@ -183,7 +182,7 @@ export function FirstSyncPage() {
         </View>
         {done ? (
           <View accessibilityLiveRegion="polite" style={{ gap: SPACE.xs }}>
-            <Text>{`All ${plural(migration.items, "item", "items")}${files} are in your account, checked with the server.`}</Text>
+            <Text>{migrationSummary(migration, `this ${device}`)}</Text>
             <Text variant="small" tone="muted">
               Nothing on this {device} was removed, and the backup from before stays where it is.
             </Text>

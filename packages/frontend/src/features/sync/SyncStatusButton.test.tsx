@@ -22,6 +22,7 @@ const status = (patch: Partial<SyncStatus>): SyncStatus => ({
   pending: 0,
   conflicts: 0,
   parked: 0,
+  held: 0,
   lastSyncedAt: null,
   error: null,
   live: true,
@@ -74,6 +75,20 @@ describe("the sync status", () => {
     expect(syncSummary(signedIn({ state: "error", error: "Server down" })).label).toBe(
       "Sync stopped: Server down",
     );
+  });
+
+  it("says that a change couldn't sync, and that it is safe", () => {
+    const summary = syncSummary({
+      user: ADA,
+      status: status({ state: "idle", pending: 1, held: 1 }),
+      migration: null,
+      files: null,
+    });
+    expect(summary).toMatchObject({
+      label: "1 change couldn't sync yet. It's saved on this computer and Nookly keeps trying.",
+      tone: "text-caution",
+      opens: "settings",
+    });
   });
 
   it("draws the state in the icon: crossed out cloud without an account, a loading cloud, a storm offline, a check when synced", () => {

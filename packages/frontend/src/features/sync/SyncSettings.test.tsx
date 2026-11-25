@@ -7,6 +7,7 @@ import { useNavStore } from "#/lib/store/nav.ts";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
 import { mockCommand } from "#/test/tauri.ts";
+import { statusLine } from "./AccountCards.tsx";
 import { syncRuntime } from "./sync-instance.ts";
 import { useAccountDialog } from "./account-dialog-store.ts";
 import { useSecurityDialog } from "./security-dialog-store.ts";
@@ -60,6 +61,7 @@ function signedIn(sessions: Session[] = []) {
         pending: 0,
         conflicts: 0,
         parked: 0,
+        held: 0,
         lastSyncedAt: Date.now(),
         error: null,
         live: true,
@@ -80,6 +82,7 @@ afterEach(() => {
         pending: 0,
         conflicts: 0,
         parked: 0,
+        held: 0,
         lastSyncedAt: null,
         error: null,
         live: true,
@@ -424,6 +427,27 @@ describe("the Sync settings", () => {
     await user.click(within(dialog).getByRole("button", { name: "Delete Account" }));
     expect(await within(dialog).findByText("Notion didn't allow the sign in.")).toBeInTheDocument();
     expect(remove).not.toHaveBeenCalled();
+  });
+});
+
+describe("the account's sync line", () => {
+  it("says when a change couldn't sync, and that it is safe", () => {
+    expect(
+      statusLine({
+        state: "idle",
+        pending: 1,
+        held: 1,
+        conflicts: 0,
+        parked: 0,
+        lastSyncedAt: Date.now(),
+        error: null,
+        live: true,
+        lastChangedAt: null,
+      }),
+    ).toMatchObject({
+      text: "1 change couldn't sync yet. It's saved on this computer and Nookly keeps trying.",
+      tone: "caution",
+    });
   });
 });
 

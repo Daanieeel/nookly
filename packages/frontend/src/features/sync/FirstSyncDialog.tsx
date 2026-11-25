@@ -1,4 +1,4 @@
-import type { MigrationState } from "@nookly/shared/sync";
+import { type MigrationState, migrationSummary } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
@@ -90,12 +90,6 @@ function steps(m: MigrationState) {
   return { backup: state(0), sending: state(1), checking: state(2) };
 }
 
-/// The summary of a first sync once it is done, also shown in Settings, Account.
-export function migrationSummary(m: MigrationState): string {
-  const files = m.files > 0 ? ` and ${plural(m.files, "file", "files")}` : "";
-  return `All ${plural(m.items, "item", "items")}${files} are in your account, checked with the server.`;
-}
-
 /// Progress of the first sync of a device that had data: the backup, the items and files
 /// going up, and the check with the server. A page over the whole window while it runs, so
 /// nothing else is done meanwhile and nothing looks closable; Done or Try Again at the end.
@@ -165,7 +159,7 @@ export function FirstSyncDialog() {
         </ol>
         {done && (
           <div role="status" className="flex flex-col gap-1 text-sm">
-            <p>{migrationSummary(migration)}</p>
+            <p>{migrationSummary(migration, "this computer")}</p>
             <p className="text-xs text-muted-foreground">
               Nothing on this device was removed, and the backup from before stays where it is.
             </p>

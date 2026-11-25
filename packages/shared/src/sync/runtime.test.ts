@@ -748,6 +748,23 @@ describe("a first sync of a device with data", () => {
     second.sync.stop();
   }, 30_000);
 
+  it("finishes without a change the server refuses, which goes on waiting", async () => {
+    const server = new MemoryServer();
+    server.refuses = (change) => change.table === "entities" && change.pk === "n1";
+    const { sync, driver } = runtime(server, undefined, async () => ({ path: "/b" }));
+    addNotes(driver, 3);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    await sync.settled();
+    const { migration, status } = sync.store.getState();
+    expect(migration).toMatchObject({ phase: "done", heldItems: 1 });
+    expect(migration?.itemsSent).toBe((migration?.items ?? 0) - 1);
+    expect(status.held).toBe(1);
+    expect(await sync.unsentCount()).toBe(1);
+    expect(await sync.verify()).toBe(0);
+    sync.stop();
+  });
+
   it("sends again a row the server turns out not to have", async () => {
     const { sync, driver, server } = runtime(undefined, undefined, async () => ({ path: "/b" }));
     addNotes(driver, 5);

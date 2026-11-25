@@ -1,10 +1,11 @@
-import type { PlannedChange, SyncEngine } from "./engine.ts";
-import type {
-  PullRequest,
-  PullResponse,
-  PushRequest,
-  PushResponse,
-  PushResult,
+import { type PlannedChange, type SyncEngine, changeKey, staysWaiting } from "./engine.ts";
+import {
+  MAX_PUSH_CHANGES,
+  type PullRequest,
+  type PullResponse,
+  type PushRequest,
+  type PushResponse,
+  type PushResult,
 } from "./protocol.ts";
 
 /// Runs sync for one device: pulls what the server has, pushes what the device
@@ -47,6 +48,8 @@ export interface SyncStatus {
   state: SyncState;
   /// Local changes not on the server yet.
   pending: number;
+  /// Of those, the ones the server refused: kept here and tried again later.
+  held: number;
   /// Edits that lost to newer ones, kept to look at.
   conflicts: number;
   /// Changes waiting for a row they point at.
@@ -81,8 +84,11 @@ export interface SyncClientOptions {
   periodMs?: number;
 }
 
-/// How many rounds in a row the server may fail on the same change before it is set aside.
-const QUARANTINE_AFTER = 3;
+/// How many rounds in a row the server may fail on the same change before it is held back.
+const HOLD_AFTER = 3;
+/// How long a held change waits before it is tried again. An edit to it, or the app
+/// starting again, tries it at once.
+const HOLD_MS = 60 * 60 * 1000;
 /// The most requests one push may spend finding the change the server fails on.
 const MAX_ISOLATION_REQUESTS = 40;
 const MAX_BACKOFF_MS = 60_000;
@@ -93,6 +99,12 @@ const MAX_LIVE_BACKOFF_MS = 10_000;
 
 function isNetworkError(error: Error): boolean {
   return error instanceof NetworkError || error instanceof TypeError;
+}
+
+interface PushOutcome {
+  results: PushResult[];
+  serverTime?: number;
+  failed: { item: PlannedChange; error: Error }[];
 }
 
 /// Thrown inside a sync when the client was stopped meanwhile: what the server just
@@ -115,8 +127,11 @@ export class SyncClient {
   private closeLive: (() => void) | null = null;
   private liveAttempts = 0;
   private failures = 0;
-  /// Rounds in a row the server failed on a change, by table and key.
+  /// Rounds in a row the server failed on a change, by `changeKey`.
   private readonly stuck = new Map<string, number>();
+  /// Changes the server refused, by `changeKey`: the version refused and when to try
+  /// again. Only kept in memory: the rows themselves stay marked as waiting.
+  private readonly held = new Map<string, { version: number; until: number }>();
   private debounce: ReturnType<typeof setTimeout> | null = null;
   private retry: ReturnType<typeof setTimeout> | null = null;
   private reconnect: ReturnType<typeof setTimeout> | null = null;
@@ -124,6 +139,7 @@ export class SyncClient {
   private status: SyncStatus = {
     state: "off",
     pending: 0,
+    held: 0,
     conflicts: 0,
     parked: 0,
     lastSyncedAt: null,
@@ -154,11 +170,18 @@ export class SyncClient {
     this.onStatus?.(this.status);
   }
 
+  /// The changes held back, by `changeKey`.
+  heldKeys(): ReadonlySet<string> {
+    return new Set(this.held.keys());
+  }
+
   /// Turns sync on for this device and keeps it running.
   async start(): Promise<void> {
     if (this.started) return;
     this.started = true;
     await this.engine.enable();
+    // Best effort: when it fails now, the next start does it.
+    await this.engine.requeueSetAside().catch(() => {});
     this.openLive();
     this.period = setInterval(() => void this.syncNow(), this.periodMs);
     await this.syncNow();
@@ -244,6 +267,7 @@ export class SyncClient {
       this.report({
         state: "idle",
         pending: await this.engine.pendingCount(),
+        held: await this.countHeld(),
         conflicts,
         lastSyncedAt: at,
         ...((applied || sent) && { lastChangedAt: at }),
@@ -288,32 +312,79 @@ export class SyncClient {
   /// Sends everything waiting; whether anything went.
   private async pushAll(): Promise<boolean> {
     let sent = false;
+    let serverTime: number | undefined;
     for (let round = 0; round < 1_000; round++) {
-      const planned = await this.engine.collect();
+      const planned = await this.engine.collect(MAX_PUSH_CHANGES, {
+        held: this.heldNow(),
+        serverTime,
+      });
       if (planned.length === 0) return sent;
       const outcome = await this.pushIsolating(planned, { requests: 0 });
       this.assertStarted();
       await this.engine.acknowledge(planned, outcome.results);
-      sent = true;
-      this.report({ pending: await this.engine.pendingCount() });
-      if (outcome.failed.length > 0) {
-        // The server fails on these alone. A few rounds in a row and they are set aside
-        // (kept as conflicts), so one bad row can't hold up everything behind it.
-        const aside: PlannedChange[] = [];
-        for (const { item } of outcome.failed) {
-          const key = `${item.change.table}\u0000${item.change.pk}`;
-          const times = (this.stuck.get(key) ?? 0) + 1;
-          this.stuck.set(key, times);
-          if (times >= QUARANTINE_AFTER) {
-            this.stuck.delete(key);
-            aside.push(item);
-          }
-        }
-        await this.engine.quarantine(aside);
-        if (aside.length < outcome.failed.length) throw outcome.failed[0]?.error;
+      const results = new Map(outcome.results.map((r) => [changeKey(r.table, r.pk), r]));
+      // The first refused clock of a push is dated by the server's time and sent again
+      // right away; a server that doesn't tell its time leaves this device's own.
+      const redate = serverTime === undefined;
+      for (const item of planned) {
+        const key = changeKey(item.change.table, item.change.pk);
+        const result = results.get(key);
+        if (!result) continue;
+        if (result.status === "applied") {
+          sent = true;
+          this.held.delete(key);
+          this.stuck.delete(key);
+        } else if (!staysWaiting(result)) {
+          sent = true;
+          this.held.delete(key);
+        } else if (result.reason === "clock-skew" && redate) {
+          serverTime = outcome.serverTime ?? Date.now();
+        } else this.hold(item);
       }
+      // The server fails on these alone. A few rounds in a row and they are held back, so
+      // one row can't hold up everything behind it.
+      let retry: Error | null = null;
+      for (const { item, error } of outcome.failed) {
+        const key = changeKey(item.change.table, item.change.pk);
+        const times = (this.stuck.get(key) ?? 0) + 1;
+        this.stuck.set(key, times);
+        if (times >= HOLD_AFTER || this.held.has(key)) {
+          this.stuck.delete(key);
+          this.hold(item);
+        } else retry ??= error;
+      }
+      this.report({
+        pending: await this.engine.pendingCount(),
+        held: await this.countHeld(),
+      });
+      if (retry) throw retry;
     }
     return sent;
+  }
+
+  private hold(item: PlannedChange) {
+    this.held.set(changeKey(item.change.table, item.change.pk), {
+      version: item.version,
+      until: Date.now() + HOLD_MS,
+    });
+  }
+
+  /// The held changes still waiting for their next try.
+  private heldNow(): Map<string, number> {
+    const now = Date.now();
+    return new Map(
+      [...this.held].filter(([, h]) => h.until > now).map(([key, h]) => [key, h.version]),
+    );
+  }
+
+  /// How many changes are held back. One that no longer waits (a newer edit from another
+  /// device replaced it) is forgotten.
+  private async countHeld(): Promise<number> {
+    if (this.held.size === 0) return 0;
+    const versions = new Map([...this.held].map(([key, h]) => [key, h.version]));
+    const waiting = await this.engine.stillWaiting(versions);
+    for (const key of this.held.keys()) if (!waiting.has(key)) this.held.delete(key);
+    return this.held.size;
   }
 
   /// Pushes `planned`. When the server answers 500 for the whole push, the halves go one
@@ -322,11 +393,11 @@ export class SyncClient {
   private async pushIsolating(
     planned: PlannedChange[],
     budget: { requests: number },
-  ): Promise<{ results: PushResult[]; failed: { item: PlannedChange; error: Error }[] }> {
+  ): Promise<PushOutcome> {
     try {
       budget.requests++;
       const response = await this.transport.push({ changes: planned.map((p) => p.change) });
-      return { results: response.results, failed: [] };
+      return { results: response.results, serverTime: response.serverTime, failed: [] };
     } catch (cause) {
       const error = cause instanceof Error ? cause : new Error(String(cause));
       // An `ApiRequestError` carries the HTTP status; this file can't import it.
@@ -340,6 +411,7 @@ export class SyncClient {
       const second = await this.pushIsolating(planned.slice(middle), budget);
       return {
         results: [...first.results, ...second.results],
+        serverTime: second.serverTime ?? first.serverTime,
         failed: [...first.failed, ...second.failed],
       };
     }

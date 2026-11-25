@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { SyncAccountState } from "@nookly/shared/sync";
+import { type SyncAccountState, heldLine } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCloud,
@@ -99,6 +99,14 @@ export function syncSummary(
       };
     default:
       break;
+  }
+  if (status.held > 0) {
+    return {
+      label: heldLine(status.held, "this computer"),
+      icon: IconCloudUp,
+      tone: "text-caution",
+      opens: "settings",
+    };
   }
   const sending = files ? files.toUpload + files.toDownload : 0;
   if (sending > 0) {

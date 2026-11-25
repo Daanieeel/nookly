@@ -1,52 +1,48 @@
-# Implementation state: sync release hardening
+# Implementation state: sync sign out, progress and rejected changes
 
-> **Keep working until every item is ticked.** Tick items and update notes after every meaningful step. `NOTES.md` is the user's own file: never edit, format, checkout or restore it. Source: `report/Nookly-Sync-Test-Report.pdf`, procedure in `INSTANCE_TESTING.md`.
+> Tick items and update notes after every meaningful step. `NOTES.md` is the user's own file: never edit, format, checkout or restore it.
 
 Read `AGENTS.md` and `docs/00-index.md` first.
 
 ## Ground rules
 
-- Version stays 1.0.0 (unreleased, user publishes Monday). `CHANGELOG.md` and `whats-new.json` fold into the existing 1.0.0 entry.
-- Branch: `fix/sync-release-hardening`. Test first for every fix, watch it fail.
-- Copy never uses em or en dashes.
-- Probe against `sync.nookly.work` only for verification after deploy; do not deploy without the user.
+- Branch `feat/linked-sign-in-and-sync-hardening`, based on `origin/main`. Commit and push regularly. Open a PR, **do not merge, do not tag, do not deploy**.
+- Local `main` has one unpushed commit (`72fc4e5b`, server 1.5.7, web 0.3.5). It is the user's and stays out of this PR.
+- Versions: desktop 1.0.4, mobile 1.0.3, server 1.5.8.
+- Test first for every change, watch it fail. Copy never uses em or en dashes.
+
+## Decisions (answered by the user)
+
+1. Sign out that removes data also deletes files, but only those the account confirmed it has. Unsent files stay.
+2. First sync shows byte progress.
+3. WebSocket rate limit keys on the real client address.
+4. Check the live server. No merge, so no deploy.
+5. Rejected changes, for a user who knows nothing of the backend: wrong clock corrected by Nookly itself, NUL characters left out of what is sent, anything else stays waiting, is retried on its own and is explained in plain words. Changes already set aside by 1.0.x are queued again.
 
 ## Tasks
 
-### Server (`apps/server`)
+- [x] A. Server: WebSocket limits use the client address (`/sync/ws`, `/collab`).
+- [x] B. Server and protocol: a push with a `clock-skew` rejection carries the server's time.
+- [x] C. Client: correct a wrong clock and resend.
+- [x] D. Client: leave NUL characters out of pushed values.
+- [x] E. Client: hold refused changes (stay dirty, retried), no conflict entry, first sync can finish.
+- [x] F. Client: queue changes set aside by earlier versions again.
+- [x] G. UI (desktop and phone): plain words for changes that couldn't sync.
+- [ ] H. Files download again after sign out and sign in on the same device.
+- [ ] I. Sign out deletes confirmed files (shared, Rust, phone) and the copy says so.
+- [ ] J. Byte progress (shared, Rust, desktop UI, phone UI).
+- [ ] K. Docs, decisions log, versions, CHANGELOG, whats-new.
+- [ ] L. Lint, format, typecheck, tests, `cargo test`, duplication.
+- [ ] M. Live check, push, open PR.
 
-- [x] 1a. NUL byte (`\u0000`) in any synced field: reject or strip in the push schema so it cannot reach Postgres.
-- [x] 1b. One bad change must not fail the whole push batch: per change result, others applied.
-- [x] 2a. Rate limit client IP: take the router-appended address, not a client-supplied `X-Forwarded-For` entry.
-- [x] 2b. Per account sign-in limit on top of per IP.
-- [x] 7. `/docs` and `/docs/json` disabled in production.
-- [x] 8. Oversized body: server already answers 413 (test added); the probe's connection reset was Python's urllib failing mid upload, not a server bug.
-- [x] Clock poisoning: far-future HLC cannot permanently win merges (verify, fix if not).
+## Second part: authentication strategy (asked 2026-11-25, mid work)
 
-### Desktop (`apps/desktop`)
+Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at the repo root; read it, do not edit or delete it), its TODO section included. Do after A to M.
 
-- [x] 1c. Client quarantines a change the server keeps rejecting after N retries and shows it, instead of stalling the queue.
-- [x] 3b. The "Sign out of this computer?" dialog is a destructive `AlertDialog` (`ConfirmPermanentDialog`), per the user.
-- [x] 3. Sign-out "remove from this computer" really deletes the file blobs (or the wording is fixed).
-- [x] 4. Device-local columns (`files.local_path`, `source_path`) do not mark rows dirty; `changesWaiting` is accurate.
-- [x] 5. Device name uses the hostname; last active refreshes on each sync.
-- [x] 6. First sync: parallel blob uploads and real progress.
-
-### Process
-
-- [x] Commit probe scripts (`sec.py`, `fp.py`) under `scripts/` and turn the security cases into server regression tests.
-- [x] CHANGELOG / whats-new lines, docs, lint, format, typecheck, tests, `cargo test`.
+- [ ] N. Explore current auth, break the strategy into tasks here.
 
 ## Notes
 
-- Server done (tests in `apps/server/test/hardening.test.ts`, `client-ip.test.ts`): new push rejection reasons `invalid-value` and `clock-skew` (protocol.ts); push retries a failed batch change by change; `TRUSTED_PROXY_HOPS` (default 1) takes the XFF entry the proxy appended; per account sign-in limit 20 per 15 min; `API_DOCS` defaults off when `NODE_ENV=production`.
-- Deploy notes for the user: Heroku needs `TRUST_PROXY=true` (check `heroku config`, the app is `nookly`; name only, never print values). WebSocket rate limit still keys on the proxy's address (`ws.remoteAddress`), left as is.
-- Existing `shares.test.ts` used a clock of year 2286 to prove authorization beats a winning clock; now uses now plus 1 hour.
-- Client 1c done (`packages/shared/src/sync/client.ts`, `engine.ts`): rejection `invalid-value` or `clock-skew` is set aside (`engine.quarantine`: row stays, conflict recorded, dirty cleared); a 500 for a whole push is bisected (max 40 requests), a change failing 3 rounds in a row is quarantined; 502/503 are never split.
-- Item 4: could not reproduce triggers marking local-only writes as work to send (collect already drops them); real cause was a file downloaded after the round ended leaving a mark until the next round (60 s, or never while the window is in the background). Fix: a downloaded file triggers one more round (`runtime.ts`), test in `runtime.test.ts`.
-- Item 6: uploads now 3 at once (`UPLOADS_AT_ONCE`, `blobs.ts`). The first sync screen already counts files and items sent; no byte level progress (one big file still looks still).
-- Item 5: device name = `scutil --get ComputerName` / hostname via `sync_computer_name` (Rust, tested) read once at launch in `sync-instance.ts`; "last active" = session `updated_at` touched at most once a minute in `AccountService.authenticate` (better-auth only renews daily; it keys on `expires_at`, so only the time is written).
-- Items 3 and 3b: the dialog already was an `AlertDialog`; it is now `severity="destructive"` (red Sign Out) unless "Keep a local copy" is ticked (nothing is removed then). Decision on item 3: files are NOT deleted from disk on sign out (a file that never reached the account would be gone); the dialog now says "Attached files stay in Nookly's folder on this computer". Deleting confirmed-uploaded files is a possible follow-up.
-- Probe scripts are in `tools/instance-testing/` (listed in `INSTANCE_TESTING.md`); the security cases are regression tests in `apps/server/test/hardening.test.ts`.
-- Checks run on 2026-11-22: lint, format:check, typecheck, `bun run test` (server 130, shared 426, frontend 3647, mobile 998), duplication 0.13%, `cargo test` 1572 pass. `db::search::tests::search_stays_within_its_budget_on_20000_entities` failed once under load during the full run and passes alone (timing test, not touched).
-- Not done on purpose: deploy to `nookly-sync` (the user's call; needs `heroku` release from the branch), deleting downloaded files on sign out, byte level first sync progress. Nothing is committed; the branch is `fix/sync-release-hardening`.
+- Live check 2026-11-25: `/health` 1.5.6, `/docs` 404, Heroku app `nookly-sync` has `TRUST_PROXY=true`, `TRUSTED_PROXY_HOPS` unset (default 1).
+- B to F: `SyncStatus.held`, `MigrationState.heldItems`, `pushResponse.serverTime`; held changes stay in `sync_dirty` (in memory skip list in `SyncClient`, retried after 1 h, on edit, on app start). `SyncEngine.requeueSetAside` only re-sends rows still exactly like the stored copy; a set aside row edited since keeps its old conflict entry (cannot be told apart from an undone edit).
+- G: wording lives in `packages/shared/src/sync/copy.ts`.

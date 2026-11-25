@@ -1,5 +1,5 @@
 import type { Session } from "@nookly/shared/api";
-import type { SyncStatus } from "@nookly/shared/sync";
+import { type SyncStatus, heldLine } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
@@ -171,6 +171,13 @@ export function statusLine(status: SyncStatus): StatusLine {
     case "off":
       return { icon: IconCloudOff, text: "Sync is off", tone: "idle" };
     case "idle":
+      if (status.held > 0) {
+        return {
+          icon: IconAlertTriangle,
+          text: heldLine(status.held, "this computer"),
+          tone: "caution",
+        };
+      }
       if (!status.live) {
         return {
           icon: IconAlertTriangle,

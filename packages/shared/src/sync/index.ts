@@ -11,3 +11,4 @@ export * from "./settings.ts";
 export * from "./docs.ts";
 export * from "./conflict-view.ts";
 export * from "./presence.ts";
+export * from "./copy.ts";

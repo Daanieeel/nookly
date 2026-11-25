@@ -20,7 +20,7 @@ import {
 import { PageDocs } from "./docs.ts";
 import type { SqlValue } from "../schema.ts";
 import { SyncClient, type SyncStatus } from "./client.ts";
-import { type Conflict, SyncEngine } from "./engine.ts";
+import { type Conflict, SyncEngine, changeKey } from "./engine.ts";
 import { MAX_MISSING_KEYS } from "./protocol.ts";
 import { AccountSettingsSync, type SettingsBridge } from "./settings.ts";
 import { type SqlDriver, ident, pkSql, run } from "./sql.ts";
@@ -100,6 +100,9 @@ export interface MigrationState {
   itemsSent: number;
   files: number;
   filesSent: number;
+  /// Items the server refused by the time it was done; they go on waiting. Missing in a
+  /// state saved by an earlier version.
+  heldItems?: number;
   /// Where the backup made before anything was sent is.
   backupPath: string | null;
   startedAt: string;
@@ -126,6 +129,7 @@ export interface SyncAccountState {
 const OFF: SyncStatus = {
   state: "off",
   pending: 0,
+  held: 0,
   conflicts: 0,
   parked: 0,
   lastSyncedAt: null,
@@ -908,7 +912,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       itemsSent: Math.max(0, Math.min(migration.items, migration.items - pending)),
       filesSent: Math.max(0, Math.min(migration.files, migration.files - filesLeft)),
     };
-    if (pending > 0 || filesLeft > 0 || this.client?.current().state !== "idle") {
+    // A change the server refuses must not keep the first sync from ending.
+    const held = this.client?.heldKeys().size ?? 0;
+    if (pending > held || filesLeft > 0 || this.client?.current().state !== "idle") {
       await this.saveMigration({ ...next, phase: "sending" });
       return;
     }
@@ -921,7 +927,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     }
     await this.saveMigration({
       ...next,
-      itemsSent: next.items,
+      itemsSent: Math.max(0, next.items - held),
+      heldItems: held,
       filesSent: next.files,
       phase: "done",
       finishedAt: new Date(this.now()).toISOString(),
@@ -929,7 +936,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   }
 
   /// Asks the server for every row of this device's own data. A row it doesn't
-  /// have is marked to be sent again from scratch. Returns how many were missing.
+  /// have is marked to be sent again from scratch, except one it refused, which is
+  /// waiting already. Returns how many were missing.
   async verify(): Promise<number> {
     if (!this.api) return 0;
     let missing = 0;
@@ -938,7 +946,10 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         `SELECT ${pkSql(table)} AS pk FROM ${ident(table.name)} WHERE ${pkSql(table)} NOT IN (SELECT pk FROM sync_rows WHERE tbl = ? AND dataset <> 'own')`,
         [table.name],
       );
-      const pks = rows.map((r) => String(r.pk));
+      const held = this.client?.heldKeys();
+      const pks = rows
+        .map((r) => String(r.pk))
+        .filter((pk) => !held?.has(changeKey(table.name, pk)));
       for (let i = 0; i < pks.length; i += MAX_MISSING_KEYS) {
         const lost = await this.api.missing(table.name, pks.slice(i, i + MAX_MISSING_KEYS));
         if (lost.length === 0) continue;

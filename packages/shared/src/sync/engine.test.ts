@@ -159,7 +159,7 @@ describe("pushing", () => {
 
 describe("a change the server won't take", () => {
   for (const reason of ["invalid-value", "clock-skew"] as const) {
-    it(`keeps the row and the edit when refused as ${reason}`, async () => {
+    it(`keeps the row and goes on waiting when refused as ${reason}`, async () => {
       const d = device("a");
       await d.engine.enable();
       addSpace(d);
@@ -173,24 +173,11 @@ describe("a change the server won't take", () => {
         reason,
       }));
       await d.engine.acknowledge(planned, results);
-      // The row stays as the person wrote it; it is not sent again and not lost.
       expect(title(d, "t1")).toBe("A title the server refuses");
-      expect(await d.engine.pendingCount()).toBe(0);
-      expect((await d.engine.conflicts()).length).toBeGreaterThan(0);
+      expect(await d.engine.pendingCount()).toBe(planned.length);
+      expect(await d.engine.conflicts()).toEqual([]);
     });
   }
-
-  it("quarantines a change on request", async () => {
-    const d = device("a");
-    await d.engine.enable();
-    addSpace(d);
-    addTask(d, "t1", "Stuck");
-    const planned = await d.engine.collect();
-    const stuck = planned.filter((p) => p.change.pk === "t1" && p.change.table === "entities");
-    await d.engine.quarantine(stuck);
-    expect(title(d, "t1")).toBe("Stuck");
-    expect((await d.engine.conflicts()).map((c) => c.pk)).toEqual(["t1"]);
-  });
 });
 
 describe("two devices", () => {
