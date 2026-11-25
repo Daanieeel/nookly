@@ -8,19 +8,21 @@ use crate::sync::loopback::{self, LoopbackState};
 use serde_json::Value;
 use tauri::State;
 
-#[tauri::command]
+// `async` keeps these off the window's thread: the engine calls them all through a sync, and
+// there they would freeze the app for as long as the database was busy.
+#[tauri::command(async)]
 pub fn sync_query(state: State<DbState>, sql: String, params: Vec<Value>) -> AppResult<Vec<Value>> {
     let conn = state.conn()?;
     batch::run_query(&conn, &sql, &params)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_batch(state: State<DbState>, statements: Vec<Statement>) -> AppResult<BatchOutcome> {
     let mut conn = state.conn()?;
     batch::run_batch(&mut conn, &statements)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_reindex(state: State<DbState>, entity_ids: Vec<String>) -> AppResult<()> {
     let conn = state.conn()?;
     crate::sync::reindex(&conn, &entity_ids)

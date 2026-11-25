@@ -5,6 +5,7 @@
 //! anything points at it; a file that doesn't match is thrown away.
 
 use crate::backup::{self, BackupInfo};
+use crate::commands::files::blocking_db;
 use crate::db::DbState;
 use crate::error::{AppError, AppResult};
 use serde::Serialize;
@@ -14,7 +15,7 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 
 #[derive(Debug, Serialize)]
 pub struct BlobHash {
@@ -323,24 +324,38 @@ pub async fn blob_download(
     let dir = data_dir(&app)?.join(folder);
     let path = blocking(move || download_to(&server_url, &sha256, &dir, &filename)).await?;
     let path = path.to_string_lossy().into_owned();
-    let state = app.state::<DbState>();
-    let conn = state.conn()?;
-    match table.as_str() {
-        "files" => crate::db::files::attach_synced(&conn, &pk, &path)?,
-        "recipes" => {
-            conn.execute(
-                "UPDATE recipes SET banner_path = ?1 WHERE entity_id = ?2",
-                rusqlite::params![path, pk],
-            )?;
-        }
-        _ => {
-            conn.execute(
-                "UPDATE bookmarks SET screenshot_path = ?1 WHERE entity_id = ?2",
-                rusqlite::params![path, pk],
-            )?;
-        }
-    }
+    point_row_at(&app, &table, &pk, &path).await?;
     Ok(path)
+}
+
+/// Points the row a download was for at where it landed. A File's text is read afterwards,
+/// without the database: reading a picture or a PDF takes seconds.
+async fn point_row_at<R: Runtime>(
+    app: &AppHandle<R>,
+    table: &str,
+    pk: &str,
+    path: &str,
+) -> AppResult<()> {
+    let (table, pk, path) = (table.to_owned(), pk.to_owned(), path.to_owned());
+    blocking_db(app, move |conn| {
+        match table.as_str() {
+            "files" => crate::db::files::attach_synced(conn, &pk, &path)?,
+            "recipes" => {
+                conn.execute(
+                    "UPDATE recipes SET banner_path = ?1 WHERE entity_id = ?2",
+                    rusqlite::params![path, pk],
+                )?;
+            }
+            _ => {
+                conn.execute(
+                    "UPDATE bookmarks SET screenshot_path = ?1 WHERE entity_id = ?2",
+                    rusqlite::params![path, pk],
+                )?;
+            }
+        }
+        Ok(())
+    })
+    .await
 }
 
 /// The full backup made before a first sign in sends anything, in the app data
@@ -371,6 +386,58 @@ pub async fn create_pre_sync_backup(app: AppHandle, keep: Option<bool>) -> AppRe
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_downloaded_file_is_read_after_the_database_is_let_go() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Listener;
+
+        let app = mock_builder()
+            .manage(DbState(std::sync::Mutex::new(crate::db::test_conn())))
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-synced-{}", crate::db::new_id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("notes.txt");
+        fs::write(&path, b"synced zebra text").unwrap();
+        let path = path.to_string_lossy().into_owned();
+        let id = {
+            let state = app.state::<DbState>();
+            let conn = state.conn().unwrap();
+            let space = crate::db::test_space(&conn, "Work");
+            let entity = crate::db::entities::create_entity(
+                &conn,
+                space.id,
+                "file".into(),
+                "notes.txt".into(),
+                None,
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO files (entity_id, original_filename) VALUES (?1, 'notes.txt')",
+                [&entity.id],
+            )
+            .unwrap();
+            entity.id
+        };
+        let (told, heard) = std::sync::mpsc::channel();
+        app.listen_any(crate::db::EXTERNAL_CHANGE_EVENT, move |_| {
+            told.send(()).ok();
+        });
+
+        tauri::async_runtime::block_on(point_row_at(app.handle(), "files", &id, &path)).unwrap();
+
+        // Reading a PDF or a picture takes seconds, and every command waits for the database:
+        // the text is read on a thread of its own, which says so once it can be searched.
+        heard
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the file's text was read while the database was held");
+        let state = app.state::<DbState>();
+        let conn = state.conn().unwrap();
+        let hits = crate::db::search::search(&conn, "zebra", None).unwrap();
+        assert!(hits.iter().any(|hit| hit.entity_id == id), "{hits:?}");
+        fs::remove_dir_all(dir).ok();
+    }
 
     #[test]
     fn hashes_a_file_as_it_streams() {

@@ -2,14 +2,14 @@ use crate::db::files::{self, FileEntity};
 use crate::db::DbState;
 use crate::error::{AppError, AppResult};
 use std::path::PathBuf;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
 /// Runs `work` off the main thread with the database locked, with text
 /// extraction held back, then extracts in the background once the lock is free.
 /// A large PDF is OCR'd page by page, which used to freeze the whole app, since
 /// every command shares the one connection.
-async fn blocking_db<T: Send + 'static>(
-    app: &AppHandle,
+pub(crate) async fn blocking_db<R: Runtime, T: Send + 'static>(
+    app: &AppHandle<R>,
     work: impl FnOnce(&rusqlite::Connection) -> AppResult<T> + Send + 'static,
 ) -> AppResult<T> {
     let handle = app.clone();
@@ -32,7 +32,7 @@ async fn blocking_db<T: Send + 'static>(
 /// taking the database lock only to write. Tells the UI when each is searchable.
 /// If the app quits first, the File just has no search content yet, and the
 /// Files list's "reindex" action picks up every File in that state.
-fn index_in_background(app: AppHandle, jobs: Vec<files::IndexJob>) {
+fn index_in_background<R: Runtime>(app: AppHandle<R>, jobs: Vec<files::IndexJob>) {
     if jobs.is_empty() {
         return;
     }
