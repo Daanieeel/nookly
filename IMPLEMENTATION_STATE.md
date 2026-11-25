@@ -45,7 +45,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 - [x] N3. Server: second step for every account and provider (challenge at provider redeem), old apps answered `update_required`.
 - [x] N4. Server: re check within 10 minutes; two factor management needs it instead of a password.
 - [x] N5. Server: list, link, unlink, set primary; add, change, remove Nookly Signin; change emails with a code; sign in and reset by login email.
-- [ ] N6. Shared API client, schemas, runtime gate. (client and schemas done)
+- [x] N6. Shared API client, schemas, runtime gate.
 - [ ] N7. Desktop UI.
 - [ ] N8. Phone and tablet UI.
 - [ ] N9. TODO tests: `/reset-password.js` 500, flaky `apps/web/src/components/hero/stage.test.tsx`.
@@ -66,6 +66,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 
 ## Notes
 
+- N6: `SyncRuntime.linkProvider`, `disconnectProvider` (keeps local data when it signs this device out), gate refresh on `two_factor_required`. UI calls: `api.signInMethods/recheck/sendRecheckCode/setPrimary/sendEmailCode/changeEmail/addPassword/setPassword`, `needsRecheck(error)`, provider sign in may throw `TwoFactorRequiredError`.
 - N1 to N5: server done, 245 server tests pass. New files `apps/server/src/auth/{emails,codes,challenge,recheck,sign-in-methods}.ts`, `test/{sign-in-methods,sign-in-migration}.test.ts`, `test/fake-providers.ts`. Shared client already has the new calls; `runSecurityAction` no longer takes a password. N9 first half fixed: the reset page script failed on folder names with spaces.
 - Live check 2026-11-25: `/health` 1.5.6, `/docs` 404, Heroku app `nookly-sync` has `TRUST_PROXY=true`, `TRUSTED_PROXY_HOPS` unset (default 1).
 - B to F: `SyncStatus.held`, `MigrationState.heldItems`, `pushResponse.serverTime`; held changes stay in `sync_dirty` (in memory skip list in `SyncClient`, retried after 1 h, on edit, on app start). `SyncEngine.requeueSetAside` only re-sends rows still exactly like the stored copy; a set aside row edited since keeps its old conflict entry (cannot be told apart from an undone edit).

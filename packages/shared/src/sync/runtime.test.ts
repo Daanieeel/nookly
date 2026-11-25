@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { PRODUCTION_SERVER, TERMS_VERSION } from "../api/index.ts";
-import { ProviderNoAccountError, TwoFactorRequiredError } from "../api/index.ts";
-import type { DeviceInfo, SignUp, TwoFactorMethod, User } from "../api/index.ts";
+import { ApiRequestError, ProviderNoAccountError, TwoFactorRequiredError } from "../api/index.ts";
+import type { DeviceInfo, SignInChange, SignUp, TwoFactorMethod, User } from "../api/index.ts";
 import type { ConflictReport, ServerConflict } from "./protocol.ts";
 import type { BlobPlatform, BlobTarget } from "./blobs.ts";
 import { type LiveHandlers, NetworkError, type SyncTransport } from "./client.ts";
@@ -113,6 +113,46 @@ class FakeAccount implements AccountApi {
   async isSignedIn() {
     return this.signedIn;
   }
+  /// The ways the account signs in, as the server lists them, and the one this device used.
+  methods = ["credential", "github"];
+  current = "credential";
+  private signInSummary(signedOut: boolean): SignInChange {
+    return {
+      methods: this.methods.map((provider) => ({
+        provider,
+        email: null,
+        emailVerified: false,
+        primary: provider === "credential",
+        canBePrimary: false,
+      })),
+      current: this.current,
+      fresh: true,
+      secondStep: [],
+      offered: this.offered,
+      signedOut,
+    };
+  }
+  async signInMethods() {
+    return this.signInSummary(false);
+  }
+  async beginLink(input: { provider: string; port?: number }) {
+    this.calls.push(`beginLink ${input.provider}`);
+    return { url: `https://accounts.example/link/${input.provider}`, secret: "link-secret" };
+  }
+  async finishLink(code: string, secret: string) {
+    this.calls.push(`link ${code} ${secret}`);
+    this.methods.push("notion");
+    return this.signInSummary(false);
+  }
+  unlinkFails = false;
+  async unlink(provider: string) {
+    this.calls.push(`unlink ${provider} ${this.liveHandlers ? "live" : "quiet"}`);
+    if (this.unlinkFails) throw new Error("The primary way of signing in stays.");
+    const mine = provider === this.current;
+    this.methods = this.methods.filter((m) => m !== provider);
+    if (mine) this.signedIn = false;
+    return this.signInSummary(mine);
+  }
   /// What the server's conflict log holds for the account.
   serverConflicts: ServerConflict[] = [];
   async conflicts() {
@@ -135,6 +175,8 @@ class FakeAccount implements AccountApi {
   }
   /// Every request fails, like a server that is down.
   offline = false;
+  /// Every pull is refused until two-factor is set up, as the server answers it.
+  owesTwoFactor = false;
   /// Pushes fail from this many on, like a connection that drops mid sync.
   failPushesAfter = Number.POSITIVE_INFINITY;
   pushes = 0;
@@ -162,6 +204,9 @@ class FakeAccount implements AccountApi {
       pull: async (r) => {
         this.pulls += 1;
         if (this.offline) throw new NetworkError("Can't reach the server.");
+        if (this.owesTwoFactor) {
+          throw new ApiRequestError(403, "two_factor_required", "Set up two-factor.");
+        }
         return this.server.pull(r);
       },
     };
@@ -1078,6 +1123,28 @@ describe("two-factor", () => {
     sync.stop();
   });
 
+  it("holds a syncing device back as soon as the server asks for it", async () => {
+    const { sync, account, driver } = runtime();
+    account.user = { ...ADA, termsVersion: TERMS_VERSION };
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    // The server starts requiring it while this device is signed in.
+    account.user = { ...account.user, twoFactorRequired: true };
+    account.owesTwoFactor = true;
+    account.liveHandlers?.onChanges();
+    await vi.waitFor(() => expect(sync.store.getState().twoFactorPending).toBe(true));
+    expect(account.liveHandlers).toBeNull();
+    // Signed in still, with everything on the device.
+    expect(sync.store.getState().user?.username).toBe("ada");
+    expect(account.signedIn).toBe(true);
+    expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).not.toEqual([]);
+
+    account.user = { ...account.user, twoFactorRequired: false };
+    account.owesTwoFactor = false;
+    await sync.twoFactorChanged();
+    await vi.waitFor(() => expect(account.liveHandlers).not.toBeNull());
+    sync.stop();
+  });
+
   it("does not hold back an account that does not owe it", async () => {
     const { sync, account } = runtime();
     account.user = { ...ADA, termsVersion: TERMS_VERSION };
@@ -1231,6 +1298,60 @@ describe("signing in with another account", () => {
     expect(sync.store.getState().user).toMatchObject({ username: "ada_l", needsUsername: false });
     const saved = driver.rows("SELECT value FROM sync_meta WHERE key = 'user'");
     expect(JSON.parse(String(saved[0]?.value)).username).toBe("ada_l");
+    sync.stop();
+  });
+
+  it("connects a provider to the signed in account through the same browser", async () => {
+    const { sync, account, opened } = withBrowser("nookly://auth?code=abc");
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    const change = await sync.linkProvider("notion");
+    expect(opened).toEqual(["https://accounts.example/link/notion"]);
+    expect(account.calls).toContain("link abc link-secret");
+    expect(change?.methods.map((m) => m.provider)).toContain("notion");
+    sync.stop();
+  });
+
+  it("connects nothing when the browser is closed, and says why when the provider refused", async () => {
+    const closed = withBrowser(null);
+    await closed.sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    expect(await closed.sync.linkProvider("notion")).toBeNull();
+    closed.sync.stop();
+    const refused = withBrowser("nookly://auth?error=access_denied");
+    await refused.sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    await expect(refused.sync.linkProvider("notion")).rejects.toThrow("Notion didn't allow");
+    refused.sync.stop();
+  });
+
+  it("disconnects a provider and stays signed in", async () => {
+    const { sync, account } = runtime();
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    const change = await sync.disconnectProvider("github");
+    expect(change.signedOut).toBe(false);
+    expect(account.calls).toContain("unlink github live");
+    expect(sync.store.getState().user?.username).toBe("ada");
+    sync.stop();
+  });
+
+  it("keeps everything on the device when disconnecting signs it out", async () => {
+    const { sync, account, driver } = runtime();
+    addSpace(driver);
+    account.current = "github";
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    const change = await sync.disconnectProvider("github");
+    expect(change.signedOut).toBe(true);
+    // Sync stopped first: nothing was asking while the session ended.
+    expect(account.calls).toContain("unlink github quiet");
+    expect(sync.store.getState()).toMatchObject({ user: null, signedOutReason: null });
+    expect(driver.rows("SELECT id FROM spaces")).toEqual([{ id: "s1" }]);
+  });
+
+  it("goes on syncing when disconnecting is refused", async () => {
+    const { sync, account } = runtime();
+    account.current = "github";
+    account.unlinkFails = true;
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await expect(sync.disconnectProvider("github")).rejects.toThrow("stays");
+    await vi.waitFor(() => expect(account.liveHandlers).not.toBeNull());
     sync.stop();
   });
 

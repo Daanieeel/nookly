@@ -68,6 +68,8 @@ export interface SyncClientOptions {
   engine: SyncEngine;
   transport: SyncTransport;
   onStatus?: (status: SyncStatus) => void;
+  /// Told why a sync failed, when it was not the connection.
+  onFailure?: (error: Error) => void;
   /// Remote changes landed in the database; views should refresh.
   onApplied?: () => void;
   /// The server says the account itself changed (its email was confirmed).
@@ -115,6 +117,7 @@ export class SyncClient {
   private readonly engine: SyncEngine;
   private readonly transport: SyncTransport;
   private readonly onStatus?: (status: SyncStatus) => void;
+  private readonly onFailure?: (error: Error) => void;
   private readonly onApplied?: () => void;
   private readonly onAccountChanged?: () => void;
   private readonly afterCycle?: (applied: boolean) => Promise<void>;
@@ -152,6 +155,7 @@ export class SyncClient {
     this.engine = options.engine;
     this.transport = options.transport;
     this.onStatus = options.onStatus;
+    this.onFailure = options.onFailure;
     this.onApplied = options.onApplied;
     this.onAccountChanged = options.onAccountChanged;
     this.afterCycle = options.afterCycle;
@@ -283,6 +287,7 @@ export class SyncClient {
         pending: await this.engine.pendingCount().catch(() => this.status.pending),
       });
       this.scheduleRetry();
+      if (!isNetworkError(error)) this.onFailure?.(error);
     }
   }
 

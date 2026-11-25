@@ -1,7 +1,8 @@
 import type {
   ApiClient,
   DeviceInfo,
-  ProviderBeginInput,
+  ProviderBegin,
+  SignInChange,
   SignUp,
   TwoFactorMethod,
   User,
@@ -44,6 +45,10 @@ export type AccountApi = Pick<
   | "finishProviderSignIn"
   | "beginConfirmation"
   | "finishConfirmation"
+  | "signInMethods"
+  | "beginLink"
+  | "finishLink"
+  | "unlink"
   | "setUsername"
   | "signOut"
   | "me"
@@ -197,6 +202,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   private blobs: BlobSync | null = null;
   private readonly settings: AccountSettingsSync | null;
   private stopSettings: (() => void) | null = null;
+  /// The client whose session this device is ending itself, while it does.
+  private leaving: A | null = null;
   private filesRunning: Promise<void> | null = null;
   private filesCounted = { uploaded: 0, downloaded: 0 };
   private docs: PageDocs | null = null;
@@ -235,8 +242,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     // or the new sign in would keep the old, ended session's sync.
     if (this.client) this.stop();
     const api = this.deps.connect(url, () => {
-      // Only the current account's client speaks for this device.
-      if (this.api === api) void this.signedOutByServer();
+      // Only the current account's client speaks for this device, and not about a session
+      // this device is ending itself.
+      if (this.api === api && this.leaving !== api) void this.signedOutByServer();
     });
     this.api = api;
     return api;
@@ -367,25 +375,23 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     return this.enter(api, await api.signUp(input, this.deps.device), options);
   }
 
-  /// Signs in with another account (`google`, `github`, `notion`) through the browser.
-  /// `createAccount` is for someone who is new here; null comes back when the browser was
-  /// closed without finishing, which is not an error.
-  async signInWithProvider(
-    serverUrl: string,
-    provider: string,
-    input: { createAccount?: boolean; betaKey?: string; termsVersion?: string } = {},
-    options: SignInOptions = {},
-  ): Promise<User | null> {
+  /// The system browser, on a device that has one to open.
+  private browser(): ProviderBrowser {
     const browser = this.deps.providerBrowser;
     if (!browser)
       throw new Error("Signing in with another account isn't available on this device.");
-    const api = this.connect(serverUrl);
+    return browser;
+  }
+
+  /// The browser's round trip to a provider: the code it brought back, with the secret that
+  /// goes with it. Null when the browser was closed without finishing, which is not an error.
+  private async browserRound(
+    provider: string,
+    begin: (input: { provider: string; port?: number }) => Promise<ProviderBegin>,
+  ): Promise<{ code: string; secret: string } | null> {
     let secret = "";
-    const returned = await browser(async (port) => {
-      const { termsVersion: _terms, ...asked } = input;
-      const request: ProviderBeginInput = { provider, ...asked };
-      if (port !== null) request.port = port;
-      const begun = await api.beginProviderSignIn(request);
+    const returned = await this.browser()(async (port) => {
+      const begun = await begin(port === null ? { provider } : { provider, port });
       secret = begun.secret;
       return begun.url;
     });
@@ -398,38 +404,81 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         providerErrorMessage(error ? decodeURIComponent(error) : "unknown", provider),
       );
     }
-    let user = await api.finishProviderSignIn(decodeURIComponent(code), secret, this.deps.device);
+    return { code: decodeURIComponent(code), secret };
+  }
+
+  /// Signs in with another account (`google`, `github`, `notion`) through the browser.
+  /// `createAccount` is for someone who is new here; null comes back when the browser was
+  /// closed without finishing. An account with two-factor throws `TwoFactorRequiredError`,
+  /// and `completeTwoFactor` finishes.
+  async signInWithProvider(
+    serverUrl: string,
+    provider: string,
+    input: { createAccount?: boolean; betaKey?: string; termsVersion?: string } = {},
+    options: SignInOptions = {},
+  ): Promise<User | null> {
+    this.browser();
+    const api = this.connect(serverUrl);
+    const back = await this.browserRound(provider, (where) => {
+      const { termsVersion: _terms, ...asked } = input;
+      return api.beginProviderSignIn({ ...asked, ...where });
+    });
+    if (!back) return null;
+    let user = await api.finishProviderSignIn(back.code, back.secret, this.deps.device);
     // The terms were agreed to before the account was made: they are recorded with it.
     if (input.createAccount && input.termsVersion) user = await api.acceptTerms(input.termsVersion);
     return this.enter(api, user, options);
   }
 
-  /// Shows the account's provider that the person at this device is the account's, before
-  /// something that cannot be undone (deleting the account): the same browser leg as signing
-  /// in, with nothing about who is signed in changed. False when the browser was closed
-  /// without finishing, which is not an error.
+  private signedInAccount(): A {
+    this.browser();
+    if (!this.api) throw new Error("Sign in first.");
+    return this.api;
+  }
+
+  /// Shows the account's provider that the person at this device is the account's, before a
+  /// change that asks for it (deleting the account, a recheck): the same browser leg as
+  /// signing in, with nothing about who is signed in changed. False when the browser was
+  /// closed without finishing.
   async confirmWithProvider(provider: string): Promise<boolean> {
-    const browser = this.deps.providerBrowser;
-    if (!browser)
-      throw new Error("Signing in with another account isn't available on this device.");
+    const api = this.signedInAccount();
+    const back = await this.browserRound(provider, (where) => api.beginConfirmation(where));
+    if (!back) return false;
+    await api.finishConfirmation(back.code, back.secret);
+    return true;
+  }
+
+  /// Connects a provider to the signed in account, through the browser. Null when the
+  /// browser was closed without finishing.
+  async linkProvider(provider: string): Promise<SignInChange | null> {
+    const api = this.signedInAccount();
+    const back = await this.browserRound(provider, (where) => api.beginLink(where));
+    return back ? api.finishLink(back.code, back.secret) : null;
+  }
+
+  /// Disconnects a way of signing in. When this device signed in with it, the server ends
+  /// its session too: sync stops first, so that is not read as being signed out from
+  /// elsewhere (which clears the device), and everything stays here.
+  async disconnectProvider(provider: string): Promise<SignInChange> {
     const api = this.api;
     if (!api) throw new Error("Sign in first.");
-    let secret = "";
-    const returned = await browser(async (port) => {
-      const begun = await api.beginConfirmation(port === null ? { provider } : { provider, port });
-      secret = begun.secret;
-      return begun.url;
-    });
-    if (returned === null) return false;
-    const error = /[?&]error=([^&#]+)/.exec(returned)?.[1];
-    const code = /[?&]code=([^&#]+)/.exec(returned)?.[1];
-    if (error || !code) {
-      throw new Error(
-        providerErrorMessage(error ? decodeURIComponent(error) : "unknown", provider),
-      );
+    if ((await api.signInMethods()).current !== provider) return api.unlink(provider);
+    const client = this.client;
+    await this.stopFiles();
+    this.stop();
+    await client?.finished();
+    this.leaving = api;
+    try {
+      const change = await api.unlink(provider);
+      if (change.signedOut) await this.detach();
+      else await this.start(false);
+      return change;
+    } catch (error) {
+      await this.start(false).catch(() => {});
+      throw error;
+    } finally {
+      this.leaving = null;
     }
-    await api.finishConfirmation(decodeURIComponent(code), secret);
-    return true;
   }
 
   /// Which providers a server signs in with. Asked of a client of its own: nothing about
@@ -644,6 +693,10 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       onStatus: (status) => this.store.setState({ status }),
       onApplied: this.deps.onApplied,
       onAccountChanged: () => void this.refreshUser(),
+      onFailure: (error) => {
+        // The server asks for two-factor now: the account says so, and sync waits.
+        if ("code" in error && error.code === "two_factor_required") void this.refreshUser();
+      },
       afterCycle: (applied) => this.afterCycle(applied),
       countConflicts: () => this.openConflicts().then((all) => all.length),
     });
@@ -849,7 +902,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       const user = await api.me();
       const current = this.store.getState().user;
       if (this.api !== api || !current || JSON.stringify(user) === JSON.stringify(current)) return;
-      this.store.setState({ user, ...this.gates(user) });
+      const gates = this.gates(user);
+      this.store.setState({ user, ...gates });
+      if (gates.twoFactorPending) this.stop();
       await this.rememberUser(user);
     } catch {
       // Offline or signed out: the next sync asks again.
