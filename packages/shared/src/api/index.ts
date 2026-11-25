@@ -1,5 +1,6 @@
 export * from "./client.ts";
 export { ACCOUNT_COPY, ACCOUNT_TABS } from "./account-copy.ts";
+export * from "./recheck.ts";
 export * from "./schemas.ts";
 export {
   APP_OUTDATED,
@@ -27,6 +28,7 @@ export {
   cleanTwoFactorCode,
   firstTwoFactorMethod,
   isWrongCode,
+  needsRecheck,
   runSecurityAction,
   twoFactorMethodLabels,
   type SecurityAction,

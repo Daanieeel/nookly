@@ -1,3 +1,5 @@
+import { NOOKLY_SIGN_IN } from "./schemas.ts";
+
 /// Signing in with another account: the providers Nookly knows by name, and what people
 /// read when the provider or the server turns a sign in down.
 
@@ -8,7 +10,11 @@ export const PROVIDER_NAMES = {
   notion: "Notion",
 } as const;
 
-const NAMES = new Map<string, string>(Object.entries(PROVIDER_NAMES));
+/// An email and a password is Nookly's own way to sign in.
+const NAMES = new Map<string, string>([
+  ...Object.entries(PROVIDER_NAMES),
+  [NOOKLY_SIGN_IN, "Nookly Signin"],
+]);
 
 export const providerName = (provider: string): string => NAMES.get(provider) ?? provider;
 
