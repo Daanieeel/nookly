@@ -14,8 +14,7 @@ import {
   verifiedAccount,
 } from "./helpers.ts";
 
-// Two-factor for accounts that sign in with a password: emailed codes, an authenticator app
-// and recovery codes. Accounts made with another provider have none, that provider does it.
+// Two-factor for every account: emailed codes, an authenticator app and recovery codes.
 let server: TestServer;
 let required: TestServer;
 
@@ -54,7 +53,7 @@ describe("emailed codes", () => {
   it("are turned on for an account with a confirmed email, and ask for a code at sign in", async () => {
     const { api } = await verifiedAccount(server, "ada@example.com");
     expect((await api.security()).email).toMatchObject({ enabled: false, possible: true });
-    const summary = await api.enableEmailTwoFactor(PASSWORD);
+    const summary = await api.enableEmailTwoFactor();
     expect(summary).toMatchObject({ enabled: true, email: { enabled: true } });
 
     const { api: second, challenge } = await challengeFor(server, "ada");
@@ -73,7 +72,7 @@ describe("emailed codes", () => {
 
   it("finish from an app that sends a null Origin and a stale cookie, as a phone does", async () => {
     const { api: owner } = await verifiedAccount(server, "phone@example.com");
-    await owner.enableEmailTwoFactor(PASSWORD);
+    await owner.enableEmailTwoFactor();
     // Some phone networking layers send the text "null" as the Origin, or an empty one.
     for (const origin of ["null", ""]) {
       const { api, challenge } = await challengeFor(server, "phone");
@@ -92,7 +91,7 @@ describe("emailed codes", () => {
 
   it("answer the same code sent twice at once with one sign in, as a paste on a phone does", async () => {
     const { api: owner } = await verifiedAccount(server, "twice@example.com");
-    await owner.enableEmailTwoFactor(PASSWORD);
+    await owner.enableEmailTwoFactor();
     const { api, challenge } = await challengeFor(server, "twice");
     await api.sendTwoFactorEmail(challenge.challenge);
     const code = emailedCode(server, "twice@example.com");
@@ -106,7 +105,7 @@ describe("emailed codes", () => {
 
   it("answer an app code sent twice at once with one sign in too", async () => {
     const { api: owner } = await verifiedAccount(server, "twiceapp@example.com");
-    const start = await owner.startAuthenticator(PASSWORD);
+    const start = await owner.startAuthenticator();
     await owner.confirmAuthenticator(await appCode(start.uri));
     const { api, challenge } = await challengeFor(server, "twiceapp");
     const code = await appCode(start.uri);
@@ -133,9 +132,12 @@ describe("emailed codes", () => {
     ).rejects.toThrow();
   });
 
-  it("need the password, and a challenge that is not one opens nothing", async () => {
+  it("need a recent confirmation, and a challenge that is not one opens nothing", async () => {
     const { api } = await verifiedAccount(server, "grace@example.com");
-    await expect(api.enableEmailTwoFactor("not the password")).rejects.toThrow();
+    await server.sql`UPDATE auth_session SET created_at = now() - interval '1 hour'
+      WHERE user_id = (SELECT id FROM auth_user WHERE username = 'grace')`;
+    await expect(api.enableEmailTwoFactor()).rejects.toThrow(/confirm it's you/i);
+    await expect(api.recheck({ password: "not the password" })).rejects.toThrow(/wrong/i);
     const stranger = server.client(new MemoryTokens());
     await expect(stranger.sendTwoFactorEmail("made-up")).rejects.toThrow();
     await expect(stranger.verifyTwoFactor("made-up", "email", "123456", DESKTOP)).rejects.toThrow();
@@ -143,13 +145,13 @@ describe("emailed codes", () => {
 
   it("are not offered to an account whose email is not confirmed, or that has none", async () => {
     const none = await account(server, "noemail");
-    await expect(none.api.enableEmailTwoFactor(PASSWORD)).rejects.toThrow(/confirmed email/);
+    await expect(none.api.enableEmailTwoFactor()).rejects.toThrow(/confirmed email/);
     const unconfirmed = server.client();
     await unconfirmed.signUp(
       { username: "later", email: "later@example.com", password: PASSWORD },
       DESKTOP,
     );
-    await expect(unconfirmed.enableEmailTwoFactor(PASSWORD)).rejects.toThrow(/confirmed email/);
+    await expect(unconfirmed.enableEmailTwoFactor()).rejects.toThrow(/confirmed email/);
   });
 
   it("can be added to an account made without an email, once the address is confirmed", async () => {
@@ -160,7 +162,7 @@ describe("emailed codes", () => {
     expect(link).toBeString();
     await fetch((link ?? "").replace("http://nookly.test", server.baseUrl));
     expect((await api.me()).emailVerified).toBe(true);
-    expect((await api.enableEmailTwoFactor(PASSWORD)).enabled).toBe(true);
+    expect((await api.enableEmailTwoFactor()).enabled).toBe(true);
     // An account that has an email cannot swap it here, and another account's address is taken.
     await expect(api.addEmail("other@example.com")).rejects.toThrow();
     const second = await account(server, "plain2");
@@ -171,7 +173,7 @@ describe("emailed codes", () => {
 describe("an authenticator app", () => {
   it("is added with a setup address, switched on by a code from the app, and asked for at sign in", async () => {
     const { api } = await account(server, "totp1");
-    const start = await api.startAuthenticator(PASSWORD);
+    const start = await api.startAuthenticator();
     expect(start.uri).toStartWith("otpauth://totp/Nookly:");
     expect(start.uri).toContain("issuer=Nookly");
     expect(start.key.length).toBeGreaterThanOrEqual(16);
@@ -200,7 +202,7 @@ describe("an authenticator app", () => {
 
   it("refuses a wrong code, and stops answering after too many", async () => {
     const { api } = await account(server, "totp2");
-    const start = await api.startAuthenticator(PASSWORD);
+    const start = await api.startAuthenticator();
     await api.confirmAuthenticator(await appCode(start.uri));
     const { api: second, challenge } = await challengeFor(server, "totp2");
     for (let i = 0; i < 5; i++) {
@@ -216,7 +218,7 @@ describe("an authenticator app", () => {
 
   it("gives recovery codes that each work once", async () => {
     const { api } = await account(server, "totp3");
-    const start = await api.startAuthenticator(PASSWORD);
+    const start = await api.startAuthenticator();
     const codes = await api.confirmAuthenticator(await appCode(start.uri));
     const first = await challengeFor(server, "totp3");
     await first.api.verifyTwoFactor(first.challenge.challenge, "backup", codes[0] ?? "", DESKTOP);
@@ -227,12 +229,11 @@ describe("an authenticator app", () => {
     expect((await api.security()).backupCodesLeft).toBe(9);
   });
 
-  it("replaces the recovery codes on request, with the password", async () => {
+  it("replaces the recovery codes on request", async () => {
     const { api } = await account(server, "totp4");
-    const start = await api.startAuthenticator(PASSWORD);
+    const start = await api.startAuthenticator();
     const old = await api.confirmAuthenticator(await appCode(start.uri));
-    await expect(api.newBackupCodes("nope")).rejects.toThrow();
-    const fresh = await api.newBackupCodes(PASSWORD);
+    const fresh = await api.newBackupCodes();
     expect(fresh).toHaveLength(10);
     expect(fresh).not.toEqual(old);
     const next = await challengeFor(server, "totp4");
@@ -243,12 +244,11 @@ describe("an authenticator app", () => {
 
   it("cannot be added twice, and a second start replaces one that was never confirmed", async () => {
     const { api } = await account(server, "totp5");
-    const one = await api.startAuthenticator(PASSWORD);
-    const two = await api.startAuthenticator(PASSWORD);
+    const one = await api.startAuthenticator();
+    const two = await api.startAuthenticator();
     expect(two.key).not.toBe(one.key);
     await api.confirmAuthenticator(await appCode(two.uri));
-    await expect(api.startAuthenticator(PASSWORD)).rejects.toThrow();
-    await expect(api.startAuthenticator("nope")).rejects.toThrow();
+    await expect(api.startAuthenticator()).rejects.toThrow();
   });
 });
 
@@ -256,11 +256,10 @@ describe("recovery codes without an authenticator app", () => {
   it("are made for an account with emailed codes, and each opens it once", async () => {
     const { api } = await verifiedAccount(server, "rec1@example.com");
     // Nothing to recover with while no method is on.
-    await expect(api.newBackupCodes(PASSWORD)).rejects.toThrow();
-    await api.enableEmailTwoFactor(PASSWORD);
+    await expect(api.newBackupCodes()).rejects.toThrow();
+    await api.enableEmailTwoFactor();
     expect((await api.security()).backupCodesLeft).toBe(0);
-    await expect(api.newBackupCodes("nope")).rejects.toThrow();
-    const codes = await api.newBackupCodes(PASSWORD);
+    const codes = await api.newBackupCodes();
     expect(codes).toHaveLength(10);
     expect(await api.security()).toMatchObject({
       enabled: true,
@@ -286,13 +285,13 @@ describe("recovery codes without an authenticator app", () => {
 
   it("are kept when an authenticator app is added or removed later", async () => {
     const { api } = await verifiedAccount(server, "rec2@example.com");
-    await api.enableEmailTwoFactor(PASSWORD);
-    const codes = await api.newBackupCodes(PASSWORD);
-    const start = await api.startAuthenticator(PASSWORD);
+    await api.enableEmailTwoFactor();
+    const codes = await api.newBackupCodes();
+    const start = await api.startAuthenticator();
     // The codes already given stay good: the app does not hand out others.
     expect(await api.confirmAuthenticator(await appCode(start.uri))).toEqual([]);
     expect((await api.security()).backupCodesLeft).toBe(10);
-    await api.disableTwoFactor("totp", PASSWORD);
+    await api.disableTwoFactor("totp");
     expect(await api.security()).toMatchObject({
       authenticator: { enabled: false },
       backupCodesLeft: 10,
@@ -304,9 +303,9 @@ describe("recovery codes without an authenticator app", () => {
 
   it("go with the last method", async () => {
     const { api } = await verifiedAccount(server, "rec3@example.com");
-    await api.enableEmailTwoFactor(PASSWORD);
-    await api.newBackupCodes(PASSWORD);
-    await api.disableTwoFactor("email", PASSWORD);
+    await api.enableEmailTwoFactor();
+    await api.newBackupCodes();
+    await api.disableTwoFactor("email");
     expect(await api.security()).toMatchObject({ enabled: false, backupCodesLeft: 0 });
   });
 });
@@ -314,42 +313,52 @@ describe("recovery codes without an authenticator app", () => {
 describe("both together, and turning them off", () => {
   it("offers both at sign in, and a recovery code opens a locked out account", async () => {
     const { api } = await verifiedAccount(server, "both@example.com");
-    await api.enableEmailTwoFactor(PASSWORD);
-    const start = await api.startAuthenticator(PASSWORD);
+    await api.enableEmailTwoFactor();
+    const start = await api.startAuthenticator();
     await api.confirmAuthenticator(await appCode(start.uri));
     const { challenge } = await challengeFor(server, "both");
     expect(challenge.methods).toEqual(["totp", "email", "backup"]);
   });
 
-  it("turns a method off with the password, and two-factor with the last one", async () => {
+  it("turns a method off, and two-factor with the last one", async () => {
     const { api } = await verifiedAccount(server, "off@example.com");
-    await api.enableEmailTwoFactor(PASSWORD);
-    const start = await api.startAuthenticator(PASSWORD);
+    await api.enableEmailTwoFactor();
+    const start = await api.startAuthenticator();
     await api.confirmAuthenticator(await appCode(start.uri));
-    await expect(api.disableTwoFactor("totp", "nope")).rejects.toThrow();
-    expect((await api.disableTwoFactor("totp", PASSWORD)).authenticator.enabled).toBe(false);
+    expect((await api.disableTwoFactor("totp")).authenticator.enabled).toBe(false);
     expect((await api.security()).enabled).toBe(true);
-    expect((await api.disableTwoFactor("email", PASSWORD)).enabled).toBe(false);
+    expect((await api.disableTwoFactor("email")).enabled).toBe(false);
     // Signing in no longer asks for anything.
     const plain = server.client(new MemoryTokens());
     expect((await plain.signIn("off", PASSWORD, DESKTOP)).username).toBe("off");
   });
 });
 
+/// An account that only signs in with a provider, signed in.
+async function providerAccount(s: TestServer, username: string, provider: string) {
+  const id = crypto.randomUUID();
+  const email = `${username}@example.com`;
+  await s.sql`INSERT INTO auth_user (id, name, username, email, email_verified, primary_provider)
+    VALUES (${id}, ${username}, ${username}, ${email}, true, ${provider})`;
+  await s.sql`INSERT INTO users (id, email) VALUES (${id}, ${email}) ON CONFLICT DO NOTHING`;
+  await s.sql`INSERT INTO auth_account (id, account_id, provider_id, user_id, email, email_verified)
+    VALUES (${crypto.randomUUID()}, ${"p-" + id}, ${provider}, ${id}, ${email}, true)`;
+  const token = `session-${id}`;
+  await s.sql`INSERT INTO auth_session (id, user_id, token, expires_at, provider)
+    VALUES (${crypto.randomUUID()}, ${id}, ${token}, now() + interval '1 day', ${provider})`;
+  const tokens = new MemoryTokens();
+  tokens.token = token;
+  return s.client(tokens);
+}
+
 describe("accounts that sign in with another provider", () => {
-  it("have no two-factor to set up, and are never asked for it", async () => {
-    const id = crypto.randomUUID();
-    await server.sql`INSERT INTO auth_user (id, name, email, email_verified) VALUES (${id}, 'Prov', 'prov@example.com', true)`;
-    await server.sql`INSERT INTO users (id, email) VALUES (${id}, 'prov@example.com') ON CONFLICT DO NOTHING`;
-    await server.sql`INSERT INTO auth_account (id, account_id, provider_id, user_id) VALUES (${crypto.randomUUID()}, ${"p-" + id}, 'github', ${id})`;
-    const token = `session-${id}`;
-    await server.sql`INSERT INTO auth_session (id, user_id, token, expires_at) VALUES (${crypto.randomUUID()}, ${id}, ${token}, now() + interval '1 day')`;
-    const tokens = new MemoryTokens();
-    tokens.token = token;
-    const api = server.client(tokens);
-    expect((await api.security()).available).toBe(false);
-    await expect(api.enableEmailTwoFactor(PASSWORD)).rejects.toThrow();
-    await expect(api.startAuthenticator(PASSWORD)).rejects.toThrow();
+  it("set two-factor up like any account", async () => {
+    const api = await providerAccount(server, "prov", "github");
+    expect((await api.security()).available).toBe(true);
+    expect((await api.enableEmailTwoFactor()).enabled).toBe(true);
+    const start = await api.startAuthenticator();
+    const codes = await api.confirmAuthenticator(await appCode(start.uri));
+    expect(codes).toHaveLength(10);
   });
 });
 
@@ -367,7 +376,7 @@ describe("the way in", () => {
 
   it("keeps the half finished sign in off any cookie", async () => {
     await verifiedAccount(server, "nocookie@example.com").then(({ api }) =>
-      api.enableEmailTwoFactor(PASSWORD),
+      api.enableEmailTwoFactor(),
     );
     const response = await fetch(`${server.baseUrl}/v1/auth/sign-in/username`, {
       method: "POST",
@@ -413,7 +422,7 @@ describe("a server that requires two-factor", () => {
     // Syncing waits too, not only the devices list.
     await expect(api.devices()).rejects.toThrow(/two-factor/i);
 
-    const start = await api.startAuthenticator(PASSWORD);
+    const start = await api.startAuthenticator();
     await api.confirmAuthenticator(await appCode(start.uri));
     expect((await api.me()).twoFactorRequired).toBeFalsy();
     expect(await api.sessions()).toBeArray();
@@ -425,43 +434,18 @@ describe("a server that requires two-factor", () => {
       { username: "keeper", email: "keeper@example.com", password: PASSWORD },
       DESKTOP,
     );
-    const start = await api.startAuthenticator(PASSWORD);
+    const start = await api.startAuthenticator();
     await api.confirmAuthenticator(await appCode(start.uri));
-    await expect(api.disableTwoFactor("totp", PASSWORD)).rejects.toThrow(/required/i);
+    await expect(api.disableTwoFactor("totp")).rejects.toThrow(/required/i);
     expect((await api.security()).enabled).toBe(true);
   });
 
-  it("does not ask an account made with a provider", async () => {
-    const id = crypto.randomUUID();
-    await required.sql`INSERT INTO auth_user (id, name, email, email_verified) VALUES (${id}, 'Prov2', 'prov2@example.com', true)`;
-    await required.sql`INSERT INTO users (id, email) VALUES (${id}, 'prov2@example.com') ON CONFLICT DO NOTHING`;
-    await required.sql`INSERT INTO auth_account (id, account_id, provider_id, user_id) VALUES (${crypto.randomUUID()}, ${"p-" + id}, 'google', ${id})`;
-    const token = `session-${id}`;
-    await required.sql`INSERT INTO auth_session (id, user_id, token, expires_at) VALUES (${crypto.randomUUID()}, ${id}, ${token}, now() + interval '1 day')`;
-    const tokens = new MemoryTokens();
-    tokens.token = token;
-    const api = required.client(tokens);
-    expect((await api.me()).twoFactorRequired).toBeFalsy();
-    expect(await api.sessions()).toBeArray();
-  });
-
-  it("asks a provider account for two-factor once it signs in with its email and a password", async () => {
-    const id = crypto.randomUUID();
-    const email = "prov3@example.com";
-    await required.sql`INSERT INTO auth_user (id, name, email, email_verified, username) VALUES (${id}, 'Prov3', ${email}, true, 'prov3')`;
-    await required.sql`INSERT INTO users (id, email) VALUES (${id}, ${email}) ON CONFLICT DO NOTHING`;
-    await required.sql`INSERT INTO auth_account (id, account_id, provider_id, user_id) VALUES (${crypto.randomUUID()}, ${"p-" + id}, 'google', ${id})`;
-    // The provider's own sign in is not asked. Choosing a password through the emailed link
-    // gives the account the second way in, and that one is.
-    await required.client().forgotPassword(email);
-    const link = required.mailer.link(email, "/reset-password");
-    const token = new URL(link ?? "").searchParams.get("token") ?? "";
-    await required.client().resetPassword(token, PASSWORD);
-    const api = required.client();
-    const user = await api.signIn(email, PASSWORD, DESKTOP);
-    expect(user.twoFactorRequired).toBe(true);
+  it("asks an account made with a provider too", async () => {
+    const api = await providerAccount(required, "prov2", "google");
+    expect((await api.me()).twoFactorRequired).toBe(true);
     await expect(api.sessions()).rejects.toThrow(/two-factor/i);
-    expect(await api.security()).toMatchObject({ required: true, enabled: false });
+    await api.enableEmailTwoFactor();
+    expect(await api.sessions()).toBeArray();
   });
 });
 

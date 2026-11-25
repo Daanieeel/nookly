@@ -90,13 +90,30 @@ ${fallback}
 export function twoFactorCodeEmail(publicUrl: string, code: string, minutes: number): Email {
   return {
     subject: `${code} is your Nookly sign in code`,
-    text: `Your Nookly sign in code is ${code}\n\nIt works for ${minutes} minutes. If you didn't try to sign in, someone has your password: change it and ignore this email.`,
+    text: `Your Nookly sign in code is ${code}\n\nIt works for ${minutes} minutes. If you didn't try to sign in, someone can get into the way you sign in: change that password and ignore this email.`,
     html: layout({
       preview: `Your sign in code is ${code}.`,
       title: "Your sign in code",
       intro: ["Enter this code in Nookly to finish signing in."],
       code,
-      note: `The code works for ${minutes} minutes. If you didn't try to sign in, someone knows your password: change it and ignore this email.`,
+      note: `The code works for ${minutes} minutes. If you didn't try to sign in, someone can get into the way you sign in: change that password and ignore this email.`,
+      publicUrl,
+    }),
+  };
+}
+
+/// A code that confirms an address, or that it is the person, from inside the app.
+export function confirmationCodeEmail(publicUrl: string, code: string, minutes: number): Email {
+  const note = `The code works for ${minutes} minutes. If you didn't ask for it, ignore this email. Nothing changes without it.`;
+  return {
+    subject: `${code} is your Nookly confirmation code`,
+    text: `Your Nookly confirmation code is ${code}\n\n${note}`,
+    html: layout({
+      preview: `Your confirmation code is ${code}.`,
+      title: "Your confirmation code",
+      intro: ["Enter this code in Nookly to confirm the change."],
+      code,
+      note,
       publicUrl,
     }),
   };

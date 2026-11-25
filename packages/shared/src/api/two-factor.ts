@@ -45,7 +45,12 @@ export const twoFactorMethodLabels = {
   },
 } satisfies Record<TwoFactorMethod, { code: string; switchTo: string; hint: string }>;
 
-/// What a password unlocks in an account's security: each one changes how it signs in.
+/// The server wants the person to confirm it is them before this change.
+export function needsRecheck(error: Error | null): boolean {
+  return error instanceof ApiRequestError && error.code === "recheck_required";
+}
+
+/// The changes to how an account is protected.
 export type SecurityAction =
   | "emailOn"
   | "emailOff"
@@ -53,30 +58,29 @@ export type SecurityAction =
   | "authenticatorOff"
   | "newCodes";
 
-/// What each asks the person, as the step that wants the password says it.
+/// What each tells the person before it happens.
 export const SECURITY_STEPS = {
   emailOn: {
     title: "Turn on emailed codes",
-    text: "Enter your password. Nookly then emails a code to your address each time you sign in.",
+    text: "Nookly then emails a code to your address each time you sign in.",
   },
   emailOff: {
     title: "Turn off emailed codes",
-    text: "Enter your password to stop signing in with emailed codes.",
+    text: "You stop signing in with emailed codes.",
   },
   authenticatorOn: {
     title: "Add an authenticator app",
-    text: "Enter your password, then scan a code with an app like 1Password, Authy or Google Authenticator.",
+    text: "Scan a code with an app like 1Password, Authy or Google Authenticator.",
   },
   authenticatorOff: {
     title: "Remove the authenticator app",
-    text: "Enter your password to stop signing in with the authenticator app.",
+    text: "You stop signing in with the authenticator app.",
   },
   newCodes: {
     title: "Get new recovery codes",
-    text: "Enter your password. Your old recovery codes stop working.",
+    text: "Your old recovery codes stop working.",
   },
 } satisfies Record<SecurityAction, { title: string; text: string }>;
-
 /// Where the person goes next: back to the overview, to scan a new authenticator's key, or
 /// to the recovery codes that were just made, which are shown once.
 export type SecurityOutcome =
@@ -92,21 +96,20 @@ type SecurityApi = Pick<
 export async function runSecurityAction(
   api: SecurityApi,
   action: SecurityAction,
-  password: string,
 ): Promise<SecurityOutcome> {
   switch (action) {
     case "emailOn":
-      await api.enableEmailTwoFactor(password);
+      await api.enableEmailTwoFactor();
       return { name: "overview" };
     case "emailOff":
-      await api.disableTwoFactor("email", password);
+      await api.disableTwoFactor("email");
       return { name: "overview" };
     case "authenticatorOff":
-      await api.disableTwoFactor("totp", password);
+      await api.disableTwoFactor("totp");
       return { name: "overview" };
     case "authenticatorOn":
-      return { name: "scan", ...(await api.startAuthenticator(password)) };
+      return { name: "scan", ...(await api.startAuthenticator()) };
     case "newCodes":
-      return { name: "codes", codes: await api.newBackupCodes(password) };
+      return { name: "codes", codes: await api.newBackupCodes() };
   }
 }

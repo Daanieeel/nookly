@@ -41,11 +41,11 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 
 - [x] N. Explore current auth, break the strategy into tasks here.
 - [x] N1. Server migration 0007 (additive, with backfill) and its test.
-- [ ] N2. Server: no implicit linking, provider emails stored, `session.provider`, primary set for the first provider.
-- [ ] N3. Server: second step for every account and provider (challenge at provider redeem), old apps answered `update_required`.
-- [ ] N4. Server: re check within 10 minutes; two factor management needs it instead of a password.
-- [ ] N5. Server: list, link, unlink, set primary; add, change, remove Nookly Signin; change emails with a code; sign in and reset by login email.
-- [ ] N6. Shared API client, schemas, runtime gate.
+- [x] N2. Server: no implicit linking, provider emails stored, `session.provider`, primary set for the first provider.
+- [x] N3. Server: second step for every account and provider (challenge at provider redeem), old apps answered `update_required`.
+- [x] N4. Server: re check within 10 minutes; two factor management needs it instead of a password.
+- [x] N5. Server: list, link, unlink, set primary; add, change, remove Nookly Signin; change emails with a code; sign in and reset by login email.
+- [ ] N6. Shared API client, schemas, runtime gate. (client and schemas done)
 - [ ] N7. Desktop UI.
 - [ ] N8. Phone and tablet UI.
 - [ ] N9. TODO tests: `/reset-password.js` 500, flaky `apps/web/src/components/hero/stage.test.tsx`.
@@ -66,6 +66,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 
 ## Notes
 
+- N1 to N5: server done, 245 server tests pass. New files `apps/server/src/auth/{emails,codes,challenge,recheck,sign-in-methods}.ts`, `test/{sign-in-methods,sign-in-migration}.test.ts`, `test/fake-providers.ts`. Shared client already has the new calls; `runSecurityAction` no longer takes a password. N9 first half fixed: the reset page script failed on folder names with spaces.
 - Live check 2026-11-25: `/health` 1.5.6, `/docs` 404, Heroku app `nookly-sync` has `TRUST_PROXY=true`, `TRUSTED_PROXY_HOPS` unset (default 1).
 - B to F: `SyncStatus.held`, `MigrationState.heldItems`, `pushResponse.serverTime`; held changes stay in `sync_dirty` (in memory skip list in `SyncClient`, retried after 1 h, on edit, on app start). `SyncEngine.requeueSetAside` only re-sends rows still exactly like the stored copy; a set aside row edited since keeps its old conflict entry (cannot be told apart from an undone edit).
 - G: wording lives in `packages/shared/src/sync/copy.ts`.

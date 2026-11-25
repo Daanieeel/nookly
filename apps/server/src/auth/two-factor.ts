@@ -6,14 +6,16 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Config } from "../config.ts";
 import type { Database } from "../db/client.ts";
-import { authAccount, authTwoFactor, authUser, authVerification, users } from "../db/schema.ts";
-import { HttpError, badRequest, conflict, forbidden, unauthorized } from "../errors.ts";
+import { authAccount, authTwoFactor, authUser, authVerification } from "../db/schema.ts";
+import { badRequest, conflict, forbidden, unauthorized } from "../errors.ts";
 import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "../security/disposable-email.ts";
-import { type Auth, isPlaceholderEmail } from "./auth.ts";
+import type { Auth } from "./auth.ts";
+import { challengeIdentifier } from "./challenge.ts";
+import { emailTaken, isPlaceholderEmail, setAccountEmail } from "./emails.ts";
 
-/// The second step of signing in with a password, for the accounts that have one: a code
-/// emailed to the account, a code from an authenticator app, and recovery codes for a lost
-/// phone. Better-auth's two-factor plugin runs the sign in half (it holds the half finished
+/// The second step of signing in, whichever way an account signs in: a code emailed to the
+/// account, a code from an authenticator app, and recovery codes for a lost phone.
+/// Better-auth's two-factor plugin runs the sign in half (it holds the half finished
 /// sign in, counts attempts and locks an account that is being guessed at); this is the setup
 /// half, written here because the plugin's own setup swaps the session under the app, and the
 /// apps keep one token.
@@ -73,29 +75,6 @@ export class TwoFactorService {
     return row;
   }
 
-  /// Whether the account signs in with a password, the only kind two-factor is for.
-  async hasPassword(userId: string): Promise<boolean> {
-    const [credential] = await this.db
-      .select({ password: authAccount.password })
-      .from(authAccount)
-      .where(and(eq(authAccount.userId, userId), eq(authAccount.providerId, "credential")));
-    return credential?.password != null;
-  }
-
-  /// Asks for the password again before anything that weakens or changes the account's
-  /// protection, and refuses an account that has none: another provider protects those.
-  private async checkPassword(userId: string, password: string) {
-    const [credential] = await this.db
-      .select({ password: authAccount.password })
-      .from(authAccount)
-      .where(and(eq(authAccount.userId, userId), eq(authAccount.providerId, "credential")));
-    if (credential?.password == null) {
-      throw forbidden("Two-factor is for accounts that sign in with a password.");
-    }
-    const ok = await Bun.password.verify(password, credential.password).catch(() => false);
-    if (!ok) throw new HttpError(403, "wrong_password", "The password is wrong.");
-  }
-
   private async authenticatorRow(userId: string) {
     const [row] = await this.db
       .select()
@@ -106,13 +85,12 @@ export class TwoFactorService {
 
   async summary(userId: string): Promise<SecuritySummary> {
     const row = await this.userRow(userId);
-    const available = await this.hasPassword(userId);
     const address = isPlaceholderEmail(row.email) ? null : row.email;
     const authenticator = await this.authenticatorRow(userId);
     const authenticatorOn = authenticator?.verified === true;
     return {
-      available,
-      required: this.required && available,
+      available: true,
+      required: this.required,
       enabled: row.twoFactorEnabled,
       email: {
         enabled: row.twoFactorEmail,
@@ -130,19 +108,44 @@ export class TwoFactorService {
   /// What can answer a half finished sign in, from its challenge: the value better-auth keeps
   /// the account under. Authenticator first, then email, and recovery codes with the app.
   async methodsFor(challenge: string): Promise<TwoFactorMethod[]> {
-    const identifier = decodeURIComponent(challenge).split(".")[0] ?? "";
     const [pending] = await this.db
       .select({ userId: authVerification.value })
       .from(authVerification)
-      .where(eq(authVerification.identifier, identifier));
-    if (!pending) return [];
-    const summary = await this.summary(pending.userId).catch(() => null);
+      .where(eq(authVerification.identifier, challengeIdentifier(challenge)));
+    return pending ? this.methodsOf(pending.userId) : [];
+  }
+
+  /// What can answer an account's second step.
+  async methodsOf(userId: string): Promise<TwoFactorMethod[]> {
+    const summary = await this.summary(userId).catch(() => null);
     if (!summary) return [];
     const methods: TwoFactorMethod[] = [];
     if (summary.authenticator.enabled) methods.push("totp");
     if (summary.email.enabled && summary.email.possible) methods.push("email");
     if (summary.backupCodesLeft > 0) methods.push("backup");
     return methods;
+  }
+
+  /// Whether `code` from the authenticator app or from the recovery codes is right, for a
+  /// recheck. A recovery code is used up.
+  async takeCode(userId: string, method: "totp" | "backup", code: string): Promise<boolean> {
+    const row = await this.authenticatorRow(userId);
+    if (!row) return false;
+    if (method === "totp") {
+      if (!row.verified) return false;
+      const secret = await this.unseal(row.secret);
+      return createOTP(secret, { digits: 6, period: 30 }).verify(code.trim());
+    }
+    const codes = await this.unsealCodes(row.backupCodes);
+    if (!codes.includes(code.trim())) return false;
+    const left = await this.seal(JSON.stringify(codes.filter((c) => c !== code.trim())));
+    // Only from the list it was found in: two requests can't both use it.
+    const taken = await this.db
+      .update(authTwoFactor)
+      .set({ backupCodes: left })
+      .where(and(eq(authTwoFactor.id, row.id), eq(authTwoFactor.backupCodes, row.backupCodes)))
+      .returning({ id: authTwoFactor.id });
+    return taken.length > 0;
   }
 
   /// Gives an account made without an email one. It is not confirmed until the link in the
@@ -156,22 +159,25 @@ export class TwoFactorService {
     if (!isPlaceholderEmail(row.email)) {
       throw conflict("email_set", "This account already has an email address.");
     }
-    const [taken] = await this.db
-      .select({ id: authUser.id })
-      .from(authUser)
-      .where(eq(authUser.email, email));
-    if (taken) throw conflict("email_taken", "That email address belongs to another account.");
-    await this.db.transaction(async (tx) => {
-      await tx.update(authUser).set({ email, emailVerified: false }).where(eq(authUser.id, userId));
-      await tx.update(users).set({ email }).where(eq(users.id, userId));
-    });
+    if (await emailTaken(this.db, email, userId)) {
+      throw conflict("email_taken", "That email address belongs to another account.");
+    }
+    await setAccountEmail(this.db, userId, email, false);
+    await this.db
+      .update(authAccount)
+      .set({ email, emailVerified: false, emailChosen: true })
+      .where(
+        and(
+          eq(authAccount.userId, userId),
+          eq(authAccount.providerId, row.primaryProvider ?? "credential"),
+        ),
+      );
     await this.auth.api.sendVerificationEmail({ body: { email, callbackURL: "/verified" } });
   }
 
   /// Turns on emailed codes. Only for a confirmed address, so a code never goes to one that
   /// someone else typed in.
-  async enableEmail(userId: string, password: string): Promise<SecuritySummary> {
-    await this.checkPassword(userId, password);
+  async enableEmail(userId: string): Promise<SecuritySummary> {
     const row = await this.userRow(userId);
     if (isPlaceholderEmail(row.email) || !row.emailVerified) {
       throw badRequest("email_unconfirmed", "Emailed codes need a confirmed email address.");
@@ -184,8 +190,7 @@ export class TwoFactorService {
   }
 
   /// Begins adding an authenticator app: a secret, kept but not yet trusted.
-  async startAuthenticator(userId: string, password: string) {
-    await this.checkPassword(userId, password);
+  async startAuthenticator(userId: string) {
     const existing = await this.authenticatorRow(userId);
     if (existing?.verified === true) {
       throw conflict("authenticator_set", "An authenticator app is already set up.");
@@ -241,8 +246,7 @@ export class TwoFactorService {
 
   /// Makes recovery codes, replacing any; the old ones stop working. For an account with any
   /// method on: they open it when that method is lost.
-  async newBackupCodes(userId: string, password: string): Promise<string[]> {
-    await this.checkPassword(userId, password);
+  async newBackupCodes(userId: string): Promise<string[]> {
     if (!(await this.userRow(userId)).twoFactorEnabled) {
       throw badRequest("no_method", "Recovery codes need a second step turned on first.");
     }
@@ -268,12 +272,7 @@ export class TwoFactorService {
   }
 
   /// Turns a method off. Where the server requires two-factor the last one stays.
-  async disable(
-    userId: string,
-    method: "email" | "totp",
-    password: string,
-  ): Promise<SecuritySummary> {
-    await this.checkPassword(userId, password);
+  async disable(userId: string, method: "email" | "totp"): Promise<SecuritySummary> {
     const before = await this.summary(userId);
     const on = method === "email" ? before.email.enabled : before.authenticator.enabled;
     if (!on) throw badRequest("not_enabled", "That method is not turned on.");

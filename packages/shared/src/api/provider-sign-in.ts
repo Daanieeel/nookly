@@ -20,7 +20,7 @@ export function providerErrorMessage(code: string, provider: string): string {
     case "signup_disabled":
       return `There is no Nookly account for this ${name} account yet. Create one on the I'm new here tab first.`;
     case "account_not_linked":
-      return `An account with this email already exists. Sign in to it with its password, not ${name}.`;
+      return `An account with this email already exists. Sign in the way you did before, then connect ${name} in Settings.`;
     case "access_denied":
       return `${name} didn't allow the sign in.`;
     case "email_not_found":

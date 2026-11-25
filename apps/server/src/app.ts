@@ -8,9 +8,17 @@ import {
   acceptTermsRequestSchema,
   deleteAccountRequestSchema,
   disableTwoFactorRequestSchema,
-  passwordRequestSchema,
   resetPasswordRequestSchema,
   twoFactorCodeSchema,
+  AUTH_LEVEL,
+  AUTH_QUERY,
+  addPasswordRequestSchema,
+  emailChangeRequestSchema,
+  emailCodeRequestSchema,
+  linkBeginRequestSchema,
+  primaryRequestSchema,
+  recheckRequestSchema,
+  setPasswordRequestSchema,
   tokenRequestSchema,
   updateShareRequestSchema,
 } from "@nookly/shared/api";
@@ -21,14 +29,21 @@ import {
   pushRequestSchema,
   conflictReportSchema,
 } from "@nookly/shared/sync";
+import { eq } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { z } from "zod";
-import { AccountService } from "./auth/accounts.ts";
+import { type AccessClaims, AccountService, updateRequired } from "./auth/accounts.ts";
 import { AppSignIn } from "./auth/app-sign-in.ts";
 import { TwoFactorService } from "./auth/two-factor.ts";
+import { challengeProvider } from "./auth/challenge.ts";
+import { EmailCodes } from "./auth/codes.ts";
+import { loginAddress } from "./auth/emails.ts";
+import { RecheckService } from "./auth/recheck.ts";
+import { SignInMethods } from "./auth/sign-in-methods.ts";
 import { createAuth, socialProviders } from "./auth/auth.ts";
 import type { Config } from "./config.ts";
 import type { Database } from "./db/client.ts";
+import { authSession, authUser } from "./db/schema.ts";
 import { HttpError, notFound } from "./errors.ts";
 import type { Logger } from "./log.ts";
 import type { Mailer } from "./mail/mailer.ts";
@@ -86,13 +101,39 @@ const TWO_FACTOR_STEPS = new Set([
   "/v1/auth/two-factor/send-otp",
   "/v1/auth/two-factor/verify-backup-code",
 ]);
+/// The only routes of better-auth the apps and the pages use. The rest would change how an
+/// account signs in, or hand out its provider tokens, without a recheck.
+const AUTH_ROUTES = new Set([
+  "/v1/auth/sign-up/email",
+  "/v1/auth/sign-in/email",
+  "/v1/auth/sign-in/username",
+  "/v1/auth/sign-out",
+  "/v1/auth/request-password-reset",
+  "/v1/auth/reset-password",
+  "/v1/auth/send-verification-email",
+  "/v1/auth/verify-email",
+  "/v1/auth/change-password",
+  // Where a provider's callback lands when it can't be matched to a sign in.
+  "/v1/auth/error",
+]);
+const CALLBACK = "/v1/auth/callback/";
+/// Where a body's email is the one a password signs in with.
+const BY_LOGIN_EMAIL = new Set(["/v1/auth/sign-in/email", "/v1/auth/request-password-reset"]);
 const MAIL_PATHS = new Set([
   "/v1/auth/request-password-reset",
   "/v1/auth/send-verification-email",
   "/v1/auth/reset-password",
 ]);
 
-const signInBody = z.object({ username: z.string().optional(), email: z.string().optional() });
+const signInBody = z.looseObject({
+  username: z.string().optional(),
+  email: z.string().optional(),
+});
+const sessionAnswer = z.object({ token: z.string() });
+
+/// Whether the app says it can set up and answer two-factor for every way of signing in.
+const isCurrent = (request: Request) =>
+  new URL(request.url).searchParams.get(AUTH_QUERY) === AUTH_LEVEL;
 
 /// Who a sign in attempt is for (username or email, lowercased), read from a copy of the
 /// request so better-auth still gets the body.
@@ -121,7 +162,10 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
     config.REQUIRE_TWO_FACTOR,
   );
   const twoFactor = new TwoFactorService(db, auth, config);
-  const appSignIn = new AppSignIn(db, auth, config);
+  const appSignIn = new AppSignIn(db, auth, config, twoFactor);
+  const codes = new EmailCodes(db);
+  const recheck = new RecheckService(db, config, mailer, twoFactor, codes);
+  const signIn = new SignInMethods({ db, config, mailer, recheck, twoFactor, codes });
   const providers = Object.keys(socialProviders(config));
   const sync = new SyncService(db, hub, log);
   const sharing = new ShareService(db, sync, hub, mailer, config, log);
@@ -172,7 +216,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
     return response;
   }
 
-  const claimsOf = (headers: Record<string, string | undefined>) => accounts.fromHeaders(headers);
+  const claimsOf = (request: Request) =>
+    accounts.fromHeaders(request.headers, { current: isCurrent(request) });
   /// The answers to two-factor codes being checked right now, by what was asked.
   const answering = new Map<string, Promise<Response>>();
   /// The cookie better-auth keeps a half finished sign in in.
@@ -200,8 +245,62 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
   }
 
   /// For what an account that still owes two-factor may do: see itself, set it up, leave.
-  const claimsForSetup = (headers: Record<string, string | undefined>) =>
-    accounts.fromHeaders(headers, true);
+  const claimsForSetup = (request: Request) =>
+    accounts.fromHeaders(request.headers, { setup: true, current: isCurrent(request) });
+
+  /// A change to how the account signs in: the person confirmed it is them just before.
+  async function claimsRechecked(request: Request): Promise<AccessClaims> {
+    const claims = await claimsForSetup(request);
+    await recheck.require(claims, isCurrent(request));
+    return claims;
+  }
+
+  /// The token of an answer that started a session, null when it didn't.
+  async function sessionOf(response: Response): Promise<string | null> {
+    if (response.status !== 200) return null;
+    const body = sessionAnswer.safeParse(
+      await response
+        .clone()
+        .json()
+        .catch(() => null),
+    );
+    return body.success ? body.data.token : null;
+  }
+
+  /// A password sign in from an app that can't set two-factor up gets no session where it
+  /// is required and the account has none.
+  async function refuseOutdated(response: Response, current: boolean): Promise<Response> {
+    if (current || !config.REQUIRE_TWO_FACTOR) return response;
+    const token = await sessionOf(response);
+    if (token === null) return response;
+    const [user] = await db
+      .select({ twoFactor: authUser.twoFactorEnabled })
+      .from(authSession)
+      .innerJoin(authUser, eq(authUser.id, authSession.userId))
+      .where(eq(authSession.token, token));
+    if (user?.twoFactor) return response;
+    await db.delete(authSession).where(eq(authSession.token, token));
+    throw updateRequired();
+  }
+
+  /// The request with its email replaced by the address better-auth knows the account by.
+  async function byLoginEmail(request: Request): Promise<Request> {
+    const body = signInBody.safeParse(
+      await request
+        .clone()
+        .json()
+        .catch(() => null),
+    );
+    if (!body.success || !body.data.email) return request;
+    const email = await loginAddress(db, body.data.email);
+    const headers = new Headers(request.headers);
+    headers.delete("content-length");
+    return new Request(request.url, {
+      method: request.method,
+      headers,
+      body: JSON.stringify({ ...body.data, email }),
+    });
+  }
 
   const sockets = new Map<
     string,
@@ -465,10 +564,10 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/confirm/begin",
-          async ({ headers, body, request, ip }) => {
+          async ({ request, body, ip }) => {
             limit(limits.appSignIn, `app-sign-in:${ip}`);
             return appSignIn.beginConfirmation(
-              (await claimsForSetup(headers)).userId,
+              (await claimsForSetup(request)).userId,
               body,
               request.headers,
             );
@@ -487,10 +586,10 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/confirm/redeem",
-          async ({ headers, body, set, ip }) => {
+          async ({ request, body, set, ip }) => {
             limit(limits.appSignIn, `app-sign-in:${ip}`);
             await appSignIn.redeemConfirmation(
-              (await claimsForSetup(headers)).userId,
+              (await claimsForSetup(request)).userId,
               body.code,
               body.secret,
             );
@@ -509,7 +608,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           "/auth/app/redeem",
           ({ body, request, ip }) => {
             limit(limits.appSignIn, `app-sign-in:${ip}`);
-            return appSignIn.redeem(body.code, body.secret, request.headers);
+            return appSignIn.redeem(body.code, body.secret, request.headers, isCurrent(request));
           },
           {
             body: z.object({ code: z.string().max(100), secret: z.string().max(200) }),
@@ -524,10 +623,29 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             const path = new URL(request.url).pathname;
             // Only the apps' own begin starts a sign in with a provider: it is where the
             // beta key is asked for before a new account is made.
-            if (path === "/v1/auth/sign-in/social") throw notFound();
+            // Nothing else of better-auth's is reachable (see `AUTH_ROUTES`).
+            const known =
+              AUTH_ROUTES.has(path) || TWO_FACTOR_STEPS.has(path) || path.startsWith(CALLBACK);
+            if (!known) throw notFound();
+            if (path.startsWith(CALLBACK) && request.method === "GET") {
+              // Connecting a provider is the server's own flow, not better-auth's.
+              const next = await appSignIn.linkCallback(
+                path.slice(CALLBACK.length),
+                new URL(request.url).searchParams,
+              );
+              if (next !== null)
+                return new Response(null, { status: 302, headers: { location: next } });
+            }
+            if (path === "/v1/auth/change-password") {
+              await claimsRechecked(request);
+            }
+            const current = isCurrent(request);
+            // A new account from an app that can't set two-factor up would be stuck.
+            if (path === "/v1/auth/sign-up/email" && !current && config.REQUIRE_TWO_FACTOR) {
+              throw updateRequired();
+            }
             const cookieless = withoutCookies(request);
             if (path.startsWith("/v1/auth/two-factor/")) {
-              if (!TWO_FACTOR_STEPS.has(path)) throw notFound();
               // The apps send no cookies: the half finished sign in comes in a header, and
               // goes to better-auth as the cookie it keeps it in.
               const step = async () => {
@@ -543,7 +661,16 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
                 if (!origin || origin === "null") {
                   headers.set("origin", new URL(config.PUBLIC_URL).origin);
                 }
-                return auth.handler(new Request(cookieless, { headers }));
+                const provider = await challengeProvider(db, challenge);
+                const response = await auth.handler(new Request(cookieless, { headers }));
+                const token = await sessionOf(response);
+                if (token !== null) {
+                  await db
+                    .update(authSession)
+                    .set({ provider })
+                    .where(eq(authSession.token, token));
+                }
+                return response;
               };
               // Asking for a code costs an email; answering one is what gets guessed.
               if (path.endsWith("/send-otp")) {
@@ -565,11 +692,16 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
               }
               return (await answer).clone();
             }
+            const forwarded =
+              request.method === "POST" && BY_LOGIN_EMAIL.has(path)
+                ? await byLoginEmail(cookieless)
+                : cookieless;
             if (request.method === "POST" && SIGN_IN_PATHS.has(path)) {
               return guessable(ip, async () => {
                 const account = await signInAccount(request);
                 if (account) limit(limits.signInAccount, `login-account:${account}`);
-                return challengeFromCookie(await auth.handler(cookieless));
+                const answer = await challengeFromCookie(await auth.handler(forwarded));
+                return refuseOutdated(answer, current);
               });
             }
             if (request.method === "POST" && path === "/v1/auth/sign-up/email") {
@@ -577,13 +709,13 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             }
             if (request.method === "POST" && MAIL_PATHS.has(path))
               limit(limits.email, `mail:${ip}`);
-            return auth.handler(withoutCookies(request));
+            return auth.handler(forwarded);
           },
           { parse: "none", detail: { hide: true } },
         )
         .get(
           "/account",
-          async ({ headers }) => accounts.me((await claimsForSetup(headers)).userId),
+          async ({ request }) => accounts.me((await claimsForSetup(request)).userId),
           {
             detail: {
               summary: "The signed in account",
@@ -594,8 +726,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/username",
-          async ({ headers, body }) =>
-            accounts.setUsername((await claimsForSetup(headers)).userId, body.username),
+          async ({ request, body }) =>
+            accounts.setUsername((await claimsForSetup(request)).userId, body.username),
           {
             body: z.object({ username: z.string().max(100) }),
             detail: {
@@ -605,9 +737,179 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             },
           },
         )
+        .post(
+          "/account/recheck",
+          async ({ request, body, set }) => {
+            const claims = await claimsForSetup(request);
+            limit(limits.signInAccount, `recheck:${claims.userId}`);
+            await recheck.confirm(claims, body);
+            set.status = 204;
+          },
+          {
+            body: recheckRequestSchema,
+            detail: {
+              summary: "Confirm it is you, before changing how the account signs in",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/recheck/email",
+          async ({ request, set }) => {
+            const claims = await claimsForSetup(request);
+            limit(limits.email, `recheck:${claims.userId}`);
+            await recheck.sendCode(claims);
+            set.status = 204;
+          },
+          {
+            detail: {
+              summary: "Email the code that answers a recheck's second step",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .get(
+          "/account/sign-in",
+          async ({ request }) => signIn.summary(await claimsForSetup(request)),
+          {
+            detail: {
+              summary: "The ways the account signs in",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/sign-in/link/begin",
+          async ({ request, body, ip }) => {
+            const claims = await claimsRechecked(request);
+            limit(limits.appSignIn, `app-sign-in:${ip}`);
+            return appSignIn.beginLink(claims.userId, body);
+          },
+          {
+            body: linkBeginRequestSchema,
+            detail: {
+              summary: "Begin connecting a provider",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/sign-in/link/redeem",
+          async ({ request, body, ip }) => {
+            const claims = await claimsRechecked(request);
+            limit(limits.appSignIn, `app-sign-in:${ip}`);
+            await appSignIn.redeemLink(claims.userId, body.code, body.secret);
+            await signIn.settlePrimary(claims.userId);
+            return { ...(await signIn.summary(claims)), signedOut: false };
+          },
+          {
+            body: z.object({ code: z.string().max(100), secret: z.string().max(200) }),
+            detail: {
+              summary: "Finish connecting a provider",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/sign-in/primary",
+          async ({ request, body }) =>
+            signIn.setPrimary(await claimsRechecked(request), body.provider),
+          {
+            body: primaryRequestSchema,
+            detail: {
+              summary: "Make a way of signing in the primary one",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/sign-in/email/code",
+          async ({ request, body, set, ip }) => {
+            const claims = await claimsRechecked(request);
+            limit(limits.email, `mail:${ip}`);
+            await signIn.sendEmailCode(claims, body.provider, body.email);
+            set.status = 204;
+          },
+          {
+            body: emailCodeRequestSchema,
+            detail: {
+              summary: "Email a code to a new address",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/sign-in/email",
+          async ({ request, body }) => {
+            const claims = await claimsRechecked(request);
+            limit(limits.signInAccount, `code:${claims.userId}`);
+            return signIn.changeEmail(claims, body);
+          },
+          {
+            body: emailChangeRequestSchema,
+            detail: {
+              summary: "Change the email of a way of signing in, with the code sent to it",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/sign-in/password",
+          async ({ request, body }) => {
+            const claims = await claimsRechecked(request);
+            limit(limits.signInAccount, `code:${claims.userId}`);
+            return signIn.addPassword(claims, body);
+          },
+          {
+            body: addPasswordRequestSchema,
+            detail: {
+              summary: "Add Nookly Signin: an email and a password",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .post(
+          "/account/sign-in/password/change",
+          async ({ request, body }) =>
+            signIn.setPassword(await claimsRechecked(request), body.password),
+          {
+            body: setPasswordRequestSchema,
+            detail: {
+              summary: "Set a new Nookly Signin password",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
+        .delete(
+          "/account/sign-in/:provider",
+          async ({ request, params }) => {
+            const claims = await claimsRechecked(request);
+            const { change, ended } = await signIn.unlink(claims, params.provider);
+            for (const id of ended) hub.endSession(claims.userId, id);
+            return change;
+          },
+          {
+            params: z.object({ provider: z.string().max(30) }),
+            detail: {
+              summary: "Disconnect a way of signing in",
+              tags: ["Account"],
+              security: [{ bearer: [] }],
+            },
+          },
+        )
         .get(
           "/account/security",
-          async ({ headers }) => twoFactor.summary((await claimsForSetup(headers)).userId),
+          async ({ request }) => twoFactor.summary((await claimsForSetup(request)).userId),
           {
             detail: {
               summary: "What the account has for two-factor",
@@ -618,8 +920,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/email",
-          async ({ headers, body, ip }) => {
-            const claims = await claimsForSetup(headers);
+          async ({ request, body, ip }) => {
+            const claims = await claimsRechecked(request);
             limit(limits.email, `mail:${ip}`);
             await twoFactor.addEmail(claims.userId, body.email);
             return accounts.me(claims.userId);
@@ -635,13 +937,11 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/two-factor/email",
-          async ({ headers, body }) => {
-            const claims = await claimsForSetup(headers);
-            limit(limits.signInAccount, `password:${claims.userId}`);
-            return twoFactor.enableEmail(claims.userId, body.password);
+          async ({ request }) => {
+            const claims = await claimsRechecked(request);
+            return twoFactor.enableEmail(claims.userId);
           },
           {
-            body: passwordRequestSchema,
             detail: {
               summary: "Turn on emailed sign in codes",
               tags: ["Account"],
@@ -651,13 +951,11 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/two-factor/authenticator",
-          async ({ headers, body }) => {
-            const claims = await claimsForSetup(headers);
-            limit(limits.signInAccount, `password:${claims.userId}`);
-            return twoFactor.startAuthenticator(claims.userId, body.password);
+          async ({ request }) => {
+            const claims = await claimsRechecked(request);
+            return twoFactor.startAuthenticator(claims.userId);
           },
           {
-            body: passwordRequestSchema,
             detail: {
               summary: "Start adding an authenticator app",
               tags: ["Account"],
@@ -667,8 +965,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/two-factor/authenticator/confirm",
-          async ({ headers, body }) => {
-            const claims = await claimsForSetup(headers);
+          async ({ request, body }) => {
+            const claims = await claimsForSetup(request);
             limit(limits.signInAccount, `code:${claims.userId}`);
             return { backupCodes: await twoFactor.confirmAuthenticator(claims.userId, body.code) };
           },
@@ -683,10 +981,9 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/two-factor/disable",
-          async ({ headers, body }) => {
-            const claims = await claimsForSetup(headers);
-            limit(limits.signInAccount, `password:${claims.userId}`);
-            return twoFactor.disable(claims.userId, body.method, body.password);
+          async ({ request, body }) => {
+            const claims = await claimsRechecked(request);
+            return twoFactor.disable(claims.userId, body.method);
           },
           {
             body: disableTwoFactorRequestSchema,
@@ -699,13 +996,11 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/two-factor/backup-codes",
-          async ({ headers, body }) => {
-            const claims = await claimsForSetup(headers);
-            limit(limits.signInAccount, `password:${claims.userId}`);
-            return { backupCodes: await twoFactor.newBackupCodes(claims.userId, body.password) };
+          async ({ request }) => {
+            const claims = await claimsRechecked(request);
+            return { backupCodes: await twoFactor.newBackupCodes(claims.userId) };
           },
           {
-            body: passwordRequestSchema,
             detail: {
               summary: "Replace the recovery codes",
               tags: ["Account"],
@@ -715,8 +1010,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/account/terms",
-          async ({ headers, body }) =>
-            accounts.acceptTerms((await claimsForSetup(headers)).userId, body.version),
+          async ({ request, body }) =>
+            accounts.acceptTerms((await claimsForSetup(request)).userId, body.version),
           {
             body: acceptTermsRequestSchema,
             detail: {
@@ -728,8 +1023,9 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .delete(
           "/account",
-          async ({ headers, body, set }) => {
-            await accounts.deleteAccount(await claimsForSetup(headers), body.password);
+          async ({ request, body, set }) => {
+            const claims = await accounts.fromHeaders(request.headers, { leaving: true });
+            await accounts.deleteAccount(claims, body.password);
             set.status = 204;
           },
           {
@@ -743,15 +1039,15 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .get(
           "/sessions",
-          async ({ headers }) => ({ sessions: await accounts.sessions(await claimsOf(headers)) }),
+          async ({ request }) => ({ sessions: await accounts.sessions(await claimsOf(request)) }),
           {
             detail: { summary: "Devices signed in", tags: ["Account"], security: [{ bearer: [] }] },
           },
         )
         .delete(
           "/sessions/:id",
-          async ({ headers, params, set }) => {
-            const claims = await claimsOf(headers);
+          async ({ request, params, set }) => {
+            const claims = await claimsOf(request);
             await accounts.revokeSession(claims, params.id);
             hub.endSession(claims.userId, params.id);
             set.status = 204;
@@ -763,8 +1059,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .put(
           "/blobs/:sha256",
-          async ({ headers, params, request, set }) => {
-            const claims = await claimsOf(headers);
+          async ({ request, params, set }) => {
+            const claims = await claimsOf(request);
             limit(limits.sync, `sync:${claims.userId}`);
             const store = files();
             const length = Number(request.headers.get("content-length") ?? 0);
@@ -793,8 +1089,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .head(
           "/blobs/:sha256",
-          async ({ headers, params, set }) => {
-            const claims = await claimsOf(headers);
+          async ({ request, params, set }) => {
+            const claims = await claimsOf(request);
             set.status = (await files().exists(claims.userId, params.sha256)) ? 200 : 404;
             return "";
           },
@@ -802,8 +1098,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .get(
           "/blobs/:sha256",
-          async ({ headers, params }) => {
-            const claims = await claimsOf(headers);
+          async ({ request, params }) => {
+            const claims = await claimsOf(request);
             limit(limits.sync, `sync:${claims.userId}`);
             const blob = await files().get(claims.userId, params.sha256);
             if (!blob) throw new HttpError(404, "not_found", "This file isn't on the server.");
@@ -827,8 +1123,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/sync/push",
-          async ({ headers, body }) => {
-            const claims = await claimsOf(headers);
+          async ({ request, body }) => {
+            const claims = await claimsOf(request);
             limit(limits.sync, `sync:${claims.userId}`);
             const results = await sync.push(claims.userId, body.changes);
             const device = await accounts.deviceOf(claims.sessionId);
@@ -844,8 +1140,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/sync/pull",
-          async ({ headers, body }) => {
-            const claims = await claimsOf(headers);
+          async ({ request, body }) => {
+            const claims = await claimsOf(request);
             limit(limits.sync, `sync:${claims.userId}`);
             return sync.pull(claims.userId, body);
           },
@@ -860,8 +1156,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .get(
           "/conflicts",
-          async ({ headers }) => ({
-            conflicts: await sync.conflicts((await claimsOf(headers)).userId),
+          async ({ request }) => ({
+            conflicts: await sync.conflicts((await claimsOf(request)).userId),
           }),
           {
             detail: {
@@ -873,7 +1169,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/conflicts",
-          async ({ headers, body }) => sync.reportConflict((await claimsOf(headers)).userId, body),
+          async ({ request, body }) => sync.reportConflict((await claimsOf(request)).userId, body),
           {
             body: conflictReportSchema,
             detail: {
@@ -885,8 +1181,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/conflicts/:id/resolve",
-          async ({ headers, params, set }) => {
-            await sync.resolveConflict((await claimsOf(headers)).userId, params.id);
+          async ({ request, params, set }) => {
+            await sync.resolveConflict((await claimsOf(request)).userId, params.id);
             set.status = 204;
           },
           {
@@ -900,8 +1196,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .get(
           "/devices",
-          async ({ headers }) => ({
-            devices: await sync.devices((await claimsOf(headers)).userId),
+          async ({ request }) => ({
+            devices: await sync.devices((await claimsOf(request)).userId),
           }),
           {
             detail: {
@@ -913,8 +1209,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/sync/missing",
-          async ({ headers, body }) => {
-            const claims = await claimsOf(headers);
+          async ({ request, body }) => {
+            const claims = await claimsOf(request);
             limit(limits.sync, `sync:${claims.userId}`);
             return { missing: await sync.missing(claims.userId, body.table, body.pks) };
           },
@@ -929,8 +1225,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/shares",
-          async ({ headers, body, set }) => {
-            const claims = await claimsOf(headers);
+          async ({ request, body, set }) => {
+            const claims = await claimsOf(request);
             limit(limits.share, `share:${claims.userId}`);
             set.status = 201;
             return sharing.create(claims.userId, body.entityId, body.recipient, body.role);
@@ -946,8 +1242,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .get(
           "/shares/outgoing",
-          async ({ headers }) => ({
-            shares: await sharing.outgoing((await claimsOf(headers)).userId),
+          async ({ request }) => ({
+            shares: await sharing.outgoing((await claimsOf(request)).userId),
           }),
           {
             detail: { summary: "Shared by me", tags: ["Sharing"], security: [{ bearer: [] }] },
@@ -955,8 +1251,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .get(
           "/shares/incoming",
-          async ({ headers }) => ({
-            shares: await sharing.incoming((await claimsOf(headers)).userId),
+          async ({ request }) => ({
+            shares: await sharing.incoming((await claimsOf(request)).userId),
           }),
           {
             detail: { summary: "Shared with me", tags: ["Sharing"], security: [{ bearer: [] }] },
@@ -964,8 +1260,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/shares/:id/accept",
-          async ({ headers, params, set }) => {
-            await sharing.respond((await claimsOf(headers)).userId, params.id, true);
+          async ({ request, params, set }) => {
+            await sharing.respond((await claimsOf(request)).userId, params.id, true);
             set.status = 204;
           },
           {
@@ -975,8 +1271,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/shares/:id/decline",
-          async ({ headers, params, set }) => {
-            await sharing.respond((await claimsOf(headers)).userId, params.id, false);
+          async ({ request, params, set }) => {
+            await sharing.respond((await claimsOf(request)).userId, params.id, false);
             set.status = 204;
           },
           {
@@ -986,8 +1282,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .post(
           "/invites/accept",
-          async ({ headers, body, set }) => {
-            await sharing.acceptInvite((await claimsOf(headers)).userId, body.token);
+          async ({ request, body, set }) => {
+            await sharing.acceptInvite((await claimsOf(request)).userId, body.token);
             set.status = 204;
           },
           {
@@ -1001,8 +1297,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .patch(
           "/shares/:id",
-          async ({ headers, params, body, set }) => {
-            await sharing.changeRole((await claimsOf(headers)).userId, params.id, body.role);
+          async ({ request, params, body, set }) => {
+            await sharing.changeRole((await claimsOf(request)).userId, params.id, body.role);
             set.status = 204;
           },
           {
@@ -1017,8 +1313,8 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         )
         .delete(
           "/shares/:id",
-          async ({ headers, params, set }) => {
-            await sharing.remove((await claimsOf(headers)).userId, params.id);
+          async ({ request, params, set }) => {
+            await sharing.remove((await claimsOf(request)).userId, params.id);
             set.status = 204;
           },
           {

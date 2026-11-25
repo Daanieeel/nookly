@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 /// The few pages the links in emails open. Plain HTML and CSS, dressed like
 /// Nookly itself: the same colours, solid buttons, strength bar and Tabler icons, in both
 /// themes. The one script (the reset page's strength bar) only adds to a page that works without.
@@ -169,7 +170,8 @@ let script: Promise<string | null> | null = null;
 /// Null if it can't be built: the page then works without the strength bar.
 export function resetPasswordScript(): Promise<string | null> {
   script ??= Bun.build({
-    entrypoints: [new URL("./client/reset-password.ts", import.meta.url).pathname],
+    // A real path: a URL's pathname keeps spaces as %20, which the bundler can't open.
+    entrypoints: [fileURLToPath(new URL("./client/reset-password.ts", import.meta.url))],
     target: "browser",
     minify: true,
   })

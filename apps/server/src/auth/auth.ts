@@ -3,28 +3,31 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, twoFactor, username } from "better-auth/plugins";
 import { timingSafeEqual } from "node:crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import type { Config } from "../config.ts";
 import type { Database } from "../db/client.ts";
+import {
+  PLACEHOLDER_EMAIL_DOMAIN,
+  claimInvites,
+  emailTaken,
+  isPlaceholderEmail,
+  placeholderEmail,
+  realEmail,
+  setAccountEmail,
+} from "./emails.ts";
 import {
   authAccount,
   authSession,
   authTwoFactor,
   authUser,
   authVerification,
-  shares,
   users,
 } from "../db/schema.ts";
 import type { Logger } from "../log.ts";
 import type { Mailer } from "../mail/mailer.ts";
 import { confirmEmailEmail, resetPasswordEmail, twoFactorCodeEmail } from "../mail/templates.ts";
 import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "../security/disposable-email.ts";
-
-/// The domain of the email an account made without one gets. `.invalid` can never
-/// be delivered to, and the API shows such an address as no email at all.
-export const PLACEHOLDER_EMAIL_DOMAIN = "users.nookly.invalid";
-export const isPlaceholderEmail = (email: string) => email.endsWith(`@${PLACEHOLDER_EMAIL_DOMAIN}`);
 
 export const MIN_PASSWORD_LENGTH = 10;
 /// How long a half finished sign in waits for its second step, and an emailed code works.
@@ -51,12 +54,40 @@ export const DEVICE_NAME_HEADER = "x-nookly-device-name";
 export const PLATFORM_HEADER = "x-nookly-platform";
 const PLATFORMS = new Set(["macos", "windows", "linux", "ios", "android", "web", "other"]);
 
+/// What a provider says about a person, as far as a missing email needs.
+interface ProviderProfile {
+  id?: string | number;
+  sub?: string;
+  email?: string | null;
+  person?: { email?: string | null };
+}
+/// What stands in for the missing address.
+interface MappedProfile {
+  email?: string;
+  emailVerified?: boolean;
+}
+
+/// A provider that shares no email still signs people in: better-auth needs an address, so
+/// it gets a placeholder, which counts as none.
+function withAnEmail(provider: string) {
+  return (profile: ProviderProfile): MappedProfile => {
+    if (profile.email || profile.person?.email) return {};
+    const id = profile.id ?? profile.sub ?? crypto.randomUUID();
+    return { email: placeholderEmail(`${provider}-${id}`), emailVerified: false };
+  };
+}
+
 /// Which OAuth providers are configured: each needs its id and secret. Adding one
 /// later is setting those two variables, nothing else.
 export function socialProviders(config: Config) {
   const providers: Record<
     string,
-    { clientId: string; clientSecret: string; disableImplicitSignUp: boolean }
+    {
+      clientId: string;
+      clientSecret: string;
+      disableImplicitSignUp: boolean;
+      mapProfileToUser: ReturnType<typeof withAnEmail>;
+    }
   > = {};
   const pairs = [
     ["google", config.GOOGLE_CLIENT_ID, config.GOOGLE_CLIENT_SECRET],
@@ -72,6 +103,7 @@ export function socialProviders(config: Config) {
         clientId,
         clientSecret,
         disableImplicitSignUp: Boolean(config.BETA_KEY),
+        mapProfileToUser: withAnEmail(name),
       };
     }
   }
@@ -113,7 +145,9 @@ export function createAuth(
     // The browser that signs in at a provider is not the app that began it, so it brings
     // no state cookie. What stands in for it: the state is kept in the database, and what
     // the browser ends with is a one time code only the app's secret redeems (`AppSignIn`).
-    account: { skipStateCookieCheck: true },
+    // Nothing is ever connected to an account by itself, whatever email a provider shares:
+    // connecting is done from the app, signed in (`AppSignIn.beginLink`).
+    account: { skipStateCookieCheck: true, accountLinking: { disableImplicitLinking: true } },
     // Our own limiter (app.ts) covers sign in; better-auth's would count every
     // test and every device behind one address as one.
     rateLimit: { enabled: false },
@@ -131,6 +165,8 @@ export function createAuth(
       additionalFields: {
         deviceName: { type: "string", required: false, input: false },
         platform: { type: "string", required: false, input: false },
+        provider: { type: "string", required: false, input: false },
+        pending: { type: "boolean", required: false, input: false },
       },
     },
     emailAndPassword: {
@@ -142,23 +178,28 @@ export function createAuth(
         hash: (password) => Bun.password.hash(password, { algorithm: "argon2id" }),
         verify: ({ hash, password }) => Bun.password.verify(password, hash),
       },
+      // To the address the password signs in with. An account without a password gets
+      // none: a reset must not make one.
       sendResetPassword: async ({ user, token }) => {
-        if (isPlaceholderEmail(user.email)) return;
-        await mailer.send({ to: user.email, ...resetPasswordEmail(publicUrl, token) });
+        const [password] = await db
+          .select({ email: authAccount.email })
+          .from(authAccount)
+          .where(and(eq(authAccount.userId, user.id), eq(authAccount.providerId, "credential")));
+        const to = password ? (password.email ?? user.email) : null;
+        if (to === null || isPlaceholderEmail(to)) return;
+        await mailer.send({ to, ...resetPasswordEmail(publicUrl, token) });
       },
     },
     emailVerification: {
       sendOnSignUp: true,
-      // Invites sent to the address before it was confirmed now belong to the
-      // account; never before, so nobody can claim invites to an address they
-      // don't hold.
       afterEmailVerification: async (user) => {
         await db
-          .update(shares)
-          .set({ recipientId: user.id })
+          .update(authAccount)
+          .set({ emailVerified: true })
           .where(
-            and(eq(shares.recipientEmail, user.email.toLowerCase()), isNull(shares.recipientId)),
+            and(eq(authAccount.userId, user.id), eq(authAccount.email, user.email.toLowerCase())),
           );
+        await claimInvites(db, user.id, user.email);
         onVerified(user.id);
       },
       sendVerificationEmail: async ({ user, url }) => {
@@ -239,13 +280,61 @@ export function createAuth(
             body: {
               ...body,
               name: body.name ?? body.username ?? "",
-              email: `${crypto.randomUUID()}@${PLACEHOLDER_EMAIL_DOMAIN}`,
+              email: placeholderEmail(crypto.randomUUID()),
             },
           },
         };
       }),
     },
+    user: {
+      // Every account is told apart by all its addresses, not only the one better-auth knows:
+      // a new account may not take one an account already uses. A provider that signs in
+      // again says what its address is now.
+      validateUserInfo: async ({ user, source }) => {
+        const email = realEmail(user.email);
+        if (source.action === "create-user" && email && (await emailTaken(db, email))) {
+          return source.method === "oauth"
+            ? { error: "account_not_linked" }
+            : {
+                error: "user_already_exists",
+                errorDescription: "An account with this email exists. Sign in instead.",
+              };
+        }
+        const provider = source.oauth?.providerId;
+        if (source.action === "sign-in" && provider && email && user.id) {
+          await refreshProviderEmail(db, user.id, provider, email, user.emailVerified === true);
+        }
+        return undefined;
+      },
+    },
     databaseHooks: {
+      account: {
+        create: {
+          // Only the account's first sign in method is made by better-auth (a sign up).
+          // The rest are added by the app, signed in and rechecked (`SignInMethods`).
+          before: async (account) => {
+            const [other] = await db
+              .select({ id: authAccount.id })
+              .from(authAccount)
+              .where(eq(authAccount.userId, account.userId))
+              .limit(1);
+            if (other) return false;
+            return undefined;
+          },
+          after: async (account) => {
+            const [user] = await db.select().from(authUser).where(eq(authUser.id, account.userId));
+            if (!user) return;
+            await db
+              .update(authAccount)
+              .set({ email: realEmail(user.email), emailVerified: user.emailVerified })
+              .where(eq(authAccount.id, account.id));
+            await db
+              .update(authUser)
+              .set({ primaryProvider: account.providerId })
+              .where(and(eq(authUser.id, user.id), isNull(authUser.primaryProvider)));
+          },
+        },
+      },
       user: {
         create: {
           // Sync's own row for the account.
@@ -258,7 +347,24 @@ export function createAuth(
         create: {
           before: async (session, ctx) => {
             const device = deviceOf(ctx?.headers ?? ctx?.request?.headers);
-            return { data: { ...session, ...device } };
+            const path = ctx?.path ?? "";
+            const fromProvider = path.startsWith("/callback/");
+            const provider = fromProvider
+              ? (ctx?.params?.id ?? null)
+              : /^\/sign-(in|up)\//.test(path)
+                ? "credential"
+                : null;
+            // The browser's own session of a provider sign in is only the provider's word:
+            // where the account has a second step, it opens nothing.
+            let pending = false;
+            if (fromProvider) {
+              const [user] = await db
+                .select({ twoFactor: authUser.twoFactorEnabled })
+                .from(authUser)
+                .where(eq(authUser.id, session.userId));
+              pending = user?.twoFactor === true;
+            }
+            return { data: { ...session, ...device, provider, pending } };
           },
         },
       },
@@ -267,3 +373,31 @@ export function createAuth(
 }
 
 export type Auth = ReturnType<typeof createAuth>;
+
+/// Keeps what a provider says its address is, unless the person chose another here. The
+/// primary's is the account's own, so that follows a confirmed one nobody else has.
+async function refreshProviderEmail(
+  db: Database,
+  userId: string,
+  provider: string,
+  email: string,
+  verified: boolean,
+) {
+  const [method] = await db
+    .update(authAccount)
+    .set({ email, emailVerified: verified })
+    .where(
+      and(
+        eq(authAccount.userId, userId),
+        eq(authAccount.providerId, provider),
+        ne(authAccount.providerId, "credential"),
+        eq(authAccount.emailChosen, false),
+      ),
+    )
+    .returning({ id: authAccount.id });
+  if (!method || !verified) return;
+  const [user] = await db.select().from(authUser).where(eq(authUser.id, userId));
+  if (user?.primaryProvider !== provider || user.email === email) return;
+  if (await emailTaken(db, email, userId)) return;
+  await setAccountEmail(db, userId, email, true);
+}

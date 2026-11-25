@@ -6,12 +6,28 @@ import { authAccount, authSession, authUser, authVerification, shares } from "..
 import { HttpError, badRequest, conflict, forbidden, notFound, unauthorized } from "../errors.ts";
 import type { BlobStore } from "../storage/blobs.ts";
 import { CONFIRMED } from "./app-sign-in.ts";
-import { type Auth, isPlaceholderEmail } from "./auth.ts";
+import type { Auth } from "./auth.ts";
+import { isPlaceholderEmail } from "./emails.ts";
 
 /// Who a request is: the account and the session (one per signed in device).
 export interface AccessClaims {
   userId: string;
   sessionId: string;
+}
+
+/// What an app from before two-factor on every sign in is told, where it is required: it
+/// has no way to set it up or to answer it.
+export const updateRequired = () =>
+  new HttpError(403, "update_required", "Update Nookly to continue.");
+
+/// What a request may do while its account still owes two-factor.
+export interface Access {
+  /// The route is part of seeing the account and setting two-factor up.
+  setup?: boolean;
+  /// False for an app from before two-factor on every sign in (it sends no `?auth=2`).
+  current?: boolean;
+  /// The route is a way out of the account, open to any app.
+  leaving?: boolean;
 }
 
 type UserRow = typeof authUser.$inferSelect;
@@ -60,7 +76,7 @@ export class AccountService {
 
   private readonly touchEveryMs: number;
 
-  /// Accounts with a password must have two-factor before anything else works.
+  /// Accounts must have two-factor before anything else works.
   private readonly requireTwoFactor: boolean;
 
   constructor(
@@ -78,22 +94,18 @@ export class AccountService {
   }
 
   /// The account behind a bearer token, while its session is open. Where two-factor is
-  /// required, an account with a password that has not set it up gets in only for what
-  /// `setup` allows: seeing itself and setting it up, or leaving.
-  async authenticate(token: string, setup = false): Promise<AccessClaims> {
+  /// required, an account that has not set it up gets in only for what `access` allows:
+  /// seeing itself and setting it up, or leaving.
+  async authenticate(token: string, access: Access = {}): Promise<AccessClaims> {
+    const { setup = false, current = true, leaving = false } = access;
     if (!token) throw unauthorized();
     const found = await this.auth.api
       .getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) })
       .catch(() => null);
-    if (!found) throw unauthorized();
-    if (this.requireTwoFactor && !setup && !found.user.twoFactorEnabled) {
-      const [credential] = await this.db
-        .select({ password: authAccount.password })
-        .from(authAccount)
-        .where(
-          and(eq(authAccount.userId, found.user.id), eq(authAccount.providerId, "credential")),
-        );
-      if (credential?.password != null) {
+    if (!found || found.session.pending === true) throw unauthorized();
+    if (this.requireTwoFactor && !found.user.twoFactorEnabled && !leaving) {
+      if (!current) throw updateRequired();
+      if (!setup) {
         throw new HttpError(
           403,
           "two_factor_required",
@@ -123,12 +135,9 @@ export class AccountService {
       .catch(() => {});
   }
 
-  async fromHeaders(
-    headers: Record<string, string | undefined>,
-    setup = false,
-  ): Promise<AccessClaims> {
-    const header = headers.authorization ?? "";
-    return this.authenticate(header.startsWith("Bearer ") ? header.slice(7) : "", setup);
+  async fromHeaders(headers: Headers, access: Access = {}): Promise<AccessClaims> {
+    const header = headers.get("authorization") ?? "";
+    return this.authenticate(header.startsWith("Bearer ") ? header.slice(7) : "", access);
   }
 
   /// What a session's device calls itself.
@@ -141,7 +150,7 @@ export class AccountService {
   }
 
   /// What an account needs from its person next: a username (made with another provider), or
-  /// two-factor (a password, on a server that requires it).
+  /// two-factor (on a server that requires it).
   private async userOf(row: UserRow): Promise<User> {
     const accounts = await this.db
       .select({ providerId: authAccount.providerId, password: authAccount.password })
@@ -154,7 +163,7 @@ export class AccountService {
     );
     return toUser(row, {
       needsUsername,
-      twoFactorRequired: this.requireTwoFactor && hasPassword && !row.twoFactorEnabled,
+      twoFactorRequired: this.requireTwoFactor && !row.twoFactorEnabled,
       hasPassword,
       providers: accounts.map((a) => a.providerId).filter((id) => id !== "credential"),
     });
@@ -190,7 +199,7 @@ export class AccountService {
         .where(eq(authUser.id, userId))
         .returning();
       if (!updated) throw unauthorized();
-      return toUser(updated);
+      return this.userOf(updated);
     } catch (error) {
       // Two accounts picking the same name at once: the second one loses.
       const failure = driverError.safeParse(error);
@@ -215,7 +224,13 @@ export class AccountService {
     const rows = await this.db
       .select()
       .from(authSession)
-      .where(and(eq(authSession.userId, claims.userId), gt(authSession.expiresAt, new Date())))
+      .where(
+        and(
+          eq(authSession.userId, claims.userId),
+          eq(authSession.pending, false),
+          gt(authSession.expiresAt, new Date()),
+        ),
+      )
       .orderBy(desc(authSession.updatedAt), desc(authSession.createdAt));
     return rows.map((s) => ({
       id: s.id,
