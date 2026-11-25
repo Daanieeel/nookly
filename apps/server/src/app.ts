@@ -145,6 +145,13 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
     socket: new RateLimiter(60 * scale, MINUTE),
   };
 
+  /// A live socket's limit, by the client's own address like every request: behind a proxy
+  /// the connection's address is the proxy's, which every client shares.
+  function socketRefused(forwarded: string | undefined, remote: string | undefined): boolean {
+    const ip = clientIp(forwarded, remote, config.TRUST_PROXY, config.TRUSTED_PROXY_HOPS);
+    return limits.socket.take(`ws:${ip}`) !== null;
+  }
+
   function tooMany(wait: number) {
     return new HttpError(429, "rate_limited", `Too many requests. Try again in ${wait} seconds.`);
   }
@@ -826,7 +833,9 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             const results = await sync.push(claims.userId, body.changes);
             const device = await accounts.deviceOf(claims.sessionId);
             await sync.registerDevice(claims.userId, body.changes, device.name, device.platform);
-            return { results };
+            // A device told its clock is wrong needs the right time to send the change again.
+            const skewed = results.some((r) => r.reason === "clock-skew");
+            return skewed ? { results, serverTime: Date.now() } : { results };
           },
           {
             body: pushRequestSchema,
@@ -1025,7 +1034,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         // in its own first message, like the sync socket.
         .ws("/collab", {
           open(ws) {
-            if (limits.socket.take(`ws:${ws.remoteAddress}`) !== null) {
+            if (socketRefused(ws.data.headers["x-forwarded-for"], ws.remoteAddress)) {
               ws.close(1008, "rate limited");
               return;
             }
@@ -1049,8 +1058,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
         .ws("/sync/ws", {
           // Signs in with its first message instead of the URL, which would land in logs.
           open(ws) {
-            const ip = ws.remoteAddress;
-            if (limits.socket.take(`ws:${ip}`) !== null) {
+            if (socketRefused(ws.data.headers["x-forwarded-for"], ws.remoteAddress)) {
               ws.close(1008, "rate limited");
               return;
             }

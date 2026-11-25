@@ -45,7 +45,7 @@ export type PushRequest = z.infer<typeof pushRequestSchema>;
 
 /// Why the server refused a change. `invalid-value` (a value the database can't hold) and
 /// `clock-skew` (a clock far ahead of the server's) are about this one change: the device
-/// keeps its row and the change, and the others of the push go through.
+/// keeps its row, goes on waiting to send it, and the others of the push go through.
 export const rejectionSchema = z.enum([
   "forbidden",
   "invalid",
@@ -61,7 +61,12 @@ export const pushResultSchema = z.object({
   reason: rejectionSchema.optional(),
 });
 export type PushResult = z.infer<typeof pushResultSchema>;
-export const pushResponseSchema = z.object({ results: z.array(pushResultSchema) });
+export const pushResponseSchema = z.object({
+  results: z.array(pushResultSchema),
+  /// The server's time in milliseconds, sent when it refused a change as `clock-skew`, so a
+  /// device whose clock is wrong can date the change by it and send it again.
+  serverTime: z.number().int().optional(),
+});
 export type PushResponse = z.infer<typeof pushResponseSchema>;
 
 export const pullRequestSchema = z.object({
@@ -165,6 +170,11 @@ export const MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
 /// Whether `value` holds a NUL character, which Postgres can't store in text or JSON.
 export const hasNul = (value: string | number | null): boolean =>
   value !== null && String(value).includes("\0");
+
+/// `value` as it can be sent: NUL characters mean nothing to a person and a server can't
+/// store them (pasted text carries them now and then).
+export const withoutNul = (value: string | number | null): string | number | null =>
+  hasNul(value) ? String(value).replaceAll("\0", "") : value;
 
 /// The clock's time of day in milliseconds, or null when it isn't one.
 const clockMillis = (clock: string): number | null => {
