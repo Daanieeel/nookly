@@ -40,7 +40,7 @@ Read `AGENTS.md` and `docs/00-index.md` first.
 Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at the repo root; read it, do not edit or delete it), its TODO section included. Do after A to M.
 
 - [x] N. Explore current auth, break the strategy into tasks here.
-- [ ] N1. Server migration 0007 (additive, with backfill) and its test.
+- [x] N1. Server migration 0007 (additive, with backfill) and its test.
 - [ ] N2. Server: no implicit linking, provider emails stored, `session.provider`, primary set for the first provider.
 - [ ] N3. Server: second step for every account and provider (challenge at provider redeem), old apps answered `update_required`.
 - [ ] N4. Server: re check within 10 minutes; two factor management needs it instead of a password.
@@ -53,11 +53,13 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 
 ### Design (decided while exploring)
 
-- Columns: `auth_account.email`, `email_verified`, `email_chosen` (person changed it, a provider sign in must not overwrite it); `auth_user.primary_provider`; `auth_session.provider`, `reauthed_at`. Unique `lower(email)` among `credential` rows. Backfill: account email = user email unless placeholder, primary = earliest account, session provider = primary where the account has one provider.
+- Columns: `auth_account.email`, `email_verified`, `email_chosen` (person changed it, a provider sign in must not overwrite it); `auth_user.primary_provider`; `auth_session.provider`, `reauthed_at`, `pending` (browser session of a provider sign in on a 2FA account, opens nothing). Unique `lower(email)` among `credential` rows. Backfill: account email = user email unless placeholder, primary = earliest account, session provider = primary where the account has one provider.
 - `auth_user.email` stays the primary's email (and `users.email` changes with it in one transaction).
-- better-auth: `accountLinking: { disableImplicitLinking: true, allowDifferentEmails: true, trustedProviders: all }`; linking goes through our app flow with `linkSocialAccount`. A new provider account whose email is any account's email is refused as `account_not_linked`.
+- better-auth: `accountLinking.disableImplicitLinking`. Its own linking is **not** used: it links at the provider callback, which would let a sent link attach a victim's provider to an attacker's account. Our link flow takes the provider callback itself and links only at redeem (ticket from the browser + secret from the app).
+- A new account whose email any account already uses is refused (`user.validateUserInfo`), `account_not_linked` for providers. Providers without an email get a placeholder via `mapProfileToUser`.
+- `/v1/auth/*` becomes an allowlist: better-auth's own account routes (link, unlink, update user, delete user) would skip the re check.
 - Second step after a provider: delete the session, make a challenge in better-auth's own format (verification `2fa-<random>` plus `2fa-attempts-...`, HMAC signed like its cookie), so `/auth/two-factor/*` finishes it.
-- New apps send `x-nookly-auth: 2`. Without it, an account lacking two factor gets 403 `update_required` "Update Nookly to continue." on sign in and sync.
+- New apps send `?auth=2` on requests (a custom header would break the desktop's CORS preflight against an older server). Without it, an account lacking two factor gets 403 `update_required` "Update Nookly to continue." on sign in and sync.
 - Required only where `REQUIRE_TWO_FACTOR` is on (production), now for every account.
 - Re check: password or provider confirmation, plus a second step code when two factor is on; a session younger than 10 minutes counts.
 - A major version bump is **not** done; tell the user the old app lockout is a breaking change.
