@@ -1,6 +1,6 @@
 import * as Y from "yjs";
 import { beforeEach, describe, expect, it } from "vitest";
-import { PAGE_FRAGMENT } from "../blocks/index.ts";
+import { PAGE_FRAGMENT, pageBlocks } from "../blocks/index.ts";
 import type { LocalDb } from "./db.ts";
 import { createSpace } from "./entities.ts";
 import { addBlock, createPage, deleteBlock, listBlocks, updateBlock } from "./notes.ts";
@@ -73,6 +73,59 @@ describe("a page edited on its rows with the page editor", () => {
     });
     await saveRowsPage(db, page, doc, snapshot);
     expect(await contents()).toEqual(["Buy gas"]);
+  });
+
+  /// The order another device or the CLI gave the page: positions only.
+  async function reorder(ids: string[]) {
+    await db.driver.batch(
+      ids.map((id, position) => ({
+        sql: "UPDATE blocks SET position = ? WHERE id = ?",
+        params: [position, id],
+      })),
+    );
+  }
+
+  async function threeBlocks() {
+    return [
+      await addBlock(db, page, "paragraph", "Pack the tent"),
+      await addBlock(db, page, "paragraph", "Book the train"),
+      await addBlock(db, page, "paragraph", "Buy gas"),
+    ] as const;
+  }
+
+  /// Types a new block at the top of the document, as Enter in the editor does.
+  function addAtTop(doc: Y.Doc) {
+    const added = new Y.XmlElement("paragraph");
+    added.setAttribute("blockId", "new-block");
+    added.insert(0, [new Y.XmlText("Check the weather")]);
+    doc.getXmlFragment(PAGE_FRAGMENT).insert(0, [added]);
+  }
+
+  it("takes another device's order into the open editor, and writes none of it back", async () => {
+    const [tent, train, gas] = await threeBlocks();
+    const { doc, snapshot } = await openRowsPage(db, page);
+    await reorder([gas, tent, train]);
+    const taken = await takeRowChanges(db, page, doc, snapshot);
+    expect(pageBlocks(doc).map((b) => b.blockId)).toEqual([gas, tent, train]);
+    typeInto(doc, 0, "Now: ");
+    await saveRowsPage(db, page, doc, taken);
+    expect(await contents()).toEqual(["Now: Buy gas", "Pack the tent", "Book the train"]);
+  });
+
+  it("keeps another device's order when this editor adds a block before taking it in", async () => {
+    // Bug: the save numbered every block by the open editor's old order.
+    const [tent, train, gas] = await threeBlocks();
+    const { doc, snapshot } = await openRowsPage(db, page);
+    await reorder([gas, tent, train]);
+    addAtTop(doc);
+    await saveRowsPage(db, page, doc, snapshot);
+    // The new block stays at the top, where it was typed.
+    expect(await contents()).toEqual([
+      "Check the weather",
+      "Buy gas",
+      "Pack the tent",
+      "Book the train",
+    ]);
   });
 
   it("leaves an empty page's document empty, for the editor to start", async () => {

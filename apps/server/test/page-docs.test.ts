@@ -149,6 +149,130 @@ describe("page documents on a device", () => {
     expect(await offline.open("p1", 200)).toBeNull();
   });
 
+  /// What `nookly cli note add-block` then `reorder-blocks` write: new rows at the end,
+  /// then positions only.
+  function addAndReorder(d: Device) {
+    const stamp = new Date().toISOString();
+    for (const [id, content, position] of [
+      ["cli-a", "Charge the lamp", 2],
+      ["cli-b", "Buy gas", 3],
+    ] as const) {
+      d.driver.exec(
+        "INSERT INTO blocks (id, entity_id, position, block_type, content, created_at, updated_at) VALUES (?, 'p1', ?, 'paragraph', ?, ?, ?)",
+        id,
+        position,
+        content,
+        stamp,
+        stamp,
+      );
+    }
+  }
+  function reorder(d: Device, ids: string[]) {
+    ids.forEach((id, position) => {
+      d.driver.exec(
+        "UPDATE blocks SET position = ? WHERE id = ? AND position <> ?",
+        position,
+        id,
+        position,
+      );
+    });
+  }
+  const order = ["cli-b", "p1-b1", "cli-a", "p1-b0"];
+  const reordered = ["Buy gas", "Book the train", "Charge the lamp", "Pack the tent"];
+  const contents = (doc: Y.Doc) => pageBlocks(doc).map((b) => b.content);
+
+  it("keep an order set outside the editor while the page is open", async () => {
+    // Bug: the document ignored a change of position only, and its next save put the old
+    // order back over the one the CLI had just set.
+    const { desktop, owner } = await setup();
+    const docs = docsFor(desktop, owner);
+    const session = await docs.open("p1");
+    const doc = session?.doc ?? new Y.Doc();
+    addAndReorder(desktop);
+    await syncOnce(desktop);
+    await until(() => contents(doc).length === 4, "the new blocks in the document");
+    reorder(desktop, order);
+    await syncOnce(desktop);
+    await until(() => contents(doc).join() === reordered.join(), "the new order in the document");
+    // Typing afterwards saves the document, which must keep the order everywhere.
+    typeInto(doc, 0, 0, "Now: ");
+    const edited = ["Now: Buy gas", ...reordered.slice(1)];
+    await until(() => rows(desktop)[0]?.content === edited[0], "the rows to follow");
+    await server.collab.flush();
+    await Bun.sleep(150);
+    await syncOnce(desktop);
+    expect(rows(desktop).map((r) => r.content)).toEqual(edited);
+    expect(contents(doc)).toEqual(edited);
+  });
+
+  it("keep an order set outside the editor while the page is closed", async () => {
+    const { desktop, owner } = await setup();
+    const docs = docsFor(desktop, owner);
+    await docs.open("p1");
+    docs.release("p1");
+    await Bun.sleep(300);
+    addAndReorder(desktop);
+    await syncOnce(desktop);
+    reorder(desktop, order);
+    await syncOnce(desktop);
+
+    const other = device(desktop.api);
+    await other.engine.enable();
+    await syncOnce(other);
+    const seen = await docsFor(other, owner).open("p1");
+    expect(contents(seen?.doc ?? new Y.Doc())).toEqual(reordered);
+  });
+
+  /// The app opens a page, which saves its copy here, and quits.
+  async function openAndQuit(d: Device, owner: string) {
+    const docs = docsFor(d, owner);
+    await docs.open("p1");
+    docs.release("p1");
+    await until(
+      () => d.driver.rows("SELECT pending FROM page_docs")[0]?.pending === 0,
+      "the copy to be confirmed",
+    );
+    await docs.close(false);
+  }
+
+  it("keep an order set while the app was quit, after the next launch", async () => {
+    const { desktop, owner } = await setup();
+    await openAndQuit(desktop, owner);
+    addAndReorder(desktop);
+    reorder(desktop, order);
+    const launched = docsFor(desktop, owner);
+    const session = await launched.open("p1");
+    const doc = session?.doc ?? new Y.Doc();
+    await syncOnce(desktop);
+    await until(() => contents(doc).join() === reordered.join(), "the new order in the document");
+    await Bun.sleep(150);
+    await syncOnce(desktop);
+    expect(rows(desktop).map((r) => r.content)).toEqual(reordered);
+  });
+
+  it("never write an old copy's order over rows, while it has not caught up", async () => {
+    // Bug: the copy saved before the app quit wrote all its positions over the rows again.
+    const { desktop, owner } = await setup();
+    await openAndQuit(desktop, owner);
+    addAndReorder(desktop);
+    reorder(desktop, order);
+    // The rows reach the server, but this page's live connection does not come up.
+    await syncOnce(desktop);
+    const lagging = docsFor(desktop, owner, "http://127.0.0.1:9");
+    const session = await lagging.open("p1", 300);
+    typeInto(session?.doc ?? new Y.Doc(), 0, 0, "Now: ");
+    await until(
+      () => rows(desktop).some((r) => r.content === "Now: Pack the tent"),
+      "the typing in the rows",
+    );
+    expect(rows(desktop).map((r) => r.content)).toEqual([
+      "Buy gas",
+      "Book the train",
+      "Charge the lamp",
+      "Now: Pack the tent",
+    ]);
+  });
+
   it("never write over a row with an edit of its own not yet sent", async () => {
     const { desktop, owner } = await setup();
     const docs = docsFor(desktop, owner);

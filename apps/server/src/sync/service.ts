@@ -51,6 +51,8 @@ export interface ChangedBlock {
   pk: string;
   state: RecordState;
   scope: string | null;
+  /// Its position changed: the page was reordered.
+  moved: boolean;
 }
 
 interface Access {
@@ -324,7 +326,11 @@ export class SyncService {
             },
           });
         if (scope) touched.add(scope);
-        if (change.table === "blocks") blocks.push({ pk: change.pk, state: merged, scope });
+        if (change.table === "blocks") {
+          const from = before.fields.position;
+          const moved = from !== undefined && from !== merged.fields.position;
+          blocks.push({ pk: change.pk, state: merged, scope, moved });
+        }
         stored.set(key(change.table, change.pk), { ...row });
       }
       await tx.update(users).set({ syncSeq: seq }).where(eq(users.id, ownerId));
