@@ -1,3 +1,4 @@
+import { RecheckCancelled } from "@nookly/shared/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { qk } from "#/lib/query-keys.ts";
 import { recheck } from "./recheck-gate.ts";
@@ -10,8 +11,12 @@ export function useAccountChange<Input, Result>(
   onDone?: (result: Result, input: Input) => void,
 ) {
   const queryClient = useQueryClient();
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (input: Input) => recheck.run(() => change(input)),
+    // A question that was closed is a change of mind: nothing failed.
+    onError: (error) => {
+      if (error instanceof RecheckCancelled) mutation.reset();
+    },
     onSuccess: async (result, input) => {
       for (const queryKey of [
         qk.sync.signIn,
@@ -26,4 +31,5 @@ export function useAccountChange<Input, Result>(
       onDone?.(result, input);
     },
   });
+  return mutation;
 }

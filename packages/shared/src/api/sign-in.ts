@@ -38,7 +38,7 @@ export function signInActions(method: SignInMethod): { id: SignInActionId; label
 
 /// What confirms it is the person: the account's password where it has one, or any provider
 /// connected to it.
-export function recheckWays(summary: SignInSummary): { password: boolean; providers: string[] } {
+export function recheckWays(summary: SignInSummary) {
   const connected = summary.methods.map((method) => method.provider);
   return {
     password: connected.includes(NOOKLY_SIGN_IN),

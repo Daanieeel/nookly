@@ -1,5 +1,5 @@
 import type { Icon as TablerIcon } from "@tabler/icons-react-native";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { View } from "react-native";
 import { Button } from "../Button.tsx";
 import { Field } from "../Field.tsx";
@@ -67,6 +67,44 @@ export function Points({ points }: { points: ConfirmPoint[] }) {
   );
 }
 
+/// A confirmation's buttons: what it does, then the way back, named `cancel`. On a tablet
+/// the desktop's dialog footer (the way back first, at the bottom right), on a phone full
+/// width with the way back last.
+export function ConfirmButtons({
+  cancel = "Cancel",
+  children,
+}: {
+  cancel?: string;
+  children: ReactNode;
+}) {
+  const sheet = useSheet();
+  const tablet = useIsTablet();
+  const back = (
+    <Button
+      label={cancel}
+      variant="ghost"
+      size={tablet ? "default" : "lg"}
+      onPress={() => sheet?.close()}
+    />
+  );
+  if (!tablet) {
+    return (
+      <View className="gap-3">
+        {children}
+        {back}
+      </View>
+    );
+  }
+  return (
+    <SheetFooter>
+      <View className="flex-row flex-wrap justify-end gap-2">
+        {back}
+        {children}
+      </View>
+    </SheetFooter>
+  );
+}
+
 /// The desktop's `ConfirmPermanentDialog` as a sheet's content: what happens, then the
 /// actions full width, the dangerous one kept apart from Cancel.
 export function ConfirmContent({ confirmation }: { confirmation: Confirmation }) {
@@ -113,20 +151,7 @@ export function ConfirmContent({ confirmation }: { confirmation: Confirmation })
           onChangeText={setTyped}
         />
       ) : null}
-      {tablet ? (
-        // The desktop's dialog footer: Cancel, then the actions, at the bottom right.
-        <SheetFooter>
-          <View className="flex-row flex-wrap justify-end gap-2">
-            <Button label="Cancel" variant="ghost" onPress={() => sheet?.close()} />
-            {buttons}
-          </View>
-        </SheetFooter>
-      ) : (
-        <View className="gap-3">
-          {buttons}
-          <Button label="Cancel" variant="ghost" size="lg" onPress={() => sheet?.close()} />
-        </View>
-      )}
+      <ConfirmButtons>{buttons}</ConfirmButtons>
     </View>
   );
 }

@@ -10,21 +10,8 @@ export const emailSchema = z
 /// Long enough to resist guessing, short enough for argon2id to stay cheap to check.
 export const passwordSchema = z.string().min(10, "Use at least 10 characters").max(256);
 
-/// Changing the password: the new one is typed twice, and the two must match. Only the length
-/// is demanded of it (`passwordSchema`); how strong it is is advice (`passwordStrength`).
-export const changePasswordSchema = z
-  .object({
-    current: z.string().min(1, "Enter your current password"),
-    next: passwordSchema,
-    confirm: z.string(),
-  })
-  .refine((value) => value.next === value.confirm, {
-    path: ["confirm"],
-    message: "The passwords don't match",
-  });
-export type ChangePassword = z.infer<typeof changePasswordSchema>;
-
-/// A new password, typed twice. Only the length is demanded of it.
+/// A new password is typed twice, and the two must match. Only the length is demanded of it
+/// (`passwordSchema`); how strong it is is advice (`passwordStrength`).
 export const newPasswordSchema = z
   .object({ next: passwordSchema, confirm: z.string() })
   .refine((value) => value.next === value.confirm, {

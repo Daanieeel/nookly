@@ -1,8 +1,9 @@
-import { ApiClient, type SignInSummary } from "@nookly/shared/api";
+import { ApiClient, ApiRequestError, type SignInSummary } from "@nookly/shared/api";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoA11yViolations } from "#/test/axe.ts";
 import { renderWithProviders } from "#/test/render.tsx";
+import { recheck } from "./recheck-gate.ts";
 import { SignInMethods } from "./SignInMethods.tsx";
 import { syncRuntime } from "./sync-instance.ts";
 
@@ -201,6 +202,24 @@ describe("the sign in methods", () => {
     await user.click(within(dialog).getByRole("button", { name: "Change Password" }));
     await waitFor(() => expect(set).toHaveBeenCalledWith("password1234"));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("reports no failure when the question about who you are is closed", async () => {
+    vi.spyOn(api, "setPassword").mockRejectedValue(
+      new ApiRequestError(403, "recheck_required", "Confirm it's you."),
+    );
+    const { user } = open();
+    await choose(user, "Nookly Signin", "Change Password");
+    const dialog = await screen.findByRole("dialog", { name: "Change Password" });
+    await user.type(within(dialog).getByLabelText("New password"), "a long password");
+    await user.type(within(dialog).getByLabelText("Repeat new password"), "a long password");
+    await user.click(within(dialog).getByRole("button", { name: "Change Password" }));
+    await waitFor(() => expect(recheck.store.getState().asking).toBe(true));
+    act(() => recheck.finish(false));
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Change Password" })).toBeEnabled(),
+    );
+    expect(within(dialog).queryByText("Couldn't change it")).not.toBeInTheDocument();
   });
 
   it("only offers a change of email to the primary and to Nookly Signin", async () => {

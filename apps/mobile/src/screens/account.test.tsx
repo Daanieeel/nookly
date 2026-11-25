@@ -416,6 +416,32 @@ describe("signing in with another account", () => {
     expect(data.onboarded.get()).toBe("1");
   });
 
+  it.each([
+    ["in", () => <SignInScreen />],
+    ["up", () => <SignUpScreen />],
+  ] as const)("asks for the second step after signing %s with a provider", async (verb, page) => {
+    const data = offering();
+    jest
+      .spyOn(data.sync, "signInWithProvider")
+      .mockRejectedValue(new TwoFactorRequiredError("challenge-2", ["totp"]));
+    const complete = jest.spyOn(data.sync, "completeTwoFactor").mockResolvedValue(ADA);
+    const screen = await renderScreens({ index: page }, data);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: `Sign ${verb} with GitHub` })).toBeEnabled(),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: `Sign ${verb} with GitHub` }));
+    if (verb === "up") {
+      await fireEvent.changeText(await screen.findByLabelText("Beta key"), "the-key");
+      await fireEvent.press(screen.getByRole("checkbox", TICK));
+      await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    }
+    await fireEvent.changeText(await screen.findByLabelText("Authenticator code"), "123456");
+    await waitFor(() =>
+      expect(complete).toHaveBeenCalledWith(PRODUCTION_SERVER, "challenge-2", "totp", "123456", {}),
+    );
+    await waitFor(() => expect(data.onboarded.get()).toBe("1"));
+  });
+
   it("stays put when the sign in was closed without finishing", async () => {
     const data = offering();
     data.onboarded.set("");

@@ -1,8 +1,12 @@
-import { ApiClient, type SecuritySummary } from "@nookly/shared/api";
+import { ApiClient, ApiRequestError, type SecuritySummary } from "@nookly/shared/api";
 import { act, fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../test/render.tsx";
-import { SecurityGate } from "./SecurityGate.tsx";
+import { Button } from "../ui/Button.tsx";
+import { recheck } from "./recheck.ts";
+import { SecurityGate, useOpenSecurity } from "./SecurityGate.tsx";
+import { UsernameGate } from "./UsernameGate.tsx";
 import { useSecurityGate } from "./security-gate-store.ts";
+import { useUsernameGate } from "./username-gate-store.ts";
 
 const ADA = {
   id: "00000000-0000-4000-8000-0000000000aa",
@@ -48,7 +52,11 @@ function owing() {
 }
 
 afterEach(() => {
-  act(() => useSecurityGate.getState().reset());
+  act(() => {
+    useSecurityGate.getState().reset();
+    useUsernameGate.setState({ dismissed: false });
+    recheck.finish(false);
+  });
 });
 
 describe("the security sheet", () => {
@@ -70,7 +78,7 @@ describe("the security sheet", () => {
     expect(screen.queryByRole("button", { name: "Set Up Authenticator App" })).toBeNull();
   });
 
-  it("turns on emailed codes with the password", async () => {
+  it("turns on emailed codes, once what that does was said", async () => {
     const { data, api, set } = owing();
     const enable = jest.spyOn(api, "enableEmailTwoFactor").mockImplementation(async () => {
       set({ ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } });
@@ -78,10 +86,105 @@ describe("the security sheet", () => {
     });
     const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Turn On Emailed Codes" }));
-    await fireEvent.changeText(await screen.findByLabelText("Password"), "a long password");
+    expect(await screen.findByText(/emails a code to your address/)).toBeTruthy();
+    expect(screen.queryByLabelText("Password")).toBeNull();
+    expect(enable).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
-    await waitFor(() => expect(enable).toHaveBeenCalledWith("a long password"));
+    await waitFor(() => expect(enable).toHaveBeenCalled());
     expect(data.sync.twoFactorChanged).toHaveBeenCalled();
+  });
+
+  it("asks to confirm it is you when the server wants that", async () => {
+    const { data, api } = owing();
+    let confirmed = false;
+    const enable = jest.spyOn(api, "enableEmailTwoFactor").mockImplementation(async () => {
+      if (!confirmed) throw new ApiRequestError(403, "recheck_required", "Confirm it's you.");
+      return NOTHING;
+    });
+    jest.spyOn(api, "signInMethods").mockResolvedValue({
+      methods: [
+        {
+          provider: "credential",
+          email: ADA.email,
+          emailVerified: true,
+          primary: true,
+          canBePrimary: false,
+        },
+      ],
+      current: "credential",
+      fresh: false,
+      secondStep: [],
+      offered: [],
+    });
+    jest.spyOn(api, "recheck").mockImplementation(async () => {
+      confirmed = true;
+    });
+    const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Turn On Emailed Codes" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("header", { name: "Confirm it's you" })).toBeTruthy();
+    await fireEvent.changeText(await screen.findByLabelText("Password"), "a long password");
+    await fireEvent.press(screen.getAllByRole("button", { name: "Continue" }).at(-1)!);
+    await waitFor(() => expect(enable).toHaveBeenCalledTimes(2));
+  });
+
+  it("can't be put off: the only other way is signing out, keeping a copy", async () => {
+    const { data } = owing();
+    const signOut = jest
+      .spyOn(data.sync, "signOut")
+      .mockResolvedValue({ unsent: 0, backupPath: null });
+    jest.spyOn(data.sync, "unsentCount").mockResolvedValue(0);
+    jest.spyOn(data.sync, "missingFilesCount").mockResolvedValue(0);
+    const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
+    expect(await screen.findByRole("button", { name: "Sign Out" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Later" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Sign Out" }));
+    expect(
+      (await screen.findByRole("checkbox", { name: "Keep a local copy" })).props.accessibilityState
+        .checked,
+    ).toBe(true);
+    await fireEvent.press(screen.getByRole("button", { name: "Sign Out" }));
+    await waitFor(() => expect(signOut).toHaveBeenCalledWith({ keepLocalCopy: true }));
+  });
+
+  it("is closed with Done when it was opened from Settings", async () => {
+    const { data, set } = owing();
+    set({ ...NOTHING, required: false, enabled: true });
+    data.sync.store.setState({
+      user: { ...ADA, twoFactorRequired: false },
+      twoFactorPending: false,
+    });
+    function Opener() {
+      const open = useOpenSecurity();
+      return <Button label="Open" onPress={open} />;
+    }
+    const screen = await renderScreens({ index: () => <Opener /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Open" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Done" }));
+    await waitFor(() => expect(screen.queryByText("Authenticator app")).toBeNull());
+  });
+
+  it("lets a sheet that goes up with it go first", async () => {
+    const { data } = owing();
+    data.sync.store.setState({
+      user: { ...ADA, twoFactorRequired: true, needsUsername: true },
+    });
+    const screen = await renderScreens(
+      {
+        index: () => (
+          <>
+            <UsernameGate />
+            <SecurityGate />
+          </>
+        ),
+      },
+      data,
+    );
+    expect(await screen.findByRole("button", { name: "Save Username" })).toBeTruthy();
+    expect(screen.queryByText("Authenticator app")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Not Now" }));
+    expect(await screen.findByText("Authenticator app")).toBeTruthy();
   });
 
   it("adds an authenticator app, goes back to the list, and shows the recovery codes from Continue", async () => {
@@ -96,8 +199,7 @@ describe("the security sheet", () => {
     });
     const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Set Up Authenticator App" }));
-    await fireEvent.changeText(await screen.findByLabelText("Password"), "a long password");
-    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Continue" }));
 
     expect(await screen.findByLabelText("QR code for your authenticator app")).toBeTruthy();
     // The key is for typing by hand: shown as it is, with a button to copy it.
@@ -132,10 +234,10 @@ describe("the security sheet", () => {
     expect(screen.queryByText("Needs an email address.")).toBeNull();
   });
 
-  it("offers Continue once a method is on, and Later before", async () => {
+  it("offers Continue once a method is on, and not before", async () => {
     const { data, set } = owing();
     const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
-    expect(await screen.findByRole("button", { name: "Later" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Set Up Authenticator App" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
     set({ ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } });
     const again = await renderScreens({ index: () => <SecurityGate /> }, data);
@@ -143,15 +245,14 @@ describe("the security sheet", () => {
     expect(again.queryByRole("button", { name: "Proceed Without Authenticator" })).toBeNull();
   });
 
-  it("makes recovery codes with the password when only emailed codes are on", async () => {
+  it("makes recovery codes when only emailed codes are on", async () => {
     const { data, api, set } = owing();
     set({ ...NOTHING, enabled: true, email: { ...NOTHING.email, enabled: true } });
     const codes = jest.spyOn(api, "newBackupCodes").mockResolvedValue(["eeeee-fffff"]);
     const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Continue" }));
-    await fireEvent.changeText(await screen.findByLabelText("Password"), "a long password");
-    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
-    await waitFor(() => expect(codes).toHaveBeenCalledWith("a long password"));
+    await fireEvent.press(await screen.findByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(codes).toHaveBeenCalled());
     expect(await screen.findByText("eeeee-fffff")).toBeTruthy();
   });
 

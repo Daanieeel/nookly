@@ -1,14 +1,8 @@
-import {
-  type ChangePassword,
-  type Session,
-  changePasswordSchema,
-  providerName,
-} from "@nookly/shared/api";
+import { type Session, providerName } from "@nookly/shared/api";
 import { type SyncStatus, filesDetail, heldLine } from "@nookly/shared/sync";
 import {
   IconAlertTriangle,
   IconCircleCheck,
-  IconCloudCheck,
   IconCloudOff,
   IconCloudX,
   IconDeviceLaptop,
@@ -22,13 +16,11 @@ import {
   IconShieldLock,
   IconTrash,
   type Icon as TablerIcon,
-  IconFolder,
 } from "@tabler/icons-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
-import { z } from "zod";
 import { useAppData, useSyncState } from "../../data/context.tsx";
 import { keys } from "../../data/keys.ts";
 import { Badge } from "../../ui/Badge.tsx";
@@ -37,7 +29,6 @@ import { useDeviceWord } from "../../ui/device-word.ts";
 import { Field } from "../../ui/Field.tsx";
 import { FieldIcon } from "../../ui/FieldIcon.tsx";
 import { Section } from "../../ui/Row.tsx";
-import { PasswordStrengthMeter } from "../../ui/PasswordStrengthMeter.tsx";
 import { Screen } from "../../ui/Screen.tsx";
 import { GroupedSection } from "../../ui/kit/GroupedSection.tsx";
 import { IconBadge } from "../../ui/kit/IconBadge.tsx";
@@ -46,10 +37,11 @@ import { ListRow } from "../../ui/kit/ListRow.tsx";
 import { Points } from "../../ui/sheet/Confirm.tsx";
 import { useOptionalSheetHost } from "../../ui/sheet/SheetHost.tsx";
 import { useOpenSecurity } from "../SecurityGate.tsx";
+import { RecheckPrompt } from "../RecheckPrompt.tsx";
+import { SignOutSheet } from "../SignOutSheet.tsx";
 import { useTermsGate } from "../terms-gate-store.ts";
 import { useSheet } from "../../ui/sheet/Sheet.tsx";
 import { SPACE } from "../../ui/tokens.ts";
-import { useMenu } from "../../ui/menu.tsx";
 import { Text } from "../../ui/Text.tsx";
 import { useTheme } from "../../ui/theme.ts";
 import { ago } from "../dates.ts";
@@ -61,10 +53,11 @@ import {
   type CardTone,
   SettingsCard,
 } from "./cards.tsx";
+import { SignInMethods } from "./SignInMethods.tsx";
 
 /// Settings, Account, as the desktop's cards: who is signed in and how sync is doing (with
 /// the server and anything waiting for a decision), every device in one list, what is shared,
-/// then the password and deleting the account. Quiet: a line says nothing it need not.
+/// then how the account signs in and deleting it. Quiet: a line says nothing it need not.
 
 interface StatusLine {
   icon: TablerIcon;
@@ -153,9 +146,6 @@ function FilesLine() {
   );
 }
 
-const plural = (n: number, one: string, many: string) =>
-  `${n.toLocaleString()} ${n === 1 ? one : many}`;
-
 /// Changes two devices disagreed on: only there while some wait for a decision.
 function ChangesNotice() {
   const router = useRouter();
@@ -199,9 +189,8 @@ function TermsLine() {
 /// Signed in: who, how sync is doing, and the way out.
 function SignedInCard() {
   const device = useDeviceWord();
-  const menu = useMenu();
+  const host = useOptionalSheetHost();
   const { sync } = useAppData();
-  const queryClient = useQueryClient();
   const user = useSyncState((s) => s.user);
   const status = useSyncState((s) => s.status);
   const serverUrl = useSyncState((s) => s.serverUrl);
@@ -210,37 +199,13 @@ function SignedInCard() {
   const resend = useMutation({
     mutationFn: async (email: string) => sync.account()?.resendVerification(email),
   });
-  const signOut = useMutation({
-    mutationFn: () => sync.signOut(),
-    onSuccess: () => {
-      queryClient.removeQueries({ queryKey: keys.sync.root });
-      // Every screen showed the account's data, which is no longer on this phone.
-      void queryClient.invalidateQueries();
-    },
-  });
-  /// Signing out clears this phone: said before it happens, with what has not reached the
-  /// account yet, which is backed up first. A warning, not a deletion: the account keeps it.
-  const confirmSignOut = async () => {
-    const unsent = await sync.unsentCount().catch(() => 0);
-    menu.confirm({
+  /// Signing out clears this phone unless a copy is kept: the sheet says what happens.
+  const confirmSignOut = () =>
+    host?.present({
       title: `Sign out of this ${device}?`,
-      points: [
-        { icon: IconCloudCheck, text: "Stays in your account and on your other devices" },
-        { icon: IconDeviceMobile, text: `Removed from this ${device}, back when you sign in` },
-        { icon: IconFolder, text: "Files go too, except ones your account doesn't have yet" },
-        ...(unsent > 0
-          ? [
-              {
-                icon: IconAlertTriangle,
-                tone: "caution" as const,
-                text: `${plural(unsent, "change", "changes")} not sent yet, backed up first`,
-              },
-            ]
-          : []),
-      ],
-      actions: [{ label: "Sign Out", warning: true, onPress: () => signOut.mutate() }],
+      kind: "confirm",
+      content: <SignOutSheet />,
     });
-  };
   if (!user) return null;
   const line = statusLine(status, `this ${device}`);
   return (
@@ -261,16 +226,8 @@ function SignedInCard() {
           errorLabel="Couldn't sync"
           onPress={() => syncNow.mutate()}
         />
-        <Button
-          size="sm"
-          variant="warning"
-          label="Sign Out"
-          status={statusOf(signOut)}
-          errorLabel="Couldn't sign out"
-          onPress={() => void confirmSignOut()}
-        />
+        <Button size="sm" variant="warning" label="Sign Out" onPress={confirmSignOut} />
       </CardActions>
-      {signOut.error ? <Text tone="destructive">{signOut.error.message}</Text> : null}
       {user.email !== null && !user.emailVerified ? (
         <CardFoot>
           <Text variant="small" tone="caution" className="flex-1">
@@ -422,82 +379,6 @@ function DeviceCards() {
   );
 }
 
-/// The change password form, in the sheet its row opens.
-function ChangePasswordSheet() {
-  const sheet = useSheet();
-  const { sync } = useAppData();
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const user = useSyncState((state) => state.user);
-  const [errors, setErrors] = useState<{ current?: string; next?: string; confirm?: string }>({});
-  const change = useMutation({
-    mutationFn: async (value: ChangePassword) => {
-      const api = sync.account();
-      if (!api) throw new Error("Sign in first.");
-      await api.changePassword(value.current, value.next);
-    },
-    onSuccess: () => sheet?.close(),
-  });
-  const submit = () => {
-    const parsed = changePasswordSchema.safeParse({ current, next, confirm });
-    if (!parsed.success) {
-      const flat = z.flattenError(parsed.error).fieldErrors;
-      setErrors({ current: flat.current?.[0], next: flat.next?.[0], confirm: flat.confirm?.[0] });
-      return;
-    }
-    setErrors({});
-    change.mutate(parsed.data);
-  };
-  return (
-    <View className="gap-3">
-      <Field
-        label="Current password"
-        icon={<FieldIcon icon={IconLock} />}
-        placeholder="Current password"
-        secureTextEntry
-        autoComplete="current-password"
-        value={current}
-        onChangeText={setCurrent}
-        error={errors.current}
-      />
-      <Field
-        label="New password"
-        icon={<FieldIcon icon={IconLock} />}
-        placeholder="New password"
-        secureTextEntry
-        autoComplete="new-password"
-        value={next}
-        onChangeText={setNext}
-        error={errors.next}
-      />
-      <Field
-        label="Repeat new password"
-        placeholder="Repeat new password"
-        icon={<FieldIcon icon={IconLock} />}
-        secureTextEntry
-        autoComplete="new-password"
-        value={confirm}
-        onChangeText={setConfirm}
-        error={errors.confirm}
-      />
-      <PasswordStrengthMeter
-        password={next}
-        userInputs={[user?.username, user?.email].filter((v): v is string => !!v)}
-      />
-      <Button
-        size="lg"
-        label="Change Password"
-        status={statusOf(change)}
-        successLabel="Changed"
-        errorLabel="Couldn't change it"
-        onPress={submit}
-      />
-      {change.error ? <Text tone="destructive">{change.error.message}</Text> : null}
-    </View>
-  );
-}
-
 /// Deleting the account removes it and everything on the server. This phone keeps its data.
 /// The sheet says so, and asks for the password: that is the confirmation. An account made
 /// with another provider has none: it types a phrase, then signs in with that provider again.
@@ -586,25 +467,8 @@ function DeleteAccountSheet() {
   );
 }
 
-/// The way into changing the password: a row that opens its form in a sheet.
-function PasswordRow() {
-  const host = useOptionalSheetHost();
-  return (
-    <GroupedSection margin={0}>
-      <ListRow
-        badge={<IconBadge glyph={IconLock} tint="gray" />}
-        title="Change Password"
-        accessory="chevron"
-        onPress={() =>
-          host?.present({ title: "Change Password", content: <ChangePasswordSheet /> })
-        }
-      />
-    </GroupedSection>
-  );
-}
-
-/// The way into two-factor sign in. An account made with another provider has no password
-/// to protect, so it shows nothing.
+/// The way into two-factor sign in. A server that offers it to some accounts only shows
+/// nothing for the others.
 function SecurityRow() {
   const { sync } = useAppData();
   const open = useOpenSecurity();
@@ -665,8 +529,10 @@ export function AccountPage() {
       <Section title="Account">{signedIn ? <SignedInCard /> : <SignedOutCard />}</Section>
       {signedIn ? (
         <>
-          <Section title="Password">
-            <PasswordRow />
+          <Section title="Sign in methods">
+            <SignInMethods />
+          </Section>
+          <Section title="Security">
             <SecurityRow />
           </Section>
           <Section title="Devices">
@@ -679,6 +545,7 @@ export function AccountPage() {
       ) : (
         <ServerLine />
       )}
+      {signedIn ? <RecheckPrompt /> : null}
     </Screen>
   );
 }

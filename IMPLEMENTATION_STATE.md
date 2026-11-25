@@ -47,7 +47,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 - [x] N5. Server: list, link, unlink, set primary; add, change, remove Nookly Signin; change emails with a code; sign in and reset by login email.
 - [x] N6. Shared API client, schemas, runtime gate.
 - [x] N7. Desktop UI.
-- [ ] N8. Phone and tablet UI.
+- [x] N8. Phone and tablet UI.
 - [ ] N9. TODO tests: `/reset-password.js` 500, flaky `apps/web/src/components/hero/stage.test.tsx`.
 - [ ] N10. Docs, DECISIONS, changelog, whats-new (highlight card), then L and M again for everything.
 
@@ -66,6 +66,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 
 ## Notes
 
+- N8: phone `screens/{RecheckPrompt,SecondStepForm,SignOutSheet,NewPasswordFields,BrowserWait,account-change,recheck}`, `screens/settings/{SignInMethods,SignInSheets}`; shared wording in `packages/shared/src/api/sign-in.ts` (desktop uses it too). `Sheet` got `locked` (required two factor, no way out but setup or Sign Out) and `stacked` (the confirm question floats over the sheet it came from). Phone sign out now offers "Keep a local copy" like the desktop. Phone tests 1103 pass. Not tried in the simulator yet.
 - N7: `features/sync/{RecheckDialog,SecondStepForm,SignInMethods,SignInDialogs,SignOutDialog,NewPasswordFields,useAccountChange,recheck-gate}`; sign in methods moved from the calendar Connections page to the account page (replaces the Change password row). Frontend tests all pass (3765).
 - N6: `SyncRuntime.linkProvider`, `disconnectProvider` (keeps local data when it signs this device out), gate refresh on `two_factor_required`. UI calls: `api.signInMethods/recheck/sendRecheckCode/setPrimary/sendEmailCode/changeEmail/addPassword/setPassword`, `needsRecheck(error)`, provider sign in may throw `TwoFactorRequiredError`.
 - N1 to N5: server done, 245 server tests pass. New files `apps/server/src/auth/{emails,codes,challenge,recheck,sign-in-methods}.ts`, `test/{sign-in-methods,sign-in-migration}.test.ts`, `test/fake-providers.ts`. Shared client already has the new calls; `runSecurityAction` no longer takes a password. N9 first half fixed: the reset page script failed on folder names with spaces.

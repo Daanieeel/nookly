@@ -46,12 +46,13 @@ import { FormSection } from "../ui/kit/Form.tsx";
 import { useSemantic } from "../ui/kit/scheme.ts";
 import { SPACE } from "../ui/tokens.ts";
 import { PAGE_BACKGROUND, cn } from "../ui/classes.ts";
-import { type Provider, ProviderMark } from "../ui/ProviderMark.tsx";
+import { ProviderMark } from "../ui/ProviderMark.tsx";
 import { Screen } from "../ui/Screen.tsx";
 import { Segmented } from "../ui/Segmented.tsx";
 import { RouteSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { BrowserWait } from "./BrowserWait.tsx";
 import { fieldError } from "./forms.ts";
 import { useRejection } from "./form-block.ts";
 import { LegalFooter, LegalLink } from "./legal.tsx";
@@ -494,7 +495,8 @@ function Page({
 }
 
 /// Other accounts to sign in with.
-const PROVIDERS: Provider[] = ["Google", "Apple", "GitHub", "Notion"];
+const PROVIDERS = ["Google", "Apple", "GitHub", "Notion"] as const;
+type Provider = (typeof PROVIDERS)[number];
 
 /// "Apple", "Apple and Notion", "A, B and C".
 const listed = (names: string[]) =>
@@ -507,12 +509,15 @@ function OtherAccounts({
   server,
   step,
   onDone,
+  onSecondStep,
 }: {
   verb: "in" | "up";
   server: ReturnType<typeof useServer>;
   step: SecondStep;
   /// An account is in.
   onDone: () => void;
+  /// The account has two-factor: the form hands over to the code.
+  onSecondStep: (asked: TwoFactorRequiredError) => void;
 }) {
   const { sync } = useAppData();
   const theme = useTheme();
@@ -547,6 +552,7 @@ function OtherAccounts({
     },
     // No account for this one yet: not a dead end, the question is whether to make one.
     onError: (error, input) => {
+      if (error instanceof TwoFactorRequiredError) onSecondStep(error);
       if (!(error instanceof ProviderNoAccountError) || input.create) return;
       step.request(
         {
@@ -592,20 +598,13 @@ function OtherAccounts({
               hideLabel
               label={`Sign ${verb} with ${name}`}
               disabled={!offered.includes(name.toLowerCase()) || signIn.isPending}
-              icon={<ProviderMark provider={name} color={theme.colors.foreground} />}
+              icon={<ProviderMark provider={name.toLowerCase()} color={theme.colors.foreground} />}
               onPress={() => begin(name)}
             />
           </View>
         ))}
       </View>
-      {signIn.isPending ? (
-        <View className="flex-row items-center justify-center gap-2">
-          <Text variant="small" tone="muted">
-            Waiting for {signIn.variables?.provider} in your browser
-          </Text>
-          <Button variant="ghost" label="Cancel" onPress={() => sync.cancelProviderSignIn()} />
-        </View>
-      ) : null}
+      <BrowserWait provider={signIn.isPending ? signIn.variables.provider.toLowerCase() : null} />
       {signIn.error && !(signIn.error instanceof ProviderNoAccountError) ? (
         <Text tone="destructive">{signIn.error.message}</Text>
       ) : null}
@@ -624,7 +623,7 @@ function SignInForm() {
   const server = useServer();
   const step = useSecondStep();
   const done = useAfterSignIn();
-  // The password was right and the account asks for a second step before it signs in.
+  // The first step was right and the account asks for a second one before it signs in.
   const [secondStep, setSecondStep] = useState<TwoFactorRequiredError | null>(null);
   const signIn = useMutation({
     mutationFn: (value: z.infer<typeof signInSchema>) =>
@@ -740,7 +739,13 @@ function SignInForm() {
             <Text tone="muted">Forgot Password</Text>
           </Pressable>
         </View>
-        <OtherAccounts verb="in" server={server} step={step} onDone={done} />
+        <OtherAccounts
+          verb="in"
+          server={server}
+          step={step}
+          onDone={done}
+          onSecondStep={setSecondStep}
+        />
       </Stepped>
     </>
   );
@@ -752,6 +757,8 @@ function SignUpForm() {
   const server = useServer();
   const step = useSecondStep();
   const done = useAfterSignIn();
+  // The provider's account already exists here and asks for its second step.
+  const [secondStep, setSecondStep] = useState<TwoFactorRequiredError | null>(null);
   const signUp = useMutation({
     mutationFn: (value: z.infer<typeof signUpFormSchema>) => {
       const url = server.commit();
@@ -798,6 +805,18 @@ function SignUpForm() {
     "password",
     ...(email.trim() ? ["email"] : []),
   ]);
+  if (secondStep) {
+    return (
+      <TwoFactorStep
+        serverUrl={normalizeServerUrl(server.server)}
+        challenge={secondStep.challenge}
+        methods={secondStep.methods}
+        options={step.options()}
+        onDone={done}
+        onBack={() => setSecondStep(null)}
+      />
+    );
+  }
   return (
     <>
       <Stepped step={step}>
@@ -922,7 +941,13 @@ function SignUpForm() {
           iconEnd={<IconArrowRight size={16} color={theme.colors.primaryForeground} />}
           onPress={() => void form.handleSubmit()}
         />
-        <OtherAccounts verb="up" server={server} step={step} onDone={done} />
+        <OtherAccounts
+          verb="up"
+          server={server}
+          step={step}
+          onDone={done}
+          onSecondStep={setSecondStep}
+        />
       </Stepped>
     </>
   );

@@ -29,10 +29,10 @@ import {
 import { IconInput } from "@nookly/ui/components/icon-input";
 import { CopyButton } from "@nookly/ui/components/copy-button";
 import { OtpCodeInput } from "@nookly/ui/components/input-otp";
-import { recheck } from "./recheck-gate.ts";
 import { useSecurityDialog } from "./security-dialog-store.ts";
 import { SignOutDialog } from "./SignOutDialog.tsx";
 import { signedInAccount, syncRuntime, useSyncState } from "./sync-instance.ts";
+import { useAccountChange } from "./useAccountChange.ts";
 
 const CODE_LENGTH = 6;
 
@@ -59,15 +59,10 @@ function ConfirmStep({
   onBack: () => void;
   onDone: (next: SecurityOutcome) => void;
 }) {
-  const queryClient = useQueryClient();
-  const run = useMutation({
-    mutationFn: () => recheck.run(() => runSecurityAction(signedInAccount(), action)),
-    onSuccess: async (next) => {
-      await queryClient.invalidateQueries({ queryKey: qk.sync.security });
-      if (next.name === "overview") await syncRuntime.twoFactorChanged().catch(() => {});
-      onDone(next);
-    },
-  });
+  const run = useAccountChange(
+    () => runSecurityAction(signedInAccount(), action),
+    (next) => onDone(next),
+  );
   const step = SECURITY_STEPS[action];
   return (
     <div className="flex flex-col gap-3">
@@ -233,15 +228,10 @@ function AddEmailStep({
   const id = useId();
   const formId = useId();
   const [email, setEmail] = useState("");
-  const queryClient = useQueryClient();
-  const add = useMutation({
-    mutationFn: () => recheck.run(() => signedInAccount().addEmail(email)),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: qk.sync.security });
-      await syncRuntime.twoFactorChanged().catch(() => {});
-      onDone();
-    },
-  });
+  const add = useAccountChange(
+    () => signedInAccount().addEmail(email),
+    () => onDone(),
+  );
   return (
     <form
       id={formId}
