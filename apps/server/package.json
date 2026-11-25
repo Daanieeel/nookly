@@ -13,26 +13,26 @@
     "disposable:update": "bun scripts/update-disposable-domains.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1169.0",
+    "@aws-sdk/client-s3": "3.1175.0",
     "@elysiajs/cors": "1.4.3",
     "@elysiajs/openapi": "1.4.17",
-    "@hocuspocus/server": "4.8.0",
+    "@hocuspocus/server": "4.9.0",
     "@nookly/shared": "workspace:*",
-    "better-auth": "1.7.25",
+    "better-auth": "1.7.27",
     "drizzle-orm": "0.45.4",
     "elysia": "1.4.32",
-    "nodemailer": "^10.6.0",
+    "nodemailer": "^10.6.1",
     "postgres": "3.4.9",
     "yjs": "13.6.33",
     "zod": "^4"
   },
   "devDependencies": {
-    "@hocuspocus/provider": "4.8.0",
+    "@hocuspocus/provider": "4.9.0",
     "@nookly/config": "workspace:*",
-    "@testcontainers/postgresql": "12.2.1",
-    "@types/bun": "^1.4.3",
+    "@testcontainers/postgresql": "12.2.2",
+    "@types/bun": "^1.4.5",
     "@types/nodemailer": "^8.0.2",
     "drizzle-kit": "0.31.11",
-    "testcontainers": "12.2.1"
+    "testcontainers": "12.2.2"
   }
 }
