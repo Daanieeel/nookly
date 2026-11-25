@@ -48,7 +48,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 - [x] N6. Shared API client, schemas, runtime gate.
 - [x] N7. Desktop UI.
 - [x] N8. Phone and tablet UI.
-- [ ] N9. TODO tests: `/reset-password.js` 500, flaky `apps/web/src/components/hero/stage.test.tsx`.
+- [x] N9. TODO tests: `/reset-password.js` 500, flaky `apps/web/src/components/hero/stage.test.tsx` (passes in 0.3 s alone; the two whole tour tests now get 30 s, since they time out only on a loaded machine).
 - [ ] N10. Docs, DECISIONS, changelog, whats-new (highlight card), then L and M again for everything.
 
 ### Design (decided while exploring)

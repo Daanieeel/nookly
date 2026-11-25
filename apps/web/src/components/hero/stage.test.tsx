@@ -25,6 +25,10 @@ function advanceUntil(container: HTMLElement, target: string) {
   expect(view(container)).toBe(target);
 }
 
+/// A whole tour draws four devices again for every step: more than the usual limit allows
+/// on a machine that is running every other test at the same time.
+const WHOLE_TOUR = { timeout: 30_000 };
+
 describe("HeroStage", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -41,7 +45,7 @@ describe("HeroStage", () => {
     expect(screen.getAllByText("Good morning, Mia.")).toHaveLength(4);
   });
 
-  it("clicks through the app's features in order, then starts over", () => {
+  it("clicks through the app's features in order, then starts over", WHOLE_TOUR, () => {
     const { container } = show();
     for (const stop of TOUR) advanceUntil(container, stop.view);
     expect(view(container)).toBe("dashboard");
@@ -96,7 +100,7 @@ describe("HeroStage", () => {
     expect(cursor?.querySelectorAll("svg")).toHaveLength(2);
   });
 
-  it("keeps the window the same height on every page", () => {
+  it("keeps the window the same height on every page", WHOLE_TOUR, () => {
     const { container } = show();
     const height = () =>
       container.querySelector("[data-stage-window]")?.className.match(/h-\[\d+px\]/g);
