@@ -273,6 +273,8 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     ("blob_hash", "blob_commands_underlying_calls"),
     ("blob_upload", "blob_commands_underlying_calls"),
     ("blob_download", "blob_commands_underlying_calls"),
+    ("blob_size", "blob_commands_underlying_calls"),
+    ("blob_remove", "blob_commands_underlying_calls"),
     ("create_pre_sync_backup", "pre_sync_backup_underlying_calls"),
     (
         "store_dir",
@@ -4313,6 +4315,21 @@ fn blob_commands_underlying_calls() {
     let into = h.dir.path().join("downloads");
     assert!(blobs::download_to("http://127.0.0.1:1", "not-a-hash", &into, "a.txt").is_err());
     assert!(std::fs::read_dir(&into).map_or(true, |mut d| d.next().is_none()));
+    let size_of = |path: &std::path::Path| {
+        let path = path.to_string_lossy().into_owned();
+        tauri::async_runtime::block_on(blobs::blob_size(path)).unwrap()
+    };
+    assert_eq!(size_of(&path), Some(11));
+    assert_eq!(size_of(&h.dir.path().join("missing")), None);
+    // A sign out only deletes files in Nookly's own folders: one elsewhere stays.
+    let data_dir = h.dir.path().join("data");
+    std::fs::create_dir_all(data_dir.join("files")).unwrap();
+    assert!(!blobs::remove_stored(&data_dir, &path, &hash.sha256).unwrap());
+    assert!(path.exists());
+    let stored = data_dir.join("files").join("lecture.txt");
+    std::fs::copy(&path, &stored).unwrap();
+    assert!(blobs::remove_stored(&data_dir, &stored, &hash.sha256).unwrap());
+    assert!(!stored.exists());
 }
 
 #[test]
