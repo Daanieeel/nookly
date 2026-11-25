@@ -2,10 +2,19 @@
 
 All notable changes to Nookly are listed here.
 
-## 1.1.0 (2026-11-26)
+## 1.1.0 (2026-11-25)
+
+### Added
+
+- One account can now sign in with an email and password (Nookly Signin), Google, GitHub and Notion. Connect and disconnect them in Settings, under Account.
+- Pick which way of signing in gets your notices and sign in codes, and change its email whenever you like.
 
 ### Changed
 
+- Every account now needs a second step when it signs in, also with Google, GitHub or Notion. A code by email is enough, and you are asked to set it up before syncing continues.
+- Update Nookly on all your devices: older versions can't sign in or sync until you do. Nothing on them is lost.
+- Changing how you sign in now asks you to confirm it's you first.
+- How you sign in moved from the calendar connections to the Account page.
 - Signing out now also removes your account's files from that device. A file your account doesn't have yet stays on it, so nothing is lost.
 - While your first sync sends files, you can see how much of them has gone, even for one big file.
 - A change that can't sync yet no longer asks you to decide anything. It stays on your device, Nookly keeps trying and tells you it is waiting.

@@ -2,10 +2,28 @@
   "versions": [
     {
       "version": "1.1.0",
-      "date": "2026-11-26",
-      "highlights": [],
+      "date": "2026-11-25",
+      "title": "Several ways to sign in, and a second step",
+      "summary": "Connect Google, GitHub and Notion to one account, protect every way in with a second step, and watch your first sync move along.",
+      "highlights": [
+        {
+          "title": "Several ways to sign in",
+          "description": "Use Google, GitHub, Notion or an email and password for the same account. Connect them in Settings, under Account.",
+          "icon": "user-circle",
+          "tag": "New"
+        },
+        {
+          "title": "A second step for every account",
+          "description": "A code by email or from an authenticator app now guards your account, however you sign in.",
+          "icon": "shield-lock",
+          "tag": "Improved"
+        }
+      ],
       "more": {
         "Improved": [
+          "Update Nookly on all your devices: older versions can't sign in or sync until you do. Nothing on them is lost.",
+          "Changing how you sign in now asks you to confirm it's you first.",
+          "How you sign in moved from the calendar connections to the Account page.",
           "Signing out now also removes your account's files from that device. A file your account doesn't have yet stays on it.",
           "While your first sync sends files, you can see how much of them has gone.",
           "A change that can't sync yet stays on your device, and Nookly keeps trying without asking you anything."
