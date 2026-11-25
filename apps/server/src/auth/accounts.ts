@@ -1,4 +1,5 @@
 import type { Session, User } from "@nookly/shared/api";
+import { APIError } from "better-auth/api";
 import { and, desc, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../db/client.ts";
@@ -99,9 +100,14 @@ export class AccountService {
   async authenticate(token: string, access: Access = {}): Promise<AccessClaims> {
     const { setup = false, current = true, leaving = false } = access;
     if (!token) throw unauthorized();
+    // No session is no session; a server that can't look it up must not say so, or the
+    // app would clear the device.
     const found = await this.auth.api
       .getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) })
-      .catch(() => null);
+      .catch((error: Error) => {
+        if (error instanceof APIError && error.status === "UNAUTHORIZED") return null;
+        throw error;
+      });
     if (!found || found.session.pending === true) throw unauthorized();
     if (this.requireTwoFactor && !found.user.twoFactorEnabled && !leaving) {
       if (!current) throw updateRequired();

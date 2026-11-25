@@ -562,6 +562,43 @@ describe("a server that requires two-factor", () => {
     );
   });
 
+  /// What the live socket answers a hello with.
+  async function hello(token: string) {
+    const socket = new WebSocket(`${required.baseUrl.replace("http", "ws")}/v1/sync/ws`);
+    const answer = new Promise<string>((resolve) => {
+      socket.addEventListener("message", (event) => resolve(String(event.data)));
+    });
+    socket.addEventListener("open", () => socket.send(JSON.stringify({ type: "hello", token })));
+    const text = await answer;
+    socket.close();
+    return text;
+  }
+
+  // An app clears the device when its session is said to be over, so only that may say it.
+  it("never tells a signed in device that its session is over", async () => {
+    const api = required.client();
+    await api.signUp(
+      { username: "waiting", email: "waiting@example.com", password: PASSWORD },
+      DESKTOP,
+    );
+    const token = (await api.sessionToken()) ?? "";
+    expect(JSON.parse(await hello(token))).toEqual({
+      type: "error",
+      code: "two_factor_required",
+    });
+    expect(JSON.parse(await hello("nothing"))).toEqual({ type: "error", code: "unauthorized" });
+
+    await required.sql`ALTER TABLE auth_session RENAME TO auth_session_away`;
+    try {
+      expect(JSON.parse(await hello(token)).code).not.toBe("unauthorized");
+      await expect(api.me()).rejects.toMatchObject({ status: 500 });
+      expect(await api.isSignedIn()).toBe(true);
+    } finally {
+      await required.sql`ALTER TABLE auth_session_away RENAME TO auth_session`;
+    }
+    expect((await api.me()).username).toBe("waiting");
+  });
+
   it("leaves an older app with two-factor signing in as before", async () => {
     const api = required.client();
     await api.signUp(

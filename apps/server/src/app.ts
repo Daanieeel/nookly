@@ -1386,9 +1386,13 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
                 state.socket.sessionId = claims.sessionId;
                 hub.add(claims.userId, state.socket);
                 ws.send(JSON.stringify({ type: "ready" }));
-              } catch {
-                ws.send(JSON.stringify({ type: "error", code: "unauthorized" }));
-                ws.close(1008, "unauthorized");
+              } catch (error) {
+                // Only a session that is over is called unauthorized: an app told that
+                // clears the device. One that owes two-factor, or a server that failed,
+                // says so and the app tries again.
+                const code = error instanceof HttpError ? error.code : "internal";
+                ws.send(JSON.stringify({ type: "error", code }));
+                ws.close(1008, code);
               }
               return;
             }
