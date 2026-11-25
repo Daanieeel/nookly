@@ -389,22 +389,17 @@ export function BlockHandles({ editor }: { editor: Editor | null }) {
           </TooltipTrigger>
           <TooltipContent>Add block below</TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-5 shrink-0 cursor-grab active:cursor-grabbing"
-              aria-label="Drag to reorder block"
-              data-testid="block-grip"
-              onMouseDown={onGripMouseDown}
-            >
-              <IconGripVertical size={13} className="text-muted-foreground" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Drag to reorder</TooltipContent>
-        </Tooltip>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-5 shrink-0 cursor-grab active:cursor-grabbing"
+          aria-label="Drag to reorder block"
+          data-testid="block-grip"
+          onMouseDown={onGripMouseDown}
+        >
+          <IconGripVertical size={13} className="text-muted-foreground" />
+        </Button>
       </div>
       {selectionHandle && (
         <div
