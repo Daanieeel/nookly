@@ -57,6 +57,13 @@
       "when": 1795641961533,
       "tag": "0007_sign_in_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795712541462,
+      "tag": "0008_signed_out_sessions",
+      "breakpoints": true
     }
   ]
 }

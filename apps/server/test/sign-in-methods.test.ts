@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { base32 } from "@better-auth/utils/base32";
 import { createOTP } from "@better-auth/utils/otp";
 import { ApiClient, ApiRequestError, TwoFactorRequiredError } from "@nookly/shared/api";
-import { browserLeg, fakeProviders, providerSignIn } from "./fake-providers.ts";
+import { browserLeg, fakeProviders, linkProvider, providerSignIn } from "./fake-providers.ts";
 import {
   DESKTOP,
   HOOK_TIMEOUT,
@@ -10,6 +10,8 @@ import {
   PASSWORD,
   PHONE,
   type TestServer,
+  firstAnswer,
+  hello,
   startServer,
   verifiedAccount,
 } from "./helpers.ts";
@@ -74,12 +76,8 @@ const refusal = async (promise: Promise<object | void>) => {
 };
 
 /// Connects a provider the way the apps do.
-async function link(api: ReturnType<typeof fresh>, provider: "github" | "notion", key: string) {
-  const begun = await api.beginLink({ provider });
-  const back = await browserLeg(server, provider, begun, key);
-  if (!back.code) throw new Error(back.error ?? "no code");
-  return api.finishLink(back.code, begun.secret);
-}
+const link = (api: ReturnType<typeof fresh>, provider: "github" | "notion", key: string) =>
+  linkProvider(server, api, provider, key);
 
 describe("an account made with a provider", () => {
   it("has it as its primary, with the email it shared", async () => {
@@ -562,18 +560,6 @@ describe("a server that requires two-factor", () => {
     );
   });
 
-  /// What the live socket answers a hello with.
-  async function hello(token: string) {
-    const socket = new WebSocket(`${required.baseUrl.replace("http", "ws")}/v1/sync/ws`);
-    const answer = new Promise<string>((resolve) => {
-      socket.addEventListener("message", (event) => resolve(String(event.data)));
-    });
-    socket.addEventListener("open", () => socket.send(JSON.stringify({ type: "hello", token })));
-    const text = await answer;
-    socket.close();
-    return text;
-  }
-
   // An app clears the device when its session is said to be over, so only that may say it.
   it("never tells a signed in device that its session is over", async () => {
     const api = required.client();
@@ -582,15 +568,18 @@ describe("a server that requires two-factor", () => {
       DESKTOP,
     );
     const token = (await api.sessionToken()) ?? "";
-    expect(JSON.parse(await hello(token))).toEqual({
+    expect(JSON.parse(await firstAnswer(required, hello(token)))).toEqual({
       type: "error",
       code: "two_factor_required",
     });
-    expect(JSON.parse(await hello("nothing"))).toEqual({ type: "error", code: "unauthorized" });
+    expect(JSON.parse(await firstAnswer(required, hello("nothing")))).toEqual({
+      type: "error",
+      code: "forbidden",
+    });
 
     await required.sql`ALTER TABLE auth_session RENAME TO auth_session_away`;
     try {
-      expect(JSON.parse(await hello(token)).code).not.toBe("unauthorized");
+      expect(JSON.parse(await firstAnswer(required, hello(token))).code).not.toBe("unauthorized");
       await expect(api.me()).rejects.toMatchObject({ status: 500 });
       expect(await api.isSignedIn()).toBe(true);
     } finally {

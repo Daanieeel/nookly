@@ -1,5 +1,5 @@
 import { ApiClient, type DeviceInfo, type TokenStore } from "@nookly/shared/api";
-import { SyncClient, SyncEngine, type SyncStatus } from "@nookly/shared/sync";
+import { type ClientMessage, SyncClient, SyncEngine, type SyncStatus } from "@nookly/shared/sync";
 import { buildApp } from "../src/app.ts";
 import { loadConfig } from "../src/config.ts";
 import { connect, migrateDatabase } from "../src/db/client.ts";
@@ -51,7 +51,7 @@ export async function startServer(
   const { sql, db } = connect(url);
   await migrateDatabase(db);
   if (options.reset !== false)
-    await sql`TRUNCATE auth_user, auth_verification, users, sessions, refresh_tokens, email_tokens, records, conflicts, shares, devices, blobs CASCADE`;
+    await sql`TRUNCATE auth_user, auth_verification, auth_ended_session, users, sessions, refresh_tokens, email_tokens, records, conflicts, shares, devices, blobs CASCADE`;
   const mailer = new MemoryMailer();
   const storage = new BlobStore(db, config, log);
   await storage.ensureBucket(3);
@@ -185,6 +185,21 @@ export function addPage(
 
 export const titleOf = (d: Device, id: string) =>
   d.driver.rows("SELECT title FROM entities WHERE id = ?", id)[0]?.title ?? null;
+
+/// What the live socket answers its first message with.
+export async function firstAnswer(server: TestServer, message: ClientMessage) {
+  const socket = new WebSocket(`${server.baseUrl.replace("http", "ws")}/v1/sync/ws`);
+  const answer = new Promise<string>((resolve) => {
+    socket.addEventListener("message", (event) => resolve(String(event.data)));
+  });
+  socket.addEventListener("open", () => socket.send(JSON.stringify(message)));
+  const text = await answer;
+  socket.close();
+  return text;
+}
+
+/// A hello with a session token, as an app opens the live socket.
+export const hello = (token: string): ClientMessage => ({ type: "hello", token });
 
 /// Hooks start and stop a server and its database, slow while other suites run.
 export const HOOK_TIMEOUT = 30_000;

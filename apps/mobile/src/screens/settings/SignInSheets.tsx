@@ -1,10 +1,5 @@
 import { EMAIL_CHANGE_COPY, codeSentText, emailSchema, errorToShow } from "@nookly/shared/api";
-import {
-  IconAlertTriangle,
-  IconDeviceMobile,
-  IconLogout,
-  IconMail,
-} from "@tabler/icons-react-native";
+import { IconDeviceMobile, IconLogout, IconMail } from "@tabler/icons-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { useAppData } from "../../data/context.tsx";
@@ -177,11 +172,7 @@ export function DisconnectSheet({ provider, current }: { provider: string; curre
         points={[
           {
             icon: IconLogout,
-            text: "Other devices that signed in with it are signed out and their data is removed from them",
-          },
-          {
-            icon: IconAlertTriangle,
-            text: "Changes they haven't synced yet are lost, so sync them first",
+            text: "Other devices that signed in with it are signed out and keep their data",
           },
           ...(current
             ? [

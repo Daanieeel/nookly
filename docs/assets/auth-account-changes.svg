@@ -40,8 +40,8 @@
 <text x="416" y="1024" text-anchor="middle" class="small">[disconnect]</text>
 <rect x="470" y="996" width="220" height="72" rx="14" class="box"/>
 <text x="580.0" y="1019" text-anchor="middle" class="">End that method's sessions</text>
-<text x="580.0" y="1037" text-anchor="middle" class="small">other devices clear;</text>
-<text x="580.0" y="1055" text-anchor="middle" class="small">unsent changes are lost</text>
+<text x="580.0" y="1037" text-anchor="middle" class="small">other devices lock out</text>
+<text x="580.0" y="1055" text-anchor="middle" class="small">and keep their data</text>
 <path d="M350 1044V1087" class="line" marker-end="url(#a)"/>
 <text x="358" y="1066" text-anchor="start" class="small">[other]</text>
 <path d="M580 1068V1098H361" class="line" marker-end="url(#a)"/>

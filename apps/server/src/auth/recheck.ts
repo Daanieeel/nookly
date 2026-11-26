@@ -3,7 +3,7 @@ import { and, eq, gt } from "drizzle-orm";
 import type { Config } from "../config.ts";
 import type { Database } from "../db/client.ts";
 import { authAccount, authSession, authUser, authVerification } from "../db/schema.ts";
-import { HttpError, badRequest, unauthorized } from "../errors.ts";
+import { HttpError, badRequest, lockedOut } from "../errors.ts";
 import type { Mailer } from "../mail/mailer.ts";
 import { confirmationCodeEmail } from "../mail/templates.ts";
 import { updateRequired, type AccessClaims } from "./accounts.ts";
@@ -42,7 +42,7 @@ export class RecheckService {
       .select({ createdAt: authSession.createdAt, reauthedAt: authSession.reauthedAt })
       .from(authSession)
       .where(eq(authSession.id, sessionId));
-    if (!session) throw unauthorized();
+    if (!session) throw lockedOut();
     return Date.now() - (session.reauthedAt ?? session.createdAt).getTime() < FRESH_MS;
   }
 
@@ -56,7 +56,7 @@ export class RecheckService {
 
   private async userRow(userId: string) {
     const [row] = await this.db.select().from(authUser).where(eq(authUser.id, userId));
-    if (!row) throw unauthorized();
+    if (!row) throw lockedOut();
     return row;
   }
 

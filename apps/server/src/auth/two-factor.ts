@@ -7,7 +7,7 @@ import { z } from "zod";
 import type { Config } from "../config.ts";
 import type { Database } from "../db/client.ts";
 import { authAccount, authTwoFactor, authUser, authVerification } from "../db/schema.ts";
-import { badRequest, conflict, forbidden, unauthorized } from "../errors.ts";
+import { badRequest, conflict, forbidden, lockedOut } from "../errors.ts";
 import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "../security/disposable-email.ts";
 import type { Auth } from "./auth.ts";
 import { challengeIdentifier } from "./challenge.ts";
@@ -71,7 +71,7 @@ export class TwoFactorService {
 
   private async userRow(userId: string) {
     const [row] = await this.db.select().from(authUser).where(eq(authUser.id, userId));
-    if (!row) throw unauthorized();
+    if (!row) throw lockedOut();
     return row;
   }
 

@@ -33,7 +33,7 @@ import {
 import { eq } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { z } from "zod";
-import { type AccessClaims, AccountService, updateRequired } from "./auth/accounts.ts";
+import { type AccessClaims, AccountService, bearerOf, updateRequired } from "./auth/accounts.ts";
 import { AppSignIn } from "./auth/app-sign-in.ts";
 import { TwoFactorService } from "./auth/two-factor.ts";
 import { challengeProvider } from "./auth/challenge.ts";
@@ -256,6 +256,18 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
     const claims = await claimsForSetup(request);
     await recheck.require(claims, isCurrent(request));
     return claims;
+  }
+
+  /// Better-auth's answer. Its own 401 for a session it doesn't know would make an app
+  /// clear the device, so it is refused the way every route refuses it. Signing in keeps
+  /// its 401 (a wrong password): the apps send no session with it.
+  async function betterAuth(request: Request): Promise<Response> {
+    const answer = await auth.handler(request);
+    if (answer.status !== 401) return answer;
+    const token = bearerOf(request.headers);
+    const path = new URL(request.url).pathname;
+    if (!token && (SIGN_IN_PATHS.has(path) || TWO_FACTOR_STEPS.has(path))) return answer;
+    throw await accounts.refusal(token);
   }
 
   /// The token of an answer that started a session, null when it didn't.
@@ -653,7 +665,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
               // goes to better-auth as the cookie it keeps it in.
               const step = async () => {
                 const challenge = request.headers.get(CHALLENGE_HEADER);
-                if (!challenge) return auth.handler(cookieless);
+                if (!challenge) return betterAuth(cookieless);
                 const headers = new Headers(cookieless.headers);
                 headers.set("cookie", `${await challengeCookie()}=${challenge}`);
                 // Better-auth refuses a request with a cookie and a missing or "null" Origin
@@ -665,7 +677,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
                   headers.set("origin", new URL(config.PUBLIC_URL).origin);
                 }
                 const provider = await challengeProvider(db, challenge);
-                const response = await auth.handler(new Request(cookieless, { headers }));
+                const response = await betterAuth(new Request(cookieless, { headers }));
                 const token = await sessionOf(response);
                 if (token !== null) {
                   await db
@@ -703,7 +715,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
               return guessable(ip, async () => {
                 const account = await signInAccount(request);
                 if (account) limit(limits.signInAccount, `login-account:${account}`);
-                const answer = await challengeFromCookie(await auth.handler(forwarded));
+                const answer = await challengeFromCookie(await betterAuth(forwarded));
                 return refuseOutdated(answer, current);
               });
             }
@@ -712,7 +724,12 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
             }
             if (request.method === "POST" && MAIL_PATHS.has(path))
               limit(limits.email, `mail:${ip}`);
-            return auth.handler(forwarded);
+            const answer = await betterAuth(forwarded);
+            // A device signing itself out leaves the devices list.
+            if (path === "/v1/auth/sign-out" && answer.ok) {
+              await accounts.forget(bearerOf(request.headers));
+            }
+            return answer;
           },
           { parse: "none", detail: { hide: true } },
         )
@@ -898,7 +915,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           async ({ request, params }) => {
             const claims = await claimsRechecked(request);
             const { change, ended } = await signIn.unlink(claims, params.provider);
-            for (const id of ended) hub.endSession(claims.userId, id);
+            for (const id of ended) hub.endSession(claims.userId, id, "forbidden");
             return change;
           },
           {
@@ -1052,7 +1069,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
           async ({ request, params, set }) => {
             const claims = await claimsOf(request);
             await accounts.revokeSession(claims, params.id);
-            hub.endSession(claims.userId, params.id);
+            hub.endSession(claims.userId, params.id, "unauthorized");
             set.status = 204;
           },
           {
@@ -1390,9 +1407,9 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
                 hub.add(claims.userId, state.socket);
                 ws.send(JSON.stringify({ type: "ready" }));
               } catch (error) {
-                // Only a session that is over is called unauthorized: an app told that
-                // clears the device. One that owes two-factor, or a server that failed,
-                // says so and the app tries again.
+                // Only a device signed out from the list is called unauthorized: an app
+                // told that clears the device. Any other refusal says so, and the app keeps
+                // its data and tries again.
                 const code = error instanceof HttpError ? error.code : "internal";
                 ws.send(JSON.stringify({ type: "error", code }));
                 ws.close(1008, code);
@@ -1400,7 +1417,7 @@ export function buildApp({ config, db, mailer, log, storage = null }: AppDeps) {
               return;
             }
             // An ack only says how far a device got; the cursor itself lives on the device.
-            if (!state.userId) ws.send(JSON.stringify({ type: "error", code: "unauthorized" }));
+            if (!state.userId) ws.send(JSON.stringify({ type: "error", code: "forbidden" }));
           },
           close(ws) {
             const state = sockets.get(ws.id);

@@ -2,8 +2,8 @@ import { NOOKLY_SIGN_IN, type SignInChange, type SignInSummary } from "@nookly/s
 import { and, asc, eq } from "drizzle-orm";
 import type { Config } from "../config.ts";
 import type { Database } from "../db/client.ts";
-import { authAccount, authSession, authUser } from "../db/schema.ts";
-import { HttpError, badRequest, conflict, notFound, unauthorized } from "../errors.ts";
+import { authAccount, authEndedSession, authSession, authUser } from "../db/schema.ts";
+import { HttpError, badRequest, conflict, notFound, lockedOut } from "../errors.ts";
 import type { Mailer } from "../mail/mailer.ts";
 import { confirmationCodeEmail } from "../mail/templates.ts";
 import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "../security/disposable-email.ts";
@@ -51,7 +51,7 @@ export class SignInMethods {
 
   private async account(userId: string) {
     const [user] = await this.db.select().from(authUser).where(eq(authUser.id, userId));
-    if (!user) throw unauthorized();
+    if (!user) throw lockedOut();
     const methods = await this.db
       .select()
       .from(authAccount)
@@ -116,6 +116,12 @@ export class SignInMethods {
         .returning({ id: authSession.id });
     });
     const ids = ended.map((s) => s.id);
+    // This device disconnected its own way in: it signs itself out, and leaves the list.
+    if (ids.includes(claims.sessionId)) {
+      await this.db
+        .delete(authEndedSession)
+        .where(eq(authEndedSession.sessionId, claims.sessionId));
+    }
     return { change: await this.changed(claims, ids.includes(claims.sessionId)), ended: ids };
   }
 

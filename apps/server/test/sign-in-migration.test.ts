@@ -111,6 +111,18 @@ it(
       { token: "both-session", provider: null, reauthed_at: null, pending: false },
       { token: "password-session", provider: "credential", reauthed_at: null, pending: false },
     ]);
+    // Sessions that exist already are devices in use: however one ends, it stays on the
+    // list, to be signed out there.
+    await after`DELETE FROM auth_session WHERE token = 'both-session'`;
+    const ended = await after`SELECT user_id IS NOT NULL AS owned, signed_out, token_hash
+      FROM auth_ended_session`;
+    expect([...ended]).toEqual([
+      {
+        owned: true,
+        signed_out: false,
+        token_hash: new Bun.CryptoHasher("sha256").update("both-session").digest("hex"),
+      },
+    ]);
     const emails = await after`SELECT username, email FROM auth_user ORDER BY username`;
     expect(emails).toHaveLength(5);
     await after.end();

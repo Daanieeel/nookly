@@ -121,7 +121,7 @@ describe("file contents", () => {
     });
     expect(read.status).toBe(404);
     const anonymous = await fetch(`${server.baseUrl}/v1/blobs/${hash}`);
-    expect(anonymous.status).toBe(401);
+    expect(anonymous.status).toBe(403);
   });
 
   it("refuses a file over the size limit", async () => {

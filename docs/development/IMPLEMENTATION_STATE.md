@@ -78,7 +78,8 @@ Implement **all** of the authentication strategy (then a file at the repo root, 
 
 - [x] T. Data loss found before merge: records left by 1.0.3 on a device that moved accounts counted as proof, so sign out deleted files the account never got. Sign out now needs the account to be seen holding the contents (`held:<sha256>` in `sync_meta`, no schema change); recorded files without it are asked about once and sent if missing. Also fixes an old copy overwriting a newer one after joining an account again (came with H).
 - Right after the update, a signed in device shows its files as waiting while each is asked about, and a sign out in that time backs the device up first.
-- [x] U. Disconnecting a sign in method clears the other devices that signed in with it, unsent changes included. Desktop and phone now say so before it happens. Decided by the user 2026-11-26: the warning is enough, no backup before that clear (it would leave a copy on a lost device).
+- [x] U. Disconnecting a sign in method clears the other devices that signed in with it, unsent changes included. Desktop and phone now say so before it happens. The user first chose a warning alone; V replaced it.
+- [x] V. User's call 2026-11-26: only Sign Out Device clears a device (D110). Server answers 401 only then, 403 `forbidden` otherwise; migration 0008 (`auth_ended_session`, `auth_session.seen`, trigger). Disconnect copy says other devices keep their data.
 - Release order: desktop `v1.1.0` first, `server-v1.6.0` once all builds are published. Back up the database before the server tag.
 
 ## Notes

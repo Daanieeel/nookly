@@ -16,6 +16,7 @@ All notable changes to Nookly are listed here.
 - Changing how you sign in now asks you to confirm it's you first.
 - How you sign in moved from the calendar connections to the Account page.
 - Signing out now also removes your account's files from that device. A file your account doesn't have yet stays on it, so nothing is lost.
+- Another device only has your data removed when you sign it out from your list of devices. After a password reset, a deleted account or a long break it stops syncing and keeps everything.
 - While your first sync sends files, you can see how much of them has gone, even for one big file.
 - "Keep a local copy", when signing out, can be ticked from anywhere on its row and is shown as a warning.
 - A change that can't sync yet no longer asks you to decide anything. It stays on your device, Nookly keeps trying and tells you it is waiting.

@@ -612,12 +612,12 @@ Every answer of the server carries its version in `x-nookly-server-version`, and
 An account has one or more methods: Nookly Signin (an email and a password), Google, GitHub and Notion, Apple once it is offered. One of each. Every one signs in. Each keeps its own email (`auth_account.email`); one of them is primary (`auth_user.primary_provider`, the first an account got), its email is the account's email (`auth_user.email` and `users.email`, changed together) and gets notices and emailed codes. The primary cannot be disconnected, and only a method with a confirmed email can become primary, unless it is the only one.
 
 - **Linking:** only from Settings. better-auth's linking is off, its own link routes are shut, and `/v1/auth/*` is an allowlist. Our flow takes the provider's callback itself and links only when the app redeems it with both the browser's code and the app's secret, because linking at the callback would let a sent link attach someone's provider to another person's account. Signing in with a provider whose email already has an account says to sign in the old way and connect it in Settings.
-- **Disconnecting:** the provider's tokens are deleted and the sessions that came through it end. Those devices clear themselves as on any sign out from the server, so the app says first that changes they have not synced are lost. The app that disconnects the method it signed in with stops sync first and keeps its data.
+- **Disconnecting:** the provider's tokens are deleted and the sessions that came through it end. Those devices keep their data (D110). The app that disconnects the method it signed in with stops sync first and keeps its data.
 - **Username:** it belongs to the account and spans all its methods. Later it is how people find each other to work together, so no email addresses are shared.
 - **Recovery:** someone who lost the password or email of Nookly Signin signs in with another connected provider and changes them in Settings. The second step still applies: with only emailed codes and the primary's mailbox lost, that takes a recovery code.
 - **Emails:** a new address is confirmed with a six digit code (10 minutes, 5 tries) and a taken one is refused. Nookly Signin accepts its login email or the username. A password reset only goes to an account that has a password.
 - **Migration 0007:** additive. Each method takes the account's email (not a placeholder), the earliest one is primary.
-- **Rejected:** linking by verified email (a provider that reports someone else's address would open their account); a backup before a disconnected device clears itself (the user chose the warning alone: a lost device would keep a copy).
+- **Rejected:** linking by verified email (a provider that reports someone else's address would open their account).
 
 ## D108. A change to how an account signs in needs a recent check
 
@@ -629,3 +629,11 @@ Where `REQUIRE_TWO_FACTOR` is on, an account without two-factor can only set it 
 
 - **Apps:** the setup cannot be closed. Signing out is the other way, with Keep a local copy ticked. Signing in and sync wait; the data on the device never does.
 - **Cost:** older apps stop syncing until updated, on the day the server is deployed.
+
+## D110. A device clears itself only when the person signs it out
+
+- **Decision:** the server answers 401 (`unauthorized` on the live socket) to a session only after Sign Out Device ended it (and to a wrong password at sign in, where an app sends no session). Every other session that stops working, and a request that arrives without one, is refused with 403 `forbidden`: a password reset, expiry, a disconnected method, a deleted account, a session the server doesn't know (an older database put back, a fault). The device keeps its data.
+- **Why:** an app clears the device on a 401, and released apps can't be changed, so only the server can protect what they haven't synced. Before this, a device unused for longer than a session lasts lost its unsent changes.
+- **How:** an app has no word for "cleared on purpose" other than the 401, so the server remembers ended sessions: a trigger on `auth_session` (migration 0008) copies every session an app has used into `auth_ended_session`, by a hash of its token. Those stay on the devices list, so a lost device can still be signed out after a password reset. An unknown token is refused with 403, so a mistake keeps data. A test holds every route to this.
+- **Cost:** a lost device is cleared only by Sign Out Device. A password reset locks it out and leaves its data. A locked out device signs out keeping a local copy, then signs in again. Devices signed out before the server had this are not remembered, so they are locked out and not cleared. Rolling the server back removes the protection.
+- **Rejected:** a backup before clearing (a lost device would keep a copy); never clearing released apps (Sign Out Device would stop protecting a lost device).

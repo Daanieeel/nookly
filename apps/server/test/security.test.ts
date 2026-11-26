@@ -120,7 +120,8 @@ describe("one account never reaches another's data", () => {
                 role: "viewer",
               }),
       });
-      expect(response.status, `${method} ${path}`).toBe(401);
+      // Not 401: an app clears the device on that.
+      expect(response.status, `${method} ${path}`).toBe(403);
     }
   });
 });

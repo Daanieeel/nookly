@@ -72,10 +72,39 @@ export const authSession = pgTable(
     /// Made in the browser leg of a provider sign in for an account that still owes its
     /// second step: it opens nothing.
     pending: boolean("pending").notNull().default(false),
+    /// An app has used this session, so it is a device: however it ends, it is remembered
+    /// (`authEndedSession`).
+    seen: boolean("seen").notNull().default(false),
     createdAt: created(),
     updatedAt: updated(),
   },
   (t) => [index("auth_session_user").on(t.userId)],
+);
+
+/// Devices whose session ended some other way than signing themselves out, written by a
+/// trigger on `auth_session` (migration 0008) so that no path can be missed. They stay on
+/// the devices list, and only the ones signed out from there (`signedOut`) are told their
+/// session is over, which makes an app clear the device.
+export const authEndedSession = pgTable(
+  "auth_ended_session",
+  {
+    /// SHA-256 of the session token, as hex.
+    tokenHash: text("token_hash").primaryKey(),
+    sessionId: uuid("session_id").notNull(),
+    /// No reference to the account: a device signed out from the list is still told so
+    /// after the account is gone.
+    userId: uuid("user_id"),
+    deviceName: text("device_name"),
+    platform: text("platform"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }).notNull().defaultNow(),
+    signedOut: boolean("signed_out").notNull().default(false),
+  },
+  (t) => [
+    index("auth_ended_session_user").on(t.userId),
+    index("auth_ended_session_session").on(t.sessionId),
+  ],
 );
 
 export const authAccount = pgTable(

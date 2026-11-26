@@ -1201,11 +1201,11 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     });
   }
 
-  /// The server ended this device's session (signed out from another device, a password
-  /// reset, an account that is gone). The account's data goes, and no backup is made:
-  /// whoever holds a device the account lost access to, a lost or stolen one, should not
-  /// find it there. The data is in the account and on the other devices, so signing in
-  /// again brings it back. Edits that never reached the account are lost with it: the
+  /// The server said this device's session is over, which it says only after the person
+  /// signed this device out from another one (D110). The account's data goes, and no
+  /// backup is made: whoever holds a lost or stolen device should not find it there. The
+  /// data is in the account and on the other devices, so signing in again brings it back.
+  /// Edits that never reached the account are lost with it: the
   /// session is gone, so they can't be sent any more. A file the account doesn't have
   /// stays on disk, as it may be the only copy.
   private async signedOutByServer() {

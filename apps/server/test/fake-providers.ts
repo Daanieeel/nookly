@@ -105,3 +105,16 @@ export async function providerSignIn(
   if (!back.code) throw new Error(back.error ?? "no code");
   return api.finishProviderSignIn(back.code, begun.secret, device);
 }
+
+/// Connects a provider to a signed in account, the way the apps do.
+export async function linkProvider(
+  server: TestServer,
+  api: ApiClient,
+  provider: FakeProvider,
+  key: string,
+) {
+  const begun = await api.beginLink({ provider });
+  const back = await browserLeg(server, provider, begun, key);
+  if (!back.code) throw new Error(back.error ?? "no code");
+  return api.finishLink(back.code, begun.secret);
+}
