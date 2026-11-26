@@ -614,7 +614,7 @@ An account has one or more methods: Nookly Signin (an email and a password), Goo
 - **Disconnecting:** the provider's tokens are deleted and the sessions that came through it end. Those devices clear themselves as on any sign out from the server, so the app says first that changes they have not synced are lost. The app that disconnects the method it signed in with stops sync first and keeps its data.
 - **Emails:** a new address is confirmed with a six digit code (10 minutes, 5 tries) and a taken one is refused. Nookly Signin accepts its login email or the username. A password reset only goes to an account that has a password.
 - **Migration 0007:** additive. Each method takes the account's email (not a placeholder), the earliest one is primary.
-- **Rejected:** linking by verified email (a provider that reports someone else's address would open their account).
+- **Rejected:** linking by verified email (a provider that reports someone else's address would open their account); a backup before a disconnected device clears itself (the user chose the warning alone: a lost device would keep a copy).
 
 ## D108. A change to how an account signs in needs a recent check
 
