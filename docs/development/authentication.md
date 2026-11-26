@@ -1,6 +1,6 @@
 # Authentication
 
-How accounts sign in on the sync server. Reasons are in `DECISIONS.md`, D101 to D109. Passkeys and Sign in with Apple are not offered yet.
+How accounts sign in on the sync server. Reasons are in [`DECISIONS.md`](DECISIONS.md), D101 to D109. Passkeys and Sign in with Apple are not offered yet.
 
 ## Account model
 

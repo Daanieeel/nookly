@@ -62,7 +62,7 @@ describe("ci plan", () => {
 
   test("documentation only runs the format check", () => {
     expect(ran(["docs/development/server.md"])).toEqual(["format"]);
-    expect(ran(["INSTANCE_TESTING.md"])).toEqual(["format"]);
+    expect(ran(["README.md"])).toEqual(["format"]);
   });
 
   test("Terraform and other workflows run nothing here", () => {
