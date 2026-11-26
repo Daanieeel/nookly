@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="372" viewBox="0 744 700 372" role="img" aria-label="Changing how you sign in: a recent check, then the change">
+<style>
+  svg { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --fg: #1f2328; --bg: #ffffff; --note: #f6f8fa; --edge: #d1d9e0; }
+  @media (prefers-color-scheme: dark) { svg { --fg: #f0f6fc; --bg: #0d1117; --note: #161b22; --edge: #3d444d; } }
+  text { fill: var(--fg); font-size: 13px; }
+  .small { font-size: 12px; }
+  .bold { font-weight: 600; }
+  .bg { fill: var(--bg); }
+  .box { fill: var(--bg); stroke: var(--fg); stroke-width: 1.2; }
+  .note { fill: var(--note); stroke: var(--edge); stroke-width: 1.2; }
+  .line { fill: none; stroke: var(--fg); stroke-width: 1.2; }
+  .head { fill: none; stroke: var(--fg); stroke-width: 1.5; }
+  .dash { fill: none; stroke: var(--fg); stroke-width: 1; stroke-dasharray: 4 3; }
+  .solid { fill: var(--fg); stroke: var(--fg); }
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10" class="head"/></marker></defs>
+<rect x="0" y="744" width="700" height="372" class="bg"/>
+<circle cx="350" cy="758" r="9" class="solid"/>
+<path d="M350 767V790" class="line" marker-end="url(#a)"/>
+<rect x="175" y="790" width="350" height="54" rx="14" class="box"/>
+<text x="350.0" y="813" text-anchor="middle" class="">Ask for a change</text>
+<text x="350.0" y="831" text-anchor="middle" class="small">connect, disconnect, primary, email, password, 2FA</text>
+<path d="M350 844V863" class="line" marker-end="url(#a)"/>
+<path d="M350 863L362 875L350 887L338 875Z" class="box"/>
+<path d="M362 875H470" class="line" marker-end="url(#a)"/>
+<text x="416" y="867" text-anchor="middle" class="small">[no recent check]</text>
+<rect x="470" y="848" width="220" height="54" rx="14" class="box"/>
+<text x="580.0" y="871" text-anchor="middle" class="">Confirm it's you</text>
+<text x="580.0" y="889" text-anchor="middle" class="small">password or provider, + code</text>
+<path d="M350 887V918" class="line" marker-end="url(#a)"/>
+<text x="358" y="904" text-anchor="start" class="small">[recent check]</text>
+<path d="M350 918L362 930L350 942L338 930Z" class="box"/>
+<path d="M580 902V930H362" class="line" marker-end="url(#a)"/>
+<path d="M350 942V964" class="line" marker-end="url(#a)"/>
+<rect x="270" y="964" width="160" height="36" rx="14" class="box"/>
+<text x="350.0" y="987" text-anchor="middle" class="">Apply change</text>
+<path d="M350 1000V1020" class="line" marker-end="url(#a)"/>
+<path d="M350 1020L362 1032L350 1044L338 1032Z" class="box"/>
+<path d="M362 1032H470" class="line" marker-end="url(#a)"/>
+<text x="416" y="1024" text-anchor="middle" class="small">[disconnect]</text>
+<rect x="470" y="996" width="220" height="72" rx="14" class="box"/>
+<text x="580.0" y="1019" text-anchor="middle" class="">End that method's sessions</text>
+<text x="580.0" y="1037" text-anchor="middle" class="small">other devices clear;</text>
+<text x="580.0" y="1055" text-anchor="middle" class="small">unsent changes are lost</text>
+<path d="M350 1044V1087" class="line" marker-end="url(#a)"/>
+<text x="358" y="1066" text-anchor="start" class="small">[other]</text>
+<path d="M580 1068V1098H361" class="line" marker-end="url(#a)"/>
+<circle cx="350" cy="1098" r="11" class="box"/><circle cx="350" cy="1098" r="6" class="solid"/>
+</svg>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="274" viewBox="0 28 700 274" role="img" aria-label="Account model: an account has sign in methods, sessions and second steps">
+<style>
+  svg { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --fg: #1f2328; --bg: #ffffff; --note: #f6f8fa; --edge: #d1d9e0; }
+  @media (prefers-color-scheme: dark) { svg { --fg: #f0f6fc; --bg: #0d1117; --note: #161b22; --edge: #3d444d; } }
+  text { fill: var(--fg); font-size: 13px; }
+  .small { font-size: 12px; }
+  .bold { font-weight: 600; }
+  .bg { fill: var(--bg); }
+  .box { fill: var(--bg); stroke: var(--fg); stroke-width: 1.2; }
+  .note { fill: var(--note); stroke: var(--edge); stroke-width: 1.2; }
+  .line { fill: none; stroke: var(--fg); stroke-width: 1.2; }
+  .head { fill: none; stroke: var(--fg); stroke-width: 1.5; }
+  .dash { fill: none; stroke: var(--fg); stroke-width: 1; stroke-dasharray: 4 3; }
+  .solid { fill: var(--fg); stroke: var(--fg); }
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10" class="head"/></marker></defs>
+<rect x="0" y="28" width="700" height="274" class="bg"/>
+<rect x="265" y="40" width="170" height="76" rx="0" class="box"/>
+<text x="350.0" y="59" text-anchor="middle" class="bold">Account</text>
+<path d="M265 68H435" class="line"/>
+<text x="275" y="88" text-anchor="start" class="">username</text>
+<text x="275" y="106" text-anchor="start" class="">primaryProvider</text>
+<rect x="10" y="40" width="180" height="94" rx="0" class="box"/>
+<text x="100.0" y="59" text-anchor="middle" class="bold">SignInMethod</text>
+<path d="M10 68H190" class="line"/>
+<text x="20" y="88" text-anchor="start" class="">provider</text>
+<text x="20" y="106" text-anchor="start" class="">email</text>
+<text x="20" y="124" text-anchor="start" class="">emailVerified</text>
+<rect x="510" y="40" width="180" height="94" rx="0" class="box"/>
+<text x="600.0" y="59" text-anchor="middle" class="bold">Session</text>
+<path d="M510 68H690" class="line"/>
+<text x="520" y="88" text-anchor="start" class="">provider</text>
+<text x="520" y="106" text-anchor="start" class="">pending</text>
+<text x="520" y="124" text-anchor="start" class="">reauthedAt</text>
+<rect x="265" y="185" width="170" height="106" rx="0" class="box"/>
+<text x="350.0" y="201" text-anchor="middle" class="small">«enumeration»</text>
+<text x="350.0" y="217" text-anchor="middle" class="bold">SecondStep</text>
+<path d="M265 225H435" class="line"/>
+<text x="275" y="245" text-anchor="start" class="">authenticator app</text>
+<text x="275" y="263" text-anchor="start" class="">emailed code</text>
+<text x="275" y="281" text-anchor="start" class="">recovery codes</text>
+<path d="M265 80L255 75L245 80L255 85Z" class="solid"/>
+<path d="M245 80H190" class="line"/>
+<text x="204" y="73" text-anchor="middle" class="small">1..*</text>
+<path d="M435 80L445 75L455 80L445 85Z" class="solid"/>
+<path d="M455 80H510" class="line"/>
+<text x="493" y="73" text-anchor="middle" class="small">0..*</text>
+<path d="M350 116L355 126L350 136L345 126Z" class="solid"/>
+<path d="M350 136V185" class="line"/>
+<text x="358" y="162" text-anchor="start" class="small">0..*  needed to sync</text>
+<path d="M10 160H223L235 172V242H10Z M223 160V172H235" class="note"/>
+<text x="19" y="180" text-anchor="start" class="small">One of each: Nookly, Google,</text>
+<text x="19" y="197" text-anchor="start" class="small">GitHub, Notion. At least one.</text>
+<text x="19" y="214" text-anchor="start" class="small">Primary gets the notices and</text>
+<text x="19" y="231" text-anchor="start" class="small">can't be disconnected.</text>
+<path d="M465 160H678L690 172V242H465Z M678 160V172H690" class="note"/>
+<text x="474" y="180" text-anchor="start" class="small">pending: browser step of a</text>
+<text x="474" y="197" text-anchor="start" class="small">provider sign in on an account</text>
+<text x="474" y="214" text-anchor="start" class="small">with a second step.</text>
+<text x="474" y="231" text-anchor="start" class="small">It opens nothing.</text>
+</svg>

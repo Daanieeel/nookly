@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="382" viewBox="0 328 700 382" role="img" aria-label="Sign in flow: any linked method, then a second step, then sync">
+<style>
+  svg { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; --fg: #1f2328; --bg: #ffffff; --note: #f6f8fa; --edge: #d1d9e0; }
+  @media (prefers-color-scheme: dark) { svg { --fg: #f0f6fc; --bg: #0d1117; --note: #161b22; --edge: #3d444d; } }
+  text { fill: var(--fg); font-size: 13px; }
+  .small { font-size: 12px; }
+  .bold { font-weight: 600; }
+  .bg { fill: var(--bg); }
+  .box { fill: var(--bg); stroke: var(--fg); stroke-width: 1.2; }
+  .note { fill: var(--note); stroke: var(--edge); stroke-width: 1.2; }
+  .line { fill: none; stroke: var(--fg); stroke-width: 1.2; }
+  .head { fill: none; stroke: var(--fg); stroke-width: 1.5; }
+  .dash { fill: none; stroke: var(--fg); stroke-width: 1; stroke-dasharray: 4 3; }
+  .solid { fill: var(--fg); stroke: var(--fg); }
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10" class="head"/></marker></defs>
+<rect x="0" y="328" width="700" height="382" class="bg"/>
+<circle cx="350" cy="342" r="9" class="solid"/>
+<path d="M350 351V374" class="line" marker-end="url(#a)"/>
+<rect x="215" y="374" width="270" height="54" rx="14" class="box"/>
+<text x="350.0" y="397" text-anchor="middle" class="">Sign in with any linked method</text>
+<text x="350.0" y="415" text-anchor="middle" class="small">Nookly password or a provider</text>
+<path d="M350 428V450" class="line" marker-end="url(#a)"/>
+<path d="M350 450L362 462L350 474L338 462Z" class="box"/>
+<path d="M338 462H175V505" class="line" marker-end="url(#a)"/>
+<text x="255" y="454" text-anchor="middle" class="small">[has second step]</text>
+<path d="M362 462H525V505" class="line" marker-end="url(#a)"/>
+<text x="446" y="454" text-anchor="middle" class="small">[none yet]</text>
+<rect x="55" y="505" width="240" height="54" rx="14" class="box"/>
+<text x="175.0" y="528" text-anchor="middle" class="">Enter a code</text>
+<text x="175.0" y="546" text-anchor="middle" class="small">app, email or recovery code</text>
+<rect x="405" y="505" width="240" height="54" rx="14" class="box"/>
+<text x="525.0" y="528" text-anchor="middle" class="">Set up a second step</text>
+<text x="525.0" y="546" text-anchor="middle" class="small">can't be skipped, only sign out</text>
+<path d="M350 578L362 590L350 602L338 590Z" class="box"/>
+<path d="M175 559V590H338" class="line" marker-end="url(#a)"/>
+<path d="M525 559V590H462 362" class="line" marker-end="url(#a)"/>
+<path d="M350 602V624" class="line" marker-end="url(#a)"/>
+<rect x="270" y="624" width="160" height="36" rx="14" class="box"/>
+<text x="350.0" y="647" text-anchor="middle" class="">Sync runs</text>
+<path d="M350 660V679" class="line" marker-end="url(#a)"/>
+<circle cx="350" cy="690" r="11" class="box"/><circle cx="350" cy="690" r="6" class="solid"/>
+<path d="M8 350H181L193 362V432H8Z M181 350V362H193" class="note"/>
+<text x="17" y="370" text-anchor="start" class="small">Old app: provider sign in</text>
+<text x="17" y="387" text-anchor="start" class="small">refused. Password works</text>
+<text x="17" y="404" text-anchor="start" class="small">only with a second step.</text>
+<text x="17" y="421" text-anchor="start" class="small">Local data stays.</text>
+<path d="M193 392H215" class="dash"/>
+<path d="M510 350H680L692 362V415H510Z M680 350V362H692" class="note"/>
+<text x="519" y="370" text-anchor="start" class="small">Provider email already</text>
+<text x="519" y="387" text-anchor="start" class="small">has an account: refused.</text>
+<text x="519" y="404" text-anchor="start" class="small">Connect it in Settings.</text>
+<path d="M485 392H510" class="dash"/>
+</svg>
