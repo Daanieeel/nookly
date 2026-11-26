@@ -89,6 +89,6 @@ describe("ci plan", () => {
   });
 
   test("an unknown file is treated as code", () => {
-    expect(plan(["scripts/seed/reset.sh"], base).js).toBe(true);
+    expect(plan(["somewhere/new.sh"], base).js).toBe(true);
   });
 });
