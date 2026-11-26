@@ -128,7 +128,14 @@ describe("the sign in methods on the Account page", () => {
     const drop = jest.spyOn(data.sync, "disconnectProvider").mockImplementation(changed);
     await choose(screen, "GitHub", "Disconnect");
     expect(await screen.findByRole("header", { name: "Disconnect GitHub?" })).toBeTruthy();
-    expect(screen.getByText("Devices that signed in with it are signed out")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Other devices that signed in with it are signed out and their data is removed from them",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Changes they haven't synced yet are lost, so sync them first"),
+    ).toBeTruthy();
     expect(screen.queryByText(/signs out too/)).toBeNull();
     expect(screen.getByRole("button", { name: "Keep It" })).toBeTruthy();
     expect(drop).not.toHaveBeenCalled();

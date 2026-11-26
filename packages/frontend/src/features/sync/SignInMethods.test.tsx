@@ -120,7 +120,9 @@ describe("the sign in methods", () => {
     const { user } = open();
     await choose(user, "GitHub", "Disconnect");
     const dialog = await screen.findByRole("alertdialog", { name: "Disconnect GitHub?" });
-    expect(dialog).toHaveTextContent("Devices that signed in with it are signed out.");
+    expect(dialog).toHaveTextContent(
+      "Other devices that signed in with it are signed out and their data is removed from them. Changes they haven't synced yet are lost, so sync them first.",
+    );
     expect(dialog).not.toHaveTextContent("This computer");
     await expectNoA11yViolations();
     expect(drop).not.toHaveBeenCalled();
@@ -133,7 +135,7 @@ describe("the sign in methods", () => {
     const { user } = open();
     await choose(user, "GitHub", "Disconnect");
     expect(await screen.findByRole("alertdialog")).toHaveTextContent(
-      "This computer signs out too. Your data stays on it.",
+      "This computer signs out too, but your data stays on it.",
     );
   });
 

@@ -95,8 +95,9 @@ function DisconnectDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Disconnect {providerName(provider ?? "")}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Devices that signed in with it are signed out.
-            {current ? " This computer signs out too. Your data stays on it." : null}
+            Other devices that signed in with it are signed out and their data is removed from them.
+            Changes they haven't synced yet are lost, so sync them first.
+            {current ? " This computer signs out too, but your data stays on it." : null}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <FieldError message={errorToShow(drop.error)} />

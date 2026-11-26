@@ -78,6 +78,7 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 
 - [x] T. Data loss found before merge: records left by 1.0.3 on a device that moved accounts counted as proof, so sign out deleted files the account never got. Sign out now needs the account to be seen holding the contents (`held:<sha256>` in `sync_meta`, no schema change); recorded files without it are asked about once and sent if missing. Also fixes an old copy overwriting a newer one after joining an account again (came with H).
 - Right after the update, a signed in device shows its files as waiting while each is asked about, and a sign out in that time backs the device up first.
+- [x] U. Disconnecting a sign in method clears the other devices that signed in with it, unsent changes included. Desktop and phone now say so before it happens. A backup before that clear is open: it would leave a copy on a lost device, against D106 and the released promise that such a device holds nothing. Waits for the user.
 - Release order: desktop `v1.1.0` first, `server-v1.6.0` once all builds are published. Back up the database before the server tag.
 
 ## Notes
