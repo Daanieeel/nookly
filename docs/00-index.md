@@ -15,7 +15,7 @@ Read the files in this folder before building any feature. Do not skip this step
 - [`07-deferred-scope.md`](07-deferred-scope.md): what is explicitly out of scope. Do not build any of it unless told to.
 - [`08-vision-and-motivation.md`](08-vision-and-motivation.md): the reasoning behind the app. Use it for judgment calls the other docs do not cover.
 - [`development/`](development/): repo layout ([`monorepo.md`](development/monorepo.md)), TanStack conventions ([`tanstack.md`](development/tanstack.md)), release signing ([`release-signing.md`](development/release-signing.md)), sync ([`sync-protocol.md`](development/sync-protocol.md)), the sync server ([`server.md`](development/server.md)), authentication ([`authentication.md`](development/authentication.md)), settings ([`settings.md`](development/settings.md)), toasts ([`toasts.md`](development/toasts.md)) and reference tables.
-- Working records in `development/`: decisions of the connected platform ([`DECISIONS.md`](development/DECISIONS.md)), what the mobile app shows on each page ([`PAGES.md`](development/PAGES.md)), the parity checklist ([`GAP_ANALYSIS.md`](development/GAP_ANALYSIS.md)), testing against the real sync server ([`INSTANCE_TESTING.md`](development/INSTANCE_TESTING.md)) and the progress of the current work ([`IMPLEMENTATION_STATE.md`](development/IMPLEMENTATION_STATE.md)).
+- Working records in `development/`: decisions of the connected platform ([`DECISIONS.md`](development/DECISIONS.md)), the progress of the current work ([`IMPLEMENTATION_STATE.md`](development/IMPLEMENTATION_STATE.md)).
 - [`skills/`](skills/): focused guides for specific tasks.
 
 ## Hard Rules (never violate)

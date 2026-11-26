@@ -91,7 +91,8 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 
 ## D15. Desktop only features stay desktop only
 
-- **Decision:** CLI, agent files, tabs and split view, keyboard shortcuts, folder backups, Office conversion and OCR are not built on mobile. GAP_ANALYSIS.md lists why for each.
+- **Decision:** CLI, agent files, tabs and split view, keyboard shortcuts, folder backups, Office conversion and OCR are not built on mobile.
+- **Why:** a phone has no shell for the CLI, agent files feed a coding agent on the computer, tabs, split view and shortcuts are keyboard and window concepts (the iPad gets a persistent sidebar), and Office conversion and OCR need LibreOffice and macOS Vision, so the phone hands those files to the system viewer.
 
 ## D16. One dev stack command
 
@@ -112,7 +113,7 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 
 ## D19. Series, assignment due sessions and a few overview screens stay on the desktop ⚑
 
-- **Decision:** the phone shows and moves single sessions, calendar entries and study blocks, and edits one occurrence of a series (an override), but a series itself is created and changed on the computer. The Dashboard briefing and semester setup are simpler than the desktop's. GAP_ANALYSIS.md marks each as partial with the reason.
+- **Decision:** the phone shows and moves single sessions, calendar entries and study blocks, and edits one occurrence of a series (an override), but a series itself is created and changed on the computer. The Dashboard briefing and semester setup are simpler than the desktop's.
 - **Alternatives:** port the series editor and the briefing text in full.
 - **Why:** both are dense forms that would need a design of their own on a phone; what the phone cannot edit it still shows correctly and never overwrites.
 
@@ -183,9 +184,9 @@ Each decision: what, the alternatives, why. ⚑ marks the ones worth a second lo
 
 - **Decision:** a local change with nothing to send starts no sync round (`notifyLocalChange` checks `pendingCount`). Lint forbids module mocking, so a test supplies window width, the menu, the clipboard, the file picker and the key system through providers (`renderScreens(..., options)`).
 
-## D33. `PAGES.md` is the source of truth for what a mobile page shows
+## D33. A mobile page shows what its desktop page shows
 
-- **Decision:** pages follow `PAGES.md` (written from desktop 0.38.3). New pure helpers keep the rules testable: `dashboard-model.ts`, `briefing-runs.ts` (the desktop's sentence), `assignment-view.ts`, `course-stats.ts`, `pinned-groups.ts`. Shared data got `listPageSummaries`, `courseSemesters`, `addFileLink`, `createSessionPage`.
+- **Decision:** pages follow the desktop's (first written down from desktop 0.38.3). New pure helpers keep the rules testable: `dashboard-model.ts`, `briefing-runs.ts` (the desktop's sentence), `assignment-view.ts`, `course-stats.ts`, `pinned-groups.ts`. Shared data got `listPageSummaries`, `courseSemesters`, `addFileLink`, `createSessionPage`.
 - **Decided on the way:** a Space's Tasks open as a board on an iPad and a list by status on a phone, the overview as a list by due date; Assignments group by deadline with a round checkbox; the Dashboard's "Show N more" expands in place (no filtered overview to jump to); a link pasted in Files is kept only if it is a Drive, Dropbox or iCloud link or a direct file link, a web page is refused (as on the desktop); a bookmark's page is read after it is saved; a jot's "Refine into New Note" is on its details.
 - **Also built:** the five step semester setup (`SetupSemestersScreen.tsx`, `semester-setup.ts`) and the line of semester averages on Grades.
 - **Not built, on purpose:** restoring a backup on the phone (it would replace the open database; signing in on a new phone brings everything back and never replaces what is there), external calendars, Office conversion and OCR, the PDF paged viewer, series (D19).
