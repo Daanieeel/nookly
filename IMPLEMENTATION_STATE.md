@@ -37,7 +37,7 @@ Read `AGENTS.md` and `docs/00-index.md` first.
 
 ## Second part: authentication strategy (asked 2026-11-25, mid work)
 
-Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at the repo root; read it, do not edit or delete it), its TODO section included. Do after A to M.
+Implement **all** of the authentication strategy (then a file at the repo root, since deleted at the user's request; its decisions are in `DECISIONS.md`, D101 to D109), its TODO section included. Do after A to M.
 
 - [x] N. Explore current auth, break the strategy into tasks here.
 - [x] N1. Server migration 0007 (additive, with backfill) and its test.
