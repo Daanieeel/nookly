@@ -60,6 +60,8 @@ Versions up to 1.0.3 set such a change aside as a conflict instead. On start, a 
 
 ## Files and signing out
 
-A row names its contents by hash; each device keeps its own copy and records it in `blob_files` (`BlobSync`). A row without a local path is downloaded. Leaving an account blanks the records, so the next account is sent every file.
+A row names its contents by hash; each device keeps its own copy and records it in `blob_files` (`BlobSync`). A row without a local path is downloaded.
 
-A sign out that clears the device, whether the person asked or the server ended the session, also deletes local files the account holds: the row's record and the account's own row name the same contents, the file still holds them, no other row needs the path, and it lies in Nookly's own folders. Any other file stays. Backups stay too.
+A record says what a local path holds, not that the account has it. The account counts as holding contents once this device took them from it, sent them or asked (`HEAD /v1/blobs/:sha256`), noted as `held:<sha256>` in `sync_meta` and forgotten on leaving the account. A recorded file without that note is asked about once and sent when the account lacks it. This covers records made by versions up to 1.0.3, which kept them across accounts.
+
+A sign out that clears the device, whether the person asked or the server ended the session, also deletes local files the account holds: the account is noted as holding them, the row's record and the account's own row name the same contents, the file still holds them, no other row needs the path, and it lies in Nookly's own folders. Any other file stays. Backups stay too.

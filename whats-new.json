@@ -34,7 +34,7 @@
           "Fixed some text pasted from other apps not syncing.",
           "Fixed a change that couldn't sync showing up as a removed item.",
           "Fixed files not coming back after signing out and in again on the same device.",
-          "Fixed files not being sent after moving a device to another account.",
+          "Fixed files not being sent after moving a device to another account, including ones left behind earlier.",
           "Fixed the app freezing for seconds while files download from your account.",
           "Fixed a first sync with many files stalling on \"Too many requests\".",
           "Fixed file sync problems showing unreadable text instead of what went wrong."

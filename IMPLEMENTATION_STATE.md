@@ -74,6 +74,12 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 - Local checks before the full Rust run: lint, format, typecheck, duplication, server tests pass; `bun run test` had two `ShortcutsTab` timeouts on a loaded machine (pass alone). Full `cargo test` and clippy left to CI.
 - Adding a provider needs a 1.6.0 server with provider keys. Production is 1.5.6; the local `.env` has no keys and `PUBLIC_URL` names another port than `PORT`.
 
+## Fourth part: release risks (2026-11-26)
+
+- [x] T. Data loss found before merge: records left by 1.0.3 on a device that moved accounts counted as proof, so sign out deleted files the account never got. Sign out now needs the account to be seen holding the contents (`held:<sha256>` in `sync_meta`, no schema change); recorded files without it are asked about once and sent if missing. Also fixes an old copy overwriting a newer one after joining an account again (came with H).
+- Right after the update, a signed in device shows its files as waiting while each is asked about, and a sign out in that time backs the device up first.
+- Release order: desktop `v1.1.0` first, `server-v1.6.0` once all builds are published. Back up the database before the server tag.
+
 ## Notes
 
 - Checks 2026-11-25: lint, format, typecheck, duplication (0.18%), whats-new, version, `bun run test` (all 6 packages) pass. `cargo test`: 1585 pass; `search_stays_within_its_budget_on_20000_entities` misses its time budget only while every test runs at once (passes alone, search code untouched).
@@ -84,5 +90,5 @@ Implement **all** of `AUTHENTICATION_STRATEGY.md` (the user's untracked file at 
 - Live check 2026-11-25: `/health` 1.5.6, `/docs` 404, Heroku app `nookly-sync` has `TRUST_PROXY=true`, `TRUSTED_PROXY_HOPS` unset (default 1).
 - B to F: `SyncStatus.held`, `MigrationState.heldItems`, `pushResponse.serverTime`; held changes stay in `sync_dirty` (in memory skip list in `SyncClient`, retried after 1 h, on edit, on app start). `SyncEngine.requeueSetAside` only re-sends rows still exactly like the stored copy; a set aside row edited since keeps its old conflict entry (cannot be told apart from an undone edit).
 - G: wording lives in `packages/shared/src/sync/copy.ts`.
-- H, I: `BlobSync.confirmed()` / `remove()`, `BlobPlatform.remove` (Rust `blob_remove`, phone `data/remove-stored.ts`); `engine.disable` blanks `blob_files` so a new account gets the files, a row without a local path always downloads. Old copies of replaced files are not tracked, so they stay on disk. Backups (`pre-sync-backups`, `kept-backups`) stay too: tell the user.
+- H, I: `BlobSync.confirmed()` / `remove()`, `BlobPlatform.remove` (Rust `blob_remove`, phone `data/remove-stored.ts`); `blob_files` records are kept on leaving an account but prove nothing (see T), a row without a local path always downloads. Old copies of replaced files are not tracked, so they stay on disk. Backups (`pre-sync-backups`, `kept-backups`) stay too: tell the user.
 - J: `BlobPlatform.size` and `upload(..., onSent)`, `BlobProgress.pass*`, `MigrationState.fileBytes(Sent)`, wording in `copy.ts`. A file gone from disk no longer keeps the first sync open.

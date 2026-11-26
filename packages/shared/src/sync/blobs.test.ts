@@ -10,6 +10,7 @@ import {
   contentTypeFor,
 } from "./blobs.ts";
 import { tooManyRequests } from "../api/rate-limit.ts";
+import { SyncEngine } from "./engine.ts";
 import { NodeSqliteDriver } from "./testing/node-driver.ts";
 
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -331,12 +332,16 @@ describe("file contents", () => {
     expect(blobOf(d, "f1")).toBeNull();
   });
 
+  /// The device leaves its account, keeping its data, as a sign out does.
+  const leaveAccount = (d: ReturnType<typeof device>) =>
+    new SyncEngine({ driver: d.driver }).disable();
+
   it("doesn't send contents again to an account that still has them", async () => {
     const d = device();
     addFile(d, "f1", "/files/a.pdf", "lecture one");
     await d.blobs.runOnce();
     // The device left the account, and now joins one again.
-    d.driver.exec("UPDATE blob_files SET path = '', sha256 = ''");
+    await leaveAccount(d);
     d.platform.calls.length = 0;
     const progress = await d.blobs.runOnce();
     expect(d.platform.calls).toEqual([]);
@@ -345,10 +350,25 @@ describe("file contents", () => {
       { path: "/files/a.pdf", sha256: sha("lecture one") },
     ]);
     // An account without them gets them.
-    d.driver.exec("UPDATE blob_files SET path = '', sha256 = ''");
+    await leaveAccount(d);
     d.store.clear();
     await d.blobs.runOnce();
     expect(d.store.get(sha("lecture one"))).toBe("lecture one");
+  });
+
+  it("never sends an old copy over a newer one after joining an account again", async () => {
+    const store = new Map<string, string>();
+    const d = device(store);
+    addFile(d, "f1", "/files/a.pdf", "version one");
+    await d.blobs.runOnce();
+    await leaveAccount(d);
+    // Another device replaced the file meanwhile, and the row came with its hash.
+    store.set(sha("version two"), "version two");
+    d.driver.exec("UPDATE files SET blob = ? WHERE entity_id = 'f1'", sha("version two"));
+    d.platform.calls.length = 0;
+    await d.blobs.runOnce();
+    expect(d.platform.calls).toEqual([`download ${sha("version two").slice(0, 6)} notes.pdf`]);
+    expect(blobOf(d, "f1")).toBe(sha("version two"));
   });
 
   it("waits as long as the server asks before moving any more files", async () => {

@@ -602,6 +602,7 @@ Every answer of the server carries its version in `x-nookly-server-version`, and
 ## D106. Signing out removes the files the account holds
 
 - **Decision:** a sign out that clears the device, from the device or from the server, deletes the local files the account is confirmed to hold. Anything else stays, and so do backups. Closes the follow up noted in D43.
+- **Confirmed:** this device took the contents from this account, sent them to it or was told it has them, since sync was turned on. A record of the local file alone is not enough: versions up to 1.0.3 kept those records when a device moved to another account, so trusting them would delete the only copy. A device that can't ask keeps the file.
 - **Why:** a lost device should not hold the account's files, and a file that never reached the account may be the only copy.
 - **Limit:** older copies of replaced files are not tracked and stay, and backups made on the device keep what was in them.
 

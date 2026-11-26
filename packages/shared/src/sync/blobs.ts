@@ -14,6 +14,12 @@ import { type SqlDriver, guard, ident, run } from "./sql.ts";
 ///   downloaded, checked against the hash, stored next to any old copy (which stays
 ///   on disk) and recorded.
 ///
+/// A record says what a local path holds, not that the account has it: the device may have
+/// moved to another account since, and versions up to 1.0.3 kept their records when it did.
+/// Contents count as in the account only once seen there since sync was turned on: the
+/// account took them, sent them or said it has them (`noteHeld`). A recorded file without
+/// that is asked about, and sent when the account lacks it.
+///
 /// Syncing never deletes a local file; only a sign out that clears the device removes
 /// the ones the account holds (`confirmed`). A row only ever points at contents the
 /// server confirmed. Everything is derived from the database, so a crash or a lost
@@ -111,10 +117,15 @@ interface Pending {
   path: string | null;
   blob: string | null;
   name: string | null;
-  /// The local path recorded for this row; empty once the device left the account it
-  /// was recorded for (`SyncEngine.disable`).
+  /// The local path recorded for this row.
   knownPath: string | null;
 }
+
+/// `sync_meta` keys naming contents the account holds, one per hash. They go with the rest
+/// of what sync knows when the device leaves the account (`SyncEngine.disable`).
+const HELD = "held:";
+const heldSql = (sha256: string) =>
+  `EXISTS (SELECT 1 FROM sync_meta m WHERE m.key = '${HELD}' || ${sha256})`;
 
 const TYPES = new Map([
   ["pdf", "application/pdf"],
@@ -177,6 +188,7 @@ export class BlobSync {
   private readonly downloadsAtOnce: number;
   private readonly uploadsAtOnce: number;
   private cancelled = false;
+  private closed = false;
   /// No file moves before this: the server asked for a break.
   private pausedUntil = 0;
 
@@ -204,11 +216,14 @@ export class BlobSync {
     return { ...this.progress };
   }
 
-  private async rows(column: BlobColumn): Promise<(Pending & { known: string | null })[]> {
+  private async rows(
+    column: BlobColumn,
+  ): Promise<(Pending & { known: string | null; held: boolean })[]> {
     const t = ident(column.table);
     const name = column.name ? `t.${ident(column.name)}` : "NULL";
     const rows = await this.driver.query(
-      `SELECT t.${ident(column.key)} AS pk, t.${ident(column.path)} AS path, t.${ident(column.blob)} AS blob, ${name} AS name, b.path AS known_path, b.sha256 AS known
+      `SELECT t.${ident(column.key)} AS pk, t.${ident(column.path)} AS path, t.${ident(column.blob)} AS blob, ${name} AS name, b.path AS known_path, b.sha256 AS known,
+         ${heldSql(`t.${ident(column.blob)}`)} AS held
        FROM ${t} t LEFT JOIN blob_files b ON b.tbl = ? AND b.pk = t.${ident(column.key)}
        WHERE t.${ident(column.path)} IS NOT NULL OR t.${ident(column.blob)} IS NOT NULL`,
       [column.table],
@@ -221,6 +236,7 @@ export class BlobSync {
       name: text(r.name),
       known: text(r.known),
       knownPath: text(r.known_path),
+      held: r.held === 1,
     }));
   }
 
@@ -233,6 +249,8 @@ export class BlobSync {
         if (row.path !== null && row.path !== row.knownPath) uploads.push(row);
         else if (row.blob !== null && (row.blob !== row.known || row.path === null))
           downloads.push(row);
+        // Recorded as here, but the account was never seen to have it.
+        else if (row.path !== null && row.blob !== null && !row.held) uploads.push(row);
       }
     }
     return { uploads, downloads };
@@ -332,23 +350,41 @@ export class BlobSync {
     return this.driver.batch(statements);
   }
 
+  /// Notes that the account has these contents, so a sign out may remove them here.
+  private async noteHeld(sha256: string) {
+    // What was still on its way when the device left says nothing about the next account.
+    if (this.closed) return;
+    await this.driver.batch([
+      run(
+        "INSERT INTO sync_meta (key, value) VALUES (?, '1') ON CONFLICT (key) DO NOTHING",
+        `${HELD}${sha256}`,
+      ),
+    ]);
+  }
+
   private async upload(item: Pending, size: number): Promise<boolean> {
-    if (!item.path) return false;
-    const hashed = await this.platform.hash(item.path);
+    const { path, blob } = item;
+    if (!path) return false;
+    const recorded = path === item.knownPath;
+    // An account that has the recorded contents needs nothing, whatever became of the file.
+    if (recorded && blob !== null && (await this.holds(blob))) {
+      await this.noteHeld(blob);
+      return true;
+    }
+    const hashed = await this.platform.hash(path);
     // A file that is gone from disk can't be sent; nothing is changed.
     if (!hashed) return false;
-    // A row that carries the hash already was synced with the account. A device that left
-    // it since asks the account it is in now, which may be another one.
-    const sent =
-      item.blob === hashed.sha256 && (item.knownPath !== "" || (await this.holds(hashed.sha256)));
-    if (!sent) {
-      const name = item.name ?? basename(item.path);
+    // A row can come with the hash of a file this device only now has under this path.
+    const there = !recorded && blob === hashed.sha256 && (await this.holds(blob));
+    if (!there) {
+      const name = item.name ?? basename(path);
       const key = this.key(item);
-      await this.platform.upload(hashed.sha256, item.path, contentTypeFor(name), (bytes) =>
+      await this.platform.upload(hashed.sha256, path, contentTypeFor(name), (bytes) =>
         this.moved(key, Math.min(size, bytes)),
       );
     }
-    const result = await this.record(item, item.path, hashed.sha256, true);
+    await this.noteHeld(hashed.sha256);
+    const result = await this.record(item, path, hashed.sha256, true);
     return result.outcome === "done";
   }
 
@@ -360,6 +396,7 @@ export class BlobSync {
       pk: item.pk,
       filename,
     });
+    await this.noteHeld(item.blob);
     const result = await this.record(item, path, item.blob, false);
     // The device was cleared while this came in: the account holds it, so it goes too.
     if (result.outcome !== "done" && this.cancelled) await this.platform.remove(path, item.blob);
@@ -371,9 +408,15 @@ export class BlobSync {
     this.cancelled = true;
   }
 
+  /// Sync is over for this account: a file still on its way no longer counts for it.
+  close() {
+    this.closed = true;
+  }
+
   /// The local files the account holds: the row points at the file, the record of what
-  /// the file holds matches it, and the account's row (as the server last had it) names
-  /// the same contents. A path any other row still needs here is left out.
+  /// the file holds matches it, the account's row (as the server last had it) names the
+  /// same contents, and the account was seen to have them. A path any other row still
+  /// needs here is left out.
   async confirmed(): Promise<StoredFile[]> {
     const stored = new Map<string, string>();
     const needed = new Set<string>();
@@ -383,7 +426,8 @@ export class BlobSync {
       const blob = `t.${ident(column.blob)}`;
       const rows = await this.driver.query(
         `SELECT ${path} AS path, ${blob} AS blob,
-           (b.path = ${path} AND b.sha256 = ${blob} AND json_extract(r.fields, ?) = ${blob}) AS held
+           (b.path = ${path} AND b.sha256 = ${blob} AND json_extract(r.fields, ?) = ${blob}
+             AND ${heldSql("b.sha256")}) AS held
          FROM ${ident(column.table)} t
          LEFT JOIN blob_files b ON b.tbl = ? AND b.pk = ${key}
          LEFT JOIN sync_rows r ON r.tbl = ? AND r.pk = ${key}

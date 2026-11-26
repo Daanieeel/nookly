@@ -1060,6 +1060,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     this.stopSettings = null;
     if (this.filesTimer) clearTimeout(this.filesTimer);
     this.filesTimer = null;
+    this.blobs?.close();
     this.blobs = null;
     this.filesCounted = { uploaded: 0, downloaded: 0 };
     const docs = this.docs;

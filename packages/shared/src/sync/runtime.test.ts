@@ -1584,6 +1584,120 @@ describe("files and signing out", () => {
     expect(made.files.disk.get("/nookly/files/a")).toBe("lecture");
   });
 
+  /// What version 1.0.3 leaves on a device that moved to another account: a file recorded as
+  /// sent, which the account it is in now may never have got.
+  function addRecordedFile(files: DiskFiles, id: string, path: string, body: string) {
+    addFile(files, id, path, body, 1);
+    files.driver.exec("UPDATE files SET blob = ? WHERE entity_id = ?", sha(body), id);
+    files.driver.exec(
+      "INSERT INTO blob_files (tbl, pk, path, sha256) VALUES ('files', ?, ?, ?)",
+      id,
+      path,
+      sha(body),
+    );
+  }
+
+  /// `withFiles`, with an account that says truthfully which contents it holds.
+  function withAccountFiles() {
+    const made = withFiles();
+    const asked = vi.fn(async (sha256: string) => made.files.store.has(sha256));
+    made.account.hasBlob = asked;
+    return { ...made, asked };
+  }
+
+  const unreachable = async (): Promise<boolean> => {
+    throw new NetworkError("Can't reach the server.");
+  };
+
+  it("sends a file an earlier version recorded as sent that the account never got", async () => {
+    const made = withAccountFiles();
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "only copy");
+    await signedIn(made);
+    expect(made.files.store.get(sha("only copy"))).toBe("only copy");
+    made.sync.stop();
+  });
+
+  it("keeps a recorded file, and backs up first, while the account can't be asked", async () => {
+    const made = withAccountFiles();
+    made.account.hasBlob = unreachable;
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "only copy");
+    await signedIn(made);
+    await expect(made.sync.signOut()).resolves.toMatchObject({ backupPath: "/b" });
+    expect(made.files.disk.get("/nookly/files/a")).toBe("only copy");
+  });
+
+  it("keeps a recorded file when the server signs the device out before asking", async () => {
+    const made = withAccountFiles();
+    made.account.hasBlob = unreachable;
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "only copy");
+    await signedIn(made);
+    made.account.onSignedOut();
+    await vi.waitFor(() => expect(made.sync.store.getState().user).toBeNull());
+    await vi.waitFor(() => expect(made.reindex).toHaveBeenCalled());
+    expect(made.files.disk.get("/nookly/files/a")).toBe("only copy");
+  });
+
+  it("removes a recorded file on sign out once the account says it has it", async () => {
+    const made = withAccountFiles();
+    const sent = vi.spyOn(made.files, "upload");
+    made.files.store.set(sha("in the account"), "in the account");
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "in the account");
+    await signedIn(made);
+    expect(sent).not.toHaveBeenCalled();
+    await made.sync.signOut();
+    expect(made.files.disk.has("/nookly/files/a")).toBe(false);
+  });
+
+  it("asks the account about a file once", async () => {
+    const made = withAccountFiles();
+    made.files.store.set(sha("in the account"), "in the account");
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "in the account");
+    await signedIn(made);
+    made.asked.mockClear();
+    await made.sync.syncNow();
+    await settle(made.sync);
+    expect(made.asked).not.toHaveBeenCalled();
+    made.sync.stop();
+  });
+
+  it("stops waiting for a recorded file that is gone here and in the account", async () => {
+    const made = withAccountFiles();
+    made.files.store.set(sha("in the account"), "in the account");
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "in the account");
+    made.files.disk.clear();
+    await signedIn(made);
+    expect(made.sync.store.getState().files).toMatchObject({ toUpload: 0 });
+    await expect(made.sync.unsentCount()).resolves.toBe(0);
+    made.sync.stop();
+  });
+
+  it("doesn't count a file that arrives after the account is gone for the next one", async () => {
+    const made = withAccountFiles();
+    const { files } = made;
+    let release = () => {};
+    const waits = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    files.gates.set("/nookly/files/a", () => waits);
+    addFile(files, "f1", "/nookly/files/a", "lecture", 1);
+    await made.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await made.sync.syncNow();
+    // The account is deleted while the file is on its way.
+    await made.sync.detach();
+    release();
+    await vi.waitFor(() =>
+      expect(files.driver.rows("SELECT sha256 FROM blob_files")).toHaveLength(1),
+    );
+    // The next account has nothing of this device's, and never gets the file.
+    made.server.records.clear();
+    files.store.clear();
+    files.gates.clear();
+    files.stuck.add("/nookly/files/a");
+    await signedIn(made);
+    await made.sync.signOut();
+    expect(files.disk.get("/nookly/files/a")).toBe("lecture");
+  });
+
   it("removes the files the account has when the server signs the device out", async () => {
     const made = withFiles();
     const { files } = made;

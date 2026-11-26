@@ -379,8 +379,6 @@ export class SyncEngine {
       run("DELETE FROM sync_meta WHERE key <> ?", META.deviceId),
       run("DELETE FROM sync_dirty"),
       run("DELETE FROM sync_rows"),
-      // What each local file holds stays known, but not as sent to any account.
-      run("UPDATE blob_files SET path = '', sha256 = ''"),
     ]);
     this.clock = null;
   }
