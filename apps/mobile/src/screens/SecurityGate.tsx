@@ -3,18 +3,13 @@ import {
   type SecurityAction,
   type SecurityOutcome,
   type SecuritySummary,
+  errorToShow,
   isWrongCode,
   runSecurityAction,
 } from "@nookly/shared/api";
-import {
-  IconCopy,
-  IconDeviceMobile,
-  IconKey,
-  IconMail,
-  IconShieldLock,
-} from "@tabler/icons-react-native";
+import { IconCopy, IconDeviceMobile, IconKey, IconMail } from "@tabler/icons-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { View } from "react-native";
 import { useAppData, useSyncState } from "../data/context.tsx";
 import { keys } from "../data/keys.ts";
@@ -25,25 +20,22 @@ import { FieldIcon } from "../ui/FieldIcon.tsx";
 import { GroupedSection } from "../ui/kit/GroupedSection.tsx";
 import { IconBadge } from "../ui/kit/IconBadge.tsx";
 import { ListRow } from "../ui/kit/ListRow.tsx";
+import { useDeviceWord } from "../ui/device-word.ts";
+import { SHEET_TURN } from "../ui/motion.ts";
 import { OtpField } from "../ui/OtpField.tsx";
 import { QrImage } from "../ui/QrImage.tsx";
-import { useOptionalSheetHost } from "../ui/sheet/SheetHost.tsx";
+import { useOptionalSheetHost, useSheetHostBusy } from "../ui/sheet/SheetHost.tsx";
 import { useSheet } from "../ui/sheet/Sheet.tsx";
 import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
+import { useAccount, useAccountChange } from "./account-change.ts";
+import { RecheckPrompt } from "./RecheckPrompt.tsx";
 import { useSecurityGate } from "./security-gate-store.ts";
+import { SignOutSheet } from "./SignOutSheet.tsx";
 
 /// Two-factor sign in, in a sheet: what the account has, and a step for each change. The
-/// steps go onto the same sheet with a back button.
-
-function useAccount() {
-  const { sync } = useAppData();
-  return () => {
-    const api = sync.account();
-    if (!api) throw new Error("Sign in first.");
-    return api;
-  };
-}
+/// steps go onto the same sheet with a back button. While the account owes it there is no way
+/// past the sheet but setting it up or signing out.
 
 /// What a change made to the account: what is shown is read again, and sync, which waits
 /// for an account that owes two-factor, starts.
@@ -56,49 +48,34 @@ function useChanged() {
   };
 }
 
-function PasswordStep({ action, setup }: { action: SecurityAction; setup: boolean }) {
+/// What a change does, then the change. Whether the person has to confirm it is them is the
+/// server's to say.
+function ConfirmStep({ action, setup }: { action: SecurityAction; setup: boolean }) {
   const sheet = useSheet();
   const account = useAccount();
   const changed = useChanged();
-  const [password, setPassword] = useState("");
-  const run = useMutation({
-    mutationFn: () => runSecurityAction(account(), action, password),
-    onSuccess: async (next) => {
-      if (next.name === "overview") {
-        await changed();
-        sheet?.back();
-      } else {
-        if (next.name === "codes") useSecurityGate.getState().holdCodes(null);
-        showOutcome(sheet, next, changed, setup);
-      }
+  const run = useAccountChange(
+    () => runSecurityAction(account(), action),
+    (next) => {
+      if (next.name === "overview") return sheet?.back();
+      if (next.name === "codes") useSecurityGate.getState().holdCodes(null);
+      showOutcome(sheet, next, changed, setup);
     },
-  });
+  );
+  const failed = errorToShow(run.error);
   return (
     <View className="gap-3">
       <Text tone="muted">{SECURITY_STEPS[action].text}</Text>
-      <Field
-        label="Password"
-        icon={<FieldIcon icon={IconShieldLock} />}
-        showName
-        placeholder="Password"
-        required
-        secureTextEntry
-        textContentType="password"
-        autoComplete="current-password"
-        editable={!run.isPending}
-        value={password}
-        onChangeText={setPassword}
-      />
-      {run.error ? <Text tone="destructive">{run.error.message}</Text> : null}
+      {failed ? <Text tone="destructive">{failed}</Text> : null}
       <Button
         size="lg"
         label="Continue"
-        disabled={!password}
         status={statusOf(run)}
         successLabel="Done"
         errorLabel="Couldn't continue"
         onPress={() => run.mutate()}
       />
+      <RecheckPrompt />
     </View>
   );
 }
@@ -238,15 +215,12 @@ function CodesStep({ codes, onDone }: { codes: string[]; onDone: () => Promise<v
 function AddEmailStep() {
   const sheet = useSheet();
   const account = useAccount();
-  const changed = useChanged();
   const [email, setEmail] = useState("");
-  const add = useMutation({
-    mutationFn: () => account().addEmail(email),
-    onSuccess: async () => {
-      await changed();
-      sheet?.back();
-    },
-  });
+  const add = useAccountChange(
+    () => account().addEmail(email),
+    () => sheet?.back(),
+  );
+  const failed = errorToShow(add.error);
   return (
     <View className="gap-3">
       <Text tone="muted">
@@ -267,7 +241,7 @@ function AddEmailStep() {
         value={email}
         onChangeText={setEmail}
       />
-      {add.error ? <Text tone="destructive">{add.error.message}</Text> : null}
+      {failed ? <Text tone="destructive">{failed}</Text> : null}
       <Button
         size="lg"
         label="Send Confirmation"
@@ -277,22 +251,23 @@ function AddEmailStep() {
         errorLabel="Couldn't send"
         onPress={() => add.mutate()}
       />
+      <RecheckPrompt />
     </View>
   );
 }
 
-function usePasswordStep(setup: boolean) {
+function useConfirmStep(setup: boolean) {
   const sheet = useSheet();
   return (action: SecurityAction) =>
     sheet?.push({
       title: SECURITY_STEPS[action].title,
-      content: <PasswordStep action={action} setup={setup} />,
+      content: <ConfirmStep action={action} setup={setup} />,
     });
 }
 
 function MethodRows({ summary, setup }: { summary: SecuritySummary; setup: boolean }) {
   const sheet = useSheet();
-  const ask = usePasswordStep(setup);
+  const ask = useConfirmStep(setup);
   const account = useAccount();
   const resend = useMutation({
     mutationFn: async () => {
@@ -360,11 +335,14 @@ function MethodRows({ summary, setup }: { summary: SecuritySummary; setup: boole
   );
 }
 
-/// What the sheet shows first.
-function SecuritySheet({ required }: { required: boolean }) {
+/// What the sheet shows first. `setup` while the account owes two-factor, or did when the
+/// sheet came up.
+function SecuritySheet({ setup }: { setup: boolean }) {
   const sheet = useSheet();
+  const device = useDeviceWord();
   const account = useAccount();
   const changed = useChanged();
+  const owed = useSyncState((state) => state.twoFactorPending);
   const { data: summary, error } = useQuery({
     queryKey: keys.sync.security,
     queryFn: () => account().security(),
@@ -372,22 +350,23 @@ function SecuritySheet({ required }: { required: boolean }) {
   const rows: ReactNode =
     summary && !summary.available ? (
       <Text tone="muted">
-        Your account signs in with another account, so it has no password to protect. Nothing to set
-        up here.
+        Your server offers two-factor sign in only for accounts with a password.
       </Text>
     ) : summary ? (
-      <MethodRows summary={summary} setup={required} />
+      <MethodRows summary={summary} setup={setup} />
     ) : null;
   return (
     <View className="gap-4">
       <Text tone="muted">
-        {required
+        {owed
           ? "Sign in needs a second step. Sync starts once it is set up."
-          : "A second step after your password keeps your account safe even if the password leaks."}
+          : setup
+            ? "Add another way to sign in, or continue."
+            : "A second step when you sign in keeps your account safe even if a password leaks."}
       </Text>
       {error ? <Text tone="destructive">{error.message}</Text> : null}
       {rows}
-      {required && summary?.enabled ? (
+      {setup && summary?.enabled ? (
         <Button
           size="lg"
           label="Continue"
@@ -401,56 +380,60 @@ function SecuritySheet({ required }: { required: boolean }) {
             } else {
               sheet?.push({
                 title: SECURITY_STEPS.newCodes.title,
-                content: <PasswordStep action="newCodes" setup />,
+                content: <ConfirmStep action="newCodes" setup />,
               });
             }
           }}
         />
-      ) : (
+      ) : null}
+      {setup ? null : <Button variant="ghost" label="Done" onPress={() => sheet?.close()} />}
+      {owed ? (
         <Button
-          variant="ghost"
-          label={required ? "Later" : "Done"}
-          onPress={() => {
-            if (required) useSecurityGate.getState().dismiss();
-            sheet?.close();
-          }}
+          variant="warning"
+          label="Sign Out"
+          onPress={() =>
+            sheet?.push({
+              title: `Sign out of this ${device}?`,
+              content: <SignOutSheet keepByDefault />,
+            })
+          }
         />
-      )}
+      ) : null}
     </View>
   );
+}
+
+function presented(owed: boolean) {
+  return {
+    title: owed ? "Set up two-factor sign in" : "Two-factor sign in",
+    // No way past it but going on, or signing out.
+    locked: owed,
+    content: <SecuritySheet setup={owed} />,
+  };
 }
 
 /// Opens the sheet from Settings.
 export function useOpenSecurity() {
   const host = useOptionalSheetHost();
-  const required = useSyncState((state) => state.twoFactorPending);
+  const owed = useSyncState((state) => state.twoFactorPending);
   return () => {
     useSecurityGate.getState().reset();
-    host?.present({
-      title: required ? "Set up two-factor sign in" : "Two-factor sign in",
-      content: <SecuritySheet required={required} />,
-    });
+    host?.present(presented(owed));
   };
 }
 
-/// Rises when the server requires two-factor of this account and it has none, until it is
-/// set up or put off. Mounted once, inside the sheet host.
+/// Rises while the server requires two-factor of this account and it has none, and stays
+/// until it is set up or the account is signed out. A sheet that is up, or goes up at the
+/// same moment (a new account's username, the terms), goes first. Mounted once, inside the
+/// sheet host.
 export function SecurityGate() {
   const host = useOptionalSheetHost();
+  const busy = useSheetHostBusy();
   const owed = useSyncState((state) => state.twoFactorPending);
-  const dismissed = useSecurityGate((state) => state.dismissed);
-  const shown = useRef(false);
   useEffect(() => {
-    if (!owed) {
-      shown.current = false;
-      return;
-    }
-    if (dismissed || shown.current) return;
-    shown.current = true;
-    host?.present({
-      title: "Set up two-factor sign in",
-      content: <SecuritySheet required />,
-    });
-  }, [owed, dismissed, host]);
+    if (!owed || busy) return;
+    const turn = setTimeout(() => host?.present(presented(true)), SHEET_TURN);
+    return () => clearTimeout(turn);
+  }, [owed, busy, host]);
   return null;
 }

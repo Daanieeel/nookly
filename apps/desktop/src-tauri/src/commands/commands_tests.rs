@@ -273,6 +273,8 @@ const NOT_INVOKED: &[(&str, &str)] = &[
     ("blob_hash", "blob_commands_underlying_calls"),
     ("blob_upload", "blob_commands_underlying_calls"),
     ("blob_download", "blob_commands_underlying_calls"),
+    ("blob_size", "blob_commands_underlying_calls"),
+    ("blob_remove", "blob_commands_underlying_calls"),
     ("create_pre_sync_backup", "pre_sync_backup_underlying_calls"),
     (
         "store_dir",
@@ -422,6 +424,25 @@ impl Drop for TempDir {
     }
 }
 
+/// The request `invoke(cmd, args)` makes in the frontend.
+fn json_request(cmd: &str, args: Value) -> InvokeRequest {
+    InvokeRequest {
+        cmd: cmd.into(),
+        callback: CallbackFn(0),
+        error: CallbackFn(1),
+        url: if cfg!(windows) {
+            "http://tauri.localhost"
+        } else {
+            "tauri://localhost"
+        }
+        .parse()
+        .unwrap(),
+        body: InvokeBody::Json(args),
+        headers: Default::default(),
+        invoke_key: tauri::test::INVOKE_KEY.to_string(),
+    }
+}
+
 /// A mock app with a fresh migrated in-memory database.
 struct Harness {
     app: tauri::App<MockRuntime>,
@@ -461,25 +482,8 @@ impl Harness {
     /// Invokes `cmd` with `args` as its JSON body, like `invoke(cmd, args)` in
     /// the frontend. `Err` holds the serialized error.
     fn call(&self, cmd: &str, args: Value) -> Result<Value, Value> {
-        get_ipc_response(
-            &self.webview,
-            InvokeRequest {
-                cmd: cmd.into(),
-                callback: CallbackFn(0),
-                error: CallbackFn(1),
-                url: if cfg!(windows) {
-                    "http://tauri.localhost"
-                } else {
-                    "tauri://localhost"
-                }
-                .parse()
-                .unwrap(),
-                body: InvokeBody::Json(args),
-                headers: Default::default(),
-                invoke_key: tauri::test::INVOKE_KEY.to_string(),
-            },
-        )
-        .map(|body| body.deserialize::<Value>().unwrap())
+        get_ipc_response(&self.webview, json_request(cmd, args))
+            .map(|body| body.deserialize::<Value>().unwrap())
     }
 
     /// Invokes `cmd` with `bytes` as its raw body and `headers`, like
@@ -4302,10 +4306,32 @@ fn blob_commands_underlying_calls() {
     assert!(blobs::hash_file(&h.dir.path().join("missing"))
         .unwrap()
         .is_none());
-    assert!(blobs::upload_file("http://127.0.0.1:1", "not-a-hash", &path, "text/plain").is_err());
+    assert!(blobs::upload_file(
+        "http://127.0.0.1:1",
+        "not-a-hash",
+        &path,
+        "text/plain",
+        |_| {}
+    )
+    .is_err());
     let into = h.dir.path().join("downloads");
     assert!(blobs::download_to("http://127.0.0.1:1", "not-a-hash", &into, "a.txt").is_err());
     assert!(std::fs::read_dir(&into).map_or(true, |mut d| d.next().is_none()));
+    let size_of = |path: &std::path::Path| {
+        let path = path.to_string_lossy().into_owned();
+        tauri::async_runtime::block_on(blobs::blob_size(path)).unwrap()
+    };
+    assert_eq!(size_of(&path), Some(11));
+    assert_eq!(size_of(&h.dir.path().join("missing")), None);
+    // A sign out only deletes files in Nookly's own folders: one elsewhere stays.
+    let data_dir = h.dir.path().join("data");
+    std::fs::create_dir_all(data_dir.join("files")).unwrap();
+    assert!(!blobs::remove_stored(&data_dir, &path, &hash.sha256).unwrap());
+    assert!(path.exists());
+    let stored = data_dir.join("files").join("lecture.txt");
+    std::fs::copy(&path, &stored).unwrap();
+    assert!(blobs::remove_stored(&data_dir, &stored, &hash.sha256).unwrap());
+    assert!(!stored.exists());
 }
 
 #[test]
@@ -4589,6 +4615,50 @@ fn sync_query_and_batch_run_the_engines_sql() {
         json!({ "sql": "SELECT key, value FROM sync_meta", "params": [] }),
     );
     assert_eq!(rows, json!([{ "key": "enabled", "value": "1" }]));
+}
+
+/// A command on the window's own thread freezes the whole app for as long as it waits for the
+/// database, and the sync engine asks all the time.
+#[test]
+fn the_sync_engines_commands_never_hold_up_the_window() {
+    use std::sync::mpsc::channel;
+    use std::time::Duration;
+    let h = Harness::new();
+    let commands = [
+        (
+            "sync_query",
+            json!({ "sql": "SELECT key FROM sync_meta", "params": [] }),
+        ),
+        ("sync_batch", json!({ "statements": [] })),
+        ("sync_reindex", json!({ "entityIds": [] })),
+    ];
+    for (cmd, args) in commands {
+        let state = h.app.state::<DbState>();
+        let busy = state.conn().unwrap();
+        let (answered, answer) = channel();
+        let (handed_over, window) = channel();
+        let webview = h.webview.as_ref().clone();
+        let request = json_request(cmd, args);
+        std::thread::spawn(move || {
+            webview.on_message(
+                request,
+                Box::new(move |_, _, response, _, _| {
+                    answered
+                        .send(matches!(response, tauri::ipc::InvokeResponse::Ok(_)))
+                        .ok();
+                }),
+            );
+            handed_over.send(()).ok();
+        });
+        window
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap_or_else(|_| panic!("{cmd} held up the window while the database was busy"));
+        drop(busy);
+        assert!(
+            answer.recv_timeout(Duration::from_secs(5)).unwrap(),
+            "{cmd}"
+        );
+    }
 }
 
 #[test]

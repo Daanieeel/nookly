@@ -62,7 +62,7 @@ describe("ci plan", () => {
 
   test("documentation only runs the format check", () => {
     expect(ran(["docs/development/server.md"])).toEqual(["format"]);
-    expect(ran(["INSTANCE_TESTING.md"])).toEqual(["format"]);
+    expect(ran(["README.md"])).toEqual(["format"]);
   });
 
   test("Terraform and other workflows run nothing here", () => {
@@ -89,6 +89,6 @@ describe("ci plan", () => {
   });
 
   test("an unknown file is treated as code", () => {
-    expect(plan(["scripts/seed/reset.sh"], base).js).toBe(true);
+    expect(plan(["somewhere/new.sh"], base).js).toBe(true);
   });
 });

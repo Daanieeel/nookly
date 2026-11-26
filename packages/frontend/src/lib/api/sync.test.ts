@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { callsOf, mockCommand } from "#/test/tauri.ts";
-import { keychainTokens, reindexEntities, tauriSqlDriver } from "./sync.ts";
+import { describe, expect, it, vi } from "vitest";
+import { callsOf, mockCommand, mockCommandWith } from "#/test/tauri.ts";
+import { keychainTokens, reindexEntities, tauriBlobs, tauriSqlDriver } from "./sync.ts";
 
 describe("sync on the desktop", () => {
   it("runs the engine's reads and writes through Rust", async () => {
@@ -22,6 +22,56 @@ describe("sync on the desktop", () => {
         ],
       },
     ]);
+  });
+
+  it("hands the database one request at a time, in the order they were made", async () => {
+    let finish = () => {};
+    mockCommandWith(
+      "sync_batch",
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ outcome: "done" });
+        }),
+    );
+    mockCommand("sync_query", []);
+    const write = tauriSqlDriver.batch([]);
+    const read = tauriSqlDriver.query("SELECT 1", []);
+    await vi.waitFor(() => expect(callsOf("sync_batch")).toHaveLength(1));
+    expect(callsOf("sync_query")).toEqual([]);
+    finish();
+    await expect(write).resolves.toEqual({ outcome: "done" });
+    await expect(read).resolves.toEqual([]);
+  });
+
+  // Whatever shows or logs a failure reads an `Error`; anything else prints as "[object Object]".
+  it("says why Rust refused, and carries on with the next request", async () => {
+    const refused = () => Promise.reject({ kind: "Db", message: "the disk is full" });
+    mockCommandWith("sync_batch", refused);
+    mockCommand("sync_query", []);
+    const write = tauriSqlDriver.batch([]);
+    await expect(write).rejects.toBeInstanceOf(Error);
+    await expect(write).rejects.toThrow("the disk is full");
+    await expect(tauriSqlDriver.query("SELECT 1", [])).resolves.toEqual([]);
+  });
+
+  it("says why a file couldn't be moved", async () => {
+    const message = "This file isn't on the server.";
+    const refused = () => Promise.reject({ kind: "Remote", message });
+    for (const command of ["blob_hash", "blob_size", "blob_upload", "blob_download"]) {
+      mockCommandWith(command, refused);
+    }
+    const files = tauriBlobs("https://sync.example.com");
+    const target = { table: "files", pk: "f1", filename: "a.pdf" };
+    const requests = [
+      files.download("0".repeat(64), target),
+      files.upload("0".repeat(64), "/a.pdf", "application/pdf"),
+      files.hash("/a.pdf"),
+      files.size("/a.pdf"),
+    ];
+    for (const failed of await Promise.allSettled(requests)) {
+      expect(failed).toEqual({ status: "rejected", reason: expect.any(Error) });
+      expect(failed).toHaveProperty("reason.message", message);
+    }
   });
 
   it("keeps the refresh token in the keychain", async () => {

@@ -2,6 +2,36 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.1.0 (2026-11-25)
+
+### Added
+
+- One account can now sign in with an email and password (Nookly Signin), Google, GitHub and Notion. Connect and disconnect them in Settings, under Account.
+- Pick which way of signing in gets your notices and sign in codes, and change its email whenever you like.
+
+### Changed
+
+- Every account now needs a second step when it signs in, also with Google, GitHub or Notion. A code by email is enough, and you are asked to set it up before syncing continues.
+- Update Nookly on all your devices: older versions can't sign in or sync until you do. Nothing on them is lost.
+- Changing how you sign in now asks you to confirm it's you first.
+- How you sign in moved from the calendar connections to the Account page.
+- Signing out now also removes your account's files from that device. A file your account doesn't have yet stays on it, so nothing is lost.
+- Another device only has your data removed when you sign it out from your list of devices. After a password reset, a deleted account or a long break it stops syncing and keeps everything.
+- While your first sync sends files, you can see how much of them has gone, even for one big file.
+- "Keep a local copy", when signing out, can be ticked from anywhere on its row and is shown as a warning.
+- A change that can't sync yet no longer asks you to decide anything. It stays on your device, Nookly keeps trying and tells you it is waiting.
+
+### Fixed
+
+- Fixed changes not syncing from a device whose clock is set wrong.
+- Fixed some text pasted from other apps not syncing.
+- Fixed a change that couldn't sync showing up as a removed item.
+- Fixed files not coming back after signing out and in again on the same device.
+- Fixed files not being sent after moving a device to another account, including ones left behind earlier.
+- Fixed the app freezing for seconds while files download from your account.
+- Fixed a first sync with many files stalling on "Too many requests".
+- Fixed file sync problems showing "[object Object]" instead of what went wrong.
+
 ## 1.0.3 (2026-11-25)
 
 ### Fixed

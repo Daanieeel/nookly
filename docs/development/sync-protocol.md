@@ -40,7 +40,7 @@ All under `/v1/sync`, authenticated with the access token.
 
 | Call         | Body                                     | Returns                                                                                                                                                            |
 | ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST /push` | up to 500 changes                        | per change `applied` or `rejected` (`forbidden`, `invalid`, `invalid-value`, `clock-skew`)                                                                         |
+| `POST /push` | up to 500 changes                        | per change `applied` or `rejected` (`forbidden`, `invalid`, `invalid-value`, `clock-skew`), with `serverTime` after a `clock-skew`                                 |
 | `POST /pull` | `cursors` per dataset                    | records with a higher sequence number, per dataset, `hasMore`                                                                                                      |
 | `GET /ws`    | first message `{ type: "hello", token }` | `ready`, then `changes` (or `datasets`) whenever there is news, and `account` when the account itself changed (its email was confirmed): the device reads it again |
 
@@ -48,4 +48,20 @@ A dataset is `own` or `share:<id>`. Pushing the same change twice is harmless, s
 
 ## Changes the server won't take
 
-A change is refused on its own, and the rest of the push goes through. `invalid-value` is a value the database can't hold (a NUL character); `clock-skew` is a clock more than a day ahead of the server's, which would beat every honest edit from then on. A device keeps such a row exactly as it is, drops the change from its queue and keeps the edit as a conflict (`SyncEngine.quarantine`). If the server fails a push with a 500 for a reason nobody foresaw, it retries the changes one by one, and a client that still gets a 500 splits the push to find the one change (at most 40 requests) and sets it aside after three rounds. Only a 500 is split: an outage fails every change the same way.
+A change is refused on its own, and the rest of the push goes through. `invalid-value` is a value the database can't hold; `clock-skew` is a clock more than a day ahead of the server's, which would beat every honest edit from then on. The person is never asked to decide about either, and the device never gives one up.
+
+- A wrong clock: the response carries `serverTime`, and the client sends the change again at once, dated by it. Against a server that sends none, the device's own time is used, so the change goes once the clock is right.
+- NUL characters: left out of every value as it is sent (keys are sent as they are).
+- Anything else, including a change the server keeps answering with a 500: the client holds it back. It stays in `sync_dirty`, so it counts as not sent (a sign out backs the device up first), and is tried again after an hour, when it is edited, and when the app starts. `SyncStatus.held` and the first sync's `heldItems` say how many wait.
+
+A push the server fails with a 500 is retried one change at a time by the server, and a client that still gets a 500 splits the push to find the one change (at most 40 requests) and holds it after three rounds. Only a 500 is split: an outage fails every change the same way.
+
+Versions up to 1.0.3 set such a change aside as a conflict instead. On start, a row still exactly as that entry's copy is marked to be sent again (`SyncEngine.requeueSetAside`).
+
+## Files and signing out
+
+A row names its contents by hash; each device keeps its own copy and records it in `blob_files` (`BlobSync`). A row without a local path is downloaded.
+
+A record says what a local path holds, not that the account has it. The account counts as holding contents once this device took them from it, sent them or asked (`HEAD /v1/blobs/:sha256`), noted as `held:<sha256>` in `sync_meta` and forgotten on leaving the account. A recorded file without that note is asked about once and sent when the account lacks it. This covers records made by versions up to 1.0.3, which kept them across accounts.
+
+A device clears itself when the person signs it out on it, or presses Sign Out Device for it elsewhere. Only the latter gets a 401 (`unauthorized` on the live socket); a session that ends any other way gets 403 `forbidden` and the device keeps everything (D110). A sign out that clears the device also deletes local files the account holds: the account is noted as holding them, the row's record and the account's own row name the same contents, the file still holds them, no other row needs the path, and it lies in Nookly's own folders. Any other file stays. Backups stay too.

@@ -120,6 +120,29 @@ describe("a request the server could not understand", () => {
     expect(error.message).toBe("The password is wrong.");
   });
 
+  const noSuchAddress = { error: "not_found", message: "Not found." };
+
+  it("says the server is out of date when it has no such address yet", async () => {
+    const error = await failureOf(
+      clientOf(answer(404, { ...noSuchAddress, serverVersion: older }, older)).signInMethods(),
+    );
+    expect(error.code).toBe(SERVER_OUTDATED);
+    expect(error.message).toMatch(/server is out of date/i);
+  });
+
+  it("keeps what an older server says is missing", async () => {
+    const gone = { error: "not_found", message: "This file isn't on the server." };
+    const error = await failureOf(clientOf(answer(404, gone, older)).sessions());
+    expect(error.code).toBe("not_found");
+    expect(error.message).toBe(gone.message);
+  });
+
+  it("keeps not found from a server of the same version", async () => {
+    const version = EXPECTED_SERVER_VERSION;
+    const error = await failureOf(clientOf(answer(404, noSuchAddress, version)).sessions());
+    expect(error.code).toBe("not_found");
+  });
+
   it("says the server is out of date when its answer is not the shape the app reads", async () => {
     const error = await failureOf(clientOf(answer(200, { unexpected: true }, older)).sessions());
     expect(error.code).toBe(SERVER_OUTDATED);

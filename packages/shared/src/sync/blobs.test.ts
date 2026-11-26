@@ -2,11 +2,15 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   type BlobPlatform,
+  type BlobProgress,
   type BlobTarget,
   BlobSync,
+  DOWNLOADS_AT_ONCE,
   backoffMs,
   contentTypeFor,
 } from "./blobs.ts";
+import { tooManyRequests } from "../api/rate-limit.ts";
+import { SyncEngine } from "./engine.ts";
 import { NodeSqliteDriver } from "./testing/node-driver.ts";
 
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -29,12 +33,27 @@ class FakePlatform implements BlobPlatform {
     return body === undefined ? null : { sha256: sha(body), size: body.length };
   }
 
-  async upload(sha256: string, path: string, contentType: string) {
+  async size(path: string) {
+    return this.disk.get(path)?.length ?? null;
+  }
+
+  async upload(
+    sha256: string,
+    path: string,
+    contentType: string,
+    _onSent?: (bytes: number) => void,
+  ) {
     this.calls.push(`upload ${path} ${contentType}`);
     if (this.offline) throw new Error("offline");
     const body = this.disk.get(path) ?? "";
     if (sha(body) !== sha256) throw new Error("checksum_mismatch");
     this.store.set(sha256, body);
+  }
+
+  async remove(path: string, sha256: string) {
+    const body = this.disk.get(path);
+    if (body === undefined || sha(body) !== sha256) return false;
+    return this.disk.delete(path);
   }
 
   async download(sha256: string, target: BlobTarget) {
@@ -51,10 +70,15 @@ class FakePlatform implements BlobPlatform {
 
 const now = () => new Date().toISOString();
 
-function device(store = new Map<string, string>(), clock = { t: 1_000_000 }) {
+function device(
+  store = new Map<string, string>(),
+  clock = { t: 1_000_000 },
+  onProgress?: (progress: BlobProgress) => void,
+) {
   const driver = new NodeSqliteDriver();
   const platform = new FakePlatform(driver, store);
-  const blobs = new BlobSync({ driver, platform, now: () => clock.t });
+  const holds = async (sha256: string) => store.has(sha256);
+  const blobs = new BlobSync({ driver, platform, holds, now: () => clock.t, onProgress });
   driver.exec(
     "INSERT INTO spaces (id, name, color, created_at, updated_at) VALUES ('s1', 'Personal', 'blue', ?, ?)",
     now(),
@@ -214,6 +238,52 @@ describe("file contents", () => {
     for (let i = 0; i < 8; i++) expect(blobOf(d, `f${i}`)).toBe(sha(`lecture ${i}`));
   });
 
+  it("says how many bytes went up, while one file is still on its way", async () => {
+    const seen: [number, number, number][] = [];
+    const clock = { t: 1_000_000 };
+    const d = device(undefined, clock, (p) =>
+      seen.push([p.passBytesSent, p.passBytes, p.passFilesSent]),
+    );
+    addFile(d, "f1", "/files/a.pdf", "0123456789");
+    const upload = d.platform.upload.bind(d.platform);
+    d.platform.upload = async (sha256, path, contentType, onSent) => {
+      for (const sent of [4, 8]) {
+        clock.t += 500;
+        onSent?.(sent);
+      }
+      return upload(sha256, path, contentType);
+    };
+    await d.blobs.runOnce();
+    expect(seen).toEqual([
+      [0, 10, 0],
+      [4, 10, 0],
+      [8, 10, 0],
+      [10, 10, 1],
+    ]);
+  });
+
+  it("doesn't report every chunk of a fast upload", async () => {
+    const seen: number[] = [];
+    const d = device(undefined, undefined, (p) => seen.push(p.passBytesSent));
+    addFile(d, "f1", "/files/a.pdf", "0123456789");
+    const upload = d.platform.upload.bind(d.platform);
+    d.platform.upload = async (sha256, path, contentType, onSent) => {
+      for (let sent = 1; sent <= 10; sent++) onSent?.(sent);
+      return upload(sha256, path, contentType);
+    };
+    await d.blobs.runOnce();
+    expect(seen).toEqual([0, 10]);
+  });
+
+  it("counts what still has to go up, without a file that is gone from disk", async () => {
+    const d = device();
+    addFile(d, "f1", "/files/a.pdf", "0123456789");
+    addFile(d, "f2", "/files/gone.pdf");
+    await expect(d.blobs.waitingUploads()).resolves.toEqual({ files: 1, bytes: 10 });
+    await d.blobs.runOnce();
+    await expect(d.blobs.waitingUploads()).resolves.toEqual({ files: 0, bytes: 0 });
+  });
+
   it("lets one failing download wait without holding up the others", async () => {
     const store = new Map<string, string>();
     const d = device(store);
@@ -260,6 +330,78 @@ describe("file contents", () => {
     await d.blobs.runOnce();
     expect(d.platform.calls).toEqual([]);
     expect(blobOf(d, "f1")).toBeNull();
+  });
+
+  /// The device leaves its account, keeping its data, as a sign out does.
+  const leaveAccount = (d: ReturnType<typeof device>) =>
+    new SyncEngine({ driver: d.driver }).disable();
+
+  it("doesn't send contents again to an account that still has them", async () => {
+    const d = device();
+    addFile(d, "f1", "/files/a.pdf", "lecture one");
+    await d.blobs.runOnce();
+    // The device left the account, and now joins one again.
+    await leaveAccount(d);
+    d.platform.calls.length = 0;
+    const progress = await d.blobs.runOnce();
+    expect(d.platform.calls).toEqual([]);
+    expect(progress).toMatchObject({ toUpload: 0, waiting: 0 });
+    expect(d.driver.rows("SELECT path, sha256 FROM blob_files")).toEqual([
+      { path: "/files/a.pdf", sha256: sha("lecture one") },
+    ]);
+    // An account without them gets them.
+    await leaveAccount(d);
+    d.store.clear();
+    await d.blobs.runOnce();
+    expect(d.store.get(sha("lecture one"))).toBe("lecture one");
+  });
+
+  it("never sends an old copy over a newer one after joining an account again", async () => {
+    const store = new Map<string, string>();
+    const d = device(store);
+    addFile(d, "f1", "/files/a.pdf", "version one");
+    await d.blobs.runOnce();
+    await leaveAccount(d);
+    // Another device replaced the file meanwhile, and the row came with its hash.
+    store.set(sha("version two"), "version two");
+    d.driver.exec("UPDATE files SET blob = ? WHERE entity_id = 'f1'", sha("version two"));
+    d.platform.calls.length = 0;
+    await d.blobs.runOnce();
+    expect(d.platform.calls).toEqual([`download ${sha("version two").slice(0, 6)} notes.pdf`]);
+    expect(blobOf(d, "f1")).toBe(sha("version two"));
+  });
+
+  it("waits as long as the server asks before moving any more files", async () => {
+    const d = device();
+    for (let i = 0; i < 12; i++) {
+      const body = `lecture ${i}`;
+      d.store.set(sha(body), body);
+      addFile(d, `f${i}`, null);
+      d.driver.exec("UPDATE files SET blob = ? WHERE entity_id = ?", sha(body), `f${i}`);
+    }
+    const download = d.platform.download.bind(d.platform);
+    let asked = 0;
+    d.platform.download = async () => {
+      asked += 1;
+      throw new Error(tooManyRequests(30));
+    };
+    const refused = await d.blobs.runOnce();
+    // Only those already on their way met the limit.
+    expect(asked).toBe(DOWNLOADS_AT_ONCE);
+    expect(refused).toMatchObject({ toDownload: 12, lastError: tooManyRequests(30) });
+    expect(refused.waiting).toBeGreaterThan(0);
+
+    d.platform.download = download;
+    d.clock.t += 29_000;
+    const early = await d.blobs.runOnce();
+    expect(d.platform.calls).toEqual([]);
+    expect(early).toMatchObject({ toDownload: 12, lastError: tooManyRequests(30) });
+    expect(early.waiting).toBeGreaterThan(0);
+
+    // Then all of them at once: a file that met the limit did nothing wrong.
+    d.clock.t += 1_000;
+    const done = await d.blobs.runOnce();
+    expect(done).toMatchObject({ toDownload: 0, waiting: 0, lastError: null });
   });
 
   it("uploads a replacement this device made", async () => {

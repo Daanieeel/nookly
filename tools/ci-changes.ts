@@ -52,7 +52,7 @@ const NOT_JS = [
   /^infrastructure\//,
   /^\.github\//,
   /^docs\//,
-  /^(README|AGENTS|DECISIONS|GAP_ANALYSIS|IMPLEMENTATION_STATE|INSTANCE_TESTING|NOTES|PAGES|REPORT)\.md$/,
+  /^(README|AGENTS|NOTES)\.md$/,
   /^(LICENSE|nookly-release\.asc)$/,
 ];
 

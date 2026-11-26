@@ -9,6 +9,8 @@ const CHECKED_VARIANT_CLASSES = {
     "data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground data-[state=indeterminate]:border-primary",
   destructive:
     "data-[state=checked]:bg-destructive data-[state=checked]:text-destructive-foreground data-[state=checked]:border-destructive data-[state=indeterminate]:bg-destructive data-[state=indeterminate]:text-destructive-foreground data-[state=indeterminate]:border-destructive",
+  warning:
+    "data-[state=checked]:bg-warning data-[state=checked]:text-warning-foreground data-[state=checked]:border-warning data-[state=indeterminate]:bg-warning data-[state=indeterminate]:text-warning-foreground data-[state=indeterminate]:border-warning",
 } as const;
 
 function Checkbox({

@@ -22,13 +22,18 @@ import {
   type DeviceInfo,
   type AuthenticatorStart,
   type ProviderBeginInput,
+  type Recheck,
   type SecuritySummary,
+  type SignInChange,
+  type SignInSummary,
   type Session,
   type Share,
   type ShareRole,
   type SignUp,
   type TwoFactorMethod,
   type User,
+  AUTH_LEVEL,
+  AUTH_QUERY,
   authResponseSchema,
   authenticatorStartSchema,
   backupCodesSchema,
@@ -39,6 +44,8 @@ import {
   securitySummarySchema,
   sessionsResponseSchema,
   sharesResponseSchema,
+  signInChangeSchema,
+  signInSummarySchema,
   twoFactorChallengeSchema,
   userSchema,
 } from "./schemas.ts";
@@ -123,6 +130,9 @@ export class ApiRequestError extends Error {
 
 /// The error codes of a request the server could not read: a body that failed its checks.
 const UNREADABLE = new Set(["invalid_request", "invalid_body"]);
+/// What the server says about an address it has nothing at. Its other "not found" answers
+/// name what is missing.
+const NO_SUCH_ADDRESS = "Not found.";
 
 /// The error that says which side is out of date, or null when neither is.
 function outdatedError(status: number, serverVersion: string | undefined): ApiRequestError | null {
@@ -138,7 +148,8 @@ function outdatedError(status: number, serverVersion: string | undefined): ApiRe
 
 /// An error response as an `ApiRequestError`. A request the server could not read, from an app
 /// and a server of different versions, says which of the two is out of date instead of what
-/// was wrong with the request, which nobody can do anything about.
+/// was wrong with the request, which nobody can do anything about. So does one for something
+/// the server doesn't have yet.
 async function requestError(
   response: Response,
   friendly: ReadonlyMap<string, string> | null,
@@ -148,7 +159,8 @@ async function requestError(
   const code = (data.error ?? data.code ?? "http_error").toLowerCase();
   const serverVersion =
     data.serverVersion ?? response.headers.get(SERVER_VERSION_HEADER) ?? undefined;
-  if (UNREADABLE.has(code)) {
+  const noSuchAddress = code === "not_found" && data.message === NO_SUCH_ADDRESS;
+  if (UNREADABLE.has(code) || noSuchAddress) {
     const outdated = outdatedError(response.status, serverVersion);
     if (outdated) return outdated;
   }
@@ -158,6 +170,11 @@ async function requestError(
     friendly?.get(code) ?? data.message ?? `Request failed (${response.status})`,
     serverVersion,
   );
+}
+
+/// An API address, saying what this app can do at sign in.
+function apiUrl(baseUrl: string, path: string): string {
+  return `${baseUrl}${path}${path.includes("?") ? "&" : "?"}${AUTH_QUERY}=${AUTH_LEVEL}`;
 }
 
 /// `fetch`, as far as the client uses it.
@@ -248,7 +265,7 @@ export class ApiClient {
     try {
       let response: Response;
       try {
-        response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+        response = await this.fetchImpl(apiUrl(this.baseUrl, path), {
           method,
           headers,
           body: body ? JSON.stringify(body) : undefined,
@@ -379,17 +396,98 @@ export class ApiClient {
     return this.callVoid("POST", "/v1/account/confirm/redeem", { code, secret });
   }
 
-  /// Swaps the code the browser brought back for this device's session.
+  /// Swaps the code the browser brought back for this device's session. An account with
+  /// two-factor is not signed in yet: this throws `TwoFactorRequiredError`, as `signIn` does.
   async finishProviderSignIn(code: string, secret: string, device: DeviceInfo): Promise<User> {
     const result = await this.call(
       "POST",
       "/v1/auth/app/redeem",
-      authResponseSchema,
+      authResponseSchema.or(twoFactorChallengeSchema),
       { code, secret },
       { authed: false, headers: deviceHeaders(device) },
     );
+    if ("twoFactorRequired" in result) {
+      throw new TwoFactorRequiredError(result.challenge, result.methods);
+    }
     await this.adopt(result.token);
     return this.me();
+  }
+
+  /// Confirms it is the person on this device, which changes to how the account signs in
+  /// need. Good for ten minutes. Without a password, a provider confirmation made just
+  /// before (`finishConfirmation`) stands in for it.
+  recheck(input: Recheck): Promise<void> {
+    const given = Object.entries(input).filter(([, value]) => value !== undefined);
+    return this.callVoid("POST", "/v1/account/recheck", Object.fromEntries(given));
+  }
+
+  /// Emails the code that answers the second step of a recheck.
+  sendRecheckCode(): Promise<void> {
+    return this.callVoid("POST", "/v1/account/recheck/email", {});
+  }
+
+  /// The ways this account signs in.
+  signInMethods(): Promise<SignInSummary> {
+    return this.call("GET", "/v1/account/sign-in", signInSummarySchema);
+  }
+
+  /// Begins connecting a provider to the signed in account.
+  beginLink(input: { provider: string; port?: number }) {
+    return this.call("POST", "/v1/account/sign-in/link/begin", providerBeginResponseSchema, input);
+  }
+
+  /// Swaps the code the browser brought back for the connected provider.
+  finishLink(code: string, secret: string): Promise<SignInChange> {
+    return this.signInChange("POST", "/v1/account/sign-in/link/redeem", { code, secret });
+  }
+
+  /// Disconnects a way of signing in. Devices that signed in with it are signed out.
+  unlink(provider: string): Promise<SignInChange> {
+    return this.signInChange("DELETE", `/v1/account/sign-in/${encodeURIComponent(provider)}`);
+  }
+
+  setPrimary(provider: string): Promise<SignInChange> {
+    return this.signInChange("POST", "/v1/account/sign-in/primary", { provider });
+  }
+
+  /// Emails a code to a new address, to change a way of signing in to it (or, for an account
+  /// without Nookly Signin, to add that with it).
+  sendEmailCode(provider: string, email: string): Promise<void> {
+    return this.callVoid("POST", "/v1/account/sign-in/email/code", {
+      provider,
+      email: email.trim().toLowerCase(),
+    });
+  }
+
+  changeEmail(provider: string, email: string, code: string): Promise<SignInChange> {
+    return this.signInChange("POST", "/v1/account/sign-in/email", {
+      provider,
+      email: email.trim().toLowerCase(),
+      code: code.trim(),
+    });
+  }
+
+  /// Adds Nookly Signin: an email, confirmed by the code sent to it, and a password.
+  addPassword(email: string, code: string, password: string): Promise<SignInChange> {
+    return this.signInChange("POST", "/v1/account/sign-in/password", {
+      email: email.trim().toLowerCase(),
+      code: code.trim(),
+      password,
+    });
+  }
+
+  /// A new Nookly Signin password, without the old one: the recheck stands in for it.
+  setPassword(password: string): Promise<SignInChange> {
+    return this.signInChange("POST", "/v1/account/sign-in/password/change", { password });
+  }
+
+  private async signInChange(method: string, path: string, body?: Body): Promise<SignInChange> {
+    const change = await this.call(method, path, signInChangeSchema, body);
+    if (change.signedOut) {
+      await this.forget();
+      this.onSignedOut?.();
+    }
+    return change;
   }
 
   /// Picks the username of an account made with a provider. It can only be done once.
@@ -488,16 +586,14 @@ export class ApiClient {
     return this.call("POST", "/v1/account/email", userSchema, { email: email.trim() });
   }
 
-  /// Turns on emailed codes. The account needs a confirmed email, and its password.
-  enableEmailTwoFactor(password: string): Promise<SecuritySummary> {
-    return this.call("POST", "/v1/account/two-factor/email", securitySummarySchema, { password });
+  /// Turns on emailed codes. The account needs a confirmed email, and a recheck.
+  enableEmailTwoFactor(): Promise<SecuritySummary> {
+    return this.call("POST", "/v1/account/two-factor/email", securitySummarySchema, {});
   }
 
   /// Starts adding an authenticator app: nothing is on until `confirmAuthenticator`.
-  startAuthenticator(password: string): Promise<AuthenticatorStart> {
-    return this.call("POST", "/v1/account/two-factor/authenticator", authenticatorStartSchema, {
-      password,
-    });
+  startAuthenticator(): Promise<AuthenticatorStart> {
+    return this.call("POST", "/v1/account/two-factor/authenticator", authenticatorStartSchema, {});
   }
 
   /// A code from the new authenticator app turns it on. The recovery codes come back once.
@@ -507,19 +603,16 @@ export class ApiClient {
     }).then((result) => result.backupCodes);
   }
 
-  /// Turns a method off, with the password.
-  disableTwoFactor(method: "email" | "totp", password: string): Promise<SecuritySummary> {
-    return this.call("POST", "/v1/account/two-factor/disable", securitySummarySchema, {
-      method,
-      password,
-    });
+  /// Turns a method off.
+  disableTwoFactor(method: "email" | "totp"): Promise<SecuritySummary> {
+    return this.call("POST", "/v1/account/two-factor/disable", securitySummarySchema, { method });
   }
 
   /// Replaces the recovery codes with new ones, which come back once.
-  newBackupCodes(password: string): Promise<string[]> {
-    return this.call("POST", "/v1/account/two-factor/backup-codes", backupCodesSchema, {
-      password,
-    }).then((result) => result.backupCodes);
+  newBackupCodes(): Promise<string[]> {
+    return this.call("POST", "/v1/account/two-factor/backup-codes", backupCodesSchema, {}).then(
+      (result) => result.backupCodes,
+    );
   }
 
   async signOut(): Promise<void> {
@@ -633,7 +726,7 @@ export class ApiClient {
     headers.set("authorization", `Bearer ${token}`);
     let response: Response;
     try {
-      response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+      response = await this.fetchImpl(apiUrl(this.baseUrl, path), {
         ...init,
         method,
         headers,

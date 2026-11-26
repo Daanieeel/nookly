@@ -49,6 +49,13 @@ void invoke<string | null>("sync_computer_name")
 
 let refreshViews: () => void = () => {};
 
+/// The signed in account's API, for what only a signed in device does.
+export function signedInAccount(): ApiClient {
+  const api = syncRuntime.account();
+  if (!api) throw new Error("Sign in first.");
+  return api;
+}
+
 /// This device's sync, one for the app.
 export const syncRuntime = new SyncRuntime<ApiClient>({
   driver: tauriSqlDriver,

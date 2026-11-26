@@ -439,6 +439,33 @@ describe("the account dialog", () => {
     expect(useAccountDialog.getState().open).toBe(true);
   });
 
+  it.each(["signIn", "signUp"] as const)(
+    "asks for the second step after a provider, on the %s tab",
+    async (mode) => {
+      vi.spyOn(syncRuntime, "providersOf").mockResolvedValue(["github"]);
+      vi.spyOn(syncRuntime, "signInWithProvider").mockRejectedValue(
+        new TwoFactorRequiredError("challenge-1", ["totp"]),
+      );
+      const complete = vi.spyOn(syncRuntime, "completeTwoFactor").mockResolvedValue(ADA);
+      settings.set("sync.serverUrl", "https://sync.example.com");
+      const { user } = open(mode);
+      await user.click(
+        await offered(mode === "signIn" ? "Sign in with GitHub" : "Sign up with GitHub"),
+      );
+      await user.type(await screen.findByLabelText("Authenticator code"), "123456");
+      await waitFor(() =>
+        expect(complete).toHaveBeenCalledWith(
+          "https://sync.example.com",
+          "challenge-1",
+          "totp",
+          "123456",
+          {},
+        ),
+      );
+      await waitFor(() => expect(useAccountDialog.getState().open).toBe(false));
+    },
+  );
+
   it("says why a sign in with a provider did not work", async () => {
     vi.spyOn(syncRuntime, "signInWithProvider").mockRejectedValue(
       new Error("There is no Nookly account for this GitHub account yet."),

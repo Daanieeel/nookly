@@ -13,6 +13,8 @@ export interface Presented {
   /// What it is and what opened it: on a tablet a menu is a popover on its anchor.
   kind?: PresentationKind;
   anchor?: Anchor;
+  /// It has to be answered: only what it holds closes it.
+  locked?: boolean;
   content: ReactNode;
 }
 
@@ -31,8 +33,12 @@ interface SheetPresenter {
 }
 
 const HostContext = createContext<SheetPresenter | null>(null);
+const OpenContext = createContext(false);
 
 export const useOptionalSheetHost = () => useContext(HostContext);
+
+/// Whether the host's sheet is up, for one that waits its turn.
+export const useSheetHostBusy = () => useContext(OpenContext);
 
 /// Holds the sheet opened from code, over the whole app.
 export function SheetHost({ children }: { children: ReactNode }) {
@@ -64,7 +70,7 @@ export function SheetHost({ children }: { children: ReactNode }) {
   );
   return (
     <HostContext.Provider value={presenter}>
-      {children}
+      <OpenContext.Provider value={open}>{children}</OpenContext.Provider>
       {shown ? (
         <Sheet
           open={open}
@@ -74,6 +80,7 @@ export function SheetHost({ children }: { children: ReactNode }) {
           presentation={shown.presentation}
           kind={shown.kind}
           anchor={shown.anchor}
+          locked={shown.locked}
         >
           {shown.content}
         </Sheet>

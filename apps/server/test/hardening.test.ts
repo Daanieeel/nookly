@@ -192,6 +192,19 @@ describe("the API reference", () => {
   });
 });
 
+describe("a clock refused as too far ahead", () => {
+  it("comes with the server's time, so the device can date the change by it", async () => {
+    server = await startServer();
+    const { api } = await verifiedAccount(server, "ada@example.com");
+    const fine = await api.push({ changes: [spaceChange("fine", "Now")] });
+    expect(fine.serverTime).toBeUndefined();
+    const ahead = clock(3 * 24 * 60 * 60 * 1000);
+    const refused = await api.push({ changes: [spaceChange("ahead", "Later", ahead)] });
+    expect(refused.results[0]?.reason).toBe("clock-skew");
+    expect(Math.abs((refused.serverTime ?? 0) - Date.now())).toBeLessThan(10_000);
+  });
+});
+
 describe("big bodies", () => {
   it("answers 413 for a body over the limit", async () => {
     server = await startServer();

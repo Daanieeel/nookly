@@ -1,4 +1,6 @@
+import { IconBrandAppleFilled, IconLock } from "@tabler/icons-react";
 import { cn } from "@nookly/ui/lib/utils";
+import type { ReactNode } from "react";
 
 /// Google's "G" keeps its four colours, which no single colour icon can.
 export function GoogleMark({ className }: { className?: string }) {
@@ -51,4 +53,18 @@ export function NotionMark({ className }: { className?: string }) {
       />
     </svg>
   );
+}
+
+/// The mark of each way to sign in. Google's keeps its colours; the others follow the text.
+const MARKS = new Map<string, (props: { className?: string }) => ReactNode>([
+  ["credential", IconLock],
+  ["google", GoogleMark],
+  ["apple", IconBrandAppleFilled],
+  ["github", GitHubMark],
+  ["notion", NotionMark],
+]);
+
+export function ProviderMark({ provider, className }: { provider: string; className?: string }) {
+  const Mark = MARKS.get(provider) ?? IconLock;
+  return <Mark className={className} />;
 }

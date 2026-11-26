@@ -5,6 +5,7 @@ import {
   firstTwoFactorMethod,
   isWrongCode,
   runSecurityAction,
+  needsRecheck,
   twoFactorMethodLabels,
 } from "./two-factor.ts";
 import type { SecuritySummary } from "./schemas.ts";
@@ -33,7 +34,7 @@ describe("the second step of a sign in", () => {
   });
 });
 
-describe("what a password unlocks in an account's security", () => {
+describe("changing how an account is protected", () => {
   const summary: SecuritySummary = {
     available: true,
     required: false,
@@ -44,38 +45,32 @@ describe("what a password unlocks in an account's security", () => {
   };
   const calls: string[] = [];
   const api = {
-    enableEmailTwoFactor: async (password: string) => {
-      calls.push(`emailOn ${password}`);
+    enableEmailTwoFactor: async () => {
+      calls.push("emailOn");
       return summary;
     },
-    disableTwoFactor: async (method: "email" | "totp", password: string) => {
-      calls.push(`off ${method} ${password}`);
+    disableTwoFactor: async (method: "email" | "totp") => {
+      calls.push(`off ${method}`);
       return summary;
     },
-    startAuthenticator: async (password: string) => {
-      calls.push(`start ${password}`);
-      return { uri: "otpauth://totp/x", key: "ABCD" };
-    },
-    newBackupCodes: async (password: string) => {
-      calls.push(`codes ${password}`);
-      return ["aaaaa-bbbbb"];
-    },
+    startAuthenticator: async () => ({ uri: "otpauth://totp/x", key: "ABCD" }),
+    newBackupCodes: async () => ["aaaaa-bbbbb"],
   };
 
   it("turns methods on and off, and goes back to the overview", async () => {
-    expect(await runSecurityAction(api, "emailOn", "pw")).toEqual({ name: "overview" });
-    expect(await runSecurityAction(api, "emailOff", "pw")).toEqual({ name: "overview" });
-    expect(await runSecurityAction(api, "authenticatorOff", "pw")).toEqual({ name: "overview" });
-    expect(calls).toEqual(["emailOn pw", "off email pw", "off totp pw"]);
+    expect(await runSecurityAction(api, "emailOn")).toEqual({ name: "overview" });
+    expect(await runSecurityAction(api, "emailOff")).toEqual({ name: "overview" });
+    expect(await runSecurityAction(api, "authenticatorOff")).toEqual({ name: "overview" });
+    expect(calls).toEqual(["emailOn", "off email", "off totp"]);
   });
 
   it("hands over the key to scan and the new recovery codes", async () => {
-    expect(await runSecurityAction(api, "authenticatorOn", "pw")).toEqual({
+    expect(await runSecurityAction(api, "authenticatorOn")).toEqual({
       name: "scan",
       uri: "otpauth://totp/x",
       key: "ABCD",
     });
-    expect(await runSecurityAction(api, "newCodes", "pw")).toEqual({
+    expect(await runSecurityAction(api, "newCodes")).toEqual({
       name: "codes",
       codes: ["aaaaa-bbbbb"],
     });
@@ -95,5 +90,13 @@ describe("telling a wrong code from another failure", () => {
     expect(isWrongCode(new ApiRequestError(401, "otp_has_expired", "Expired"))).toBe(false);
     expect(isWrongCode(new Error("Can't reach the server."))).toBe(false);
     expect(isWrongCode(null)).toBe(false);
+  });
+});
+
+describe("being asked to confirm it is you", () => {
+  it("knows the server asking for it", () => {
+    expect(needsRecheck(new ApiRequestError(403, "recheck_required", "Confirm"))).toBe(true);
+    expect(needsRecheck(new ApiRequestError(403, "wrong_password", "Wrong"))).toBe(false);
+    expect(needsRecheck(null)).toBe(false);
   });
 });

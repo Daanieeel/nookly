@@ -217,20 +217,20 @@ describe("sessions", () => {
     expect((await restarted.me()).username).toBe("ada");
   });
 
-  it("refuses a forged or garbled token, and forgets it", async () => {
+  it("refuses a forged or garbled token, without calling any session over", async () => {
     for (const token of ["nonsense", "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4In0."]) {
       const response = await fetch(`${server.baseUrl}/v1/account`, {
         headers: { authorization: `Bearer ${token}` },
       });
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(403);
     }
     const tokens = new MemoryTokens();
     tokens.token = "nonsense";
     let signedOut = false;
     const api = server.client(tokens, () => (signedOut = true));
-    expect(await status(api.me())).toBe(401);
-    expect(tokens.token).toBeNull();
-    expect(signedOut).toBe(true);
+    expect(await status(api.me())).toBe(403);
+    expect(tokens.token).toBe("nonsense");
+    expect(signedOut).toBe(false);
   });
 
   it("lists each device by name and signs one out", async () => {
@@ -260,7 +260,7 @@ describe("sessions", () => {
     const reused = await fetch(`${server.baseUrl}/v1/account`, {
       headers: { authorization: `Bearer ${token}` },
     });
-    expect(reused.status).toBe(401);
+    expect(reused.status).toBe(403);
   });
 });
 
@@ -280,7 +280,7 @@ describe("passwords", () => {
     const form = await fetch(`${server.baseUrl}/reset-password?token=${token}`);
     expect(await form.text()).toContain("Choose a new password");
     await server.client().resetPassword(token, "a brand new password");
-    expect(await status(desktop.me())).toBe(401);
+    expect(await status(desktop.me())).toBe(403);
     expect(await status(server.client().signIn("ada", PASSWORD, PHONE))).toBe(401);
     await server.client().signIn("ada", "a brand new password", PHONE);
     expect(await status(server.client().resetPassword(token, "another new password"))).toBe(400);

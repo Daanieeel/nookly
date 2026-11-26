@@ -70,9 +70,9 @@ describe("the server's version on its answers", () => {
     expect(unknown.status).toBe(404);
     expect(await unknown.json()).toMatchObject({ error: "not_found", serverVersion: version() });
     const signedOut = await fetch(`${server.baseUrl}/v1/sessions`);
-    expect(signedOut.status).toBe(401);
+    expect(signedOut.status).toBe(403);
     expect(await signedOut.json()).toMatchObject({
-      error: "unauthorized",
+      error: "forbidden",
       serverVersion: version(),
     });
     // A body that fails validation: the answer clients most often misread.
@@ -112,7 +112,7 @@ describe("the live socket", () => {
     const live = await open();
     live.socket.send(JSON.stringify({ type: "hello", token: "nonsense" }));
     await until(live.closed, "the socket to close");
-    expect(live.messages).toEqual([JSON.stringify({ type: "error", code: "unauthorized" })]);
+    expect(live.messages).toEqual([JSON.stringify({ type: "error", code: "forbidden" })]);
   });
 
   it("signs in with the first message and answers pings", async () => {

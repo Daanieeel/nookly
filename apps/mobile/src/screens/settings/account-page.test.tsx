@@ -1,8 +1,12 @@
+import { configure } from "@testing-library/react-native";
 import { ApiClient } from "@nookly/shared/api";
 import { fireEvent, waitFor } from "expo-router/testing-library";
 import { renderScreens, testData } from "../../test/render.tsx";
-import type { MenuPresenter } from "../../ui/menu.tsx";
 import { AccountPage } from "./AccountPage.tsx";
+
+// Sheets go away on timers before what was chosen in them runs, which takes longer than the
+// usual second when every suite runs at once.
+configure({ asyncUtilTimeout: 10_000 });
 
 function signedIn(provider: string | null = null) {
   const data = testData();
@@ -29,7 +33,13 @@ function signedIn(provider: string | null = null) {
     },
   ]);
   const revoke = jest.spyOn(api, "revokeSession").mockResolvedValue();
-  const change = jest.spyOn(api, "changePassword").mockResolvedValue();
+  jest.spyOn(api, "signInMethods").mockResolvedValue({
+    methods: [],
+    current: null,
+    fresh: true,
+    secondStep: [],
+    offered: [],
+  });
   const deleteAccount = jest.spyOn(api, "deleteAccount").mockResolvedValue();
   jest.spyOn(api, "security").mockResolvedValue({
     available: provider === null,
@@ -63,14 +73,14 @@ function signedIn(provider: string | null = null) {
     hasPassword: provider === null,
     providers: provider ? [provider] : [],
   });
-  return { data, revoke, change, deleteAccount, detach, confirm };
+  return { data, revoke, deleteAccount, detach, confirm };
 }
 
 describe("the Account page", () => {
   // The desktop's Account settings are cards: who and how sync is doing, a card per device
-  // with a way to sign it out, the changes to review, then the password and the server.
-  it("shows the desktop's cards: account, devices, changes, password", async () => {
-    const { data, revoke, change } = signedIn();
+  // with a way to sign it out, the changes to review, then how the account signs in.
+  it("shows the desktop's cards: account, devices, changes", async () => {
+    const { data, revoke } = signedIn();
     const screen = await renderScreens({ index: () => <AccountPage /> }, data);
     expect(await screen.findByText("ada")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sync Now" })).toBeTruthy();
@@ -80,29 +90,18 @@ describe("the Account page", () => {
     expect(screen.getByText("https://sync.example.com")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Sign Out MacBook Air" }));
     await waitFor(() => expect(revoke).toHaveBeenCalledWith("s2"));
-    // The password form is not on the page: a row opens it in a sheet.
-    expect(screen.queryByLabelText("Current password")).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Change Password" }));
-    await fireEvent.changeText(await screen.findByLabelText("Current password"), "old password");
-    await fireEvent.changeText(screen.getByLabelText("New password"), "a much newer password");
-    await fireEvent.changeText(
-      screen.getByLabelText("Repeat new password"),
-      "a much newer password",
-    );
-    await fireEvent.press(screen.getAllByRole("button", { name: "Change Password" }).at(-1)!);
-    await waitFor(() =>
-      expect(change).toHaveBeenCalledWith("old password", "a much newer password"),
-    );
   });
 
-  it("puts Change Password above the devices, and Delete Account last", async () => {
+  it("puts the sign in methods above the devices, and Delete Account last", async () => {
     const { data } = signedIn();
     const screen = await renderScreens({ index: () => <AccountPage /> }, data);
     expect(await screen.findByText("ada")).toBeTruthy();
+    await screen.findByText("Two-factor sign in");
     const page = JSON.stringify(screen.toJSON());
     const at = (text: string) => page.indexOf(`"${text}"`);
-    expect(at("Change Password")).toBeGreaterThan(-1);
-    expect(at("Change Password")).toBeLessThan(at("Devices"));
+    expect(at("Sign in methods")).toBeGreaterThan(-1);
+    expect(at("Sign in methods")).toBeLessThan(at("Two-factor sign in"));
+    expect(at("Two-factor sign in")).toBeLessThan(at("Devices"));
     expect(at("Devices")).toBeLessThan(at("Delete Account"));
   });
 
@@ -112,39 +111,6 @@ describe("the Account page", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Two-factor sign in" }));
     expect(await screen.findByRole("button", { name: "Turn Off Emailed Codes" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Set Up Authenticator App" })).toBeTruthy();
-  });
-
-  it("asks for the new password twice and rates it, but never refuses a weak one", async () => {
-    const { data, change } = signedIn();
-    const screen = await renderScreens({ index: () => <AccountPage /> }, data);
-    await fireEvent.press(await screen.findByRole("button", { name: "Change Password" }));
-    await fireEvent.changeText(await screen.findByLabelText("Current password"), "old password");
-    // Nothing to rate before there is a new password.
-    expect(screen.queryByRole("progressbar", { name: "Password strength" })).toBeNull();
-    await fireEvent.changeText(screen.getByLabelText("New password"), "password1234");
-    const meter = await screen.findByRole("progressbar", { name: "Password strength" });
-    expect(meter.props.accessibilityValue.text).toMatch(/weak/i);
-    // Two different entries are caught.
-    await fireEvent.changeText(screen.getByLabelText("Repeat new password"), "password12345");
-    await fireEvent.press(screen.getAllByRole("button", { name: "Change Password" }).at(-1)!);
-    expect(await screen.findByText("The passwords don't match")).toBeTruthy();
-    expect(change).not.toHaveBeenCalled();
-    // A weak password goes through once it is typed twice: the bar only advises.
-    await fireEvent.changeText(screen.getByLabelText("Repeat new password"), "password1234");
-    await fireEvent.press(screen.getAllByRole("button", { name: "Change Password" }).at(-1)!);
-    await waitFor(() => expect(change).toHaveBeenCalledWith("old password", "password1234"));
-  });
-
-  it("rates a strong password strong", async () => {
-    const { data } = signedIn();
-    const screen = await renderScreens({ index: () => <AccountPage /> }, data);
-    await fireEvent.press(await screen.findByRole("button", { name: "Change Password" }));
-    await fireEvent.changeText(
-      await screen.findByLabelText("New password"),
-      "violet lantern kettle orbit ferment",
-    );
-    const meter = await screen.findByRole("progressbar", { name: "Password strength" });
-    expect(meter.props.accessibilityValue.text).toBe("Strong");
   });
 
   it("has nothing about sharing, which is not possible yet", async () => {
@@ -200,28 +166,46 @@ describe("the Account page", () => {
     expect(deleteAccount).not.toHaveBeenCalled();
   });
 
-  it("asks before signing out, as a warning and not as a deletion", async () => {
+  it("asks before signing out, saying what goes and what stays", async () => {
     const { data } = signedIn();
-    const confirm = jest.fn();
-    const menu: MenuPresenter = { show: jest.fn(), confirm };
-    const screen = await renderScreens({ index: () => <AccountPage /> }, data, "/", { menu });
+    const signOut = jest
+      .spyOn(data.sync, "signOut")
+      .mockResolvedValue({ unsent: 0, backupPath: null });
+    jest.spyOn(data.sync, "unsentCount").mockResolvedValue(2);
+    jest.spyOn(data.sync, "missingFilesCount").mockResolvedValue(1);
+    const screen = await renderScreens({ index: () => <AccountPage /> }, data);
     await fireEvent.press(await screen.findByRole("button", { name: "Sign Out" }));
-    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
-    const [confirmation] = confirm.mock.calls[0];
-    expect(confirmation.actions).toEqual([
-      expect.objectContaining({ label: "Sign Out", warning: true }),
-    ]);
-    expect(confirmation.actions[0].destructive).toBeUndefined();
-    // Short lines, not a paragraph.
-    expect(confirmation.description).toBeUndefined();
-    const lines = confirmation.points.map((point: { text: string }) => point.text);
-    expect(lines).toEqual(
-      expect.arrayContaining([
-        "Stays in your account and on your other devices",
-        expect.stringMatching(/^Removed from this .+, back when you sign in$/),
-      ]),
-    );
-    for (const line of lines) expect(line.length).toBeLessThan(70);
+    expect(await screen.findByText("Stays in your account and on your other devices")).toBeTruthy();
+    expect(screen.getByText(/^Removed from this .+, back when you sign in$/)).toBeTruthy();
+    expect(
+      screen.getByText("Files go too, except ones your account doesn't have yet"),
+    ).toBeTruthy();
+    expect(await screen.findByText("2 changes not sent yet, backed up first")).toBeTruthy();
+    const keep = screen.getByRole("checkbox", { name: "Keep a local copy" });
+    expect(keep.props.accessibilityState.checked).toBe(false);
+    expect(signOut).not.toHaveBeenCalled();
+    expect(screen.getByText("Keep a local copy").props.className).not.toContain("text-warning");
+    // Keeping a copy changes what happens, and says what the copy will miss.
+    await fireEvent.press(keep);
+    expect(screen.getByText("Keep a local copy").props.className).toContain("text-warning");
+    expect(screen.getByText(/^A copy stays on this .+ and works alone$/)).toBeTruthy();
+    expect(screen.getByText("2 changes not sent yet, kept here")).toBeTruthy();
+    expect(
+      await screen.findByText(/^1 file not on this .+ yet, missing from the copy$/),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getAllByRole("button", { name: "Sign Out" }).at(-1)!);
+    await waitFor(() => expect(signOut).toHaveBeenCalledWith({ keepLocalCopy: true }));
+  });
+
+  it("stays signed in when that is the answer", async () => {
+    const { data } = signedIn();
+    const signOut = jest.spyOn(data.sync, "signOut");
+    jest.spyOn(data.sync, "unsentCount").mockResolvedValue(0);
+    const screen = await renderScreens({ index: () => <AccountPage /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Sign Out" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Stay Signed In" }));
+    await waitFor(() => expect(screen.queryByText("Stay Signed In")).toBeNull());
+    expect(signOut).not.toHaveBeenCalled();
   });
 
   it("says what an account is for when signed out, with the ways in", async () => {

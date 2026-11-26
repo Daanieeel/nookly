@@ -5,6 +5,7 @@
 //! anything points at it; a file that doesn't match is thrown away.
 
 use crate::backup::{self, BackupInfo};
+use crate::commands::files::blocking_db;
 use crate::db::DbState;
 use crate::error::{AppError, AppResult};
 use serde::Serialize;
@@ -12,7 +13,9 @@ use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Manager};
+use std::time::{Duration, Instant};
+use tauri::ipc::Channel;
+use tauri::{AppHandle, Manager, Runtime};
 
 #[derive(Debug, Serialize)]
 pub struct BlobHash {
@@ -104,13 +107,42 @@ fn client() -> AppResult<reqwest::blocking::Client> {
         .map_err(io_err)
 }
 
-/// Sends a file's contents, streamed from disk. The server checks them against
-/// `sha256` and keeps nothing that doesn't match, so a retry is always safe.
+/// The least time between two reports of an upload on its way.
+const REPORT_EVERY: Duration = Duration::from_millis(100);
+
+/// A file as it is read for sending, telling how far that has got: at most every
+/// `every`, and always at its end.
+struct Counted<R, F> {
+    inner: R,
+    size: u64,
+    sent: u64,
+    every: Duration,
+    reported: Option<Instant>,
+    report: F,
+}
+
+impl<R: Read, F: FnMut(u64)> Read for Counted<R, F> {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        let read = self.inner.read(buffer)?;
+        self.sent += read as u64;
+        let due = self.reported.is_none_or(|at| at.elapsed() >= self.every);
+        if read > 0 && (due || self.sent >= self.size) {
+            self.reported = Some(Instant::now());
+            (self.report)(self.sent);
+        }
+        Ok(read)
+    }
+}
+
+/// Sends a file's contents, streamed from disk, telling `report` how many bytes have
+/// gone. The server checks them against `sha256` and keeps nothing that doesn't match,
+/// so a retry is always safe.
 pub fn upload_file(
     server_url: &str,
     sha256: &str,
     path: &Path,
     content_type: &str,
+    report: impl FnMut(u64) + Send + 'static,
 ) -> AppResult<()> {
     valid_sha(sha256)?;
     let file = File::open(path).map_err(io_err)?;
@@ -119,7 +151,17 @@ pub fn upload_file(
         .put(blob_url(server_url, sha256))
         .bearer_auth(token()?)
         .header("content-type", content_type)
-        .body(reqwest::blocking::Body::sized(file, size))
+        .body(reqwest::blocking::Body::sized(
+            Counted {
+                inner: file,
+                size,
+                sent: 0,
+                every: REPORT_EVERY,
+                reported: None,
+                report,
+            },
+            size,
+        ))
         .send()
         .map_err(|e| AppError::Remote(format!("Couldn't reach the server: {e}")))?;
     if response.status().is_success() {
@@ -127,6 +169,29 @@ pub fn upload_file(
     } else {
         Err(remote_error(response))
     }
+}
+
+/// Where Nookly keeps the files it owns, under the data folder.
+const STORED_FOLDERS: [&str; 3] = ["files", "recipe-banners", "bookmark-previews"];
+
+/// Deletes a stored file the account holds, when the device signs out. Only a plain
+/// file inside Nookly's own folders (never one a File merely points at elsewhere, nor a
+/// link) that still holds exactly `sha256` goes. Whether it was deleted.
+pub fn remove_stored(data_dir: &Path, path: &Path, sha256: &str) -> AppResult<bool> {
+    valid_sha(sha256)?;
+    let plain = fs::symlink_metadata(path).is_ok_and(|m| m.is_file());
+    if !plain {
+        return Ok(false);
+    }
+    let resolved = fs::canonicalize(path).map_err(io_err)?;
+    let owned = STORED_FOLDERS.iter().any(|folder| {
+        fs::canonicalize(data_dir.join(folder)).is_ok_and(|dir| resolved.starts_with(dir))
+    });
+    if !owned || hash_file(&resolved)?.is_none_or(|h| h.sha256 != sha256) {
+        return Ok(false);
+    }
+    fs::remove_file(&resolved).map_err(io_err)?;
+    Ok(true)
 }
 
 /// A file name safe to store: its last part, without separators or a leading dot.
@@ -197,14 +262,45 @@ pub async fn blob_hash(path: String) -> AppResult<Option<BlobHash>> {
     blocking(move || hash_file(Path::new(&path))).await
 }
 
+/// The size of a file in bytes. `None` when it is missing.
+#[tauri::command]
+pub async fn blob_size(path: String) -> AppResult<Option<u64>> {
+    blocking(move || match fs::metadata(&path) {
+        Ok(meta) => Ok(meta.is_file().then_some(meta.len())),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(io_err(e)),
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn blob_upload(
     server_url: String,
     sha256: String,
     path: String,
     content_type: String,
+    on_progress: Channel<u64>,
 ) -> AppResult<()> {
-    blocking(move || upload_file(&server_url, &sha256, Path::new(&path), &content_type)).await
+    blocking(move || {
+        // A report nobody listens to any more changes nothing about the upload.
+        let report = move |sent| {
+            on_progress.send(sent).ok();
+        };
+        upload_file(
+            &server_url,
+            &sha256,
+            Path::new(&path),
+            &content_type,
+            report,
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn blob_remove(app: AppHandle, path: String, sha256: String) -> AppResult<bool> {
+    let dir = data_dir(&app)?;
+    blocking(move || remove_stored(&dir, Path::new(&path), &sha256)).await
 }
 
 /// Downloads contents synced from another device and points the row at them:
@@ -228,24 +324,38 @@ pub async fn blob_download(
     let dir = data_dir(&app)?.join(folder);
     let path = blocking(move || download_to(&server_url, &sha256, &dir, &filename)).await?;
     let path = path.to_string_lossy().into_owned();
-    let state = app.state::<DbState>();
-    let conn = state.conn()?;
-    match table.as_str() {
-        "files" => crate::db::files::attach_synced(&conn, &pk, &path)?,
-        "recipes" => {
-            conn.execute(
-                "UPDATE recipes SET banner_path = ?1 WHERE entity_id = ?2",
-                rusqlite::params![path, pk],
-            )?;
-        }
-        _ => {
-            conn.execute(
-                "UPDATE bookmarks SET screenshot_path = ?1 WHERE entity_id = ?2",
-                rusqlite::params![path, pk],
-            )?;
-        }
-    }
+    point_row_at(&app, &table, &pk, &path).await?;
     Ok(path)
+}
+
+/// Points the row a download was for at where it landed. A File's text is read afterwards,
+/// without the database: reading a picture or a PDF takes seconds.
+async fn point_row_at<R: Runtime>(
+    app: &AppHandle<R>,
+    table: &str,
+    pk: &str,
+    path: &str,
+) -> AppResult<()> {
+    let (table, pk, path) = (table.to_owned(), pk.to_owned(), path.to_owned());
+    blocking_db(app, move |conn| {
+        match table.as_str() {
+            "files" => crate::db::files::attach_synced(conn, &pk, &path)?,
+            "recipes" => {
+                conn.execute(
+                    "UPDATE recipes SET banner_path = ?1 WHERE entity_id = ?2",
+                    rusqlite::params![path, pk],
+                )?;
+            }
+            _ => {
+                conn.execute(
+                    "UPDATE bookmarks SET screenshot_path = ?1 WHERE entity_id = ?2",
+                    rusqlite::params![path, pk],
+                )?;
+            }
+        }
+        Ok(())
+    })
+    .await
 }
 
 /// The full backup made before a first sign in sends anything, in the app data
@@ -278,6 +388,58 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_downloaded_file_is_read_after_the_database_is_let_go() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Listener;
+
+        let app = mock_builder()
+            .manage(DbState(std::sync::Mutex::new(crate::db::test_conn())))
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let dir = std::env::temp_dir().join(format!("nookly-synced-{}", crate::db::new_id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("notes.txt");
+        fs::write(&path, b"synced zebra text").unwrap();
+        let path = path.to_string_lossy().into_owned();
+        let id = {
+            let state = app.state::<DbState>();
+            let conn = state.conn().unwrap();
+            let space = crate::db::test_space(&conn, "Work");
+            let entity = crate::db::entities::create_entity(
+                &conn,
+                space.id,
+                "file".into(),
+                "notes.txt".into(),
+                None,
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO files (entity_id, original_filename) VALUES (?1, 'notes.txt')",
+                [&entity.id],
+            )
+            .unwrap();
+            entity.id
+        };
+        let (told, heard) = std::sync::mpsc::channel();
+        app.listen_any(crate::db::EXTERNAL_CHANGE_EVENT, move |_| {
+            told.send(()).ok();
+        });
+
+        tauri::async_runtime::block_on(point_row_at(app.handle(), "files", &id, &path)).unwrap();
+
+        // Reading a PDF or a picture takes seconds, and every command waits for the database:
+        // the text is read on a thread of its own, which says so once it can be searched.
+        heard
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the file's text was read while the database was held");
+        let state = app.state::<DbState>();
+        let conn = state.conn().unwrap();
+        let hits = crate::db::search::search(&conn, "zebra", None).unwrap();
+        assert!(hits.iter().any(|hit| hit.entity_id == id), "{hits:?}");
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
     fn hashes_a_file_as_it_streams() {
         let dir = std::env::temp_dir().join(format!("nookly-blob-{}", crate::db::new_id()));
         fs::create_dir_all(&dir).unwrap();
@@ -288,6 +450,72 @@ mod tests {
         assert_eq!(hash.sha256, hex(&Sha256::digest(b"lecture one")));
         assert!(hash_file(&dir.join("missing")).unwrap().is_none());
         fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn tells_how_far_a_file_has_been_read() {
+        let read_in = |every: Duration| {
+            let mut seen = Vec::new();
+            let mut counted = Counted {
+                inner: &b"0123456789"[..],
+                size: 10,
+                sent: 0,
+                every,
+                reported: None,
+                report: |sent| seen.push(sent),
+            };
+            let mut chunk = [0u8; 4];
+            while counted.read(&mut chunk).unwrap() > 0 {}
+            seen
+        };
+        assert_eq!(read_in(Duration::ZERO), [4, 8, 10]);
+        // Not every chunk of a fast one, but always the first and the last.
+        assert_eq!(read_in(Duration::from_secs(60)), [4, 10]);
+    }
+
+    #[test]
+    fn removes_only_its_own_unchanged_files() {
+        let root = std::env::temp_dir().join(format!("nookly-remove-{}", crate::db::new_id()));
+        let data = root.join("data");
+        let files = data.join("files");
+        fs::create_dir_all(&files).unwrap();
+        let sha = hex(&Sha256::digest(b"lecture"));
+
+        let stored = files.join("a.pdf");
+        fs::write(&stored, b"lecture").unwrap();
+        assert!(remove_stored(&data, &stored, &sha).unwrap());
+        assert!(!stored.exists());
+        assert!(
+            !remove_stored(&data, &stored, &sha).unwrap(),
+            "already gone"
+        );
+
+        let edited = files.join("b.pdf");
+        fs::write(&edited, b"edited since").unwrap();
+        assert!(!remove_stored(&data, &edited, &sha).unwrap());
+        assert!(edited.exists());
+
+        // A File that only points at the person's own copy, directly or through `..`.
+        let outside = root.join("mine.pdf");
+        fs::write(&outside, b"lecture").unwrap();
+        assert!(!remove_stored(&data, &outside, &sha).unwrap());
+        assert!(!remove_stored(&data, &files.join("../../mine.pdf"), &sha).unwrap());
+        assert!(outside.exists());
+
+        #[cfg(unix)]
+        {
+            let link = files.join("link.pdf");
+            std::os::unix::fs::symlink(&outside, &link).unwrap();
+            assert!(!remove_stored(&data, &link, &sha).unwrap());
+            assert!(outside.exists());
+        }
+
+        // The database is not a stored file.
+        let database = data.join("nookly.db");
+        fs::write(&database, b"lecture").unwrap();
+        assert!(!remove_stored(&data, &database, &sha).unwrap());
+        assert!(database.exists());
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

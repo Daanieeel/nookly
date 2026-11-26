@@ -48,6 +48,15 @@ describe("the first sync", () => {
     await expectNoA11yViolations();
   });
 
+  it("shows the bytes of the files, so one big file visibly moves", async () => {
+    show({ ...BASE, fileBytes: 480 * 1048576, fileBytesSent: 120 * 1048576 });
+    expect(screen.getByText("12 of 37 files, 120.0 MB of 480.0 MB")).toBeInTheDocument();
+    const [, files] = screen.getAllByRole("progressbar");
+    expect(files).toHaveAttribute("aria-valuenow", String(120 * 1048576));
+    expect(files).toHaveAttribute("aria-valuemax", String(480 * 1048576));
+    await expectNoA11yViolations();
+  });
+
   // A dialog looked closable while nothing else should be done: it is a page of its own now.
   it("covers the whole window while it runs, with no way to close it", () => {
     act(() => syncRuntime.store.setState({ migration: BASE }));

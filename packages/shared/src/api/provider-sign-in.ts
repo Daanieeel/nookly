@@ -1,3 +1,5 @@
+import { NOOKLY_SIGN_IN } from "./schemas.ts";
+
 /// Signing in with another account: the providers Nookly knows by name, and what people
 /// read when the provider or the server turns a sign in down.
 
@@ -8,7 +10,11 @@ export const PROVIDER_NAMES = {
   notion: "Notion",
 } as const;
 
-const NAMES = new Map<string, string>(Object.entries(PROVIDER_NAMES));
+/// An email and a password is Nookly's own way to sign in.
+const NAMES = new Map<string, string>([
+  ...Object.entries(PROVIDER_NAMES),
+  [NOOKLY_SIGN_IN, "Nookly Signin"],
+]);
 
 export const providerName = (provider: string): string => NAMES.get(provider) ?? provider;
 
@@ -20,7 +26,7 @@ export function providerErrorMessage(code: string, provider: string): string {
     case "signup_disabled":
       return `There is no Nookly account for this ${name} account yet. Create one on the I'm new here tab first.`;
     case "account_not_linked":
-      return `An account with this email already exists. Sign in to it with its password, not ${name}.`;
+      return `An account with this email already exists. Sign in the way you did before, then connect ${name} in Settings.`;
     case "access_denied":
       return `${name} didn't allow the sign in.`;
     case "email_not_found":

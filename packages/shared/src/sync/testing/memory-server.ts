@@ -1,10 +1,11 @@
 import { mergeRecords, EMPTY_RECORD } from "../record.ts";
-import type {
-  PullRequest,
-  PullResponse,
-  PushRequest,
-  PushResponse,
-  SyncRecord,
+import {
+  changeRejection,
+  type PullRequest,
+  type PullResponse,
+  type PushRequest,
+  type PushResponse,
+  type SyncRecord,
 } from "../protocol.ts";
 
 /// The server's sync semantics in memory, for tests of the engine and the client:
@@ -13,9 +14,27 @@ export class MemoryServer {
   private seq = 0;
   readonly records = new Map<string, SyncRecord>();
 
+  /// The server's own time; a test moves it to be a device whose clock is wrong.
+  now: () => number = Date.now;
+  /// The changes this server can't store, for a test of a device that holds one.
+  refuses: (change: PushRequest["changes"][number]) => boolean = () => false;
+
   push(request: PushRequest): PushResponse {
-    return {
+    const now = this.now();
+    let skewed = false;
+    const response: PushResponse = {
       results: request.changes.map((change) => {
+        const reason = this.refuses(change) ? "invalid-value" : changeRejection(change, now);
+        if (reason) {
+          skewed ||= reason === "clock-skew";
+          return {
+            dataset: change.dataset,
+            table: change.table,
+            pk: change.pk,
+            status: "rejected" as const,
+            reason,
+          };
+        }
         const key = `${change.table}\u0000${change.pk}`;
         const stored = this.records.get(key) ?? {
           ...EMPTY_RECORD,
@@ -40,6 +59,7 @@ export class MemoryServer {
         };
       }),
     };
+    return skewed ? { ...response, serverTime: now } : response;
   }
 
   pull(request: PullRequest): PullResponse {

@@ -36,10 +36,11 @@ export class Hub {
     }
   }
 
-  /// A session was ended (signed out from another device): its devices hear it at once
-  /// and sign out, instead of on their next request.
-  endSession(userId: string, sessionId: string) {
-    const text = JSON.stringify({ type: "error", code: "unauthorized" } satisfies ServerMessage);
+  /// A session was ended: its devices hear it at once, instead of on their next request.
+  /// `unauthorized` makes an app clear the device, so it is only for one signed out from
+  /// the devices list; `forbidden` for any other end.
+  endSession(userId: string, sessionId: string, code: "unauthorized" | "forbidden") {
+    const text = JSON.stringify({ type: "error", code } satisfies ServerMessage);
     for (const socket of [...(this.sockets.get(userId) ?? [])]) {
       if (socket.sessionId !== sessionId) continue;
       try {

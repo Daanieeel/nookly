@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { CheckboxRow } from "./CheckboxRow.tsx";
+import { SOLID } from "./tokens.ts";
 
 describe("a checkbox row", () => {
   it("is a checkbox with its state, and toggles when pressed", () => {
@@ -56,5 +57,23 @@ describe("a checkbox row", () => {
     );
     fireEvent.press(screen.getByRole("checkbox", { name: "I agree" }));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("fills in the colour of a warning when what it asks for is one", () => {
+    const row = (checked: boolean) => (
+      <CheckboxRow severity="warning" checked={checked} onChange={() => {}} label="Keep a copy">
+        <Text>Keep a copy</Text>
+      </CheckboxRow>
+    );
+    const filled = () =>
+      screen
+        .UNSAFE_queryAllByType(View)
+        .filter(
+          (view) => StyleSheet.flatten(view.props.style)?.backgroundColor === SOLID.warning.light,
+        );
+    const { rerender } = render(row(false));
+    expect(filled()).toHaveLength(0);
+    rerender(row(true));
+    expect(filled()).toHaveLength(1);
   });
 });

@@ -59,7 +59,8 @@ export interface PanelParts {
   /// Whether a step is pushed (a back button shows).
   stepped: boolean;
   onBack(): void;
-  onClose(): void;
+  /// Takes it away; none for one that has to be answered.
+  onClose?: () => void;
   pin: PinStore;
   /// What the content put in place of the title row (a compose form's own row).
   header?: ReactNode;
@@ -113,9 +114,11 @@ export function CardPanel({
           <Text variant="heading" accessibilityRole="header" numberOfLines={1} className="flex-1">
             {title ?? ""}
           </Text>
-          <RoundButton label="Close" onPress={onClose}>
-            <IconX size={22} color={theme.colors.foreground} />
-          </RoundButton>
+          {onClose ? (
+            <RoundButton label="Close" onPress={onClose}>
+              <IconX size={22} color={theme.colors.foreground} />
+            </RoundButton>
+          ) : null}
         </View>
       )}
       <Body pin={pin} footer={stepped ? null : footer} onScroll={onScroll}>
@@ -214,7 +217,8 @@ function Outside({
   shown,
 }: {
   dim: boolean;
-  onPress: () => void;
+  /// None where the tap only has to be kept from what is under it.
+  onPress?: () => void;
   shown: SharedValue<number>;
 }) {
   const style = useAnimatedStyle(() => ({ opacity: shown.value }));
@@ -224,8 +228,9 @@ function Outside({
       className={dim ? "absolute inset-0 bg-black/40" : "absolute inset-0"}
     >
       <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Close"
+        accessibilityRole={onPress ? "button" : undefined}
+        accessibilityLabel={onPress ? "Close" : undefined}
+        accessible={onPress !== undefined}
         onPress={onPress}
         className="flex-1"
       />
@@ -240,12 +245,14 @@ export function DialogFrame({
   width,
   title,
   shown,
+  locked = false,
   onRequestClose,
   children,
 }: {
   width: number;
   title?: string;
   shown: SharedValue<number>;
+  locked?: boolean;
   onRequestClose: () => void;
   children: ReactNode;
 }) {
@@ -264,7 +271,7 @@ export function DialogFrame({
       style={[room, { paddingTop: DIALOG_MARGIN }]}
       className="flex-1 items-center justify-center"
     >
-      <Outside dim onPress={onRequestClose} shown={shown} />
+      <Outside dim onPress={locked ? undefined : onRequestClose} shown={shown} />
       <Animated.View
         testID="sheet-dialog"
         accessibilityViewIsModal

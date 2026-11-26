@@ -63,11 +63,14 @@ export const keys = {
   sync: {
     root: ["sync"] as const,
     account: ["sync", "account"] as const,
+    signIn: ["sync", "sign-in"] as const,
     sessions: ["sync", "sessions"] as const,
     security: ["sync", "security"] as const,
     conflicts: ["sync", "conflicts"] as const,
     conflictItems: ["sync", "conflicts", "items"] as const,
     localData: ["sync", "local-data"] as const,
+    unsent: ["sync", "unsent"] as const,
+    missingFiles: ["sync", "missing-files"] as const,
     providers: (serverUrl: string) => ["sync", "providers", serverUrl] as const,
   },
 };

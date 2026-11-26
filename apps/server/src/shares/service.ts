@@ -1,6 +1,6 @@
 import { SHAREABLE_TYPES, type Share, type ShareRole } from "@nookly/shared/api";
 import { type SQL, and, eq, inArray, or } from "drizzle-orm";
-import { isPlaceholderEmail } from "../auth/auth.ts";
+import { isPlaceholderEmail } from "../auth/emails.ts";
 import { hashToken, randomToken } from "../security/tokens.ts";
 import type { Config } from "../config.ts";
 import type { Database } from "../db/client.ts";

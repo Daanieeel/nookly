@@ -10,19 +10,14 @@ export const emailSchema = z
 /// Long enough to resist guessing, short enough for argon2id to stay cheap to check.
 export const passwordSchema = z.string().min(10, "Use at least 10 characters").max(256);
 
-/// Changing the password: the new one is typed twice, and the two must match. Only the length
-/// is demanded of it (`passwordSchema`); how strong it is is advice (`passwordStrength`).
-export const changePasswordSchema = z
-  .object({
-    current: z.string().min(1, "Enter your current password"),
-    next: passwordSchema,
-    confirm: z.string(),
-  })
+/// A new password is typed twice, and the two must match. Only the length is demanded of it
+/// (`passwordSchema`); how strong it is is advice (`passwordStrength`).
+export const newPasswordSchema = z
+  .object({ next: passwordSchema, confirm: z.string() })
   .refine((value) => value.next === value.confirm, {
     path: ["confirm"],
     message: "The passwords don't match",
   });
-export type ChangePassword = z.infer<typeof changePasswordSchema>;
 
 export const deviceSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -110,8 +105,8 @@ export const userSchema = z.object({
   /// An account made with another provider has no username until it picks one. Missing
   /// from a server that does not know providers.
   needsUsername: z.boolean().optional(),
-  /// The server requires two-factor and this account, which signs in with a password, has
-  /// not set it up yet: everything but setting it up is refused until it has.
+  /// The server requires two-factor and this account has not set it up yet: everything but
+  /// setting it up is refused until it has.
   twoFactorRequired: z.boolean().optional(),
   /// Whether the account signs in with a password, and the providers (`google`, `github`,
   /// `notion`) it signs in with. Missing from a server that does not say.
@@ -134,7 +129,8 @@ export const twoFactorChallengeSchema = z.object({
 
 /// What an account has for two-factor, for Settings and the setup screen.
 export const securitySummarySchema = z.object({
-  /// False for an account that signs in with another provider: it has no password to protect.
+  /// False only on an older server, which has no two-factor for an account that signs in
+  /// with another provider.
   available: z.boolean(),
   /// The server requires two-factor of this account.
   required: z.boolean(),
@@ -160,12 +156,69 @@ export type AuthenticatorStart = z.infer<typeof authenticatorStartSchema>;
 
 export const backupCodesSchema = z.object({ backupCodes: z.array(z.string()) });
 
-export const passwordRequestSchema = z.object({ password: z.string().min(1).max(256) });
 export const twoFactorCodeSchema = z.object({ code: z.string().trim().min(4).max(32) });
 export const addEmailRequestSchema = z.object({ email: emailSchema });
-export const disableTwoFactorRequestSchema = z.object({
-  method: z.enum(["email", "totp"]),
-  password: z.string().min(1).max(256),
+export const disableTwoFactorRequestSchema = z.object({ method: z.enum(["email", "totp"]) });
+
+/// What this app says it can do when it signs in, as `?auth=2` on every request: a second
+/// step for every way of signing in. A query, not a header: an older server refuses a header
+/// it doesn't know. A server that requires two-factor asks an app without it to update.
+export const AUTH_QUERY = "auth";
+export const AUTH_LEVEL = "2";
+
+/// The ways an account signs in. `credential` is Nookly Signin: an email and a password.
+export const NOOKLY_SIGN_IN = "credential";
+export const signInMethodSchema = z.object({
+  provider: z.string(),
+  /// Null when it shared none.
+  email: z.string().nullable(),
+  emailVerified: z.boolean(),
+  /// Its email is the account's: notices and sign in codes go there.
+  primary: z.boolean(),
+  canBePrimary: z.boolean(),
+});
+export type SignInMethod = z.infer<typeof signInMethodSchema>;
+export const signInSummarySchema = z.object({
+  methods: z.array(signInMethodSchema),
+  /// The way this device signed in, null when it isn't known.
+  current: z.string().nullable(),
+  /// The person confirmed it is them a short while ago, so changes need nothing more.
+  fresh: z.boolean(),
+  /// What can answer the second step of that confirmation; empty without two-factor.
+  secondStep: z.array(z.enum(["totp", "email", "backup"])),
+  /// The providers this server can connect.
+  offered: z.array(z.string()),
+});
+export type SignInSummary = z.infer<typeof signInSummarySchema>;
+/// A change to the ways of signing in. `signedOut` when it removed the one this device
+/// came through.
+export const signInChangeSchema = signInSummarySchema.extend({ signedOut: z.boolean() });
+export type SignInChange = z.infer<typeof signInChangeSchema>;
+
+/// Confirming it is you: the password, or a confirmation made with a provider just before
+/// (neither field), and a second step code when the account has two-factor.
+export const recheckRequestSchema = z.object({
+  password: z.string().min(1).max(256).optional(),
+  method: z.enum(["totp", "email", "backup"]).optional(),
+  code: z.string().trim().min(4).max(32).optional(),
+});
+export type Recheck = z.infer<typeof recheckRequestSchema>;
+
+const providerSchema = z.string().min(1).max(30);
+export const primaryRequestSchema = z.object({ provider: providerSchema });
+export const emailCodeRequestSchema = z.object({ provider: providerSchema, email: emailSchema });
+export const emailChangeRequestSchema = emailCodeRequestSchema.extend({
+  code: z.string().trim().min(4).max(32),
+});
+export const addPasswordRequestSchema = z.object({
+  email: emailSchema,
+  code: z.string().trim().min(4).max(32),
+  password: passwordSchema,
+});
+export const setPasswordRequestSchema = z.object({ password: passwordSchema });
+export const linkBeginRequestSchema = z.object({
+  provider: providerSchema,
+  port: z.number().int().min(1024).max(65_535).optional(),
 });
 
 /// better-auth's answer to a sign up or sign in: the session token to send as the

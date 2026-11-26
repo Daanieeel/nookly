@@ -7,16 +7,18 @@ import {
   syncedColumns,
   syncedTable,
 } from "../schema.ts";
-import { HybridClock } from "./hlc.ts";
+import { HybridClock, clockWall } from "./hlc.ts";
 import { seedStatements } from "./local-schema.ts";
 import {
   type Change,
+  MAX_CLOCK_SKEW_MS,
   MAX_PUSH_CHANGES,
   OWN_DATASET,
   type PulledDataset,
   type PushResult,
   type Role,
   type SyncRecord,
+  withoutNul,
 } from "./protocol.ts";
 import { EMPTY_RECORD, type RecordState, findLosses, isAlive, mergeRecords } from "./record.ts";
 import {
@@ -59,6 +61,24 @@ export interface PlannedChange {
   change: Change;
   version: number;
 }
+
+/// What tells one row's change apart: its table and key.
+export const changeKey = (table: string, pk: string) => `${table}\u0000${pk}`;
+
+/// A change the server refused that is still right here, so it goes on waiting.
+export const staysWaiting = (result: PushResult) =>
+  result.reason === "invalid-value" || result.reason === "clock-skew";
+
+export interface CollectOptions {
+  /// Changes to leave out for now, by `changeKey`, each at the dirty version it was
+  /// refused at: an edit made since moves the version on, and goes out again.
+  held?: ReadonlyMap<string, number>;
+  /// The server's time, once it refused a clock: a change dated further ahead than it
+  /// takes is dated by this instead.
+  serverTime?: number;
+}
+
+const NOTHING_HELD: ReadonlyMap<string, number> = new Map();
 
 export interface Conflict {
   id: string;
@@ -136,6 +156,15 @@ const baseRowSchema = z.object({
 });
 const sqlValue = z.union([z.string(), z.number(), z.null()]);
 const fieldsSchema = z.record(z.string(), sqlValue);
+
+/// A whole row as a conflict entry keeps it, or null when it can't be read.
+function readCopy(text: string): Row | null {
+  try {
+    return fieldsSchema.parse(JSON.parse(text));
+  } catch {
+    return null;
+  }
+}
 
 /// A field's losing value is JSON; a whole row's stays its JSON text, for showing.
 function readLosingValue(field: SqlValue, stored: SqlValue): SqlValue {
@@ -374,6 +403,7 @@ export class SyncEngine {
       run("DELETE FROM sync_rows"),
       run("DELETE FROM sync_conflicts"),
       run("DELETE FROM page_docs"),
+      run("DELETE FROM blob_files"),
       ...seedStatements(),
     ]);
     if (result.outcome !== "done") throw new Error("Couldn't clear this device.");
@@ -624,15 +654,24 @@ export class SyncEngine {
 
   /// Local changes ready to push, parents before children. Dirty rows that turn out
   /// to hold nothing new are cleared on the way.
-  async collect(limit = MAX_PUSH_CHANGES): Promise<PlannedChange[]> {
+  async collect(
+    limit = MAX_PUSH_CHANGES,
+    { held = NOTHING_HELD, serverTime }: CollectOptions = {},
+  ): Promise<PlannedChange[]> {
     if (!(await this.isEnabled())) return [];
     const order = SYNCED_TABLES.map((t, i) => `WHEN ${`'${t.name}'`} THEN ${i}`).join(" ");
     const dirty = (
       await this.driver.query(
         `SELECT tbl, pk, version, changed_at FROM sync_dirty ORDER BY CASE tbl ${order} ELSE 999 END, changed_at LIMIT ?`,
-        [limit],
+        [limit + held.size],
       )
-    ).map((r) => dirtyRowSchema.parse(r));
+    )
+      .map((r) => dirtyRowSchema.parse(r))
+      .filter((d) => held.get(changeKey(d.tbl, d.pk)) !== d.version)
+      .slice(0, limit);
+    // A change dated further ahead than the server takes was made on a wrong clock.
+    const dateOf = (at: number) =>
+      serverTime !== undefined && at > serverTime + MAX_CLOCK_SKEW_MS ? serverTime : at;
     const clock = await this.hybridClock();
     const planned: PlannedChange[] = [];
     const empty: SqlStatement[] = [];
@@ -679,7 +718,7 @@ export class SyncEngine {
               fields: {},
               clocks: {},
               baseClocks: {},
-              deletedClock: clock.stamp(d.changed_at),
+              deletedClock: clock.stamp(dateOf(d.changed_at)),
             },
           });
           continue;
@@ -689,13 +728,15 @@ export class SyncEngine {
           empty.push(forget);
           continue;
         }
-        const stamp = clock.stamp(d.changed_at);
+        const stamp = clock.stamp(dateOf(d.changed_at));
         const scope = await this.scopeOf(table, row, base);
         const fields: Row = {};
         const clocks: Record<string, string> = {};
         const baseClocks: Record<string, string> = {};
         for (const c of changed) {
-          fields[c] = row[c] ?? null;
+          const value = row[c] ?? null;
+          // A key names the row, so it is sent as it is.
+          fields[c] = table.pk.includes(c) ? value : withoutNul(value);
           clocks[c] = stamp;
           const known = base?.clocks[c];
           if (known) baseClocks[c] = known;
@@ -721,22 +762,19 @@ export class SyncEngine {
 
   /// Records what the server did with pushed changes. A taken change becomes part of
   /// the row's base. A refused one (a page shared read only) is undone locally, and
-  /// the edit is kept as a conflict.
+  /// the edit is kept as a conflict. One the server can't take as it is (a value its
+  /// database refuses, a clock too far ahead) is about this one row, which is fine
+  /// here: it goes on waiting, so it is never lost and never reported as sent.
   async acknowledge(planned: PlannedChange[], results: PushResult[]): Promise<void> {
-    const byKey = new Map(results.map((r) => [`${r.table}\u0000${r.pk}`, r]));
+    const byKey = new Map(results.map((r) => [changeKey(r.table, r.pk), r]));
     const statements: SqlStatement[] = [];
     const refused: PlannedChange[] = [];
-    const setAside: PlannedChange[] = [];
     for (const item of planned) {
       const { change } = item;
-      const result = byKey.get(`${change.table}\u0000${change.pk}`);
+      const result = byKey.get(changeKey(change.table, change.pk));
       if (!result) continue;
       if (result.status === "rejected") {
-        // A change the server can't take (a value its database refuses, a clock too far
-        // ahead) is about this one row, which is fine here: it is set aside, not undone.
-        if (result.reason === "invalid-value" || result.reason === "clock-skew")
-          setAside.push(item);
-        else refused.push(item);
+        if (!staysWaiting(result)) refused.push(item);
         continue;
       }
       const table = requireTable(change.table);
@@ -758,27 +796,58 @@ export class SyncEngine {
     }
     if (statements.length > 0) await this.batch(statements);
     for (const item of refused) await this.undo(item);
-    await this.quarantine(setAside);
   }
 
-  /// Stops sending changes the server can't take, so they don't hold up the rest. The row
-  /// stays exactly as it is here, nothing is undone, and the edit is kept as a conflict
-  /// to look at. The row syncs again the next time it is edited.
-  async quarantine(items: PlannedChange[]): Promise<void> {
-    for (const item of items) {
-      const { change } = item;
-      const table = requireTable(change.table);
-      const state = (await this.load(table, [change.pk])).get(change.pk);
+  /// Which of `held` still wait to be sent, at the version they were held at.
+  async stillWaiting(held: ReadonlyMap<string, number>): Promise<Set<string>> {
+    const rows = await this.driver.query("SELECT tbl, pk, version FROM sync_dirty", []);
+    return new Set(
+      rows
+        .map((r) => ({
+          key: changeKey(String(r.tbl), String(r.pk)),
+          version: Number(r.version),
+        }))
+        .filter((r) => held.get(r.key) === r.version)
+        .map((r) => r.key),
+    );
+  }
+
+  /// Versions up to 1.0.3 stopped sending a change the server refused and kept a copy of
+  /// the row as a conflict, which read as a removed item. A row still exactly as that copy
+  /// is marked to be sent again, and the entry is settled. An entry whose row differs from
+  /// its copy (an undone edit, a later one) is left alone.
+  async requeueSetAside(): Promise<void> {
+    const rows = await this.driver.query(
+      "SELECT id, tbl, pk, losing_value, losing_clock FROM sync_conflicts WHERE resolved_at IS NULL AND field IS NULL AND winning_clock IS NULL AND losing_clock IS NOT NULL",
+      [],
+    );
+    for (const entry of rows) {
+      const table = syncedTable(String(entry.tbl));
+      if (!table) continue;
+      const pk = String(entry.pk);
+      const state = (await this.load(table, [pk])).get(pk);
       if (!state) continue;
+      const { row, base } = state;
+      const copy = readCopy(String(entry.losing_value));
+      if (!copy) continue;
+      const matches = (values: Row) =>
+        syncedColumns(table).every((c) => (values[c] ?? null) === (copy[c] ?? null));
+      const unsent = row
+        ? matches(row) && this.changedFields(table, row, base).length > 0
+        : base !== null && isAlive(base) && matches(base.fields);
+      if (!unsent) continue;
       await this.batch([
-        dirtyGuard(change.table, change.pk, item.version),
-        this.conflict(change.table, change.pk, {
-          field: null,
-          value: JSON.stringify(state.row ?? state.base?.fields ?? {}),
-          clock: change.deletedClock ?? Object.values(change.clocks)[0] ?? null,
-          winningClock: null,
-        }),
-        clearDirty(change.table, change.pk),
+        run(
+          "INSERT INTO sync_dirty (tbl, pk, changed_at) VALUES (?, ?, ?) ON CONFLICT (tbl, pk) DO NOTHING",
+          table.name,
+          pk,
+          clockWall(String(entry.losing_clock)),
+        ),
+        run(
+          "UPDATE sync_conflicts SET resolved_at = ? WHERE id = ?",
+          new Date(this.now()).toISOString(),
+          String(entry.id),
+        ),
       ]);
     }
   }

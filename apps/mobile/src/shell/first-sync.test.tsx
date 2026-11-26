@@ -34,6 +34,19 @@ describe("bringing this phone into an account", () => {
     }
   });
 
+  it("shows the bytes of the files, so one big file visibly moves", async () => {
+    const data = testData();
+    data.sync.store.setState({
+      migration: { ...BASE, fileBytes: 480 * 1048576, fileBytesSent: 120 * 1048576 },
+    });
+    const screen = await renderScreens({ index: () => <FirstSyncPage /> }, data);
+    expect(await screen.findByText("12 of 37 files, 120.0 MB of 480.0 MB")).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "Files sent" })).toHaveAccessibilityValue({
+      now: 120 * 1048576,
+      max: 480 * 1048576,
+    });
+  });
+
   it("says when it is done, and goes away on Done", async () => {
     const data = testData();
     data.sync.store.setState({ migration: BASE });

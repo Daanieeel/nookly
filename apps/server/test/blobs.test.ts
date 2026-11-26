@@ -1,5 +1,7 @@
 import { HeadObjectCommand, ListObjectVersionsCommand } from "@aws-sdk/client-s3";
+import { retryAfterSeconds } from "@nookly/shared/api";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { z } from "zod";
 import { PHONE, type TestServer, account, startServer, HOOK_TIMEOUT } from "./helpers.ts";
 
 let server: TestServer;
@@ -119,7 +121,7 @@ describe("file contents", () => {
     });
     expect(read.status).toBe(404);
     const anonymous = await fetch(`${server.baseUrl}/v1/blobs/${hash}`);
-    expect(anonymous.status).toBe(401);
+    expect(anonymous.status).toBe(403);
   });
 
   it("refuses a file over the size limit", async () => {
@@ -149,5 +151,47 @@ describe("file contents", () => {
     );
     expect(versions?.Versions ?? []).toEqual([]);
     expect(versions?.DeleteMarkers ?? []).toEqual([]);
+  });
+});
+
+describe("how many files move in a minute", () => {
+  // The limit on everything else becomes 6 a minute, the one on files 30.
+  beforeEach(async () => {
+    await server.stop();
+    server = await startServer({ RATE_LIMIT_SCALE: "0.01" });
+  }, HOOK_TIMEOUT);
+
+  const body = bytesOf("one lecture of many");
+  const hash = sha256(body);
+  const get = (token: string) =>
+    fetch(`${server.baseUrl}/v1/blobs/${hash}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+  it("lets a first download through, and leaves sync what it had", async () => {
+    const { api } = await account(server, "ada", PHONE);
+    const token = (await api.sessionToken()) ?? "";
+    expect((await put(token, hash, body)).status).toBe(201);
+    const statuses: number[] = [];
+    for (let i = 0; i < 20; i++) {
+      const response = await get(token);
+      await response.arrayBuffer();
+      statuses.push(response.status);
+    }
+    expect(statuses).toEqual(Array.from({ length: 20 }, () => 200));
+    await expect(api.syncTransport().pull({ cursors: {} })).resolves.toBeDefined();
+  });
+
+  it("still stops what asks without end, and says how long to wait", async () => {
+    const token = await tokenOf("ada");
+    expect((await put(token, hash, body)).status).toBe(201);
+    let refused: Response | null = null;
+    for (let i = 0; i < 40 && !refused; i++) {
+      const response = await get(token);
+      if (response.status === 429) refused = response;
+      else await response.arrayBuffer();
+    }
+    const answer = z.object({ message: z.string() }).parse(await refused?.json());
+    expect(retryAfterSeconds(answer.message)).toBeGreaterThan(0);
   });
 });

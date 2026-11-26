@@ -1,7 +1,8 @@
 import type {
   ApiClient,
   DeviceInfo,
-  ProviderBeginInput,
+  ProviderBegin,
+  SignInChange,
   SignUp,
   TwoFactorMethod,
   User,
@@ -10,7 +11,7 @@ import { TERMS_VERSION, requiresTerms } from "../api/legal.ts";
 import { ProviderNoAccountError, providerErrorMessage } from "../api/provider-sign-in.ts";
 import { userSchema } from "../api/schemas.ts";
 import { SYNCED_TABLES } from "../schema.ts";
-import { type BlobPlatform, type BlobProgress, BlobSync } from "./blobs.ts";
+import { type BlobPlatform, type BlobProgress, BlobSync, NO_BLOB_PROGRESS } from "./blobs.ts";
 import {
   type AnyConflict,
   type ConflictView,
@@ -20,7 +21,7 @@ import {
 import { PageDocs } from "./docs.ts";
 import type { SqlValue } from "../schema.ts";
 import { SyncClient, type SyncStatus } from "./client.ts";
-import { type Conflict, SyncEngine } from "./engine.ts";
+import { type Conflict, SyncEngine, changeKey } from "./engine.ts";
 import { MAX_MISSING_KEYS } from "./protocol.ts";
 import { AccountSettingsSync, type SettingsBridge } from "./settings.ts";
 import { type SqlDriver, ident, pkSql, run } from "./sql.ts";
@@ -44,6 +45,10 @@ export type AccountApi = Pick<
   | "finishProviderSignIn"
   | "beginConfirmation"
   | "finishConfirmation"
+  | "signInMethods"
+  | "beginLink"
+  | "finishLink"
+  | "unlink"
   | "setUsername"
   | "signOut"
   | "me"
@@ -51,6 +56,7 @@ export type AccountApi = Pick<
   | "isSignedIn"
   | "syncTransport"
   | "missing"
+  | "hasBlob"
   | "sessionToken"
   | "conflicts"
   | "reportConflict"
@@ -100,6 +106,13 @@ export interface MigrationState {
   itemsSent: number;
   files: number;
   filesSent: number;
+  /// The bytes of those files, and how many have gone. Missing in a state saved by an
+  /// earlier version.
+  fileBytes?: number;
+  fileBytesSent?: number;
+  /// Items the server refused by the time it was done; they go on waiting. Missing in a
+  /// state saved by an earlier version.
+  heldItems?: number;
   /// Where the backup made before anything was sent is.
   backupPath: string | null;
   startedAt: string;
@@ -126,6 +139,7 @@ export interface SyncAccountState {
 const OFF: SyncStatus = {
   state: "off",
   pending: 0,
+  held: 0,
   conflicts: 0,
   parked: 0,
   lastSyncedAt: null,
@@ -155,7 +169,7 @@ export interface SignOutResult {
 /// How long a sign out waits for the last changes to go out.
 const LAST_SYNC_MS = 10_000;
 const SIGNED_OUT_CLEARED =
-  "This device was signed out of your account, and your data was removed from this device. Sign in again to get it back.";
+  "This device was signed out of your account, and your data was removed from this device. Files your account doesn't have yet stay on it. Sign in again to get your data back.";
 const SIGNED_OUT_NOT_CLEARED =
   "This device was signed out of your account, but its data could not be removed. Sign in again to keep syncing.";
 
@@ -189,6 +203,8 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
   private blobs: BlobSync | null = null;
   private readonly settings: AccountSettingsSync | null;
   private stopSettings: (() => void) | null = null;
+  /// The client whose session this device is ending itself, while it does.
+  private leaving: A | null = null;
   private filesRunning: Promise<void> | null = null;
   private filesCounted = { uploaded: 0, downloaded: 0 };
   private docs: PageDocs | null = null;
@@ -227,8 +243,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     // or the new sign in would keep the old, ended session's sync.
     if (this.client) this.stop();
     const api = this.deps.connect(url, () => {
-      // Only the current account's client speaks for this device.
-      if (this.api === api) void this.signedOutByServer();
+      // Only the current account's client speaks for this device, and not about a session
+      // this device is ending itself.
+      if (this.api === api && this.leaving !== api) void this.signedOutByServer();
     });
     this.api = api;
     return api;
@@ -359,25 +376,23 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     return this.enter(api, await api.signUp(input, this.deps.device), options);
   }
 
-  /// Signs in with another account (`google`, `github`, `notion`) through the browser.
-  /// `createAccount` is for someone who is new here; null comes back when the browser was
-  /// closed without finishing, which is not an error.
-  async signInWithProvider(
-    serverUrl: string,
-    provider: string,
-    input: { createAccount?: boolean; betaKey?: string; termsVersion?: string } = {},
-    options: SignInOptions = {},
-  ): Promise<User | null> {
+  /// The system browser, on a device that has one to open.
+  private browser(): ProviderBrowser {
     const browser = this.deps.providerBrowser;
     if (!browser)
       throw new Error("Signing in with another account isn't available on this device.");
-    const api = this.connect(serverUrl);
+    return browser;
+  }
+
+  /// The browser's round trip to a provider: the code it brought back, with the secret that
+  /// goes with it. Null when the browser was closed without finishing, which is not an error.
+  private async browserRound(
+    provider: string,
+    begin: (input: { provider: string; port?: number }) => Promise<ProviderBegin>,
+  ): Promise<{ code: string; secret: string } | null> {
     let secret = "";
-    const returned = await browser(async (port) => {
-      const { termsVersion: _terms, ...asked } = input;
-      const request: ProviderBeginInput = { provider, ...asked };
-      if (port !== null) request.port = port;
-      const begun = await api.beginProviderSignIn(request);
+    const returned = await this.browser()(async (port) => {
+      const begun = await begin(port === null ? { provider } : { provider, port });
       secret = begun.secret;
       return begun.url;
     });
@@ -390,38 +405,81 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         providerErrorMessage(error ? decodeURIComponent(error) : "unknown", provider),
       );
     }
-    let user = await api.finishProviderSignIn(decodeURIComponent(code), secret, this.deps.device);
+    return { code: decodeURIComponent(code), secret };
+  }
+
+  /// Signs in with another account (`google`, `github`, `notion`) through the browser.
+  /// `createAccount` is for someone who is new here; null comes back when the browser was
+  /// closed without finishing. An account with two-factor throws `TwoFactorRequiredError`,
+  /// and `completeTwoFactor` finishes.
+  async signInWithProvider(
+    serverUrl: string,
+    provider: string,
+    input: { createAccount?: boolean; betaKey?: string; termsVersion?: string } = {},
+    options: SignInOptions = {},
+  ): Promise<User | null> {
+    this.browser();
+    const api = this.connect(serverUrl);
+    const back = await this.browserRound(provider, (where) => {
+      const { termsVersion: _terms, ...asked } = input;
+      return api.beginProviderSignIn({ ...asked, ...where });
+    });
+    if (!back) return null;
+    let user = await api.finishProviderSignIn(back.code, back.secret, this.deps.device);
     // The terms were agreed to before the account was made: they are recorded with it.
     if (input.createAccount && input.termsVersion) user = await api.acceptTerms(input.termsVersion);
     return this.enter(api, user, options);
   }
 
-  /// Shows the account's provider that the person at this device is the account's, before
-  /// something that cannot be undone (deleting the account): the same browser leg as signing
-  /// in, with nothing about who is signed in changed. False when the browser was closed
-  /// without finishing, which is not an error.
+  private signedInAccount(): A {
+    this.browser();
+    if (!this.api) throw new Error("Sign in first.");
+    return this.api;
+  }
+
+  /// Shows the account's provider that the person at this device is the account's, before a
+  /// change that asks for it (deleting the account, a recheck): the same browser leg as
+  /// signing in, with nothing about who is signed in changed. False when the browser was
+  /// closed without finishing.
   async confirmWithProvider(provider: string): Promise<boolean> {
-    const browser = this.deps.providerBrowser;
-    if (!browser)
-      throw new Error("Signing in with another account isn't available on this device.");
+    const api = this.signedInAccount();
+    const back = await this.browserRound(provider, (where) => api.beginConfirmation(where));
+    if (!back) return false;
+    await api.finishConfirmation(back.code, back.secret);
+    return true;
+  }
+
+  /// Connects a provider to the signed in account, through the browser. Null when the
+  /// browser was closed without finishing.
+  async linkProvider(provider: string): Promise<SignInChange | null> {
+    const api = this.signedInAccount();
+    const back = await this.browserRound(provider, (where) => api.beginLink(where));
+    return back ? api.finishLink(back.code, back.secret) : null;
+  }
+
+  /// Disconnects a way of signing in. When this device signed in with it, the server ends
+  /// its session too: sync stops first, so that is not read as being signed out from
+  /// elsewhere (which clears the device), and everything stays here.
+  async disconnectProvider(provider: string): Promise<SignInChange> {
     const api = this.api;
     if (!api) throw new Error("Sign in first.");
-    let secret = "";
-    const returned = await browser(async (port) => {
-      const begun = await api.beginConfirmation(port === null ? { provider } : { provider, port });
-      secret = begun.secret;
-      return begun.url;
-    });
-    if (returned === null) return false;
-    const error = /[?&]error=([^&#]+)/.exec(returned)?.[1];
-    const code = /[?&]code=([^&#]+)/.exec(returned)?.[1];
-    if (error || !code) {
-      throw new Error(
-        providerErrorMessage(error ? decodeURIComponent(error) : "unknown", provider),
-      );
+    if ((await api.signInMethods()).current !== provider) return api.unlink(provider);
+    const client = this.client;
+    await this.stopFiles();
+    this.stop();
+    await client?.finished();
+    this.leaving = api;
+    try {
+      const change = await api.unlink(provider);
+      if (change.signedOut) await this.detach();
+      else await this.start(false);
+      return change;
+    } catch (error) {
+      await this.start(false).catch(() => {});
+      throw error;
+    } finally {
+      this.leaving = null;
     }
-    await api.finishConfirmation(decodeURIComponent(code), secret);
-    return true;
   }
 
   /// Which providers a server signs in with. Asked of a client of its own: nothing about
@@ -554,24 +612,45 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     await this.engine.enable();
     if (!hasData) return;
     const blobs = this.blobsFor(serverUrl);
-    const files = blobs ? (await blobs.plan()).uploads.length : 0;
+    const { files, bytes } = (await blobs?.waitingUploads()) ?? { files: 0, bytes: 0 };
     await this.saveMigration({
       ...base,
       phase: "sending",
       items: await this.engine.pendingCount(),
       files,
+      fileBytes: bytes,
+      fileBytesSent: 0,
       backupPath,
     });
   }
 
   private blobsFor(serverUrl: string): BlobSync | null {
-    if (!this.deps.blobs || !this.api) return null;
+    const api = this.api;
+    if (!this.deps.blobs || !api) return null;
     this.blobs ??= new BlobSync({
       driver: this.deps.driver,
-      platform: this.deps.blobs(serverUrl, this.api),
+      platform: this.deps.blobs(serverUrl, api),
+      holds: (sha256) => api.hasBlob(sha256),
       now: this.now,
+      onProgress: (progress) => this.showUpload(progress),
     });
     return this.blobs;
+  }
+
+  /// Moves the first sync's file counts along while a pass is still running. Only shown:
+  /// what is saved is counted again once the pass is over.
+  private showUpload(progress: BlobProgress) {
+    const migration = this.store.getState().migration;
+    if (migration?.phase !== "sending" || migration.fileBytes === undefined) return;
+    const along = (total: number, pass: number, done: number) =>
+      Math.max(0, Math.min(total, total - pass + done));
+    this.store.setState({
+      migration: {
+        ...migration,
+        filesSent: along(migration.files, progress.passFiles, progress.passFilesSent),
+        fileBytesSent: along(migration.fileBytes, progress.passBytes, progress.passBytesSent),
+      },
+    });
   }
 
   /// One start at a time: two that overlap (a launch that restores twice) would each make
@@ -617,6 +696,10 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       onStatus: (status) => this.store.setState({ status }),
       onApplied: this.deps.onApplied,
       onAccountChanged: () => void this.refreshUser(),
+      onFailure: (error) => {
+        // The server asks for two-factor now: the account says so, and sync waits.
+        if ("code" in error && error.code === "two_factor_required") void this.refreshUser();
+      },
       afterCycle: (applied) => this.afterCycle(applied),
       countConflicts: () => this.openConflicts().then((all) => all.length),
     });
@@ -822,7 +905,9 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
       const user = await api.me();
       const current = this.store.getState().user;
       if (this.api !== api || !current || JSON.stringify(user) === JSON.stringify(current)) return;
-      this.store.setState({ user, ...this.gates(user) });
+      const gates = this.gates(user);
+      this.store.setState({ user, ...gates });
+      if (gates.twoFactorPending) this.stop();
       await this.rememberUser(user);
     } catch {
       // Offline or signed out: the next sync asks again.
@@ -873,17 +958,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         const lastError = error instanceof Error ? error.message : String(error);
         const files = this.store.getState().files;
         this.store.setState({
-          files: {
-            ...(files ?? {
-              toUpload: 0,
-              uploaded: 0,
-              toDownload: 0,
-              downloaded: 0,
-              waiting: 0,
-              lastError: null,
-            }),
-            lastError,
-          },
+          files: { ...(files ?? NO_BLOB_PROGRESS), lastError },
         });
       } finally {
         this.filesRunning = null;
@@ -902,13 +977,25 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     const migration = this.store.getState().migration;
     if (!migration || (migration.phase !== "sending" && migration.phase !== "checking")) return;
     const pending = await this.engine.pendingCount();
-    const filesLeft = this.blobs ? (await this.blobs.plan()).uploads.length : 0;
+    const left = (await this.blobs?.waitingUploads()) ?? { files: 0, bytes: 0 };
+    const filesLeft = left.files;
+    // Read again: uploads on their way moved the counts while this one was counting.
+    const latest = this.store.getState().migration ?? migration;
     const next: MigrationState = {
-      ...migration,
+      ...latest,
       itemsSent: Math.max(0, Math.min(migration.items, migration.items - pending)),
-      filesSent: Math.max(0, Math.min(migration.files, migration.files - filesLeft)),
+      filesSent: Math.max(latest.filesSent, Math.min(migration.files, migration.files - filesLeft)),
+      // A file on its way counts as left here, so what is shown never goes back.
+      ...(latest.fileBytes !== undefined && {
+        fileBytesSent: Math.max(
+          latest.fileBytesSent ?? 0,
+          Math.min(latest.fileBytes, latest.fileBytes - left.bytes),
+        ),
+      }),
     };
-    if (pending > 0 || filesLeft > 0 || this.client?.current().state !== "idle") {
+    // A change the server refuses must not keep the first sync from ending.
+    const held = this.client?.heldKeys().size ?? 0;
+    if (pending > held || filesLeft > 0 || this.client?.current().state !== "idle") {
       await this.saveMigration({ ...next, phase: "sending" });
       return;
     }
@@ -921,15 +1008,18 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     }
     await this.saveMigration({
       ...next,
-      itemsSent: next.items,
+      itemsSent: Math.max(0, next.items - held),
+      heldItems: held,
       filesSent: next.files,
+      ...(next.fileBytes !== undefined && { fileBytesSent: next.fileBytes }),
       phase: "done",
       finishedAt: new Date(this.now()).toISOString(),
     });
   }
 
   /// Asks the server for every row of this device's own data. A row it doesn't
-  /// have is marked to be sent again from scratch. Returns how many were missing.
+  /// have is marked to be sent again from scratch, except one it refused, which is
+  /// waiting already. Returns how many were missing.
   async verify(): Promise<number> {
     if (!this.api) return 0;
     let missing = 0;
@@ -938,7 +1028,10 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         `SELECT ${pkSql(table)} AS pk FROM ${ident(table.name)} WHERE ${pkSql(table)} NOT IN (SELECT pk FROM sync_rows WHERE tbl = ? AND dataset <> 'own')`,
         [table.name],
       );
-      const pks = rows.map((r) => String(r.pk));
+      const held = this.client?.heldKeys();
+      const pks = rows
+        .map((r) => String(r.pk))
+        .filter((pk) => !held?.has(changeKey(table.name, pk)));
       for (let i = 0; i < pks.length; i += MAX_MISSING_KEYS) {
         const lost = await this.api.missing(table.name, pks.slice(i, i + MAX_MISSING_KEYS));
         if (lost.length === 0) continue;
@@ -967,6 +1060,7 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     this.stopSettings = null;
     if (this.filesTimer) clearTimeout(this.filesTimer);
     this.filesTimer = null;
+    this.blobs?.close();
     this.blobs = null;
     this.filesCounted = { uploaded: 0, downloaded: 0 };
     const docs = this.docs;
@@ -1032,11 +1126,14 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     let backupPath: string | null = null;
     if (!keep && unsent > 0 && this.deps.backup) backupPath = (await this.deps.backup(true)).path;
     const client = this.client;
+    const blobs = keep ? null : await this.stopFiles();
     this.stop();
     // A sync still on its way must not write after the wipe below.
     await client?.finished();
     // Open pages write their last words into the rows before their copies go.
     await this.closingDocs;
+    // Asked while sync still knows what the account holds.
+    const files = (await blobs?.confirmed()) ?? [];
     try {
       await this.api?.signOut();
     } catch {
@@ -1064,8 +1161,24 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
         twoFactorPending: false,
       });
       await this.cleared(gone);
+      await blobs?.remove(files);
     }
     return { unsent, backupPath };
+  }
+
+  /// Starts no further file and gives the ones on their way a moment to finish, before a
+  /// device is cleared.
+  private async stopFiles(): Promise<BlobSync | null> {
+    const serverUrl = this.store.getState().serverUrl;
+    const blobs = serverUrl ? this.blobsFor(serverUrl) : null;
+    blobs?.cancel();
+    if (this.filesRunning) {
+      await Promise.race([
+        this.filesRunning,
+        new Promise((resolve) => setTimeout(resolve, LAST_SYNC_MS)),
+      ]);
+    }
+    return blobs;
   }
 
   /// The account is gone from the server (deleted from this device): the device lets go of
@@ -1088,22 +1201,26 @@ export class SyncRuntime<A extends AccountApi = AccountApi> {
     });
   }
 
-  /// The server ended this device's session (signed out from another device, a password
-  /// reset, an account that is gone). Nothing stays: whoever holds a device the account
-  /// lost access to, a lost or stolen one, must find none of its data on it, and not even
-  /// a backup. The data is in the account and on the other devices, so signing in again
-  /// brings it back. Edits that never reached the account are lost with it: the session
-  /// is gone, so they can't be sent any more.
+  /// The server said this device's session is over, which it says only after the person
+  /// signed this device out from another one (D110). The account's data goes, and no
+  /// backup is made: whoever holds a lost or stolen device should not find it there. The
+  /// data is in the account and on the other devices, so signing in again brings it back.
+  /// Edits that never reached the account are lost with it: the
+  /// session is gone, so they can't be sent any more. A file the account doesn't have
+  /// stays on disk, as it may be the only copy.
   private async signedOutByServer() {
     const client = this.client;
+    const blobs = await this.stopFiles();
     this.stop();
     await client?.finished();
     await this.closingDocs;
+    const files = (await blobs?.confirmed().catch(() => [])) ?? [];
     await this.engine.disable();
     let signedOutReason = SIGNED_OUT_CLEARED;
     let gone: string[] = [];
     try {
       gone = await this.engine.wipe();
+      await blobs?.remove(files);
     } catch {
       signedOutReason = SIGNED_OUT_NOT_CLEARED;
     }

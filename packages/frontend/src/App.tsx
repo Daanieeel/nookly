@@ -23,6 +23,7 @@ import { useSyncBootstrap } from "#/features/sync/sync-instance.ts";
 import { AccountDialog } from "#/features/sync/AccountDialog.tsx";
 import { MergeEditor } from "#/features/sync/MergeEditor.tsx";
 import { FirstSyncDialog } from "#/features/sync/FirstSyncDialog.tsx";
+import { RecheckDialog } from "#/features/sync/RecheckDialog.tsx";
 import { SecurityDialog } from "#/features/sync/SecurityDialog.tsx";
 import { TermsGate } from "#/features/sync/TermsGate.tsx";
 import { UsernameGate } from "#/features/sync/UsernameGate.tsx";
@@ -235,6 +236,7 @@ function Shell() {
       <TermsGate />
       <UsernameGate />
       <SecurityDialog />
+      <RecheckDialog />
       <MergeEditor />
       <ImportDialog />
       <NewTaskDialog />

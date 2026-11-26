@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { PRODUCTION_SERVER, TERMS_VERSION } from "../api/index.ts";
-import { ProviderNoAccountError, TwoFactorRequiredError } from "../api/index.ts";
-import type { DeviceInfo, SignUp, TwoFactorMethod, User } from "../api/index.ts";
+import { ApiRequestError, ProviderNoAccountError, TwoFactorRequiredError } from "../api/index.ts";
+import type { DeviceInfo, SignInChange, SignUp, TwoFactorMethod, User } from "../api/index.ts";
 import type { ConflictReport, ServerConflict } from "./protocol.ts";
-import type { BlobPlatform } from "./blobs.ts";
+import type { BlobPlatform, BlobTarget } from "./blobs.ts";
 import { type LiveHandlers, NetworkError, type SyncTransport } from "./client.ts";
 import { MemoryServer } from "./testing/memory-server.ts";
 import { NodeSqliteDriver } from "./testing/node-driver.ts";
@@ -113,6 +113,46 @@ class FakeAccount implements AccountApi {
   async isSignedIn() {
     return this.signedIn;
   }
+  /// The ways the account signs in, as the server lists them, and the one this device used.
+  methods = ["credential", "github"];
+  current = "credential";
+  private signInSummary(signedOut: boolean): SignInChange {
+    return {
+      methods: this.methods.map((provider) => ({
+        provider,
+        email: null,
+        emailVerified: false,
+        primary: provider === "credential",
+        canBePrimary: false,
+      })),
+      current: this.current,
+      fresh: true,
+      secondStep: [],
+      offered: this.offered,
+      signedOut,
+    };
+  }
+  async signInMethods() {
+    return this.signInSummary(false);
+  }
+  async beginLink(input: { provider: string; port?: number }) {
+    this.calls.push(`beginLink ${input.provider}`);
+    return { url: `https://accounts.example/link/${input.provider}`, secret: "link-secret" };
+  }
+  async finishLink(code: string, secret: string) {
+    this.calls.push(`link ${code} ${secret}`);
+    this.methods.push("notion");
+    return this.signInSummary(false);
+  }
+  unlinkFails = false;
+  async unlink(provider: string) {
+    this.calls.push(`unlink ${provider} ${this.liveHandlers ? "live" : "quiet"}`);
+    if (this.unlinkFails) throw new Error("The primary way of signing in stays.");
+    const mine = provider === this.current;
+    this.methods = this.methods.filter((m) => m !== provider);
+    if (mine) this.signedIn = false;
+    return this.signInSummary(mine);
+  }
   /// What the server's conflict log holds for the account.
   serverConflicts: ServerConflict[] = [];
   async conflicts() {
@@ -135,6 +175,8 @@ class FakeAccount implements AccountApi {
   }
   /// Every request fails, like a server that is down.
   offline = false;
+  /// Every pull is refused until two-factor is set up, as the server answers it.
+  owesTwoFactor = false;
   /// Pushes fail from this many on, like a connection that drops mid sync.
   failPushesAfter = Number.POSITIVE_INFINITY;
   pushes = 0;
@@ -162,6 +204,9 @@ class FakeAccount implements AccountApi {
       pull: async (r) => {
         this.pulls += 1;
         if (this.offline) throw new NetworkError("Can't reach the server.");
+        if (this.owesTwoFactor) {
+          throw new ApiRequestError(403, "two_factor_required", "Set up two-factor.");
+        }
         return this.server.pull(r);
       },
     };
@@ -169,6 +214,8 @@ class FakeAccount implements AccountApi {
   async missing(table: string, pks: string[]) {
     return pks.filter((pk) => !this.server.records.has(`${table}\u0000${pk}`));
   }
+  /// Which file contents the account holds.
+  hasBlob = async (_sha256: string) => false;
 }
 
 function runtime(
@@ -196,6 +243,8 @@ function runtime(
 }
 
 const now = () => new Date().toISOString();
+
+const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 
 function addSpace(driver: NodeSqliteDriver, id = "s1", name = "Personal") {
   driver.exec(
@@ -748,6 +797,23 @@ describe("a first sync of a device with data", () => {
     second.sync.stop();
   }, 30_000);
 
+  it("finishes without a change the server refuses, which goes on waiting", async () => {
+    const server = new MemoryServer();
+    server.refuses = (change) => change.table === "entities" && change.pk === "n1";
+    const { sync, driver } = runtime(server, undefined, async () => ({ path: "/b" }));
+    addNotes(driver, 3);
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await sync.settled();
+    await sync.settled();
+    const { migration, status } = sync.store.getState();
+    expect(migration).toMatchObject({ phase: "done", heldItems: 1 });
+    expect(migration?.itemsSent).toBe((migration?.items ?? 0) - 1);
+    expect(status.held).toBe(1);
+    expect(await sync.unsentCount()).toBe(1);
+    expect(await sync.verify()).toBe(0);
+    sync.stop();
+  });
+
   it("sends again a row the server turns out not to have", async () => {
     const { sync, driver, server } = runtime(undefined, undefined, async () => ({ path: "/b" }));
     addNotes(driver, 5);
@@ -924,9 +990,15 @@ class QuietFiles implements BlobPlatform {
   async hash(_path: string) {
     return { sha256: createHash("sha256").update("lecture").digest("hex"), size: 7 };
   }
+  async size() {
+    return 7;
+  }
   async upload() {}
   async download(): Promise<string> {
     throw new Error("nothing to download");
+  }
+  async remove() {
+    return false;
   }
 }
 
@@ -982,6 +1054,7 @@ describe("syncing files", () => {
     const driver = new NodeSqliteDriver();
     const platform: BlobPlatform = {
       hash: async () => null,
+      size: async () => null,
       upload: async () => {},
       download: async (_sha, target) => {
         // Lands after the round that asked for it is over.
@@ -989,6 +1062,7 @@ describe("syncing files", () => {
         driver.exec("UPDATE files SET local_path = '/here/a.pdf' WHERE entity_id = ?", target.pk);
         return "/here/a.pdf";
       },
+      remove: async () => false,
     };
     const second = runtime(server, driver, undefined, platform);
     await second.sync.signIn("https://sync.example.com", "ada", "a long password");
@@ -1048,6 +1122,28 @@ describe("two-factor", () => {
     await sync.twoFactorChanged();
     expect(sync.store.getState().twoFactorPending).toBe(false);
     expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).not.toEqual([]);
+    sync.stop();
+  });
+
+  it("holds a syncing device back as soon as the server asks for it", async () => {
+    const { sync, account, driver } = runtime();
+    account.user = { ...ADA, termsVersion: TERMS_VERSION };
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    // The server starts requiring it while this device is signed in.
+    account.user = { ...account.user, twoFactorRequired: true };
+    account.owesTwoFactor = true;
+    account.liveHandlers?.onChanges();
+    await vi.waitFor(() => expect(sync.store.getState().twoFactorPending).toBe(true));
+    expect(account.liveHandlers).toBeNull();
+    // Signed in still, with everything on the device.
+    expect(sync.store.getState().user?.username).toBe("ada");
+    expect(account.signedIn).toBe(true);
+    expect(driver.rows("SELECT * FROM sync_meta WHERE key = 'enabled'")).not.toEqual([]);
+
+    account.user = { ...account.user, twoFactorRequired: false };
+    account.owesTwoFactor = false;
+    await sync.twoFactorChanged();
+    await vi.waitFor(() => expect(account.liveHandlers).not.toBeNull());
     sync.stop();
   });
 
@@ -1207,6 +1303,60 @@ describe("signing in with another account", () => {
     sync.stop();
   });
 
+  it("connects a provider to the signed in account through the same browser", async () => {
+    const { sync, account, opened } = withBrowser("nookly://auth?code=abc");
+    await sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    const change = await sync.linkProvider("notion");
+    expect(opened).toEqual(["https://accounts.example/link/notion"]);
+    expect(account.calls).toContain("link abc link-secret");
+    expect(change?.methods.map((m) => m.provider)).toContain("notion");
+    sync.stop();
+  });
+
+  it("connects nothing when the browser is closed, and says why when the provider refused", async () => {
+    const closed = withBrowser(null);
+    await closed.sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    expect(await closed.sync.linkProvider("notion")).toBeNull();
+    closed.sync.stop();
+    const refused = withBrowser("nookly://auth?error=access_denied");
+    await refused.sync.signIn(PRODUCTION_SERVER, "ada", "a long password");
+    await expect(refused.sync.linkProvider("notion")).rejects.toThrow("Notion didn't allow");
+    refused.sync.stop();
+  });
+
+  it("disconnects a provider and stays signed in", async () => {
+    const { sync, account } = runtime();
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    const change = await sync.disconnectProvider("github");
+    expect(change.signedOut).toBe(false);
+    expect(account.calls).toContain("unlink github live");
+    expect(sync.store.getState().user?.username).toBe("ada");
+    sync.stop();
+  });
+
+  it("keeps everything on the device when disconnecting signs it out", async () => {
+    const { sync, account, driver } = runtime();
+    addSpace(driver);
+    account.current = "github";
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    const change = await sync.disconnectProvider("github");
+    expect(change.signedOut).toBe(true);
+    // Sync stopped first: nothing was asking while the session ended.
+    expect(account.calls).toContain("unlink github quiet");
+    expect(sync.store.getState()).toMatchObject({ user: null, signedOutReason: null });
+    expect(driver.rows("SELECT id FROM spaces")).toEqual([{ id: "s1" }]);
+  });
+
+  it("goes on syncing when disconnecting is refused", async () => {
+    const { sync, account } = runtime();
+    account.current = "github";
+    account.unlinkFails = true;
+    await sync.signIn("https://sync.example.com", "ada", "a long password");
+    await expect(sync.disconnectProvider("github")).rejects.toThrow("stays");
+    await vi.waitFor(() => expect(account.liveHandlers).not.toBeNull());
+    sync.stop();
+  });
+
   it("asks a server which providers it has without touching the account", async () => {
     const { sync, account } = runtime();
     expect(await sync.providersOf("https://sync.example.com")).toEqual([
@@ -1232,5 +1382,331 @@ describe("signing in with another account", () => {
     });
     sync.cancelProviderSignIn();
     expect(cancelled).toHaveBeenCalledOnce();
+  });
+});
+
+/// A disk and the account's storage, for files that come and go with a sign in.
+class DiskFiles implements BlobPlatform {
+  readonly disk = new Map<string, string>();
+  readonly store = new Map<string, string>();
+  /// Paths whose upload never gets through.
+  readonly stuck = new Set<string>();
+  /// What an upload of a path waits for, to look at it while it is on its way.
+  readonly gates = new Map<string, (onSent?: (bytes: number) => void) => Promise<void>>();
+  driver = new NodeSqliteDriver();
+
+  async hash(path: string) {
+    const body = this.disk.get(path);
+    return body === undefined ? null : { sha256: sha(body), size: body.length };
+  }
+  async size(path: string) {
+    return this.disk.get(path)?.length ?? null;
+  }
+  async upload(
+    sha256: string,
+    path: string,
+    _contentType?: string,
+    onSent?: (bytes: number) => void,
+  ) {
+    if (this.stuck.has(path)) throw new Error("offline");
+    await this.gates.get(path)?.(onSent);
+    this.store.set(sha256, this.disk.get(path) ?? "");
+  }
+  async download(sha256: string, target: BlobTarget) {
+    const body = this.store.get(sha256);
+    if (body === undefined) throw new Error("missing");
+    const path = `/nookly/files/${target.pk}`;
+    this.disk.set(path, body);
+    this.driver.exec("UPDATE files SET local_path = ? WHERE entity_id = ?", path, target.pk);
+    return path;
+  }
+  async remove(path: string, sha256: string) {
+    const body = this.disk.get(path);
+    if (body === undefined || sha(body) !== sha256) return false;
+    return this.disk.delete(path);
+  }
+}
+
+describe("files and signing out", () => {
+  function withFiles() {
+    const files = new DiskFiles();
+    const made = runtime(undefined, files.driver, async () => ({ path: "/b" }), files);
+    addSpace(files.driver);
+    return { ...made, files };
+  }
+
+  function addFile(files: DiskFiles, id: string, path: string, body: string, key: number) {
+    files.disk.set(path, body);
+    files.driver.exec(
+      "INSERT INTO entities (id, space_id, type, title, created_at, updated_at, key_prefix, key_number) VALUES (?, 's1', 'file', ?, ?, ?, 'FIL', ?)",
+      id,
+      id,
+      now(),
+      now(),
+      key,
+    );
+    files.driver.exec(
+      "INSERT INTO files (entity_id, local_path, original_filename) VALUES (?, ?, 'a.pdf')",
+      id,
+      path,
+    );
+  }
+
+  async function signedIn(made: ReturnType<typeof withFiles>) {
+    await made.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await settle(made.sync);
+  }
+
+  /// Files go in the background after a round, and their hashes in the round after it.
+  async function settle(sync: SyncRuntime<FakeAccount>) {
+    await sync.settled();
+    await sync.settled();
+  }
+
+  it("shows how far a big file of the first sync has got", async () => {
+    const made = withFiles();
+    addFile(made.files, "small", "/nookly/files/small", "12345", 1);
+    addFile(made.files, "big", "/nookly/files/big", "x".repeat(100), 2);
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    made.files.gates.set("/nookly/files/big", async (onSent) => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      onSent?.(40);
+      await held;
+    });
+    await made.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await vi.waitFor(() =>
+      expect(made.sync.store.getState().migration).toMatchObject({
+        phase: "sending",
+        files: 2,
+        fileBytes: 105,
+        filesSent: 1,
+        fileBytesSent: 45,
+      }),
+    );
+    release();
+    await settle(made.sync);
+    expect(made.sync.store.getState().migration).toMatchObject({
+      phase: "done",
+      filesSent: 2,
+      fileBytesSent: 105,
+    });
+    made.sync.stop();
+  });
+
+  it("finishes the first sync when a file is gone from disk", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    made.files.disk.clear();
+    await signedIn(made);
+    expect(made.sync.store.getState().migration).toMatchObject({ phase: "done", files: 0 });
+    made.sync.stop();
+  });
+
+  it("brings the files back after signing out and in again", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    await made.sync.signOut();
+    await signedIn(made);
+    expect(made.files.disk.get("/nookly/files/f1")).toBe("lecture");
+    made.sync.stop();
+  });
+
+  it("brings back a file an earlier version left a stale record of", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    made.files.driver.exec("UPDATE files SET local_path = NULL");
+    await made.sync.syncNow();
+    await settle(made.sync);
+    expect(made.files.disk.get("/nookly/files/f1")).toBe("lecture");
+    made.sync.stop();
+  });
+
+  it("sends the files of a local copy to the account it joins next", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    await made.sync.signOut({ keepLocalCopy: true });
+    // Another account: nothing of this device's is there.
+    made.server.records.clear();
+    made.files.store.clear();
+    await signedIn(made);
+    expect(made.files.store.get(sha("lecture"))).toBe("lecture");
+    made.sync.stop();
+  });
+
+  it("doesn't send files again to the account that still has them", async () => {
+    const made = withFiles();
+    made.account.hasBlob = async (sha256) => made.files.store.has(sha256);
+    const sent = vi.spyOn(made.files, "upload");
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    await made.sync.signOut({ keepLocalCopy: true });
+    sent.mockClear();
+    await signedIn(made);
+    expect(sent).not.toHaveBeenCalled();
+    made.sync.stop();
+  });
+
+  it("removes the files the account has, and keeps the ones it doesn't", async () => {
+    const made = withFiles();
+    const { files } = made;
+    files.stuck.add("/nookly/files/unsent");
+    addFile(files, "sent", "/nookly/files/sent", "in the account", 1);
+    addFile(files, "edited", "/nookly/files/edited", "as uploaded", 2);
+    addFile(files, "unsent", "/nookly/files/unsent", "only here", 3);
+    await signedIn(made);
+    files.disk.set("/nookly/files/edited", "changed on disk since");
+    await made.sync.signOut();
+    expect([...files.disk.keys()].sort()).toEqual(["/nookly/files/edited", "/nookly/files/unsent"]);
+  });
+
+  it("keeps a file another item still needs here", async () => {
+    const made = withFiles();
+    const { files } = made;
+    addFile(files, "f1", "/nookly/files/shared", "same", 1);
+    await signedIn(made);
+    files.stuck.add("/nookly/files/shared");
+    addFile(files, "f2", "/nookly/files/shared", "same", 2);
+    await made.sync.signOut();
+    expect(files.disk.has("/nookly/files/shared")).toBe(true);
+  });
+
+  it("removes nothing when a local copy is kept", async () => {
+    const made = withFiles();
+    addFile(made.files, "f1", "/nookly/files/a", "lecture", 1);
+    await signedIn(made);
+    await made.sync.signOut({ keepLocalCopy: true });
+    expect(made.files.disk.get("/nookly/files/a")).toBe("lecture");
+  });
+
+  /// What version 1.0.3 leaves on a device that moved to another account: a file recorded as
+  /// sent, which the account it is in now may never have got.
+  function addRecordedFile(files: DiskFiles, id: string, path: string, body: string) {
+    addFile(files, id, path, body, 1);
+    files.driver.exec("UPDATE files SET blob = ? WHERE entity_id = ?", sha(body), id);
+    files.driver.exec(
+      "INSERT INTO blob_files (tbl, pk, path, sha256) VALUES ('files', ?, ?, ?)",
+      id,
+      path,
+      sha(body),
+    );
+  }
+
+  /// `withFiles`, with an account that says truthfully which contents it holds.
+  function withAccountFiles() {
+    const made = withFiles();
+    const asked = vi.fn(async (sha256: string) => made.files.store.has(sha256));
+    made.account.hasBlob = asked;
+    return { ...made, asked };
+  }
+
+  const unreachable = async (): Promise<boolean> => {
+    throw new NetworkError("Can't reach the server.");
+  };
+
+  it("sends a file an earlier version recorded as sent that the account never got", async () => {
+    const made = withAccountFiles();
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "only copy");
+    await signedIn(made);
+    expect(made.files.store.get(sha("only copy"))).toBe("only copy");
+    made.sync.stop();
+  });
+
+  it("keeps a recorded file, and backs up first, while the account can't be asked", async () => {
+    const made = withAccountFiles();
+    made.account.hasBlob = unreachable;
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "only copy");
+    await signedIn(made);
+    await expect(made.sync.signOut()).resolves.toMatchObject({ backupPath: "/b" });
+    expect(made.files.disk.get("/nookly/files/a")).toBe("only copy");
+  });
+
+  it("keeps a recorded file when the server signs the device out before asking", async () => {
+    const made = withAccountFiles();
+    made.account.hasBlob = unreachable;
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "only copy");
+    await signedIn(made);
+    made.account.onSignedOut();
+    await vi.waitFor(() => expect(made.sync.store.getState().user).toBeNull());
+    await vi.waitFor(() => expect(made.reindex).toHaveBeenCalled());
+    expect(made.files.disk.get("/nookly/files/a")).toBe("only copy");
+  });
+
+  it("removes a recorded file on sign out once the account says it has it", async () => {
+    const made = withAccountFiles();
+    const sent = vi.spyOn(made.files, "upload");
+    made.files.store.set(sha("in the account"), "in the account");
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "in the account");
+    await signedIn(made);
+    expect(sent).not.toHaveBeenCalled();
+    await made.sync.signOut();
+    expect(made.files.disk.has("/nookly/files/a")).toBe(false);
+  });
+
+  it("asks the account about a file once", async () => {
+    const made = withAccountFiles();
+    made.files.store.set(sha("in the account"), "in the account");
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "in the account");
+    await signedIn(made);
+    made.asked.mockClear();
+    await made.sync.syncNow();
+    await settle(made.sync);
+    expect(made.asked).not.toHaveBeenCalled();
+    made.sync.stop();
+  });
+
+  it("stops waiting for a recorded file that is gone here and in the account", async () => {
+    const made = withAccountFiles();
+    made.files.store.set(sha("in the account"), "in the account");
+    addRecordedFile(made.files, "f1", "/nookly/files/a", "in the account");
+    made.files.disk.clear();
+    await signedIn(made);
+    expect(made.sync.store.getState().files).toMatchObject({ toUpload: 0 });
+    await expect(made.sync.unsentCount()).resolves.toBe(0);
+    made.sync.stop();
+  });
+
+  it("doesn't count a file that arrives after the account is gone for the next one", async () => {
+    const made = withAccountFiles();
+    const { files } = made;
+    let release = () => {};
+    const waits = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    files.gates.set("/nookly/files/a", () => waits);
+    addFile(files, "f1", "/nookly/files/a", "lecture", 1);
+    await made.sync.signIn("https://sync.example.com", "ada", "a long password");
+    await made.sync.syncNow();
+    // The account is deleted while the file is on its way.
+    await made.sync.detach();
+    release();
+    await vi.waitFor(() =>
+      expect(files.driver.rows("SELECT sha256 FROM blob_files")).toHaveLength(1),
+    );
+    // The next account has nothing of this device's, and never gets the file.
+    made.server.records.clear();
+    files.store.clear();
+    files.gates.clear();
+    files.stuck.add("/nookly/files/a");
+    await signedIn(made);
+    await made.sync.signOut();
+    expect(files.disk.get("/nookly/files/a")).toBe("lecture");
+  });
+
+  it("removes the files the account has when the server signs the device out", async () => {
+    const made = withFiles();
+    const { files } = made;
+    files.stuck.add("/nookly/files/unsent");
+    addFile(files, "sent", "/nookly/files/sent", "in the account", 1);
+    addFile(files, "unsent", "/nookly/files/unsent", "only here", 2);
+    await signedIn(made);
+    made.account.onSignedOut();
+    await vi.waitFor(() => expect(files.disk.has("/nookly/files/sent")).toBe(false));
+    expect(files.disk.has("/nookly/files/unsent")).toBe(true);
   });
 });

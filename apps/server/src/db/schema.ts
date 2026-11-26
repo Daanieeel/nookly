@@ -42,6 +42,9 @@ export const authUser = pgTable("auth_user", {
   twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   /// The second step may be a code emailed to the account.
   twoFactorEmail: boolean("two_factor_email").notNull().default(false),
+  /// The sign in method (`auth_account.provider_id`) whose email is the account's: `email`
+  /// above is that method's. It cannot be disconnected.
+  primaryProvider: text("primary_provider"),
   createdAt: created(),
   updatedAt: updated(),
 });
@@ -61,10 +64,47 @@ export const authSession = pgTable(
     /// the merge editor.
     deviceName: text("device_name"),
     platform: text("platform"),
+    /// The sign in method the session came through, so disconnecting it signs the session
+    /// out. Null for a session from before this was kept, on an account with several.
+    provider: text("provider"),
+    /// When the person last confirmed it is them on this session.
+    reauthedAt: timestamp("reauthed_at", { withTimezone: true }),
+    /// Made in the browser leg of a provider sign in for an account that still owes its
+    /// second step: it opens nothing.
+    pending: boolean("pending").notNull().default(false),
+    /// An app has used this session, so it is a device: however it ends, it is remembered
+    /// (`authEndedSession`).
+    seen: boolean("seen").notNull().default(false),
     createdAt: created(),
     updatedAt: updated(),
   },
   (t) => [index("auth_session_user").on(t.userId)],
+);
+
+/// Devices whose session ended some other way than signing themselves out, written by a
+/// trigger on `auth_session` (migration 0008) so that no path can be missed. They stay on
+/// the devices list, and only the ones signed out from there (`signedOut`) are told their
+/// session is over, which makes an app clear the device.
+export const authEndedSession = pgTable(
+  "auth_ended_session",
+  {
+    /// SHA-256 of the session token, as hex.
+    tokenHash: text("token_hash").primaryKey(),
+    sessionId: uuid("session_id").notNull(),
+    /// No reference to the account: a device signed out from the list is still told so
+    /// after the account is gone.
+    userId: uuid("user_id"),
+    deviceName: text("device_name"),
+    platform: text("platform"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }).notNull().defaultNow(),
+    signedOut: boolean("signed_out").notNull().default(false),
+  },
+  (t) => [
+    index("auth_ended_session_user").on(t.userId),
+    index("auth_ended_session_session").on(t.sessionId),
+  ],
 );
 
 export const authAccount = pgTable(
@@ -85,10 +125,21 @@ export const authAccount = pgTable(
     refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
     scope: text("scope"),
     password: text("password"),
+    /// The email of this sign in method: the provider's own, or for `credential` the address
+    /// signed in with. Null when it has none.
+    email: text("email"),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    /// The person changed the email here, so a provider sign in leaves it as it is.
+    emailChosen: boolean("email_chosen").notNull().default(false),
     createdAt: created(),
     updatedAt: updated(),
   },
-  (t) => [index("auth_account_user").on(t.userId)],
+  (t) => [
+    index("auth_account_user").on(t.userId),
+    uniqueIndex("auth_account_login_email")
+      .on(sql`lower(${t.email})`)
+      .where(sql`${t.providerId} = 'credential'`),
+  ],
 );
 
 /// An authenticator app and the recovery codes of an account (better-auth's two-factor

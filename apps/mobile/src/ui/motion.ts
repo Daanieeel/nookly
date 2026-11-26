@@ -38,6 +38,9 @@ export function wobbleDelay(index: number): number {
 /// Fades under Reduce Motion, and for things that only appear (a menu going away).
 export const FADE = { in: 160, out: 120 } as const;
 
+/// How long a sheet that waits its turn gives the one before it to be gone.
+export const SHEET_TURN = SPRING.sheet.duration + FADE.in;
+
 /// How much a pressed control shrinks.
 export const PRESS_SCALE = 0.97;
 /// How much a checkbox shrinks: small things give way more, as Reminders' circle does.
