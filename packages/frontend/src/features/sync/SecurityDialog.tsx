@@ -29,6 +29,7 @@ import {
 import { IconInput } from "@nookly/ui/components/icon-input";
 import { CopyButton } from "@nookly/ui/components/copy-button";
 import { OtpCodeInput } from "@nookly/ui/components/input-otp";
+import { DeleteAccount } from "./DeleteAccount.tsx";
 import { useSecurityDialog } from "./security-dialog-store.ts";
 import { SignOutDialog } from "./SignOutDialog.tsx";
 import { signedInAccount, syncRuntime, useSyncState } from "./sync-instance.ts";
@@ -421,7 +422,7 @@ export function SecurityDialog() {
     if (required) setHeld(true);
   }, [required]);
   // While it is being set up (owed, or just done and not yet confirmed with the recovery codes)
-  // there is no way past it but going on, or signing out.
+  // there is no way past it but going on, signing out, or deleting the account.
   const setup = required || held;
   const open = user !== null && (requested || required || held);
   // Recovery codes an authenticator app made, kept until Continue shows them.
@@ -442,12 +443,17 @@ export function SecurityDialog() {
     setPendingCodes(null);
     useSecurityDialog.getState().close();
   };
+  // Signed out or deleted: nothing of that account's setup carries over to the next one.
+  const signedOut = user === null;
+  useEffect(() => {
+    if (signedOut) close();
+  }, [signedOut]);
   return (
     <Dialog open={open} onOpenChange={(next) => !next && !setup && close()}>
       <DialogContent
         className={cn(
           "max-h-[calc(100dvh-2rem)] max-w-md grid-cols-1 gap-4 overflow-y-auto",
-          // No way past it but going on or signing out: the close button goes.
+          // No way past it but going on, signing out or deleting: the close button goes.
           setup && "[&>button]:hidden",
         )}
       >
@@ -513,9 +519,12 @@ export function SecurityDialog() {
         ) : null}
         <DialogFooter className="sm:justify-between">
           {required ? (
-            <Button type="button" variant="destructive" onClick={() => setSigningOut(true)}>
-              Sign Out
-            </Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+              <Button type="button" variant="destructive" onClick={() => setSigningOut(true)}>
+                Sign Out
+              </Button>
+              <DeleteAccount />
+            </div>
           ) : null}
           <div ref={setSlot} className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row">
             {view.name === "overview" && setup && summary?.enabled ? (

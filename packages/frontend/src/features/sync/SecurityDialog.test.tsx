@@ -341,13 +341,69 @@ describe("the security dialog", () => {
     const { user } = renderWithProviders(<SecurityDialog />);
     signedIn({ twoFactorRequired: true });
     await user.click(await screen.findByRole("button", { name: "Set Up Authenticator App" }));
-    const footer = screen.getByRole("button", { name: "Sign Out" }).parentElement;
+    const signOut = screen.getByRole("button", { name: "Sign Out" });
+    const footer = signOut.parentElement?.parentElement;
     if (!footer) throw new Error("Sign Out has no footer");
-    expect(footer.firstElementChild).toBe(screen.getByRole("button", { name: "Sign Out" }));
+    expect(footer.firstElementChild?.firstElementChild).toBe(signOut);
     // The step's own buttons are down here too, not above the footer.
     expect(within(footer).getByRole("button", { name: "Back" })).toBeVisible();
     // The footer's button sends the form that sits above it.
     expect(within(footer).getByRole("button", { name: "Continue" })).toBeEnabled();
+  });
+
+  it("lets an account that owes two-factor be deleted instead, keeping this computer's data", async () => {
+    summary = { ...NOTHING, required: true };
+    vi.spyOn(api, "me").mockResolvedValue({ ...ADA, hasPassword: true });
+    const remove = vi.spyOn(api, "deleteAccount").mockResolvedValue();
+    const detach = vi.spyOn(syncRuntime, "detach").mockImplementation(async () => {
+      syncRuntime.store.setState({ user: null });
+    });
+    const { user } = renderWithProviders(<SecurityDialog />);
+    signedIn({ twoFactorRequired: true });
+    await user.click(await screen.findByRole("button", { name: "Delete Account" }));
+    const confirm = await screen.findByRole("alertdialog", {
+      name: "Delete your sync account forever?",
+    });
+    await expectNoA11yViolations();
+    const action = within(confirm).getByRole("button", { name: "Delete Account" });
+    expect(action).toBeDisabled();
+    await user.type(within(confirm).getByLabelText("Your password"), "a long password");
+    await user.type(
+      within(confirm).getByLabelText("Type delete my account to confirm"),
+      "delete my account",
+    );
+    await user.click(action);
+    await waitFor(() => expect(remove).toHaveBeenCalledWith("a long password"));
+    await waitFor(() => expect(detach).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("goes back to the setup when deleting the account is cancelled", async () => {
+    summary = { ...NOTHING, required: true };
+    const remove = vi.spyOn(api, "deleteAccount");
+    const { user } = renderWithProviders(<SecurityDialog />);
+    signedIn({ twoFactorRequired: true });
+    await user.click(await screen.findByRole("button", { name: "Delete Account" }));
+    await user.click(await screen.findByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Set up two-factor sign in" })).toBeVisible();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("offers no way to delete the account when it was opened from Settings", async () => {
+    openFromSettings();
+    await screen.findByRole("button", { name: "Set Up Authenticator App" });
+    expect(screen.queryByRole("button", { name: "Delete Account" })).not.toBeInTheDocument();
+  });
+
+  it("stays closed for the next account once the one being set up is gone", async () => {
+    summary = { ...NOTHING, required: true };
+    renderWithProviders(<SecurityDialog />);
+    signedIn({ twoFactorRequired: true });
+    await screen.findByRole("dialog", { name: "Set up two-factor sign in" });
+    act(() => syncRuntime.store.setState({ user: null }));
+    signedIn({ twoFactorRequired: false });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("says so when an older server has none for an account without a password", async () => {

@@ -2,6 +2,12 @@
 
 All notable changes to Nookly are listed here.
 
+## 1.1.1 (2026-11-27)
+
+### Added
+
+- You can now delete your account from the screen that asks you to set up a second sign in step, if you would rather not.
+
 ## 1.1.0 (2026-11-25)
 
 ### Added

@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "1.1.1",
+      "date": "2026-11-27",
+      "highlights": [],
+      "more": {
+        "Improved": [
+          "You can now delete your account from the screen that asks you to set up a second sign in step, if you would rather not."
+        ]
+      }
+    },
+    {
       "version": "1.1.0",
       "date": "2026-11-25",
       "title": "Several ways to sign in, and a second step",
