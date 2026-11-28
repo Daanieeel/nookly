@@ -133,7 +133,7 @@ describe("the security sheet", () => {
     await waitFor(() => expect(enable).toHaveBeenCalledTimes(2));
   });
 
-  it("can't be put off: the only other way is signing out, keeping a copy", async () => {
+  it("can't be put off: signing out keeps a copy", async () => {
     const { data } = owing();
     const signOut = jest
       .spyOn(data.sync, "signOut")
@@ -227,6 +227,20 @@ describe("the security sheet", () => {
     expect(screen.getByText("ccccc-ddddd")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "I Saved Them" }));
     await waitFor(() => expect(screen.queryByText("aaaaa-bbbbb")).toBeNull());
+  });
+
+  it("lets an account that owes two-factor be deleted instead, keeping this phone's data", async () => {
+    const { data, api } = owing();
+    jest.spyOn(api, "me").mockResolvedValue({ ...ADA, hasPassword: true });
+    const remove = jest.spyOn(api, "deleteAccount").mockResolvedValue();
+    const detach = jest.spyOn(data.sync, "detach").mockResolvedValue();
+    const screen = await renderScreens({ index: () => <SecurityGate /> }, data);
+    await fireEvent.press(await screen.findByRole("button", { name: "Delete Account" }));
+    expect(await screen.findByText("Removed from the server for good")).toBeTruthy();
+    await fireEvent.changeText(await screen.findByLabelText("Your password"), "a long password");
+    await fireEvent.press(screen.getAllByRole("button", { name: "Delete Account" }).at(-1)!);
+    await waitFor(() => expect(remove).toHaveBeenCalledWith("a long password"));
+    await waitFor(() => expect(detach).toHaveBeenCalled());
   });
 
   it("lists emailed codes first, with no sentence explaining the obvious", async () => {

@@ -30,12 +30,13 @@ import { Text } from "../ui/Text.tsx";
 import { useTheme } from "../ui/theme.ts";
 import { useAccount, useAccountChange } from "./account-change.ts";
 import { RecheckPrompt } from "./RecheckPrompt.tsx";
+import { DeleteAccountSheet } from "./DeleteAccountSheet.tsx";
 import { useSecurityGate } from "./security-gate-store.ts";
 import { SignOutSheet } from "./SignOutSheet.tsx";
 
 /// Two-factor sign in, in a sheet: what the account has, and a step for each change. The
 /// steps go onto the same sheet with a back button. While the account owes it there is no way
-/// past the sheet but setting it up or signing out.
+/// past the sheet but setting it up, signing out or deleting the account.
 
 /// What a change made to the account: what is shown is read again, and sync, which waits
 /// for an account that owes two-factor, starts.
@@ -399,6 +400,13 @@ function SecuritySheet({ setup }: { setup: boolean }) {
           }
         />
       ) : null}
+      {owed ? (
+        <Button
+          variant="destructiveGhost"
+          label="Delete Account"
+          onPress={() => sheet?.push({ title: "Delete Account", content: <DeleteAccountSheet /> })}
+        />
+      ) : null}
     </View>
   );
 }
@@ -406,7 +414,7 @@ function SecuritySheet({ setup }: { setup: boolean }) {
 function presented(owed: boolean) {
   return {
     title: owed ? "Set up two-factor sign in" : "Two-factor sign in",
-    // No way past it but going on, or signing out.
+    // No way past it but going on, signing out or deleting the account.
     locked: owed,
     content: <SecuritySheet setup={owed} />,
   };
@@ -423,7 +431,7 @@ export function useOpenSecurity() {
 }
 
 /// Rises while the server requires two-factor of this account and it has none, and stays
-/// until it is set up or the account is signed out. A sheet that is up, or goes up at the
+/// until it is set up or the account is signed out or deleted. A sheet that is up, or goes up at the
 /// same moment (a new account's username, the terms), goes first. Mounted once, inside the
 /// sheet host.
 export function SecurityGate() {
