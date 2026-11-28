@@ -10,7 +10,7 @@
     "./typescript/*": "./typescript/*"
   },
   "dependencies": {
-    "@oxlint/plugins": "1.93.0",
+    "@oxlint/plugins": "1.94.0",
     "@shadcn/lint": "^0.2.5",
     "eslint-plugin-better-tailwindcss": "^4.11.0"
   }
